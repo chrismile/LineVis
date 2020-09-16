@@ -1,0 +1,89 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+#*.obj Commented out, as project uses .obj model files
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# CMake
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+
+# VS Code
+.vscode/*
+/Debug/*
+
+# Eclipse
+.cproject
+.project
+.settings/*
+
+# Doxygen
+docs/html/*
+docs/latex/*
+
+/Debug/
+/build/*
+Data/Models/Ship*
+
+# CLion
+.idea/*
+cmake-build-*/
+
+# Custom for models
+*.blend
+*.mtl
+*.obj
+*.binmesh
+*.binmesh_tri
+*.binmesh_lines
+*.voxel
+*.nc
+*.hair
+*.binpath
+*.camera
+*.binlines
+*.vtk
+*.mesh
+
+Data/LineDataSets/*
+Data/CameraPaths/*
+Data/Checkpoints/*
+Data/Screenshots/*
+Data/Videos/*
+Data/TransferFunctions/*
+
+Data/ControlPoints.txt
+imgui.ini
