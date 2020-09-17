@@ -135,6 +135,9 @@ void OpacityOptimizationRenderer::reloadResolveShader() {
 void OpacityOptimizationRenderer::reloadGatherShader() {
     sgl::ShaderManager->invalidateShaderCache();
 
+    if (usePrincipalStressDirectionIndex) {
+        sgl::ShaderManager->addPreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", "");
+    }
     gatherPpllOpacitiesShader = sgl::ShaderManager->getShaderProgram({
         "GeometryPassOpacities.VBO.Vertex",
         "GeometryPassOpacities.VBO.Geometry",
@@ -145,6 +148,9 @@ void OpacityOptimizationRenderer::reloadGatherShader() {
         "GeometryPassFinal.VBO.Geometry",
         "GeometryPassFinal.Fragment"
     });
+    if (usePrincipalStressDirectionIndex) {
+        sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX");
+    }
 }
 
 void OpacityOptimizationRenderer::setSortingAlgorithmDefine() {
@@ -226,26 +232,21 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewM
     gatherPpllOpacitiesRenderData->addGeometryBuffer(
             tubeRenderData.vertexPositionBuffer, "vertexPosition",
             sgl::ATTRIB_FLOAT, 3);
-    gatherPpllOpacitiesRenderData->addGeometryBuffer(
+    gatherPpllOpacitiesRenderData->addGeometryBufferOptional(
             tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
             sgl::ATTRIB_FLOAT, 1);
     gatherPpllOpacitiesRenderData->addGeometryBuffer(
             tubeRenderData.vertexTangentBuffer, "vertexTangent",
             sgl::ATTRIB_FLOAT, 3);
+    if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
+        gatherPpllOpacitiesRenderData->addGeometryBufferOptional(
+                tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
+                sgl::ATTRIB_UNSIGNED_INT,
+                1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
+    }
     gatherPpllOpacitiesRenderData->addGeometryBuffer(
             this->lineSegmentIdBuffer, "vertexLineSegmentId", sgl::ATTRIB_UNSIGNED_INT,
             1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
-
-    // TODO: Debug
-    /*uint32_t* bufferData = (uint32_t*)lineSegmentIdBuffer->mapBuffer(sgl::BUFFER_MAP_READ_ONLY);
-    for (size_t i = 0; i < numLineVertices; i++) {
-         std::cout << bufferData[i] << " ";
-         if (i % 20 == 0) {
-             std::cout << std::endl;
-         }
-    }
-    std::cout << std::endl;
-    lineSegmentIdBuffer->unmapBuffer();*/
 
     gatherPpllFinalRenderData->setVertexMode(sgl::VERTEX_MODE_LINES);
     gatherPpllFinalRenderData->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
@@ -261,10 +262,28 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewM
     gatherPpllFinalRenderData->addGeometryBuffer(
             this->vertexOpacityBuffer, "vertexOpacity",
             sgl::ATTRIB_FLOAT, 1);
+    if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
+        gatherPpllFinalRenderData->addGeometryBufferOptional(
+                tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
+                sgl::ATTRIB_UNSIGNED_INT,
+                1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
+    }
 
     dirty = false;
     reRender = true;
     onHasMoved();
+}
+
+void OpacityOptimizationRenderer::setUsePrincipalStressDirectionIndex(bool usePrincipalStressDirectionIndex) {
+    this->usePrincipalStressDirectionIndex = usePrincipalStressDirectionIndex;
+    reloadGatherShader();
+    if (gatherPpllOpacitiesRenderData) {
+        gatherPpllOpacitiesRenderData = gatherPpllOpacitiesRenderData->copy(gatherPpllOpacitiesShader);
+    }
+    if (gatherPpllFinalRenderData) {
+        gatherPpllFinalRenderData = gatherPpllFinalRenderData->copy(gatherPpllFinalShader);
+    }
+    reRender = true;
 }
 
 void OpacityOptimizationRenderer::generateBlendingWeightParametrization(bool isNewMesh) {
@@ -483,8 +502,10 @@ void OpacityOptimizationRenderer::setUniformData() {
     gatherPpllFinalShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeOpacity);
     gatherPpllFinalShader->setUniform("cameraPosition", sceneData.camera->getPosition());
     gatherPpllFinalShader->setUniform("lineWidth", lineWidth);
-    gatherPpllFinalShader->setUniform(
-            "transferFunctionTexture", transferFunctionWindow.getTransferFunctionMapTexture(), 0);
+    if (gatherPpllFinalShader->hasUniform("transferFunctionTexture")) {
+        gatherPpllFinalShader->setUniform(
+                "transferFunctionTexture", transferFunctionWindow.getTransferFunctionMapTexture(), 0);
+    }
     if (gatherPpllFinalShader->hasUniform("backgroundColor")) {
         glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
         gatherPpllFinalShader->setUniform("backgroundColor", backgroundColor);
@@ -597,11 +618,6 @@ void OpacityOptimizationRenderer::convertPerSegmentOpacities() {
     // Already bound by @see resolvePpllOpacities.
     //sgl::ShaderManager->bindShaderStorageBuffer(3, segmentOpacityUintBuffer);
 
-    // TODO: DEBUG
-    //GLuint bufferId = static_cast<sgl::GeometryBufferGL*>(segmentOpacityUintBuffer.get())->getBuffer();
-    //uint32_t clearVal = 0xFFFFFFFFu;
-    //glClearNamedBufferData(bufferId, GL_R32UI, GL_RED, GL_UNSIGNED_INT, (const void*)&clearVal);
-
     const uint32_t WORK_GROUP_SIZE_1D = 64;
     uint32_t numWorkGroups = sgl::iceil(uint32_t(numLineSegments), WORK_GROUP_SIZE_1D);
     convertPerSegmentOpacitiesShader->dispatchCompute(numWorkGroups);
@@ -614,11 +630,6 @@ void OpacityOptimizationRenderer::smoothPerSegmentOpacities() {
     sgl::ShaderManager->bindShaderStorageBuffer(5, lineSegmentConnectivityBuffer);
     const uint32_t WORK_GROUP_SIZE_1D = 64;
     uint32_t numWorkGroups = sgl::iceil(uint32_t(numLineSegments), WORK_GROUP_SIZE_1D);
-
-    // TODO: DEBUG
-    //GLuint bufferId = static_cast<sgl::GeometryBufferGL*>(segmentOpacityBuffers[segmentOpacityBufferIdx].get())->getBuffer();
-    //float clearVal = 0.5f;
-    //glClearNamedBufferData(bufferId, GL_R32F, GL_RED, GL_FLOAT, (const void*)&clearVal);
 
     for (int i = 0; i < s; i++) {
         if (i != 0) {

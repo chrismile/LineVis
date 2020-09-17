@@ -273,6 +273,7 @@ void MainApp::setRenderer() {
     } else if (renderingMode == RENDERING_MODE_DEPTH_COMPLEXITY) {
         lineRenderer = new DepthComplexityRenderer(sceneData, transferFunctionWindow);
     }
+    lineRenderer->setUsePrincipalStressDirectionIndex(usePrincipalStressDirectionIndex);
 }
 
 void MainApp::resolutionChanged(sgl::EventPtr event) {
@@ -515,6 +516,9 @@ void MainApp::renderFileSelectionSettingsGui() {
         if (usedPsChanged && lineData.get() != nullptr) {
             static_cast<LineDataStress*>(lineData.get())->setUsedPsDirections(
                     {useMajorPS, useMediumPS, useMinorPS});
+        }
+        if (ImGui::Checkbox("Use Principal Stress Direction Index", &usePrincipalStressDirectionIndex)) {
+            lineRenderer->setUsePrincipalStressDirectionIndex(usePrincipalStressDirectionIndex);
         }
     }
 }

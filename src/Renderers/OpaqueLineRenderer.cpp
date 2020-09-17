@@ -42,19 +42,7 @@
 
 OpaqueLineRenderer::OpaqueLineRenderer(SceneData& sceneData, TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer(sceneData, transferFunctionWindow) {
-    sgl::ShaderManager->invalidateShaderCache();
-    sgl::ShaderManager->addPreprocessorDefine("DIRECT_BLIT_GATHER", "");
-    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "GatherDummy.glsl");
-    shaderProgramGeometryShader = sgl::ShaderManager->getShaderProgram({
-        "GeometryPassNormal.VBO.Vertex",
-        "GeometryPassNormal.VBO.Geometry",
-        "GeometryPassNormal.Fragment"
-    });
-    shaderProgramProgrammableFetch = sgl::ShaderManager->getShaderProgram({
-        "GeometryPassNormal.Programmable.Vertex",
-        "GeometryPassNormal.Fragment"
-    });
-    sgl::ShaderManager->removePreprocessorDefine("DIRECT_BLIT_GATHER");
+    reloadGatherShader();
 
     // Get all available multisampling modes.
     glGetIntegerv(GL_MAX_SAMPLES, &maximumNumberOfSamples);
@@ -68,6 +56,28 @@ OpaqueLineRenderer::OpaqueLineRenderer(SceneData& sceneData, TransferFunctionWin
     }
 
     onResolutionChanged();
+}
+
+void OpaqueLineRenderer::reloadGatherShader() {
+    sgl::ShaderManager->invalidateShaderCache();
+    sgl::ShaderManager->addPreprocessorDefine("DIRECT_BLIT_GATHER", "");
+    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "GatherDummy.glsl");
+    if (usePrincipalStressDirectionIndex) {
+        sgl::ShaderManager->addPreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", "");
+    }
+    shaderProgramGeometryShader = sgl::ShaderManager->getShaderProgram({
+        "GeometryPassNormal.VBO.Vertex",
+        "GeometryPassNormal.VBO.Geometry",
+        "GeometryPassNormal.Fragment"
+    });
+    shaderProgramProgrammableFetch = sgl::ShaderManager->getShaderProgram({
+        "GeometryPassNormal.Programmable.Vertex",
+        "GeometryPassNormal.Fragment"
+    });
+    if (usePrincipalStressDirectionIndex) {
+        sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX");
+    }
+    sgl::ShaderManager->removePreprocessorDefine("DIRECT_BLIT_GATHER");
 }
 
 void OpaqueLineRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
@@ -101,9 +111,28 @@ void OpaqueLineRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
         shaderAttributes->addGeometryBufferOptional(
                 tubeRenderData.vertexTangentBuffer, "vertexTangent",
                 sgl::ATTRIB_FLOAT, 3);
+        if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
+            shaderAttributes->addGeometryBufferOptional(
+                    tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
+                    sgl::ATTRIB_UNSIGNED_INT,
+                    1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
+        }
     }
 
     dirty = false;
+    reRender = true;
+}
+
+void OpaqueLineRenderer::setUsePrincipalStressDirectionIndex(bool usePrincipalStressDirectionIndex) {
+    this->usePrincipalStressDirectionIndex = usePrincipalStressDirectionIndex;
+    reloadGatherShader();
+    if (shaderAttributes) {
+        if (useProgrammableFetch) {
+            shaderAttributes = shaderAttributes->copy(shaderProgramProgrammableFetch);
+        } else {
+            shaderAttributes = shaderAttributes->copy(shaderProgramGeometryShader);
+        }
+    }
     reRender = true;
 }
 
@@ -130,8 +159,10 @@ void OpaqueLineRenderer::render() {
     sgl::ShaderProgram* shaderProgram = shaderAttributes->getShaderProgram();
     shaderProgram->setUniform("cameraPosition", sceneData.camera->getPosition());
     shaderProgram->setUniform("lineWidth", lineWidth);
-    shaderProgram->setUniform(
-            "transferFunctionTexture", transferFunctionWindow.getTransferFunctionMapTexture(), 0);
+    if (shaderProgram->hasUniform("transferFunctionTexture")) {
+        shaderProgram->setUniform(
+                "transferFunctionTexture", transferFunctionWindow.getTransferFunctionMapTexture(), 0);
+    }
     if (shaderProgram->hasUniform("backgroundColor")) {
         glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
         shaderProgram->setUniform("backgroundColor", backgroundColor);

@@ -6,7 +6,7 @@ struct LinePointData {
     vec3 vertexPosition;
     float vertexAttribute;
     vec3 vertexTangent;
-    float padding;
+    uint vertexPrincipalStressIndex;
 };
 
 layout (std430, binding = 2) buffer LinePoints {
@@ -18,6 +18,9 @@ out float fragmentAttribute;
 out float fragmentNormalFloat; // Between -1 and 1
 out vec3 normal0;
 out vec3 normal1;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+flat out uint fragmentPrincipalStressIndex;
+#endif
 
 uniform vec3 cameraPosition;
 uniform float lineWidth;
@@ -39,6 +42,9 @@ void main() {
     fragmentNormalFloat = shiftSign;
     normal0 = viewDirection;
     normal1 = offsetDirection;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    fragmentPrincipalStressIndex = linePointData.vertexPrincipalStressIndex;
+#endif
 
     fragmentPositionWorld = vertexPosition;
     //screenSpacePosition = (vMatrix * vec4(vertexPosition, 1.0)).xyz;
@@ -53,11 +59,17 @@ void main() {
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in float vertexAttribute;
 layout(location = 2) in vec3 vertexTangent;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+layout(location = 3) in uint vertexPrincipalStressIndex;
+#endif
 
 out VertexData {
     vec3 linePosition;
     float lineAttribute;
     vec3 lineTangent;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    uint linePrincipalStressIndex;
+#endif
 };
 
 #include "TransferFunction.glsl"
@@ -66,6 +78,9 @@ void main() {
     linePosition = (mMatrix * vec4(vertexPosition, 1.0)).xyz;
     lineAttribute = vertexAttribute;
     lineTangent = vertexTangent;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    linePrincipalStressIndex = vertexPrincipalStressIndex;
+#endif
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
 }
 
@@ -84,11 +99,17 @@ out float fragmentAttribute;
 out float fragmentNormalFloat; // Between -1 and 1
 out vec3 normal0;
 out vec3 normal1;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+flat out uint fragmentPrincipalStressIndex;
+#endif
 
 in VertexData {
     vec3 linePosition;
     float lineAttribute;
     vec3 lineTangent;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    uint linePrincipalStressIndex;
+#endif
 } v_in[];
 
 void main() {
@@ -112,6 +133,9 @@ void main() {
     fragmentNormalFloat = -1.0;
     normal0 = viewDirection0;
     normal1 = offsetDirection0;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+#endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
@@ -121,6 +145,9 @@ void main() {
     fragmentNormalFloat = -1.0;
     normal0 = viewDirection1;
     normal1 = offsetDirection1;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+#endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
@@ -130,6 +157,9 @@ void main() {
     fragmentNormalFloat = 1.0;
     normal0 = viewDirection0;
     normal1 = offsetDirection0;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+#endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
@@ -139,6 +169,9 @@ void main() {
     fragmentNormalFloat = 1.0;
     normal0 = viewDirection1;
     normal1 = offsetDirection1;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+#endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
@@ -154,6 +187,9 @@ in float fragmentAttribute;
 in float fragmentNormalFloat;
 in vec3 normal0;
 in vec3 normal1;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+flat in uint fragmentPrincipalStressIndex;
+#endif
 
 #if defined(DIRECT_BLIT_GATHER)
 out vec4 fragColor;
@@ -189,7 +225,11 @@ void main() {
     float angle = interpolationFactor * M_PI * 0.5;
     fragmentNormal = cos(angle) * normalCos + sin(angle) * normalSin;
 
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    vec4 fragmentColor = transferFunction(fragmentAttribute, fragmentPrincipalStressIndex);
+#else
     vec4 fragmentColor = transferFunction(fragmentAttribute);
+#endif
     fragmentColor = blinnPhongShading(fragmentColor, fragmentNormal);
 
     float absCoords = abs(fragmentNormalFloat);

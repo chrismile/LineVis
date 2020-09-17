@@ -93,6 +93,9 @@ void PerPixelLinkedListLineRenderer::reloadResolveShader() {
 
 void PerPixelLinkedListLineRenderer::reloadGatherShader() {
     sgl::ShaderManager->invalidateShaderCache();
+    if (usePrincipalStressDirectionIndex) {
+        sgl::ShaderManager->addPreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", "");
+    }
     if (useProgrammableFetch) {
         gatherShader = sgl::ShaderManager->getShaderProgram({
             "GeometryPassNormal.Programmable.Vertex",
@@ -104,6 +107,9 @@ void PerPixelLinkedListLineRenderer::reloadGatherShader() {
             "GeometryPassNormal.VBO.Geometry",
             "GeometryPassNormal.Fragment"
         });
+    }
+    if (usePrincipalStressDirectionIndex) {
+        sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX");
     }
 }
 
@@ -183,7 +189,7 @@ void PerPixelLinkedListLineRenderer::setLineData(LineDataPtr& lineData, bool isN
         shaderAttributes->addGeometryBuffer(
                 tubeRenderData.vertexPositionBuffer, "vertexPosition",
                 sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBuffer(
+        shaderAttributes->addGeometryBufferOptional(
                 tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
                 sgl::ATTRIB_FLOAT, 1);
         shaderAttributes->addGeometryBufferOptional(
@@ -192,6 +198,12 @@ void PerPixelLinkedListLineRenderer::setLineData(LineDataPtr& lineData, bool isN
         shaderAttributes->addGeometryBufferOptional(
                 tubeRenderData.vertexTangentBuffer, "vertexTangent",
                 sgl::ATTRIB_FLOAT, 3);
+        if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
+            shaderAttributes->addGeometryBufferOptional(
+                    tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
+                    sgl::ATTRIB_UNSIGNED_INT,
+                    1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
+        }
     }
 
     dirty = false;
@@ -223,6 +235,15 @@ void PerPixelLinkedListLineRenderer::reallocateFragmentBuffer() {
     fragmentBuffer = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
     fragmentBuffer = sgl::Renderer->createGeometryBuffer(
             fragmentBufferSizeBytes, NULL, sgl::SHADER_STORAGE_BUFFER);
+}
+
+void PerPixelLinkedListLineRenderer::setUsePrincipalStressDirectionIndex(bool usePrincipalStressDirectionIndex) {
+    this->usePrincipalStressDirectionIndex = usePrincipalStressDirectionIndex;
+    reloadGatherShader();
+    if (shaderAttributes) {
+        shaderAttributes = shaderAttributes->copy(gatherShader);
+    }
+    reRender = true;
 }
 
 void PerPixelLinkedListLineRenderer::onResolutionChanged() {
@@ -263,8 +284,10 @@ void PerPixelLinkedListLineRenderer::setUniformData() {
     gatherShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSize);
     gatherShader->setUniform("cameraPosition", sceneData.camera->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
-    gatherShader->setUniform(
-            "transferFunctionTexture", transferFunctionWindow.getTransferFunctionMapTexture(), 0);
+    if (gatherShader->hasUniform("transferFunctionTexture")) {
+        gatherShader->setUniform(
+                "transferFunctionTexture", transferFunctionWindow.getTransferFunctionMapTexture(), 0);
+    }
     if (gatherShader->hasUniform("backgroundColor")) {
         glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
         gatherShader->setUniform("backgroundColor", backgroundColor);

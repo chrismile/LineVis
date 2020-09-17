@@ -120,6 +120,8 @@ private:
     DataSetType dataSetType = DATA_SET_TYPE_FLOW_LINES;
     // Should we show major, medium and/or minor principal stress lines?
     bool useMajorPS = true, useMediumPS = true, useMinorPS = true;
+    /// Should we use the principal direction ID for rendering?
+    bool usePrincipalStressDirectionIndex = false;
 
     // Continuous rendering: Re-render each frame or only when scene changes?
     bool continuousRendering = false;

@@ -51,7 +51,15 @@ public:
     // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
     virtual void renderGui();
 
+    /// Only for stress lines: Should we use the principal stress direction ID for rendering?
+    virtual void setUsePrincipalStressDirectionIndex(bool usePrincipalStressDirectionIndex) override;
+
 protected:
+    void reloadGatherShader();
+
+    /// Only for stress lines: Should we use the principal stress direction ID for rendering?
+    bool usePrincipalStressDirectionIndex = false;
+
     sgl::ShaderProgramPtr shaderProgramGeometryShader;
     sgl::ShaderProgramPtr shaderProgramProgrammableFetch;
     sgl::ShaderAttributesPtr shaderAttributes;

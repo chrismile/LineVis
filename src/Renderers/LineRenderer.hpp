@@ -78,6 +78,9 @@ public:
     virtual void setNewState(const InternalState& newState) {}
     virtual void setNewSettings(const SettingsMap& settings) {}
 
+    /// Only for stress lines: Should we use the principal stress direction ID for rendering?
+    virtual void setUsePrincipalStressDirectionIndex(bool usePrincipalStressDirectionIndex) {}
+
     /// Sets the global line width.
     static void setLineWidth(float lineWidth) { LineRenderer::lineWidth = lineWidth; }
 

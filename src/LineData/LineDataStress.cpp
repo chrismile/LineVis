@@ -348,7 +348,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
 
     // Add the index buffer.
     tubeRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t)*lineIndices.size(), (void*)&lineIndices.front(), sgl::INDEX_BUFFER);
+            lineIndices.size()*sizeof(uint32_t), (void*)&lineIndices.front(), sgl::INDEX_BUFFER);
 
     // Add the position buffer.
     tubeRenderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
@@ -365,6 +365,11 @@ TubeRenderData LineDataStress::getTubeRenderData() {
     // Add the tangent buffer.
     tubeRenderData.vertexTangentBuffer = sgl::Renderer->createGeometryBuffer(
             vertexTangents.size()*sizeof(glm::vec3), (void*)&vertexTangents.front(), sgl::VERTEX_BUFFER);
+
+    // Add the principal stress index buffer.
+    tubeRenderData.vertexPrincipalStressIndexBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexPrincipalStressIndices.size()*sizeof(uint32_t),
+            (void*)&vertexPrincipalStressIndices.front(), sgl::VERTEX_BUFFER);
 
     return tubeRenderData;
 }
@@ -498,7 +503,7 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
 
     // Add the index buffer.
     tubeRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t)*lineIndices.size(), (void*)&lineIndices.front(), sgl::INDEX_BUFFER);
+            lineIndices.size()*sizeof(uint32_t), (void*)&lineIndices.front(), sgl::INDEX_BUFFER);
 
     // Add the position buffer.
     tubeRenderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
@@ -511,6 +516,11 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
     // Add the tangent buffer.
     tubeRenderData.vertexTangentBuffer = sgl::Renderer->createGeometryBuffer(
             vertexTangents.size()*sizeof(glm::vec3), (void*)&vertexTangents.front(), sgl::VERTEX_BUFFER);
+
+    // Add the principal stress index buffer.
+    tubeRenderData.vertexPrincipalStressIndexBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexPrincipalStressIndices.size()*sizeof(uint32_t),
+            (void*)&vertexPrincipalStressIndices.front(), sgl::VERTEX_BUFFER);
 
     return tubeRenderData;
 }

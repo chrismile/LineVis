@@ -6,12 +6,18 @@ layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in float vertexAttribute;
 layout(location = 2) in vec3 vertexTangent;
 layout(location = 3) in float vertexOpacity;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+layout(location = 4) in uint vertexPrincipalStressIndex;
+#endif
 
 out VertexData {
     vec3 linePosition;
     float lineAttribute;
     vec3 lineTangent;
     float lineOpacity;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    uint linePrincipalStressIndex;
+#endif
 };
 
 void main() {
@@ -19,6 +25,9 @@ void main() {
     lineAttribute = vertexAttribute;
     lineTangent = vertexTangent;
     lineOpacity = vertexOpacity;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    linePrincipalStressIndex = vertexPrincipalStressIndex;
+#endif
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
 }
 
@@ -38,12 +47,18 @@ out float fragmentOpacity;
 out float fragmentNormalFloat; // Between -1 and 1
 out vec3 normal0;
 out vec3 normal1;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+flat out uint fragmentPrincipalStressIndex;
+#endif
 
 in VertexData {
     vec3 linePosition;
     float lineAttribute;
     vec3 lineTangent;
     float lineOpacity;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    uint linePrincipalStressIndex;
+#endif
 } v_in[];
 
 void main() {
@@ -66,6 +81,9 @@ void main() {
     fragmentNormalFloat = -1.0;
     normal0 = viewDirection0;
     normal1 = offsetDirection0;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+#endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
@@ -76,6 +94,9 @@ void main() {
     fragmentNormalFloat = -1.0;
     normal0 = viewDirection1;
     normal1 = offsetDirection1;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+#endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
@@ -86,6 +107,9 @@ void main() {
     fragmentNormalFloat = 1.0;
     normal0 = viewDirection0;
     normal1 = offsetDirection0;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+#endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
@@ -96,6 +120,9 @@ void main() {
     fragmentNormalFloat = 1.0;
     normal0 = viewDirection1;
     normal1 = offsetDirection1;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+#endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
@@ -112,6 +139,9 @@ in float fragmentOpacity;
 in float fragmentNormalFloat;
 in vec3 normal0;
 in vec3 normal1;
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+flat in uint fragmentPrincipalStressIndex;
+#endif
 
 #ifdef USE_COVERAGE_MASK
 in int gl_SampleMaskIn[];
@@ -183,7 +213,11 @@ void main() {
     float angle = interpolationFactor * M_PI * 0.5;
     fragmentNormal = cos(angle) * normalCos + sin(angle) * normalSin;
 
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    vec4 fragmentColor = transferFunction(fragmentAttribute, fragmentPrincipalStressIndex);
+#else
     vec4 fragmentColor = transferFunction(fragmentAttribute);
+#endif
     fragmentColor.a = 1.0; // Ignore transparency mapping.
     fragmentColor = blinnPhongShading(fragmentColor, fragmentNormal);
 
