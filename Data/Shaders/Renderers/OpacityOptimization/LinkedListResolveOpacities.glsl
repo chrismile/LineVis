@@ -80,11 +80,11 @@ void main() {
     float g_all = 0.0f;
     float g_f = 0.0f;
     for (int i = 0; i < numFrags; i++) {
-        float g_i = unpackFloat8(depthList[i]); // attributeList[i]
+        float g_i = unpackFloat10(depthList[i]); // attributeList[i]
         g_all = g_all + g_i * g_i;
     }
     for (int i = 0; i < numFrags; i++) {
-        float g_i = unpackFloat8(depthList[i]); // attributeList[i]
+        float g_i = unpackFloat10(depthList[i]); // attributeList[i]
         float g_b = g_all - g_i * g_i - g_f;
         float alpha_i = p / (p + pow(1 - g_i, 2.0 * lambda) * (r * g_f + q * g_b));
         g_f = g_f + g_i * g_i;

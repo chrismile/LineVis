@@ -8,7 +8,7 @@ void packFloat24Float8(out uint packedValue, in float val24, in float val8) {
 // Decompression equivalent to function above.
 void unpackFloat24Float8(in uint packedValue, out float val24, out float val8) {
     val8 = float(packedValue & 0xFFu) / 255.0;
-    val24 = float((packedValue >> 8)  & 0xFFFFFFu) / 16777215.0;
+    val24 = float((packedValue >> 8u)  & 0xFFFFFFu) / 16777215.0;
 }
 
 // Decompression only of 8-bit float of function above.
@@ -27,7 +27,7 @@ void packFloat24Uint8(out uint packedValue, in float val24, in uint val8) {
 // Decompression equivalent to function above.
 void unpackFloat24Uint8(in uint packedValue, out float val24, out uint val8) {
     val8 = packedValue & 0xFFu;
-    val24 = float((packedValue >> 8)  & 0xFFFFFFu) / 16777215.0;
+    val24 = float((packedValue >> 8u)  & 0xFFFFFFu) / 16777215.0;
 }
 
 
@@ -39,6 +39,25 @@ uint convertNormalizedFloatToUint32(float valueFloat) {
 // Decompression equivalent to function above.
 float convertUint32ToNormalizedFloat(uint valueUint) {
     return float(valueUint) / 4294967295.0;
+}
+
+
+// Packs, e.g., a normalized depth value with 22-bit precision and some other normalized attribute with 10-bit precision
+// into one uint value. The floating point values are assumed to lie in the range [0,1].
+void packFloat22Float10(out uint packedValue, in float val22, in float val10) {
+    packedValue = uint(round(clamp(val10, 0.0, 1.0) * 1023.0)) & 0x3FFu;
+    packedValue |= (uint(round(clamp(val22, 0.0, 1.0) * 4194303.0)) & 0x3FFFFFu) << 10u;
+}
+
+// Decompression equivalent to function above.
+void unpackFloat22Float10(in uint packedValue, out float val22, out float val10) {
+    val10 = float(packedValue & 0x3FFu) / 1023.0;
+    val22 = float((packedValue >> 10u)  & 0x3FFFFFu) / 4194303.0;
+}
+
+// Decompression only of 8-bit float of function above.
+float unpackFloat10(in uint packedValue) {
+    return float(packedValue & 0x3FFu) / 1023.0;
 }
 
 

@@ -489,7 +489,7 @@ std::vector<std::string> MainApp::getSelectedMeshFilenames() {
     }
     dataSetType = dataSetInformation.at(selectedDataSetIndex - 1).type;
     for (const std::string& filename : dataSetInformation.at(selectedDataSetIndex - 1).filenames) {
-        filenames.push_back(lineDataSetsDirectory + "/" + filename);
+        filenames.push_back(lineDataSetsDirectory + filename);
     }
     return filenames;
 }
@@ -871,7 +871,7 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
     } else if (dataSetType == DATA_SET_TYPE_STRESS_LINES) {
         loadStressTrajectoriesFromFile(
                 fileNames, trajectoriesPs, stressTrajectoriesDataPs,
-                true, false, transformationMatrixPtr);
+                true, true, transformationMatrixPtr);
         dataLoaded = !trajectoriesPs.empty();
     }
 
@@ -879,7 +879,7 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
         newMeshLoaded = true;
         std::string meshDescriptorName = fileNames.front();
         if (fileNames.size() > 1) {
-            meshDescriptorName += "_" + fileNames.size();
+            meshDescriptorName += std::string() + "_" + std::to_string(fileNames.size());
         }
         checkpointWindow.onLoadDataSet(meshDescriptorName);
 

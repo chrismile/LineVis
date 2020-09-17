@@ -116,7 +116,13 @@ size_t LineDataStress::getNumLineSegments() {
 
 Trajectories LineDataStress::filterTrajectoryData() {
     Trajectories trajectoriesFiltered;
-    for (const Trajectories& trajectories : trajectoriesPs) {
+
+    for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
+        const Trajectories& trajectories = trajectoriesPs.at(psIdx);
+        if (!usedPsDirections.at(psIdx)) {
+            continue;
+        }
+
         for (const Trajectory &trajectory : trajectories) {
             Trajectory trajectoryFiltered;
             size_t n = trajectory.positions.size();
@@ -155,7 +161,12 @@ Trajectories LineDataStress::filterTrajectoryData() {
 
 std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines() {
     std::vector<std::vector<glm::vec3>> linesFiltered;
-    for (const Trajectories& trajectories : trajectoriesPs) {
+    for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
+        const Trajectories& trajectories = trajectoriesPs.at(psIdx);
+        if (!usedPsDirections.at(psIdx)) {
+            continue;
+        }
+
         for (const Trajectory &trajectory : trajectories) {
             std::vector<glm::vec3> lineFiltered;
             size_t n = trajectory.positions.size();
@@ -193,7 +204,12 @@ std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines() {
 std::vector<Trajectories> LineDataStress::filterTrajectoryPsData() {
     std::vector<Trajectories> trajectoriesPsFiltered;
     trajectoriesPsFiltered.reserve(trajectoriesPs.size());
-    for (const Trajectories& trajectories : trajectoriesPs) {
+    for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
+        const Trajectories& trajectories = trajectoriesPs.at(psIdx);
+        if (!usedPsDirections.at(psIdx)) {
+            continue;
+        }
+
         Trajectories trajectoriesFiltered;
         trajectoriesFiltered.reserve(trajectories.size());
         for (const Trajectory& trajectory : trajectories) {
@@ -237,7 +253,12 @@ std::vector<Trajectories> LineDataStress::filterTrajectoryPsData() {
 std::vector<std::vector<std::vector<glm::vec3>>> LineDataStress::getFilteredPrincipalStressLines() {
     std::vector<std::vector<std::vector<glm::vec3>>> linesPsFiltered;
     linesPsFiltered.reserve(trajectoriesPs.size());
-    for (const Trajectories& trajectories : trajectoriesPs) {
+    for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
+        const Trajectories& trajectories = trajectoriesPs.at(psIdx);
+        if (!usedPsDirections.at(psIdx)) {
+            continue;
+        }
+
         std::vector<std::vector<glm::vec3>> linesFiltered;
         linesFiltered.reserve(trajectories.size());
         for (const Trajectory& trajectory : trajectories) {

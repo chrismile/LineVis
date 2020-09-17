@@ -184,6 +184,7 @@ void main() {
     fragmentNormal = cos(angle) * normalCos + sin(angle) * normalSin;
 
     vec4 fragmentColor = transferFunction(fragmentAttribute);
+    fragmentColor.a = 1.0; // Ignore transparency mapping.
     fragmentColor = blinnPhongShading(fragmentColor, fragmentNormal);
 
     float absCoords = abs(fragmentNormalFloat);

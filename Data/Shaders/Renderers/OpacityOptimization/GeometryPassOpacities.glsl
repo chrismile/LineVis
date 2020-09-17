@@ -110,7 +110,7 @@ void main() {
     LinkedListFragmentNode frag;
     frag.lineSegmentId = fragmentLineSegmentId;
     frag.next = -1;
-    packFloat24Float8(frag.depth, gl_FragCoord.z, fragmentAttribute);
+    packFloat22Float10(frag.depth, gl_FragCoord.z, fragmentAttribute);
 
     uint insertIndex = atomicCounterIncrement(fragCounter);
 
