@@ -1,4 +1,6 @@
 cmake_minimum_required (VERSION 3.1)
+option(USE_GTEST "USE_GTEST" OFF)
+
 project (StressLineVis)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/CMake)
 #MESSAGE(STATUS "CMAKE_MODULE_PATH: " ${CMAKE_MODULE_PATH})
@@ -54,4 +56,16 @@ if(OPENMP_FOUND)
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+endif()
+
+
+if (USE_GTEST)
+	include(GoogleTest)
+	enable_testing()
+	add_executable(StressLineVis_test test/TestKdTreeNearestNeighbor.cpp
+			src/LineData/SearchStructures/NearestNeighborNaive.cpp
+			src/LineData/SearchStructures/SearchStructure.cpp
+			src/LineData/SearchStructures/KdTree.cpp)
+	target_link_libraries(StressLineVis_test gtest gtest_main)
+	gtest_add_tests(TARGET StressLineVis_test)
 endif()

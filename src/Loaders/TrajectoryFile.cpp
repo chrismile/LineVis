@@ -42,7 +42,8 @@
 sgl::AABB3 computeTrajectoriesAABB3(const Trajectories& trajectories) {
     sgl::AABB3 aabb;
     float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX, maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
-    #pragma omp parallel for reduction(min: minX) reduction(min: minY) reduction(min: minZ) reduction(max: maxX) reduction(max: maxY) reduction(max: maxZ)
+    #pragma omp parallel for shared(trajectories) default(none)\
+    reduction(min: minX) reduction(min: minY) reduction(min: minZ) reduction(max: maxX) reduction(max: maxY) reduction(max: maxZ)
     for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
         const Trajectory& trajectory = trajectories.at(trajectoryIdx);
         for (const glm::vec3& pt : trajectory.positions) {
@@ -59,13 +60,13 @@ sgl::AABB3 computeTrajectoriesAABB3(const Trajectories& trajectories) {
     return aabb;
 }
 
-void normalizeTrajectoriesVertexPositions(Trajectories& trajectories, const glm::mat4* vertexTransformationMatrixPtr) {
-    sgl::AABB3 aabb = computeTrajectoriesAABB3(trajectories);
+void normalizeTrajectoriesVertexPositions(
+        Trajectories& trajectories, const sgl::AABB3& aabb, const glm::mat4* vertexTransformationMatrixPtr) {
     glm::vec3 translation = -aabb.getCenter();
     glm::vec3 scale3D = 0.5f / aabb.getDimensions();
     float scale = std::min(scale3D.x, std::min(scale3D.y, scale3D.z));
 
-    #pragma omp parallel for
+    #pragma omp parallel for shared(trajectories, scale, translation) default(none)
     for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
         Trajectory& trajectory = trajectories.at(trajectoryIdx);
         for (glm::vec3& v : trajectory.positions) {
@@ -76,7 +77,7 @@ void normalizeTrajectoriesVertexPositions(Trajectories& trajectories, const glm:
     if (vertexTransformationMatrixPtr != nullptr) {
         glm::mat4 transformationMatrix = *vertexTransformationMatrixPtr;
 
-        #pragma omp parallel for
+        #pragma omp parallel for shared(trajectories, transformationMatrix) default(none)
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
             for (glm::vec3& v : trajectory.positions) {
@@ -86,12 +87,41 @@ void normalizeTrajectoriesVertexPositions(Trajectories& trajectories, const glm:
     }
 }
 
+void normalizeTrajectoriesVertexPositions(Trajectories& trajectories, const glm::mat4* vertexTransformationMatrixPtr) {
+    sgl::AABB3 aabb = computeTrajectoriesAABB3(trajectories);
+    normalizeTrajectoriesVertexPositions(trajectories, aabb, vertexTransformationMatrixPtr);
+}
+
+void normalizeVertexPositions(
+        std::vector<glm::vec3>& vertexPositions, const sgl::AABB3& aabb,
+        const glm::mat4* vertexTransformationMatrixPtr) {
+    glm::vec3 translation = -aabb.getCenter();
+    glm::vec3 scale3D = 0.5f / aabb.getDimensions();
+    float scale = std::min(scale3D.x, std::min(scale3D.y, scale3D.z));
+
+    #pragma omp parallel for shared(vertexPositions, translation, scale) default(none)
+    for (size_t vertexIdx = 0; vertexIdx < vertexPositions.size(); vertexIdx++) {
+        glm::vec3& v = vertexPositions.at(vertexIdx);
+        v = (v + translation) * scale;
+    }
+
+    if (vertexTransformationMatrixPtr != nullptr) {
+        glm::mat4 transformationMatrix = *vertexTransformationMatrixPtr;
+
+        #pragma omp parallel for shared(vertexPositions, transformationMatrix) default(none)
+        for (size_t vertexIdx = 0; vertexIdx < vertexPositions.size(); vertexIdx++) {
+            glm::vec3& v = vertexPositions.at(vertexIdx);
+            v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+        }
+    }
+}
+
 void normalizeTrajectoriesVertexAttributes(Trajectories& trajectories) {
     const size_t numAttributes = trajectories.empty() ? 0 : trajectories.front().attributes.size();
 
     for (size_t attributeIdx = 0; attributeIdx < numAttributes; attributeIdx++) {
         float minVal = FLT_MAX, maxVal = -FLT_MAX;
-        #pragma omp parallel for reduction(min: minVal) reduction(max: maxVal)
+        #pragma omp parallel for shared(trajectories, attributeIdx) default(none) reduction(min: minVal) reduction(max: maxVal)
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
             const std::vector<float>& attributes = trajectories.at(trajectoryIdx).attributes.at(attributeIdx);
             for (const float& attrVal : attributes) {
@@ -100,7 +130,7 @@ void normalizeTrajectoriesVertexAttributes(Trajectories& trajectories) {
             }
         }
 
-        #pragma omp parallel for
+        #pragma omp parallel for shared(trajectories, attributeIdx, minVal, maxVal) default(none)
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
             std::vector<float>& attributes = trajectories.at(trajectoryIdx).attributes.at(attributeIdx);
             for (float& attrVal : attributes) {
@@ -120,14 +150,14 @@ sgl::AABB3 computeTrajectoriesPsAABB3(const std::vector<Trajectories>& trajector
     return aabb;
 }
 
-void normalizeTrajectoriesPsVertexPositions(std::vector<Trajectories>& trajectoriesPs, const glm::mat4* vertexTransformationMatrixPtr) {
-    sgl::AABB3 aabb = computeTrajectoriesPsAABB3(trajectoriesPs);
+void normalizeTrajectoriesPsVertexPositions(
+        std::vector<Trajectories>& trajectoriesPs, const sgl::AABB3& aabb, const glm::mat4* vertexTransformationMatrixPtr) {
     glm::vec3 translation = -aabb.getCenter();
     glm::vec3 scale3D = 0.5f / aabb.getDimensions();
     float scale = std::min(scale3D.x, std::min(scale3D.y, scale3D.z));
 
     for (Trajectories& trajectories : trajectoriesPs) {
-        #pragma omp parallel for
+        #pragma omp parallel for shared(trajectories, scale, translation) default(none)
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
             for (glm::vec3& v : trajectory.positions) {
@@ -138,7 +168,7 @@ void normalizeTrajectoriesPsVertexPositions(std::vector<Trajectories>& trajector
         if (vertexTransformationMatrixPtr != nullptr) {
             glm::mat4 transformationMatrix = *vertexTransformationMatrixPtr;
 
-            #pragma omp parallel for
+            #pragma omp parallel for shared(trajectories, transformationMatrix) default(none)
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
                 Trajectory& trajectory = trajectories.at(trajectoryIdx);
                 for (glm::vec3& v : trajectory.positions) {
@@ -147,6 +177,12 @@ void normalizeTrajectoriesPsVertexPositions(std::vector<Trajectories>& trajector
             }
         }
     }
+}
+
+void normalizeTrajectoriesPsVertexPositions(
+        std::vector<Trajectories>& trajectoriesPs, const glm::mat4* vertexTransformationMatrixPtr) {
+    sgl::AABB3 aabb = computeTrajectoriesPsAABB3(trajectoriesPs);
+    normalizeTrajectoriesPsVertexPositions(trajectoriesPs, aabb, vertexTransformationMatrixPtr);
 }
 
 void normalizeTrajectoriesPsVertexAttributes(std::vector<Trajectories>& trajectoriesPs) {
@@ -158,7 +194,7 @@ void normalizeTrajectoriesPsVertexAttributes(std::vector<Trajectories>& trajecto
     for (size_t attributeIdx = 0; attributeIdx < numAttributes; attributeIdx++) {
         float minVal = FLT_MAX, maxVal = -FLT_MAX;
         for (Trajectories& trajectories : trajectoriesPs) {
-            #pragma omp parallel for reduction(min: minVal) reduction(max: maxVal)
+            #pragma omp parallel for shared(trajectories, attributeIdx) default(none) reduction(min: minVal) reduction(max: maxVal)
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
                 const std::vector<float>& attributes = trajectories.at(trajectoryIdx).attributes.at(attributeIdx);
                 for (const float& attrVal : attributes) {
@@ -168,7 +204,7 @@ void normalizeTrajectoriesPsVertexAttributes(std::vector<Trajectories>& trajecto
             }
         }
         for (Trajectories& trajectories : trajectoriesPs) {
-            #pragma omp parallel for
+            #pragma omp parallel for shared(trajectories, attributeIdx, minVal, maxVal) default(none)
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
                 std::vector<float>& attributes = trajectories.at(trajectoryIdx).attributes.at(attributeIdx);
                 for (float& attrVal : attributes) {
@@ -211,7 +247,8 @@ void loadStressTrajectoriesFromFile(
         const std::vector<std::string>& filenames,
         std::vector<Trajectories>& trajectoriesPs,
         std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
-        bool normalizeVertexPositions, bool normalizeAttributes, const glm::mat4* vertexTransformationMatrixPtr) {
+        bool normalizeVertexPositions, bool normalizeAttributes,
+        sgl::AABB3* oldAABB, const glm::mat4* vertexTransformationMatrixPtr) {
     std::string lowerCaseFilename = boost::to_lower_copy(filenames.front());
     if (boost::ends_with(lowerCaseFilename, ".dat")) {
         loadStressTrajectoriesFromDat(filenames, trajectoriesPs, stressTrajectoriesDataPs);
@@ -220,7 +257,11 @@ void loadStressTrajectoriesFromFile(
     }
 
     if (normalizeVertexPositions) {
-        normalizeTrajectoriesPsVertexPositions(trajectoriesPs, vertexTransformationMatrixPtr);
+        sgl::AABB3 aabb = computeTrajectoriesPsAABB3(trajectoriesPs);
+        if (oldAABB) {
+            *oldAABB = aabb;
+        }
+        normalizeTrajectoriesPsVertexPositions(trajectoriesPs, aabb, vertexTransformationMatrixPtr);
     }
     if (normalizeAttributes) {
         normalizeTrajectoriesPsVertexAttributes(trajectoriesPs);

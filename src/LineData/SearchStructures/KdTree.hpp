@@ -52,11 +52,11 @@ public:
  * The k-d-tree class. Used for searching point sets in space efficiently.
  * NOTE: The ownership of the memory the SPHPoint objects lies in the responsibility of the user.
  */
-class KDTree : public SearchStructure
+class KdTree : public SearchStructure
 {
 public:
-    KDTree();
-    ~KDTree() override;
+    KdTree();
+    ~KdTree() override;
 
     /**
      * Builds a k-d-tree from the passed point array.

@@ -32,6 +32,7 @@
 #include <memory>
 
 #include "Loaders/DataSetList.hpp"
+#include "Loaders/TrajectoryFile.hpp"
 #include "Widgets/TransferFunctionWindow.hpp"
 #include "Graphics/Buffers/GeometryBuffer.hpp"
 
@@ -69,6 +70,10 @@ struct TubeRenderDataOpacityOptimization {
     sgl::GeometryBufferPtr vertexAttributeBuffer;
     sgl::GeometryBufferPtr vertexTangentBuffer;
     sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
+};
+
+struct PointRenderData {
+    sgl::GeometryBufferPtr vertexPositionBuffer;
 };
 
 class LineData {

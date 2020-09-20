@@ -38,6 +38,7 @@
 #include <ImGui/imgui_custom.h>
 
 #include "Widgets/TransferFunctionWindow.hpp"
+#include "LineData/LineDataStress.hpp"
 #include "OpaqueLineRenderer.hpp"
 
 OpaqueLineRenderer::OpaqueLineRenderer(SceneData& sceneData, TransferFunctionWindow& transferFunctionWindow)
@@ -74,6 +75,9 @@ void OpaqueLineRenderer::reloadGatherShader() {
         "GeometryPassNormal.Programmable.Vertex",
         "GeometryPassNormal.Fragment"
     });
+    shaderProgramPoints = sgl::ShaderManager->getShaderProgram({
+        "Point.Vertex", "Point.Geometry", "Point.Fragment"
+    });
     if (usePrincipalStressDirectionIndex) {
         sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX");
     }
@@ -83,6 +87,7 @@ void OpaqueLineRenderer::reloadGatherShader() {
 void OpaqueLineRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
     // Unload old data.
     shaderAttributes = sgl::ShaderAttributesPtr();
+    shaderAttributesDegeneratePoints = sgl::ShaderAttributesPtr();
 
     if (useProgrammableFetch) {
         TubeRenderDataProgrammableFetch tubeRenderData = lineData->getTubeRenderDataProgrammableFetch();
@@ -117,6 +122,15 @@ void OpaqueLineRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
                     sgl::ATTRIB_UNSIGNED_INT,
                     1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
         }
+    }
+
+    if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
+        PointRenderData pointRenderData = static_cast<LineDataStress*>(lineData.get())->getDegeneratePointsRenderData();
+        shaderAttributesDegeneratePoints = sgl::ShaderManager->createShaderAttributes(shaderProgramPoints);
+        shaderAttributesDegeneratePoints->setVertexMode(sgl::VERTEX_MODE_POINTS);
+        shaderAttributesDegeneratePoints->addGeometryBuffer(
+                pointRenderData.vertexPositionBuffer, "vertexPosition",
+                sgl::ATTRIB_FLOAT, 3);
     }
 
     dirty = false;
@@ -167,9 +181,9 @@ void OpaqueLineRenderer::render() {
         glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
         shaderProgram->setUniform("backgroundColor", backgroundColor);
     }
+    glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+    glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
     if (shaderProgram->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
-        glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
         shaderProgram->setUniform("foregroundColor", foregroundColor);
     }
     if (useProgrammableFetch) {
@@ -183,6 +197,14 @@ void OpaqueLineRenderer::render() {
     }
 
     sgl::Renderer->render(shaderAttributes);
+
+    if (shaderAttributesDegeneratePoints && showDegeneratePoints) {
+        shaderProgramPoints->setUniform("cameraPosition", sceneData.camera->getPosition());
+        shaderProgramPoints->setUniform("pointWidth", pointWidth);
+        shaderProgramPoints->setUniform("foregroundColor", foregroundColor);
+        shaderProgramPoints->setUniform("pointColor", glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+        sgl::Renderer->render(shaderAttributesDegeneratePoints);
+    }
 
     if (useMultisampling) {
         sgl::Renderer->bindFBO(sceneData.framebuffer);
@@ -202,6 +224,15 @@ void OpaqueLineRenderer::renderGui() {
         if (ImGui::Checkbox("Programmable Fetch", &useProgrammableFetch)) {
             dirty = true;
             reRender = true;
+        }
+        if (shaderAttributesDegeneratePoints && ImGui::Checkbox("Programmable Fetch", &showDegeneratePoints)) {
+            reRender = true;
+        }
+        if (shaderAttributesDegeneratePoints && showDegeneratePoints) {
+            if (shaderAttributesDegeneratePoints && ImGui::SliderFloat(
+                    "Point Width", &pointWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH)) {
+                reRender = true;
+            }
         }
         if (maximumNumberOfSamples > 1) {
             if (ImGui::Checkbox("Multisampling", &useMultisampling)) {

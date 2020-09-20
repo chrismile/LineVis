@@ -869,6 +869,7 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
     Trajectories trajectories;
     std::vector<Trajectories> trajectoriesPs;
     std::vector<StressTrajectoriesData> stressTrajectoriesDataPs;
+    sgl::AABB3 oldAABB;
     if (dataSetType == DATA_SET_TYPE_FLOW_LINES) {
         trajectories = loadFlowTrajectoriesFromFile(
                 fileNames.front(), true, false, transformationMatrixPtr);
@@ -876,7 +877,7 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
     } else if (dataSetType == DATA_SET_TYPE_STRESS_LINES) {
         loadStressTrajectoriesFromFile(
                 fileNames, trajectoriesPs, stressTrajectoriesDataPs,
-                true, true, transformationMatrixPtr);
+                true, true, &oldAABB, transformationMatrixPtr);
         dataLoaded = !trajectoriesPs.empty();
     }
 
@@ -902,6 +903,7 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
                 std::vector<glm::vec3> degeneratePoints;
                 loadDegeneratePointsFromDat(
                         selectedDataSetInformation.degeneratePointsFilename, degeneratePoints);
+                normalizeVertexPositions(degeneratePoints, oldAABB, transformationMatrixPtr);
                 lineDataStress->setDegeneratePoints(degeneratePoints, attributeNames);
             }
             modelBoundingBox = computeTrajectoriesPsAABB3(trajectoriesPs);

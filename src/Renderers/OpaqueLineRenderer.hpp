@@ -62,8 +62,10 @@ protected:
 
     sgl::ShaderProgramPtr shaderProgramGeometryShader;
     sgl::ShaderProgramPtr shaderProgramProgrammableFetch;
+    sgl::ShaderProgramPtr shaderProgramPoints;
     sgl::ShaderAttributesPtr shaderAttributes;
     sgl::GeometryBufferPtr linePointDataSSBO; ///< For programmable fetch.
+    sgl::ShaderAttributesPtr shaderAttributesDegeneratePoints; ///< Stress lines only.
 
     sgl::TexturePtr msaaTexture;
     sgl::FramebufferObjectPtr msaaSceneFBO;
@@ -74,6 +76,10 @@ protected:
     bool showRendererWindow = true;
     bool useProgrammableFetch = true;
     bool useMultisampling = true;
+
+    bool showDegeneratePoints = true; ///< Only for stress lines.
+    float pointWidth = STANDARD_LINE_WIDTH;
+
     int maximumNumberOfSamples = 1;
     int numSamples = 4;
     int numSampleModes = -1;

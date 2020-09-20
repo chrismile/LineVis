@@ -33,11 +33,11 @@
 
 #include <Utils/File/Logfile.hpp>
 
-#include "SearchStructures/KDTree.hpp"
+#include "SearchStructures/KdTree.hpp"
 #include "LineDataStress.hpp"
 
 LineDataStress::LineDataStress(TransferFunctionWindow &transferFunctionWindow)
-        : LineData(transferFunctionWindow, DATA_SET_TYPE_FLOW_LINES) {
+        : LineData(transferFunctionWindow, DATA_SET_TYPE_STRESS_LINES) {
 }
 
 LineDataStress::~LineDataStress() {
@@ -73,20 +73,6 @@ float squaredExponentialKernel(const glm::vec3& pt0, const glm::vec3& pt1, float
     return std::exp(-dist / (2.0f * lengthScale * lengthScale));
 }
 
-glm::vec3 nearestNeighborSlow(const glm::vec3& point, const std::vector<glm::vec3>& searchPointList) {
-    float closestPointDistance = std::numeric_limits<float>::max();
-    glm::vec3 nearestNeighbor;
-    for (const glm::vec3& searchPoint : searchPointList) {
-        glm::vec3 diff = point - searchPoint;
-        float dist = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
-        if (dist < closestPointDistance) {
-            closestPointDistance = dist;
-            nearestNeighbor = searchPoint;
-        }
-    }
-    return nearestNeighbor;
-}
-
 void LineDataStress::setDegeneratePoints(
         const std::vector<glm::vec3>& degeneratePoints, std::vector<std::string>& attributeNames) {
     this->degeneratePoints = degeneratePoints;
@@ -95,7 +81,7 @@ void LineDataStress::setDegeneratePoints(
     }
 
     // Build a search structure on the degenerate points.
-    KDTree kdTree;
+    KdTree kdTree;
     std::vector<IndexedPoint> indexedPoints;
     std::vector<IndexedPoint*> indexedPointsPointers;
     indexedPoints.resize(degeneratePoints.size());
@@ -109,28 +95,27 @@ void LineDataStress::setDegeneratePoints(
     kdTree.build(indexedPointsPointers);
 
     // TODO: Dependent on AABB?
-    const float lengthScale = 0.5f;
+    const float lengthScale = 0.02f;
 
     // Find for all line points the distance to the closest degenerate point.
     for (Trajectories& trajectories : trajectoriesPs) {
         for (Trajectory& trajectory : trajectories) {
             std::vector<float> distanceMeasuresExponentialKernel;
             std::vector<float> distanceMeasuresSquaredExponentialKernel;
-            distanceMeasuresExponentialKernel.reserve(trajectory.positions.size());
-            distanceMeasuresSquaredExponentialKernel.reserve(trajectory.positions.size());
-            for (const glm::vec3& linePoint : trajectory.positions) {
-                //IndexedPoint* nearestNeighbor = kdTree.findNearestNeighbor(linePoint);
-                //float distanceExponentialKernel = exponentialKernel(
-                //        linePoint, nearestNeighbor->position, lengthScale);
-                //float distanceSquaredExponentialKernel = squaredExponentialKernel(
-                //        linePoint, nearestNeighbor->position, lengthScale);
-                glm::vec3 nearestNeighbor = nearestNeighborSlow(linePoint, degeneratePoints);
+            distanceMeasuresExponentialKernel.resize(trajectory.positions.size());
+            distanceMeasuresSquaredExponentialKernel.resize(trajectory.positions.size());
+            #pragma omp parallel for shared(trajectory, kdTree, degeneratePoints, lengthScale, distanceMeasuresExponentialKernel, distanceMeasuresSquaredExponentialKernel) default(none)
+            for (size_t linePointIdx = 0; linePointIdx < trajectory.positions.size(); linePointIdx++) {
+                const glm::vec3& linePoint = trajectory.positions.at(linePointIdx);
+
+                IndexedPoint* nearestNeighbor = kdTree.findNearestNeighbor(linePoint);
                 float distanceExponentialKernel = exponentialKernel(
-                        linePoint, nearestNeighbor, lengthScale);
+                        linePoint, nearestNeighbor->position, lengthScale);
                 float distanceSquaredExponentialKernel = squaredExponentialKernel(
-                        linePoint, nearestNeighbor, lengthScale);
-                distanceMeasuresExponentialKernel.push_back(distanceExponentialKernel);
-                distanceMeasuresSquaredExponentialKernel.push_back(distanceSquaredExponentialKernel);
+                        linePoint, nearestNeighbor->position, lengthScale);
+
+                distanceMeasuresExponentialKernel.at(linePointIdx) = distanceExponentialKernel;
+                distanceMeasuresSquaredExponentialKernel.at(linePointIdx) = distanceSquaredExponentialKernel;
             }
             trajectory.attributes.push_back(distanceMeasuresExponentialKernel);
             trajectory.attributes.push_back(distanceMeasuresSquaredExponentialKernel);
@@ -606,4 +591,12 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
             (void*)&vertexPrincipalStressIndices.front(), sgl::VERTEX_BUFFER);
 
     return tubeRenderData;
+}
+
+PointRenderData LineDataStress::getDegeneratePointsRenderData() {
+    PointRenderData renderData;
+    renderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
+            degeneratePoints.size()*sizeof(glm::vec3), (void*)&degeneratePoints.front(),
+            sgl::VERTEX_BUFFER);
+    return renderData;
 }

@@ -54,11 +54,19 @@ typedef std::vector<StressTrajectoryData> StressTrajectoriesData;
 sgl::AABB3 computeTrajectoriesAABB3(const Trajectories& trajectories);
 void normalizeTrajectoriesVertexPositions(
         Trajectories& trajectories, const glm::mat4* vertexTransformationMatrixPtr = nullptr);
+void normalizeTrajectoriesVertexPositions(
+        Trajectories& trajectories, const sgl::AABB3& aabb, const glm::mat4* vertexTransformationMatrixPtr = nullptr);
+void normalizeVertexPositions(
+        std::vector<glm::vec3>& vertexPositions, const sgl::AABB3& aabb,
+        const glm::mat4* vertexTransformationMatrixPtr = nullptr);
 void normalizeTrajectoriesVertexAttributes(Trajectories& trajectories);
 
 sgl::AABB3 computeTrajectoriesPsAABB3(const std::vector<Trajectories>& trajectoriesPs);
 void normalizeTrajectoriesVertexPositions(
         std::vector<Trajectories>& trajectoriesPs, const glm::mat4* vertexTransformationMatrixPtr = nullptr);
+void normalizeTrajectoriesVertexPositions(
+        std::vector<Trajectories>& trajectoriesPs, const sgl::AABB3& aabb,
+        const glm::mat4* vertexTransformationMatrixPtr = nullptr);
 void normalizeTrajectoriesVertexAttributes(std::vector<Trajectories>& trajectoriesPs);
 
 /**
@@ -83,6 +91,7 @@ Trajectories loadFlowTrajectoriesFromFile(
  * opened).
  * @param normalizeVertexPositions Whether to normalize the vertex positions.
  * @param normalizeAttributes Whether to normalize the list of attributes to the range [0,1].
+ * @param oldAABB The old AABB before normalization is stored in the pointer (optional, can be nullptr).
  * @param vertexTransformationMatrixPtr Can be used to pass a transformation matrix for the vertex positions (optional).
  */
 void loadStressTrajectoriesFromFile(
@@ -90,7 +99,7 @@ void loadStressTrajectoriesFromFile(
         std::vector<Trajectories>& trajectoriesPs,
         std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
         bool normalizeVertexPositions = true, bool normalizeAttributes = false,
-        const glm::mat4* vertexTransformationMatrixPtr = nullptr);
+        sgl::AABB3* oldAABB = nullptr, const glm::mat4* vertexTransformationMatrixPtr = nullptr);
 
 Trajectories loadTrajectoriesFromObj(const std::string& filename);
 

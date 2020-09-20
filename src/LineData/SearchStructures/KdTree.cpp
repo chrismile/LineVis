@@ -26,22 +26,23 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "KDTree.hpp"
+#include <cmath>
+#include "KdTree.hpp"
 
-KDTree::KDTree() {
+KdTree::KdTree() {
     root = nullptr;
 }
 
-KDTree::~KDTree() {
+KdTree::~KdTree() {
 }
 
-void KDTree::build(const std::vector<IndexedPoint*> &indexedPoints) {
+void KdTree::build(const std::vector<IndexedPoint*> &indexedPoints) {
     nodes.resize(indexedPoints.size());
     nodeCounter = 0;
 	root = _build(indexedPoints, 0);
 }
 
-KDNode *KDTree::_build(std::vector<IndexedPoint*> points, int depth) {
+KDNode *KdTree::_build(std::vector<IndexedPoint*> points, int depth) {
     const int k = 3; // Number of dimensions
 
     if (points.size() == 0) {
@@ -70,13 +71,13 @@ KDNode *KDTree::_build(std::vector<IndexedPoint*> points, int depth) {
     return node;
 }
 
-std::vector<IndexedPoint*> KDTree::findPointsInAxisAlignedBox(const AxisAlignedBox &box) {
+std::vector<IndexedPoint*> KdTree::findPointsInAxisAlignedBox(const AxisAlignedBox &box) {
     std::vector<IndexedPoint*> points;
     _findPointsInAxisAlignedBox(box, points, root);
     return points;
 }
 
-std::vector<IndexedPoint*> KDTree::findPointsInSphere(const glm::vec3& center, float radius) {
+std::vector<IndexedPoint*> KdTree::findPointsInSphere(const glm::vec3& center, float radius) {
     std::vector<IndexedPoint*> pointsWithDistance;
     std::vector<IndexedPoint*> pointsInRect;
 
@@ -100,7 +101,7 @@ std::vector<IndexedPoint*> KDTree::findPointsInSphere(const glm::vec3& center, f
     return pointsWithDistance;
 }
 
-void KDTree::_findPointsInAxisAlignedBox(const AxisAlignedBox &rect, std::vector<IndexedPoint*> &points, KDNode *node) {
+void KdTree::_findPointsInAxisAlignedBox(const AxisAlignedBox &rect, std::vector<IndexedPoint*> &points, KDNode *node) {
 	if (node == nullptr) {
 		return;
 	}
@@ -122,14 +123,14 @@ void KDTree::_findPointsInAxisAlignedBox(const AxisAlignedBox &rect, std::vector
     }
 }
 
-IndexedPoint* KDTree::findNearestNeighbor(const glm::vec3& point) {
+IndexedPoint* KdTree::findNearestNeighbor(const glm::vec3& point) {
     IndexedPoint* indexedPoint = nullptr;
     float nearestNeighborDistance = std::numeric_limits<float>::max();
     _findNearestNeighbor(point, nearestNeighborDistance, indexedPoint, root);
     return indexedPoint;
 }
 
-void KDTree::_findNearestNeighbor(
+void KdTree::_findNearestNeighbor(
         const glm::vec3& point, float& nearestNeighborDistance, IndexedPoint*& nearestNeighbor, KDNode* node) {
     if (node == nullptr) {
         return;
@@ -141,12 +142,12 @@ void KDTree::_findNearestNeighbor(
             || (node->axis == 2 && point.z <= node->point->position.z);
     if (isPointOnLeftSide) {
         _findNearestNeighbor(point, nearestNeighborDistance, nearestNeighbor, node->left);
-    } else{
+    } else {
         _findNearestNeighbor(point, nearestNeighborDistance, nearestNeighbor, node->right);
     }
 
     glm::vec3 diff = point - node->point->position;
-    float newDistance = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
+    float newDistance = std::sqrt(diff.x * diff.x + diff.y * diff.y + diff.z * diff.z);
     if (newDistance < nearestNeighborDistance) {
         nearestNeighborDistance = newDistance;
         nearestNeighbor = node->point;

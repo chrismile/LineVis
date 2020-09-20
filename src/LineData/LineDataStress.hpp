@@ -67,6 +67,7 @@ public:
     TubeRenderData getTubeRenderData();
     TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch();
     TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization();
+    PointRenderData getDegeneratePointsRenderData();
 
 private:
     virtual void recomputeHistogram() override;
