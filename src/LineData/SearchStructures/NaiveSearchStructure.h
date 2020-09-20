@@ -26,35 +26,47 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEDENSITYCONTROL_DATASETLIST_HPP
-#define LINEDENSITYCONTROL_DATASETLIST_HPP
+#ifndef NAIVE_SEARCH_STRUCTURE_H_
+#define NAIVE_SEARCH_STRUCTURE_H_
 
-#include <Math/Geometry/MatrixUtil.hpp>
 #include <vector>
+#include "SearchStructure.hpp"
 
-const std::string lineDataSetsDirectory = "Data/LineDataSets/";
+/**
+ * A naive O(n^2) search structure that always returns all points.
+ */
+class NaiveSearchStructure : public SearchStructure
+{
+public:
+    /**
+     * Builds a k-d-tree from the passed point array.
+     * @param points The point array.
+     */
+    void build(const std::vector<IndexedPoint*>& points) override {
+        this->points = points;
+    }
 
-enum DataSetType {
-    DATA_SET_TYPE_FLOW_LINES, DATA_SET_TYPE_STRESS_LINES
+    /**
+     * Performs an area search in the k-d-tree and returns all points within a certain bounding box.
+     * @param box The bounding box.
+     * @return The points stored in the k-d-tree inside of the bounding box.
+     */
+    std::vector<IndexedPoint*> findPointsInAxisAlignedBox(const AxisAlignedBox &box) override {
+        return points;
+    }
+
+    /**
+     * Performs an area search in the k-d-tree and returns all points within a certain distance to some center point.
+     * @param centerPoint The center point.
+     * @param radius The search radius.
+     * @return The points stored in the k-d-tree inside of the search radius.
+     */
+    std::vector<IndexedPoint*> findPointsInSphere(const glm::vec3& center, float radius) {
+        return points;
+    }
+
+private:
+    std::vector<IndexedPoint*> points;
 };
 
-struct DataSetInformation {
-    DataSetType type = DATA_SET_TYPE_FLOW_LINES;
-    std::string name;
-    std::vector<std::string> filenames;
-
-    // Optional attributes.
-    bool hasCustomLineWidth = false;
-    float lineWidth = 0.002f;
-    bool hasCustomTransform = false;
-    glm::mat4 transformMatrix = sgl::matrixIdentity();
-    std::vector<std::string> attributeNames; ///< Names of the associated importance criteria.
-
-    // Stress lines: Additional information (optional).
-    std::string meshFilename;
-    std::string degeneratePointsFilename;
-};
-
-std::vector<DataSetInformation> loadDataSetList(const std::string& filename);
-
-#endif //LINEDENSITYCONTROL_DATASETLIST_HPP
+#endif //NAIVE_SEARCH_STRUCTURE_H_

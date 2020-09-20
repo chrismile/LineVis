@@ -64,6 +64,7 @@
 #include <Graphics/OpenGL/SystemGL.hpp>
 
 #include "Loaders/TrajectoryFile.hpp"
+#include "Loaders/DegeneratePointsDatLoader.hpp"
 #include "LineData/LineDataFlow.hpp"
 #include "LineData/LineDataStress.hpp"
 #include "Renderers/OpaqueLineRenderer.hpp"
@@ -490,7 +491,7 @@ std::vector<std::string> MainApp::getSelectedMeshFilenames() {
     }
     dataSetType = dataSetInformation.at(selectedDataSetIndex - 1).type;
     for (const std::string& filename : dataSetInformation.at(selectedDataSetIndex - 1).filenames) {
-        filenames.push_back(lineDataSetsDirectory + filename);
+        filenames.push_back(filename);
     }
     return filenames;
 }
@@ -897,6 +898,12 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
             lineData = LineDataPtr(lineDataStress);
             lineDataStress->setStressTrajectoryData(trajectoriesPs, stressTrajectoriesDataPs);
             lineDataStress->setUsedPsDirections({useMajorPS, useMediumPS, useMinorPS});
+            if (!selectedDataSetInformation.degeneratePointsFilename.empty()) {
+                std::vector<glm::vec3> degeneratePoints;
+                loadDegeneratePointsFromDat(
+                        selectedDataSetInformation.degeneratePointsFilename, degeneratePoints);
+                lineDataStress->setDegeneratePoints(degeneratePoints, attributeNames);
+            }
             modelBoundingBox = computeTrajectoriesPsAABB3(trajectoriesPs);
         }
         lineData->setQualityMeasureIndex(selectedAttributeIndex);

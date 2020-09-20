@@ -31,6 +31,12 @@
 
 #include "LineData.hpp"
 
+//const char *const DISTANCE_MEASURES[] = {
+//        "Distance Exponential Kernel",
+//        "Distance Squared Exponential Kernel"
+//};
+//const int NUM_DISTANCE_MEASURES = ((int)(sizeof(DISTANCE_MEASURES)/sizeof(*DISTANCE_MEASURES)));
+
 class LineDataStress : public LineData {
 public:
     LineDataStress(TransferFunctionWindow &transferFunctionWindow);
@@ -38,6 +44,8 @@ public:
     void setStressTrajectoryData(
             const std::vector<Trajectories>& trajectoriesPs,
             const std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs);
+    void setDegeneratePoints(
+            const std::vector<glm::vec3>& degeneratePoints, std::vector<std::string>& attributeNames);
     /// Can be used to set what principal stress (PS) directions we want to display.
     void setUsedPsDirections(const std::vector<bool>& usedPsDirections);
 
@@ -66,7 +74,18 @@ private:
     // Principal stress lines (usually three line sets for three directions).
     std::vector<Trajectories> trajectoriesPs;
     std::vector<StressTrajectoriesData> stressTrajectoriesDataPs;
+    std::vector<glm::vec3> degeneratePoints;
     std::vector<bool> usedPsDirections; ///< What principal stress (PS) directions do we want to display?
+
+    // For computing distance do degenerate regions.
+    /*const size_t NUM_DISTANCE_MEASURES = 2;
+    enum DistanceMeasure {
+        // Exponential kernel: f_1(x,y) = exp(-||x-y||_2 / l), l \in \mathbb{R}
+        DISTANCE_MEASURE_EXPONENTIAL_KERNEL,
+        // Squared exponential kernel: f_2(x,y) = exp(-||x-y||_2^2 / (2*l^2)), l \in \mathbb{R}
+        DISTANCE_MEASURE_SQUARED_EXPONENTIAL_KERNEL //
+    };
+    DistanceMeasure distanceMeasure = DISTANCE_MEASURE_EXPONENTIAL_KERNEL;*/
 };
 
 #endif //STRESSLINEVIS_LINEDATASTRESS_HPP

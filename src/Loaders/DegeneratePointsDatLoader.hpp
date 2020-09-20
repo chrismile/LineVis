@@ -26,35 +26,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEDENSITYCONTROL_DATASETLIST_HPP
-#define LINEDENSITYCONTROL_DATASETLIST_HPP
+#ifndef STRESSLINEVIS_DEGENERATEPOINTSDATLOADER_HPP
+#define STRESSLINEVIS_DEGENERATEPOINTSDATLOADER_HPP
 
-#include <Math/Geometry/MatrixUtil.hpp>
+#include <string>
 #include <vector>
+#include <glm/vec3.hpp>
 
-const std::string lineDataSetsDirectory = "Data/LineDataSets/";
+void loadDegeneratePointsFromDat(
+        const std::string& filename,
+        std::vector<glm::vec3>& degeneratePoints);
 
-enum DataSetType {
-    DATA_SET_TYPE_FLOW_LINES, DATA_SET_TYPE_STRESS_LINES
-};
-
-struct DataSetInformation {
-    DataSetType type = DATA_SET_TYPE_FLOW_LINES;
-    std::string name;
-    std::vector<std::string> filenames;
-
-    // Optional attributes.
-    bool hasCustomLineWidth = false;
-    float lineWidth = 0.002f;
-    bool hasCustomTransform = false;
-    glm::mat4 transformMatrix = sgl::matrixIdentity();
-    std::vector<std::string> attributeNames; ///< Names of the associated importance criteria.
-
-    // Stress lines: Additional information (optional).
-    std::string meshFilename;
-    std::string degeneratePointsFilename;
-};
-
-std::vector<DataSetInformation> loadDataSetList(const std::string& filename);
-
-#endif //LINEDENSITYCONTROL_DATASETLIST_HPP
+#endif //STRESSLINEVIS_DEGENERATEPOINTSDATLOADER_HPP

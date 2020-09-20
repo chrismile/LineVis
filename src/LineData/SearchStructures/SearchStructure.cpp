@@ -1,3 +1,4 @@
+
 /*
  * BSD 2-Clause License
  *
@@ -26,35 +27,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEDENSITYCONTROL_DATASETLIST_HPP
-#define LINEDENSITYCONTROL_DATASETLIST_HPP
+#include "SearchStructure.hpp"
 
-#include <Math/Geometry/MatrixUtil.hpp>
-#include <vector>
-
-const std::string lineDataSetsDirectory = "Data/LineDataSets/";
-
-enum DataSetType {
-    DATA_SET_TYPE_FLOW_LINES, DATA_SET_TYPE_STRESS_LINES
-};
-
-struct DataSetInformation {
-    DataSetType type = DATA_SET_TYPE_FLOW_LINES;
-    std::string name;
-    std::vector<std::string> filenames;
-
-    // Optional attributes.
-    bool hasCustomLineWidth = false;
-    float lineWidth = 0.002f;
-    bool hasCustomTransform = false;
-    glm::mat4 transformMatrix = sgl::matrixIdentity();
-    std::vector<std::string> attributeNames; ///< Names of the associated importance criteria.
-
-    // Stress lines: Additional information (optional).
-    std::string meshFilename;
-    std::string degeneratePointsFilename;
-};
-
-std::vector<DataSetInformation> loadDataSetList(const std::string& filename);
-
-#endif //LINEDENSITYCONTROL_DATASETLIST_HPP
+bool AxisAlignedBox::contains(const glm::vec3 &pt) const {
+    if (pt.x >= min.x && pt.y >= min.y && pt.z >= min.z
+        && pt.x <= max.x && pt.y <= max.y && pt.z <= max.z)
+        return true;
+    return false;
+}

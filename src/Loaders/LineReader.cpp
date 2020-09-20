@@ -35,7 +35,7 @@
 #include "LineReader.hpp"
 
 LineReader::LineReader(const std::string& filename)
-        : userManagedBuffer(false), bufferData(bufferData), bufferSize(bufferSize) {
+        : userManagedBuffer(false), bufferData(nullptr), bufferSize(0) {
     FILE* file = fopen64(filename.c_str(), "r");
     if (!file) {
         sgl::Logfile::get()->writeError(
@@ -81,7 +81,7 @@ LineReader::LineReader(const char* bufferData, const size_t bufferSize)
 }
 
 LineReader::~LineReader() {
-    if (!userManagedBuffer) {
+    if (!userManagedBuffer && bufferData) {
         delete[] bufferData;
     }
     bufferData = nullptr;

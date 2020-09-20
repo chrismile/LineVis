@@ -72,10 +72,10 @@ std::vector<DataSetInformation> loadDataSetList(const std::string& filename) {
         if (filenames.isArray()) {
             for (Json::Value::const_iterator filenameIt = filenames.begin();
                  filenameIt != filenames.end(); ++filenameIt) {
-                dataSetInformation.filenames.push_back(filenameIt->asString());
+                dataSetInformation.filenames.push_back(lineDataSetsDirectory + filenameIt->asString());
             }
         } else {
-            dataSetInformation.filenames.push_back(filenames.asString());
+            dataSetInformation.filenames.push_back(lineDataSetsDirectory + filenames.asString());
         }
 
         // Optional data: Line width.
@@ -102,6 +102,17 @@ std::vector<DataSetInformation> loadDataSetList(const std::string& filename) {
             } else {
                 dataSetInformation.attributeNames.push_back(attributes.asString());
             }
+        }
+
+        // Optional stress line data: Mesh file.
+        if (source.isMember("mesh")) {
+            dataSetInformation.meshFilename = lineDataSetsDirectory + source["mesh"].asString();
+        }
+
+        // Optional stress line data: Degenerate points file.
+        if (source.isMember("degenerate_points")) {
+            dataSetInformation.degeneratePointsFilename =
+                    lineDataSetsDirectory + source["degenerate_points"].asString();
         }
 
         dataSetList.push_back(dataSetInformation);

@@ -26,35 +26,29 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEDENSITYCONTROL_DATASETLIST_HPP
-#define LINEDENSITYCONTROL_DATASETLIST_HPP
+#include <cstdio>
+#include <iostream>
 
-#include <Math/Geometry/MatrixUtil.hpp>
-#include <vector>
+#include <Utils/File/Logfile.hpp>
 
-const std::string lineDataSetsDirectory = "Data/LineDataSets/";
+#include "LineReader.hpp"
+#include "DegeneratePointsDatLoader.hpp"
 
-enum DataSetType {
-    DATA_SET_TYPE_FLOW_LINES, DATA_SET_TYPE_STRESS_LINES
-};
+void loadDegeneratePointsFromDat(
+        const std::string& filename,
+        std::vector<glm::vec3>& degeneratePoints) {
+    LineReader lineReader(filename);
 
-struct DataSetInformation {
-    DataSetType type = DATA_SET_TYPE_FLOW_LINES;
-    std::string name;
-    std::vector<std::string> filenames;
+    uint32_t numDegeneratePoints = lineReader.readScalarLine<uint32_t>();
+    degeneratePoints.reserve(numDegeneratePoints);
+    for (uint32_t pointIdx = 0; pointIdx < numDegeneratePoints; pointIdx++) {
+        std::vector<float> positionData = lineReader.readVectorLine<float>(3);
+        degeneratePoints.push_back(glm::vec3(
+                positionData.at(0),
+                positionData.at(1),
+                positionData.at(2)));
+    }
 
-    // Optional attributes.
-    bool hasCustomLineWidth = false;
-    float lineWidth = 0.002f;
-    bool hasCustomTransform = false;
-    glm::mat4 transformMatrix = sgl::matrixIdentity();
-    std::vector<std::string> attributeNames; ///< Names of the associated importance criteria.
-
-    // Stress lines: Additional information (optional).
-    std::string meshFilename;
-    std::string degeneratePointsFilename;
-};
-
-std::vector<DataSetInformation> loadDataSetList(const std::string& filename);
-
-#endif //LINEDENSITYCONTROL_DATASETLIST_HPP
+    sgl::Logfile::get()->writeInfo(
+            std::string() + "Number of degenerate points: " + std::to_string(degeneratePoints.size()));
+}
