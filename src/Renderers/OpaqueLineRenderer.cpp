@@ -225,7 +225,7 @@ void OpaqueLineRenderer::renderGui() {
             dirty = true;
             reRender = true;
         }
-        if (shaderAttributesDegeneratePoints && ImGui::Checkbox("Programmable Fetch", &showDegeneratePoints)) {
+        if (shaderAttributesDegeneratePoints && ImGui::Checkbox("Show Degenerate Points", &showDegeneratePoints)) {
             reRender = true;
         }
         if (shaderAttributesDegeneratePoints && showDegeneratePoints) {

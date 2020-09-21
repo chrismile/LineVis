@@ -77,7 +77,7 @@ protected:
     bool useProgrammableFetch = true;
     bool useMultisampling = true;
 
-    bool showDegeneratePoints = true; ///< Only for stress lines.
+    bool showDegeneratePoints = false; ///< Only for stress lines.
     float pointWidth = STANDARD_LINE_WIDTH;
 
     int maximumNumberOfSamples = 1;
