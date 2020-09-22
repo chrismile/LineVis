@@ -42,14 +42,14 @@ void KdTree::build(const std::vector<IndexedPoint*> &indexedPoints) {
 	root = _build(indexedPoints, 0);
 }
 
-KDNode *KdTree::_build(std::vector<IndexedPoint*> points, int depth) {
+KdNode *KdTree::_build(std::vector<IndexedPoint*> points, int depth) {
     const int k = 3; // Number of dimensions
 
     if (points.size() == 0) {
         return nullptr;
     }
 
-    KDNode *node = nodes.data() + nodeCounter;
+    KdNode *node = nodes.data() + nodeCounter;
     nodeCounter++;
 
     int axis = depth % k;
@@ -101,7 +101,7 @@ std::vector<IndexedPoint*> KdTree::findPointsInSphere(const glm::vec3& center, f
     return pointsWithDistance;
 }
 
-void KdTree::_findPointsInAxisAlignedBox(const AxisAlignedBox &rect, std::vector<IndexedPoint*> &points, KDNode *node) {
+void KdTree::_findPointsInAxisAlignedBox(const AxisAlignedBox &rect, std::vector<IndexedPoint*> &points, KdNode *node) {
 	if (node == nullptr) {
 		return;
 	}
@@ -111,14 +111,10 @@ void KdTree::_findPointsInAxisAlignedBox(const AxisAlignedBox &rect, std::vector
     }
 
     const glm::vec3& pointPosition = node->point->position;
-    if ((node->axis == 0 && rect.min.x <= pointPosition.x)
-        || (node->axis == 1 && rect.min.y <= pointPosition.y)
-        || (node->axis == 2 && rect.min.z <= pointPosition.z)) {
+    if (rect.min[node->axis] <= pointPosition[node->axis]) {
         _findPointsInAxisAlignedBox(rect, points, node->left);
     }
-    if ((node->axis == 0 && rect.max.x >= pointPosition.x)
-        || (node->axis == 1 && rect.max.y >= pointPosition.y)
-        || (node->axis == 2 && rect.max.z >= pointPosition.z)) {
+    if (rect.max[node->axis] >= pointPosition[node->axis]) {
         _findPointsInAxisAlignedBox(rect, points, node->right);
     }
 }
@@ -131,21 +127,20 @@ IndexedPoint* KdTree::findNearestNeighbor(const glm::vec3& point) {
 }
 
 void KdTree::_findNearestNeighbor(
-        const glm::vec3& point, float& nearestNeighborDistance, IndexedPoint*& nearestNeighbor, KDNode* node) {
+        const glm::vec3& point, float& nearestNeighborDistance, IndexedPoint*& nearestNeighbor, KdNode* node) {
     if (node == nullptr) {
         return;
     }
 
-    bool isPointOnLeftSide =
-            (node->axis == 0 && point.x <= node->point->position.x)
-            || (node->axis == 1 && point.y <= node->point->position.y)
-            || (node->axis == 2 && point.z <= node->point->position.z);
+    // Descend on side of split planes where the point lies.
+    bool isPointOnLeftSide = node->axis == 0 && point[node->axis] <= node->point->position[node->axis];
     if (isPointOnLeftSide) {
         _findNearestNeighbor(point, nearestNeighborDistance, nearestNeighbor, node->left);
     } else {
         _findNearestNeighbor(point, nearestNeighborDistance, nearestNeighbor, node->right);
     }
 
+    // Compute the distance of this node to the point.
     glm::vec3 diff = point - node->point->position;
     float newDistance = std::sqrt(diff.x * diff.x + diff.y * diff.y + diff.z * diff.z);
     if (newDistance < nearestNeighborDistance) {
@@ -153,17 +148,11 @@ void KdTree::_findNearestNeighbor(
         nearestNeighbor = node->point;
     }
 
-    // Check opposite side.
-    if (isPointOnLeftSide && (
-            (node->axis == 0 && point.x + nearestNeighborDistance >= node->point->position.x)
-            || (node->axis == 1 && point.y + nearestNeighborDistance >= node->point->position.y)
-            || (node->axis == 2 && point.z + nearestNeighborDistance >= node->point->position.z))) {
+    // Check whether there could be a closer point on the opposite side.
+    if (isPointOnLeftSide && point[node->axis] + nearestNeighborDistance >= node->point->position[node->axis]) {
         _findNearestNeighbor(point, nearestNeighborDistance, nearestNeighbor, node->right);
     }
-    if (!isPointOnLeftSide && (
-            (node->axis == 0 && point.x - nearestNeighborDistance <= node->point->position.x)
-            || (node->axis == 1 && point.y - nearestNeighborDistance <= node->point->position.y)
-            || (node->axis == 2 && point.z - nearestNeighborDistance <= node->point->position.z))) {
+    if (!isPointOnLeftSide && point[node->axis] - nearestNeighborDistance <= node->point->position[node->axis]) {
         _findNearestNeighbor(point, nearestNeighborDistance, nearestNeighbor, node->left);
     }
 }

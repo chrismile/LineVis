@@ -38,19 +38,19 @@
  * A node in the k-d-tree. It stores in which axis the space is partitioned (x,y,z)
  * as an index, the position of the node, and its left and right children.
  */
-class KDNode
+class KdNode
 {
 public:
-    KDNode() : axis(0), point(nullptr), left(nullptr), right(nullptr) {}
+    KdNode() : axis(0), point(nullptr), left(nullptr), right(nullptr) {}
     int axis;
     IndexedPoint* point;
-    KDNode* left;
-    KDNode* right;
+    KdNode* left;
+    KdNode* right;
 };
 
 /**
  * The k-d-tree class. Used for searching point sets in space efficiently.
- * NOTE: The ownership of the memory the SPHPoint objects lies in the responsibility of the user.
+ * NOTE: The ownership of the memory the IndexedPoint objects lies in the responsibility of the user.
  */
 class KdTree : public SearchStructure
 {
@@ -93,7 +93,7 @@ private:
      * @param points The point array.
      * @return The parent node of the current sub-tree.
      */
-    KDNode* _build(std::vector<IndexedPoint*> points, int depth);
+    KdNode* _build(std::vector<IndexedPoint*> points, int depth);
 
     /**
      * Performs an area search in the k-d-tree and returns all points within a certain bounding box
@@ -102,7 +102,7 @@ private:
      * @param node The current k-d-tree node that is searched.
      * @param points The points of the k-d-tree inside of the bounding box.
      */
-    void _findPointsInAxisAlignedBox(const AxisAlignedBox& box, std::vector<IndexedPoint*> &points, KDNode* node);
+    void _findPointsInAxisAlignedBox(const AxisAlignedBox& box, std::vector<IndexedPoint*> &points, KdNode* node);
 
     /**
      * Returns the nearest neighbor in the k-d-tree to the passed point position.
@@ -112,13 +112,13 @@ private:
      * @param node The current k-d-tree node that is searched.
      */
     void _findNearestNeighbor(
-            const glm::vec3& point, float& nearestNeighborDistance, IndexedPoint*& nearestNeighbor, KDNode* node);
+            const glm::vec3& point, float& nearestNeighborDistance, IndexedPoint*& nearestNeighbor, KdNode* node);
 
     /// Root of the tree
-    KDNode* root;
+    KdNode* root;
 
     // List of all nodes
-    std::vector<KDNode> nodes;
+    std::vector<KdNode> nodes;
     int nodeCounter = 0;
 };
 
