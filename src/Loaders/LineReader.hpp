@@ -32,6 +32,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <Utils/File/Logfile.hpp>
 #include <Utils/Convert.hpp>
 
 /**

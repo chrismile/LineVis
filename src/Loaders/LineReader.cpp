@@ -90,6 +90,7 @@ LineReader::~LineReader() {
 
 
 void LineReader::fillLineBuffer() {
+    lineBuffer.clear();
     while (bufferOffset < bufferSize) {
         lineBuffer.clear();
 

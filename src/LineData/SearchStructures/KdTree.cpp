@@ -56,9 +56,7 @@ KdNode *KdTree::_build(std::vector<IndexedPoint*> points, int depth) {
     std::sort(points.begin(), points.end(), [axis](IndexedPoint *a, IndexedPoint *b) {
         const glm::vec3& posA = a->position;
         const glm::vec3& posB = b->position;
-        if (axis == 0) return posA.x < posB.x;
-        if (axis == 1) return posA.y < posB.y;
-        return posA.z < posB.z;
+        return posA[axis] < posB[axis];
     });
     size_t medianIndex = points.size() / 2;
     std::vector<IndexedPoint*> leftPoints = std::vector<IndexedPoint*>(points.begin(), points.begin() + medianIndex);
@@ -133,7 +131,7 @@ void KdTree::_findNearestNeighbor(
     }
 
     // Descend on side of split planes where the point lies.
-    bool isPointOnLeftSide = node->axis == 0 && point[node->axis] <= node->point->position[node->axis];
+    bool isPointOnLeftSide = point[node->axis] <= node->point->position[node->axis];
     if (isPointOnLeftSide) {
         _findNearestNeighbor(point, nearestNeighborDistance, nearestNeighbor, node->left);
     } else {
