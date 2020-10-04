@@ -45,7 +45,7 @@ struct OutputLinePoint {
     glm::vec3 linePoint;
     float lineAttribute;
     glm::vec3 lineTangent;
-    uint valid; // 0 or 1
+    uint32_t valid; // 0 or 1
     glm::vec3 lineNormal;
     float padding;
 };
