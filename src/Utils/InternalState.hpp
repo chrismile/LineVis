@@ -38,11 +38,11 @@
 #include "Loaders/DataSetList.hpp"
 
 enum RenderingMode {
-    RENDERING_MODE_ALL_LINES_OPAQUE, RENDERING_MODE_PER_PIXEL_LINKED_LIST, RENDERING_MODE_OPACITY_OPTIMIZATION,
-    RENDERING_MODE_DEPTH_COMPLEXITY
+    RENDERING_MODE_ALL_LINES_OPAQUE, RENDERING_MODE_PER_PIXEL_LINKED_LIST, RENDERING_MODE_MLAB,
+    RENDERING_MODE_OPACITY_OPTIMIZATION, RENDERING_MODE_DEPTH_COMPLEXITY
 };
 const char *const RENDERING_MODE_NAMES[] = {
-        "Opaque", "Per-Pixel Linked Lists", "Opacity Optimization", "Depth Complexity"
+        "Opaque", "Per-Pixel Linked Lists", "Multi-Layer Alpha Blending", "Opacity Optimization", "Depth Complexity"
 };
 const int NUM_RENDERING_MODES = ((int)(sizeof(RENDERING_MODE_NAMES) / sizeof(*RENDERING_MODE_NAMES)));
 

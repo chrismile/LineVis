@@ -43,6 +43,7 @@
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
 #include "Widgets/TransferFunctionWindow.hpp"
 #include "Loaders/TrajectoryFile.hpp"
+#include "TilingMode.hpp"
 #include "OpacityOptimizationRenderer.hpp"
 
 // Use stencil buffer to mask unused pixels
@@ -440,14 +441,21 @@ void OpacityOptimizationRenderer::onResolutionChanged() {
     sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
     viewportWidthOpacity = std::round(window->getWidth() * opacityBufferScaleFactor);
     viewportHeightOpacity = std::round(window->getHeight() * opacityBufferScaleFactor);
+    paddedViewportWidthOpacity = viewportWidthOpacity;
+    paddedViewportHeightOpacity = viewportHeightOpacity;
+    getScreenSizeWithTiling(paddedViewportWidthOpacity, paddedViewportHeightOpacity);
     viewportWidthFinal = window->getWidth();
     viewportHeightFinal = window->getHeight();
+    paddedViewportWidthFinal = viewportWidthFinal;
+    paddedViewportHeightFinal = viewportHeightFinal;
+    getScreenSizeWithTiling(paddedViewportWidthFinal, paddedViewportHeightFinal);
 
     reallocateFragmentBuffer();
 
     startOffsetBufferOpacities = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
     startOffsetBufferOpacities = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t) * viewportWidthOpacity * viewportHeightOpacity, NULL, sgl::SHADER_STORAGE_BUFFER);
+            sizeof(uint32_t) * paddedViewportWidthOpacity * paddedViewportHeightOpacity,
+            NULL, sgl::SHADER_STORAGE_BUFFER);
 
     atomicCounterBufferOpacities = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
     atomicCounterBufferOpacities = sgl::Renderer->createGeometryBuffer(
@@ -455,7 +463,8 @@ void OpacityOptimizationRenderer::onResolutionChanged() {
 
     startOffsetBufferFinal = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
     startOffsetBufferFinal = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t) * viewportWidthFinal * viewportHeightFinal, NULL, sgl::SHADER_STORAGE_BUFFER);
+            sizeof(uint32_t) * paddedViewportWidthFinal * paddedViewportHeightFinal,
+            NULL, sgl::SHADER_STORAGE_BUFFER);
 
     atomicCounterBufferFinal = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
     atomicCounterBufferFinal = sgl::Renderer->createGeometryBuffer(
@@ -493,12 +502,12 @@ void OpacityOptimizationRenderer::render() {
 }
 
 void OpacityOptimizationRenderer::setUniformData() {
-    gatherPpllOpacitiesShader->setUniform("viewportW", viewportWidthOpacity);
+    gatherPpllOpacitiesShader->setUniform("viewportW", paddedViewportWidthOpacity);
     gatherPpllOpacitiesShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeOpacity);
     gatherPpllOpacitiesShader->setUniform("cameraPosition", sceneData.camera->getPosition());
     gatherPpllOpacitiesShader->setUniform("lineWidth", lineWidth);
 
-    gatherPpllFinalShader->setUniform("viewportW", viewportWidthFinal);
+    gatherPpllFinalShader->setUniform("viewportW", paddedViewportWidthFinal);
     gatherPpllFinalShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeOpacity);
     gatherPpllFinalShader->setUniform("cameraPosition", sceneData.camera->getPosition());
     gatherPpllFinalShader->setUniform("lineWidth", lineWidth);
@@ -516,16 +525,16 @@ void OpacityOptimizationRenderer::setUniformData() {
         gatherPpllFinalShader->setUniform("foregroundColor", foregroundColor);
     }
 
-    resolvePpllOpacitiesShader->setUniform("viewportW", viewportWidthOpacity);
+    resolvePpllOpacitiesShader->setUniform("viewportW", paddedViewportWidthOpacity);
     resolvePpllOpacitiesShader->setUniform("q", q);
     resolvePpllOpacitiesShader->setUniform("r", r);
     //resolvePpllOpacitiesShader->setUniform("s", s);
     resolvePpllOpacitiesShader->setUniform("lambda", lambda);
 
-    resolvePpllFinalShader->setUniform("viewportW", viewportWidthFinal);
+    resolvePpllFinalShader->setUniform("viewportW", paddedViewportWidthFinal);
 
-    clearPpllOpacitiesShader->setUniform("viewportW", viewportWidthOpacity);
-    clearPpllFinalShader->setUniform("viewportW", viewportWidthFinal);
+    clearPpllOpacitiesShader->setUniform("viewportW", paddedViewportWidthOpacity);
+    clearPpllFinalShader->setUniform("viewportW", paddedViewportWidthFinal);
 
     convertPerSegmentOpacitiesShader->setUniform("numLineSegments", (unsigned int)numLineSegments);
 

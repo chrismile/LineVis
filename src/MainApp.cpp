@@ -67,8 +67,10 @@
 #include "Loaders/DegeneratePointsDatLoader.hpp"
 #include "LineData/LineDataFlow.hpp"
 #include "LineData/LineDataStress.hpp"
+#include "Renderers/TilingMode.hpp"
 #include "Renderers/OpaqueLineRenderer.hpp"
 #include "Renderers/PerPixelLinkedListLineRenderer.hpp"
+#include "Renderers/MLABRenderer.hpp"
 #include "Renderers/OpacityOptimizationRenderer.hpp"
 #include "Renderers/DepthComplexityRenderer.hpp"
 #include "MainApp.hpp"
@@ -113,6 +115,8 @@ MainApp::MainApp()
     clearColorSelection = ImColor(clearColor.getColorRGBA());
     transferFunctionWindow.setClearColor(clearColor);
     transferFunctionWindow.setUseLinearRGB(useLinearRGB);
+
+    setNewTilingMode(2, 8);
 
     int desktopWidth = 0;
     int desktopHeight = 0;
@@ -269,6 +273,8 @@ void MainApp::setRenderer() {
         lineRenderer = new OpaqueLineRenderer(sceneData, transferFunctionWindow);
     } else if (renderingMode == RENDERING_MODE_PER_PIXEL_LINKED_LIST) {
         lineRenderer = new PerPixelLinkedListLineRenderer(sceneData, transferFunctionWindow);
+    } else if (renderingMode == RENDERING_MODE_MLAB) {
+        lineRenderer = new MLABRenderer(sceneData, transferFunctionWindow);
     } else if (renderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION) {
         lineRenderer = new OpacityOptimizationRenderer(sceneData, transferFunctionWindow);
     } else if (renderingMode == RENDERING_MODE_DEPTH_COMPLEXITY) {

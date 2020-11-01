@@ -168,10 +168,10 @@ protected:
     sgl::GeometryBufferPtr atomicCounterBufferFinal;
 
     // Viewport data.
-    int viewportWidthOpacity = 0;
-    int viewportHeightOpacity = 0;
-    int viewportWidthFinal = 0;
-    int viewportHeightFinal = 0;
+    int viewportWidthOpacity = 0, viewportHeightOpacity = 0;
+    int paddedViewportWidthOpacity = 0, paddedViewportHeightOpacity = 0;
+    int viewportWidthFinal = 0, viewportHeightFinal = 0;
+    int paddedViewportWidthFinal = 0, paddedViewportHeightFinal = 0;
 
     // Data for performance measurements. (TODO)
     int frameCounter = 0;

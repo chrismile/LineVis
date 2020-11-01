@@ -17,4 +17,7 @@ layout(binding = 0) coherent buffer FragmentCounterBuffer {
 uniform int viewportW;
 //uniform int viewportH; // Not needed
 
-#include "TiledAddress.glsl"
+//#include "TiledAddress.glsl"
+uint addrGen(uvec2 addr2D) {
+    return addr2D.x + viewportW * addr2D.y;
+}

@@ -180,7 +180,7 @@ void main() {
 
 -- Fragment
 
-#version 430 core
+#version 450 core
 
 in vec3 fragmentPositionWorld;
 in float fragmentAttribute;
@@ -257,6 +257,36 @@ void main() {
     colorOut.a = 1.0;
     fragColor = colorOut;
     #else
+
+    #if defined(USE_SYNC_FRAGMENT_SHADER_INTERLOCK)
+    // Area of mutual exclusion for fragments mapping to the same pixel
+    beginInvocationInterlockARB();
     gatherFragmentCustomDepth(colorOut, fragmentDepth);
+    endInvocationInterlockARB();
+    #elif defined(USE_SYNC_SPINLOCK)
+    uint x = uint(gl_FragCoord.x);
+    uint y = uint(gl_FragCoord.y);
+    uint pixelIndex = addrGen(uvec2(x,y));
+    /**
+     * Spinlock code below based on code in:
+     * Brüll, Felix. (2018). Order-Independent Transparency Acceleration. 10.13140/RG.2.2.17568.84485.
+     */
+    beginInvocationInterlockARB();
+    if (!gl_HelperInvocation) {
+        bool keepWaiting = true;
+        while (keepWaiting) {
+            if (atomicCompSwap(spinlockViewportBuffer[pixelIndex], 0, 1) == 0) {
+                gatherFragmentCustomDepth(colorOut, fragmentDepth);
+                memoryBarrier();
+                atomicExchange(spinlockViewportBuffer[pixelIndex], 0);
+                keepWaiting = false;
+            }
+        }
+    }
+    endInvocationInterlockARB();
+    #else
+    gatherFragmentCustomDepth(colorOut, fragmentDepth);
+    #endif
+
     #endif
 }
