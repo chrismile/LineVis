@@ -82,8 +82,9 @@ void openglErrorCallback() {
 MainApp::MainApp()
         : camera(new sgl::Camera()),
           sceneData(
-                  sceneFramebuffer, sceneTexture, sceneDepthRBO, camera, clearColor, performanceMeasurer,
-                  recording, useCameraFlight),
+                  sceneFramebuffer, sceneTexture, sceneDepthRBO, camera,
+                  clearColor, screenshotTransparentBackground,
+                  performanceMeasurer, recording, useCameraFlight),
           checkpointWindow(sceneData), videoWriter(NULL) {
     // https://www.khronos.org/registry/OpenGL/extensions/NVX/NVX_gpu_memory_info.txt
     GLint freeMemKilobytes = 0;
@@ -367,6 +368,13 @@ void MainApp::render() {
     int height = window->getHeight();
     glViewport(0, 0, width, height);
 
+    // Set appropriate background alpha value.
+    if (screenshot && screenshotTransparentBackground) {
+        reRender = true;
+        clearColor.setA(0);
+        glDisable(GL_BLEND);
+    }
+
     if (reRender || continuousRendering) {
         if (renderingMode != RENDERING_MODE_PER_PIXEL_LINKED_LIST && usePerformanceMeasurementMode) {
             performanceMeasurer->startMeasure(recordingTimeLast);
@@ -381,26 +389,56 @@ void MainApp::render() {
         sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
         glEnable(GL_DEPTH_TEST);
-        glBlendEquation(GL_FUNC_ADD);
-        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
-        glBlendEquation(GL_FUNC_ADD);
+        if (!screenshotTransparentBackground) {
+            glBlendEquation(GL_FUNC_ADD);
+            glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
+        }
 
         if (lineData.get() != nullptr && lineRenderer != nullptr) {
             lineRenderer->render();
         }
 
-        if (renderingMode != RENDERING_MODE_ALL_LINES_OPAQUE && usePerformanceMeasurementMode) {
+        if (renderingMode != RENDERING_MODE_PER_PIXEL_LINKED_LIST && usePerformanceMeasurementMode) {
             performanceMeasurer->endMeasure();
         }
 
         reRender = false;
     }
 
+
     // Render to screen
     sgl::Renderer->unbindFBO();
     sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
     sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
+
+    if (screenshot && screenshotTransparentBackground) {
+        if (useLinearRGB) {
+            sgl::Renderer->blitTexture(
+                    sceneTexture, sgl::AABB2(glm::vec2(-1.0f, -1.0f), glm::vec2(1.0f, 1.0f)),
+                    gammaCorrectionShader);
+        } else {
+            sgl::Renderer->blitTexture(
+                    sceneTexture, sgl::AABB2(glm::vec2(-1.0f, -1.0f), glm::vec2(1.0f, 1.0f)));
+        }
+
+        if (!uiOnScreenshot) {
+            printNow = true;
+            saveScreenshot(
+                    saveDirectoryScreenshots + saveFilenameScreenshots
+                    + "_" + sgl::toString(screenshotNumber++) + ".png");
+            printNow = false;
+        }
+
+        clearColor.setA(255);
+        glEnable(GL_BLEND);
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
+        reRender = true;
+    }
+    sgl::Renderer->clearFramebuffer(
+            GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, clearColor);
+
     if (useLinearRGB) {
         sgl::Renderer->blitTexture(
                 sceneTexture, sgl::AABB2(glm::vec2(-1.0f, -1.0f), glm::vec2(1.0f, 1.0f)),
@@ -410,7 +448,7 @@ void MainApp::render() {
                 sceneTexture, sgl::AABB2(glm::vec2(-1.0f, -1.0f), glm::vec2(1.0f, 1.0f)));
     }
 
-    if (!uiOnScreenshot && screenshot) {
+    if (!screenshotTransparentBackground && !uiOnScreenshot && screenshot) {
         printNow = true;
         saveScreenshot(
                 saveDirectoryScreenshots + saveFilenameScreenshots
@@ -609,7 +647,8 @@ void MainApp::renderSceneSettingsGui() {
         saveScreenshot(
                 saveDirectoryScreenshots + saveFilenameScreenshots
                 + "_" + sgl::toString(screenshotNumber++) + ".png");
-    }
+    } ImGui::SameLine();
+    ImGui::Checkbox("Transparent Background", &screenshotTransparentBackground);
 
     ImGui::Separator();
 

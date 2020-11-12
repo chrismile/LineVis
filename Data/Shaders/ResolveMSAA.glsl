@@ -25,9 +25,19 @@ void main()
 {
     ivec2 size = textureSize(texture);
     ivec2 iCoords = ivec2(int(fragTexCoord.x*size.x), int(fragTexCoord.y*size.y));
-    vec3 color = vec3(0, 0, 0); 
+    vec4 color = vec4(0.0);
+    vec4 totalSum = vec4(0.0);
     for (int currSample = 0; currSample < numSamples; currSample++) {
-        color += texelFetch(texture, iCoords, currSample).rgb;
+        vec4 fetchedColor = texelFetch(texture, iCoords, currSample);
+        totalSum += fetchedColor;
+        color.rgb += fetchedColor.rgb * fetchedColor.a;
+        color.a += fetchedColor.a;
     }
-    fragColor = vec4(color / numSamples, 1);
+    color /= float(numSamples);
+    //fragColor = vec4(color.rgb, color.a);
+    if (color.a > 1.0 / 256.0) {
+        fragColor = vec4(color.rgb / color.a, color.a);
+    } else {
+        fragColor = totalSum / float(numSamples);
+    }
 }

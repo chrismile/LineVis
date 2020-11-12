@@ -80,6 +80,7 @@ private:
     /// Scene data (e.g., camera, main framebuffer, ...).
     sgl::CameraPtr camera;
     SceneData sceneData;
+    bool screenshotTransparentBackground = false;
 
     // Off-screen rendering
     sgl::FramebufferObjectPtr sceneFramebuffer;

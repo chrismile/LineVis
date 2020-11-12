@@ -50,7 +50,7 @@
 class PerPixelLinkedListLineRenderer : public LineRenderer {
 public:
     PerPixelLinkedListLineRenderer(SceneData& sceneData, TransferFunctionWindow& transferFunctionWindow);
-    virtual ~PerPixelLinkedListLineRenderer() {}
+    virtual ~PerPixelLinkedListLineRenderer();
 
     /**
      * Re-generates the visualization mapping.

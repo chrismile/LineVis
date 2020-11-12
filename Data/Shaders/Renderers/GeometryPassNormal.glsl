@@ -271,7 +271,6 @@ void main() {
      * Spinlock code below based on code in:
      * Brüll, Felix. (2018). Order-Independent Transparency Acceleration. 10.13140/RG.2.2.17568.84485.
      */
-    beginInvocationInterlockARB();
     if (!gl_HelperInvocation) {
         bool keepWaiting = true;
         while (keepWaiting) {
@@ -283,7 +282,6 @@ void main() {
             }
         }
     }
-    endInvocationInterlockARB();
     #else
     gatherFragmentCustomDepth(colorOut, fragmentDepth);
     #endif

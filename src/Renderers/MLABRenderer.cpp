@@ -163,6 +163,19 @@ void MLABRenderer::setNewState(const InternalState& newState) {
     newState.rendererSettings.getValueOpt("numLayers", numLayers);
     newState.rendererSettings.getValueOpt("useStencilBuffer", useStencilBuffer);
 
+    bool recompileGatherShader = false;
+    if (newState.rendererSettings.getValueOpt(
+            "useOrderedFragmentShaderInterlock", useOrderedFragmentShaderInterlock)) {
+        recompileGatherShader = true;
+    }
+    if (newState.rendererSettings.getValueOpt("syncMode", (int&)syncMode)) {
+        updateSyncMode();
+        recompileGatherShader = true;
+    }
+    if (recompileGatherShader) {
+        reloadGatherShader();
+    }
+
     timerDataIsWritten = false;
     if (sceneData.performanceMeasurer && !timerDataIsWritten) {
         if (timer) {

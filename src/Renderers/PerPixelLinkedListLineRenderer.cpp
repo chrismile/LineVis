@@ -45,7 +45,8 @@
 // Use stencil buffer to mask unused pixels
 static bool useStencilBuffer = true;
 
-PerPixelLinkedListLineRenderer::PerPixelLinkedListLineRenderer(SceneData& sceneData, TransferFunctionWindow& transferFunctionWindow)
+PerPixelLinkedListLineRenderer::PerPixelLinkedListLineRenderer(
+        SceneData& sceneData, TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer(sceneData, transferFunctionWindow) {
     sgl::ShaderManager->invalidateShaderCache();
     setSortingAlgorithmDefine();
@@ -72,6 +73,13 @@ PerPixelLinkedListLineRenderer::PerPixelLinkedListLineRenderer(SceneData& sceneD
             geomBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
 
     onResolutionChanged();
+}
+
+PerPixelLinkedListLineRenderer::~PerPixelLinkedListLineRenderer() {
+    if (sceneData.performanceMeasurer && !timerDataIsWritten && timer) {
+        delete timer;
+        sceneData.performanceMeasurer->setPpllTimer(nullptr);
+    }
 }
 
 void PerPixelLinkedListLineRenderer::reloadResolveShader() {
@@ -269,9 +277,22 @@ void PerPixelLinkedListLineRenderer::onResolutionChanged() {
 
 void PerPixelLinkedListLineRenderer::render() {
     setUniformData();
-    clear();
-    gather();
-    resolve();
+    if (sceneData.performanceMeasurer) {
+        timer->startGPU("PPLLClear", frameCounter);
+        clear();
+        timer->end();
+        timer->startGPU("FCGather", frameCounter);
+        gather();
+        timer->end();
+        timer->startGPU("PPLLResolve", frameCounter);
+        resolve();
+        timer->end();
+    } else {
+        clear();
+        gather();
+        resolve();
+    }
+    frameCounter++;
 }
 
 void PerPixelLinkedListLineRenderer::setUniformData() {

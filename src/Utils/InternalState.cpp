@@ -26,6 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "Renderers/SyncMode.hpp"
 #include "InternalState.hpp"
 
 void getTestModesDepthComplexity(std::vector<InternalState> &states, InternalState state) {
@@ -48,24 +49,59 @@ void getTestModesOpacityOptimization(std::vector<InternalState> &states, Interna
     states.push_back(state);
 }
 
+void getTestModesMlab(std::vector<InternalState> &states, InternalState state) {
+    state.renderingMode = RENDERING_MODE_MLAB;
+
+    state.name = "MLAB (No Sync)";
+    state.rendererSettings = { SettingsMap({
+            { "syncMode", std::to_string((int)NO_SYNC) }
+    })};
+    states.push_back(state);
+
+    state.name = "MLAB (Spinlock)";
+    state.rendererSettings = { SettingsMap({
+            { "syncMode", std::to_string((int)SYNC_SPINLOCK) }
+    })};
+    states.push_back(state);
+
+    state.name = "MLAB (Unordered Interlock)";
+    state.rendererSettings = { SettingsMap({
+            { "syncMode", std::to_string((int)SYNC_FRAGMENT_SHADER_INTERLOCK) },
+            { "useOrderedFragmentShaderInterlock", "false" }
+    })};
+    states.push_back(state);
+
+    state.name = "MLAB (Ordered Interlock)";
+    state.rendererSettings = { SettingsMap({
+            { "syncMode", std::to_string((int)SYNC_FRAGMENT_SHADER_INTERLOCK) },
+            { "useOrderedFragmentShaderInterlock", "true" }
+    })};
+    states.push_back(state);
+}
+
 void getTestModesPaperForMesh(std::vector<InternalState> &states, InternalState state) {
+    //getTestModesDepthComplexity(states, state);
+    //getTestModesPerPixelLinkedLists(states, state);
+    //getTestModesOpacityOptimization(states, state);
     getTestModesDepthComplexity(states, state);
     getTestModesPerPixelLinkedLists(states, state);
-    getTestModesOpacityOptimization(states, state);
+    getTestModesMlab(states, state);
 }
 
 std::vector<InternalState> getTestModesPaper()
 {
     std::vector<InternalState> states;
-    std::vector<glm::ivec2> windowResolutions = {
-            glm::ivec2(1280, 720), glm::ivec2(1920, 1080), glm::ivec2(2560, 1440) };
+    //std::vector<glm::ivec2> windowResolutions = {
+    //        glm::ivec2(1280, 720), glm::ivec2(1920, 1080), glm::ivec2(2560, 1440) };
+    std::vector<glm::ivec2> windowResolutions = { glm::ivec2(1920, 1080) };
     //std::vector<glm::ivec2> windowResolutions = { glm::ivec2(2560, 1440) };
     //std::vector<glm::ivec2> windowResolutions = { glm::ivec2(2186, 1358) };
     std::vector<DataSetDescriptor> dataSetDescriptors = {
-            DataSetDescriptor("Rings"),
+            DataSetDescriptor("Aneurysm"),
     };
     std::vector<std::string> transferFunctionNames = {
-            "Standard.xml",
+            //"Standard.xml",
+            "Transparent_Aneurysm.xml",
     };
     InternalState state;
 
