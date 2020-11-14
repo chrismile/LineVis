@@ -33,7 +33,7 @@
 
 class LineDataFlow : public LineData {
 public:
-    LineDataFlow(TransferFunctionWindow &transferFunctionWindow);
+    LineDataFlow(sgl::TransferFunctionWindow &transferFunctionWindow);
     ~LineDataFlow();
     void setTrajectoryData(const Trajectories& trajectories);
 
@@ -57,6 +57,5 @@ private:
 
     Trajectories trajectories;
 };
-
 
 #endif //STRESSLINEVIS_LINEDATAFLOW_HPP

@@ -32,8 +32,8 @@
 #include <Graphics/Shader/ShaderAttributes.hpp>
 #include <Graphics/OpenGL/TimerGL.hpp>
 
-#include "PPLL.hpp"
-#include "LineRenderer.hpp"
+#include "Renderers/PPLL.hpp"
+#include "Renderers/LineRenderer.hpp"
 
 /**
  * Implementation of opacity optimization as described in:
@@ -46,7 +46,7 @@
  */
 class OpacityOptimizationRenderer : public LineRenderer {
 public:
-    OpacityOptimizationRenderer(SceneData& sceneData, TransferFunctionWindow& transferFunctionWindow);
+    OpacityOptimizationRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     virtual ~OpacityOptimizationRenderer() {}
 
     /**

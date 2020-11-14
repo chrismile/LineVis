@@ -26,49 +26,37 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HEXVOLUMERENDERER_CAMERAPATH_HPP
-#define HEXVOLUMERENDERER_CAMERAPATH_HPP
+#ifndef STRESSLINEVIS_LINEDATAMULTIVAR_HPP
+#define STRESSLINEVIS_LINEDATAMULTIVAR_HPP
 
-#include <vector>
-#include <glm/gtc/quaternion.hpp>
+#include "LineData.hpp"
 
-#include <Math/Geometry/MatrixUtil.hpp>
-#include <Math/Geometry/AABB3.hpp>
-
-class ControlPoint
-{
+class LineDataMultiVar : public LineData {
 public:
-    ControlPoint() {}
-    ControlPoint(float time, float tx, float ty, float tz, float yaw, float pitch);
+    LineDataMultiVar(sgl::TransferFunctionWindow &transferFunctionWindow);
+    ~LineDataMultiVar();
+    void setAttributeNames(const std::vector<std::string>& attributeNames);
+    void setTrajectoryData(const Trajectories& trajectories);
 
-    float time = 0.0f;
-    glm::vec3 position;
-    glm::quat orientation;
-};
+    // Statistics.
+    virtual size_t getNumAttributes() override;
+    virtual size_t getNumLines() override;
+    virtual size_t getNumLinePoints() override;
+    virtual size_t getNumLineSegments() override;
 
-class CameraPath
-{
-public:
-    CameraPath() {}
-    void fromCirclePath(
-            sgl::AABB3& sceneBoundingBox, const std::string& modelFilename, float totalTime,
-            bool performanceMeasurementMode);
-    void fromControlPoints(const std::vector<ControlPoint>& controlPoints);
-    bool fromBinaryFile(const std::string& filename);
-    bool saveToBinaryFile(const std::string& filename);
-    void normalizeToTotalTime(float totalTime);
-    void update(float currentTime);
-    void resetTime();
-    inline const glm::mat4x4& getViewMatrix() const { return currentTransform; }
-    inline float getEndTime() { return controlPoints.back().time; }
+    // Get filtered line data (only containing points also shown when rendering).
+    virtual Trajectories filterTrajectoryData() override;
+    virtual std::vector<std::vector<glm::vec3>> getFilteredLines() override;
+
+    // --- Retrieve data for rendering. ---
+    TubeRenderData getTubeRenderData();
+    TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch();
+    TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization();
 
 private:
-    glm::mat4x4 toTransform(const glm::vec3 &position, const glm::quat &orientation);
+    virtual void recomputeHistogram() override;
 
-    const uint32_t CAMERA_PATH_FORMAT_VERSION = 1u;
-    glm::mat4x4 currentTransform;
-    std::vector<ControlPoint> controlPoints;
-    float time = 0.0f;
+    Trajectories trajectories;
 };
 
-#endif //HEXVOLUMERENDERER_CAMERAPATH_HPP
+#endif //STRESSLINEVIS_LINEDATAMULTIVAR_HPP

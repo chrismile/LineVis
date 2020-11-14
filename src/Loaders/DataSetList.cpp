@@ -35,8 +35,8 @@
 #endif
 
 #include <Utils/File/Logfile.hpp>
+#include <Utils/Regex/TransformString.hpp>
 
-#include "TransformString.hpp"
 #include "DataSetList.hpp"
 
 std::vector<DataSetInformation> loadDataSetList(const std::string& filename) {
@@ -65,6 +65,8 @@ std::vector<DataSetInformation> loadDataSetList(const std::string& filename) {
             dataSetInformation.type = DATA_SET_TYPE_FLOW_LINES;
         } else if (typeName == "stress") {
             dataSetInformation.type = DATA_SET_TYPE_STRESS_LINES;
+        } else if (typeName == "multivar") {
+            dataSetInformation.type = DATA_SET_TYPE_FLOW_LINES_MULTIVAR;
         } else {
             sgl::Logfile::get()->writeError("ERROR in loadDataSetList: Invalid type name \"" + typeName + "\".");
             return std::vector<DataSetInformation>();

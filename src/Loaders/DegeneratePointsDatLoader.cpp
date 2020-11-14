@@ -30,8 +30,8 @@
 #include <iostream>
 
 #include <Utils/File/Logfile.hpp>
+#include <Utils/File/LineReader.hpp>
 
-#include "LineReader.hpp"
 #include "DegeneratePointsDatLoader.hpp"
 
 void loadDegeneratePointsFromDat(

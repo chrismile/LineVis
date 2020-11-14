@@ -39,7 +39,7 @@
 
 class LineDataStress : public LineData {
 public:
-    LineDataStress(TransferFunctionWindow &transferFunctionWindow);
+    LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow);
     ~LineDataStress();
     void setStressTrajectoryData(
             const std::vector<Trajectories>& trajectoriesPs,

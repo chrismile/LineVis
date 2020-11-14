@@ -38,11 +38,11 @@
 #include <Utils/Events/Stream/Stream.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Utils/Convert.hpp>
+#include <Utils/SciVis/ImportanceCriteria.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/Shader/ShaderAttributes.hpp>
 #include <Graphics/Renderer.hpp>
 
-#include "Utils/ImportanceCriteria.hpp"
 #include "MeshSerializer.hpp"
 
 using namespace std;

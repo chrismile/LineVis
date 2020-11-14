@@ -26,7 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "Renderers/SyncMode.hpp"
+#include "Renderers/OIT/SyncMode.hpp"
 #include "InternalState.hpp"
 
 void getTestModesDepthComplexity(std::vector<InternalState> &states, InternalState state) {

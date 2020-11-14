@@ -32,7 +32,9 @@
 #include "LineData/LineData.hpp"
 #include "SceneData.hpp"
 
-class TransferFunctionWindow;
+namespace sgl {
+    class TransferFunctionWindow;
+}
 struct InternalState;
 class SettingsMap;
 
@@ -43,7 +45,7 @@ const float STANDARD_LINE_WIDTH = 0.002f;
  */
 class LineRenderer {
 public:
-    LineRenderer(SceneData &sceneData, TransferFunctionWindow &transferFunctionWindow)
+    LineRenderer(SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow)
         : sceneData(sceneData), transferFunctionWindow(transferFunctionWindow) {}
     virtual ~LineRenderer() {}
 
@@ -86,7 +88,7 @@ public:
 
 protected:
     SceneData& sceneData;
-    TransferFunctionWindow& transferFunctionWindow;
+    sgl::TransferFunctionWindow& transferFunctionWindow;
     bool dirty = true;
     bool reRender = true;
 

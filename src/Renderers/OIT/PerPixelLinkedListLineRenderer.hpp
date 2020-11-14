@@ -26,21 +26,20 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef STRESSLINEVIS_MLABRENDERER_HPP
-#define STRESSLINEVIS_MLABRENDERER_HPP
+#ifndef LINEDENSITYCONTROL_PERPIXELLINKEDLISTLINERENDERER_HPP
+#define LINEDENSITYCONTROL_PERPIXELLINKEDLISTLINERENDERER_HPP
 
 #include <Graphics/Shader/ShaderAttributes.hpp>
 #include <Graphics/OpenGL/TimerGL.hpp>
 
-#include "SyncMode.hpp"
-#include "LineRenderer.hpp"
+#include "Renderers/PPLL.hpp"
+#include "Renderers/LineRenderer.hpp"
 
 /**
  * Renders all lines with transparency values determined by the transfer function set by the user.
- * For this, the order-independent transparency (OIT) technique Multi-Layer Alpha Blending (MLAB) is used.
- * For more details see: Marco Salvi and Karthik Vaidyanathan. 2014. Multi-layer Alpha Blending. In Proceedings of the
- * 18th Meeting of the ACM SIGGRAPH Symposium on Interactive 3D Graphics and Games (San Francisco, California)
- * (I3D ’14). ACM, New York, NY, USA, 151–158. https://doi.org/10.1145/2556700.2556705
+ * For this, the order-independent transparency (OIT) technique per-pixel linked lists is used.
+ * For more details see: Yang, J. C., Hensley, J., Grün, H. and Thibieroz, N., "Real-Time Concurrent
+ * Linked List Construction on the GPU", Computer Graphics Forum, 29, 2010.
  *
  * For a comparison of different OIT algorithms see:
  * M. Kern, C. Neuhauser, T. Maack, M. Han, W. Usher and R. Westermann, "A Comparison of Rendering Techniques for 3D
@@ -48,11 +47,10 @@
  * doi: 10.1109/TVCG.2020.2975795
  * URL: http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9007507&isnumber=4359476
  */
-
-class MLABRenderer : public LineRenderer {
+class PerPixelLinkedListLineRenderer : public LineRenderer {
 public:
-    MLABRenderer(SceneData& sceneData, TransferFunctionWindow& transferFunctionWindow);
-    virtual ~MLABRenderer() {}
+    PerPixelLinkedListLineRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+    virtual ~PerPixelLinkedListLineRenderer();
 
     /**
      * Re-generates the visualization mapping.
@@ -75,9 +73,8 @@ public:
     virtual void setUsePrincipalStressDirectionIndex(bool usePrincipalStressDirectionIndex) override;
 
 protected:
-    void updateSyncMode();
-    void updateLayerMode();
-    void reloadShaders();
+    void setSortingAlgorithmDefine();
+    void updateLargeMeshMode();
     void reallocateFragmentBuffer();
     void setUniformData();
     void clear();
@@ -91,6 +88,9 @@ protected:
     /// Only for stress lines: Should we use the principal stress direction ID for rendering?
     bool usePrincipalStressDirectionIndex = false;
 
+    // Sorting algorithm for PPLL.
+    SortingAlgorithmMode sortingAlgorithmMode = SORTING_ALGORITHM_MODE_PRIORITY_QUEUE;
+
     // Shaders.
     sgl::ShaderProgramPtr gatherShader;
     sgl::ShaderProgramPtr clearShader;
@@ -103,14 +103,15 @@ protected:
     sgl::ShaderAttributesPtr blitRenderData;
     sgl::ShaderAttributesPtr clearRenderData;
 
-    // Stored fragment data.
+    // Per-pixel linked list data.
+    size_t fragmentBufferSize = 0;
     sgl::GeometryBufferPtr fragmentBuffer;
-    sgl::GeometryBufferPtr spinlockViewportBuffer; ///!< if (syncMode == SYNC_SPINLOCK)
+    sgl::GeometryBufferPtr startOffsetBuffer;
+    sgl::GeometryBufferPtr atomicCounterBuffer;
 
     // Window data.
     int windowWidth = 0, windowHeight = 0;
     int paddedWindowWidth = 0, paddedWindowHeight = 0;
-    bool clearBitSet = true;
 
     // Data for performance measurements.
     int frameCounter = 0;
@@ -118,14 +119,21 @@ protected:
     bool timerDataIsWritten = true;
     sgl::TimerGL* timer = nullptr;
 
-    // MLAB settings.
-    int numLayers = 8;
-    SyncMode syncMode; ///!< Initialized depending on system capabilities.
-    bool useOrderedFragmentShaderInterlock = true;
+    // Per-pixel linked list settings.
+    enum LargeMeshMode {
+        MESH_SIZE_MEDIUM, MESH_SIZE_LARGE
+    };
+    const int MESH_MODE_DEPTH_COMPLEXITIES[4][2] = {
+            80, 256, // avg and max depth complexity medium
+            120, 380 // avg and max depth complexity very large
+    };
+    LargeMeshMode largeMeshMode = MESH_SIZE_MEDIUM;
+    int expectedAvgDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES[0][0];
+    int expectedMaxDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES[0][1];
 
     // GUI data.
     bool showRendererWindow = true;
     bool useProgrammableFetch = true;
 };
 
-#endif //STRESSLINEVIS_MLABRENDERER_HPP
+#endif //LINEDENSITYCONTROL_PERPIXELLINKEDLISTLINERENDERER_HPP

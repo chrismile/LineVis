@@ -26,32 +26,36 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Utils/File/Logfile.hpp>
-#include <Utils/AppSettings.hpp>
 #include <Math/Geometry/MatrixUtil.hpp>
+#include <Utils/File/Logfile.hpp>
 #include <Graphics/Window.hpp>
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/OpenGL/GeometryBuffer.hpp>
 #include <Graphics/OpenGL/Shader.hpp>
-#include <Graphics/OpenGL/SystemGL.hpp>
+#include <Utils/AppSettings.hpp>
+#include <ImGui/ImGuiWrapper.hpp>
+#include <ImGui/Widgets/TransferFunctionWindow.hpp>
 
 #include "Utils/InternalState.hpp"
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
 #include "TilingMode.hpp"
-#include "MLABRenderer.hpp"
+#include "PerPixelLinkedListLineRenderer.hpp"
 
-// Whether to use stencil buffer to mask unused pixels.
-static bool useStencilBuffer = false;
+// Use stencil buffer to mask unused pixels
+static bool useStencilBuffer = true;
 
-MLABRenderer::MLABRenderer(SceneData& sceneData, TransferFunctionWindow& transferFunctionWindow)
+PerPixelLinkedListLineRenderer::PerPixelLinkedListLineRenderer(
+        SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer(sceneData, transferFunctionWindow) {
-    clearBitSet = true;
-    syncMode = getSupportedSyncMode();
+    sgl::ShaderManager->invalidateShaderCache();
+    setSortingAlgorithmDefine();
+    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"LinkedListGather.glsl\"");
 
-    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"MLABGather.glsl\"");
-    updateLayerMode();
-    reloadShaders();
+    reloadGatherShader();
+    reloadResolveShader();
+    clearShader = sgl::ShaderManager->getShaderProgram(
+            {"LinkedListClear.Vertex", "LinkedListClear.Fragment"});
 
     // Create blitting data (fullscreen rectangle in normalized device coordinates).
     blitRenderData = sgl::ShaderManager->createShaderAttributes(resolveShader);
@@ -67,67 +71,38 @@ MLABRenderer::MLABRenderer(SceneData& sceneData, TransferFunctionWindow& transfe
     clearRenderData = sgl::ShaderManager->createShaderAttributes(clearShader);
     clearRenderData->addGeometryBuffer(
             geomBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
-}
 
-void MLABRenderer::updateSyncMode() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
-    int paddedWidth = width, paddedHeight = height;
-    getScreenSizeWithTiling(paddedWidth, paddedHeight);
-
-    spinlockViewportBuffer = sgl::GeometryBufferPtr();
-    if (syncMode == SYNC_SPINLOCK) {
-        spinlockViewportBuffer = sgl::Renderer->createGeometryBuffer(
-                sizeof(uint32_t) * size_t(paddedWidth) * size_t(paddedHeight),
-                NULL, sgl::SHADER_STORAGE_BUFFER);
-
-        // Set all values in the buffer to zero.
-        GLuint bufferId = static_cast<sgl::GeometryBufferGL*>(spinlockViewportBuffer.get())->getBuffer();
-        uint32_t val = 0;
-        glClearNamedBufferData(bufferId, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, (const void*)&val);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-    }
-}
-
-void MLABRenderer::updateLayerMode() {
-    sgl::ShaderManager->invalidateShaderCache();
-    sgl::ShaderManager->addPreprocessorDefine("MAX_NUM_LAYERS", sgl::toString(numLayers));
     onResolutionChanged();
 }
 
-void MLABRenderer::reloadShaders() {
-    reloadGatherShader();
-    reloadResolveShader();
-
-    clearShader = sgl::ShaderManager->getShaderProgram({"MLABClear.Vertex", "MLABClear.Fragment"});
-    if (clearRenderData) {
-        clearRenderData = clearRenderData->copy(clearShader);
+PerPixelLinkedListLineRenderer::~PerPixelLinkedListLineRenderer() {
+    if (sceneData.performanceMeasurer && !timerDataIsWritten && timer) {
+        delete timer;
+        sceneData.performanceMeasurer->setPpllTimer(nullptr);
     }
 }
 
-void MLABRenderer::reloadResolveShader() {
+void PerPixelLinkedListLineRenderer::reloadResolveShader() {
     sgl::ShaderManager->invalidateShaderCache();
-    resolveShader = sgl::ShaderManager->getShaderProgram({"MLABResolve.Vertex", "MLABResolve.Fragment"});
+    sgl::ShaderManager->addPreprocessorDefine("MAX_NUM_FRAGS", sgl::toString(expectedMaxDepthComplexity));
+
+    if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT
+        || sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID) {
+        int stackSize = int(std::ceil(std::log2(expectedMaxDepthComplexity)) * 2 + 4);
+        sgl::ShaderManager->addPreprocessorDefine("STACK_SIZE", sgl::toString(stackSize));
+    }
+
+    resolveShader = sgl::ShaderManager->getShaderProgram(
+            {"LinkedListResolve.Vertex", "LinkedListResolve.Fragment"});
     if (blitRenderData) {
         blitRenderData = blitRenderData->copy(resolveShader);
     }
 }
 
-void MLABRenderer::reloadGatherShader() {
+void PerPixelLinkedListLineRenderer::reloadGatherShader() {
     sgl::ShaderManager->invalidateShaderCache();
     if (usePrincipalStressDirectionIndex) {
         sgl::ShaderManager->addPreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", "");
-    }
-    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_SYNC_FRAGMENT_SHADER_INTERLOCK", "");
-        if (!useOrderedFragmentShaderInterlock) {
-            sgl::ShaderManager->addPreprocessorDefine("INTERLOCK_UNORDERED", "");
-        }
-    } else if (syncMode == SYNC_SPINLOCK) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_SYNC_SPINLOCK", "");
-        // Do not discard while keeping the spinlock locked.
-        sgl::ShaderManager->addPreprocessorDefine("GATHER_NO_DISCARD", "");
     }
     if (useProgrammableFetch) {
         gatherShader = sgl::ShaderManager->getShaderProgram({
@@ -141,56 +116,68 @@ void MLABRenderer::reloadGatherShader() {
             "GeometryPassNormal.Fragment"
         });
     }
-    if (shaderAttributes) {
-        shaderAttributes = shaderAttributes->copy(gatherShader);
-    }
-    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_SYNC_FRAGMENT_SHADER_INTERLOCK");
-        if (!useOrderedFragmentShaderInterlock) {
-            sgl::ShaderManager->removePreprocessorDefine("INTERLOCK_UNORDERED");
-        }
-    } else if (syncMode == SYNC_SPINLOCK) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_SYNC_SPINLOCK");
-        sgl::ShaderManager->removePreprocessorDefine("GATHER_NO_DISCARD");
-    }
     if (usePrincipalStressDirectionIndex) {
         sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX");
     }
 }
 
-void MLABRenderer::setNewState(const InternalState& newState) {
+void PerPixelLinkedListLineRenderer::setSortingAlgorithmDefine() {
+    if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_PRIORITY_QUEUE) {
+        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "frontToBackPQ");
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_BUBBLE_SORT) {
+        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "bubbleSort");
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_INSERTION_SORT) {
+        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "insertionSort");
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_SHELL_SORT) {
+        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "shellSort");
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_MAX_HEAP) {
+        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "heapSort");
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT) {
+        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "quicksort");
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID) {
+        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "quicksortHybrid");
+    }
+
+    if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT
+        || sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID) {
+        sgl::ShaderManager->addPreprocessorDefine("USE_QUICKSORT", "");
+    } else {
+        sgl::ShaderManager->removePreprocessorDefine("USE_QUICKSORT");
+    }
+}
+
+void PerPixelLinkedListLineRenderer::setNewState(const InternalState& newState) {
     currentStateName = newState.name;
-    newState.rendererSettings.getValueOpt("numLayers", numLayers);
-    newState.rendererSettings.getValueOpt("useStencilBuffer", useStencilBuffer);
-
-    bool recompileGatherShader = false;
-    if (newState.rendererSettings.getValueOpt(
-            "useOrderedFragmentShaderInterlock", useOrderedFragmentShaderInterlock)) {
-        recompileGatherShader = true;
-    }
-    if (newState.rendererSettings.getValueOpt("syncMode", (int&)syncMode)) {
-        updateSyncMode();
-        recompileGatherShader = true;
-    }
-    if (recompileGatherShader) {
-        reloadGatherShader();
-    }
-
     timerDataIsWritten = false;
     if (sceneData.performanceMeasurer && !timerDataIsWritten) {
         if (timer) {
             delete timer;
         }
         timer = new sgl::TimerGL;
-        // TODO
-        //sceneData.performanceMeasurer->setMlabTimer(timer);
+        sceneData.performanceMeasurer->setPpllTimer(timer);
     }
 }
 
-void MLABRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
+void PerPixelLinkedListLineRenderer::updateLargeMeshMode() {
+    // More than one million cells?
+    LargeMeshMode newMeshLargeMeshMode = MESH_SIZE_MEDIUM;
+    if (lineData->getNumLineSegments() > 1e6) { // > 1m line segments
+        newMeshLargeMeshMode = MESH_SIZE_LARGE;
+    }
+    if (newMeshLargeMeshMode != largeMeshMode) {
+        largeMeshMode = newMeshLargeMeshMode;
+        expectedAvgDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES[int(largeMeshMode)][0];
+        expectedMaxDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES[int(largeMeshMode)][1];
+        reallocateFragmentBuffer();
+        reloadResolveShader();
+    }
+}
+
+void PerPixelLinkedListLineRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
     // Unload old data.
     this->lineData = lineData;
     shaderAttributes = sgl::ShaderAttributesPtr();
+    updateLargeMeshMode();
 
     if (useProgrammableFetch) {
         TubeRenderDataProgrammableFetch tubeRenderData = lineData->getTubeRenderDataProgrammableFetch();
@@ -231,19 +218,20 @@ void MLABRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
     reRender = true;
 }
 
-void MLABRenderer::reallocateFragmentBuffer() {
+void PerPixelLinkedListLineRenderer::reallocateFragmentBuffer() {
     sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
     int width = window->getWidth();
     int height = window->getHeight();
     int paddedWidth = width, paddedHeight = height;
     getScreenSizeWithTiling(paddedWidth, paddedHeight);
 
-    size_t fragmentBufferSizeBytes =
-            (sizeof(uint32_t) + sizeof(float)) * size_t(numLayers) * size_t(paddedWidth) * size_t(paddedHeight);
+    fragmentBufferSize = size_t(expectedAvgDepthComplexity) * size_t(paddedWidth) * size_t(paddedHeight);
+    size_t fragmentBufferSizeBytes = 12ull * fragmentBufferSize;
     if (fragmentBufferSizeBytes >= (1ull << 32ull)) {
         sgl::Logfile::get()->writeError(
                 std::string() + "Fragment buffer size was larger than or equal to 4GiB. Clamping to 4GiB.");
         fragmentBufferSizeBytes = (1ull << 32ull) - 12ull;
+        fragmentBufferSize = fragmentBufferSizeBytes / 12ull;
     } else {
         sgl::Logfile::get()->writeInfo(
                 std::string() + "Fragment buffer size GiB: "
@@ -257,15 +245,9 @@ void MLABRenderer::reallocateFragmentBuffer() {
     fragmentBuffer = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
     fragmentBuffer = sgl::Renderer->createGeometryBuffer(
             fragmentBufferSizeBytes, NULL, sgl::SHADER_STORAGE_BUFFER);
-
-    updateSyncMode();
-
-
-    // Buffer has to be cleared again.
-    clearBitSet = true;
 }
 
-void MLABRenderer::setUsePrincipalStressDirectionIndex(bool usePrincipalStressDirectionIndex) {
+void PerPixelLinkedListLineRenderer::setUsePrincipalStressDirectionIndex(bool usePrincipalStressDirectionIndex) {
     this->usePrincipalStressDirectionIndex = usePrincipalStressDirectionIndex;
     reloadGatherShader();
     if (shaderAttributes) {
@@ -274,7 +256,7 @@ void MLABRenderer::setUsePrincipalStressDirectionIndex(bool usePrincipalStressDi
     reRender = true;
 }
 
-void MLABRenderer::onResolutionChanged() {
+void PerPixelLinkedListLineRenderer::onResolutionChanged() {
     sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
     windowWidth = window->getWidth();
     windowHeight = window->getHeight();
@@ -282,25 +264,47 @@ void MLABRenderer::onResolutionChanged() {
     getScreenSizeWithTiling(paddedWindowWidth, paddedWindowHeight);
 
     reallocateFragmentBuffer();
+
+    size_t startOffsetBufferSizeBytes = sizeof(uint32_t) * paddedWindowWidth * paddedWindowHeight;
+    startOffsetBuffer = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
+    startOffsetBuffer = sgl::Renderer->createGeometryBuffer(
+            startOffsetBufferSizeBytes, NULL, sgl::SHADER_STORAGE_BUFFER);
+
+    atomicCounterBuffer = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
+    atomicCounterBuffer = sgl::Renderer->createGeometryBuffer(
+            sizeof(uint32_t), NULL, sgl::ATOMIC_COUNTER_BUFFER);
 }
 
-void MLABRenderer::render() {
+void PerPixelLinkedListLineRenderer::render() {
     setUniformData();
-    clear();
-    gather();
-    resolve();
+    if (sceneData.performanceMeasurer) {
+        timer->startGPU("PPLLClear", frameCounter);
+        clear();
+        timer->end();
+        timer->startGPU("FCGather", frameCounter);
+        gather();
+        timer->end();
+        timer->startGPU("PPLLResolve", frameCounter);
+        resolve();
+        timer->end();
+    } else {
+        clear();
+        gather();
+        resolve();
+    }
+    frameCounter++;
 }
 
-void MLABRenderer::setUniformData() {
+void PerPixelLinkedListLineRenderer::setUniformData() {
     sgl::ShaderManager->bindShaderStorageBuffer(0, fragmentBuffer);
-    if (syncMode == SYNC_SPINLOCK) {
-        sgl::ShaderManager->bindShaderStorageBuffer(1, spinlockViewportBuffer);
-    }
+    sgl::ShaderManager->bindShaderStorageBuffer(1, startOffsetBuffer);
+    sgl::ShaderManager->bindAtomicCounterBuffer(0, atomicCounterBuffer);
     if (useProgrammableFetch) {
         sgl::ShaderManager->bindShaderStorageBuffer(2, linePointDataSSBO);
     }
 
     gatherShader->setUniform("viewportW", paddedWindowWidth);
+    gatherShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSize);
     gatherShader->setUniform("cameraPosition", sceneData.camera->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
     if (gatherShader->hasUniform("transferFunctionTexture")) {
@@ -321,7 +325,7 @@ void MLABRenderer::setUniformData() {
     clearShader->setUniform("viewportW", paddedWindowWidth);
 }
 
-void MLABRenderer::clear() {
+void PerPixelLinkedListLineRenderer::clear() {
     glDepthMask(GL_FALSE);
 
     //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -333,14 +337,21 @@ void MLABRenderer::clear() {
     sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
     sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-    if (clearBitSet) {
-        sgl::Renderer->render(clearRenderData);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-        clearBitSet = false;
-    }
+    sgl::Renderer->render(clearRenderData);
+
+    // Set atomic counter to zero.
+    GLuint bufferID = static_cast<sgl::GeometryBufferGL*>(atomicCounterBuffer.get())->getBuffer();
+    GLubyte val = 0;
+    glClearNamedBufferData(bufferID, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_BYTE, (const void*)&val);
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
 }
 
-void MLABRenderer::gather() {
+void PerPixelLinkedListLineRenderer::gather() {
+    // Recording mode.
+    if (sceneData.recordingMode && sceneData.useCameraFlight) {
+        // TODO: Adapt focus radius depending on distance of camera to origin?
+    }
+
     // Enable the depth test, but disable depth write for gathering.
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -363,7 +374,7 @@ void MLABRenderer::gather() {
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }
 
-void MLABRenderer::resolve() {
+void PerPixelLinkedListLineRenderer::resolve() {
     sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
     sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
@@ -383,7 +394,7 @@ void MLABRenderer::resolve() {
     glDepthMask(GL_TRUE);
 }
 
-void MLABRenderer::renderGui() {
+void PerPixelLinkedListLineRenderer::renderGui() {
     if (ImGui::Begin("Opaque Line Renderer", &showRendererWindow)) {
         if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
             reRender = true;
@@ -393,26 +404,10 @@ void MLABRenderer::renderGui() {
             dirty = true;
             reRender = true;
         }
-        if (ImGui::SliderInt("Num Layers", &numLayers, 1, 64)) {
-            updateLayerMode();
-            reloadShaders();
-            reRender = true;
-        }
-        const char *syncModeNames[] = { "No Sync (Unsafe)", "Fragment Shader Interlock", "Spinlock" };
         if (ImGui::Combo(
-                "Sync Mode", (int*)&syncMode, syncModeNames, IM_ARRAYSIZE(syncModeNames))) {
-            updateSyncMode();
-            reloadGatherShader();
-            reRender = true;
-        }
-        if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK && ImGui::Checkbox(
-                "Ordered Sync", &useOrderedFragmentShaderInterlock)) {
-            reloadGatherShader();
-            reRender = true;
-        }
-        if (selectTilingModeUI()) {
-            reloadShaders();
-            clearBitSet = true;
+                "Sorting Mode", (int*)&sortingAlgorithmMode, SORTING_MODE_NAMES, NUM_SORTING_MODES)) {
+            setSortingAlgorithmDefine();
+            reloadResolveShader();
             reRender = true;
         }
         if (ImGui::Button("Reload Shader")) {

@@ -31,9 +31,9 @@
 
 #include <memory>
 
+#include <ImGui/Widgets/TransferFunctionWindow.hpp>
 #include "Loaders/DataSetList.hpp"
 #include "Loaders/TrajectoryFile.hpp"
-#include "Widgets/TransferFunctionWindow.hpp"
 #include "Graphics/Buffers/GeometryBuffer.hpp"
 
 struct Trajectory;
@@ -78,7 +78,7 @@ struct PointRenderData {
 
 class LineData {
 public:
-    LineData(TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType);
+    LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType);
     ~LineData();
     void setQualityMeasureIndex(int qualityMeasureIdx);
     void onTransferFunctionMapRebuilt();
@@ -108,7 +108,7 @@ protected:
     DataSetType dataSetType;
     int qualityMeasureIdx = 0; ///< Selected attribute/importance criterion index.
     bool dirty = false;
-    TransferFunctionWindow &transferFunctionWindow;
+    sgl::TransferFunctionWindow& transferFunctionWindow;
 };
 
 #endif //STRESSLINEVIS_LINEDATA_HPP

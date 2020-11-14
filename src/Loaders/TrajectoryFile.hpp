@@ -33,7 +33,7 @@
 #include <vector>
 #include <glm/glm.hpp>
 #include <Math/Geometry/AABB3.hpp>
-#include "Utils/ImportanceCriteria.hpp"
+#include <Utils/SciVis/ImportanceCriteria.hpp>
 
 struct Trajectory {
     std::vector<glm::vec3> positions;

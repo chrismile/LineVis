@@ -34,16 +34,15 @@
 #include <map>
 
 #include <Utils/AppLogic.hpp>
+#include <Utils/SciVis/CameraPath.hpp>
 #include <Graphics/Shader/Shader.hpp>
 #include <Graphics/Video/VideoWriter.hpp>
+#include <ImGui/Widgets/TransferFunctionWindow.hpp>
+#include <ImGui/Widgets/CheckpointWindow.hpp>
 
-#include "Widgets/TransferFunctionWindow.hpp"
 #include "Loaders/DataSetList.hpp"
-#include "Utils/CameraPath.hpp"
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
-
-#include "Widgets/TransferFunctionWindow.hpp"
-#include "Widgets/CheckpointWindow.hpp"
+#include "Renderers/SceneData.hpp"
 
 class LineRenderer;
 class LineData;
@@ -131,10 +130,10 @@ private:
     // Coloring & filtering dependent on importance criteria.
     int selectedAttributeIndex = 0;
     std::vector<std::string> attributeNames;
-    TransferFunctionWindow transferFunctionWindow;
+    sgl::TransferFunctionWindow transferFunctionWindow;
 
     // For loading and saving camera checkpoints.
-    CheckpointWindow checkpointWindow;
+    sgl::CheckpointWindow checkpointWindow;
 
     // For recording videos.
     bool recording = false;

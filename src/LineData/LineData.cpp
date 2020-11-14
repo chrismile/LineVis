@@ -35,7 +35,7 @@
 
 #include "LineData.hpp"
 
-LineData::LineData(TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType)
+LineData::LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType)
         : dataSetType(dataSetType), transferFunctionWindow(transferFunctionWindow) {
 }
 

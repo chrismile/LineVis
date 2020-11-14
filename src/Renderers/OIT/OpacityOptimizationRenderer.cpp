@@ -37,11 +37,11 @@
 #include <Graphics/OpenGL/Shader.hpp>
 #include <Utils/AppSettings.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
+#include <ImGui/Widgets/TransferFunctionWindow.hpp>
 #include <ImGui/imgui_custom.h>
 
 #include "Utils/InternalState.hpp"
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
-#include "Widgets/TransferFunctionWindow.hpp"
 #include "Loaders/TrajectoryFile.hpp"
 #include "TilingMode.hpp"
 #include "OpacityOptimizationRenderer.hpp"
@@ -49,7 +49,7 @@
 // Use stencil buffer to mask unused pixels
 static bool useStencilBuffer = false;
 
-OpacityOptimizationRenderer::OpacityOptimizationRenderer(SceneData& sceneData, TransferFunctionWindow& transferFunctionWindow)
+OpacityOptimizationRenderer::OpacityOptimizationRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer(sceneData, transferFunctionWindow) {
     sgl::ShaderManager->invalidateShaderCache();
     setSortingAlgorithmDefine();

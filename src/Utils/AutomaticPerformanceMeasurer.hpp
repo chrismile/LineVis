@@ -31,11 +31,11 @@
 
 #include <string>
 #include <functional>
+#include <Utils/File/CsvWriter.hpp>
 #include <Graphics/Buffers/FBO.hpp>
 #include <Graphics/Texture/Bitmap.hpp>
 #include <Graphics/OpenGL/TimerGL.hpp>
 
-#include "CsvWriter.hpp"
 #include "InternalState.hpp"
 
 const float TIME_PERFORMANCE_MEASUREMENT = 128.0f;

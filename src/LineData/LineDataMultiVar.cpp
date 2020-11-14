@@ -33,16 +33,20 @@
 
 #include <Utils/File/Logfile.hpp>
 
-#include "LineDataFlow.hpp"
+#include "LineDataMultiVar.hpp"
 
-LineDataFlow::LineDataFlow(sgl::TransferFunctionWindow &transferFunctionWindow)
+LineDataMultiVar::LineDataMultiVar(sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_FLOW_LINES) {
 }
 
-LineDataFlow::~LineDataFlow() {
+LineDataMultiVar::~LineDataMultiVar() {
 }
 
-void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
+void LineDataMultiVar::setAttributeNames(const std::vector<std::string>& attributeNames) {
+    // TODO
+}
+
+void LineDataMultiVar::setTrajectoryData(const Trajectories& trajectories) {
     this->trajectories = trajectories;
 
     sgl::Logfile::get()->writeInfo(
@@ -55,7 +59,7 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
     dirty = true;
 }
 
-void LineDataFlow::recomputeHistogram() {
+void LineDataMultiVar::recomputeHistogram() {
     std::vector<float> attributeList;
     for (const Trajectory& trajectory : trajectories) {
         for (float val : trajectory.attributes.at(qualityMeasureIdx)) {
@@ -65,7 +69,7 @@ void LineDataFlow::recomputeHistogram() {
     transferFunctionWindow.computeHistogram(attributeList, 0.0f, 1.0f);
 }
 
-size_t LineDataFlow::getNumAttributes() {
+size_t LineDataMultiVar::getNumAttributes() {
     size_t numAttributes = 0;
     if (!trajectories.empty()) {
         numAttributes = trajectories.front().attributes.size();
@@ -73,11 +77,11 @@ size_t LineDataFlow::getNumAttributes() {
     return numAttributes;
 }
 
-size_t LineDataFlow::getNumLines() {
+size_t LineDataMultiVar::getNumLines() {
     return trajectories.size();
 }
 
-size_t LineDataFlow::getNumLinePoints() {
+size_t LineDataMultiVar::getNumLinePoints() {
     size_t numLinePoints = 0;
     for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
         Trajectory& trajectory = trajectories.at(trajectoryIdx);
@@ -86,7 +90,7 @@ size_t LineDataFlow::getNumLinePoints() {
     return numLinePoints;
 }
 
-size_t LineDataFlow::getNumLineSegments() {
+size_t LineDataMultiVar::getNumLineSegments() {
     size_t numLineSegments = 0;
     for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
         Trajectory& trajectory = trajectories.at(trajectoryIdx);
@@ -96,7 +100,7 @@ size_t LineDataFlow::getNumLineSegments() {
 }
 
 
-Trajectories LineDataFlow::filterTrajectoryData() {
+Trajectories LineDataMultiVar::filterTrajectoryData() {
     Trajectories trajectoriesFiltered;
     trajectoriesFiltered.reserve(trajectories.size());
     for (const Trajectory& trajectory : trajectories) {
@@ -134,7 +138,7 @@ Trajectories LineDataFlow::filterTrajectoryData() {
     return trajectoriesFiltered;
 }
 
-std::vector<std::vector<glm::vec3>> LineDataFlow::getFilteredLines() {
+std::vector<std::vector<glm::vec3>> LineDataMultiVar::getFilteredLines() {
     std::vector<std::vector<glm::vec3>> linesFiltered;
     linesFiltered.reserve(trajectories.size());
     for (const Trajectory& trajectory : trajectories) {
@@ -172,7 +176,7 @@ std::vector<std::vector<glm::vec3>> LineDataFlow::getFilteredLines() {
 
 // --- Retrieve data for rendering. ---
 
-TubeRenderData LineDataFlow::getTubeRenderData() {
+TubeRenderData LineDataMultiVar::getTubeRenderData() {
     rebuildInternalRepresentationIfNecessary();
 
     std::vector<std::vector<glm::vec3>> lineCentersList;
@@ -226,7 +230,7 @@ TubeRenderData LineDataFlow::getTubeRenderData() {
     return tubeRenderData;
 }
 
-TubeRenderDataProgrammableFetch LineDataFlow::getTubeRenderDataProgrammableFetch() {
+TubeRenderDataProgrammableFetch LineDataMultiVar::getTubeRenderDataProgrammableFetch() {
     rebuildInternalRepresentationIfNecessary();
     TubeRenderDataProgrammableFetch tubeRenderData;
 
@@ -292,7 +296,7 @@ TubeRenderDataProgrammableFetch LineDataFlow::getTubeRenderDataProgrammableFetch
     return tubeRenderData;
 }
 
-TubeRenderDataOpacityOptimization LineDataFlow::getTubeRenderDataOpacityOptimization() {
+TubeRenderDataOpacityOptimization LineDataMultiVar::getTubeRenderDataOpacityOptimization() {
     rebuildInternalRepresentationIfNecessary();
 
     std::vector<std::vector<glm::vec3>> lineCentersList;

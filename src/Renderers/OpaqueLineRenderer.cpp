@@ -36,12 +36,12 @@
 #include <Utils/AppSettings.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
+#include <ImGui/Widgets/TransferFunctionWindow.hpp>
 
-#include "Widgets/TransferFunctionWindow.hpp"
 #include "LineData/LineDataStress.hpp"
 #include "OpaqueLineRenderer.hpp"
 
-OpaqueLineRenderer::OpaqueLineRenderer(SceneData& sceneData, TransferFunctionWindow& transferFunctionWindow)
+OpaqueLineRenderer::OpaqueLineRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer(sceneData, transferFunctionWindow) {
     reloadGatherShader();
 

@@ -36,7 +36,7 @@
 #include "SearchStructures/KdTree.hpp"
 #include "LineDataStress.hpp"
 
-LineDataStress::LineDataStress(TransferFunctionWindow &transferFunctionWindow)
+LineDataStress::LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_STRESS_LINES) {
 }
 

@@ -67,12 +67,12 @@
 #include "Loaders/DegeneratePointsDatLoader.hpp"
 #include "LineData/LineDataFlow.hpp"
 #include "LineData/LineDataStress.hpp"
-#include "Renderers/TilingMode.hpp"
+#include "Renderers/OIT/TilingMode.hpp"
 #include "Renderers/OpaqueLineRenderer.hpp"
-#include "Renderers/PerPixelLinkedListLineRenderer.hpp"
-#include "Renderers/MLABRenderer.hpp"
-#include "Renderers/OpacityOptimizationRenderer.hpp"
-#include "Renderers/DepthComplexityRenderer.hpp"
+#include "Renderers/OIT/PerPixelLinkedListLineRenderer.hpp"
+#include "Renderers/OIT/MLABRenderer.hpp"
+#include "Renderers/OIT/OpacityOptimizationRenderer.hpp"
+#include "Renderers/OIT/DepthComplexityRenderer.hpp"
 #include "MainApp.hpp"
 
 void openglErrorCallback() {
@@ -85,7 +85,7 @@ MainApp::MainApp()
                   sceneFramebuffer, sceneTexture, sceneDepthRBO, camera,
                   clearColor, screenshotTransparentBackground,
                   performanceMeasurer, recording, useCameraFlight),
-          checkpointWindow(sceneData), videoWriter(NULL) {
+          checkpointWindow(camera), videoWriter(NULL) {
     // https://www.khronos.org/registry/OpenGL/extensions/NVX/NVX_gpu_memory_info.txt
     GLint freeMemKilobytes = 0;
     if (usePerformanceMeasurementMode
@@ -482,6 +482,13 @@ void MainApp::renderGui() {
             // Selection of displayed model
             renderFileSelectionSettingsGui();
 
+            if (ImGui::Combo(
+                    "Rendering Mode", (int*)&renderingMode, RENDERING_MODE_NAMES,
+                    IM_ARRAYSIZE(RENDERING_MODE_NAMES))) {
+                setRenderer();
+                reRender = true;
+            }
+
             ImGui::Separator();
 
             if (ImGui::CollapsingHeader("Scene Settings", NULL, ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -606,13 +613,6 @@ void MainApp::renderSceneSettingsGui() {
         reRender = true;
     }
     ImGui::Checkbox("Show Transfer Function Window", &transferFunctionWindow.getShowTransferFunctionWindow());
-
-    if (ImGui::Combo(
-            "Rendering Mode", (int*)&renderingMode, RENDERING_MODE_NAMES,
-            IM_ARRAYSIZE(RENDERING_MODE_NAMES))) {
-        setRenderer();
-        reRender = true;
-    }
 
     // Switch importance criterion.
     if (lineData) {

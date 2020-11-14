@@ -30,7 +30,7 @@
 #define STRESSLINEVIS_DEPTHCOMPLEXITYRENDERER_HPP
 
 #include <Graphics/Shader/ShaderAttributes.hpp>
-#include "LineRenderer.hpp"
+#include "Renderers/LineRenderer.hpp"
 
 class AutoPerfMeasurer;
 
@@ -39,7 +39,7 @@ class AutoPerfMeasurer;
  */
 class DepthComplexityRenderer : public LineRenderer {
 public:
-    DepthComplexityRenderer(SceneData& sceneData, TransferFunctionWindow& transferFunctionWindow);
+    DepthComplexityRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     virtual ~DepthComplexityRenderer() {}
 
     /**

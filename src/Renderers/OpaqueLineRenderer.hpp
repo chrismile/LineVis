@@ -34,7 +34,7 @@
 
 class OpaqueLineRenderer : public LineRenderer {
 public:
-    OpaqueLineRenderer(SceneData& sceneData, TransferFunctionWindow& transferFunctionWindow);
+    OpaqueLineRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     virtual ~OpaqueLineRenderer() {}
 
     /**
