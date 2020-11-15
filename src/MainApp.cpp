@@ -140,7 +140,6 @@ MainApp::MainApp()
     resolutionChanged(sgl::EventPtr());
 
     selectedAttributeIndex = 0;
-    changeQualityMeasureType();
 
     if (usePerformanceMeasurementMode) {
         useCameraFlight = true;

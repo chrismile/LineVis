@@ -26,8 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PIXELSYNCOIT_TRAJECTORYFILE_HPP
-#define PIXELSYNCOIT_TRAJECTORYFILE_HPP
+#ifndef TRAJECTORYFILE_HPP
+#define TRAJECTORYFILE_HPP
 
 #include <string>
 #include <vector>
@@ -107,4 +107,4 @@ Trajectories loadTrajectoriesFromNetCdf(const std::string& filename);
 
 Trajectories loadTrajectoriesFromBinLines(const std::string& filename);
 
-#endif //PIXELSYNCOIT_TRAJECTORYFILE_HPP
+#endif // TRAJECTORYFILE_HPP
