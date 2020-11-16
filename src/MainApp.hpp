@@ -33,12 +33,9 @@
 #include <vector>
 #include <map>
 
-#include <Utils/AppLogic.hpp>
-#include <Utils/SciVis/CameraPath.hpp>
+#include <Utils/SciVis/SciVisApp.hpp>
 #include <Graphics/Shader/Shader.hpp>
-#include <Graphics/Video/VideoWriter.hpp>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
-#include <ImGui/Widgets/CheckpointWindow.hpp>
 
 #include "Loaders/DataSetList.hpp"
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
@@ -48,18 +45,16 @@ class LineRenderer;
 class LineData;
 typedef std::shared_ptr<LineData> LineDataPtr;
 
-class MainApp : public sgl::AppLogic {
+class MainApp : public sgl::SciVisApp {
 public:
     MainApp();
     ~MainApp();
-
-    /// For changing performance measurement modes.
-    void setNewState(const InternalState& newState);
-
     void render();
     void update(float dt);
     void resolutionChanged(sgl::EventPtr event);
-    void processSDLEvent(const SDL_Event &event);
+
+    /// For changing performance measurement modes.
+    void setNewState(const InternalState& newState);
 
 private:
     /// Renders the GUI of the scene settings and all filters and renderers.
@@ -70,44 +65,14 @@ private:
     void renderSceneSettingsGui();
     /// Update the color space (linear RGB vs. sRGB).
     void updateColorSpaceMode();
-    /// Override screenshot function to exclude GUI (if wanted by the user)
-    void saveScreenshot(const std::string &filename);
-    void makeScreenshot() {}
     // Called when the camera moved.
     void hasMoved();
 
     /// Scene data (e.g., camera, main framebuffer, ...).
-    sgl::CameraPtr camera;
     SceneData sceneData;
-    bool screenshotTransparentBackground = false;
-
-    // Off-screen rendering
-    sgl::FramebufferObjectPtr sceneFramebuffer;
-    sgl::TexturePtr sceneTexture;
-    sgl::RenderbufferObjectPtr sceneDepthRBO;
-    sgl::ShaderProgramPtr gammaCorrectionShader;
 
     /// Scene data used in user interface.
-    bool showSettingsWindow = true;
-    sgl::Color clearColor;
-    ImVec4 clearColorSelection = ImColor(255, 255, 255, 255);
     RenderingMode renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
-    bool useLinearRGB = true;
-    std::vector<float> fpsArray;
-    size_t fpsArrayOffset = 0;
-    bool uiOnScreenshot = false;
-    bool printNow = false;
-    std::string saveDirectoryScreenshots = "Data/Screenshots/";
-    std::string saveFilenameScreenshots = "Screenshot";
-    int screenshotNumber = 0;
-    std::string saveDirectoryVideos = "Data/Videos/";
-    std::string saveFilenameVideos = "Video";
-    int videoNumber = 0;
-    float MOVE_SPEED = 0.2f;
-    float MOUSE_ROT_SPEED = 0.05f;
-    glm::vec3 modelRotationAxis = glm::vec3(1.0f, 0.0f, 0.0f);
-    int rotateModelBy90DegreeTurns = 0;
-    glm::ivec2 windowResolution;
 
     // Data set GUI information.
     void loadAvailableDataSetInformation();
@@ -123,39 +88,12 @@ private:
     /// Should we use the principal direction ID for rendering?
     bool usePrincipalStressDirectionIndex = false;
 
-    // Continuous rendering: Re-render each frame or only when scene changes?
-    bool continuousRendering = false;
-    bool reRender = true;
-
     // Coloring & filtering dependent on importance criteria.
     int selectedAttributeIndex = 0;
     std::vector<std::string> attributeNames;
     sgl::TransferFunctionWindow transferFunctionWindow;
 
-    // For loading and saving camera checkpoints.
-    sgl::CheckpointWindow checkpointWindow;
-
-    // For recording videos.
-    bool recording = false;
-    glm::ivec2 recordingResolution = glm::ivec2(2560, 1440); // 1920, 1080
-    sgl::VideoWriter* videoWriter = nullptr;
-    const int FRAME_RATE_VIDEOS = 30;
-    float recordingTime = 0.0f;
-    float recordingTimeLast = 0.0f;
-    uint64_t recordingTimeStampStart;
-
-    // Camera paths for recording videos without human interaction.
-    CameraPath cameraPath;
-    bool useCameraFlight = false;
-    bool startedCameraFlightPerUI = false;
-    bool realTimeCameraFlight = true; // Move camera in real elapsed time or camera frame rate?
-    const std::string saveDirectoryCameraPaths = "Data/CameraPaths/";
-    float FRAME_TIME_CAMERA_PATH = 1.0f / FRAME_RATE_VIDEOS; ///< Simulate constant frame rate.
-    const float CAMERA_PATH_TIME_RECORDING = 30.0f;
-    const float CAMERA_PATH_TIME_PERFORMANCE_MEASUREMENT = TIME_PERFORMANCE_MEASUREMENT;
-
     // For making performance measurements.
-    bool usePerformanceMeasurementMode = false;
     AutomaticPerformanceMeasurer *performanceMeasurer = nullptr;
     InternalState lastState;
     bool firstState = true;
@@ -166,6 +104,8 @@ private:
 
     /// Loads a hexahedral mesh from a file.
     void loadLineDataSet(const std::vector<std::string>& fileName);
+    /// Reload the currently loaded data set.
+    virtual void reloadDataSet() override;
     /// Prepares the visualization pipeline for rendering.
     void prepareVisualizationPipeline();
     /// Change the importance criterion used for coloring.
