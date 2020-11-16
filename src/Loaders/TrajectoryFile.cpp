@@ -218,13 +218,13 @@ void normalizeTrajectoriesPsVertexAttributes(std::vector<Trajectories>& trajecto
 
 
 Trajectories loadFlowTrajectoriesFromFile(
-        const std::string& filename,
+        const std::string& filename, std::vector<std::string>& attributeNames,
         bool normalizeVertexPositions, bool normalizeAttributes, const glm::mat4* vertexTransformationMatrixPtr) {
     Trajectories trajectories;
 
     std::string lowerCaseFilename = boost::to_lower_copy(filename);
     if (boost::ends_with(lowerCaseFilename, ".obj")) {
-        trajectories = loadTrajectoriesFromObj(filename);
+        trajectories = loadTrajectoriesFromObj(filename, attributeNames);
     } else if (boost::ends_with(lowerCaseFilename, ".nc")) {
         trajectories = loadTrajectoriesFromNetCdf(filename);
     } else if (boost::ends_with(lowerCaseFilename, ".binlines")) {
@@ -253,7 +253,7 @@ void loadStressTrajectoriesFromFile(
     if (boost::ends_with(lowerCaseFilename, ".dat")) {
         loadStressTrajectoriesFromDat(filenames, trajectoriesPs, stressTrajectoriesDataPs);
     } else {
-        sgl::Logfile::get()->writeError("ERROR in loadFlowTrajectoriesFromFile: Unknown file extension.");
+        sgl::Logfile::get()->writeError("ERROR in loadStressTrajectoriesFromFile: Unknown file extension.");
     }
 
     if (normalizeVertexPositions) {
@@ -268,7 +268,7 @@ void loadStressTrajectoriesFromFile(
     }
 }
 
-Trajectories loadTrajectoriesFromObj(const std::string& filename) {
+Trajectories loadTrajectoriesFromObj(const std::string& filename,  std::vector<std::string>& attributeNames) {
     Trajectories trajectories;
 
     std::vector<glm::vec3> globalLineVertices;
@@ -309,7 +309,7 @@ Trajectories loadTrajectoriesFromObj(const std::string& filename) {
     }
 
     std::string lineBuffer;
-    std::string numberString;
+    std::string stringBuffer;
 
     for (size_t charPtr = 0; charPtr < length; ) {
         while (charPtr < length) {
@@ -357,16 +357,16 @@ Trajectories loadTrajectoriesFromObj(const std::string& filename) {
             for (size_t linePtr = 2; linePtr < lineBuffer.size(); linePtr++) {
                 char currentChar = lineBuffer.at(linePtr);
                 bool isWhitespace = currentChar == ' ' || currentChar == '\t';
-                if (isWhitespace && numberString.size() != 0) {
-                    currentLineIndices.push_back(atoi(numberString.c_str()) - 1);
-                    numberString.clear();
+                if (isWhitespace && stringBuffer.size() != 0) {
+                    currentLineIndices.push_back(atoi(stringBuffer.c_str()) - 1);
+                    stringBuffer.clear();
                 } else if (!isWhitespace) {
-                    numberString.push_back(currentChar);
+                    stringBuffer.push_back(currentChar);
                 }
             }
-            if (numberString.size() != 0) {
-                currentLineIndices.push_back(atoi(numberString.c_str()) - 1);
-                numberString.clear();
+            if (stringBuffer.size() != 0) {
+                currentLineIndices.push_back(atoi(stringBuffer.c_str()) - 1);
+                stringBuffer.clear();
             }
 
             Trajectory trajectory;
@@ -391,7 +391,20 @@ Trajectories loadTrajectoriesFromObj(const std::string& filename) {
             trajectory.attributes.push_back(pathLineAttributes);
 
             trajectories.push_back(trajectory);
-        } else if (command = '#') {
+        }  else if (command == 'a') {
+            if (attributeNames.size() > 0) {
+                for (size_t linePtr = 2; linePtr < lineBuffer.size(); linePtr++) {
+                    char currentChar = lineBuffer.at(linePtr);
+                    bool isWhitespace = currentChar == ' ' || currentChar == '\t';
+                    if (isWhitespace && stringBuffer.size() != 0) {
+                        attributeNames.push_back(stringBuffer.c_str());
+                        stringBuffer.clear();
+                    } else if (!isWhitespace) {
+                        stringBuffer.push_back(currentChar);
+                    }
+                }
+            }
+        } else if (command == '#') {
             // Ignore comments
         } else {
             //Logfile::get()->writeError(std::string() + "Error in parseObjMesh: Unknown command \"" + command + "\".");

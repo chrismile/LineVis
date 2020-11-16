@@ -47,7 +47,8 @@ bool LineDataFlow::loadFromFile(
         glm::mat4* transformationMatrixPtr) {
     Trajectories trajectories;
     trajectories = loadFlowTrajectoriesFromFile(
-            fileNames.front(), true, false, transformationMatrixPtr);
+            fileNames.front(), attributeNames, true,
+            false, transformationMatrixPtr);
     bool dataLoaded = !trajectories.empty();
 
     if (dataLoaded) {

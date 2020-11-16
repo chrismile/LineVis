@@ -44,6 +44,7 @@
 DepthComplexityRenderer::DepthComplexityRenderer(SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineRenderer("Depth Complexity Renderer", sceneData, transferFunctionWindow) {
     sgl::ShaderManager->invalidateShaderCache();
+    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"DepthComplexityGatherInc.glsl\"");
     resolveShader = sgl::ShaderManager->getShaderProgram(
             {"DepthComplexityResolve.Vertex", "DepthComplexityResolve.Fragment"});
     clearShader = sgl::ShaderManager->getShaderProgram(

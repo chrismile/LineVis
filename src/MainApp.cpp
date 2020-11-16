@@ -243,7 +243,6 @@ void MainApp::render() {
         reRender = reRender || lineRenderer->needsReRender();
     }
 
-
     if (reRender || continuousRendering) {
         if (renderingMode != RENDERING_MODE_PER_PIXEL_LINKED_LIST && usePerformanceMeasurementMode) {
             performanceMeasurer->startMeasure(recordingTimeLast);
