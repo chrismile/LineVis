@@ -173,11 +173,12 @@ void MLABRenderer::setNewState(const InternalState& newState) {
 
 void MLABRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
     if (!this->lineData || lineData->getType() != this->lineData->getType()) {
+        this->lineData = lineData;
         reloadGatherShader(false);
     }
+    this->lineData = lineData;
 
     // Unload old data.
-    this->lineData = lineData;
     shaderAttributes = sgl::ShaderAttributesPtr();
 
     shaderAttributes = lineData->getGatherShaderAttributes(gatherShader);

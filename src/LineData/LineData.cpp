@@ -47,14 +47,14 @@ LineData::~LineData() {
 }
 
 bool LineData::renderGui(bool isRasterizer) {
-    bool reloadGatherShader = false;
+    bool shallReloadGatherShader = false;
     if (isRasterizer) {
         if (ImGui::Checkbox("Programmable Fetch", &useProgrammableFetch)) {
             dirty = true;
-            reloadGatherShader = true;
+            shallReloadGatherShader = true;
         }
     }
-    return reloadGatherShader;
+    return shallReloadGatherShader;
 }
 
 void LineData::setQualityMeasureIndex(int qualityMeasureIdx) {

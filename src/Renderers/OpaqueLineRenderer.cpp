@@ -77,6 +77,7 @@ void OpaqueLineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
 
 void OpaqueLineRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
     if (!this->lineData || lineData->getType() != this->lineData->getType()) {
+        this->lineData = lineData;
         reloadGatherShader(false);
     }
     this->lineData = lineData;

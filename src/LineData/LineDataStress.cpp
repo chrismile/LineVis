@@ -52,7 +52,7 @@ LineDataStress::~LineDataStress() {
 }
 
 bool LineDataStress::renderGui(bool isRasterizer) {
-    bool reloadGatherShader = LineData::renderGui(isRasterizer);
+    bool shallReloadGatherShader = LineData::renderGui(isRasterizer);
 
     bool usedPsChanged = false;
     usedPsChanged |= ImGui::Checkbox("Major", &useMajorPS); ImGui::SameLine();
@@ -60,12 +60,14 @@ bool LineDataStress::renderGui(bool isRasterizer) {
     usedPsChanged |= ImGui::Checkbox("Minor", &useMinorPS);
     if (usedPsChanged) {
         setUsedPsDirections({useMajorPS, useMediumPS, useMinorPS});
+        shallReloadGatherShader = true;
     }
     if (ImGui::Checkbox("Use Principal Stress Direction Index", &usePrincipalStressDirectionIndex)) {
         dirty = true;
+        shallReloadGatherShader = true;
     }
 
-    return reloadGatherShader;
+    return shallReloadGatherShader;
 }
 
 bool LineDataStress::loadFromFile(

@@ -218,11 +218,12 @@ void OpacityOptimizationRenderer::updateLargeMeshMode() {
 
 void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
     if (!this->lineData || lineData->getType() != this->lineData->getType()) {
+        this->lineData = lineData;
         reloadGatherShader(false);
     }
+    this->lineData = lineData;
 
     // Unload old data.
-    this->lineData = lineData;
     gatherPpllOpacitiesRenderData = sgl::ShaderAttributesPtr();
     gatherPpllFinalRenderData = sgl::ShaderAttributesPtr();
     updateLargeMeshMode();

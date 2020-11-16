@@ -125,11 +125,11 @@ public:
     virtual std::vector<std::vector<glm::vec3>> getFilteredLines()=0;
 
     // --- Retrieve data for rendering. Preferred way. ---
-    sgl::ShaderProgramPtr reloadGatherShader();
-    sgl::ShaderAttributesPtr getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader);
-    void setUniformGatherShaderData(sgl::ShaderProgramPtr& gatherShader);
-    void setUniformGatherShaderData_AllPasses();
-    void setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader);
+    virtual sgl::ShaderProgramPtr reloadGatherShader();
+    virtual sgl::ShaderAttributesPtr getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader);
+    virtual void setUniformGatherShaderData(sgl::ShaderProgramPtr& gatherShader);
+    virtual void setUniformGatherShaderData_AllPasses();
+    virtual void setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader);
 
     // --- Retrieve data for rendering. Only for renderers needing direct access! ---
     virtual TubeRenderData getTubeRenderData()=0;

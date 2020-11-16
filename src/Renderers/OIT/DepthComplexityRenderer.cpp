@@ -77,12 +77,13 @@ void DepthComplexityRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
 
 void DepthComplexityRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
     if (!this->lineData || lineData->getType() != this->lineData->getType()) {
+        this->lineData = lineData;
         reloadGatherShader(false);
     }
+    this->lineData = lineData;
 
     // Unload old data.
     shaderAttributes = sgl::ShaderAttributesPtr();
-    this->lineData = lineData;
 
     shaderAttributes = lineData->getGatherShaderAttributes(gatherShader);
 

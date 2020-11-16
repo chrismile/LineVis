@@ -78,7 +78,7 @@ public:
     std::vector<std::vector<std::vector<glm::vec3>>> getFilteredPrincipalStressLines();
 
     // --- Retrieve data for rendering. Preferred way. ---
-    sgl::ShaderProgramPtr reloadGatherShader();
+    sgl::ShaderProgramPtr reloadGatherShader() override;
 
     // --- Retrieve data for rendering. ---
     TubeRenderData getTubeRenderData();
