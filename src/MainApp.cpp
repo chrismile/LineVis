@@ -53,6 +53,7 @@
 #include "Loaders/TrajectoryFile.hpp"
 #include "LineData/LineDataFlow.hpp"
 #include "LineData/LineDataStress.hpp"
+#include "LineData/LineDataMultiVar.hpp"
 #include "Renderers/OIT/TilingMode.hpp"
 #include "Renderers/OpaqueLineRenderer.hpp"
 #include "Renderers/OIT/PerPixelLinkedListLineRenderer.hpp"
@@ -290,7 +291,7 @@ void MainApp::renderGui() {
         ImGui::End();
     }
 
-    if (transferFunctionWindow.renderGUI()) {
+    if (transferFunctionWindow.renderGui()) {
         reRender = true;
         if (transferFunctionWindow.getTransferFunctionMapRebuilt()) {
             if (lineData) {
@@ -447,6 +448,9 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
     } else if (dataSetType == DATA_SET_TYPE_STRESS_LINES) {
         LineDataStress* lineDataStress = new LineDataStress(transferFunctionWindow);
         lineData = LineDataPtr(lineDataStress);
+    } else if (dataSetType == DATA_SET_TYPE_FLOW_LINES_MULTIVAR) {
+        LineDataMultiVar* lineDataMultiVar = new LineDataMultiVar(transferFunctionWindow);
+        lineData = LineDataPtr(lineDataMultiVar);
     }
     bool dataLoaded = lineData->loadFromFile(fileNames, selectedDataSetInformation, transformationMatrixPtr);
     if (!dataLoaded) {

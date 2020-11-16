@@ -35,28 +35,6 @@ class LineDataMultiVar : public LineDataFlow {
 public:
     LineDataMultiVar(sgl::TransferFunctionWindow &transferFunctionWindow);
     ~LineDataMultiVar();
-    void setAttributeNames(const std::vector<std::string>& attributeNames);
-    void setTrajectoryData(const Trajectories& trajectories);
-
-    // Statistics.
-    virtual size_t getNumAttributes() override;
-    virtual size_t getNumLines() override;
-    virtual size_t getNumLinePoints() override;
-    virtual size_t getNumLineSegments() override;
-
-    // Get filtered line data (only containing points also shown when rendering).
-    virtual Trajectories filterTrajectoryData() override;
-    virtual std::vector<std::vector<glm::vec3>> getFilteredLines() override;
-
-    // --- Retrieve data for rendering. ---
-    TubeRenderData getTubeRenderData();
-    TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch();
-    TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization();
-
-private:
-    virtual void recomputeHistogram() override;
-
-    Trajectories trajectories;
 };
 
 #endif //STRESSLINEVIS_LINEDATAMULTIVAR_HPP

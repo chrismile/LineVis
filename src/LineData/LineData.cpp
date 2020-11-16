@@ -34,6 +34,8 @@
 #include "Renderers/Tubes/Tubes.hpp"
 
 #include <Utils/File/Logfile.hpp>
+#include <ImGui/imgui.h>
+#include <ImGui/imgui_custom.h>
 
 #include "LineData.hpp"
 
@@ -54,13 +56,21 @@ bool LineData::renderGui(bool isRasterizer) {
             shallReloadGatherShader = true;
         }
     }
+
+    // Switch importance criterion.
+    if (ImGui::Combo(
+            "Attribute", (int*)&selectedAttributeIndexUi,
+            attributeNames.data(), attributeNames.size())) {
+        setSelectedAttributeIndex(selectedAttributeIndexUi);
+    }
+
     return shallReloadGatherShader;
 }
 
-void LineData::setQualityMeasureIndex(int qualityMeasureIdx) {
-    if (this->qualityMeasureIdx != qualityMeasureIdx) {
+void LineData::setSelectedAttributeIndex(int qualityMeasureIdx) {
+    if (this->selectedAttributeIndex != qualityMeasureIdx) {
         dirty = true;
-        this->qualityMeasureIdx = qualityMeasureIdx;
+        this->selectedAttributeIndex = qualityMeasureIdx;
     }
     recomputeHistogram();
 }

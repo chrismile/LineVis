@@ -273,6 +273,7 @@ Trajectories loadTrajectoriesFromObj(const std::string& filename,  std::vector<s
 
     std::vector<glm::vec3> globalLineVertices;
     std::vector<float> globalLineVertexAttributes;
+    size_t numVertexAttributesGlobal = 0;
 
     FILE* file = fopen64(filename.c_str(), "r");
     if (!file) {
@@ -341,9 +342,34 @@ Trajectories loadTrajectoriesFromObj(const std::string& filename,  std::vector<s
             ctr = (ctr + 1) % 1000;*/
         } else if (command == 'v' && command2 == 't') {
             // Path line vertex attribute
-            float attr = 0.0f;
-            sscanf(lineBuffer.c_str()+2, "%f", &attr);
-            globalLineVertexAttributes.push_back(attr);
+            //float attr = 0.0f;
+            //sscanf(lineBuffer.c_str()+2, "%f", &attr);
+            //globalLineVertexAttributes.push_back(attr);
+
+            size_t numAttributes = 0;
+            for (size_t linePtr = 2; linePtr < lineBuffer.size(); linePtr++) {
+                char currentChar = lineBuffer.at(linePtr);
+                bool isWhitespace = currentChar == ' ' || currentChar == '\t';
+                if (isWhitespace && stringBuffer.size() != 0) {
+                    globalLineVertexAttributes.push_back(atof(stringBuffer.c_str()));
+                    numAttributes++;
+                    stringBuffer.clear();
+                } else if (!isWhitespace) {
+                    stringBuffer.push_back(currentChar);
+                }
+            }
+            if (stringBuffer.size() != 0) {
+                globalLineVertexAttributes.push_back(atof(stringBuffer.c_str()));
+                numAttributes++;
+                stringBuffer.clear();
+            }
+
+            if (numVertexAttributesGlobal > 0 && numVertexAttributesGlobal != numAttributes) {
+                sgl::Logfile::get()->writeError(
+                        std::string() + "Error in loadTrajectoriesFromObj: Encountered inconsistent number of "
+                        + "vertex attributes in file \"" + filename + "\".");
+            }
+            numVertexAttributesGlobal = numAttributes;
         } else if (command == 'v' && command2 == 'n') {
             // Not supported so far
         } else if (command == 'v') {
@@ -370,10 +396,12 @@ Trajectories loadTrajectoriesFromObj(const std::string& filename,  std::vector<s
             }
 
             Trajectory trajectory;
-
-            std::vector<float> pathLineAttributes;
             trajectory.positions.reserve(currentLineIndices.size());
-            pathLineAttributes.reserve(currentLineIndices.size());
+            trajectory.attributes.resize(numVertexAttributesGlobal);
+            for (size_t j = 0; j < numVertexAttributesGlobal; j++) {
+                trajectory.attributes.at(j).reserve(currentLineIndices.size());
+            }
+
             for (size_t i = 0; i < currentLineIndices.size(); i++) {
                 glm::vec3 pos = globalLineVertices.at(currentLineIndices.at(i));
 
@@ -384,15 +412,15 @@ Trajectories loadTrajectoriesFromObj(const std::string& filename,  std::vector<s
                 }
 
                 trajectory.positions.push_back(globalLineVertices.at(currentLineIndices.at(i)));
-                pathLineAttributes.push_back(globalLineVertexAttributes.at(currentLineIndices.at(i)));
+                for (size_t j = 0; j < numVertexAttributesGlobal; j++) {
+                    trajectory.attributes.at(j).push_back(
+                            globalLineVertexAttributes.at(currentLineIndices.at(i) * numVertexAttributesGlobal + j));
+                }
             }
-
-            // Compute importance criteria
-            trajectory.attributes.push_back(pathLineAttributes);
 
             trajectories.push_back(trajectory);
         }  else if (command == 'a') {
-            if (attributeNames.size() > 0) {
+            if (attributeNames.empty()) {
                 for (size_t linePtr = 2; linePtr < lineBuffer.size(); linePtr++) {
                     char currentChar = lineBuffer.at(linePtr);
                     bool isWhitespace = currentChar == ' ' || currentChar == '\t';
@@ -402,6 +430,10 @@ Trajectories loadTrajectoriesFromObj(const std::string& filename,  std::vector<s
                     } else if (!isWhitespace) {
                         stringBuffer.push_back(currentChar);
                     }
+                }
+                if (stringBuffer.size() != 0) {
+                    attributeNames.push_back(stringBuffer.c_str());
+                    stringBuffer.clear();
                 }
             }
         } else if (command == '#') {

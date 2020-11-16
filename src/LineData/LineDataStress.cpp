@@ -73,6 +73,7 @@ bool LineDataStress::renderGui(bool isRasterizer) {
 bool LineDataStress::loadFromFile(
         const std::vector<std::string>& fileNames, DataSetInformation dataSetInformation,
         glm::mat4* transformationMatrixPtr) {
+    attributeNames = dataSetInformation.attributeNames;
     std::vector<Trajectories> trajectoriesPs;
     std::vector<StressTrajectoriesData> stressTrajectoriesDataPs;
     sgl::AABB3 oldAABB;
@@ -82,7 +83,6 @@ bool LineDataStress::loadFromFile(
     bool dataLoaded = !trajectoriesPs.empty();
 
     if (dataLoaded) {
-        attributeNames = dataSetInformation.attributeNames;
         setStressTrajectoryData(trajectoriesPs, stressTrajectoriesDataPs);
         if (!dataSetInformation.degeneratePointsFilename.empty()) {
             std::vector<glm::vec3> degeneratePoints;
@@ -96,6 +96,7 @@ bool LineDataStress::loadFromFile(
         for (size_t attrIdx = attributeNames.size(); attrIdx < getNumAttributes(); attrIdx++) {
             attributeNames.push_back(std::string() + "Attribute #" + std::to_string(attrIdx + 1));
         }
+        recomputeHistogram();
     }
 
     return dataLoaded;
@@ -193,7 +194,7 @@ void LineDataStress::recomputeHistogram() {
     std::vector<float> attributeList;
     for (const Trajectories& trajectories : trajectoriesPs) {
         for (const Trajectory& trajectory : trajectories) {
-            for (float val : trajectory.attributes.at(qualityMeasureIdx)) {
+            for (float val : trajectory.attributes.at(selectedAttributeIndex)) {
                 attributeList.push_back(val);
             }
         }
@@ -463,7 +464,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
         lineAttributesList.resize(trajectories.size());
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
-            std::vector<float>& attributes = trajectory.attributes.at(qualityMeasureIdx);
+            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
             assert(attributes.size() == trajectory.positions.size());
             std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
             std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
@@ -537,7 +538,7 @@ TubeRenderDataProgrammableFetch LineDataStress::getTubeRenderDataProgrammableFet
         lineAttributesList.resize(trajectories.size());
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
-            std::vector<float>& attributes = trajectory.attributes.at(qualityMeasureIdx);
+            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
             assert(attributes.size() == trajectory.positions.size());
             std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
             std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
@@ -618,7 +619,7 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
         lineAttributesList.resize(trajectories.size());
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
-            std::vector<float>& attributes = trajectory.attributes.at(qualityMeasureIdx);
+            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
             assert(attributes.size() == trajectory.positions.size());
             std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
             std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);

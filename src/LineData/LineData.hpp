@@ -96,7 +96,7 @@ class LineData {
 public:
     LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType);
     ~LineData();
-    void setQualityMeasureIndex(int qualityMeasureIdx);
+    void setSelectedAttributeIndex(int qualityMeasureIdx);
     void onTransferFunctionMapRebuilt();
     inline bool isDirty() { return dirty; }
     inline DataSetType getType() { return dataSetType; }
@@ -149,7 +149,8 @@ protected:
     DataSetType dataSetType;
     sgl::AABB3 modelBoundingBox;
     std::vector<std::string> attributeNames;
-    int qualityMeasureIdx = 0; ///< Selected attribute/importance criterion index.
+    int selectedAttributeIndex = 0; ///< Selected attribute/importance criterion index.
+    int selectedAttributeIndexUi = 0;
     bool dirty = false; ///< Should be set to true if the representation changed.
     sgl::TransferFunctionWindow& transferFunctionWindow;
 
