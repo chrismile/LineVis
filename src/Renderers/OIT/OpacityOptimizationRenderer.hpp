@@ -72,15 +72,12 @@ public:
     /// For changing performance measurement modes.
     virtual void setNewState(const InternalState& newState);
 
-    /// Only for stress lines: Should we use the principal stress direction ID for rendering?
-    virtual void setUsePrincipalStressDirectionIndex(bool usePrincipalStressDirectionIndex) override;
-
 protected:
     void setSortingAlgorithmDefine();
     void updateLargeMeshMode();
     void reallocateFragmentBuffer();
     void setUniformData();
-    void reloadGatherShader();
+    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
     void reloadResolveShader();
 
     // Rendering steps.
@@ -95,10 +92,7 @@ protected:
     void resolvePpllFinal();
 
     // Line data.
-    LineDataPtr lineData;
     std::vector<std::vector<glm::vec3>> lines;
-    /// Only for stress lines: Should we use the principal stress direction ID for rendering?
-    bool usePrincipalStressDirectionIndex = false;
 
     // When the camera has moved or parameters have been changed, we need to render some more frames due to temporal
     // smoothing if continuous rendering is disabled.

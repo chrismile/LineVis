@@ -27,6 +27,8 @@
  */
 
 #include <Graphics/Renderer.hpp>
+#include <Graphics/Shader/ShaderManager.hpp>
+#include <Graphics/Shader/ShaderAttributes.hpp>
 
 #include "Loaders/TrajectoryFile.hpp"
 #include "Renderers/Tubes/Tubes.hpp"
@@ -35,11 +37,24 @@
 
 #include "LineData.hpp"
 
+bool LineData::useProgrammableFetch = true;
+
 LineData::LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType)
         : dataSetType(dataSetType), transferFunctionWindow(transferFunctionWindow) {
 }
 
 LineData::~LineData() {
+}
+
+bool LineData::renderGui(bool isRasterizer) {
+    bool reloadGatherShader = false;
+    if (isRasterizer) {
+        if (ImGui::Checkbox("Programmable Fetch", &useProgrammableFetch)) {
+            dirty = true;
+            reloadGatherShader = true;
+        }
+    }
+    return reloadGatherShader;
 }
 
 void LineData::setQualityMeasureIndex(int qualityMeasureIdx) {
@@ -58,4 +73,76 @@ void LineData::rebuildInternalRepresentationIfNecessary() {
         //updateMeshTriangleIntersectionDataStructure();
         dirty = false;
     }
+}
+
+sgl::ShaderProgramPtr LineData::reloadGatherShader() {
+    sgl::ShaderManager->invalidateShaderCache();
+    if (useProgrammableFetch) {
+        return sgl::ShaderManager->getShaderProgram({
+                "GeometryPassNormal.Programmable.Vertex",
+                "GeometryPassNormal.Fragment"
+        });
+    } else {
+        return sgl::ShaderManager->getShaderProgram({
+                "GeometryPassNormal.VBO.Vertex",
+                "GeometryPassNormal.VBO.Geometry",
+                "GeometryPassNormal.Fragment"
+        });
+    }
+}
+
+sgl::ShaderAttributesPtr LineData::getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader) {
+    sgl::ShaderAttributesPtr shaderAttributes;
+
+    if (useProgrammableFetch) {
+        TubeRenderDataProgrammableFetch tubeRenderData = this->getTubeRenderDataProgrammableFetch();
+        linePointDataSSBO = tubeRenderData.linePointsBuffer;
+
+        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
+        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_TRIANGLES);
+        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
+    } else {
+        TubeRenderData tubeRenderData = this->getTubeRenderData();
+        linePointDataSSBO = sgl::GeometryBufferPtr();
+
+        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
+
+        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_LINES);
+        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
+        shaderAttributes->addGeometryBuffer(
+                tubeRenderData.vertexPositionBuffer, "vertexPosition",
+                sgl::ATTRIB_FLOAT, 3);
+        shaderAttributes->addGeometryBuffer(
+                tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
+                sgl::ATTRIB_FLOAT, 1);
+        shaderAttributes->addGeometryBufferOptional(
+                tubeRenderData.vertexNormalBuffer, "vertexNormal",
+                sgl::ATTRIB_FLOAT, 3);
+        shaderAttributes->addGeometryBufferOptional(
+                tubeRenderData.vertexTangentBuffer, "vertexTangent",
+                sgl::ATTRIB_FLOAT, 3);
+        if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
+            shaderAttributes->addGeometryBufferOptional(
+                    tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
+                    sgl::ATTRIB_UNSIGNED_INT,
+                    1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
+        }
+    }
+
+    return shaderAttributes;
+}
+
+void LineData::setUniformGatherShaderData(sgl::ShaderProgramPtr& gatherShader) {
+    setUniformGatherShaderData_AllPasses();
+    setUniformGatherShaderData_Pass(gatherShader);
+}
+
+void LineData::setUniformGatherShaderData_AllPasses() {
+    if (useProgrammableFetch) {
+        sgl::ShaderManager->bindShaderStorageBuffer(2, linePointDataSSBO);
+    }
+}
+
+void LineData::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader) {
+    ;
 }

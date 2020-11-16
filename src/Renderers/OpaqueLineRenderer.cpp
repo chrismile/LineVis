@@ -42,9 +42,7 @@
 #include "OpaqueLineRenderer.hpp"
 
 OpaqueLineRenderer::OpaqueLineRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
-        : LineRenderer(sceneData, transferFunctionWindow) {
-    reloadGatherShader();
-
+        : LineRenderer("Opaque Line Renderer", sceneData, transferFunctionWindow) {
     // Get all available multisampling modes.
     glGetIntegerv(GL_MAX_SAMPLES, &maximumNumberOfSamples);
     if (maximumNumberOfSamples <= 1) {
@@ -59,74 +57,38 @@ OpaqueLineRenderer::OpaqueLineRenderer(SceneData& sceneData, sgl::TransferFuncti
     onResolutionChanged();
 }
 
-void OpaqueLineRenderer::reloadGatherShader() {
+void OpaqueLineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     sgl::ShaderManager->invalidateShaderCache();
     sgl::ShaderManager->addPreprocessorDefine("DIRECT_BLIT_GATHER", "");
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "GatherDummy.glsl");
-    if (usePrincipalStressDirectionIndex) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", "");
-    }
-    shaderProgramGeometryShader = sgl::ShaderManager->getShaderProgram({
-        "GeometryPassNormal.VBO.Vertex",
-        "GeometryPassNormal.VBO.Geometry",
-        "GeometryPassNormal.Fragment"
-    });
-    shaderProgramProgrammableFetch = sgl::ShaderManager->getShaderProgram({
-        "GeometryPassNormal.Programmable.Vertex",
-        "GeometryPassNormal.Fragment"
-    });
-    shaderProgramPoints = sgl::ShaderManager->getShaderProgram({
+    gatherShader = lineData->reloadGatherShader();
+    gatherShaderPoints = sgl::ShaderManager->getShaderProgram({
         "Point.Vertex", "Point.Geometry", "Point.Fragment"
     });
-    if (usePrincipalStressDirectionIndex) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX");
-    }
     sgl::ShaderManager->removePreprocessorDefine("DIRECT_BLIT_GATHER");
+
+    if (canCopyShaderAttributes && shaderAttributes) {
+        shaderAttributes = shaderAttributes->copy(gatherShader);
+    }
+    if (canCopyShaderAttributes && shaderAttributesDegeneratePoints) {
+        shaderAttributesDegeneratePoints = shaderAttributesDegeneratePoints->copy(gatherShaderPoints);
+    }
 }
 
 void OpaqueLineRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
+    if (!this->lineData || lineData->getType() != this->lineData->getType()) {
+        reloadGatherShader(false);
+    }
+    this->lineData = lineData;
+
     // Unload old data.
     shaderAttributes = sgl::ShaderAttributesPtr();
     shaderAttributesDegeneratePoints = sgl::ShaderAttributesPtr();
 
-    if (useProgrammableFetch) {
-        TubeRenderDataProgrammableFetch tubeRenderData = lineData->getTubeRenderDataProgrammableFetch();
-        linePointDataSSBO = tubeRenderData.linePointsBuffer;
-
-        shaderAttributes = sgl::ShaderManager->createShaderAttributes(shaderProgramProgrammableFetch);
-        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_TRIANGLES);
-        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-    } else {
-        TubeRenderData tubeRenderData = lineData->getTubeRenderData();
-        linePointDataSSBO = sgl::GeometryBufferPtr();
-
-        shaderAttributes = sgl::ShaderManager->createShaderAttributes(shaderProgramGeometryShader);
-
-        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_LINES);
-        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-        shaderAttributes->addGeometryBuffer(
-                tubeRenderData.vertexPositionBuffer, "vertexPosition",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBuffer(
-                tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
-                sgl::ATTRIB_FLOAT, 1);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexNormalBuffer, "vertexNormal",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexTangentBuffer, "vertexTangent",
-                sgl::ATTRIB_FLOAT, 3);
-        if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
-            shaderAttributes->addGeometryBufferOptional(
-                    tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
-                    sgl::ATTRIB_UNSIGNED_INT,
-                    1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
-        }
-    }
-
+    shaderAttributes = lineData->getGatherShaderAttributes(gatherShader);
     if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
         PointRenderData pointRenderData = static_cast<LineDataStress*>(lineData.get())->getDegeneratePointsRenderData();
-        shaderAttributesDegeneratePoints = sgl::ShaderManager->createShaderAttributes(shaderProgramPoints);
+        shaderAttributesDegeneratePoints = sgl::ShaderManager->createShaderAttributes(gatherShaderPoints);
         shaderAttributesDegeneratePoints->setVertexMode(sgl::VERTEX_MODE_POINTS);
         shaderAttributesDegeneratePoints->addGeometryBuffer(
                 pointRenderData.vertexPositionBuffer, "vertexPosition",
@@ -134,19 +96,6 @@ void OpaqueLineRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
     }
 
     dirty = false;
-    reRender = true;
-}
-
-void OpaqueLineRenderer::setUsePrincipalStressDirectionIndex(bool usePrincipalStressDirectionIndex) {
-    this->usePrincipalStressDirectionIndex = usePrincipalStressDirectionIndex;
-    reloadGatherShader();
-    if (shaderAttributes) {
-        if (useProgrammableFetch) {
-            shaderAttributes = shaderAttributes->copy(shaderProgramProgrammableFetch);
-        } else {
-            shaderAttributes = shaderAttributes->copy(shaderProgramGeometryShader);
-        }
-    }
     reRender = true;
 }
 
@@ -170,25 +119,22 @@ void OpaqueLineRenderer::onResolutionChanged() {
 }
 
 void OpaqueLineRenderer::render() {
-    sgl::ShaderProgram* shaderProgram = shaderAttributes->getShaderProgram();
-    shaderProgram->setUniform("cameraPosition", sceneData.camera->getPosition());
-    shaderProgram->setUniform("lineWidth", lineWidth);
-    if (shaderProgram->hasUniform("transferFunctionTexture")) {
-        shaderProgram->setUniform(
+    gatherShader->setUniform("cameraPosition", sceneData.camera->getPosition());
+    gatherShader->setUniform("lineWidth", lineWidth);
+    if (gatherShader->hasUniform("transferFunctionTexture")) {
+        gatherShader->setUniform(
                 "transferFunctionTexture", transferFunctionWindow.getTransferFunctionMapTexture(), 0);
     }
-    if (shaderProgram->hasUniform("backgroundColor")) {
+    if (gatherShader->hasUniform("backgroundColor")) {
         glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
-        shaderProgram->setUniform("backgroundColor", backgroundColor);
+        gatherShader->setUniform("backgroundColor", backgroundColor);
     }
     glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
     glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
-    if (shaderProgram->hasUniform("foregroundColor")) {
-        shaderProgram->setUniform("foregroundColor", foregroundColor);
+    if (gatherShader->hasUniform("foregroundColor")) {
+        gatherShader->setUniform("foregroundColor", foregroundColor);
     }
-    if (useProgrammableFetch) {
-        sgl::ShaderManager->bindShaderStorageBuffer(2, linePointDataSSBO);
-    }
+    lineData->setUniformGatherShaderData(gatherShader);
 
     if (useMultisampling) {
         sgl::Renderer->bindFBO(msaaSceneFBO);
@@ -199,10 +145,10 @@ void OpaqueLineRenderer::render() {
     sgl::Renderer->render(shaderAttributes);
 
     if (shaderAttributesDegeneratePoints && showDegeneratePoints) {
-        shaderProgramPoints->setUniform("cameraPosition", sceneData.camera->getPosition());
-        shaderProgramPoints->setUniform("pointWidth", pointWidth);
-        shaderProgramPoints->setUniform("foregroundColor", foregroundColor);
-        shaderProgramPoints->setUniform("pointColor", glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+        gatherShaderPoints->setUniform("cameraPosition", sceneData.camera->getPosition());
+        gatherShaderPoints->setUniform("pointWidth", pointWidth);
+        gatherShaderPoints->setUniform("foregroundColor", foregroundColor);
+        gatherShaderPoints->setUniform("pointColor", glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
         sgl::Renderer->render(shaderAttributesDegeneratePoints);
     }
 
@@ -217,36 +163,29 @@ void OpaqueLineRenderer::render() {
 }
 
 void OpaqueLineRenderer::renderGui() {
-    if (ImGui::Begin("Opaque Line Renderer", &showRendererWindow)) {
-        if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
+    if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
+        reRender = true;
+    }
+    if (shaderAttributesDegeneratePoints && ImGui::Checkbox("Show Degenerate Points", &showDegeneratePoints)) {
+        reRender = true;
+    }
+    if (shaderAttributesDegeneratePoints && showDegeneratePoints) {
+        if (shaderAttributesDegeneratePoints && ImGui::SliderFloat(
+                "Point Width", &pointWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH)) {
             reRender = true;
         }
-        if (ImGui::Checkbox("Programmable Fetch", &useProgrammableFetch)) {
-            dirty = true;
+    }
+    if (maximumNumberOfSamples > 1) {
+        if (ImGui::Checkbox("Multisampling", &useMultisampling)) {
+            onResolutionChanged();
             reRender = true;
         }
-        if (shaderAttributesDegeneratePoints && ImGui::Checkbox("Show Degenerate Points", &showDegeneratePoints)) {
-            reRender = true;
-        }
-        if (shaderAttributesDegeneratePoints && showDegeneratePoints) {
-            if (shaderAttributesDegeneratePoints && ImGui::SliderFloat(
-                    "Point Width", &pointWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH)) {
-                reRender = true;
-            }
-        }
-        if (maximumNumberOfSamples > 1) {
-            if (ImGui::Checkbox("Multisampling", &useMultisampling)) {
+        if (useMultisampling) {
+            if (ImGui::Combo("Samples", &sampleModeSelection, sampleModeNames.data(), numSampleModes)) {
+                numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
                 onResolutionChanged();
                 reRender = true;
             }
-            if (useMultisampling) {
-                if (ImGui::Combo("Samples", &sampleModeSelection, sampleModeNames.data(), numSampleModes)) {
-                    numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
-                    onResolutionChanged();
-                    reRender = true;
-                }
-            }
         }
     }
-    ImGui::End();
 }

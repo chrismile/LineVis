@@ -42,6 +42,7 @@
 
 #include "Utils/InternalState.hpp"
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
+#include "LineData/LineDataStress.hpp"
 #include "Loaders/TrajectoryFile.hpp"
 #include "TilingMode.hpp"
 #include "OpacityOptimizationRenderer.hpp"
@@ -50,7 +51,7 @@
 static bool useStencilBuffer = false;
 
 OpacityOptimizationRenderer::OpacityOptimizationRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
-        : LineRenderer(sceneData, transferFunctionWindow) {
+        : LineRenderer("Opacity Optimization Renderer", sceneData, transferFunctionWindow) {
     sgl::ShaderManager->invalidateShaderCache();
     setSortingAlgorithmDefine();
 
@@ -133,9 +134,11 @@ void OpacityOptimizationRenderer::reloadResolveShader() {
     }
 }
 
-void OpacityOptimizationRenderer::reloadGatherShader() {
+void OpacityOptimizationRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     sgl::ShaderManager->invalidateShaderCache();
 
+    bool usePrincipalStressDirectionIndex = lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES
+            && static_cast<LineDataStress*>(lineData.get())->getUsePrincipalStressDirectionIndex();
     if (usePrincipalStressDirectionIndex) {
         sgl::ShaderManager->addPreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", "");
     }
@@ -151,6 +154,13 @@ void OpacityOptimizationRenderer::reloadGatherShader() {
     });
     if (usePrincipalStressDirectionIndex) {
         sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX");
+    }
+
+    if (canCopyShaderAttributes && gatherPpllOpacitiesRenderData) {
+        gatherPpllOpacitiesRenderData = gatherPpllOpacitiesRenderData->copy(gatherPpllOpacitiesShader);
+    }
+    if (canCopyShaderAttributes && gatherPpllFinalRenderData) {
+        gatherPpllFinalRenderData = gatherPpllFinalRenderData->copy(gatherPpllFinalShader);
     }
 }
 
@@ -207,6 +217,10 @@ void OpacityOptimizationRenderer::updateLargeMeshMode() {
 }
 
 void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
+    if (!this->lineData || lineData->getType() != this->lineData->getType()) {
+        reloadGatherShader(false);
+    }
+
     // Unload old data.
     this->lineData = lineData;
     gatherPpllOpacitiesRenderData = sgl::ShaderAttributesPtr();
@@ -273,18 +287,6 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewM
     dirty = false;
     reRender = true;
     onHasMoved();
-}
-
-void OpacityOptimizationRenderer::setUsePrincipalStressDirectionIndex(bool usePrincipalStressDirectionIndex) {
-    this->usePrincipalStressDirectionIndex = usePrincipalStressDirectionIndex;
-    reloadGatherShader();
-    if (gatherPpllOpacitiesRenderData) {
-        gatherPpllOpacitiesRenderData = gatherPpllOpacitiesRenderData->copy(gatherPpllOpacitiesShader);
-    }
-    if (gatherPpllFinalRenderData) {
-        gatherPpllFinalRenderData = gatherPpllFinalRenderData->copy(gatherPpllFinalShader);
-    }
-    reRender = true;
 }
 
 void OpacityOptimizationRenderer::generateBlendingWeightParametrization(bool isNewMesh) {
@@ -753,60 +755,57 @@ void OpacityOptimizationRenderer::resolvePpllFinal() {
 
 
 void OpacityOptimizationRenderer::renderGui() {
-    if (ImGui::Begin("Opaque Line Renderer", &showRendererWindow)) {
-        if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
-            reRender = true;
-            onHasMoved();
-        }
-        if (ImGui::SliderFloat("q", &q, 0.0f, 5000.0f, "%.1f")) {
-            reRender = true;
-            onHasMoved();
-        }
-        if (ImGui::SliderFloat("r", &r, 0.0f, 5000.0f, "%.1f")) {
-            reRender = true;
-            onHasMoved();
-        }
-        if (ImGui::SliderInt("s", &s, 0, 20)) {
-            reRender = true;
-            onHasMoved();
-        }
-        if (ImGui::SliderFloat("lambda", &lambda, 0.1f, 20.0f, "%.1f")) {
-            reRender = true;
-            onHasMoved();
-        }
-        if (ImGui::SliderFloat("rel", &relaxationConstant, 0.0f, 1.0f, "%.2f")) {
-            reRender = true;
-            onHasMoved();
-        }
-        if (ImGui::SliderFloat("ts", &temporalSmoothingFactor, 0.0f, 1.0f, "%.2f")) {
-            reRender = true;
-            onHasMoved();
-        }
+    if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
+        reRender = true;
+        onHasMoved();
+    }
+    if (ImGui::SliderFloat("q", &q, 0.0f, 5000.0f, "%.1f")) {
+        reRender = true;
+        onHasMoved();
+    }
+    if (ImGui::SliderFloat("r", &r, 0.0f, 5000.0f, "%.1f")) {
+        reRender = true;
+        onHasMoved();
+    }
+    if (ImGui::SliderInt("s", &s, 0, 20)) {
+        reRender = true;
+        onHasMoved();
+    }
+    if (ImGui::SliderFloat("lambda", &lambda, 0.1f, 20.0f, "%.1f")) {
+        reRender = true;
+        onHasMoved();
+    }
+    if (ImGui::SliderFloat("rel", &relaxationConstant, 0.0f, 1.0f, "%.2f")) {
+        reRender = true;
+        onHasMoved();
+    }
+    if (ImGui::SliderFloat("ts", &temporalSmoothingFactor, 0.0f, 1.0f, "%.2f")) {
+        reRender = true;
+        onHasMoved();
+    }
 
-        if (ImGui::Combo(
-                "Sorting Mode", (int*)&sortingAlgorithmMode, SORTING_MODE_NAMES, NUM_SORTING_MODES)) {
-            setSortingAlgorithmDefine();
-            reloadResolveShader();
-            reRender = true;
-            onHasMoved();
-        }
+    if (ImGui::Combo(
+            "Sorting Mode", (int*)&sortingAlgorithmMode, SORTING_MODE_NAMES, NUM_SORTING_MODES)) {
+        setSortingAlgorithmDefine();
+        reloadResolveShader();
+        reRender = true;
+        onHasMoved();
+    }
 
-        if (maximumNumberOfSamples > 1) {
-            if (ImGui::Checkbox("Multisampling", &useMultisampling)) {
+    if (maximumNumberOfSamples > 1) {
+        if (ImGui::Checkbox("Multisampling", &useMultisampling)) {
+            onResolutionChanged();
+            reRender = true;
+        }
+        if (useMultisampling) {
+            if (ImGui::Combo("Samples", &sampleModeSelection, sampleModeNames.data(), numSampleModes)) {
+                numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
+                reloadResolveShader();
                 onResolutionChanged();
                 reRender = true;
             }
-            if (useMultisampling) {
-                if (ImGui::Combo("Samples", &sampleModeSelection, sampleModeNames.data(), numSampleModes)) {
-                    numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
-                    reloadResolveShader();
-                    onResolutionChanged();
-                    reRender = true;
-                }
-            }
         }
     }
-    ImGui::End();
 }
 
 // Returns if the data needs to be re-rendered, but the visualization mapping is valid.

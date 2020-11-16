@@ -37,6 +37,18 @@ public:
     ~LineDataFlow();
     void setTrajectoryData(const Trajectories& trajectories);
 
+    /**
+     * Load line data from the selected file(s).
+     * @param fileNames The names of the files to load. More than one file makes primarily sense for, e.g., stress line
+     * data with multiple principal stress directions.
+     * @param dataSetInformation Metadata about the data set.
+     * @param transformationMatrixPtr A transformation to apply to the loaded data (if any; can be nullptr).
+     * @return Whether loading was successful.
+     */
+    virtual bool loadFromFile(
+            const std::vector<std::string>& fileNames, DataSetInformation dataSetInformation,
+            glm::mat4* transformationMatrixPtr) override;
+
     // Statistics.
     virtual size_t getNumAttributes() override;
     virtual size_t getNumLines() override;

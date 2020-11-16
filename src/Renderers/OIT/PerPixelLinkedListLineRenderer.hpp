@@ -69,9 +69,6 @@ public:
     /// For changing performance measurement modes.
     virtual void setNewState(const InternalState& newState);
 
-    /// Only for stress lines: Should we use the principal stress direction ID for rendering?
-    virtual void setUsePrincipalStressDirectionIndex(bool usePrincipalStressDirectionIndex) override;
-
 protected:
     void setSortingAlgorithmDefine();
     void updateLargeMeshMode();
@@ -80,13 +77,8 @@ protected:
     void clear();
     void gather();
     void resolve();
-    void reloadGatherShader();
+    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
     void reloadResolveShader();
-
-    // Line data.
-    LineDataPtr lineData;
-    /// Only for stress lines: Should we use the principal stress direction ID for rendering?
-    bool usePrincipalStressDirectionIndex = false;
 
     // Sorting algorithm for PPLL.
     SortingAlgorithmMode sortingAlgorithmMode = SORTING_ALGORITHM_MODE_PRIORITY_QUEUE;
@@ -98,7 +90,6 @@ protected:
 
     // Render data.
     sgl::ShaderAttributesPtr shaderAttributes;
-    sgl::GeometryBufferPtr linePointDataSSBO; ///< For programmable fetch.
     // Blit data (ignores model-view-projection matrix and uses normalized device coordinates).
     sgl::ShaderAttributesPtr blitRenderData;
     sgl::ShaderAttributesPtr clearRenderData;

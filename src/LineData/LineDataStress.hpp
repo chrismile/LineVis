@@ -41,6 +41,19 @@ class LineDataStress : public LineData {
 public:
     LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow);
     ~LineDataStress();
+
+    /**
+     * Load line data from the selected file(s).
+     * @param fileNames The names of the files to load. More than one file makes primarily sense for, e.g., stress line
+     * data with multiple principal stress directions.
+     * @param dataSetInformation Metadata about the data set.
+     * @param transformationMatrixPtr A transformation to apply to the loaded data (if any; can be nullptr).
+     * @return Whether loading was successful.
+     */
+    virtual bool loadFromFile(
+            const std::vector<std::string>& fileNames, DataSetInformation dataSetInformation,
+            glm::mat4* transformationMatrixPtr) override;
+
     void setStressTrajectoryData(
             const std::vector<Trajectories>& trajectoriesPs,
             const std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs);
@@ -48,6 +61,7 @@ public:
             const std::vector<glm::vec3>& degeneratePoints, std::vector<std::string>& attributeNames);
     /// Can be used to set what principal stress (PS) directions we want to display.
     void setUsedPsDirections(const std::vector<bool>& usedPsDirections);
+    inline bool getUsePrincipalStressDirectionIndex() { return usePrincipalStressDirectionIndex; }
 
     // Statistics.
     virtual size_t getNumStressDirections() { return trajectoriesPs.size(); }
@@ -63,14 +77,32 @@ public:
     /// Principal stress direction -> Line set index -> Point on line index.
     std::vector<std::vector<std::vector<glm::vec3>>> getFilteredPrincipalStressLines();
 
+    // --- Retrieve data for rendering. Preferred way. ---
+    sgl::ShaderProgramPtr reloadGatherShader();
+
     // --- Retrieve data for rendering. ---
     TubeRenderData getTubeRenderData();
     TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch();
     TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization();
     PointRenderData getDegeneratePointsRenderData();
 
+    /**
+     * For selecting rendering technique (e.g., screen-oriented bands, tubes) and other line data settings.
+     * @return true if the gather shader needs to be reloaded.
+     */
+    virtual bool renderGui(bool isRasterizer) override;
+
+    static inline void setUseMajorPS(bool val) { useMajorPS = val; }
+    static inline void setUseMediumPS(bool val) { useMediumPS = val; }
+    static inline void setUseMinorPS(bool val) { useMinorPS = val; }
+
 private:
     virtual void recomputeHistogram() override;
+
+    // Should we show major, medium and/or minor principal stress lines?
+    static bool useMajorPS, useMediumPS, useMinorPS;
+    /// Should we use the principal direction ID for rendering?
+    static bool usePrincipalStressDirectionIndex;
 
     // Principal stress lines (usually three line sets for three directions).
     std::vector<Trajectories> trajectoriesPs;

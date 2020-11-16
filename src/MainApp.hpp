@@ -83,14 +83,8 @@ private:
     int currentlyLoadedDataSetIndex = -1;
     std::string customDataSetFileName;
     DataSetType dataSetType = DATA_SET_TYPE_FLOW_LINES;
-    // Should we show major, medium and/or minor principal stress lines?
-    bool useMajorPS = true, useMediumPS = true, useMinorPS = true;
-    /// Should we use the principal direction ID for rendering?
-    bool usePrincipalStressDirectionIndex = false;
 
     // Coloring & filtering dependent on importance criteria.
-    int selectedAttributeIndex = 0;
-    std::vector<std::string> attributeNames;
     sgl::TransferFunctionWindow transferFunctionWindow;
 
     // For making performance measurements.

@@ -45,8 +45,9 @@ const float STANDARD_LINE_WIDTH = 0.002f;
  */
 class LineRenderer {
 public:
-    LineRenderer(SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow)
-        : sceneData(sceneData), transferFunctionWindow(transferFunctionWindow) {}
+    LineRenderer(
+            const std::string& windowName, SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow)
+        : windowName(windowName), sceneData(sceneData), transferFunctionWindow(transferFunctionWindow) {}
     virtual ~LineRenderer() {}
 
     // Returns if the visualization mapping needs to be re-generated.
@@ -58,12 +59,12 @@ public:
      * Re-generates the visualization mapping.
      * @param lineData The render data.
      */
-    virtual void setLineData(LineDataPtr& lineData, bool isNewMesh) =0;
+    virtual void setLineData(LineDataPtr& lineData, bool isNewMesh)=0;
 
     // Renders the object to the scene framebuffer.
     virtual void render()=0;
     // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
-    virtual void renderGui()=0;
+    virtual void renderGuiWindow();
     // Updates the internal logic (called once per frame).
     virtual void update(float dt) {}
 
@@ -80,17 +81,26 @@ public:
     virtual void setNewState(const InternalState& newState) {}
     virtual void setNewSettings(const SettingsMap& settings) {}
 
-    /// Only for stress lines: Should we use the principal stress direction ID for rendering?
-    virtual void setUsePrincipalStressDirectionIndex(bool usePrincipalStressDirectionIndex) {}
-
     /// Sets the global line width.
     static void setLineWidth(float lineWidth) { LineRenderer::lineWidth = lineWidth; }
 
 protected:
+    // Reload the gather shader.
+    virtual void reloadGatherShader(bool canCopyShaderAttributes = true)=0;
+    // GUI rendering code to be implemented by sub-classes.
+    virtual void renderGui()=0;
+    bool showRendererWindow = true;
+
+    // Metadata about renderer.
+    bool isRasterizer = true;
+    std::string windowName;
+
     SceneData& sceneData;
+    LineDataPtr lineData;
     sgl::TransferFunctionWindow& transferFunctionWindow;
     bool dirty = true;
     bool reRender = true;
+
 
     // Minimum and maximum values in the UI.
     const float MIN_LINE_WIDTH = 0.001f;

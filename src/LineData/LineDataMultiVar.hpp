@@ -29,9 +29,9 @@
 #ifndef STRESSLINEVIS_LINEDATAMULTIVAR_HPP
 #define STRESSLINEVIS_LINEDATAMULTIVAR_HPP
 
-#include "LineData.hpp"
+#include "LineDataFlow.hpp"
 
-class LineDataMultiVar : public LineData {
+class LineDataMultiVar : public LineDataFlow {
 public:
     LineDataMultiVar(sgl::TransferFunctionWindow &transferFunctionWindow);
     ~LineDataMultiVar();

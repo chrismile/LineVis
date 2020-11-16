@@ -45,7 +45,7 @@
 static bool useStencilBuffer = false;
 
 MLABRenderer::MLABRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
-        : LineRenderer(sceneData, transferFunctionWindow) {
+        : LineRenderer("Multi-Layer Alpha Blending Renderer", sceneData, transferFunctionWindow) {
     clearBitSet = true;
     syncMode = getSupportedSyncMode();
 
@@ -114,11 +114,7 @@ void MLABRenderer::reloadResolveShader() {
     }
 }
 
-void MLABRenderer::reloadGatherShader() {
-    sgl::ShaderManager->invalidateShaderCache();
-    if (usePrincipalStressDirectionIndex) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", "");
-    }
+void MLABRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
         sgl::ShaderManager->addPreprocessorDefine("USE_SYNC_FRAGMENT_SHADER_INTERLOCK", "");
         if (!useOrderedFragmentShaderInterlock) {
@@ -129,21 +125,12 @@ void MLABRenderer::reloadGatherShader() {
         // Do not discard while keeping the spinlock locked.
         sgl::ShaderManager->addPreprocessorDefine("GATHER_NO_DISCARD", "");
     }
-    if (useProgrammableFetch) {
-        gatherShader = sgl::ShaderManager->getShaderProgram({
-            "GeometryPassNormal.Programmable.Vertex",
-            "GeometryPassNormal.Fragment"
-        });
-    } else {
-        gatherShader = sgl::ShaderManager->getShaderProgram({
-            "GeometryPassNormal.VBO.Vertex",
-            "GeometryPassNormal.VBO.Geometry",
-            "GeometryPassNormal.Fragment"
-        });
-    }
-    if (shaderAttributes) {
+
+    gatherShader = lineData->reloadGatherShader();
+    if (canCopyShaderAttributes && shaderAttributes) {
         shaderAttributes = shaderAttributes->copy(gatherShader);
     }
+
     if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
         sgl::ShaderManager->removePreprocessorDefine("USE_SYNC_FRAGMENT_SHADER_INTERLOCK");
         if (!useOrderedFragmentShaderInterlock) {
@@ -152,9 +139,6 @@ void MLABRenderer::reloadGatherShader() {
     } else if (syncMode == SYNC_SPINLOCK) {
         sgl::ShaderManager->removePreprocessorDefine("USE_SYNC_SPINLOCK");
         sgl::ShaderManager->removePreprocessorDefine("GATHER_NO_DISCARD");
-    }
-    if (usePrincipalStressDirectionIndex) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX");
     }
 }
 
@@ -188,44 +172,15 @@ void MLABRenderer::setNewState(const InternalState& newState) {
 }
 
 void MLABRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
+    if (!this->lineData || lineData->getType() != this->lineData->getType()) {
+        reloadGatherShader(false);
+    }
+
     // Unload old data.
     this->lineData = lineData;
     shaderAttributes = sgl::ShaderAttributesPtr();
 
-    if (useProgrammableFetch) {
-        TubeRenderDataProgrammableFetch tubeRenderData = lineData->getTubeRenderDataProgrammableFetch();
-        linePointDataSSBO = tubeRenderData.linePointsBuffer;
-
-        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
-        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_TRIANGLES);
-        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-    } else {
-        TubeRenderData tubeRenderData = lineData->getTubeRenderData();
-        linePointDataSSBO = sgl::GeometryBufferPtr();
-
-        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
-
-        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_LINES);
-        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-        shaderAttributes->addGeometryBuffer(
-                tubeRenderData.vertexPositionBuffer, "vertexPosition",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
-                sgl::ATTRIB_FLOAT, 1);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexNormalBuffer, "vertexNormal",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexTangentBuffer, "vertexTangent",
-                sgl::ATTRIB_FLOAT, 3);
-        if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
-            shaderAttributes->addGeometryBufferOptional(
-                    tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
-                    sgl::ATTRIB_UNSIGNED_INT,
-                    1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
-        }
-    }
+    shaderAttributes = lineData->getGatherShaderAttributes(gatherShader);
 
     dirty = false;
     reRender = true;
@@ -265,15 +220,6 @@ void MLABRenderer::reallocateFragmentBuffer() {
     clearBitSet = true;
 }
 
-void MLABRenderer::setUsePrincipalStressDirectionIndex(bool usePrincipalStressDirectionIndex) {
-    this->usePrincipalStressDirectionIndex = usePrincipalStressDirectionIndex;
-    reloadGatherShader();
-    if (shaderAttributes) {
-        shaderAttributes = shaderAttributes->copy(gatherShader);
-    }
-    reRender = true;
-}
-
 void MLABRenderer::onResolutionChanged() {
     sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
     windowWidth = window->getWidth();
@@ -296,9 +242,6 @@ void MLABRenderer::setUniformData() {
     if (syncMode == SYNC_SPINLOCK) {
         sgl::ShaderManager->bindShaderStorageBuffer(1, spinlockViewportBuffer);
     }
-    if (useProgrammableFetch) {
-        sgl::ShaderManager->bindShaderStorageBuffer(2, linePointDataSSBO);
-    }
 
     gatherShader->setUniform("viewportW", paddedWindowWidth);
     gatherShader->setUniform("cameraPosition", sceneData.camera->getPosition());
@@ -316,6 +259,7 @@ void MLABRenderer::setUniformData() {
         glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
         gatherShader->setUniform("foregroundColor", foregroundColor);
     }
+    lineData->setUniformGatherShaderData(gatherShader);
 
     resolveShader->setUniform("viewportW", paddedWindowWidth);
     clearShader->setUniform("viewportW", paddedWindowWidth);
@@ -384,44 +328,36 @@ void MLABRenderer::resolve() {
 }
 
 void MLABRenderer::renderGui() {
-    if (ImGui::Begin("Opaque Line Renderer", &showRendererWindow)) {
-        if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
-            reRender = true;
-        }
-        if (ImGui::Checkbox("Programmable Fetch", &useProgrammableFetch)) {
-            reloadGatherShader();
-            dirty = true;
-            reRender = true;
-        }
-        if (ImGui::SliderInt("Num Layers", &numLayers, 1, 64)) {
-            updateLayerMode();
-            reloadShaders();
-            reRender = true;
-        }
-        const char *syncModeNames[] = { "No Sync (Unsafe)", "Fragment Shader Interlock", "Spinlock" };
-        if (ImGui::Combo(
-                "Sync Mode", (int*)&syncMode, syncModeNames, IM_ARRAYSIZE(syncModeNames))) {
-            updateSyncMode();
-            reloadGatherShader();
-            reRender = true;
-        }
-        if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK && ImGui::Checkbox(
-                "Ordered Sync", &useOrderedFragmentShaderInterlock)) {
-            reloadGatherShader();
-            reRender = true;
-        }
-        if (selectTilingModeUI()) {
-            reloadShaders();
-            clearBitSet = true;
-            reRender = true;
-        }
-        if (ImGui::Button("Reload Shader")) {
-            reloadGatherShader();
-            if (shaderAttributes) {
-                shaderAttributes = shaderAttributes->copy(gatherShader);
-            }
-            reRender = true;
-        }
+    if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
+        reRender = true;
     }
-    ImGui::End();
+    if (ImGui::SliderInt("Num Layers", &numLayers, 1, 64)) {
+        updateLayerMode();
+        reloadShaders();
+        reRender = true;
+    }
+    const char *syncModeNames[] = { "No Sync (Unsafe)", "Fragment Shader Interlock", "Spinlock" };
+    if (ImGui::Combo(
+            "Sync Mode", (int*)&syncMode, syncModeNames, IM_ARRAYSIZE(syncModeNames))) {
+        updateSyncMode();
+        reloadGatherShader();
+        reRender = true;
+    }
+    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK && ImGui::Checkbox(
+            "Ordered Sync", &useOrderedFragmentShaderInterlock)) {
+        reloadGatherShader();
+        reRender = true;
+    }
+    if (selectTilingModeUI()) {
+        reloadShaders();
+        clearBitSet = true;
+        reRender = true;
+    }
+    if (ImGui::Button("Reload Shader")) {
+        reloadGatherShader();
+        if (shaderAttributes) {
+            shaderAttributes = shaderAttributes->copy(gatherShader);
+        }
+        reRender = true;
+    }
 }

@@ -51,7 +51,6 @@
 #include <ImGui/imgui_stdlib.h>
 
 #include "Loaders/TrajectoryFile.hpp"
-#include "Loaders/DegeneratePointsDatLoader.hpp"
 #include "LineData/LineDataFlow.hpp"
 #include "LineData/LineDataStress.hpp"
 #include "Renderers/OIT/TilingMode.hpp"
@@ -82,8 +81,6 @@ MainApp::MainApp()
     sgl::Renderer->setErrorCallback(&openglErrorCallback);
     sgl::Renderer->setDebugVerbosity(sgl::DEBUG_OUTPUT_CRITICAL_ONLY);
     resolutionChanged(sgl::EventPtr());
-
-    selectedAttributeIndex = 0;
 
     if (usePerformanceMeasurementMode) {
         useCameraFlight = true;
@@ -183,17 +180,17 @@ void MainApp::setNewState(const InternalState &newState) {
         if (selectedDataSetIndex == 0) {
             if (dataSetInformation.at(selectedDataSetIndex - 1).type == DATA_SET_TYPE_STRESS_LINES
                     && newState.dataSetDescriptor.enabledFileIndices.size() == 3) {
-                this->useMajorPS = newState.dataSetDescriptor.enabledFileIndices.at(0);
-                this->useMediumPS = newState.dataSetDescriptor.enabledFileIndices.at(1);
-                this->useMinorPS = newState.dataSetDescriptor.enabledFileIndices.at(2);
+                LineDataStress::setUseMajorPS(newState.dataSetDescriptor.enabledFileIndices.at(0));
+                LineDataStress::setUseMediumPS(newState.dataSetDescriptor.enabledFileIndices.at(1));
+                LineDataStress::setUseMinorPS(newState.dataSetDescriptor.enabledFileIndices.at(2));
             }
             loadLineDataSet(newState.dataSetDescriptor.filenames);
         } else {
             if (newState.dataSetDescriptor.type == DATA_SET_TYPE_STRESS_LINES
                     && newState.dataSetDescriptor.enabledFileIndices.size() == 3) {
-                this->useMajorPS = newState.dataSetDescriptor.enabledFileIndices.at(0);
-                this->useMediumPS = newState.dataSetDescriptor.enabledFileIndices.at(1);
-                this->useMinorPS = newState.dataSetDescriptor.enabledFileIndices.at(2);
+                LineDataStress::setUseMajorPS(newState.dataSetDescriptor.enabledFileIndices.at(0));
+                LineDataStress::setUseMediumPS(newState.dataSetDescriptor.enabledFileIndices.at(1));
+                LineDataStress::setUseMinorPS(newState.dataSetDescriptor.enabledFileIndices.at(2));
             }
             loadLineDataSet(getSelectedMeshFilenames());
         }
@@ -224,7 +221,6 @@ void MainApp::setRenderer() {
     } else if (renderingMode == RENDERING_MODE_DEPTH_COMPLEXITY) {
         lineRenderer = new DepthComplexityRenderer(sceneData, transferFunctionWindow);
     }
-    lineRenderer->setUsePrincipalStressDirectionIndex(usePrincipalStressDirectionIndex);
 }
 
 void MainApp::resolutionChanged(sgl::EventPtr event) {
@@ -312,7 +308,7 @@ void MainApp::renderGui() {
         hasMoved();
     }
 
-    lineRenderer->renderGui();
+    lineRenderer->renderGuiWindow();
 
     sgl::ImGuiWrapper::get()->renderEnd();
 }
@@ -357,18 +353,6 @@ void MainApp::renderFileSelectionSettingsGui() {
         if (ImGui::Button("Load File")) {
             loadLineDataSet(getSelectedMeshFilenames());
         }
-    } else if (dataSetType == DATA_SET_TYPE_STRESS_LINES) {
-        bool usedPsChanged = false;
-        usedPsChanged |= ImGui::Checkbox("Major", &useMajorPS); ImGui::SameLine();
-        usedPsChanged |= ImGui::Checkbox("Medium", &useMediumPS); ImGui::SameLine();
-        usedPsChanged |= ImGui::Checkbox("Minor", &useMinorPS);
-        if (usedPsChanged && lineData.get() != nullptr) {
-            static_cast<LineDataStress*>(lineData.get())->setUsedPsDirections(
-                    {useMajorPS, useMediumPS, useMinorPS});
-        }
-        if (ImGui::Checkbox("Use Principal Stress Direction Index", &usePrincipalStressDirectionIndex)) {
-            lineRenderer->setUsePrincipalStressDirectionIndex(usePrincipalStressDirectionIndex);
-        }
     }
 }
 
@@ -382,16 +366,6 @@ void MainApp::renderSceneSettingsGui() {
 
     SciVisApp::renderSceneSettingsGuiPre();
     ImGui::Checkbox("Show Transfer Function Window", &transferFunctionWindow.getShowTransferFunctionWindow());
-
-    // Switch importance criterion.
-    if (lineData) {
-        if (ImGui::Combo(
-                "Importance Crit.", (int*)&selectedAttributeIndex,
-                attributeNames.data(), attributeNames.size())) {
-            changeQualityMeasureType();
-            reRender = true;
-        }
-    }
 
     SciVisApp::renderSceneSettingsGuiPost();
 }
@@ -444,7 +418,6 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
         return;
     }
     currentlyLoadedDataSetIndex = selectedDataSetIndex;
-    selectedAttributeIndex = 0;
     LineRenderer::setLineWidth(STANDARD_LINE_WIDTH);
 
     DataSetInformation selectedDataSetInformation;
@@ -453,11 +426,9 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
         if (selectedDataSetInformation.hasCustomLineWidth) {
             LineRenderer::setLineWidth(selectedDataSetInformation.lineWidth);
         }
-        attributeNames = selectedDataSetInformation.attributeNames;
     } else {
         selectedDataSetInformation.type = dataSetType;
         selectedDataSetInformation.filenames = fileNames;
-        attributeNames.clear();
     }
 
     glm::mat4 transformationMatrix = sgl::matrixIdentity();
@@ -471,55 +442,27 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
         transformationMatrixPtr = &transformationMatrix;
     }
 
-    bool dataLoaded = false;
-    Trajectories trajectories;
-    std::vector<Trajectories> trajectoriesPs;
-    std::vector<StressTrajectoriesData> stressTrajectoriesDataPs;
-    sgl::AABB3 oldAABB;
     if (dataSetType == DATA_SET_TYPE_FLOW_LINES) {
-        trajectories = loadFlowTrajectoriesFromFile(
-                fileNames.front(), true, false, transformationMatrixPtr);
-        dataLoaded = !trajectories.empty();
+        LineDataFlow* lineDataFlow = new LineDataFlow(transferFunctionWindow);
+        lineData = LineDataPtr(lineDataFlow);
     } else if (dataSetType == DATA_SET_TYPE_STRESS_LINES) {
-        loadStressTrajectoriesFromFile(
-                fileNames, trajectoriesPs, stressTrajectoriesDataPs,
-                true, true, &oldAABB, transformationMatrixPtr);
-        dataLoaded = !trajectoriesPs.empty();
+        LineDataStress* lineDataStress = new LineDataStress(transferFunctionWindow);
+        lineData = LineDataPtr(lineDataStress);
+    }
+    bool dataLoaded = lineData->loadFromFile(fileNames, selectedDataSetInformation, transformationMatrixPtr);
+    if (!dataLoaded) {
+        lineData = LineDataPtr();
     }
 
     if (dataLoaded) {
         newMeshLoaded = true;
+        modelBoundingBox = lineData->getModelBoundingBox();
+
         std::string meshDescriptorName = fileNames.front();
         if (fileNames.size() > 1) {
             meshDescriptorName += std::string() + "_" + std::to_string(fileNames.size());
         }
         checkpointWindow.onLoadDataSet(meshDescriptorName);
-
-        if (dataSetType == DATA_SET_TYPE_FLOW_LINES) {
-            LineDataFlow* lineDataFlow = new LineDataFlow(transferFunctionWindow);
-            lineData = LineDataPtr(lineDataFlow);
-            lineDataFlow->setTrajectoryData(trajectories);
-            modelBoundingBox = computeTrajectoriesAABB3(trajectories);
-        } else if (dataSetType == DATA_SET_TYPE_STRESS_LINES) {
-            LineDataStress* lineDataStress = new LineDataStress(transferFunctionWindow);
-            lineData = LineDataPtr(lineDataStress);
-            lineDataStress->setStressTrajectoryData(trajectoriesPs, stressTrajectoriesDataPs);
-            lineDataStress->setUsedPsDirections({useMajorPS, useMediumPS, useMinorPS});
-            if (!selectedDataSetInformation.degeneratePointsFilename.empty()) {
-                std::vector<glm::vec3> degeneratePoints;
-                loadDegeneratePointsFromDat(
-                        selectedDataSetInformation.degeneratePointsFilename, degeneratePoints);
-                normalizeVertexPositions(degeneratePoints, oldAABB, transformationMatrixPtr);
-                lineDataStress->setDegeneratePoints(degeneratePoints, attributeNames);
-            }
-            modelBoundingBox = computeTrajectoriesPsAABB3(trajectoriesPs);
-        }
-        lineData->setQualityMeasureIndex(selectedAttributeIndex);
-
-        for (size_t attrIdx = attributeNames.size(); attrIdx < lineData->getNumAttributes(); attrIdx++) {
-            attributeNames.push_back(std::string() + "Attribute #" + std::to_string(attrIdx + 1));
-        }
-
 
         if (true) { // useCameraFlight
             std::string cameraPathFilename =
@@ -548,10 +491,4 @@ void MainApp::prepareVisualizationPipeline() {
         lineRenderer->setLineData(lineData, newMeshLoaded);
     }
     newMeshLoaded = false;
-}
-
-void MainApp::changeQualityMeasureType() {
-    if (lineData) {
-        lineData->setQualityMeasureIndex(selectedAttributeIndex);
-    }
 }

@@ -36,7 +36,8 @@
 #include "LineDataMultiVar.hpp"
 
 LineDataMultiVar::LineDataMultiVar(sgl::TransferFunctionWindow &transferFunctionWindow)
-        : LineData(transferFunctionWindow, DATA_SET_TYPE_FLOW_LINES) {
+        : LineDataFlow(transferFunctionWindow) {
+    dataSetType = DATA_SET_TYPE_FLOW_LINES_MULTIVAR;
 }
 
 LineDataMultiVar::~LineDataMultiVar() {

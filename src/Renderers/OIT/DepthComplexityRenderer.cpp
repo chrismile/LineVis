@@ -42,17 +42,8 @@
 #include "DepthComplexityRenderer.hpp"
 
 DepthComplexityRenderer::DepthComplexityRenderer(SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow)
-        : LineRenderer(sceneData, transferFunctionWindow) {
+        : LineRenderer("Depth Complexity Renderer", sceneData, transferFunctionWindow) {
     sgl::ShaderManager->invalidateShaderCache();
-    gatherShaderGeometryShader = sgl::ShaderManager->getShaderProgram({
-        "DepthComplexityGather.VBO.Vertex",
-        "DepthComplexityGather.VBO.Geometry",
-        "DepthComplexityGather.Fragment"
-    });
-    gatherShaderProgrammableFetch = sgl::ShaderManager->getShaderProgram({
-        "DepthComplexityGather.Programmable.Vertex",
-        "DepthComplexityGather.Fragment"
-    });
     resolveShader = sgl::ShaderManager->getShaderProgram(
             {"DepthComplexityResolve.Vertex", "DepthComplexityResolve.Fragment"});
     clearShader = sgl::ShaderManager->getShaderProgram(
@@ -76,33 +67,23 @@ DepthComplexityRenderer::DepthComplexityRenderer(SceneData &sceneData, sgl::Tran
     onResolutionChanged();
 }
 
+void DepthComplexityRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
+    gatherShader = lineData->reloadGatherShader();
+    if (canCopyShaderAttributes && shaderAttributes) {
+        shaderAttributes = shaderAttributes->copy(gatherShader);
+    }
+}
+
 void DepthComplexityRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
+    if (!this->lineData || lineData->getType() != this->lineData->getType()) {
+        reloadGatherShader(false);
+    }
+
     // Unload old data.
     shaderAttributes = sgl::ShaderAttributesPtr();
     this->lineData = lineData;
 
-    if (useProgrammableFetch) {
-        TubeRenderDataProgrammableFetch tubeRenderData = lineData->getTubeRenderDataProgrammableFetch();
-        linePointDataSSBO = tubeRenderData.linePointsBuffer;
-
-        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShaderProgrammableFetch);
-        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_TRIANGLES);
-        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-    } else {
-        TubeRenderData tubeRenderData = lineData->getTubeRenderData();
-        linePointDataSSBO = sgl::GeometryBufferPtr();
-
-        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShaderGeometryShader);
-
-        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_LINES);
-        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-        shaderAttributes->addGeometryBuffer(
-                tubeRenderData.vertexPositionBuffer, "vertexPosition",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBuffer(
-                tubeRenderData.vertexTangentBuffer, "vertexTangent",
-                sgl::ATTRIB_FLOAT, 3);
-    }
+    shaderAttributes = lineData->getGatherShaderAttributes(gatherShader);
 
     firstFrame = true;
     totalNumFragments = 0;
@@ -131,14 +112,11 @@ void DepthComplexityRenderer::setUniformData() {
     int width = window->getWidth();
     int height = window->getHeight();
 
-    sgl::ShaderProgram* gatherShader = shaderAttributes->getShaderProgram();
     gatherShader->setUniform("cameraPosition", sceneData.camera->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
     gatherShader->setUniform("viewportW", width);
     gatherShader->setShaderStorageBuffer(0, "FragmentCounterBuffer", fragmentCounterBuffer);
-    if (useProgrammableFetch) {
-        sgl::ShaderManager->bindShaderStorageBuffer(2, linePointDataSSBO);
-    }
+    lineData->setUniformGatherShaderData(gatherShader);
 
     resolveShader->setUniform("viewportW", width);
     resolveShader->setShaderStorageBuffer(0, "FragmentCounterBuffer", fragmentCounterBuffer);
@@ -234,28 +212,25 @@ std::string numberToCommaString(int number, bool attachLeadingZeroes = false) {
 }
 
 void DepthComplexityRenderer::renderGui() {
-    if (ImGui::Begin("Depth Complexity Renderer", &showWindow)) {
-        std::string totalNumFragmentsString = numberToCommaString(totalNumFragments);
-        ImGui::Text("Depth complexity: #fragments: %s", totalNumFragmentsString.c_str());
-        ImGui::Text("avg used: %.2f, avg all: %.2f, max: %lu", ((float) totalNumFragments / usedLocations),
-                    ((float) totalNumFragments / bufferSize), maxComplexity);
+    std::string totalNumFragmentsString = numberToCommaString(totalNumFragments);
+    ImGui::Text("Depth complexity: #fragments: %s", totalNumFragmentsString.c_str());
+    ImGui::Text("avg used: %.2f, avg all: %.2f, max: %lu", ((float) totalNumFragments / usedLocations),
+                ((float) totalNumFragments / bufferSize), maxComplexity);
 
-        if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
-            reRender = true;
-        }
-        if (ImGui::Checkbox("Programmable Fetch", &useProgrammableFetch)) {
-            dirty = true;
-            reRender = true;
-        }
-        if (ImGui::ColorEdit4("Coloring", (float*)&colorSelection, 0)) {
-            sgl::Color newColor = sgl::colorFromFloat(colorSelection.x, colorSelection.y, colorSelection.z, 1.0f);
-            renderColor = newColor;
-            intensity = 0.0001f + 3*colorSelection.w;
-            numFragmentsMaxColor = std::max(maxComplexity, uint64_t(4ull))/intensity;
-            reRender = true;
-        }
+    if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
+        reRender = true;
     }
-    ImGui::End();
+    if (ImGui::Checkbox("Programmable Fetch", &useProgrammableFetch)) {
+        dirty = true;
+        reRender = true;
+    }
+    if (ImGui::ColorEdit4("Coloring", (float*)&colorSelection, 0)) {
+        sgl::Color newColor = sgl::colorFromFloat(colorSelection.x, colorSelection.y, colorSelection.z, 1.0f);
+        renderColor = newColor;
+        intensity = 0.0001f + 3*colorSelection.w;
+        numFragmentsMaxColor = std::max(maxComplexity, uint64_t(4ull))/intensity;
+        reRender = true;
+    }
 }
 
 bool DepthComplexityRenderer::needsReRender() {
@@ -284,7 +259,8 @@ void DepthComplexityRenderer::computeStatistics(bool isReRender) {
     uint64_t usedLocations = 0;
     uint64_t maxComplexity = 0;
     uint64_t minComplexity = 0;
-    #pragma omp parallel for reduction(+:totalNumFragments,usedLocations) reduction(max:maxComplexity) reduction(min:minComplexity) schedule(static)
+    #pragma omp parallel for reduction(+:totalNumFragments,usedLocations) reduction(max:maxComplexity) \
+    reduction(min:minComplexity) schedule(static) default(none) shared(data)
     for (int i = 0; i < bufferSize; i++) {
         totalNumFragments += data[i];
         if (data[i] > 0) {

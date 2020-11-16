@@ -60,13 +60,12 @@ public:
     virtual bool needsReRender();
 
 protected:
+    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
     void computeStatistics(bool isReRender);
     void setUniformData();
     void clear();
     void gather();
     void resolve();
-
-    LineDataPtr lineData;
 
     ImVec4 colorSelection = ImColor(0, 255, 255, 127);
     sgl::Color renderColor = sgl::Color(0, 255, 255);
@@ -84,12 +83,10 @@ protected:
     // The rendering data for the volume object.
     sgl::ShaderAttributesPtr shaderAttributes;
     sgl::GeometryBufferPtr fragmentCounterBuffer;
-    sgl::GeometryBufferPtr linePointDataSSBO; ///< For programmable fetch.
 
     // The shaders for rendering.
     sgl::ShaderProgramPtr clearShader;
-    sgl::ShaderProgramPtr gatherShaderGeometryShader;
-    sgl::ShaderProgramPtr gatherShaderProgrammableFetch;
+    sgl::ShaderProgramPtr gatherShader;
     sgl::ShaderProgramPtr resolveShader;
 
     // Blit data (ignores model-view-projection matrix and uses normalized device coordinates)

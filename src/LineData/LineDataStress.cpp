@@ -27,20 +27,76 @@
  */
 
 #include <Graphics/Renderer.hpp>
+#include <Graphics/Shader/ShaderManager.hpp>
 
 #include "Loaders/TrajectoryFile.hpp"
 #include "Renderers/Tubes/Tubes.hpp"
 
 #include <Utils/File/Logfile.hpp>
 
+#include "Loaders/DegeneratePointsDatLoader.hpp"
 #include "SearchStructures/KdTree.hpp"
 #include "LineDataStress.hpp"
 
+bool LineDataStress::useMajorPS = true;
+bool LineDataStress::useMediumPS = true;
+bool LineDataStress::useMinorPS = true;
+bool LineDataStress::usePrincipalStressDirectionIndex = false;
+
 LineDataStress::LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_STRESS_LINES) {
+    setUsedPsDirections({useMajorPS, useMediumPS, useMinorPS});
 }
 
 LineDataStress::~LineDataStress() {
+}
+
+bool LineDataStress::renderGui(bool isRasterizer) {
+    bool reloadGatherShader = LineData::renderGui(isRasterizer);
+
+    bool usedPsChanged = false;
+    usedPsChanged |= ImGui::Checkbox("Major", &useMajorPS); ImGui::SameLine();
+    usedPsChanged |= ImGui::Checkbox("Medium", &useMediumPS); ImGui::SameLine();
+    usedPsChanged |= ImGui::Checkbox("Minor", &useMinorPS);
+    if (usedPsChanged) {
+        setUsedPsDirections({useMajorPS, useMediumPS, useMinorPS});
+    }
+    if (ImGui::Checkbox("Use Principal Stress Direction Index", &usePrincipalStressDirectionIndex)) {
+        dirty = true;
+    }
+
+    return reloadGatherShader;
+}
+
+bool LineDataStress::loadFromFile(
+        const std::vector<std::string>& fileNames, DataSetInformation dataSetInformation,
+        glm::mat4* transformationMatrixPtr) {
+    std::vector<Trajectories> trajectoriesPs;
+    std::vector<StressTrajectoriesData> stressTrajectoriesDataPs;
+    sgl::AABB3 oldAABB;
+    loadStressTrajectoriesFromFile(
+            fileNames, trajectoriesPs, stressTrajectoriesDataPs,
+            true, true, &oldAABB, transformationMatrixPtr);
+    bool dataLoaded = !trajectoriesPs.empty();
+
+    if (dataLoaded) {
+        attributeNames = dataSetInformation.attributeNames;
+        setStressTrajectoryData(trajectoriesPs, stressTrajectoriesDataPs);
+        if (!dataSetInformation.degeneratePointsFilename.empty()) {
+            std::vector<glm::vec3> degeneratePoints;
+            loadDegeneratePointsFromDat(
+                    dataSetInformation.degeneratePointsFilename, degeneratePoints);
+            normalizeVertexPositions(degeneratePoints, oldAABB, transformationMatrixPtr);
+            setDegeneratePoints(degeneratePoints, attributeNames);
+        }
+        modelBoundingBox = computeTrajectoriesPsAABB3(trajectoriesPs);
+
+        for (size_t attrIdx = attributeNames.size(); attrIdx < getNumAttributes(); attrIdx++) {
+            attributeNames.push_back(std::string() + "Attribute #" + std::to_string(attrIdx + 1));
+        }
+    }
+
+    return dataLoaded;
 }
 
 void LineDataStress::setStressTrajectoryData(
@@ -367,6 +423,17 @@ std::vector<std::vector<std::vector<glm::vec3>>> LineDataStress::getFilteredPrin
 
 
 // --- Retrieve data for rendering. ---
+
+sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
+    if (usePrincipalStressDirectionIndex) {
+        sgl::ShaderManager->addPreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", "");
+    }
+    sgl::ShaderProgramPtr gatherShader = LineData::reloadGatherShader();
+    if (usePrincipalStressDirectionIndex) {
+        sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX");
+    }
+    return gatherShader;
+}
 
 TubeRenderData LineDataStress::getTubeRenderData() {
     rebuildInternalRepresentationIfNecessary();

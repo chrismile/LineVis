@@ -29,3 +29,19 @@
 #include "LineRenderer.hpp"
 
 float LineRenderer::lineWidth = STANDARD_LINE_WIDTH;
+
+void LineRenderer::renderGuiWindow() {
+    if (ImGui::Begin(windowName.c_str(), &showRendererWindow)) {
+        this->renderGui();
+        if (lineData) {
+            ImGui::Separator();
+            if (lineData->renderGui(isRasterizer)) {
+                reloadGatherShader(false);
+                if (lineData) {
+                    setLineData(lineData, false);
+                }
+            }
+        }
+    }
+    ImGui::End();
+}

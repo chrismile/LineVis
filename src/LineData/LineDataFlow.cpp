@@ -42,6 +42,27 @@ LineDataFlow::LineDataFlow(sgl::TransferFunctionWindow &transferFunctionWindow)
 LineDataFlow::~LineDataFlow() {
 }
 
+bool LineDataFlow::loadFromFile(
+        const std::vector<std::string>& fileNames, DataSetInformation dataSetInformation,
+        glm::mat4* transformationMatrixPtr) {
+    Trajectories trajectories;
+    trajectories = loadFlowTrajectoriesFromFile(
+            fileNames.front(), true, false, transformationMatrixPtr);
+    bool dataLoaded = !trajectories.empty();
+
+    if (dataLoaded) {
+        attributeNames = dataSetInformation.attributeNames;
+        setTrajectoryData(trajectories);
+        modelBoundingBox = computeTrajectoriesAABB3(trajectories);
+
+        for (size_t attrIdx = attributeNames.size(); attrIdx < getNumAttributes(); attrIdx++) {
+            attributeNames.push_back(std::string() + "Attribute #" + std::to_string(attrIdx + 1));
+        }
+    }
+
+    return dataLoaded;
+}
+
 void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
     this->trajectories = trajectories;
 
