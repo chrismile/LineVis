@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2020, Christoph Neuhauser, Michael Kern
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,36 +26,39 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEDENSITYCONTROL_DATASETLIST_HPP
-#define LINEDENSITYCONTROL_DATASETLIST_HPP
+#ifndef STRESSLINEVIS_BEZIERTRAJECTORY_HPP
+#define STRESSLINEVIS_BEZIERTRAJECTORY_HPP
 
-#include <Math/Geometry/MatrixUtil.hpp>
-#include <vector>
+#include "Loaders/TrajectoryFile.hpp"
 
-const std::string lineDataSetsDirectory = "Data/LineDataSets/";
-
-enum DataSetType {
-    DATA_SET_TYPE_FLOW_LINES, DATA_SET_TYPE_STRESS_LINES, DATA_SET_TYPE_FLOW_LINES_MULTIVAR
+// Describes the position of variables in the buffer and the total number of variable values for the entire line
+struct LineDesc {
+    float startIndex; // pointer to index in array
+    float numValues;     // number of variables along line after Bezier curve transformation
 };
 
-struct DataSetInformation {
-    DataSetType type = DATA_SET_TYPE_FLOW_LINES;
-    std::string name;
-    std::vector<std::string> filenames;
-
-    // Optional attributes.
-    bool hasCustomLineWidth = false;
-    float lineWidth = 0.002f;
-    bool hasCustomTransform = false;
-    glm::mat4 transformMatrix = sgl::matrixIdentity();
-    std::vector<std::string> attributeNames; ///< Names of the associated importance criteria.
-
-    // Stress lines: Additional information (optional).
-    std::string meshFilename;
-    std::string degeneratePointsFilename;
-    std::vector<std::string> filenamesStressLineHierarchy;
+// Describes the range of values for each variable and the offset within each line
+struct VarDesc {
+    float startIndex;
+    glm::vec2 minMax;
+    float dummy;
 };
 
-std::vector<DataSetInformation> loadDataSetList(const std::string& filename);
+class BezierTrajectory {
+public:
+    BezierTrajectory() {}
 
-#endif //LINEDENSITYCONTROL_DATASETLIST_HPP
+    std::vector<glm::vec3> positions;
+    std::vector<std::vector<float>> attributes;
+    std::vector<glm::vec3> tangents;
+    std::vector<uint32_t> segmentID;
+
+    std::vector<float> multiVarData;
+    LineDesc lineDesc;
+    std::vector<VarDesc> multiVarDescs;
+};
+typedef std::vector<BezierTrajectory> BezierTrajectories;
+
+BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories& inTrajectories);
+
+#endif //STRESSLINEVIS_BEZIERTRAJECTORY_HPP

@@ -37,7 +37,7 @@
 void loadDegeneratePointsFromDat(
         const std::string& filename,
         std::vector<glm::vec3>& degeneratePoints) {
-    LineReader lineReader(filename);
+    sgl::LineReader lineReader(filename);
 
     uint32_t numDegeneratePoints = lineReader.readScalarLine<uint32_t>();
     degeneratePoints.reserve(numDegeneratePoints);

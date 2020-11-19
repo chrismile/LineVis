@@ -6,12 +6,20 @@ layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in float vertexAttribute;
 layout(location = 2) in vec3 vertexTangent;
 layout(location = 3) in uint vertexLineSegmentId;
+#ifdef USE_LINE_HIERARCHY_LEVEL
+layout(location = 4) in uint vertexPrincipalStressIndex;
+layout(location = 5) in float vertexLineHierarchyLevel;
+#endif
 
 out VertexData {
     vec3 linePosition;
     float lineAttribute;
     vec3 lineTangent;
     uint lineSegmentId;
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    uint linePrincipalStressIndex;
+    float lineLineHierarchyLevel;
+#endif
 };
 
 void main() {
@@ -19,6 +27,10 @@ void main() {
     lineAttribute = vertexAttribute;
     lineTangent = vertexTangent;
     lineSegmentId = vertexLineSegmentId;
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    linePrincipalStressIndex = vertexPrincipalStressIndex;
+    lineLineHierarchyLevel = vertexLineHierarchyLevel;
+#endif
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
 }
 
@@ -35,12 +47,20 @@ uniform float lineWidth;
 out vec3 fragmentPositionWorld;
 out float fragmentAttribute;
 flat out uint fragmentLineSegmentId;
+#ifdef USE_LINE_HIERARCHY_LEVEL
+flat out uint fragmentPrincipalStressIndex;
+flat out float fragmentLineHierarchyLevel;
+#endif
 
 in VertexData {
     vec3 linePosition;
     float lineAttribute;
     vec3 lineTangent;
     uint lineSegmentId;
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    uint linePrincipalStressIndex;
+    float lineLineHierarchyLevel;
+#endif
 } v_in[];
 
 void main() {
@@ -62,6 +82,10 @@ void main() {
     fragmentPositionWorld = vertexPosition;
     fragmentAttribute = lineAttribute0;
     fragmentLineSegmentId = v_in[0].lineSegmentId;
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+    fragmentLineHierarchyLevel = v_in[0].lineLineHierarchyLevel;
+#endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
@@ -69,6 +93,10 @@ void main() {
     fragmentPositionWorld = vertexPosition;
     fragmentAttribute = lineAttribute1;
     fragmentLineSegmentId = v_in[1].lineSegmentId;
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+    fragmentLineHierarchyLevel = v_in[1].lineLineHierarchyLevel;
+#endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
@@ -76,6 +104,10 @@ void main() {
     fragmentPositionWorld = vertexPosition;
     fragmentAttribute = lineAttribute0;
     fragmentLineSegmentId = v_in[0].lineSegmentId;
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+    fragmentLineHierarchyLevel = v_in[0].lineLineHierarchyLevel;
+#endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
@@ -83,6 +115,10 @@ void main() {
     fragmentPositionWorld = vertexPosition;
     fragmentAttribute = lineAttribute1;
     fragmentLineSegmentId = v_in[1].lineSegmentId;
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+    fragmentLineHierarchyLevel = v_in[1].lineLineHierarchyLevel;
+#endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
@@ -96,6 +132,12 @@ void main() {
 in vec3 fragmentPositionWorld;
 in float fragmentAttribute;
 flat in uint fragmentLineSegmentId;
+#ifdef USE_LINE_HIERARCHY_LEVEL
+flat in uint fragmentPrincipalStressIndex;
+flat in float fragmentLineHierarchyLevel;
+uniform vec3 lineHierarchySliderLower;
+uniform vec3 lineHierarchySliderUpper;
+#endif
 
 uniform vec3 cameraPosition;
 
@@ -110,7 +152,14 @@ void main() {
     LinkedListFragmentNode frag;
     frag.lineSegmentId = fragmentLineSegmentId;
     frag.next = -1;
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    float lower = lineHierarchySliderLower[fragmentPrincipalStressIndex];
+    float upper = lineHierarchySliderUpper[fragmentPrincipalStressIndex];
+    float fragmentAttributeHierarchy = (upper - lower) * fragmentLineHierarchyLevel + lower;
+    packFloat22Float10(frag.depth, gl_FragCoord.z, fragmentAttributeHierarchy);
+#else
     packFloat22Float10(frag.depth, gl_FragCoord.z, fragmentAttribute);
+#endif
 
     uint insertIndex = atomicCounterIncrement(fragCounter);
 

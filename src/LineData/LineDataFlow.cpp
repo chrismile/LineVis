@@ -53,12 +53,11 @@ bool LineDataFlow::loadFromFile(
     bool dataLoaded = !trajectories.empty();
 
     if (dataLoaded) {
-        setTrajectoryData(trajectories);
-        modelBoundingBox = computeTrajectoriesAABB3(trajectories);
-
         for (size_t attrIdx = attributeNames.size(); attrIdx < getNumAttributes(); attrIdx++) {
             attributeNames.push_back(std::string() + "Attribute #" + std::to_string(attrIdx + 1));
         }
+        setTrajectoryData(trajectories);
+        modelBoundingBox = computeTrajectoriesAABB3(trajectories);
         recomputeHistogram();
     }
 
@@ -124,6 +123,7 @@ Trajectories LineDataFlow::filterTrajectoryData() {
     trajectoriesFiltered.reserve(trajectories.size());
     for (const Trajectory& trajectory : trajectories) {
         Trajectory trajectoryFiltered;
+        trajectoryFiltered.attributes.resize(attributeNames.size());
         size_t n = trajectory.positions.size();
 
         int numValidLinePoints = 0;

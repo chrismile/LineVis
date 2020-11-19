@@ -244,14 +244,16 @@ Trajectories loadFlowTrajectoriesFromFile(
 }
 
 void loadStressTrajectoriesFromFile(
-        const std::vector<std::string>& filenames,
+        const std::vector<std::string>& filenamesTrajectories,
+        const std::vector<std::string>& filenamesHierarchy,
         std::vector<Trajectories>& trajectoriesPs,
         std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
         bool normalizeVertexPositions, bool normalizeAttributes,
         sgl::AABB3* oldAABB, const glm::mat4* vertexTransformationMatrixPtr) {
-    std::string lowerCaseFilename = boost::to_lower_copy(filenames.front());
+    std::string lowerCaseFilename = boost::to_lower_copy(filenamesTrajectories.front());
     if (boost::ends_with(lowerCaseFilename, ".dat")) {
-        loadStressTrajectoriesFromDat(filenames, trajectoriesPs, stressTrajectoriesDataPs);
+        loadStressTrajectoriesFromDat(
+                filenamesTrajectories, filenamesHierarchy, trajectoriesPs, stressTrajectoriesDataPs);
     } else {
         sgl::Logfile::get()->writeError("ERROR in loadStressTrajectoriesFromFile: Unknown file extension.");
     }

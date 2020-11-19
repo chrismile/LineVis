@@ -121,6 +121,21 @@ std::vector<DataSetInformation> loadDataSetList(const std::string& filename) {
                     lineDataSetsDirectory + source["degenerate_points"].asString();
         }
 
+        // Optional stress line data:
+        if (source.isMember("line_hierarchy")) {
+            Json::Value lineHierarchyFilenames = source["line_hierarchy"];
+            if (lineHierarchyFilenames.isArray()) {
+                for (Json::Value::const_iterator filenameIt = lineHierarchyFilenames.begin();
+                     filenameIt != lineHierarchyFilenames.end(); ++filenameIt) {
+                    dataSetInformation.filenamesStressLineHierarchy.push_back(
+                            lineDataSetsDirectory + filenameIt->asString());
+                }
+            } else {
+                dataSetInformation.filenamesStressLineHierarchy.push_back(
+                        lineDataSetsDirectory + lineHierarchyFilenames.asString());
+            }
+        }
+
         dataSetList.push_back(dataSetInformation);
     }
     return dataSetList;

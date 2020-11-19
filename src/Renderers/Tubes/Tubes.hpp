@@ -159,4 +159,14 @@ void createLineTubesRenderDataCPU<float>(
         std::vector<glm::vec3>& vertexTangents,
         std::vector<float>& vertexAttributes);
 
+extern template
+void createLineTubesRenderDataCPU<std::vector<float>>(
+        const std::vector<std::vector<glm::vec3>>& lineCentersList,
+        const std::vector<std::vector<std::vector<float>>>& lineAttributesList,
+        std::vector<uint32_t>& lineIndices,
+        std::vector<glm::vec3>& vertexPositions,
+        std::vector<glm::vec3>& vertexNormals,
+        std::vector<glm::vec3>& vertexTangents,
+        std::vector<std::vector<float>>& vertexAttributes);
+
 #endif //HEXVOLUMERENDERER_TUBES_HPP

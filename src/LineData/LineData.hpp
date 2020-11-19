@@ -35,6 +35,7 @@
 #include <Graphics/Shader/Shader.hpp>
 #include <Graphics/Shader/ShaderAttributes.hpp>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
+#include "Utils/InternalState.hpp"
 #include "Loaders/DataSetList.hpp"
 #include "Loaders/TrajectoryFile.hpp"
 
@@ -44,6 +45,8 @@ typedef std::vector<Trajectory> Trajectories;
 class LineData;
 typedef std::shared_ptr<LineData> LineDataPtr;
 
+class LineRenderer;
+
 struct TubeRenderData {
     sgl::GeometryBufferPtr indexBuffer;
     sgl::GeometryBufferPtr vertexPositionBuffer;
@@ -51,6 +54,7 @@ struct TubeRenderData {
     sgl::GeometryBufferPtr vertexNormalBuffer;
     sgl::GeometryBufferPtr vertexTangentBuffer;
     sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
+    sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
 };
 
 /// For internal use of subclasses.
@@ -64,6 +68,7 @@ struct LinePointDataProgrammableFetch {
 struct TubeRenderDataProgrammableFetch {
     sgl::GeometryBufferPtr indexBuffer;
     sgl::GeometryBufferPtr linePointsBuffer;
+    sgl::GeometryBufferPtr lineHierarchyLevelsBuffer; ///< Empty for flow lines.
 };
 
 struct TubeRenderDataOpacityOptimization {
@@ -72,6 +77,7 @@ struct TubeRenderDataOpacityOptimization {
     sgl::GeometryBufferPtr vertexAttributeBuffer;
     sgl::GeometryBufferPtr vertexTangentBuffer;
     sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
+    sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
 };
 
 struct PointRenderData {
@@ -95,11 +101,14 @@ const int NUM_LINE_RASTERIZATION_TECHNIQUES_TOTAL =
 class LineData {
 public:
     LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType);
-    ~LineData();
+    virtual ~LineData();
     void setSelectedAttributeIndex(int qualityMeasureIdx);
     void onTransferFunctionMapRebuilt();
-    inline bool isDirty() { return dirty; }
     inline DataSetType getType() { return dataSetType; }
+    // Returns if the visualization mapping needs to be re-generated.
+    inline bool isDirty() { return dirty; }
+    // Returns if the data needs to be re-rendered, but the visualization mapping is valid.
+    virtual bool needsReRender() { bool tmp = reRender; reRender = false; return tmp; }
 
     /**
      * Load line data from the selected file(s).
@@ -141,6 +150,16 @@ public:
      * @return true if the gather shader needs to be reloaded.
      */
     virtual bool renderGui(bool isRasterizer);
+    /**
+     * For rendering a separate ImGui window.
+     * @return true if the gather shader needs to be reloaded.
+     */
+    virtual bool renderGuiWindow(bool isRasterizer) { return false; }
+    /// Certain GUI widgets might need the clear color.
+    virtual void setClearColor(const sgl::Color& clearColor) {}
+    /// Set current rendering mode (e.g. for making visible certain UI options only for certain renderers).
+    virtual void setLineRenderer(LineRenderer* lineRenderer) { this->lineRenderer = lineRenderer; }
+    virtual void setRenderingMode(RenderingMode renderingMode) { this->renderingMode = renderingMode; }
 
 protected:
     void rebuildInternalRepresentationIfNecessary();
@@ -152,9 +171,12 @@ protected:
     int selectedAttributeIndex = 0; ///< Selected attribute/importance criterion index.
     int selectedAttributeIndexUi = 0;
     bool dirty = false; ///< Should be set to true if the representation changed.
+    bool reRender = false;
     sgl::TransferFunctionWindow& transferFunctionWindow;
 
     // Rendering settings.
+    RenderingMode renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+    LineRenderer* lineRenderer = nullptr;
     static bool useProgrammableFetch;
     std::vector<std::string> supportedRenderingModes;
 

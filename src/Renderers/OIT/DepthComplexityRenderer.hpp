@@ -95,7 +95,6 @@ protected:
 
     // GUI data.
     bool showRendererWindow = true;
-    bool useProgrammableFetch = true;
 };
 
 #endif //STRESSLINEVIS_DEPTHCOMPLEXITYRENDERER_HPP

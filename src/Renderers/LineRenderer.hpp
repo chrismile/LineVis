@@ -101,7 +101,6 @@ protected:
     bool dirty = true;
     bool reRender = true;
 
-
     // Minimum and maximum values in the UI.
     const float MIN_LINE_WIDTH = 0.001f;
     const float MAX_LINE_WIDTH = 0.005f;

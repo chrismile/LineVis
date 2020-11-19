@@ -31,6 +31,7 @@
 
 #include "Loaders/TrajectoryFile.hpp"
 #include "Renderers/Tubes/Tubes.hpp"
+#include "Renderers/OIT/OpacityOptimizationRenderer.hpp"
 
 #include <Utils/File/Logfile.hpp>
 
@@ -43,12 +44,19 @@ bool LineDataStress::useMediumPS = true;
 bool LineDataStress::useMinorPS = true;
 bool LineDataStress::usePrincipalStressDirectionIndex = false;
 
+const char* const stressDirectionNames[] = { "Major", "Medium", "Minor" };
+
 LineDataStress::LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_STRESS_LINES) {
     setUsedPsDirections({useMajorPS, useMediumPS, useMinorPS});
 }
 
 LineDataStress::~LineDataStress() {
+}
+
+void LineDataStress::setRenderingMode(RenderingMode renderingMode) {
+    LineData::setRenderingMode(renderingMode);
+    rendererSupportsTransparency = renderingMode != RENDERING_MODE_ALL_LINES_OPAQUE;
 }
 
 bool LineDataStress::renderGui(bool isRasterizer) {
@@ -67,18 +75,60 @@ bool LineDataStress::renderGui(bool isRasterizer) {
         shallReloadGatherShader = true;
     }
 
+    bool recomputeOpacityOptimization = false;
+
+    if (hasLineHierarchy) {
+        if (ImGui::Checkbox("Use Hierarchy Culling", &useLineHierarchy)) {
+            dirty = true;
+            shallReloadGatherShader = true;
+        }
+        if (!rendererSupportsTransparency && useLineHierarchy) {
+            for (int i = 0; i < 3; i++) {
+                if (ImGui::SliderFloat(
+                        stressDirectionNames[i], &lineHierarchySliderValues[i], 0.0f, 1.0f)) {
+                    reRender = true;
+                    recomputeOpacityOptimization = true;
+                }
+            }
+        }
+        if (rendererSupportsTransparency && useLineHierarchy) {
+            for (int i = 0; i < 3; i++) {
+                if (ImGui::SliderFloat2(
+                        stressDirectionNames[i], &lineHierarchySliderValuesTransparency[i][0],
+                        0.0f, 1.0f)) {
+                    reRender = true;
+                    recomputeOpacityOptimization = true;
+                }
+            }
+        }
+    }
+
+    if (lineRenderer && renderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION && recomputeOpacityOptimization) {
+        static_cast<OpacityOptimizationRenderer*>(lineRenderer)->onHasMoved();
+    }
+
     return shallReloadGatherShader;
+}
+
+bool LineDataStress::renderGuiWindow(bool isRasterizer) {
+    colorLegendWidget.renderGui();
+    return false;
+}
+
+void LineDataStress::setClearColor(const sgl::Color& clearColor) {
+    colorLegendWidget.setClearColor(clearColor);
 }
 
 bool LineDataStress::loadFromFile(
         const std::vector<std::string>& fileNames, DataSetInformation dataSetInformation,
         glm::mat4* transformationMatrixPtr) {
+    hasLineHierarchy = useLineHierarchy = !dataSetInformation.filenamesStressLineHierarchy.empty();
     attributeNames = dataSetInformation.attributeNames;
     std::vector<Trajectories> trajectoriesPs;
     std::vector<StressTrajectoriesData> stressTrajectoriesDataPs;
     sgl::AABB3 oldAABB;
     loadStressTrajectoriesFromFile(
-            fileNames, trajectoriesPs, stressTrajectoriesDataPs,
+            fileNames, dataSetInformation.filenamesStressLineHierarchy, trajectoriesPs, stressTrajectoriesDataPs,
             true, true, &oldAABB, transformationMatrixPtr);
     bool dataLoaded = !trajectoriesPs.empty();
 
@@ -431,7 +481,19 @@ sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
     if (usePrincipalStressDirectionIndex) {
         sgl::ShaderManager->addPreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", "");
     }
+    if (useLineHierarchy) {
+        sgl::ShaderManager->addPreprocessorDefine("USE_LINE_HIERARCHY_LEVEL", "");
+    }
+    if (rendererSupportsTransparency) {
+        sgl::ShaderManager->addPreprocessorDefine("USE_TRANSPARENCY", "");
+    }
     sgl::ShaderProgramPtr gatherShader = LineData::reloadGatherShader();
+    if (rendererSupportsTransparency) {
+        sgl::ShaderManager->removePreprocessorDefine("USE_TRANSPARENCY");
+    }
+    if (useLineHierarchy) {
+        sgl::ShaderManager->removePreprocessorDefine("USE_LINE_HIERARCHY_LEVEL");
+    }
     if (usePrincipalStressDirectionIndex) {
         sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX");
     }
@@ -448,6 +510,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
     std::vector<glm::vec3> vertexTangents;
     std::vector<float> vertexAttributes;
     std::vector<uint32_t> vertexPrincipalStressIndices;
+    std::vector<float> vertexLineHierarchyLevels;
 
     for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
         if (!usedPsDirections.at(psIdx)) {
@@ -455,6 +518,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
         }
 
         Trajectories& trajectories = trajectoriesPs.at(psIdx);
+        StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(psIdx);
 
         // 1. Compute all tangents.
         std::vector<std::vector<glm::vec3>> lineCentersList;
@@ -464,6 +528,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
         lineAttributesList.resize(trajectories.size());
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
+            StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
             std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
             assert(attributes.size() == trajectory.positions.size());
             std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
@@ -471,6 +536,9 @@ TubeRenderData LineDataStress::getTubeRenderData() {
             for (size_t i = 0; i < trajectory.positions.size(); i++) {
                 lineCenters.push_back(trajectory.positions.at(i));
                 lineAttributes.push_back(attributes.at(i));
+                if (hasLineHierarchy) {
+                    vertexLineHierarchyLevels.push_back(stressTrajectoryData.hierarchyLevel);
+                }
             }
         }
 
@@ -509,6 +577,13 @@ TubeRenderData LineDataStress::getTubeRenderData() {
             vertexPrincipalStressIndices.size()*sizeof(uint32_t),
             (void*)&vertexPrincipalStressIndices.front(), sgl::VERTEX_BUFFER);
 
+    if (hasLineHierarchy) {
+        // Add the line hierarchy level buffer.
+        tubeRenderData.vertexLineHierarchyLevelBuffer = sgl::Renderer->createGeometryBuffer(
+                vertexLineHierarchyLevels.size()*sizeof(float),
+                (void*)&vertexLineHierarchyLevels.front(), sgl::VERTEX_BUFFER);
+    }
+
     return tubeRenderData;
 }
 
@@ -522,6 +597,7 @@ TubeRenderDataProgrammableFetch LineDataStress::getTubeRenderDataProgrammableFet
     std::vector<glm::vec3> vertexTangents;
     std::vector<float> vertexAttributes;
     std::vector<uint32_t> vertexPrincipalStressIndices;
+    std::vector<float> vertexLineHierarchyLevels;
 
     for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
         if (!usedPsDirections.at(psIdx)) {
@@ -529,6 +605,7 @@ TubeRenderDataProgrammableFetch LineDataStress::getTubeRenderDataProgrammableFet
         }
 
         Trajectories& trajectories = trajectoriesPs.at(psIdx);
+        StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(psIdx);
 
         // 1. Compute all tangents.
         std::vector<std::vector<glm::vec3>> lineCentersList;
@@ -538,6 +615,7 @@ TubeRenderDataProgrammableFetch LineDataStress::getTubeRenderDataProgrammableFet
         lineAttributesList.resize(trajectories.size());
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
+            StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
             std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
             assert(attributes.size() == trajectory.positions.size());
             std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
@@ -545,6 +623,9 @@ TubeRenderDataProgrammableFetch LineDataStress::getTubeRenderDataProgrammableFet
             for (size_t i = 0; i < trajectory.positions.size(); i++) {
                 lineCenters.push_back(trajectory.positions.at(i));
                 lineAttributes.push_back(attributes.at(i));
+                if (hasLineHierarchy) {
+                    vertexLineHierarchyLevels.push_back(stressTrajectoryData.hierarchyLevel);
+                }
             }
         }
 
@@ -590,6 +671,13 @@ TubeRenderDataProgrammableFetch LineDataStress::getTubeRenderDataProgrammableFet
             linePointData.size() * sizeof(LinePointDataProgrammableFetch), (void*)&linePointData.front(),
             sgl::SHADER_STORAGE_BUFFER);
 
+    if (hasLineHierarchy) {
+        // Add the line hierarchy level buffer.
+        tubeRenderData.lineHierarchyLevelsBuffer = sgl::Renderer->createGeometryBuffer(
+                vertexLineHierarchyLevels.size()*sizeof(float),
+                (void*)&vertexLineHierarchyLevels.front(), sgl::SHADER_STORAGE_BUFFER);
+    }
+
     return tubeRenderData;
 }
 
@@ -603,6 +691,7 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
     std::vector<glm::vec3> vertexTangents;
     std::vector<float> vertexAttributes;
     std::vector<uint32_t> vertexPrincipalStressIndices;
+    std::vector<float> vertexLineHierarchyLevels;
 
     for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
         if (!usedPsDirections.at(psIdx)) {
@@ -610,6 +699,7 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
         }
 
         Trajectories& trajectories = trajectoriesPs.at(psIdx);
+        StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(psIdx);
 
         // 1. Compute all tangents.
         std::vector<std::vector<glm::vec3>> lineCentersList;
@@ -619,6 +709,7 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
         lineAttributesList.resize(trajectories.size());
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
+            StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
             std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
             assert(attributes.size() == trajectory.positions.size());
             std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
@@ -626,6 +717,9 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
             for (size_t i = 0; i < trajectory.positions.size(); i++) {
                 lineCenters.push_back(trajectory.positions.at(i));
                 lineAttributes.push_back(attributes.at(i));
+                if (hasLineHierarchy) {
+                    vertexLineHierarchyLevels.push_back(stressTrajectoryData.hierarchyLevel);
+                }
             }
         }
 
@@ -660,6 +754,13 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
             vertexPrincipalStressIndices.size()*sizeof(uint32_t),
             (void*)&vertexPrincipalStressIndices.front(), sgl::VERTEX_BUFFER);
 
+    if (hasLineHierarchy) {
+        // Add the line hierarchy level buffer.
+        tubeRenderData.vertexLineHierarchyLevelBuffer = sgl::Renderer->createGeometryBuffer(
+                vertexLineHierarchyLevels.size()*sizeof(float),
+                (void*)&vertexLineHierarchyLevels.front(), sgl::VERTEX_BUFFER);
+    }
+
     return tubeRenderData;
 }
 
@@ -669,4 +770,77 @@ PointRenderData LineDataStress::getDegeneratePointsRenderData() {
             degeneratePoints.size()*sizeof(glm::vec3), (void*)&degeneratePoints.front(),
             sgl::VERTEX_BUFFER);
     return renderData;
+}
+
+sgl::ShaderAttributesPtr LineDataStress::getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader) {
+    sgl::ShaderAttributesPtr shaderAttributes;
+
+    if (useProgrammableFetch) {
+        TubeRenderDataProgrammableFetch tubeRenderData = this->getTubeRenderDataProgrammableFetch();
+        linePointDataSSBO = tubeRenderData.linePointsBuffer;
+        lineHierarchyLevelsSSBO = tubeRenderData.lineHierarchyLevelsBuffer;
+
+        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
+        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_TRIANGLES);
+        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
+    } else {
+        TubeRenderData tubeRenderData = this->getTubeRenderData();
+        linePointDataSSBO = sgl::GeometryBufferPtr();
+        lineHierarchyLevelsSSBO = sgl::GeometryBufferPtr();
+
+        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
+
+        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_LINES);
+        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
+        shaderAttributes->addGeometryBuffer(
+                tubeRenderData.vertexPositionBuffer, "vertexPosition",
+                sgl::ATTRIB_FLOAT, 3);
+        shaderAttributes->addGeometryBufferOptional(
+                tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
+                sgl::ATTRIB_FLOAT, 1);
+        shaderAttributes->addGeometryBufferOptional(
+                tubeRenderData.vertexNormalBuffer, "vertexNormal",
+                sgl::ATTRIB_FLOAT, 3);
+        shaderAttributes->addGeometryBufferOptional(
+                tubeRenderData.vertexTangentBuffer, "vertexTangent",
+                sgl::ATTRIB_FLOAT, 3);
+        if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
+            shaderAttributes->addGeometryBufferOptional(
+                    tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
+                    sgl::ATTRIB_UNSIGNED_INT,
+                    1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
+        }
+        if (tubeRenderData.vertexLineHierarchyLevelBuffer) {
+            shaderAttributes->addGeometryBufferOptional(
+                    tubeRenderData.vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel",
+                    sgl::ATTRIB_FLOAT, 1);
+        }
+    }
+
+    return shaderAttributes;
+}
+
+void LineDataStress::setUniformGatherShaderData_AllPasses() {
+    LineData::setUniformGatherShaderData_AllPasses();
+    if (useLineHierarchy && useProgrammableFetch) {
+        sgl::ShaderManager->bindShaderStorageBuffer(3, lineHierarchyLevelsSSBO);
+    }
+}
+
+void LineDataStress::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader) {
+    LineData::setUniformGatherShaderData_Pass(gatherShader);
+    if (useLineHierarchy) {
+        if (!rendererSupportsTransparency) {
+            gatherShader->setUniform("lineHierarchySlider", lineHierarchySliderValues);
+        } else {
+            lineHierarchySliderValuesLower[0] = lineHierarchySliderValuesTransparency[0][0];
+            lineHierarchySliderValuesLower[1] = lineHierarchySliderValuesTransparency[1][0];
+            lineHierarchySliderValuesLower[2] = lineHierarchySliderValuesTransparency[2][0];
+            lineHierarchySliderValuesUpper[0] = lineHierarchySliderValuesTransparency[0][1];
+            lineHierarchySliderValuesUpper[1] = lineHierarchySliderValuesTransparency[1][1];
+            lineHierarchySliderValuesUpper[2] = lineHierarchySliderValuesTransparency[2][1];
+            gatherShader->setUniform("lineHierarchySliderLower", lineHierarchySliderValuesLower);
+            gatherShader->setUniform("lineHierarchySliderUpper", lineHierarchySliderValuesUpper);
+        }
+    }
 }

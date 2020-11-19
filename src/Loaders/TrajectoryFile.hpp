@@ -42,6 +42,11 @@ struct Trajectory {
 typedef std::vector<Trajectory> Trajectories;
 
 struct StressTrajectoryData {
+    // Per line data.
+    ///< Hierarchy level between 0 and 1.
+    float hierarchyLevel = 0.0f;
+
+    // Per line point data.
     std::vector<float> majorPs;
     std::vector<float> mediumPs;
     std::vector<float> minorPs;
@@ -87,8 +92,9 @@ Trajectories loadFlowTrajectoriesFromFile(
 /**
  * Uses @see loadStressTrajectoriesFromDat depending on the file endings and performs some normalization for special
  * datasets.
- * @param filenames The names of the principal stress trajectory files to open (usually three for all PS directions).
- * @param The three trajectory sets loaded from the file (empty if the file could not be opened).
+ * @param filenamesTrajectories The names of the principal stress trajectory files to open.
+ * @param filenamesHierarchy The names of the line hierarchy files to open (optional; can be empty).
+ * @param The three trajectory sets loaded from the file (empty if the file(s) could not be opened).
  * @param The principal stress data of the three trajectory sets loaded from the file (empty if the file could not be
  * opened).
  * @param normalizeVertexPositions Whether to normalize the vertex positions.
@@ -97,7 +103,8 @@ Trajectories loadFlowTrajectoriesFromFile(
  * @param vertexTransformationMatrixPtr Can be used to pass a transformation matrix for the vertex positions (optional).
  */
 void loadStressTrajectoriesFromFile(
-        const std::vector<std::string>& filenames,
+        const std::vector<std::string>& filenamesTrajectories,
+        const std::vector<std::string>& filenamesHierarchy,
         std::vector<Trajectories>& trajectoriesPs,
         std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
         bool normalizeVertexPositions = true, bool normalizeAttributes = false,

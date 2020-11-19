@@ -32,14 +32,17 @@
 #include "TrajectoryFile.hpp"
 
 /**
- * Loads principal stress lines from the specified files (usually three for all PS directions).
- * @param filenames The names of the principal stress trajectory files to open (usually three for all PS directions).
+ * Loads principal stress lines from the specified files.
+ * One .dat file can contain stress lines from either one or up to three principal stress directions.
+ * @param filenamesTrajectories The names of the principal stress trajectory files to open.
+ * @param filenamesHierarchy The names of the line hierarchy files to open (optional; can be empty).
  * @param The three trajectory sets loaded from the file (empty if the file could not be opened).
  * @param The principal stress data of the three trajectory sets loaded from the file (empty if the file could not be
  * opened).
  */
 void loadStressTrajectoriesFromDat(
-        const std::vector<std::string>& filenames,
+        const std::vector<std::string>& filenamesTrajectories,
+        const std::vector<std::string>& filenamesHierarchy,
         std::vector<Trajectories>& trajectoriesPs,
         std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs);
 

@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2020, Christoph Neuhauser, Michael Kern
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,36 +26,49 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEDENSITYCONTROL_DATASETLIST_HPP
-#define LINEDENSITYCONTROL_DATASETLIST_HPP
+#ifndef STRESSLINEVIS_MULTIVARWINDOW_HPP
+#define STRESSLINEVIS_MULTIVARWINDOW_HPP
 
-#include <Math/Geometry/MatrixUtil.hpp>
+#include <string>
 #include <vector>
 
-const std::string lineDataSetsDirectory = "Data/LineDataSets/";
+#include <glm/glm.hpp>
+#include <Graphics/Color.hpp>
+#include <ImGui/ImGuiWrapper.hpp>
 
-enum DataSetType {
-    DATA_SET_TYPE_FLOW_LINES, DATA_SET_TYPE_STRESS_LINES, DATA_SET_TYPE_FLOW_LINES_MULTIVAR
+class MultiVarWindow {
+public:
+    MultiVarWindow();
+
+    /// Render GUI elements.
+    bool renderGui();
+
+    void setAttributes(
+            const std::vector<std::vector<float>>& _variables,
+            const std::vector<std::string>& _names);
+
+    inline void setClearColor(const sgl::Color& _clearColor) {
+        clearColor = _clearColor;
+    }
+    inline void setShowWindow(const bool _showWindow ) {
+        showWindow = _showWindow ;
+    }
+
+protected:
+    bool showWindow;
+    int32_t variableIndex;
+    sgl::Color clearColor;
+    int32_t histogramRes;
+    std::vector<std::vector<float>> attributes;
+    std::vector<std::string> names;
+    std::vector<std::vector<float>> histograms;
+    std::vector<glm::vec2> variablesMinMax;
+
+    void computeHistograms();
+    // Render a VIS graph for the currently selected variable
+    void renderVarChart();
+    // Render the settings to control the information plots
+    void renderSettings();
 };
 
-struct DataSetInformation {
-    DataSetType type = DATA_SET_TYPE_FLOW_LINES;
-    std::string name;
-    std::vector<std::string> filenames;
-
-    // Optional attributes.
-    bool hasCustomLineWidth = false;
-    float lineWidth = 0.002f;
-    bool hasCustomTransform = false;
-    glm::mat4 transformMatrix = sgl::matrixIdentity();
-    std::vector<std::string> attributeNames; ///< Names of the associated importance criteria.
-
-    // Stress lines: Additional information (optional).
-    std::string meshFilename;
-    std::string degeneratePointsFilename;
-    std::vector<std::string> filenamesStressLineHierarchy;
-};
-
-std::vector<DataSetInformation> loadDataSetList(const std::string& filename);
-
-#endif //LINEDENSITYCONTROL_DATASETLIST_HPP
+#endif //STRESSLINEVIS_MULTIVARWINDOW_HPP

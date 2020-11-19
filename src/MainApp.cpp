@@ -222,6 +222,11 @@ void MainApp::setRenderer() {
     } else if (renderingMode == RENDERING_MODE_DEPTH_COMPLEXITY) {
         lineRenderer = new DepthComplexityRenderer(sceneData, transferFunctionWindow);
     }
+
+    if (lineData) {
+        lineData->setRenderingMode(renderingMode);
+        lineData->setLineRenderer(lineRenderer);
+    }
 }
 
 void MainApp::resolutionChanged(sgl::EventPtr event) {
@@ -242,6 +247,9 @@ void MainApp::render() {
 
     if (lineRenderer != nullptr) {
         reRender = reRender || lineRenderer->needsReRender();
+    }
+    if (lineData != nullptr) {
+        reRender = reRender || lineData->needsReRender();
     }
 
     if (reRender || continuousRendering) {
@@ -362,6 +370,7 @@ void MainApp::renderSceneSettingsGui() {
         clearColor = sgl::colorFromFloat(
                 clearColorSelection.x, clearColorSelection.y, clearColorSelection.z, clearColorSelection.w);
         transferFunctionWindow.setClearColor(clearColor);
+        lineData->setClearColor(clearColor);
         reRender = true;
     }
 
@@ -459,6 +468,9 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
     }
 
     if (dataLoaded) {
+        lineData->setClearColor(clearColor);
+        lineData->setRenderingMode(renderingMode);
+        lineData->setLineRenderer(lineRenderer);
         newMeshLoaded = true;
         modelBoundingBox = lineData->getModelBoundingBox();
 

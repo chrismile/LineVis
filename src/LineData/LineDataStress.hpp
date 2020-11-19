@@ -30,6 +30,7 @@
 #define STRESSLINEVIS_LINEDATASTRESS_HPP
 
 #include "LineData.hpp"
+#include "Widgets/ColorLegendWidget.hpp"
 
 //const char *const DISTANCE_MEASURES[] = {
 //        "Distance Exponential Kernel",
@@ -62,6 +63,7 @@ public:
     /// Can be used to set what principal stress (PS) directions we want to display.
     void setUsedPsDirections(const std::vector<bool>& usedPsDirections);
     inline bool getUsePrincipalStressDirectionIndex() { return usePrincipalStressDirectionIndex; }
+    inline bool getUseLineHierarchy() { return useLineHierarchy; }
 
     // Statistics.
     virtual size_t getNumStressDirections() { return trajectoriesPs.size(); }
@@ -78,7 +80,10 @@ public:
     std::vector<std::vector<std::vector<glm::vec3>>> getFilteredPrincipalStressLines();
 
     // --- Retrieve data for rendering. Preferred way. ---
-    sgl::ShaderProgramPtr reloadGatherShader() override;
+    virtual sgl::ShaderProgramPtr reloadGatherShader() override;
+    virtual sgl::ShaderAttributesPtr getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader);
+    virtual void setUniformGatherShaderData_AllPasses();
+    virtual void setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader);
 
     // --- Retrieve data for rendering. ---
     TubeRenderData getTubeRenderData();
@@ -91,6 +96,16 @@ public:
      * @return true if the gather shader needs to be reloaded.
      */
     virtual bool renderGui(bool isRasterizer) override;
+    /**
+     * For rendering a separate ImGui window.
+     * @return true if the gather shader needs to be reloaded.
+     */
+    virtual bool renderGuiWindow(bool isRasterizer) override;
+    /// Certain GUI widgets might need the clear color.
+    virtual void setClearColor(const sgl::Color& clearColor) override;
+
+    /// Set current rendering mode (e.g. for making visible certain UI options only for certain renderers).
+    virtual void setRenderingMode(RenderingMode renderingMode) override;
 
     static inline void setUseMajorPS(bool val) { useMajorPS = val; }
     static inline void setUseMediumPS(bool val) { useMediumPS = val; }
@@ -109,6 +124,23 @@ private:
     std::vector<StressTrajectoriesData> stressTrajectoriesDataPs;
     std::vector<glm::vec3> degeneratePoints;
     std::vector<bool> usedPsDirections; ///< What principal stress (PS) directions do we want to display?
+
+    // Rendering mode settings.
+    bool rendererSupportsTransparency = false;
+
+    // Optional line hierarchy settings.
+    bool hasLineHierarchy = false;
+    bool useLineHierarchy = false;
+    glm::vec3 lineHierarchySliderValues = glm::vec3(0.0f);
+    glm::vec3 lineHierarchySliderValuesLower;
+    glm::vec3 lineHierarchySliderValuesUpper;
+    float lineHierarchySliderValuesTransparency[3][2] = { { 0.0f, 1.0f }, { 0.0f, 1.0f }, { 0.0f, 1.0f } };
+
+    /// Stores line point data if useProgrammableFetch is true.
+    sgl::GeometryBufferPtr lineHierarchyLevelsSSBO;
+
+    // TODO: Testing.
+    ColorLegendWidget colorLegendWidget;
 
     // For computing distance do degenerate regions.
     /*const size_t NUM_DISTANCE_MEASURES = 2;

@@ -12,21 +12,28 @@ struct LinePointData {
 layout (std430, binding = 2) buffer LinePoints {
     LinePointData linePoints[];
 };
+#ifdef USE_LINE_HIERARCHY_LEVEL
+layout (std430, binding = 3) buffer LineHierarchyLevels {
+    float lineHierarchyLevels[];
+};
+#endif
 
 out vec3 fragmentPositionWorld;
 out float fragmentAttribute;
 out float fragmentNormalFloat; // Between -1 and 1
 out vec3 normal0;
 out vec3 normal1;
-#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
 flat out uint fragmentPrincipalStressIndex;
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+flat out float fragmentLineHierarchyLevel;
 #endif
 
 uniform vec3 cameraPosition;
 uniform float lineWidth;
 
 void main() {
-
     uint pointIndex = gl_VertexID/2;
     LinePointData linePointData = linePoints[pointIndex];
     vec3 linePoint = (mMatrix * vec4(linePointData.vertexPosition, 1.0)).xyz;
@@ -42,8 +49,13 @@ void main() {
     fragmentNormalFloat = shiftSign;
     normal0 = viewDirection;
     normal1 = offsetDirection;
-#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     fragmentPrincipalStressIndex = linePointData.vertexPrincipalStressIndex;
+#endif
+
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    float lineHierarchyLevel = lineHierarchyLevels[pointIndex];
+    fragmentLineHierarchyLevel = lineHierarchyLevel;
 #endif
 
     fragmentPositionWorld = vertexPosition;
@@ -59,16 +71,22 @@ void main() {
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in float vertexAttribute;
 layout(location = 2) in vec3 vertexTangent;
-#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
-layout(location = 3) in uint vertexPrincipalStressIndex;
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
+layout(location = 4) in uint vertexPrincipalStressIndex;
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+layout(location = 5) in float vertexLineHierarchyLevel;
 #endif
 
 out VertexData {
     vec3 linePosition;
     float lineAttribute;
     vec3 lineTangent;
-#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     uint linePrincipalStressIndex;
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    float lineLineHierarchyLevel;
 #endif
 };
 
@@ -78,8 +96,11 @@ void main() {
     linePosition = (mMatrix * vec4(vertexPosition, 1.0)).xyz;
     lineAttribute = vertexAttribute;
     lineTangent = vertexTangent;
-#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     linePrincipalStressIndex = vertexPrincipalStressIndex;
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    lineLineHierarchyLevel = vertexLineHierarchyLevel;
 #endif
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
 }
@@ -99,16 +120,22 @@ out float fragmentAttribute;
 out float fragmentNormalFloat; // Between -1 and 1
 out vec3 normal0;
 out vec3 normal1;
-#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
 flat out uint fragmentPrincipalStressIndex;
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+flat out float fragmentLineHierarchyLevel;
 #endif
 
 in VertexData {
     vec3 linePosition;
     float lineAttribute;
     vec3 lineTangent;
-#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     uint linePrincipalStressIndex;
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    float lineLineHierarchyLevel;
 #endif
 } v_in[];
 
@@ -133,8 +160,11 @@ void main() {
     fragmentNormalFloat = -1.0;
     normal0 = viewDirection0;
     normal1 = offsetDirection0;
-#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    fragmentLineHierarchyLevel = v_in[0].lineLineHierarchyLevel;
 #endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
@@ -145,8 +175,11 @@ void main() {
     fragmentNormalFloat = -1.0;
     normal0 = viewDirection1;
     normal1 = offsetDirection1;
-#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    fragmentLineHierarchyLevel = v_in[1].lineLineHierarchyLevel;
 #endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
@@ -157,8 +190,11 @@ void main() {
     fragmentNormalFloat = 1.0;
     normal0 = viewDirection0;
     normal1 = offsetDirection0;
-#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    fragmentLineHierarchyLevel = v_in[0].lineLineHierarchyLevel;
 #endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
@@ -169,8 +205,11 @@ void main() {
     fragmentNormalFloat = 1.0;
     normal0 = viewDirection1;
     normal1 = offsetDirection1;
-#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    fragmentLineHierarchyLevel = v_in[1].lineLineHierarchyLevel;
 #endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
@@ -187,8 +226,17 @@ in float fragmentAttribute;
 in float fragmentNormalFloat;
 in vec3 normal0;
 in vec3 normal1;
-#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
 flat in uint fragmentPrincipalStressIndex;
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+flat in float fragmentLineHierarchyLevel;
+#ifdef USE_TRANSPARENCY
+uniform vec3 lineHierarchySliderLower;
+uniform vec3 lineHierarchySliderUpper;
+#else
+uniform vec3 lineHierarchySlider;
+#endif
 #endif
 
 #if defined(DIRECT_BLIT_GATHER)
@@ -213,6 +261,13 @@ uniform vec3 foregroundColor;
 #include "Lighting.glsl"
 
 void main() {
+#if defined(USE_LINE_HIERARCHY_LEVEL) && !defined(USE_TRANSPARENCY)
+    float slider = lineHierarchySlider[fragmentPrincipalStressIndex];
+    if (slider > fragmentLineHierarchyLevel) {
+        discard;
+    }
+#endif
+
     // Compute the normal of the billboard tube for shading.
     vec3 fragmentNormal;
     float interpolationFactor = fragmentNormalFloat;
@@ -230,6 +285,13 @@ void main() {
 #else
     vec4 fragmentColor = transferFunction(fragmentAttribute);
 #endif
+
+#if defined(USE_LINE_HIERARCHY_LEVEL) && defined(USE_TRANSPARENCY)
+    float lower = lineHierarchySliderLower[fragmentPrincipalStressIndex];
+    float upper = lineHierarchySliderUpper[fragmentPrincipalStressIndex];
+    fragmentColor.a *= (upper - lower) * fragmentLineHierarchyLevel + lower;
+#endif
+
     fragmentColor = blinnPhongShading(fragmentColor, fragmentNormal);
 
     float absCoords = abs(fragmentNormalFloat);
@@ -242,7 +304,7 @@ void main() {
             smoothstep(WHITE_THRESHOLD - EPSILON, WHITE_THRESHOLD + EPSILON, absCoords)),
             fragmentColor.a * coverage);
 
-    #if defined(DIRECT_BLIT_GATHER)
+#if defined(DIRECT_BLIT_GATHER)
     // To counteract depth fighting with overlay wireframe.
     float depthOffset = -0.00001;
     if (absCoords >= WHITE_THRESHOLD - EPSILON) {
@@ -256,14 +318,12 @@ void main() {
     }
     colorOut.a = 1.0;
     fragColor = colorOut;
-    #else
-
-    #if defined(USE_SYNC_FRAGMENT_SHADER_INTERLOCK)
+#elif defined(USE_SYNC_FRAGMENT_SHADER_INTERLOCK)
     // Area of mutual exclusion for fragments mapping to the same pixel
     beginInvocationInterlockARB();
     gatherFragmentCustomDepth(colorOut, fragmentDepth);
     endInvocationInterlockARB();
-    #elif defined(USE_SYNC_SPINLOCK)
+#elif defined(USE_SYNC_SPINLOCK)
     uint x = uint(gl_FragCoord.x);
     uint y = uint(gl_FragCoord.y);
     uint pixelIndex = addrGen(uvec2(x,y));
@@ -282,9 +342,7 @@ void main() {
             }
         }
     }
-    #else
+#else
     gatherFragmentCustomDepth(colorOut, fragmentDepth);
-    #endif
-
-    #endif
+#endif
 }

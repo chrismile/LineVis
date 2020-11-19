@@ -26,14 +26,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/Shader/ShaderAttributes.hpp>
 
-#include "Loaders/TrajectoryFile.hpp"
-#include "Renderers/Tubes/Tubes.hpp"
-
-#include <Utils/File/Logfile.hpp>
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_custom.h>
 
@@ -122,7 +117,7 @@ sgl::ShaderAttributesPtr LineData::getGatherShaderAttributes(sgl::ShaderProgramP
         shaderAttributes->addGeometryBuffer(
                 tubeRenderData.vertexPositionBuffer, "vertexPosition",
                 sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBuffer(
+        shaderAttributes->addGeometryBufferOptional(
                 tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
                 sgl::ATTRIB_FLOAT, 1);
         shaderAttributes->addGeometryBufferOptional(
@@ -131,12 +126,6 @@ sgl::ShaderAttributesPtr LineData::getGatherShaderAttributes(sgl::ShaderProgramP
         shaderAttributes->addGeometryBufferOptional(
                 tubeRenderData.vertexTangentBuffer, "vertexTangent",
                 sgl::ATTRIB_FLOAT, 3);
-        if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
-            shaderAttributes->addGeometryBufferOptional(
-                    tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
-                    sgl::ATTRIB_UNSIGNED_INT,
-                    1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
-        }
     }
 
     return shaderAttributes;

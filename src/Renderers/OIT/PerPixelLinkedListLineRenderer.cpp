@@ -52,7 +52,6 @@ PerPixelLinkedListLineRenderer::PerPixelLinkedListLineRenderer(
     setSortingAlgorithmDefine();
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"LinkedListGather.glsl\"");
 
-    reloadGatherShader();
     reloadResolveShader();
     clearShader = sgl::ShaderManager->getShaderProgram(
             {"LinkedListClear.Vertex", "LinkedListClear.Fragment"});

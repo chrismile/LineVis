@@ -35,7 +35,7 @@ class LineDataFlow : public LineData {
 public:
     LineDataFlow(sgl::TransferFunctionWindow &transferFunctionWindow);
     ~LineDataFlow();
-    void setTrajectoryData(const Trajectories& trajectories);
+    virtual void setTrajectoryData(const Trajectories& trajectories);
 
     /**
      * Load line data from the selected file(s).
@@ -64,7 +64,7 @@ public:
     TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch();
     TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization();
 
-private:
+protected:
     virtual void recomputeHistogram() override;
 
     Trajectories trajectories;

@@ -51,7 +51,9 @@ MLABRenderer::MLABRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& tr
 
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"MLABGather.glsl\"");
     updateLayerMode();
-    reloadShaders();
+    sgl::ShaderManager->invalidateShaderCache();
+    resolveShader = sgl::ShaderManager->getShaderProgram({"MLABResolve.Vertex", "MLABResolve.Fragment"});
+    clearShader = sgl::ShaderManager->getShaderProgram({"MLABClear.Vertex", "MLABClear.Fragment"});
 
     // Create blitting data (fullscreen rectangle in normalized device coordinates).
     blitRenderData = sgl::ShaderManager->createShaderAttributes(resolveShader);

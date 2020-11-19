@@ -114,7 +114,7 @@ void DepthComplexityRenderer::setUniformData() {
     int width = window->getWidth();
     int height = window->getHeight();
 
-    gatherShader->setUniform("cameraPosition", sceneData.camera->getPosition());
+    gatherShader->setUniformOptional("cameraPosition", sceneData.camera->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
     gatherShader->setUniform("viewportW", width);
     gatherShader->setShaderStorageBuffer(0, "FragmentCounterBuffer", fragmentCounterBuffer);
@@ -222,10 +222,6 @@ void DepthComplexityRenderer::renderGui() {
     if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
         reRender = true;
     }
-    if (ImGui::Checkbox("Programmable Fetch", &useProgrammableFetch)) {
-        dirty = true;
-        reRender = true;
-    }
     if (ImGui::ColorEdit4("Coloring", (float*)&colorSelection, 0)) {
         sgl::Color newColor = sgl::colorFromFloat(colorSelection.x, colorSelection.y, colorSelection.z, 1.0f);
         renderColor = newColor;
@@ -279,7 +275,7 @@ void DepthComplexityRenderer::computeStatistics(bool isReRender) {
     fragmentCounterBuffer->unmapBuffer();
 
     bool performanceMeasureMode = sceneData.performanceMeasurer != nullptr;
-    if ((performanceMeasureMode || sceneData.recordingMode) || firstFrame) {
+    if ((performanceMeasureMode || sceneData.recordingMode) || firstFrame || true) {
         if (!isReRender) {
             firstFrame = false;
         }

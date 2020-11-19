@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2020, Christoph Neuhauser, Michael Kern
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,36 +26,31 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEDENSITYCONTROL_DATASETLIST_HPP
-#define LINEDENSITYCONTROL_DATASETLIST_HPP
+#ifndef STRESSLINEVIS_BEZIERCURVE_HPP
+#define STRESSLINEVIS_BEZIERCURVE_HPP
 
-#include <Math/Geometry/MatrixUtil.hpp>
-#include <vector>
+#include <array>
+#include <glm/glm.hpp>
 
-const std::string lineDataSetsDirectory = "Data/LineDataSets/";
+class BezierCurve {
+public:
+    explicit BezierCurve(const std::array<glm::vec3, 4>& points, const float _minT, const float _maxT);
 
-enum DataSetType {
-    DATA_SET_TYPE_FLOW_LINES, DATA_SET_TYPE_STRESS_LINES, DATA_SET_TYPE_FLOW_LINES_MULTIVAR
+    std::array<glm::vec3, 4> controlPoints;
+    float totalArcLength;
+    float minT;
+    float maxT;
+
+    bool isInterval(const float t) { return (minT <= t && t <= maxT); }
+    void evaluate(const float t, glm::vec3& P, glm::vec3& dt) const;
+    glm::vec3 derivative(const float t) const;
+    glm::vec3 curvature(const float t) const;
+    float evalArcLength(const float _minT, const float _maxT, const uint16_t numSteps) const;
+    float solveTForArcLength(const float _arcLength) const;
+    float normalizeT(const float t) const { return (t - minT) / (maxT - minT); }
+
+private:
+    float denormalizeT(const float t) const { return t * (maxT - minT) + minT; }
 };
 
-struct DataSetInformation {
-    DataSetType type = DATA_SET_TYPE_FLOW_LINES;
-    std::string name;
-    std::vector<std::string> filenames;
-
-    // Optional attributes.
-    bool hasCustomLineWidth = false;
-    float lineWidth = 0.002f;
-    bool hasCustomTransform = false;
-    glm::mat4 transformMatrix = sgl::matrixIdentity();
-    std::vector<std::string> attributeNames; ///< Names of the associated importance criteria.
-
-    // Stress lines: Additional information (optional).
-    std::string meshFilename;
-    std::string degeneratePointsFilename;
-    std::vector<std::string> filenamesStressLineHierarchy;
-};
-
-std::vector<DataSetInformation> loadDataSetList(const std::string& filename);
-
-#endif //LINEDENSITYCONTROL_DATASETLIST_HPP
+#endif //STRESSLINEVIS_BEZIERCURVE_HPP

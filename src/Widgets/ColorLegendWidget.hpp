@@ -26,36 +26,39 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEDENSITYCONTROL_DATASETLIST_HPP
-#define LINEDENSITYCONTROL_DATASETLIST_HPP
+#ifndef STRESSLINEVIS_COLORLEGENDWIDGET_HPP
+#define STRESSLINEVIS_COLORLEGENDWIDGET_HPP
 
-#include <Math/Geometry/MatrixUtil.hpp>
-#include <vector>
+#include <Graphics/Texture/Bitmap.hpp>
+#include <string>
 
-const std::string lineDataSetsDirectory = "Data/LineDataSets/";
+class ColorLegendWidget {
+public:
+    ColorLegendWidget();
+    void renderGui();
+    void setClearColor(const sgl::Color& clearColor);
 
-enum DataSetType {
-    DATA_SET_TYPE_FLOW_LINES, DATA_SET_TYPE_STRESS_LINES, DATA_SET_TYPE_FLOW_LINES_MULTIVAR
+    // Set attribute data.
+    inline void setAttributeDisplayName(const std::string& attributeDisplayName) {
+        this->attributeDisplayName = attributeDisplayName;
+    }
+    inline void setAttributeMinValue(float attributeMinValue) { this->attributeMinValue = attributeMinValue; }
+    inline void setAttributeMaxValue(float attributeMaxValue) { this->attributeMaxValue = attributeMaxValue; }
+    inline void setAttributeMaxValue(const std::vector<sgl::Color>& transferFunctionBitmap) {
+        this->transferFunctionColorMap = transferFunctionColorMap;
+    }
+
+private:
+    int positionIndex = 0; ///< When placing many widgets next to each other.
+    float attributeMinValue = 0.0f;
+    float attributeMaxValue = 1.0f;
+    std::string attributeDisplayName = "Vorticity";
+    std::vector<sgl::Color> transferFunctionColorMap; ///< Colors in sRGB color space.
+    sgl::Color clearColor = sgl::Color(255, 255, 255);
+    sgl::Color textColor = sgl::Color(0, 0, 0);
+
+    // Internal UI data.
+    bool showWindow = true;
 };
 
-struct DataSetInformation {
-    DataSetType type = DATA_SET_TYPE_FLOW_LINES;
-    std::string name;
-    std::vector<std::string> filenames;
-
-    // Optional attributes.
-    bool hasCustomLineWidth = false;
-    float lineWidth = 0.002f;
-    bool hasCustomTransform = false;
-    glm::mat4 transformMatrix = sgl::matrixIdentity();
-    std::vector<std::string> attributeNames; ///< Names of the associated importance criteria.
-
-    // Stress lines: Additional information (optional).
-    std::string meshFilename;
-    std::string degeneratePointsFilename;
-    std::vector<std::string> filenamesStressLineHierarchy;
-};
-
-std::vector<DataSetInformation> loadDataSetList(const std::string& filename);
-
-#endif //LINEDENSITYCONTROL_DATASETLIST_HPP
+#endif //STRESSLINEVIS_COLORLEGENDWIDGET_HPP

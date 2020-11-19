@@ -137,11 +137,20 @@ void OpacityOptimizationRenderer::reloadResolveShader() {
 void OpacityOptimizationRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     sgl::ShaderManager->invalidateShaderCache();
 
-    bool usePrincipalStressDirectionIndex = lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES
-            && static_cast<LineDataStress*>(lineData.get())->getUsePrincipalStressDirectionIndex();
+    bool usePrincipalStressDirectionIndex = false;
+    bool useLineHierarchy = false;
+    if (lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
+        LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
+        usePrincipalStressDirectionIndex = lineDataStress->getUsePrincipalStressDirectionIndex();
+        useLineHierarchy = lineDataStress->getUseLineHierarchy();
+    }
     if (usePrincipalStressDirectionIndex) {
         sgl::ShaderManager->addPreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", "");
     }
+    if (useLineHierarchy) {
+        sgl::ShaderManager->addPreprocessorDefine("USE_LINE_HIERARCHY_LEVEL", "");
+    }
+    sgl::ShaderManager->addPreprocessorDefine("USE_TRANSPARENCY", "");
     gatherPpllOpacitiesShader = sgl::ShaderManager->getShaderProgram({
         "GeometryPassOpacities.VBO.Vertex",
         "GeometryPassOpacities.VBO.Geometry",
@@ -152,6 +161,10 @@ void OpacityOptimizationRenderer::reloadGatherShader(bool canCopyShaderAttribute
         "GeometryPassFinal.VBO.Geometry",
         "GeometryPassFinal.Fragment"
     });
+    sgl::ShaderManager->removePreprocessorDefine("USE_TRANSPARENCY");
+    if (useLineHierarchy) {
+        sgl::ShaderManager->removePreprocessorDefine("USE_LINE_HIERARCHY_LEVEL");
+    }
     if (usePrincipalStressDirectionIndex) {
         sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX");
     }
@@ -260,6 +273,11 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewM
                 sgl::ATTRIB_UNSIGNED_INT,
                 1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
     }
+    if (tubeRenderData.vertexLineHierarchyLevelBuffer) {
+        gatherPpllOpacitiesRenderData->addGeometryBufferOptional(
+                tubeRenderData.vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel",
+                sgl::ATTRIB_FLOAT, 1);
+    }
     gatherPpllOpacitiesRenderData->addGeometryBuffer(
             this->lineSegmentIdBuffer, "vertexLineSegmentId", sgl::ATTRIB_UNSIGNED_INT,
             1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
@@ -269,7 +287,7 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewM
     gatherPpllFinalRenderData->addGeometryBuffer(
             tubeRenderData.vertexPositionBuffer, "vertexPosition",
             sgl::ATTRIB_FLOAT, 3);
-    gatherPpllFinalRenderData->addGeometryBuffer(
+    gatherPpllFinalRenderData->addGeometryBufferOptional(
             tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
             sgl::ATTRIB_FLOAT, 1);
     gatherPpllFinalRenderData->addGeometryBuffer(
@@ -509,6 +527,7 @@ void OpacityOptimizationRenderer::setUniformData() {
     gatherPpllOpacitiesShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeOpacity);
     gatherPpllOpacitiesShader->setUniform("cameraPosition", sceneData.camera->getPosition());
     gatherPpllOpacitiesShader->setUniform("lineWidth", lineWidth);
+    lineData->setUniformGatherShaderData_Pass(gatherPpllOpacitiesShader);
 
     gatherPpllFinalShader->setUniform("viewportW", paddedViewportWidthFinal);
     gatherPpllFinalShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeOpacity);

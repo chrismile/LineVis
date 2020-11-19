@@ -81,9 +81,9 @@ private:
 
     sgl::TimerGL timerGL;
     int initialFreeMemKilobytes;
-    CsvWriter file;
-    CsvWriter depthComplexityFile;
-    CsvWriter perfFile;
+    sgl::CsvWriter file;
+    sgl::CsvWriter depthComplexityFile;
+    sgl::CsvWriter perfFile;
     size_t depthComplexityFrameNumber = 0;
     size_t currentAlgorithmsBufferSizeBytes = 0;
 
@@ -92,7 +92,7 @@ private:
     size_t maxPPLLNumFragments = 0;
 
     // For per-pixel linked list renderers.
-    CsvWriter ppllFile;
+    sgl::CsvWriter ppllFile;
     sgl::TimerGL* ppllTimer = nullptr;
 };
 

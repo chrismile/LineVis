@@ -1,11 +1,11 @@
 This license applies to all files of this project not explicitly covered by
-a separate license.
+a separate license (like src/LineData/MultiVar/BezierCurve.cpp).
 
 ----------------------------------------------------------------------------
 
 BSD 2-Clause License
 
-Copyright (c) 2020, Christoph Neuhauser
+Copyright (c) 2020, Christoph Neuhauser, Michael Kern
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
