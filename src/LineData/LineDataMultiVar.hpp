@@ -123,6 +123,7 @@ private:
     // Multi-Variate settings.
     std::vector<std::uint32_t> varSelected;
     std::vector<glm::vec4> varColors;
+    std::string comboValue = "";
     int32_t numVariablesSelected = 0;
     int32_t maxNumVariables = 6;
     int32_t numLineSegments = 8;

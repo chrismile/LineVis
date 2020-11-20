@@ -171,6 +171,7 @@ protected:
     DataSetType dataSetType;
     sgl::AABB3 modelBoundingBox;
     std::vector<std::string> attributeNames;
+    std::vector<glm::vec2> minMaxAttributeValues;
     int selectedAttributeIndex = 0; ///< Selected attribute/importance criterion index.
     int selectedAttributeIndexUi = 0;
     bool dirty = false; ///< Should be set to true if the representation changed.

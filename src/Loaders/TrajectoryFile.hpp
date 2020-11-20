@@ -67,12 +67,12 @@ void normalizeVertexPositions(
 void normalizeTrajectoriesVertexAttributes(Trajectories& trajectories);
 
 sgl::AABB3 computeTrajectoriesPsAABB3(const std::vector<Trajectories>& trajectoriesPs);
-void normalizeTrajectoriesVertexPositions(
+void normalizeTrajectoriesPsVertexPositions(
         std::vector<Trajectories>& trajectoriesPs, const glm::mat4* vertexTransformationMatrixPtr = nullptr);
-void normalizeTrajectoriesVertexPositions(
+void normalizeTrajectoriesPsVertexPositions(
         std::vector<Trajectories>& trajectoriesPs, const sgl::AABB3& aabb,
         const glm::mat4* vertexTransformationMatrixPtr = nullptr);
-void normalizeTrajectoriesVertexAttributes(std::vector<Trajectories>& trajectoriesPs);
+void normalizeTrajectoriesPsVertexAttributes(std::vector<Trajectories>& trajectoriesPs);
 
 /**
  * Selects @see loadTrajectoriesFromObj, @see loadTrajectoriesFromNetCdf or @see loadTrajectoriesFromBinLines depending

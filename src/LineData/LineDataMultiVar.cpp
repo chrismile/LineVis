@@ -34,6 +34,7 @@
 
 #include <Utils/File/Logfile.hpp>
 
+#include "MultiVar/HsvColor.hpp"
 #include "LineDataMultiVar.hpp"
 
 const std::string MULTI_VAR_RENDER_MODE_SHADER_NAMES[] = {
@@ -218,14 +219,19 @@ void LineDataMultiVar::setTrajectoryData(const Trajectories& trajectories) {
 void LineDataMultiVar::recomputeColorLegend() {
     if (useMultiVarRendering) {
         for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
-            glm::vec3 baseColor = varColors.at(i);
+            glm::vec3 baseColor_sRGB = varColors.at(i);
+            glm::vec3 baseColor_linearRGB = sgl::TransferFunctionWindow::sRGBToLinearRGB(baseColor_sRGB);
 
             std::vector<sgl::Color> transferFunctionColorMap;
             transferFunctionColorMap.reserve(ColorLegendWidget::STANDARD_MAP_RESOLUTION);
             for (int i = 0; i < ColorLegendWidget::STANDARD_MAP_RESOLUTION; i++) {
                 float posFloat = float(i) / float(ColorLegendWidget::STANDARD_MAP_RESOLUTION - 1);
-                glm::vec3 color = mix(baseColor, glm::vec3(1.0), pow((1.0 - posFloat), 10.0) * 0.5);
-                glm::vec3 color_sRGB = sgl::TransferFunctionWindow::linearRGBTosRGB(color);
+
+                glm::vec3 hsvCol = rgbToHsv(baseColor_linearRGB);
+                hsvCol.g = hsvCol.g * (minColorIntensity + (1.0 - minColorIntensity) * posFloat);
+                glm::vec3 color_linearRGB = hsvToRgb(hsvCol);
+                glm::vec3 color_sRGB = sgl::TransferFunctionWindow::linearRGBTosRGB(color_linearRGB);
+
                 transferFunctionColorMap.push_back(color_sRGB);
             }
             colorLegendWidgets.at(i).setTransferFunctionColorMap(transferFunctionColorMap);

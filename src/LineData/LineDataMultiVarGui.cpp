@@ -177,7 +177,6 @@ bool LineDataMultiVar::renderGuiTechniqueSettings() {
         reRender = true;
     }
 
-    static std::string comboValue = "";
     auto& varNames = attributeNames;
     bool itemHasChanged = false;
 

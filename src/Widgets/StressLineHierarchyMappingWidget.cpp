@@ -86,21 +86,22 @@ bool StressLineHierarchyMappingWidget::renderGui() {
     return reRender;
 }
 
-void StressLineHierarchyMappingWidget::setLineHierarchyLevelValues(const std::vector<float>& lineHierarchyLevelValues) {
-    histogram.clear();
-    histogram.resize(histogramResolution);
+void StressLineHierarchyMappingWidget::setLineHierarchyLevelValues(
+        int psIdx, const std::vector<float>& lineHierarchyLevelValues) {
+    histogram[psIdx].clear();
+    histogram[psIdx].resize(histogramResolution);
     for (float attr : lineHierarchyLevelValues) {
         int index = glm::clamp(
                 static_cast<int>(attr * (histogramResolution-1)), 0, histogramResolution - 1);
-        histogram.at(index) += 1;
+        histogram[psIdx].at(index) += 1;
     }
 
     float maxNum = 1.0f;
-    for (float num : histogram) {
+    for (float num : histogram[psIdx]) {
         maxNum = std::max(num, maxNum);
     }
 
-    for (float& num : histogram) {
+    for (float& num : histogram[psIdx]) {
         num /= maxNum;
     }
 }
@@ -199,8 +200,8 @@ void StressLineHierarchyMappingWidget::renderGraphArea(int psIdx) {
     ImVec2 oldPadding = ImGui::GetStyle().FramePadding;
     ImGui::GetStyle().FramePadding = ImVec2(1, 1);
     ImGui::PlotHistogram(
-            histogramId.c_str(), &histogram.front(), histogram.size(), 0, NULL,
-            0.0f, 1.0f, ImVec2(regionWidth, graphHeight));
+            histogramId.c_str(), &histogram[psIdx].front(), histogram[psIdx].size(),
+            0, NULL, 0.0f, 1.0f, ImVec2(regionWidth, graphHeight));
     ImGui::GetStyle().FramePadding = oldPadding;
 
     // Then render the graph itself

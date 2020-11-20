@@ -44,9 +44,35 @@ void ColorLegendWidget::setClearColor(const sgl::Color& clearColor) {
     this->textColor = sgl::Color(255 - clearColor.getR(), 255 - clearColor.getG(), 255 - clearColor.getB());
 }
 
+std::string removeTrailingZeros(const std::string& numberString) {
+    size_t lastPos = numberString.size();
+    for (int i = int(numberString.size()) - 1; i > 0; i--) {
+        char c = numberString.at(i);
+        if (c != '.' && c != '0') {
+            break;
+        }
+        lastPos--;
+    }
+    return numberString.substr(0, lastPos);
+}
+
+std::string getNiceNumberString(float number, int digits) {
+    int maxDigits = digits + 2;
+    std::string outString = removeTrailingZeros(sgl::toString(number, digits, true));
+    size_t dotPos = outString.find('.');
+    if (outString.size() > maxDigits && dotPos != std::string::npos) {
+        size_t substrSize = dotPos;
+        if (dotPos < maxDigits - 1) {
+            substrSize = maxDigits;
+        }
+        outString = outString.substr(0, substrSize);
+    }
+    return outString;
+}
+
 void ColorLegendWidget::renderGui() {
-    const int regionHeight = 256 - 2;
-    const int barWidth = 30;
+    const int regionHeight = 300 - 2;
+    const int barWidth = 25;
     const float textRegionWidth = 90;
     const int totalWidth = barWidth + textRegionWidth;
     const int numTicks = 5;
@@ -99,8 +125,8 @@ void ColorLegendWidget::renderGui() {
         ImU32 textColorImgui = textColor.getColorRGBA();
 
         float textHeight = ImGui::CalcTextSize(attributeDisplayName.c_str()).y;
-        std::string minText = sgl::toString(attributeMinValue, 4, false);
-        std::string maxText = sgl::toString(attributeMaxValue, 4, false);
+        std::string minText = getNiceNumberString(attributeMinValue, 3);
+        std::string maxText = getNiceNumberString(attributeMaxValue, 3);
         drawList->AddText(
                 ImVec2(startPos.x + barWidth + 10, startPos.y + regionHeight - textHeight/2.0f + 1),
                 textColorImgui, minText.c_str());

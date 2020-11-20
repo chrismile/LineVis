@@ -49,7 +49,7 @@ public:
     void update(float dt);
     void setClearColor(const sgl::Color& clearColor);
 
-    void setLineHierarchyLevelValues(const std::vector<float>& lineHierarchyLevelValues);
+    void setLineHierarchyLevelValues(int psIdx, const std::vector<float>& lineHierarchyLevelValues);
 
     const static int STANDARD_MAP_RESOLUTION = 256;
 
@@ -68,7 +68,7 @@ private:
 
     // Histogram data.
     std::vector<float> lineHierarchyLevelValues;
-    std::vector<float> histogram;
+    std::vector<float> histogram[3];
     int histogramResolution = 32;
 
     // Texture map & data.

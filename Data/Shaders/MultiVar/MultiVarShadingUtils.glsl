@@ -44,8 +44,7 @@ vec3 rgbToHSV(in vec3 color) {
 // https://en.wikipedia.org/wiki/HSL_and_HSV
 // https://de.wikipedia.org/wiki/HSV-Farbraum
 
-vec3 hsvToRGB(in vec3 color)
-{
+vec3 hsvToRGB(in vec3 color) {
     const float H = color.r;
     const float S = color.g;
     const float V = color.b;

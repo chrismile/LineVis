@@ -73,9 +73,9 @@ bool LineDataStress::renderGui(bool isRasterizer) {
     bool shallReloadGatherShader = LineData::renderGui(isRasterizer);
 
     bool usedPsChanged = false;
-    usedPsChanged |= ImGui::Checkbox("Major", &useMajorPS); ImGui::SameLine();
-    usedPsChanged |= ImGui::Checkbox("Medium", &useMediumPS); ImGui::SameLine();
-    usedPsChanged |= ImGui::Checkbox("Minor", &useMinorPS);
+    usedPsChanged |= ImGui::Checkbox("Major##usedpsmajor", &useMajorPS); ImGui::SameLine();
+    usedPsChanged |= ImGui::Checkbox("Medium##usedpsmedium", &useMediumPS); ImGui::SameLine();
+    usedPsChanged |= ImGui::Checkbox("Minor##usedpsminor", &useMinorPS);
     if (usedPsChanged) {
         setUsedPsDirections({useMajorPS, useMediumPS, useMinorPS});
         shallReloadGatherShader = true;
@@ -155,7 +155,7 @@ bool LineDataStress::loadFromFile(
     sgl::AABB3 oldAABB;
     loadStressTrajectoriesFromFile(
             fileNames, dataSetInformation.filenamesStressLineHierarchy, trajectoriesPs, stressTrajectoriesDataPs,
-            true, true, &oldAABB, transformationMatrixPtr);
+            true, false, &oldAABB, transformationMatrixPtr);
     bool dataLoaded = !trajectoriesPs.empty();
 
     if (dataLoaded) {
@@ -193,6 +193,30 @@ void LineDataStress::setStressTrajectoryData(
 
     colorLegendWidgets.clear();
     colorLegendWidgets.resize(std::max(attributeNames.size(), size_t(3)));
+
+    for (size_t i = 0; i < attributeNames.size(); i++) {
+        float minAttr = std::numeric_limits<float>::max();
+        float maxAttr = std::numeric_limits<float>::lowest();
+        for (const Trajectories& trajectories : trajectoriesPs) {
+            for (const Trajectory& trajectory : trajectories) {
+                for (float val : trajectory.attributes.at(i)) {
+                    minAttr = std::min(minAttr, val);
+                    maxAttr = std::max(maxAttr, val);
+                }
+            }
+        }
+        minMaxAttributeValues.push_back(glm::vec2(minAttr, maxAttr));
+    }
+    normalizeTrajectoriesPsVertexAttributes(this->trajectoriesPs);
+
+    for (int psIdx = 0; psIdx < 3; psIdx++) {
+        std::vector<float> lineHierarchyLevelValues;
+        const StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(psIdx);
+        for (const StressTrajectoryData& stressTrajectoryData : stressTrajectoriesData) {
+            lineHierarchyLevelValues.push_back(stressTrajectoryData.hierarchyLevel);
+        }
+        stressLineHierarchyMappingWidget.setLineHierarchyLevelValues(psIdx, lineHierarchyLevelValues);
+    }
 
     dirty = true;
 }
@@ -262,6 +286,8 @@ void LineDataStress::setDegeneratePoints(
 
     attributeNames.push_back("Distance Exponential Kernel");
     attributeNames.push_back("Distance Squared Exponential Kernel");
+    minMaxAttributeValues.push_back(glm::vec2(0.0f, 1.0f));
+    minMaxAttributeValues.push_back(glm::vec2(0.0f, 1.0f));
 }
 
 void LineDataStress::setUsedPsDirections(const std::vector<bool>& usedPsDirections) {
@@ -278,15 +304,8 @@ void LineDataStress::recomputeHistogram() {
             }
         }
     }
+    //glm::vec2 minMaxAttributes = minMaxAttributeValues.at(selectedAttributeIndex);
     transferFunctionWindow.computeHistogram(attributeList, 0.0f, 1.0f);
-
-    for (int psIdx = 0; psIdx < 3; psIdx++) {
-        colorLegendWidgets[psIdx].setAttributeMinValue(0.0f);
-        colorLegendWidgets[psIdx].setAttributeMaxValue(1.0f);
-        colorLegendWidgets[psIdx].setAttributeDisplayName(
-                std::string() + attributeNames.at(selectedAttributeIndex)
-                + " (" + stressDirectionNames[psIdx] + ")");
-    }
     recomputeColorLegend();
 }
 
@@ -296,6 +315,9 @@ void LineDataStress::recomputeColorLegend() {
             colorLegendWidgets[psIdx].setAttributeDisplayName(
                     std::string() + attributeNames.at(selectedAttributeIndex)
                     + " (" + stressDirectionNames[psIdx] + ")");
+            glm::vec2 minMaxAttributes = minMaxAttributeValues.at(selectedAttributeIndex);
+            colorLegendWidgets[psIdx].setAttributeMinValue(minMaxAttributes.x);
+            colorLegendWidgets[psIdx].setAttributeMaxValue(minMaxAttributes.y);
             colorLegendWidgets[psIdx].setPositionIndex(psIdx, 3);
 
             glm::vec3 baseColor;
@@ -320,6 +342,9 @@ void LineDataStress::recomputeColorLegend() {
     } else {
         colorLegendWidgets[selectedAttributeIndex].setAttributeDisplayName(
                 std::string() + attributeNames.at(selectedAttributeIndex));
+        glm::vec2 minMaxAttributes = minMaxAttributeValues.at(selectedAttributeIndex);
+        colorLegendWidgets[selectedAttributeIndex].setAttributeMinValue(minMaxAttributes.x);
+        colorLegendWidgets[selectedAttributeIndex].setAttributeMaxValue(minMaxAttributes.y);
         colorLegendWidgets[selectedAttributeIndex].setPositionIndex(0, 1);
         LineData::recomputeColorLegend();
         /*for (int psIdx = 0; psIdx < 3; psIdx++) {

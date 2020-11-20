@@ -80,24 +80,39 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
         colorLegendWidgets.at(i).setPositionIndex(0, 1);
     }
 
+    minMaxAttributeValues.clear();
+    for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
+        float minAttr = std::numeric_limits<float>::max();
+        float maxAttr = std::numeric_limits<float>::lowest();
+        for (const Trajectory& trajectory : trajectories) {
+            for (float val : trajectory.attributes.at(i)) {
+                minAttr = std::min(minAttr, val);
+                maxAttr = std::max(maxAttr, val);
+            }
+        }
+        minMaxAttributeValues.push_back(glm::vec2(minAttr, maxAttr));
+        colorLegendWidgets[i].setAttributeMinValue(minAttr);
+        colorLegendWidgets[i].setAttributeMaxValue(maxAttr);
+        colorLegendWidgets[i].setAttributeDisplayName(
+                std::string() + attributeNames.at(i));
+    }
+    normalizeTrajectoriesVertexAttributes(this->trajectories);
+
     dirty = true;
 }
 
 void LineDataFlow::recomputeHistogram() {
+    assert(colorLegendWidgets.size() == attributeNames.size());
+
     std::vector<float> attributeList;
     for (const Trajectory& trajectory : trajectories) {
         for (float val : trajectory.attributes.at(selectedAttributeIndex)) {
             attributeList.push_back(val);
         }
     }
+    //glm::vec2 minMaxAttributes = minMaxAttributeValues.at(selectedAttributeIndex);
     transferFunctionWindow.computeHistogram(attributeList, 0.0f, 1.0f);
 
-    for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
-        colorLegendWidgets[i].setAttributeMinValue(0.0f);
-        colorLegendWidgets[i].setAttributeMaxValue(1.0f);
-        colorLegendWidgets[i].setAttributeDisplayName(
-                std::string() + attributeNames.at(i));
-    }
     recomputeColorLegend();
 }
 
