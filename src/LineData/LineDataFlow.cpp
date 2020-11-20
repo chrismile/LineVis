@@ -74,6 +74,12 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
     sgl::Logfile::get()->writeInfo(
             std::string() + "Number of line segments: " + std::to_string(getNumLineSegments()));
 
+    colorLegendWidgets.clear();
+    colorLegendWidgets.resize(attributeNames.size());
+    for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
+        colorLegendWidgets.at(i).setPositionIndex(0, 1);
+    }
+
     dirty = true;
 }
 
@@ -85,6 +91,14 @@ void LineDataFlow::recomputeHistogram() {
         }
     }
     transferFunctionWindow.computeHistogram(attributeList, 0.0f, 1.0f);
+
+    for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
+        colorLegendWidgets[i].setAttributeMinValue(0.0f);
+        colorLegendWidgets[i].setAttributeMaxValue(1.0f);
+        colorLegendWidgets[i].setAttributeDisplayName(
+                std::string() + attributeNames.at(i));
+    }
+    recomputeColorLegend();
 }
 
 size_t LineDataFlow::getNumAttributes() {

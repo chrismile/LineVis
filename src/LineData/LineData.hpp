@@ -35,6 +35,7 @@
 #include <Graphics/Shader/Shader.hpp>
 #include <Graphics/Shader/ShaderAttributes.hpp>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
+#include "Widgets/ColorLegendWidget.hpp"
 #include "Utils/InternalState.hpp"
 #include "Loaders/DataSetList.hpp"
 #include "Loaders/TrajectoryFile.hpp"
@@ -102,6 +103,7 @@ class LineData {
 public:
     LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType);
     virtual ~LineData();
+    virtual void update(float dt) {}
     void setSelectedAttributeIndex(int qualityMeasureIdx);
     void onTransferFunctionMapRebuilt();
     inline DataSetType getType() { return dataSetType; }
@@ -154,9 +156,9 @@ public:
      * For rendering a separate ImGui window.
      * @return true if the gather shader needs to be reloaded.
      */
-    virtual bool renderGuiWindow(bool isRasterizer) { return false; }
+    virtual bool renderGuiWindow(bool isRasterizer);
     /// Certain GUI widgets might need the clear color.
-    virtual void setClearColor(const sgl::Color& clearColor) {}
+    virtual void setClearColor(const sgl::Color& clearColor);
     /// Set current rendering mode (e.g. for making visible certain UI options only for certain renderers).
     virtual void setLineRenderer(LineRenderer* lineRenderer) { this->lineRenderer = lineRenderer; }
     virtual void setRenderingMode(RenderingMode renderingMode) { this->renderingMode = renderingMode; }
@@ -164,6 +166,7 @@ public:
 protected:
     void rebuildInternalRepresentationIfNecessary();
     virtual void recomputeHistogram()=0;
+    virtual void recomputeColorLegend();
 
     DataSetType dataSetType;
     sgl::AABB3 modelBoundingBox;
@@ -173,6 +176,10 @@ protected:
     bool dirty = false; ///< Should be set to true if the representation changed.
     bool reRender = false;
     sgl::TransferFunctionWindow& transferFunctionWindow;
+
+    // Color legend widgets for different attributes.
+    bool shallRenderColorLegendWidgets = true;
+    std::vector<ColorLegendWidget> colorLegendWidgets;
 
     // Rendering settings.
     RenderingMode renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;

@@ -42,16 +42,26 @@
 bool LineDataStress::useMajorPS = true;
 bool LineDataStress::useMediumPS = true;
 bool LineDataStress::useMinorPS = true;
-bool LineDataStress::usePrincipalStressDirectionIndex = false;
+bool LineDataStress::usePrincipalStressDirectionIndex = true;
 
 const char* const stressDirectionNames[] = { "Major", "Medium", "Minor" };
 
 LineDataStress::LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_STRESS_LINES) {
+    colorLegendWidgets.resize(3);
+    for (int psIdx = 0; psIdx < 3; psIdx++) {
+        colorLegendWidgets[psIdx].setPositionIndex(psIdx, 3);
+    }
     setUsedPsDirections({useMajorPS, useMediumPS, useMinorPS});
 }
 
 LineDataStress::~LineDataStress() {
+}
+
+void LineDataStress::update(float dt) {
+    if (useLineHierarchy) {
+        stressLineHierarchyMappingWidget.update(dt);
+    }
 }
 
 void LineDataStress::setRenderingMode(RenderingMode renderingMode) {
@@ -73,6 +83,7 @@ bool LineDataStress::renderGui(bool isRasterizer) {
     if (ImGui::Checkbox("Use Principal Stress Direction Index", &usePrincipalStressDirectionIndex)) {
         dirty = true;
         shallReloadGatherShader = true;
+        recomputeColorLegend();
     }
 
     bool recomputeOpacityOptimization = false;
@@ -111,12 +122,23 @@ bool LineDataStress::renderGui(bool isRasterizer) {
 }
 
 bool LineDataStress::renderGuiWindow(bool isRasterizer) {
-    colorLegendWidget.renderGui();
-    return false;
+    if (useLineHierarchy) {
+        stressLineHierarchyMappingWidget.renderGui();
+    }
+
+    if (usePrincipalStressDirectionIndex && shallRenderColorLegendWidgets) {
+        for (int i = 0; i < colorLegendWidgets.size(); i++) {
+            colorLegendWidgets.at(i).renderGui();
+        }
+        return false;
+    } else {
+        return LineData::renderGuiWindow(isRasterizer);
+    }
 }
 
 void LineDataStress::setClearColor(const sgl::Color& clearColor) {
-    colorLegendWidget.setClearColor(clearColor);
+    LineData::setClearColor(clearColor);
+    stressLineHierarchyMappingWidget.setClearColor(clearColor);
 }
 
 bool LineDataStress::loadFromFile(
@@ -164,6 +186,9 @@ void LineDataStress::setStressTrajectoryData(
             std::string() + "Number of line points: " + std::to_string(getNumLinePoints()));
     sgl::Logfile::get()->writeInfo(
             std::string() + "Number of line segments: " + std::to_string(getNumLineSegments()));
+
+    colorLegendWidgets.clear();
+    colorLegendWidgets.resize(std::max(attributeNames.size(), size_t(3)));
 
     dirty = true;
 }
@@ -250,6 +275,54 @@ void LineDataStress::recomputeHistogram() {
         }
     }
     transferFunctionWindow.computeHistogram(attributeList, 0.0f, 1.0f);
+
+    for (int psIdx = 0; psIdx < 3; psIdx++) {
+        colorLegendWidgets[psIdx].setAttributeMinValue(0.0f);
+        colorLegendWidgets[psIdx].setAttributeMaxValue(1.0f);
+        colorLegendWidgets[psIdx].setAttributeDisplayName(
+                std::string() + attributeNames.at(selectedAttributeIndex)
+                + " (" + stressDirectionNames[psIdx] + ")");
+    }
+    recomputeColorLegend();
+}
+
+void LineDataStress::recomputeColorLegend() {
+    if (usePrincipalStressDirectionIndex) {
+        for (int psIdx = 0; psIdx < 3; psIdx++) {
+            colorLegendWidgets[psIdx].setAttributeDisplayName(
+                    std::string() + attributeNames.at(selectedAttributeIndex)
+                    + " (" + stressDirectionNames[psIdx] + ")");
+            colorLegendWidgets[psIdx].setPositionIndex(psIdx, 3);
+
+            glm::vec3 baseColor;
+            if (psIdx == 0) {
+                baseColor = glm::vec3(1.0, 0.0, 0.0);
+            } else if (psIdx == 1) {
+                baseColor = glm::vec3(0.0, 1.0, 0.0);
+            } else {
+                baseColor = glm::vec3(0.0, 0.0, 1.0);
+            }
+
+            std::vector<sgl::Color> transferFunctionColorMap;
+            transferFunctionColorMap.reserve(ColorLegendWidget::STANDARD_MAP_RESOLUTION);
+            for (int i = 0; i < ColorLegendWidget::STANDARD_MAP_RESOLUTION; i++) {
+                float posFloat = float(i) / float(ColorLegendWidget::STANDARD_MAP_RESOLUTION - 1);
+                glm::vec3 color = mix(baseColor, glm::vec3(1.0), pow((1.0 - posFloat), 10.0) * 0.5);
+                glm::vec3 color_sRGB = sgl::TransferFunctionWindow::linearRGBTosRGB(color);
+                transferFunctionColorMap.push_back(color_sRGB);
+            }
+            colorLegendWidgets[psIdx].setTransferFunctionColorMap(transferFunctionColorMap);
+        }
+    } else {
+        colorLegendWidgets[selectedAttributeIndex].setAttributeDisplayName(
+                std::string() + attributeNames.at(selectedAttributeIndex));
+        colorLegendWidgets[selectedAttributeIndex].setPositionIndex(0, 1);
+        LineData::recomputeColorLegend();
+        /*for (int psIdx = 0; psIdx < 3; psIdx++) {
+            colorLegendWidgets[psIdx].setTransferFunctionColorMap(
+                    transferFunctionWindow.getTransferFunctionMap_sRGB());
+        }*/
+    }
 }
 
 size_t LineDataStress::getNumAttributes() {
@@ -831,8 +904,9 @@ void LineDataStress::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gath
     LineData::setUniformGatherShaderData_Pass(gatherShader);
     if (useLineHierarchy) {
         if (!rendererSupportsTransparency) {
-            gatherShader->setUniform("lineHierarchySlider", lineHierarchySliderValues);
+            gatherShader->setUniform("lineHierarchySlider", glm::vec3(1.0f) - lineHierarchySliderValues);
         } else {
+            // TODO: Remove
             lineHierarchySliderValuesLower[0] = lineHierarchySliderValuesTransparency[0][0];
             lineHierarchySliderValuesLower[1] = lineHierarchySliderValuesTransparency[1][0];
             lineHierarchySliderValuesLower[2] = lineHierarchySliderValuesTransparency[2][0];
@@ -841,6 +915,11 @@ void LineDataStress::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gath
             lineHierarchySliderValuesUpper[2] = lineHierarchySliderValuesTransparency[2][1];
             gatherShader->setUniform("lineHierarchySliderLower", lineHierarchySliderValuesLower);
             gatherShader->setUniform("lineHierarchySliderUpper", lineHierarchySliderValuesUpper);
+
+            // TODO: No longer optional
+            gatherShader->setUniformOptional(
+                    "lineHierarchyImportanceMap",
+                    stressLineHierarchyMappingWidget.getHierarchyMappingTexture());
         }
     }
 }

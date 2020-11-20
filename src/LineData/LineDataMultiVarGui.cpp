@@ -44,13 +44,49 @@ const char *const MULTIVAR_RADIUSTYPE_DISPLAYNAMES[] = {
 };
 
 void LineDataMultiVar::setClearColor(const sgl::Color& clearColor) {
+    LineData::setClearColor(clearColor);
     this->clearColor = clearColor;
     multiVarWindow.setClearColor(clearColor);
 }
 
+void LineDataMultiVar::recomputeWidgetPositions() {
+    if (!useMultiVarRendering) {
+        for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
+            colorLegendWidgets.at(i).setPositionIndex(0, 1);
+        }
+        return;
+    }
+
+    int numWidgetsVisible = 0;
+    for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
+        if (varSelected.at(i)) {
+            numWidgetsVisible++;
+        }
+    }
+    int positionCounter = 0;
+    for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
+        colorLegendWidgets.at(i).setPositionIndex(positionCounter, numWidgetsVisible);
+        if (varSelected.at(i)) {
+            positionCounter++;
+        }
+    }
+}
+
 bool LineDataMultiVar::renderGuiWindow(bool isRasterizer)  {
     multiVarWindow.renderGui();
-    return false;
+
+    bool shallReloadGatherShader = false;
+    if (useMultiVarRendering && shallRenderColorLegendWidgets) {
+        for (int i = 0; i < colorLegendWidgets.size(); i++) {
+            if (varSelected.at(i)) {
+                colorLegendWidgets.at(i).renderGui();
+            }
+        }
+    } else {
+        shallReloadGatherShader = LineData::renderGuiWindow(isRasterizer) || shallReloadGatherShader;
+    }
+
+    return shallReloadGatherShader;
 }
 
 bool LineDataMultiVar::renderGui(bool isRasterizer) {
@@ -58,6 +94,8 @@ bool LineDataMultiVar::renderGui(bool isRasterizer) {
     if (ImGui::Checkbox("Multivariate Rendering", &useMultiVarRendering)) {
         dirty = true;
         shallReloadGatherShader = true;
+        recomputeColorLegend();
+        recomputeWidgetPositions();
     }
 
     if (!useMultiVarRendering) {
@@ -177,6 +215,7 @@ bool LineDataMultiVar::renderGuiTechniqueSettings() {
                     varSelected.size() * sizeof(uint32_t), (void*)&varSelected.front(),
                     sgl::SHADER_STORAGE_BUFFER);
             shallReloadGatherShader = true;
+            recomputeWidgetPositions();
         }
 
         ImGui::EndCombo();
@@ -203,7 +242,7 @@ bool LineDataMultiVar::renderGuiTechniqueSettings() {
         varColorArrayBuffer = sgl::Renderer->createGeometryBuffer(
                 varColors.size() * sizeof(glm::vec4), (void*)&varColors.front(),
                 sgl::SHADER_STORAGE_BUFFER);
-
+        recomputeColorLegend();
         reRender = true;
     }
 

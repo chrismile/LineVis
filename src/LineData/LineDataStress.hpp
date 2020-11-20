@@ -30,7 +30,7 @@
 #define STRESSLINEVIS_LINEDATASTRESS_HPP
 
 #include "LineData.hpp"
-#include "Widgets/ColorLegendWidget.hpp"
+#include "Widgets/StressLineHierarchyMappingWidget.hpp"
 
 //const char *const DISTANCE_MEASURES[] = {
 //        "Distance Exponential Kernel",
@@ -42,6 +42,7 @@ class LineDataStress : public LineData {
 public:
     LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow);
     ~LineDataStress();
+    virtual void update(float dt) override;
 
     /**
      * Load line data from the selected file(s).
@@ -102,7 +103,7 @@ public:
      */
     virtual bool renderGuiWindow(bool isRasterizer) override;
     /// Certain GUI widgets might need the clear color.
-    virtual void setClearColor(const sgl::Color& clearColor) override;
+    virtual void setClearColor(const sgl::Color& clearColor);
 
     /// Set current rendering mode (e.g. for making visible certain UI options only for certain renderers).
     virtual void setRenderingMode(RenderingMode renderingMode) override;
@@ -113,6 +114,7 @@ public:
 
 private:
     virtual void recomputeHistogram() override;
+    virtual void recomputeColorLegend() override;
 
     // Should we show major, medium and/or minor principal stress lines?
     static bool useMajorPS, useMediumPS, useMinorPS;
@@ -131,7 +133,7 @@ private:
     // Optional line hierarchy settings.
     bool hasLineHierarchy = false;
     bool useLineHierarchy = false;
-    glm::vec3 lineHierarchySliderValues = glm::vec3(0.0f);
+    glm::vec3 lineHierarchySliderValues = glm::vec3(1.0f);
     glm::vec3 lineHierarchySliderValuesLower;
     glm::vec3 lineHierarchySliderValuesUpper;
     float lineHierarchySliderValuesTransparency[3][2] = { { 0.0f, 1.0f }, { 0.0f, 1.0f }, { 0.0f, 1.0f } };
@@ -139,8 +141,8 @@ private:
     /// Stores line point data if useProgrammableFetch is true.
     sgl::GeometryBufferPtr lineHierarchyLevelsSSBO;
 
-    // TODO: Testing.
-    ColorLegendWidget colorLegendWidget;
+    // Color legend widgets for different principal stress directions.
+    StressLineHierarchyMappingWidget stressLineHierarchyMappingWidget;
 
     // For computing distance do degenerate regions.
     /*const size_t NUM_DISTANCE_MEASURES = 2;

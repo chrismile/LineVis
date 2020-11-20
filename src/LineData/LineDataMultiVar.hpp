@@ -79,6 +79,8 @@ public:
 
 private:
     virtual void recomputeHistogram() override;
+    virtual void recomputeColorLegend() override;
+    void recomputeWidgetPositions();
     bool renderGuiTechniqueSettings();
     bool renderGuiLineRenderingSettings();
 

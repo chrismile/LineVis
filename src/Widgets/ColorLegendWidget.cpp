@@ -54,19 +54,22 @@ void ColorLegendWidget::renderGui() {
 
     std::string windowId = std::string() + "##" + attributeDisplayName;
     ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImVec2 windowSize = ImVec2(totalWidth + 3, regionHeight + 30);
+    float windowOffset = (windowSize.x + 8) * (numPositionsTotal - positionIndex - 1);
     ImVec2 windowPos = ImVec2(
-            viewport->Pos.x + viewport->Size.x - totalWidth - 14,
+            viewport->Pos.x + viewport->Size.x - totalWidth - 12 - windowOffset,
             viewport->Pos.y + viewport->Size.y - regionHeight - 40);
-    ImVec2 windowSize = ImVec2(totalWidth + 2, regionHeight + 30);
     ImGui::SetNextWindowPos(windowPos);
     ImGui::SetNextWindowSize(windowSize);
-    //ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(
-            textColor.getFloatR(), textColor.getFloatG(), textColor.getFloatB(), 0.1f));
+    glm::vec3 clearColorFlt(clearColor.getFloatR(), clearColor.getFloatG(), clearColor.getFloatB());
+    glm::vec3 textColorFlt(textColor.getFloatR(), textColor.getFloatG(), textColor.getFloatB());
+    glm::vec3 bgColor = glm::mix(clearColorFlt, textColorFlt, 0.1);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(bgColor.r, bgColor.g, bgColor.b, 0.7f));
     if (ImGui::Begin(
             windowId.c_str(), &showWindow,
             ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoResize/*|ImGuiWindowFlags_NoMove*/
-            |ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoSavedSettings/*|ImGuiWindowFlags_NoInputs*/)) {
+            |ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoSavedSettings/*|ImGuiWindowFlags_NoInputs*/
+            |ImGuiWindowFlags_NoFocusOnAppearing)) {
         ImGui::SetWindowFontScale(0.75f);
         ImDrawList* drawList = ImGui::GetWindowDrawList();
         float scaleFactor = sgl::ImGuiWrapper::get()->getScaleFactor();
@@ -75,8 +78,9 @@ void ColorLegendWidget::renderGui() {
         ImVec2 startPos = ImGui::GetCursorScreenPos();
         ImVec2 pos = ImVec2(startPos.x + 1, startPos.y + 1);
         const float lineHeightFactor = 1.0f / (transferFunctionColorMap.size() - 1);
+        const size_t numColorMapEntries = transferFunctionColorMap.size();
         for (size_t i = 0; i < transferFunctionColorMap.size(); i++) {
-            sgl::Color color = transferFunctionColorMap[i];
+            sgl::Color color = transferFunctionColorMap[numColorMapEntries - i - 1];
             ImU32 colorImgui = ImColor(color.getR(), color.getG(), color.getB());
             drawList->AddLine(
                     ImVec2(pos.x, pos.y), ImVec2(pos.x + barWidth, pos.y), colorImgui,
@@ -85,7 +89,9 @@ void ColorLegendWidget::renderGui() {
         }
 
         ImVec2 textSize = ImGui::CalcVerticalTextSize(attributeDisplayName.c_str());
-        ImVec2 textPos = ImVec2(startPos.x + barWidth + 40, startPos.y + regionHeight / 2.0f - textSize.y / 2.0f);
+        ImVec2 textPos = ImVec2(
+                startPos.x + barWidth + 40,
+                startPos.y + regionHeight / 2.0f - textSize.y / 2.0f + 1);
         ImGui::AddTextVertical(
                 drawList, textPos, textColor.getColorRGBA(), attributeDisplayName.c_str(),
                 nullptr, false);
@@ -96,24 +102,22 @@ void ColorLegendWidget::renderGui() {
         std::string minText = sgl::toString(attributeMinValue, 4, false);
         std::string maxText = sgl::toString(attributeMaxValue, 4, false);
         drawList->AddText(
-                ImVec2(startPos.x + barWidth + 10, startPos.y + regionHeight - textHeight/2.0f),
+                ImVec2(startPos.x + barWidth + 10, startPos.y + regionHeight - textHeight/2.0f + 1),
                 textColorImgui, minText.c_str());
         drawList->AddText(
-                ImVec2(startPos.x + barWidth + 10, startPos.y - textHeight/2.0f),
+                ImVec2(startPos.x + barWidth + 10, startPos.y - textHeight/2.0f + 1),
                 textColorImgui, maxText.c_str());
 
         for (int tick = 0; tick < numTicks; tick++) {
             float xpos = startPos.x + barWidth;
-            float ypos = startPos.y + float(tick) / float(numTicks - 1) * regionHeight;
+            float ypos = startPos.y + float(tick) / float(numTicks - 1) * regionHeight + 1;
             drawList->AddLine(
                     ImVec2(xpos - tickWidth / 2.0f, ypos),
                     ImVec2(xpos + tickWidth / 2.0f, ypos),
                     textColorImgui, 2
             );
         }
-
+        ImGui::End();
     }
     ImGui::PopStyleColor();
-
-    ImGui::End();
 }

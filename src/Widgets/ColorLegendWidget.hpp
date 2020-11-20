@@ -29,8 +29,9 @@
 #ifndef STRESSLINEVIS_COLORLEGENDWIDGET_HPP
 #define STRESSLINEVIS_COLORLEGENDWIDGET_HPP
 
-#include <Graphics/Texture/Bitmap.hpp>
+#include <Graphics/Color.hpp>
 #include <string>
+#include <vector>
 
 class ColorLegendWidget {
 public:
@@ -39,17 +40,24 @@ public:
     void setClearColor(const sgl::Color& clearColor);
 
     // Set attribute data.
+    inline void setPositionIndex(int positionIndex, int numPositionsTotal) {
+        this->positionIndex = positionIndex;
+        this->numPositionsTotal = numPositionsTotal;
+    }
     inline void setAttributeDisplayName(const std::string& attributeDisplayName) {
         this->attributeDisplayName = attributeDisplayName;
     }
     inline void setAttributeMinValue(float attributeMinValue) { this->attributeMinValue = attributeMinValue; }
     inline void setAttributeMaxValue(float attributeMaxValue) { this->attributeMaxValue = attributeMaxValue; }
-    inline void setAttributeMaxValue(const std::vector<sgl::Color>& transferFunctionBitmap) {
+    inline void setTransferFunctionColorMap(const std::vector<sgl::Color>& transferFunctionColorMap) {
         this->transferFunctionColorMap = transferFunctionColorMap;
     }
 
+    const static int STANDARD_MAP_RESOLUTION = 256;
+
 private:
     int positionIndex = 0; ///< When placing many widgets next to each other.
+    int numPositionsTotal = 1; ///< When placing many widgets next to each other.
     float attributeMinValue = 0.0f;
     float attributeMaxValue = 1.0f;
     std::string attributeDisplayName = "Vorticity";

@@ -46,7 +46,8 @@ LineData::~LineData() {
 bool LineData::renderGui(bool isRasterizer) {
     bool shallReloadGatherShader = false;
     if (isRasterizer) {
-        if (ImGui::Checkbox("Programmable Fetch", &useProgrammableFetch)) {
+        if (renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION
+                && ImGui::Checkbox("Programmable Fetch", &useProgrammableFetch)) {
             dirty = true;
             shallReloadGatherShader = true;
         }
@@ -58,8 +59,22 @@ bool LineData::renderGui(bool isRasterizer) {
             attributeNames.data(), attributeNames.size())) {
         setSelectedAttributeIndex(selectedAttributeIndexUi);
     }
+    ImGui::Checkbox("Render Color Legend", &shallRenderColorLegendWidgets);
 
     return shallReloadGatherShader;
+}
+
+bool LineData::renderGuiWindow(bool isRasterizer) {
+    if (shallRenderColorLegendWidgets) {
+        colorLegendWidgets.at(selectedAttributeIndex).renderGui();
+    }
+    return false;
+}
+
+void LineData::setClearColor(const sgl::Color& clearColor) {
+    for (int i = 0; i < colorLegendWidgets.size(); i++) {
+        colorLegendWidgets.at(i).setClearColor(clearColor);
+    }
 }
 
 void LineData::setSelectedAttributeIndex(int qualityMeasureIdx) {
@@ -71,6 +86,14 @@ void LineData::setSelectedAttributeIndex(int qualityMeasureIdx) {
 }
 
 void LineData::onTransferFunctionMapRebuilt() {
+    recomputeColorLegend();
+}
+
+void LineData::recomputeColorLegend() {
+    for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
+        colorLegendWidgets[i].setTransferFunctionColorMap(
+                transferFunctionWindow.getTransferFunctionMap_sRGB());
+    }
 }
 
 void LineData::rebuildInternalRepresentationIfNecessary() {

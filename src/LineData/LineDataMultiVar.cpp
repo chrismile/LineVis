@@ -41,6 +41,25 @@ const std::string MULTI_VAR_RENDER_MODE_SHADER_NAMES[] = {
         "MultiVarOrientedColorBands", "MultiVarCheckerboard", "MultiVarFibers"
 };
 
+const std::vector<glm::vec4> defaultColors = {
+        // RED
+        glm::vec4(228 / 255.0, 26 / 255.0, 28 / 255.0, 1.0),
+        // BLUE
+        glm::vec4(55 / 255.0, 126 / 255.0, 184 / 255.0, 1.0),
+        // GREEN
+        glm::vec4(5 / 255.0, 139 / 255.0, 69 / 255.0, 1.0),
+        // PURPLE
+        glm::vec4(129 / 255.0, 15 / 255.0, 124 / 255.0, 1.0),
+        // ORANGE
+        glm::vec4(217 / 255.0, 72 / 255.0, 1 / 255.0, 1.0),
+        // PINK
+        glm::vec4(231 / 255.0, 41 / 255.0, 138 / 255.0, 1.0),
+        // GOLD
+        glm::vec4(254 / 255.0, 178 / 255.0, 76 / 255.0, 1.0),
+        // DARK BLUE
+        glm::vec4(0 / 255.0, 7 / 255.0, 255 / 255.0, 1.0)
+};
+
 
 LineDataMultiVar::LineDataMultiVar(sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineDataFlow(transferFunctionWindow) {
@@ -181,25 +200,6 @@ void LineDataMultiVar::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& ga
     gatherShader->setUniformOptional("constantTwistOffset", constantTwistOffset);
 }
 
-const std::vector<glm::vec4> defaultColors = {
-        // RED
-        glm::vec4(228 / 255.0, 26 / 255.0, 28 / 255.0, 1.0),
-        // BLUE
-        glm::vec4(55 / 255.0, 126 / 255.0, 184 / 255.0, 1.0),
-        // GREEN
-        glm::vec4(5 / 255.0, 139 / 255.0, 69 / 255.0, 1.0),
-        // PURPLE
-        glm::vec4(129 / 255.0, 15 / 255.0, 124 / 255.0, 1.0),
-        // ORANGE
-        glm::vec4(217 / 255.0, 72 / 255.0, 1 / 255.0, 1.0),
-        // PINK
-        glm::vec4(231 / 255.0, 41 / 255.0, 138 / 255.0, 1.0),
-        // GOLD
-        glm::vec4(254 / 255.0, 178 / 255.0, 76 / 255.0, 1.0),
-        // BLACK
-        glm::vec4(82 / 255.0, 82 / 255.0, 82 / 255.0, 1.0)
-};
-
 void LineDataMultiVar::setTrajectoryData(const Trajectories& trajectories) {
     LineDataFlow::setTrajectoryData(trajectories);
     bezierTrajectories = convertTrajectoriesToBezierCurves(filterTrajectoryData());
@@ -212,6 +212,26 @@ void LineDataMultiVar::setTrajectoryData(const Trajectories& trajectories) {
     varColors = std::vector<glm::vec4>(attributeNames.size());
     for (auto c = 0; c < varColors.size(); ++c) {
         varColors[c] = defaultColors[c % defaultColors.size()];
+    }
+}
+
+void LineDataMultiVar::recomputeColorLegend() {
+    if (useMultiVarRendering) {
+        for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
+            glm::vec3 baseColor = varColors.at(i);
+
+            std::vector<sgl::Color> transferFunctionColorMap;
+            transferFunctionColorMap.reserve(ColorLegendWidget::STANDARD_MAP_RESOLUTION);
+            for (int i = 0; i < ColorLegendWidget::STANDARD_MAP_RESOLUTION; i++) {
+                float posFloat = float(i) / float(ColorLegendWidget::STANDARD_MAP_RESOLUTION - 1);
+                glm::vec3 color = mix(baseColor, glm::vec3(1.0), pow((1.0 - posFloat), 10.0) * 0.5);
+                glm::vec3 color_sRGB = sgl::TransferFunctionWindow::linearRGBTosRGB(color);
+                transferFunctionColorMap.push_back(color_sRGB);
+            }
+            colorLegendWidgets.at(i).setTransferFunctionColorMap(transferFunctionColorMap);
+        }
+    } else {
+        LineData::recomputeColorLegend();
     }
 }
 

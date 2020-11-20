@@ -391,6 +391,9 @@ void MainApp::update(float dt) {
     updateCameraFlight(lineData.get() != nullptr, usesNewState);
 
     transferFunctionWindow.update(dt);
+    if (lineData) {
+        lineData->update(dt);
+    }
 
     ImGuiIO &io = ImGui::GetIO();
     if (io.WantCaptureKeyboard && !recording) {
