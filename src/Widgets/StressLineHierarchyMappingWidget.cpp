@@ -147,8 +147,9 @@ void StressLineHierarchyMappingWidget::rebuildHierarchyMappingTexture() {
         }
     }
 
-    hierarchyMappingTexture->uploadPixelData(STANDARD_MAP_RESOLUTION, 3, &hierarchyMappingData.front());
-    //hierarchyMappingTexture = sgl::TextureManager->create;
+    hierarchyMappingTexture->uploadPixelData(
+            STANDARD_MAP_RESOLUTION, 3, &hierarchyMappingData.front(),
+            sgl::PixelFormat(GL_RED, GL_FLOAT));
 }
 
 

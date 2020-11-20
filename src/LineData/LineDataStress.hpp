@@ -134,9 +134,9 @@ private:
     bool hasLineHierarchy = false;
     bool useLineHierarchy = false;
     glm::vec3 lineHierarchySliderValues = glm::vec3(1.0f);
-    glm::vec3 lineHierarchySliderValuesLower;
-    glm::vec3 lineHierarchySliderValuesUpper;
-    float lineHierarchySliderValuesTransparency[3][2] = { { 0.0f, 1.0f }, { 0.0f, 1.0f }, { 0.0f, 1.0f } };
+    //glm::vec3 lineHierarchySliderValuesLower;
+    //glm::vec3 lineHierarchySliderValuesUpper;
+    //float lineHierarchySliderValuesTransparency[3][2] = { { 0.0f, 1.0f }, { 0.0f, 1.0f }, { 0.0f, 1.0f } };
 
     /// Stores line point data if useProgrammableFetch is true.
     sgl::GeometryBufferPtr lineHierarchyLevelsSSBO;

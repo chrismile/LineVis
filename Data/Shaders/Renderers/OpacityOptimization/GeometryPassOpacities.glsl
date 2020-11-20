@@ -135,8 +135,9 @@ flat in uint fragmentLineSegmentId;
 #ifdef USE_LINE_HIERARCHY_LEVEL
 flat in uint fragmentPrincipalStressIndex;
 flat in float fragmentLineHierarchyLevel;
-uniform vec3 lineHierarchySliderLower;
-uniform vec3 lineHierarchySliderUpper;
+//uniform vec3 lineHierarchySliderLower;
+//uniform vec3 lineHierarchySliderUpper;
+uniform sampler1DArray lineHierarchyImportanceMap;
 #endif
 
 uniform vec3 cameraPosition;
@@ -153,9 +154,11 @@ void main() {
     frag.lineSegmentId = fragmentLineSegmentId;
     frag.next = -1;
 #ifdef USE_LINE_HIERARCHY_LEVEL
-    float lower = lineHierarchySliderLower[fragmentPrincipalStressIndex];
-    float upper = lineHierarchySliderUpper[fragmentPrincipalStressIndex];
-    float fragmentAttributeHierarchy = (upper - lower) * fragmentLineHierarchyLevel + lower;
+    //float lower = lineHierarchySliderLower[fragmentPrincipalStressIndex];
+    //float upper = lineHierarchySliderUpper[fragmentPrincipalStressIndex];
+    //float fragmentAttributeHierarchy = (upper - lower) * fragmentLineHierarchyLevel + lower;
+    float fragmentAttributeHierarchy = texture(
+            lineHierarchyImportanceMap, vec2(fragmentLineHierarchyLevel, float(fragmentPrincipalStressIndex))).r;
     packFloat22Float10(frag.depth, gl_FragCoord.z, fragmentAttributeHierarchy);
 #else
     packFloat22Float10(frag.depth, gl_FragCoord.z, fragmentAttribute);

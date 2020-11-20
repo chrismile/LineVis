@@ -232,8 +232,9 @@ flat in uint fragmentPrincipalStressIndex;
 #ifdef USE_LINE_HIERARCHY_LEVEL
 flat in float fragmentLineHierarchyLevel;
 #ifdef USE_TRANSPARENCY
-uniform vec3 lineHierarchySliderLower;
-uniform vec3 lineHierarchySliderUpper;
+//uniform vec3 lineHierarchySliderLower;
+//uniform vec3 lineHierarchySliderUpper;
+uniform sampler1DArray lineHierarchyImportanceMap;
 #else
 uniform vec3 lineHierarchySlider;
 #endif
@@ -287,9 +288,11 @@ void main() {
 #endif
 
 #if defined(USE_LINE_HIERARCHY_LEVEL) && defined(USE_TRANSPARENCY)
-    float lower = lineHierarchySliderLower[fragmentPrincipalStressIndex];
-    float upper = lineHierarchySliderUpper[fragmentPrincipalStressIndex];
-    fragmentColor.a *= (upper - lower) * fragmentLineHierarchyLevel + lower;
+    //float lower = lineHierarchySliderLower[fragmentPrincipalStressIndex];
+    //float upper = lineHierarchySliderUpper[fragmentPrincipalStressIndex];
+    //fragmentColor.a *= (upper - lower) * fragmentLineHierarchyLevel + lower;
+    fragmentColor.a *= texture(
+            lineHierarchyImportanceMap, vec2(fragmentLineHierarchyLevel, float(fragmentPrincipalStressIndex))).r;
 #endif
 
     fragmentColor = blinnPhongShading(fragmentColor, fragmentNormal);

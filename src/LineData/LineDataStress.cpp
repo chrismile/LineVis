@@ -59,7 +59,7 @@ LineDataStress::~LineDataStress() {
 }
 
 void LineDataStress::update(float dt) {
-    if (useLineHierarchy) {
+    if (rendererSupportsTransparency && useLineHierarchy) {
         stressLineHierarchyMappingWidget.update(dt);
     }
 }
@@ -102,16 +102,16 @@ bool LineDataStress::renderGui(bool isRasterizer) {
                 }
             }
         }
-        if (rendererSupportsTransparency && useLineHierarchy) {
-            for (int i = 0; i < 3; i++) {
-                if (ImGui::SliderFloat2(
-                        stressDirectionNames[i], &lineHierarchySliderValuesTransparency[i][0],
-                        0.0f, 1.0f)) {
-                    reRender = true;
-                    recomputeOpacityOptimization = true;
-                }
-            }
-        }
+        //if (rendererSupportsTransparency && useLineHierarchy) {
+        //    for (int i = 0; i < 3; i++) {
+        //        if (ImGui::SliderFloat2(
+        //                stressDirectionNames[i], &lineHierarchySliderValuesTransparency[i][0],
+        //                0.0f, 1.0f)) {
+        //            reRender = true;
+        //            recomputeOpacityOptimization = true;
+        //        }
+        //    }
+        //}
     }
 
     if (lineRenderer && renderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION && recomputeOpacityOptimization) {
@@ -122,8 +122,12 @@ bool LineDataStress::renderGui(bool isRasterizer) {
 }
 
 bool LineDataStress::renderGuiWindow(bool isRasterizer) {
-    if (useLineHierarchy) {
-        stressLineHierarchyMappingWidget.renderGui();
+    if (rendererSupportsTransparency && useLineHierarchy) {
+        bool hierarchyMappingChanged = stressLineHierarchyMappingWidget.renderGui();
+        reRender = reRender || hierarchyMappingChanged;
+        if (lineRenderer && renderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION) {
+            static_cast<OpacityOptimizationRenderer*>(lineRenderer)->onHasMoved();
+        }
     }
 
     if (usePrincipalStressDirectionIndex && shallRenderColorLegendWidgets) {
@@ -906,20 +910,18 @@ void LineDataStress::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gath
         if (!rendererSupportsTransparency) {
             gatherShader->setUniform("lineHierarchySlider", glm::vec3(1.0f) - lineHierarchySliderValues);
         } else {
-            // TODO: Remove
-            lineHierarchySliderValuesLower[0] = lineHierarchySliderValuesTransparency[0][0];
-            lineHierarchySliderValuesLower[1] = lineHierarchySliderValuesTransparency[1][0];
-            lineHierarchySliderValuesLower[2] = lineHierarchySliderValuesTransparency[2][0];
-            lineHierarchySliderValuesUpper[0] = lineHierarchySliderValuesTransparency[0][1];
-            lineHierarchySliderValuesUpper[1] = lineHierarchySliderValuesTransparency[1][1];
-            lineHierarchySliderValuesUpper[2] = lineHierarchySliderValuesTransparency[2][1];
-            gatherShader->setUniform("lineHierarchySliderLower", lineHierarchySliderValuesLower);
-            gatherShader->setUniform("lineHierarchySliderUpper", lineHierarchySliderValuesUpper);
+            //lineHierarchySliderValuesLower[0] = lineHierarchySliderValuesTransparency[0][0];
+            //lineHierarchySliderValuesLower[1] = lineHierarchySliderValuesTransparency[1][0];
+            //lineHierarchySliderValuesLower[2] = lineHierarchySliderValuesTransparency[2][0];
+            //lineHierarchySliderValuesUpper[0] = lineHierarchySliderValuesTransparency[0][1];
+            //lineHierarchySliderValuesUpper[1] = lineHierarchySliderValuesTransparency[1][1];
+            //lineHierarchySliderValuesUpper[2] = lineHierarchySliderValuesTransparency[2][1];
+            //gatherShader->setUniform("lineHierarchySliderLower", lineHierarchySliderValuesLower);
+            //gatherShader->setUniform("lineHierarchySliderUpper", lineHierarchySliderValuesUpper);
 
-            // TODO: No longer optional
-            gatherShader->setUniformOptional(
+            gatherShader->setUniform(
                     "lineHierarchyImportanceMap",
-                    stressLineHierarchyMappingWidget.getHierarchyMappingTexture());
+                    stressLineHierarchyMappingWidget.getHierarchyMappingTexture(), 1);
         }
     }
 }
