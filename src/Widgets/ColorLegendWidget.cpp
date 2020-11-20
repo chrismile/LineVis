@@ -51,9 +51,14 @@ void ColorLegendWidget::setClearColor(const sgl::Color& clearColor) {
 /// Removes trailing zeros and unnecessary decimal points.
 std::string removeTrailingZeros(const std::string& numberString) {
     size_t lastPos = numberString.size();
+    bool dotOccured = false;
     for (int i = int(numberString.size()) - 1; i > 0; i--) {
         char c = numberString.at(i);
-        if (c != '.' && c != '0') {
+        if (c == '.') {
+            lastPos--;
+            break;
+        }
+        if (c != '0') {
             break;
         }
         lastPos--;
@@ -78,7 +83,7 @@ std::string getNiceNumberString(float number, int digits) {
 
     // Still too large?
     if (outString.size() > maxDigits) {
-        outString = sgl::toString(number, digits, false, false, true);
+        outString = sgl::toString(number, std::max(digits - 2, 1), false, false, true);
     }
     return outString;
 }
