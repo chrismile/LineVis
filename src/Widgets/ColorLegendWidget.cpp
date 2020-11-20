@@ -31,12 +31,16 @@
 #include "ImGuiVerticalText.hpp"
 #include "ColorLegendWidget.hpp"
 
+const int regionHeightStandard = 300 - 2;
+int ColorLegendWidget::regionHeight = regionHeightStandard;
+
 ColorLegendWidget::ColorLegendWidget() {
     transferFunctionColorMap.reserve(256);
     for (int i = 0; i < 256; i++) {
         float pct = float(i) / float(255);
         transferFunctionColorMap.push_back(sgl::Color(0, pct*255, (1.0f - pct) * 255));
     }
+    regionHeight = regionHeightStandard;
 }
 
 void ColorLegendWidget::setClearColor(const sgl::Color& clearColor) {
@@ -44,6 +48,7 @@ void ColorLegendWidget::setClearColor(const sgl::Color& clearColor) {
     this->textColor = sgl::Color(255 - clearColor.getR(), 255 - clearColor.getG(), 255 - clearColor.getB());
 }
 
+/// Removes trailing zeros and unnecessary decimal points.
 std::string removeTrailingZeros(const std::string& numberString) {
     size_t lastPos = numberString.size();
     for (int i = int(numberString.size()) - 1; i > 0; i--) {
@@ -56,9 +61,12 @@ std::string removeTrailingZeros(const std::string& numberString) {
     return numberString.substr(0, lastPos);
 }
 
+/// Removes decimal points if more than maxDigits digits are used.
 std::string getNiceNumberString(float number, int digits) {
-    int maxDigits = digits + 2;
+    int maxDigits = digits + 2; // Add 2 digits for '.' and one digit afterwards.
     std::string outString = removeTrailingZeros(sgl::toString(number, digits, true));
+
+    // Can we remove digits after the decimal point?
     size_t dotPos = outString.find('.');
     if (outString.size() > maxDigits && dotPos != std::string::npos) {
         size_t substrSize = dotPos;
@@ -67,16 +75,22 @@ std::string getNiceNumberString(float number, int digits) {
         }
         outString = outString.substr(0, substrSize);
     }
+
+    // Still too large?
+    if (outString.size() > maxDigits) {
+        outString = sgl::toString(number, digits, false, false, true);
+    }
     return outString;
 }
 
 void ColorLegendWidget::renderGui() {
-    const int regionHeight = 300 - 2;
     const int barWidth = 25;
     const float textRegionWidth = 90;
     const int totalWidth = barWidth + textRegionWidth;
     const int numTicks = 5;
     const int tickWidth = 10;
+
+    int textHeight = 0;
 
     std::string windowId = std::string() + "##" + attributeDisplayName;
     ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -115,6 +129,7 @@ void ColorLegendWidget::renderGui() {
         }
 
         ImVec2 textSize = ImGui::CalcVerticalTextSize(attributeDisplayName.c_str());
+        textHeight = textSize.y;
         ImVec2 textPos = ImVec2(
                 startPos.x + barWidth + 40,
                 startPos.y + regionHeight / 2.0f - textSize.y / 2.0f + 1);
@@ -146,4 +161,6 @@ void ColorLegendWidget::renderGui() {
         ImGui::End();
     }
     ImGui::PopStyleColor();
+
+    regionHeight = std::max(regionHeight, textHeight + 18);
 }

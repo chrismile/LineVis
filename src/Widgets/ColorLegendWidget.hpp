@@ -67,6 +67,7 @@ private:
 
     // Internal UI data.
     bool showWindow = true;
+    static int regionHeight;
 };
 
 #endif //STRESSLINEVIS_COLORLEGENDWIDGET_HPP
