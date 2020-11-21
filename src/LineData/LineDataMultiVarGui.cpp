@@ -175,6 +175,7 @@ bool LineDataMultiVar::renderGuiTechniqueSettings() {
 
     if (ImGui::SliderFloat("Min Color Intensity", &minColorIntensity, 0.0, 1.0, "%.2f")) {
         reRender = true;
+        recomputeColorLegend();
     }
 
     auto& varNames = attributeNames;

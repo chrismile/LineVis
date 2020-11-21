@@ -38,6 +38,7 @@ ColorLegendWidget::ColorLegendWidget() {
     transferFunctionColorMap.reserve(256);
     for (int i = 0; i < 256; i++) {
         float pct = float(i) / float(255);
+        // Test data.
         transferFunctionColorMap.push_back(sgl::Color(0, pct*255, (1.0f - pct) * 255));
     }
     regionHeight = regionHeightStandard;
@@ -115,11 +116,11 @@ void ColorLegendWidget::renderGui() {
             ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoResize/*|ImGuiWindowFlags_NoMove*/
             |ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoSavedSettings/*|ImGuiWindowFlags_NoInputs*/
             |ImGuiWindowFlags_NoFocusOnAppearing)) {
-        ImGui::SetWindowFontScale(0.75f);
+        ImGui::SetWindowFontScale(0.75f); // Make font slightly smaller.
         ImDrawList* drawList = ImGui::GetWindowDrawList();
-        float scaleFactor = sgl::ImGuiWrapper::get()->getScaleFactor();
+        //float scaleFactor = sgl::ImGuiWrapper::get()->getScaleFactor();
 
-        // Draw bar
+        // Draw color bar.
         ImVec2 startPos = ImGui::GetCursorScreenPos();
         ImVec2 pos = ImVec2(startPos.x + 1, startPos.y + 1);
         const float lineHeightFactor = 1.0f / (transferFunctionColorMap.size() - 1);
@@ -144,6 +145,7 @@ void ColorLegendWidget::renderGui() {
 
         ImU32 textColorImgui = textColor.getColorRGBA();
 
+        // Add min/max value text to color bar.
         float textHeight = ImGui::CalcTextSize(attributeDisplayName.c_str()).y;
         std::string minText = getNiceNumberString(attributeMinValue, 3);
         std::string maxText = getNiceNumberString(attributeMaxValue, 3);
@@ -154,6 +156,7 @@ void ColorLegendWidget::renderGui() {
                 ImVec2(startPos.x + barWidth + 10, startPos.y - textHeight/2.0f + 1),
                 textColorImgui, maxText.c_str());
 
+        // Add ticks to the color bar.
         for (int tick = 0; tick < numTicks; tick++) {
             float xpos = startPos.x + barWidth;
             float ypos = startPos.y + float(tick) / float(numTicks - 1) * regionHeight + 1;
@@ -167,5 +170,6 @@ void ColorLegendWidget::renderGui() {
     }
     ImGui::PopStyleColor();
 
+    // Enlarge the height of the widget if one widget needs more vertical space for the text.
     regionHeight = std::max(regionHeight, textHeight + 18);
 }
