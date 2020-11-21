@@ -138,10 +138,11 @@ void ColorLegendWidget::renderGui() {
         textHeight = textSize.y;
         ImVec2 textPos = ImVec2(
                 startPos.x + barWidth + 40,
-                startPos.y + regionHeight / 2.0f - textSize.y / 2.0f + 1);
+                //startPos.y + regionHeight / 2.0f - textSize.y / 2.0f + 1);
+                startPos.y + regionHeight / 2.0f + textSize.y / 2.0f + 1);
         ImGui::AddTextVertical(
                 drawList, textPos, textColor.getColorRGBA(), attributeDisplayName.c_str(),
-                nullptr, false);
+                nullptr, true);
 
         ImU32 textColorImgui = textColor.getColorRGBA();
 

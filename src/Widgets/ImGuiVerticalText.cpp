@@ -173,8 +173,8 @@ void RenderTextVertical(
                 } else {
                     x1 = x + glyph->Y0 * scale;
                     x2 = x + glyph->Y1 * scale;
-                    y1 = y + glyph->X0 * scale;
-                    y2 = y + glyph->X1 * scale;
+                    y1 = y - glyph->X0 * scale;
+                    y2 = y - glyph->X1 * scale;
                 }
                 if (y1 <= clip_rect.w && y2 >= clip_rect.y) {
                     // Render a character
@@ -227,13 +227,13 @@ void RenderTextVertical(
                         vtx_write[3].pos.y = y2;
 
                         if (rotateCCW) {
-                            vtx_write[0].uv.x = u2;
+                            vtx_write[0].uv.x = u1;
                             vtx_write[0].uv.y = v1;
-                            vtx_write[1].uv.x = u2;
+                            vtx_write[1].uv.x = u1;
                             vtx_write[1].uv.y = v2;
-                            vtx_write[2].uv.x = u1;
+                            vtx_write[2].uv.x = u2;
                             vtx_write[2].uv.y = v2;
-                            vtx_write[3].uv.x = u1;
+                            vtx_write[3].uv.x = u2;
                             vtx_write[3].uv.y = v1;
                         } else {
                             vtx_write[0].uv.x = u1;
