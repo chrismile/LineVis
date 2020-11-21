@@ -27,8 +27,8 @@
  */
 
 #include <ImGui/ImGuiWrapper.hpp>
+#include <ImGui/imgui_verticaltext.h>
 
-#include "ImGuiVerticalText.hpp"
 #include "ColorLegendWidget.hpp"
 
 const int regionHeightStandard = 300 - 2;
@@ -134,7 +134,7 @@ void ColorLegendWidget::renderGui() {
             pos.y += regionHeight * lineHeightFactor;
         }
 
-        ImVec2 textSize = ImGui::CalcVerticalTextSize(attributeDisplayName.c_str());
+        ImVec2 textSize = ImGui::CalcTextSizeVertical(attributeDisplayName.c_str());
         textHeight = textSize.y;
         ImVec2 textPos = ImVec2(
                 startPos.x + barWidth + 40,
