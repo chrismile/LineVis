@@ -300,7 +300,7 @@ void main() {
     float absCoords = abs(fragmentNormalFloat);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
     const float WHITE_THRESHOLD = 0.7;
-    float EPSILON = clamp(fragmentDepth * 0.0015 / lineWidth, 0.0, 0.49);
+    float EPSILON = clamp(fragmentDepth * 0.001 / lineWidth, 0.0, 0.49);
     float coverage = 1.0 - smoothstep(1.0 - 2.0*EPSILON, 1.0, absCoords);
     //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(fragmentNormalFloat));
     vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor,
