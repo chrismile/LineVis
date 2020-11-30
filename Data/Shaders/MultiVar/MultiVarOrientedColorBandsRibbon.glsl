@@ -67,66 +67,44 @@ out float fragElementInterpolant; // current number of curve parameter t (in [0;
 void main() {
     vec3 linePosition0 = vertexOutput[0].vPosition;
     vec3 linePosition1 = vertexOutput[1].vPosition;
-    vec3 tangent0 = vertexOutput[0].vTangent;
-    vec3 tangent1 = vertexOutput[1].vTangent;
+    vec3 tangent0 = normalize(vertexOutput[0].vTangent);
+    vec3 tangent1 = normalize(vertexOutput[1].vTangent);
 
     vec3 viewDirection0 = normalize(cameraPosition - linePosition0);
     vec3 viewDirection1 = normalize(cameraPosition - linePosition1);
-    vec3 offsetDirection0 = normalize(cross(viewDirection0, normalize(tangent0)));
-    vec3 offsetDirection1 = normalize(cross(viewDirection1, normalize(tangent1)));
-    vec3 n0 = normalize(cross(normalize(tangent0), offsetDirection0));
-    vec3 n1 = normalize(cross(normalize(tangent1), offsetDirection1));
+    vec3 offsetDirection0 = normalize(cross(tangent0, viewDirection0));
+    vec3 offsetDirection1 = normalize(cross(tangent1, viewDirection1));
     vec3 vertexPosition;
 
     const float lineRadius = lineWidth * 0.5;
     const mat4 pvMatrix = pMatrix * vMatrix;
 
     // Emit the tube triangle vertices and attributes to the fragment shader
+
     fragElementID = vertexOutput[0].vElementID;
     fragLineID = vertexOutput[0].vLineID;
 
-    vertexPosition = linePosition0 - lineRadius * offsetDirection0;
-    fragWorldPos = vertexPosition;
-    fragNormalFloat = -1.0;
-    fragNormal0 = n0;
+    // Vertex 0.
+    fragNormal0 = normalize(cross(offsetDirection0, tangent0));
     fragNormal1 = offsetDirection0;
     fragTangent = tangent0;
     fragElementNextID = vertexOutput[0].vElementNextID;
     fragElementInterpolant = vertexOutput[0].vElementInterpolant;
-    gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
-    EmitVertex();
 
-    vertexPosition = linePosition1 - lineRadius * offsetDirection1;
+    vertexPosition = linePosition0 - lineRadius * offsetDirection0;
     fragWorldPos = vertexPosition;
     fragNormalFloat = -1.0;
-    fragNormal0 = n1;
-    fragNormal1 = offsetDirection1;
-    fragTangent = tangent1;
-    if (vertexOutput[1].vElementInterpolant < vertexOutput[0].vElementInterpolant) {
-        fragElementInterpolant = 1.0f;
-        fragElementNextID = int(vertexOutput[0].vElementNextID);
-    } else {
-        fragElementInterpolant = vertexOutput[1].vElementInterpolant;
-        fragElementNextID = int(vertexOutput[1].vElementNextID);
-    }
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
     vertexPosition = linePosition0 + lineRadius * offsetDirection0;
     fragWorldPos = vertexPosition;
     fragNormalFloat = 1.0;
-    fragNormal0 = n0;
-    fragNormal1 = offsetDirection0;
-    fragTangent = tangent0;
-    fragElementNextID = vertexOutput[0].vElementNextID;
-    fragElementInterpolant = vertexOutput[0].vElementInterpolant;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
-    vertexPosition = linePosition1 + lineRadius * offsetDirection1;
-    fragWorldPos = vertexPosition;
-    fragNormalFloat = 1.0;
-    fragNormal0 = n1;
+    // Vertex 1.
+    fragNormal0 = normalize(cross(offsetDirection1, tangent1));
     fragNormal1 = offsetDirection1;
     fragTangent = tangent1;
     if (vertexOutput[1].vElementInterpolant < vertexOutput[0].vElementInterpolant) {
@@ -136,6 +114,16 @@ void main() {
         fragElementInterpolant = vertexOutput[1].vElementInterpolant;
         fragElementNextID = int(vertexOutput[1].vElementNextID);
     }
+
+    vertexPosition = linePosition1 - lineRadius * offsetDirection1;
+    fragWorldPos = vertexPosition;
+    fragNormalFloat = -1.0;
+    gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
+    EmitVertex();
+
+    vertexPosition = linePosition1 + lineRadius * offsetDirection1;
+    fragWorldPos = vertexPosition;
+    fragNormalFloat = 1.0;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
@@ -192,7 +180,7 @@ void main() {
     fragNormal = cos(angle) * normalCos + sin(angle) * normalSin;
 
     // 1) Compute the variable ID for this ribbon position and the variable fraction.
-    float ribbonPosition = -0.5 * fragNormalFloat + 0.5;
+    float ribbonPosition = 0.5 * fragNormalFloat + 0.5;
     const int varID = int(floor(ribbonPosition * numVariables));
     float varFraction = ribbonPosition * numVariables - float(varID);
 

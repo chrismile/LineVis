@@ -37,9 +37,10 @@ void main() {
     uint pointIndex = gl_VertexID/2;
     LinePointData linePointData = linePoints[pointIndex];
     vec3 linePoint = (mMatrix * vec4(linePointData.vertexPosition, 1.0)).xyz;
+    vec3 tangent = normalize(linePointData.vertexTangent);
 
     vec3 viewDirection = normalize(cameraPosition - linePoint);
-    vec3 offsetDirection = normalize(cross(viewDirection, normalize(linePointData.vertexTangent)));
+    vec3 offsetDirection = normalize(cross(viewDirection, tangent));
     vec3 vertexPosition;
     float shiftSign = 1.0f;
     if (gl_VertexID % 2 == 0) {
@@ -47,7 +48,7 @@ void main() {
     }
     vertexPosition = linePoint + shiftSign * lineWidth * 0.5 * offsetDirection;
     fragmentNormalFloat = shiftSign;
-    normal0 = normalize(cross(normalize(linePointData.vertexTangent), offsetDirection));
+    normal0 = normalize(cross(tangent, offsetDirection));
     normal1 = offsetDirection;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     fragmentPrincipalStressIndex = linePointData.vertexPrincipalStressIndex;
@@ -142,25 +143,21 @@ in VertexData {
 void main() {
     vec3 linePosition0 = v_in[0].linePosition;
     vec3 linePosition1 = v_in[1].linePosition;
-    float lineAttribute0 = v_in[0].lineAttribute;
-    float lineAttribute1 = v_in[1].lineAttribute;
+    vec3 tangent0 = normalize(v_in[0].lineTangent);
+    vec3 tangent1 = normalize(v_in[1].lineTangent);
 
     vec3 viewDirection0 = normalize(cameraPosition - linePosition0);
     vec3 viewDirection1 = normalize(cameraPosition - linePosition1);
-    vec3 offsetDirection0 = normalize(cross(viewDirection0, normalize(v_in[0].lineTangent)));
-    vec3 offsetDirection1 = normalize(cross(viewDirection1, normalize(v_in[1].lineTangent)));
-    vec3 n0 = normalize(cross(normalize(v_in[0].lineTangent), offsetDirection0));
-    vec3 n1 = normalize(cross(normalize(v_in[1].lineTangent), offsetDirection1));
+    vec3 offsetDirection0 = normalize(cross(tangent0, viewDirection0));
+    vec3 offsetDirection1 = normalize(cross(tangent1, viewDirection1));
     vec3 vertexPosition;
 
     const float lineRadius = lineWidth * 0.5;
     const mat4 pvMatrix = pMatrix * vMatrix;
 
-    vertexPosition = linePosition0 - lineRadius * offsetDirection0;
-    fragmentPositionWorld = vertexPosition;
-    fragmentAttribute = lineAttribute0;
-    fragmentNormalFloat = -1.0;
-    normal0 = n0;
+    // Vertex 0
+    fragmentAttribute = v_in[0].lineAttribute;
+    normal0 = normalize(cross(tangent0, offsetDirection0));
     normal1 = offsetDirection0;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
@@ -168,44 +165,22 @@ void main() {
 #ifdef USE_LINE_HIERARCHY_LEVEL
     fragmentLineHierarchyLevel = v_in[0].lineLineHierarchyLevel;
 #endif
-    gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
-    EmitVertex();
 
-    vertexPosition = linePosition1 - lineRadius * offsetDirection1;
+    vertexPosition = linePosition0 - lineRadius * offsetDirection0;
     fragmentPositionWorld = vertexPosition;
-    fragmentAttribute = lineAttribute1;
     fragmentNormalFloat = -1.0;
-    normal0 = n1;
-    normal1 = offsetDirection1;
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
-    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
-#endif
-#ifdef USE_LINE_HIERARCHY_LEVEL
-    fragmentLineHierarchyLevel = v_in[1].lineLineHierarchyLevel;
-#endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
     vertexPosition = linePosition0 + lineRadius * offsetDirection0;
     fragmentPositionWorld = vertexPosition;
-    fragmentAttribute = lineAttribute0;
     fragmentNormalFloat = 1.0;
-    normal0 = n0;
-    normal1 = offsetDirection0;
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
-    fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
-#endif
-#ifdef USE_LINE_HIERARCHY_LEVEL
-    fragmentLineHierarchyLevel = v_in[0].lineLineHierarchyLevel;
-#endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
-    vertexPosition = linePosition1 + lineRadius * offsetDirection1;
-    fragmentPositionWorld = vertexPosition;
-    fragmentAttribute = lineAttribute1;
-    fragmentNormalFloat = 1.0;
-    normal0 = n1;
+    // Vertex 1
+    fragmentAttribute = v_in[1].lineAttribute;
+    normal0 = normalize(cross(tangent1, offsetDirection1));
     normal1 = offsetDirection1;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
@@ -213,6 +188,16 @@ void main() {
 #ifdef USE_LINE_HIERARCHY_LEVEL
     fragmentLineHierarchyLevel = v_in[1].lineLineHierarchyLevel;
 #endif
+
+    vertexPosition = linePosition1 - lineRadius * offsetDirection1;
+    fragmentPositionWorld = vertexPosition;
+    fragmentNormalFloat = -1.0;
+    gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
+    EmitVertex();
+
+    vertexPosition = linePosition1 + lineRadius * offsetDirection1;
+    fragmentPositionWorld = vertexPosition;
+    fragmentNormalFloat = 1.0;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 

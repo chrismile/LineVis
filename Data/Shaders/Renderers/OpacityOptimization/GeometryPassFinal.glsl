@@ -64,65 +64,57 @@ in VertexData {
 void main() {
     vec3 linePosition0 = v_in[0].linePosition;
     vec3 linePosition1 = v_in[1].linePosition;
+    vec3 tangent0 = normalize(v_in[0].lineTangent);
+    vec3 tangent1 = normalize(v_in[1].lineTangent);
 
     vec3 viewDirection0 = normalize(cameraPosition - linePosition0);
     vec3 viewDirection1 = normalize(cameraPosition - linePosition1);
-    vec3 offsetDirection0 = normalize(cross(viewDirection0, normalize(v_in[0].lineTangent)));
-    vec3 offsetDirection1 = normalize(cross(viewDirection1, normalize(v_in[1].lineTangent)));
+    vec3 offsetDirection0 = normalize(cross(tangent0, viewDirection0));
+    vec3 offsetDirection1 = normalize(cross(tangent1, viewDirection1));
     vec3 vertexPosition;
 
     const float lineRadius = lineWidth * 0.5;
     const mat4 pvMatrix = pMatrix * vMatrix;
 
-    vertexPosition = linePosition0 - lineRadius * offsetDirection0;
-    fragmentPositionWorld = vertexPosition;
+    // Vertex 0
     fragmentAttribute = v_in[0].lineAttribute;
     fragmentOpacity = v_in[0].lineOpacity;
-    fragmentNormalFloat = -1.0;
-    normal0 = viewDirection0;
+    normal0 = normalize(cross(tangent0, offsetDirection0));
     normal1 = offsetDirection0;
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
     fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
 #endif
-    gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
-    EmitVertex();
 
-    vertexPosition = linePosition1 - lineRadius * offsetDirection1;
+    vertexPosition = linePosition0 - lineRadius * offsetDirection0;
     fragmentPositionWorld = vertexPosition;
-    fragmentAttribute = v_in[1].lineAttribute;
-    fragmentOpacity = v_in[1].lineOpacity;
     fragmentNormalFloat = -1.0;
-    normal0 = viewDirection1;
-    normal1 = offsetDirection1;
-#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
-    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
-#endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
     vertexPosition = linePosition0 + lineRadius * offsetDirection0;
     fragmentPositionWorld = vertexPosition;
-    fragmentAttribute = v_in[0].lineAttribute;
-    fragmentOpacity = v_in[0].lineOpacity;
     fragmentNormalFloat = 1.0;
-    normal0 = viewDirection0;
-    normal1 = offsetDirection0;
+    gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
+    EmitVertex();
+
+    // Vertex 1
+    fragmentAttribute = v_in[1].lineAttribute;
+    fragmentOpacity = v_in[1].lineOpacity;
+    normal0 = normalize(cross(tangent1, offsetDirection1));
+    normal1 = offsetDirection1;
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
-    fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
 #endif
+
+    vertexPosition = linePosition1 - lineRadius * offsetDirection1;
+    fragmentPositionWorld = vertexPosition;
+    fragmentNormalFloat = -1.0;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
     vertexPosition = linePosition1 + lineRadius * offsetDirection1;
     fragmentPositionWorld = vertexPosition;
-    fragmentAttribute = v_in[1].lineAttribute;
-    fragmentOpacity = v_in[1].lineOpacity;
     fragmentNormalFloat = 1.0;
-    normal0 = viewDirection1;
-    normal1 = offsetDirection1;
-#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
-    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
-#endif
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
