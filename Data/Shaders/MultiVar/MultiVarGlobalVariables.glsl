@@ -22,7 +22,7 @@ struct VarDescData {
 };
 
 struct LineVarDescData {
-    vec4 minMax;
+    vec2 minMax;
 };
 
 // SSBOs which contain all data for all variables per trajectory

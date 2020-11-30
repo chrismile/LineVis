@@ -37,7 +37,8 @@
 #include "LineDataMultiVar.hpp"
 
 const char* const MULTIVAR_RENDERTYPE_DISPLAYNAMES[] = {
-        "Rolls", "Twisted Rolls", "Color Bands", "Oriented Color Bands", "Checkerboard", "Fibers"
+        "Rolls", "Twisted Rolls", "Color Bands", "Oriented Color Bands", "Oriented Color Bands (Ribbon)",
+        "Checkerboard", "Fibers"
 };
 const char *const MULTIVAR_RADIUSTYPE_DISPLAYNAMES[] = {
         "Global", "Line"

@@ -47,7 +47,7 @@ void main() {
     }
     vertexPosition = linePoint + shiftSign * lineWidth * 0.5 * offsetDirection;
     fragmentNormalFloat = shiftSign;
-    normal0 = viewDirection;
+    normal0 = normalize(cross(normalize(linePointData.vertexTangent), offsetDirection));
     normal1 = offsetDirection;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     fragmentPrincipalStressIndex = linePointData.vertexPrincipalStressIndex;
@@ -149,6 +149,8 @@ void main() {
     vec3 viewDirection1 = normalize(cameraPosition - linePosition1);
     vec3 offsetDirection0 = normalize(cross(viewDirection0, normalize(v_in[0].lineTangent)));
     vec3 offsetDirection1 = normalize(cross(viewDirection1, normalize(v_in[1].lineTangent)));
+    vec3 n0 = normalize(cross(normalize(v_in[0].lineTangent), offsetDirection0));
+    vec3 n1 = normalize(cross(normalize(v_in[1].lineTangent), offsetDirection1));
     vec3 vertexPosition;
 
     const float lineRadius = lineWidth * 0.5;
@@ -158,7 +160,7 @@ void main() {
     fragmentPositionWorld = vertexPosition;
     fragmentAttribute = lineAttribute0;
     fragmentNormalFloat = -1.0;
-    normal0 = viewDirection0;
+    normal0 = n0;
     normal1 = offsetDirection0;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
@@ -173,7 +175,7 @@ void main() {
     fragmentPositionWorld = vertexPosition;
     fragmentAttribute = lineAttribute1;
     fragmentNormalFloat = -1.0;
-    normal0 = viewDirection1;
+    normal0 = n1;
     normal1 = offsetDirection1;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
@@ -188,7 +190,7 @@ void main() {
     fragmentPositionWorld = vertexPosition;
     fragmentAttribute = lineAttribute0;
     fragmentNormalFloat = 1.0;
-    normal0 = viewDirection0;
+    normal0 = n0;
     normal1 = offsetDirection0;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
@@ -203,7 +205,7 @@ void main() {
     fragmentPositionWorld = vertexPosition;
     fragmentAttribute = lineAttribute1;
     fragmentNormalFloat = 1.0;
-    normal0 = viewDirection1;
+    normal0 = n1;
     normal1 = offsetDirection1;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;

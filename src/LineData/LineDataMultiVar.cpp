@@ -38,8 +38,8 @@
 #include "LineDataMultiVar.hpp"
 
 const std::string MULTI_VAR_RENDER_MODE_SHADER_NAMES[] = {
-        "MultiVarRolls", "MultiVarTwistedRolls", "MultiVarColorBands",
-        "MultiVarOrientedColorBands", "MultiVarCheckerboard", "MultiVarFibers"
+        "MultiVarRolls", "MultiVarTwistedRolls", "MultiVarColorBands", "MultiVarOrientedColorBands",
+        "MultiVarOrientedColorBandsRibbon", "MultiVarCheckerboard", "MultiVarFibers"
 };
 
 const std::vector<glm::vec4> defaultColors = {
@@ -132,7 +132,7 @@ sgl::ShaderAttributesPtr LineDataMultiVar::getGatherShaderAttributes(sgl::Shader
     shaderAttributes->addGeometryBuffer(
             tubeRenderData.vertexPositionBuffer, "vertexPosition",
             sgl::ATTRIB_FLOAT, 3);
-    shaderAttributes->addGeometryBuffer(
+    shaderAttributes->addGeometryBufferOptional(
             tubeRenderData.vertexNormalBuffer, "vertexLineNormal",
             sgl::ATTRIB_FLOAT, 3);
     shaderAttributes->addGeometryBuffer(
@@ -251,7 +251,7 @@ struct VarDescData {
 };
 
 struct LineVarDescData {
-    glm::vec4 minMax;
+    glm::vec2 minMax;
 };
 
 TubeRenderDataMultiVar LineDataMultiVar::getTubeRenderDataMultiVar() {
@@ -377,10 +377,9 @@ TubeRenderDataMultiVar LineDataMultiVar::getTubeRenderDataMultiVar() {
             varDescData.push_back(descData);
 
             LineVarDescData lineVarDesc;
-            lineVarDesc.minMax = glm::vec4(
+            lineVarDesc.minMax = glm::vec2(
                     bezierTrajectory.multiVarDescs.at(varIdx).minMax.x,
-                    bezierTrajectory.multiVarDescs.at(varIdx).minMax.y,
-                    0.0, 0.0);
+                    bezierTrajectory.multiVarDescs.at(varIdx).minMax.y);
             lineVarDescData.push_back(lineVarDesc);
         }
     }

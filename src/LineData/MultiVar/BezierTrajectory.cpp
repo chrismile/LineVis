@@ -123,7 +123,7 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
             varDescPerLine.startIndex = varOffsetPerLine;
             varDescPerLine.dummy = 0.0f;
 
-            const auto &variableArray = trajectory.attributes[v];
+            const std::vector<float>& variableArray = trajectory.attributes[v];
 
 //            uint32_t vCounter = 0;
             for (const auto &variable : variableArray) {
