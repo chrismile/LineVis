@@ -61,6 +61,8 @@ const std::vector<glm::vec4> defaultColors = {
         glm::vec4(0 / 255.0, 7 / 255.0, 255 / 255.0, 1.0)
 };
 
+const int MAX_NUM_VARIABLES = 20;
+
 
 LineDataMultiVar::LineDataMultiVar(sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineDataFlow(transferFunctionWindow) {
@@ -96,6 +98,15 @@ sgl::ShaderProgramPtr LineDataMultiVar::reloadGatherShader() {
             "NUM_INSTANCES", static_cast<uint32_t>(numVariablesSelected));
     sgl::ShaderManager->addPreprocessorDefine("NUM_SEGMENTS", numLineSegments);
     sgl::ShaderManager->addPreprocessorDefine("NUM_LINESEGMENTS", numInstances);
+    sgl::ShaderManager->addPreprocessorDefine("MAX_NUM_VARIABLES", MAX_NUM_VARIABLES);
+
+    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS
+            || multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS_RIBBON) {
+        if (!mapColorToSaturation) {
+            sgl::ShaderManager->addPreprocessorDefine("DIRECT_COLOR_MAPPING", numInstances);
+        }
+        sgl::ShaderManager->addPreprocessorDefine("ORIENTED_RIBBON_MODE", (int)orientedRibbonMode);
+    }
 
     int idx = int(multiVarRenderMode);
     std::list<std::string> gatherShaderIDs = {
@@ -105,9 +116,18 @@ sgl::ShaderProgramPtr LineDataMultiVar::reloadGatherShader() {
     };
     sgl::ShaderProgramPtr gatherShader = sgl::ShaderManager->getShaderProgram(gatherShaderIDs);
 
+    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS
+        || multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS_RIBBON) {
+        if (!mapColorToSaturation) {
+            sgl::ShaderManager->removePreprocessorDefine("DIRECT_COLOR_MAPPING");
+        }
+        sgl::ShaderManager->removePreprocessorDefine("ORIENTED_RIBBON_MODE");
+    }
+
     sgl::ShaderManager->removePreprocessorDefine("NUM_INSTANCES");
     sgl::ShaderManager->removePreprocessorDefine("NUM_SEGMENTS");
     sgl::ShaderManager->removePreprocessorDefine("NUM_LINESEGMENTS");
+    sgl::ShaderManager->removePreprocessorDefine("MAX_NUM_VARIABLES");
 
     return gatherShader;
 }
@@ -179,7 +199,7 @@ void LineDataMultiVar::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& ga
         return;
     }
 
-    gatherShader->setUniformOptional("numVariables", numVariablesSelected);
+    gatherShader->setUniformOptional("numVariables", std::min(numVariablesSelected, MAX_NUM_VARIABLES));
     gatherShader->setUniformOptional("maxNumVariables", static_cast<int32_t>(attributeNames.size()));
     gatherShader->setUniformOptional("materialAmbient", materialConstantAmbient);
     gatherShader->setUniformOptional("materialDiffuse", materialConstantDiffuse);

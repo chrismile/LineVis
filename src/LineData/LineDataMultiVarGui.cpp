@@ -43,6 +43,12 @@ const char* const MULTIVAR_RENDERTYPE_DISPLAYNAMES[] = {
 const char *const MULTIVAR_RADIUSTYPE_DISPLAYNAMES[] = {
         "Global", "Line"
 };
+const char *const ORIENTED_RIBBON_MODE_DISPLAYNAMES[] = {
+        "Fixed Band Width",
+        "Varying Band Width",
+        "Varying Band Ratio",
+        "Varying Ribbon Width"
+};
 
 void LineDataMultiVar::setClearColor(const sgl::Color& clearColor) {
     LineData::setClearColor(clearColor);
@@ -139,13 +145,12 @@ bool LineDataMultiVar::renderGuiTechniqueSettings() {
         }
 
         if (mapTubeDiameter) {
-            if (ImGui::Combo("Radius Mapping Mode", (int *) &multiVarRadiusMappingMode,
-                             MULTIVAR_RADIUSTYPE_DISPLAYNAMES,
-                             IM_ARRAYSIZE(MULTIVAR_RADIUSTYPE_DISPLAYNAMES))) {
+            if (ImGui::Combo(
+                    "Radius Mapping Mode", (int*)&multiVarRadiusMappingMode,
+                    MULTIVAR_RADIUSTYPE_DISPLAYNAMES, IM_ARRAYSIZE(MULTIVAR_RADIUSTYPE_DISPLAYNAMES))) {
                 reRender = true;
             }
         }
-
     }
 
     if (multiVarRenderMode == MULTIVAR_RENDERMODE_CHECKERBOARD) {
@@ -167,6 +172,21 @@ bool LineDataMultiVar::renderGuiTechniqueSettings() {
 
         if (ImGui::Checkbox("Constant Twist Offset", &constantTwistOffset)) {
             reRender = true;
+        }
+    }
+
+    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS
+            || multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS_RIBBON) {
+        //if (ImGui::Checkbox("Map Color to Saturation", &mapColorToSaturation)) {
+        //    shallReloadGatherShader = true;
+        //}
+        if (ImGui::Combo(
+                "Oriented Ribbon Mode", (int*)&orientedRibbonMode,
+                ORIENTED_RIBBON_MODE_DISPLAYNAMES, IM_ARRAYSIZE(ORIENTED_RIBBON_MODE_DISPLAYNAMES))) {
+            shallReloadGatherShader = true;
+        }
+        if (orientedRibbonMode == ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH) {
+            ;
         }
     }
 

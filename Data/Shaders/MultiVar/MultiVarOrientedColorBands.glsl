@@ -96,10 +96,76 @@ void main() {
     vec3 tangent = normalize(nextPoint - currentPoint);
 
     // 1) Create tube circle vertices for current and next point
+#if ORIENTED_RIBBON_MODE != 3 // ORIENTED_RIBBON_MODE_VARYING_RIBBON_WIDTH
     createTubeSegments(
             circlePointsCurrent, vertexNormalsCurrent, currentPoint, normalCurrent, tangentCurrent, lineWidth / 2.0);
     createTubeSegments(
             circlePointsNext, vertexNormalsNext, nextPoint, normalNext, tangentNext, lineWidth / 2.0);
+#else
+    // Sample ALL variables.
+    float variables[MAX_NUM_VARIABLES];
+    for (int varID = 0; varID < numVariables; varID++) {
+        // 1) Sample variables from buffers.
+        float variableValue, variableNextValue;
+        vec2 variableMinMax, variableNextMinMax;
+        sampleVariableFromLineSSBO(vertexOutput[0].vLineID, sampleActualVarID(varID), vertexOutput[0].vElementID, variableValue, variableMinMax);
+        sampleVariableFromLineSSBO(vertexOutput[0].vLineID, sampleActualVarID(varID), vertexOutput[0].vElementNextID, variableNextValue, variableNextMinMax);
+
+        // 2) Normalize values.
+        variableValue = (variableValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
+        variableNextValue = (variableNextValue - variableNextMinMax.x) / (variableNextMinMax.y - variableNextMinMax.x);
+
+        // 3) Interpolate linearly.
+        variables[varID] = mix(variableValue, variableNextValue, vertexOutput[0].vElementInterpolant);
+    }
+
+    // Compute the sum of all variables
+    float variablesSumTotal = 0.0;
+    for (int varID = 0; varID < numVariables; varID++) {
+        variablesSumTotal += variables[varID];
+    }
+    const float lineRadius0 = lineWidth * 0.5 * (variablesSumTotal / float(max(numVariables, 1)));
+
+
+    float _fragElementInterpolant;
+    int _fragElementNextID;
+    if (vertexOutput[1].vElementInterpolant < vertexOutput[0].vElementInterpolant) {
+        _fragElementInterpolant = 1.0f;
+        _fragElementNextID = int(vertexOutput[0].vElementNextID);
+    } else {
+        _fragElementInterpolant = vertexOutput[1].vElementInterpolant;
+        _fragElementNextID = int(vertexOutput[1].vElementNextID);
+    }
+
+    // Sample ALL variables.
+    for (int varID = 0; varID < numVariables; varID++) {
+        // 1) Sample variables from buffers.
+        float variableValue, variableNextValue;
+        vec2 variableMinMax, variableNextMinMax;
+        sampleVariableFromLineSSBO(vertexOutput[0].vLineID, sampleActualVarID(varID), vertexOutput[0].vElementID, variableValue, variableMinMax);
+        sampleVariableFromLineSSBO(vertexOutput[0].vLineID, sampleActualVarID(varID), _fragElementNextID, variableNextValue, variableNextMinMax);
+
+        // 2) Normalize values.
+        variableValue = (variableValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
+        variableNextValue = (variableNextValue - variableNextMinMax.x) / (variableNextMinMax.y - variableNextMinMax.x);
+
+        // 3) Interpolate linearly.
+        variables[varID] = mix(variableValue, variableNextValue, _fragElementInterpolant);
+    }
+
+    // Compute the sum of all variables
+    variablesSumTotal = 0.0;
+    for (int varID = 0; varID < numVariables; varID++) {
+        variablesSumTotal += variables[varID];
+    }
+    const float lineRadius1 = lineWidth * 0.5 * (variablesSumTotal / float(max(numVariables, 1)));
+
+
+    createTubeSegments(
+            circlePointsCurrent, vertexNormalsCurrent, currentPoint, normalCurrent, tangentCurrent, lineRadius0);
+    createTubeSegments(
+            circlePointsNext, vertexNormalsNext, nextPoint, normalNext, tangentNext, lineRadius1);
+#endif
 
     // 2) Create NDC AABB for stripe -> tube mapping
     // 2.1) Define orientation of local NDC frame-of-reference
@@ -217,16 +283,14 @@ out vec4 fragColor;
 // "Color bands"-specific uniforms
 uniform float separatorWidth;
 
+#if ORIENTED_RIBBON_MODE == 1 // ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH
+uniform vec4 bandBackgroundColor = vec4(0.5, 0.5, 0.5, 1.0);
+#endif
+
 #include "MultiVarGlobalVariables.glsl"
 #include "MultiVarShadingUtils.glsl"
 
 void main() {
-    float variableValue;
-    vec2 variableMinMax;
-
-    float variableNextValue;
-    vec2 variableNextMinMax;
-
     // 1) Determine variable ID along tube geometry
     const vec3 n = normalize(fragNormal);
     const vec3 v = normalize(cameraPosition - fragWorldPos);
@@ -255,15 +319,56 @@ void main() {
     }
     // Normalize the ribbon position: [-1, 1] -> [0, 1].
     ribbonPosition = ribbonPosition / 2.0 + 0.5;
-    // Compute the variable ID for this ribbon position and the variable fraction.
-    const int varID = int(floor(ribbonPosition * numVariables));
-    float varFraction = ribbonPosition * numVariables - float(varID);
 
     // Old code:
     //const int varID = int(floor(fragTexCoord.y * numVariables));
-    //float varFraction = fragTexCoord.y * numVariables - float(varID);
+    //float bandPos = fragTexCoord.y * numVariables - float(varID);
+
+#if ORIENTED_RIBBON_MODE == 0 || ORIENTED_RIBBON_MODE == 1 // ORIENTED_RIBBON_MODE_FIXED_BAND_WIDTH || ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH
+    // 1) Compute the variable ID for this ribbon position and the variable fraction.
+    const int varID = int(floor(ribbonPosition * numVariables));
+    float bandPos = ribbonPosition * numVariables - float(varID);
+#elif ORIENTED_RIBBON_MODE == 2 || ORIENTED_RIBBON_MODE == 3 // ORIENTED_RIBBON_MODE_VARYING_BAND_RATIO || ORIENTED_RIBBON_MODE_VARYING_RIBBON_WIDTH
+    // Sample ALL variables.
+    float variables[MAX_NUM_VARIABLES];
+    for (int varID = 0; varID < numVariables; varID++) {
+        // 1.1) Sample variables from buffers.
+        float variableValue, variableNextValue;
+        vec2 variableMinMax, variableNextMinMax;
+        sampleVariableFromLineSSBO(fragLineID, sampleActualVarID(varID), fragElementID, variableValue, variableMinMax);
+        sampleVariableFromLineSSBO(fragLineID, sampleActualVarID(varID), fragElementNextID, variableNextValue, variableNextMinMax);
+
+        // 1.2) Normalize values.
+        variableValue = (variableValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
+        variableNextValue = (variableNextValue - variableNextMinMax.x) / (variableNextMinMax.y - variableNextMinMax.x);
+
+        // 1.3) Interpolate linearly.
+        variables[varID] = mix(variableValue, variableNextValue, fragElementInterpolant);
+    }
+
+    // Compute the sum of all variables
+    float variablesSumTotal = 0.0;
+    for (int varID = 0; varID < numVariables; varID++) {
+        variablesSumTotal += variables[varID];
+    }
+
+    // Compute which color we are at
+    float variablesSumLast = 0.0, variablesSumCurrent = 0.0;
+    int varID = 0;
+    float bandPos = 1.0;
+    for (varID = 0; varID < numVariables; varID++) {
+        variablesSumCurrent += variables[varID] / variablesSumTotal;
+        if (ribbonPosition < variablesSumCurrent) {
+            bandPos = (ribbonPosition - variablesSumLast) / (variablesSumCurrent - variablesSumLast);
+            break;
+        }
+        variablesSumLast = variablesSumCurrent;
+    }
+#endif
 
     // 2) Sample variables from buffers
+    float variableValue, variableNextValue;
+    vec2 variableMinMax, variableNextMinMax;
     sampleVariableFromLineSSBO(fragLineID, sampleActualVarID(varID), fragElementID, variableValue, variableMinMax);
     sampleVariableFromLineSSBO(fragLineID, sampleActualVarID(varID), fragElementNextID, variableNextValue, variableNextMinMax);
 
@@ -272,13 +377,25 @@ void main() {
     variableNextValue = (variableNextValue - variableNextMinMax.x) / (variableNextMinMax.y - variableNextMinMax.x);
 
     // 4) Determine variable color
-    vec4 surfaceColor = determineColorLinearInterpolate(sampleActualVarID(varID), variableValue,
-                                                        variableNextValue, fragElementInterpolant);
+    vec4 surfaceColor = determineColorLinearInterpolate(
+    sampleActualVarID(varID), variableValue, variableNextValue, fragElementInterpolant);
+
+#if ORIENTED_RIBBON_MODE == 1 // ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH
+    float symBandPos = abs(bandPos * 2.0 - 1.0);
+    float interpolatedVariableValue = mix(variableValue, variableNextValue, fragElementInterpolant);
+    bandPos = (-symBandPos / interpolatedVariableValue + 1.0) * 0.5;
+#endif
+
     // 4.1) Draw black separators between single stripes.
     if (separatorWidth > 0) {
-        drawSeparatorBetweenStripes(surfaceColor, varFraction, separatorWidth);
+        drawSeparatorBetweenStripes(surfaceColor, bandPos, separatorWidth);
     }
 
+#if ORIENTED_RIBBON_MODE == 1 // ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH
+    if (symBandPos > interpolatedVariableValue) {
+        surfaceColor = bandBackgroundColor;
+    }
+#endif
 
     ////////////
     // 5) Phong Lighting

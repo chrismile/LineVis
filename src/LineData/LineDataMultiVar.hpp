@@ -102,6 +102,16 @@ private:
         MULTIVAR_RADIUSMODE_LINE
     };
 
+    // --- For MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS, MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS_RIBBON ---
+    enum OrientedRibbonMode {
+        ORIENTED_RIBBON_MODE_FIXED_BAND_WIDTH,
+        ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH,
+        ORIENTED_RIBBON_MODE_VARYING_BAND_RATIO,
+        ORIENTED_RIBBON_MODE_VARYING_RIBBON_WIDTH
+    };
+    OrientedRibbonMode orientedRibbonMode = ORIENTED_RIBBON_MODE_FIXED_BAND_WIDTH;
+    bool mapColorToSaturation = true; ///< !mapColorToSaturation -> DIRECT_COLOR_MAPPING in gather shader.
+
     ///< Use multivariate or single attribute rendering? If true, falls back to code from @see LineDataFlow.
     bool useMultiVarRendering = true;
     BezierTrajectories bezierTrajectories;

@@ -164,6 +164,7 @@ vec4 determineColorLinearInterpolate(
     // Determine variable color
     vec4 surfaceColor = determineVariableColor(varID);
 
+#ifndef DIRECT_COLOR_MAPPING
     vec3 hsvCol = rgbToHSV(surfaceColor.rgb);
     float curMapping = variableValue;
     float nextMapping = variableNextValue;
@@ -174,9 +175,10 @@ vec4 determineColorLinearInterpolate(
     surfaceColor.rgb = hsvCol.rgb;
     surfaceColor.rgb = hsvToRGB(surfaceColor.rgb);
 
-    //    surfaceColor = mapColor(variableValue, varID);
-    //    vec4 surfaceColor2 = mapColor(variableNextValue, varID);
-    //    surfaceColor = mix(surfaceColor, surfaceColor2, fragElementInterpolant);
+    //surfaceColor = mapColor(variableValue, varID);
+    //vec4 surfaceColor2 = mapColor(variableNextValue, varID);
+    //surfaceColor = mix(surfaceColor, surfaceColor2, fragElementInterpolant);
+#endif
 
     return surfaceColor;
 }
