@@ -877,7 +877,7 @@ PointRenderData LineDataStress::getDegeneratePointsRenderData() {
 sgl::ShaderAttributesPtr LineDataStress::getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader) {
     sgl::ShaderAttributesPtr shaderAttributes;
 
-    if (useProgrammableFetch) {
+    if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
         TubeRenderDataProgrammableFetch tubeRenderData = this->getTubeRenderDataProgrammableFetch();
         linePointDataSSBO = tubeRenderData.linePointsBuffer;
         lineHierarchyLevelsSSBO = tubeRenderData.lineHierarchyLevelsBuffer;
@@ -924,7 +924,7 @@ sgl::ShaderAttributesPtr LineDataStress::getGatherShaderAttributes(sgl::ShaderPr
 
 void LineDataStress::setUniformGatherShaderData_AllPasses() {
     LineData::setUniformGatherShaderData_AllPasses();
-    if (useLineHierarchy && useProgrammableFetch) {
+    if (useLineHierarchy && linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
         sgl::ShaderManager->bindShaderStorageBuffer(3, lineHierarchyLevelsSSBO);
     }
 }

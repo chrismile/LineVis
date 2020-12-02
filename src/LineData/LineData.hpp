@@ -185,10 +185,16 @@ protected:
     // Rendering settings.
     RenderingMode renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
     LineRenderer* lineRenderer = nullptr;
-    static bool useProgrammableFetch;
+    enum LinePrimitiveMode {
+        LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH,
+        LINE_PRIMITIVES_RIBBON_GEOMETRY_SHADER,
+        LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
+    };
+    static LinePrimitiveMode linePrimitiveMode;
+    static int tubeNumSubdivisions; ///< Number of tube subdivisions for LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER.
     std::vector<std::string> supportedRenderingModes;
 
-    /// Stores line point data if useProgrammableFetch is true.
+    /// Stores line point data if linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH.
     sgl::GeometryBufferPtr linePointDataSSBO;
 };
 

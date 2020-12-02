@@ -43,6 +43,7 @@ const char* const MULTIVAR_RENDERTYPE_DISPLAYNAMES[] = {
 const char *const MULTIVAR_RADIUSTYPE_DISPLAYNAMES[] = {
         "Global", "Line"
 };
+
 const char *const ORIENTED_RIBBON_MODE_DISPLAYNAMES[] = {
         "Fixed Band Width",
         "Varying Band Width",
@@ -177,16 +178,16 @@ bool LineDataMultiVar::renderGuiTechniqueSettings() {
 
     if (multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS
             || multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS_RIBBON) {
-        //if (ImGui::Checkbox("Map Color to Saturation", &mapColorToSaturation)) {
-        //    shallReloadGatherShader = true;
-        //}
         if (ImGui::Combo(
                 "Oriented Ribbon Mode", (int*)&orientedRibbonMode,
                 ORIENTED_RIBBON_MODE_DISPLAYNAMES, IM_ARRAYSIZE(ORIENTED_RIBBON_MODE_DISPLAYNAMES))) {
             shallReloadGatherShader = true;
         }
         if (orientedRibbonMode == ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH) {
-            ;
+            if (ImGui::ColorEdit3(
+                    "Band Background Color", reinterpret_cast<float*>(&bandBackgroundColor))) {
+                reRender = true;
+            }
         }
     }
 

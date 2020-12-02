@@ -1,70 +1,3 @@
--- Programmable.Vertex
-
-#version 430 core
-
-struct LinePointData {
-    vec3 vertexPosition;
-    float vertexAttribute;
-    vec3 vertexTangent;
-    uint vertexPrincipalStressIndex;
-};
-
-layout (std430, binding = 2) buffer LinePoints {
-    LinePointData linePoints[];
-};
-#ifdef USE_LINE_HIERARCHY_LEVEL
-layout (std430, binding = 3) buffer LineHierarchyLevels {
-    float lineHierarchyLevels[];
-};
-#endif
-
-out vec3 fragmentPositionWorld;
-out float fragmentAttribute;
-out float fragmentNormalFloat; // Between -1 and 1
-out vec3 normal0;
-out vec3 normal1;
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
-flat out uint fragmentPrincipalStressIndex;
-#endif
-#ifdef USE_LINE_HIERARCHY_LEVEL
-flat out float fragmentLineHierarchyLevel;
-#endif
-
-uniform vec3 cameraPosition;
-uniform float lineWidth;
-
-void main() {
-    uint pointIndex = gl_VertexID/2;
-    LinePointData linePointData = linePoints[pointIndex];
-    vec3 linePoint = (mMatrix * vec4(linePointData.vertexPosition, 1.0)).xyz;
-    vec3 tangent = normalize(linePointData.vertexTangent);
-
-    vec3 viewDirection = normalize(cameraPosition - linePoint);
-    vec3 offsetDirection = normalize(cross(viewDirection, tangent));
-    vec3 vertexPosition;
-    float shiftSign = 1.0f;
-    if (gl_VertexID % 2 == 0) {
-        shiftSign = -1.0;
-    }
-    vertexPosition = linePoint + shiftSign * lineWidth * 0.5 * offsetDirection;
-    fragmentNormalFloat = shiftSign;
-    normal0 = normalize(cross(tangent, offsetDirection));
-    normal1 = offsetDirection;
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
-    fragmentPrincipalStressIndex = linePointData.vertexPrincipalStressIndex;
-#endif
-
-#ifdef USE_LINE_HIERARCHY_LEVEL
-    float lineHierarchyLevel = lineHierarchyLevels[pointIndex];
-    fragmentLineHierarchyLevel = lineHierarchyLevel;
-#endif
-
-    fragmentPositionWorld = vertexPosition;
-    //screenSpacePosition = (vMatrix * vec4(vertexPosition, 1.0)).xyz;
-    fragmentAttribute = linePointData.vertexAttribute;
-    gl_Position = pMatrix * vMatrix * vec4(vertexPosition, 1.0);
-}
-
 -- VBO.Vertex
 
 #version 430 core
@@ -72,6 +5,7 @@ void main() {
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in float vertexAttribute;
 layout(location = 2) in vec3 vertexTangent;
+layout(location = 3) in vec3 vertexNormal;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
 layout(location = 4) in uint vertexPrincipalStressIndex;
 #endif
@@ -83,6 +17,7 @@ out VertexData {
     vec3 linePosition;
     float lineAttribute;
     vec3 lineTangent;
+    vec3 lineNormal;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     uint linePrincipalStressIndex;
 #endif
@@ -97,6 +32,7 @@ void main() {
     linePosition = (mMatrix * vec4(vertexPosition, 1.0)).xyz;
     lineAttribute = vertexAttribute;
     lineTangent = vertexTangent;
+    lineNormal = vertexNormal;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     linePrincipalStressIndex = vertexPrincipalStressIndex;
 #endif
@@ -111,16 +47,15 @@ void main() {
 #version 430 core
 
 layout(lines) in;
-layout(triangle_strip, max_vertices = 4) out;
+layout(triangle_strip, max_vertices = 32) out;
 
 uniform vec3 cameraPosition;
 uniform float lineWidth;
 
 out vec3 fragmentPositionWorld;
 out float fragmentAttribute;
-out float fragmentNormalFloat; // Between -1 and 1
-out vec3 normal0;
-out vec3 normal1;
+out vec3 fragmentNormal;
+out vec3 fragmentTangent;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
 flat out uint fragmentPrincipalStressIndex;
 #endif
@@ -132,6 +67,7 @@ in VertexData {
     vec3 linePosition;
     float lineAttribute;
     vec3 lineTangent;
+    vec3 lineNormal;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     uint linePrincipalStressIndex;
 #endif
@@ -143,65 +79,88 @@ in VertexData {
 void main() {
     vec3 linePosition0 = (mMatrix * vec4(v_in[0].linePosition, 1.0)).xyz;
     vec3 linePosition1 = (mMatrix * vec4(v_in[1].linePosition, 1.0)).xyz;
-    vec3 tangent0 = normalize(v_in[0].lineTangent);
-    vec3 tangent1 = normalize(v_in[1].lineTangent);
-
-    vec3 viewDirection0 = normalize(cameraPosition - linePosition0);
-    vec3 viewDirection1 = normalize(cameraPosition - linePosition1);
-    vec3 offsetDirection0 = normalize(cross(tangent0, viewDirection0));
-    vec3 offsetDirection1 = normalize(cross(tangent1, viewDirection1));
-    vec3 vertexPosition;
 
     const float lineRadius = lineWidth * 0.5;
     const mat4 pvMatrix = pMatrix * vMatrix;
 
-    // Vertex 0
-    fragmentAttribute = v_in[0].lineAttribute;
-    normal0 = normalize(cross(tangent0, offsetDirection0));
-    normal1 = offsetDirection0;
+    vec3 circlePointsCurrent[NUM_TUBE_SUBDIVISIONS];
+    vec3 circlePointsNext[NUM_TUBE_SUBDIVISIONS];
+    vec3 vertexNormalsCurrent[NUM_TUBE_SUBDIVISIONS];
+    vec3 vertexNormalsNext[NUM_TUBE_SUBDIVISIONS];
+
+    vec3 normalCurrent = v_in[0].lineNormal;
+    vec3 tangentCurrent = v_in[0].lineTangent;
+    vec3 binormalCurrent = cross(tangentCurrent, normalCurrent);
+    vec3 normalNext = v_in[1].lineNormal;
+    vec3 tangentNext = v_in[1].lineTangent;
+    vec3 binormalNext = cross(tangentNext, normalNext);
+
+    mat3 tangentFrameMatrixCurrent = mat3(normalCurrent, binormalCurrent, tangentCurrent);
+    mat3 tangentFrameMatrixNext = mat3(normalNext, binormalNext, tangentNext);
+
+    const float theta = 2.0 * 3.1415926 / float(NUM_TUBE_SUBDIVISIONS);
+    const float tangetialFactor = tan(theta); // opposite / adjacent
+    const float radialFactor = cos(theta); // adjacent / hypotenuse
+
+    vec2 position = vec2(lineRadius, 0.0);
+    for (int i = 0; i < NUM_TUBE_SUBDIVISIONS; i++) {
+        vec3 point2D0 = tangentFrameMatrixCurrent * vec3(position, 0.0);
+        vec3 point2D1 = tangentFrameMatrixNext * vec3(position, 0.0);
+        circlePointsCurrent[i] = point2D0.xyz + linePosition0;
+        circlePointsNext[i] = point2D1.xyz + linePosition1;
+        vertexNormalsCurrent[i] = normalize(circlePointsCurrent[i] - linePosition0);
+        vertexNormalsNext[i] = normalize(circlePointsNext[i] - linePosition1);
+
+        // Add the tangent vector and correct the position using the radial factor.
+        vec2 circleTangent = vec2(-position.y, position.x);
+        position += tangetialFactor * circleTangent;
+        position *= radialFactor;
+    }
+
+
+    // Emit the tube triangle vertices
+    for (int i = 0; i < NUM_TUBE_SUBDIVISIONS; i++) {
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
-    fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+        fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
-    fragmentLineHierarchyLevel = v_in[0].lineLineHierarchyLevel;
+        fragmentLineHierarchyLevel = v_in[0].lineLineHierarchyLevel;
 #endif
+        fragmentAttribute = v_in[0].lineAttribute;
+        fragmentTangent = tangentCurrent;
 
-    vertexPosition = linePosition0 - lineRadius * offsetDirection0;
-    fragmentPositionWorld = vertexPosition;
-    fragmentNormalFloat = -1.0;
-    gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
-    EmitVertex();
+        gl_Position = pvMatrix * vec4(circlePointsCurrent[i], 1.0);
+        fragmentNormal = vertexNormalsCurrent[i];
+        fragmentPositionWorld = (mMatrix * vec4(circlePointsCurrent[i], 1.0)).xyz;
+        EmitVertex();
 
-    vertexPosition = linePosition0 + lineRadius * offsetDirection0;
-    fragmentPositionWorld = vertexPosition;
-    fragmentNormalFloat = 1.0;
-    gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
-    EmitVertex();
+        gl_Position = pvMatrix * vec4(circlePointsCurrent[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0);
+        fragmentNormal = vertexNormalsCurrent[(i+1)%NUM_TUBE_SUBDIVISIONS];
+        fragmentPositionWorld = (mMatrix * vec4(circlePointsCurrent[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0)).xyz;
+        EmitVertex();
 
-    // Vertex 1
-    fragmentAttribute = v_in[1].lineAttribute;
-    normal0 = normalize(cross(tangent1, offsetDirection1));
-    normal1 = offsetDirection1;
+
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
-    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+        fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
-    fragmentLineHierarchyLevel = v_in[1].lineLineHierarchyLevel;
+        fragmentLineHierarchyLevel = v_in[1].lineLineHierarchyLevel;
 #endif
+        fragmentAttribute = v_in[1].lineAttribute;
+        fragmentTangent = tangentNext;
 
-    vertexPosition = linePosition1 - lineRadius * offsetDirection1;
-    fragmentPositionWorld = vertexPosition;
-    fragmentNormalFloat = -1.0;
-    gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
-    EmitVertex();
+        gl_Position = pvMatrix * vec4(circlePointsNext[i], 1.0);
+        fragmentNormal = vertexNormalsNext[i];
+        fragmentPositionWorld = (mMatrix * vec4(circlePointsNext[i], 1.0)).xyz;
+        EmitVertex();
 
-    vertexPosition = linePosition1 + lineRadius * offsetDirection1;
-    fragmentPositionWorld = vertexPosition;
-    fragmentNormalFloat = 1.0;
-    gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
-    EmitVertex();
+        gl_Position = pvMatrix * vec4(circlePointsNext[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0);
+        fragmentNormal = vertexNormalsNext[(i+1)%NUM_TUBE_SUBDIVISIONS];
+        fragmentPositionWorld = (mMatrix * vec4(circlePointsNext[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0)).xyz;
+        EmitVertex();
 
-    EndPrimitive();
+        EndPrimitive();
+    }
 }
 
 -- Fragment
@@ -210,9 +169,8 @@ void main() {
 
 in vec3 fragmentPositionWorld;
 in float fragmentAttribute;
-in float fragmentNormalFloat;
-in vec3 normal0;
-in vec3 normal1;
+in vec3 fragmentNormal;
+in vec3 fragmentTangent;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
 flat in uint fragmentPrincipalStressIndex;
 #endif
@@ -256,17 +214,36 @@ void main() {
     }
 #endif
 
-    // Compute the normal of the billboard tube for shading.
-    vec3 fragmentNormal;
-    float interpolationFactor = fragmentNormalFloat;
-    vec3 normalCos = normalize(normal0);
-    vec3 normalSin = normalize(normal1);
-    if (interpolationFactor < 0.0) {
-        normalSin = -normalSin;
-        interpolationFactor = -interpolationFactor;
+    // 1) Determine variable ID along tube geometry
+    const vec3 n = normalize(fragmentNormal);
+    const vec3 v = normalize(cameraPosition - fragmentPositionWorld);
+    const vec3 t = normalize(fragmentTangent);
+    // Project v into plane perpendicular to t to get newV.
+    vec3 helperVec = normalize(cross(t, v));
+    vec3 newV = normalize(cross(helperVec, t));
+    // Get the symmetric ribbon position (ribbon direction is perpendicular to line direction) between 0 and 1.
+    // NOTE: len(cross(a, b)) == area of parallelogram spanned by a and b.
+    vec3 crossProdVn = cross(newV, n);
+    float ribbonPosition = length(crossProdVn);
+
+    // Side note: We can also use the code below, as for a, b with length 1:
+    // sqrt(1 - dot^2(a,b)) = len(cross(a,b))
+    // Due to:
+    // - dot(a,b) = ||a|| ||b|| cos(phi)
+    // - len(cross(a,b)) = ||a|| ||b|| |sin(phi)|
+    // - sin^2(phi) + cos^2(phi) = 1
+    //ribbonPosition = dot(newV, n);
+    //ribbonPosition = sqrt(1 - ribbonPosition * ribbonPosition);
+
+    // Get the winding of newV relative to n, taking into account that t is the normal of the plane both vectors lie in.
+    // NOTE: dot(a, cross(b, c)) = det(a, b, c), which is the signed volume of the parallelepiped spanned by a, b, c.
+    if (dot(t, crossProdVn) < 0.0) {
+        ribbonPosition = -ribbonPosition;
     }
-    float angle = interpolationFactor * M_PI * 0.5;
-    fragmentNormal = cos(angle) * normalCos + sin(angle) * normalSin;
+    // Normalize the ribbon position: [-1, 1] -> [0, 1].
+    //ribbonPosition = ribbonPosition / 2.0 + 0.5;
+    ribbonPosition = clamp(ribbonPosition, -1.0, 1.0);
+
 
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
     vec4 fragmentColor = transferFunction(fragmentAttribute, fragmentPrincipalStressIndex);
@@ -284,12 +261,12 @@ void main() {
 
     fragmentColor = blinnPhongShading(fragmentColor, fragmentNormal);
 
-    float absCoords = abs(fragmentNormalFloat);
+    float absCoords = abs(ribbonPosition);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
     const float WHITE_THRESHOLD = 0.7;
     float EPSILON = clamp(fragmentDepth * 0.001 / lineWidth, 0.0, 0.49);
     float coverage = 1.0 - smoothstep(1.0 - 2.0*EPSILON, 1.0, absCoords);
-    //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(fragmentNormalFloat));
+    //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(ribbonPosition));
     vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor,
             smoothstep(WHITE_THRESHOLD - EPSILON, WHITE_THRESHOLD + EPSILON, absCoords)),
             fragmentColor.a * coverage);
@@ -302,10 +279,12 @@ void main() {
     }
     //gl_FragDepth = clamp(gl_FragCoord.z + depthOffset, 0.0, 0.999);
     gl_FragDepth = convertLinearDepthToDepthBufferValue(
-            convertDepthBufferValueToLinearDepth(gl_FragCoord.z) + fragmentDepth - length(fragmentPositionWorld - cameraPosition) - 0.0001);
+    convertDepthBufferValueToLinearDepth(gl_FragCoord.z) + fragmentDepth - length(fragmentPositionWorld - cameraPosition) - 0.0001);
+#ifdef LOW_OPACITY_DISCARD
     if (colorOut.a < 0.01) {
         discard;
     }
+#endif
     colorOut.a = 1.0;
     fragColor = colorOut;
 #elif defined(USE_SYNC_FRAGMENT_SHADER_INTERLOCK)

@@ -34,7 +34,12 @@
 
 #include "LineData.hpp"
 
-bool LineData::useProgrammableFetch = true;
+LineData::LinePrimitiveMode LineData::linePrimitiveMode = LineData::LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
+int LineData::tubeNumSubdivisions = 5;
+
+const char *const LINE_PRIMITIVE_MODE_DISPLAYNAMES[] = {
+        "Ribbon (Programmable Fetch)", "Ribbon (Geometry Shader)", "Tube (Geometry Shader)"
+};
 
 LineData::LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType)
         : dataSetType(dataSetType), transferFunctionWindow(transferFunctionWindow) {
@@ -46,10 +51,18 @@ LineData::~LineData() {
 bool LineData::renderGui(bool isRasterizer) {
     bool shallReloadGatherShader = false;
     if (isRasterizer) {
-        if (renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION
-                && ImGui::Checkbox("Programmable Fetch", &useProgrammableFetch)) {
+        if (renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION && ImGui::Combo(
+                "Line Primitives", (int*)&linePrimitiveMode,
+                LINE_PRIMITIVE_MODE_DISPLAYNAMES, IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES))) {
             dirty = true;
             shallReloadGatherShader = true;
+        }
+
+        if (renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION
+                && linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER) {
+            if (ImGui::SliderInt("Tube Subdivisions", &tubeNumSubdivisions, 3, 8)) {
+                shallReloadGatherShader = true;
+            }
         }
     }
 
@@ -105,24 +118,34 @@ void LineData::rebuildInternalRepresentationIfNecessary() {
 
 sgl::ShaderProgramPtr LineData::reloadGatherShader() {
     sgl::ShaderManager->invalidateShaderCache();
-    if (useProgrammableFetch) {
-        return sgl::ShaderManager->getShaderProgram({
+    sgl::ShaderProgramPtr shaderProgramPtr;
+    if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
+        shaderProgramPtr = sgl::ShaderManager->getShaderProgram({
                 "GeometryPassNormal.Programmable.Vertex",
                 "GeometryPassNormal.Fragment"
         });
-    } else {
-        return sgl::ShaderManager->getShaderProgram({
+    } else if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_GEOMETRY_SHADER) {
+        shaderProgramPtr = sgl::ShaderManager->getShaderProgram({
                 "GeometryPassNormal.VBO.Vertex",
                 "GeometryPassNormal.VBO.Geometry",
                 "GeometryPassNormal.Fragment"
         });
+    } else { //if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER) {
+        sgl::ShaderManager->addPreprocessorDefine("NUM_TUBE_SUBDIVISIONS", tubeNumSubdivisions);
+        shaderProgramPtr = sgl::ShaderManager->getShaderProgram({
+                "GeometryPassNormalTube.VBO.Vertex",
+                "GeometryPassNormalTube.VBO.Geometry",
+                "GeometryPassNormalTube.Fragment"
+        });
+        sgl::ShaderManager->removePreprocessorDefine("NUM_TUBE_SUBDIVISIONS");
     }
+    return shaderProgramPtr;
 }
 
 sgl::ShaderAttributesPtr LineData::getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader) {
     sgl::ShaderAttributesPtr shaderAttributes;
 
-    if (useProgrammableFetch) {
+    if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
         TubeRenderDataProgrammableFetch tubeRenderData = this->getTubeRenderDataProgrammableFetch();
         linePointDataSSBO = tubeRenderData.linePointsBuffer;
 
@@ -160,7 +183,7 @@ void LineData::setUniformGatherShaderData(sgl::ShaderProgramPtr& gatherShader) {
 }
 
 void LineData::setUniformGatherShaderData_AllPasses() {
-    if (useProgrammableFetch) {
+    if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
         sgl::ShaderManager->bindShaderStorageBuffer(2, linePointDataSSBO);
     }
 }

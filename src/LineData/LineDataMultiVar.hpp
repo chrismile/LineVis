@@ -147,6 +147,8 @@ private:
     int32_t checkerboardWidth = 3;
     int32_t checkerboardHeight = 2;
     int32_t checkerboardIterator = 2;
+    /// For orientedRibbonMode == ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH
+    glm::vec4 bandBackgroundColor = glm::vec4(0.5f, 0.5f, 0.5f, 1.0f);
 
     // Line settings.
     float minRadiusFactor = 0.5f;

@@ -219,6 +219,11 @@ void LineDataMultiVar::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& ga
     gatherShader->setUniformOptional("checkerboardHeight", checkerboardHeight);
     gatherShader->setUniformOptional("checkerboardIterator", checkerboardIterator);
     gatherShader->setUniformOptional("constantTwistOffset", constantTwistOffset);
+    if ((multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS
+            || multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS_RIBBON)
+            && orientedRibbonMode == ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH) {
+        gatherShader->setUniformOptional("bandBackgroundColor", bandBackgroundColor);
+    }
 }
 
 void LineDataMultiVar::setTrajectoryData(const Trajectories& trajectories) {
