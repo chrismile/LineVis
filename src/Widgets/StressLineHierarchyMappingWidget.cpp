@@ -92,7 +92,7 @@ void StressLineHierarchyMappingWidget::setLineHierarchyLevelValues(
     histogram[psIdx].resize(histogramResolution);
     for (float attr : lineHierarchyLevelValues) {
         int index = glm::clamp(
-                static_cast<int>(attr * (histogramResolution-1)), 0, histogramResolution - 1);
+                static_cast<int>(attr * (histogramResolution)), 0, histogramResolution - 1);
         histogram[psIdx].at(index) += 1;
     }
 

@@ -112,7 +112,7 @@ void loadStressTrajectoriesFromDat(
                 stressTrajectoryData.majorPsDir.reserve(lineLength);
                 stressTrajectoryData.mediumPsDir.reserve(lineLength);
                 stressTrajectoryData.minorPsDir.reserve(lineLength);
-                trajectory.attributes.resize(1);
+                trajectory.attributes.resize(2);
                 trajectory.attributes.front().reserve(lineLength);
                 std::vector<float> positionData = lineReader.readVectorLine<float>(lineLength * 3);
                 std::vector<float> psData = lineReader.readVectorLine<float>(lineLength * 12);
@@ -139,6 +139,13 @@ void loadStressTrajectoriesFromDat(
                             psData.at(pointIdx * 12 + 10),
                             psData.at(pointIdx * 12 + 11)));
                     trajectory.attributes.at(0).push_back(vonMisesData.at(pointIdx));
+                    if (psIdx == 0) {
+                        trajectory.attributes.at(1).push_back(stressTrajectoryData.majorPs.back());
+                    } else if (psIdx == 1) {
+                        trajectory.attributes.at(1).push_back(stressTrajectoryData.mediumPs.back());
+                    } else {
+                        trajectory.attributes.at(1).push_back(stressTrajectoryData.minorPs.back());
+                    }
                 }
             }
 

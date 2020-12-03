@@ -50,7 +50,6 @@
 #include <ImGui/imgui_custom.h>
 #include <ImGui/imgui_stdlib.h>
 
-#include "Loaders/TrajectoryFile.hpp"
 #include "LineData/LineDataFlow.hpp"
 #include "LineData/LineDataStress.hpp"
 #include "LineData/LineDataMultiVar.hpp"
@@ -299,7 +298,7 @@ void MainApp::renderGui() {
         ImGui::End();
     }
 
-    if (transferFunctionWindow.renderGui()) {
+    if (dataSetType != DATA_SET_TYPE_FLOW_LINES_MULTIVAR && transferFunctionWindow.renderGui()) {
         reRender = true;
         if (transferFunctionWindow.getTransferFunctionMapRebuilt()) {
             if (lineData) {

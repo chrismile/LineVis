@@ -102,7 +102,7 @@ void MultiVarWindow::computeHistograms() {
         for (const auto &value : var) {
             int32_t index = glm::clamp(
                     static_cast<int32_t>((value - minMax.x) / (minMax.y - minMax.x)
-                    * static_cast<float>(histogramRes - 1)), 0, histogramRes - 1);
+                    * static_cast<float>(histogramRes)), 0, histogramRes - 1);
             histogram[index]++;
         }
 
