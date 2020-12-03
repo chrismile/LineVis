@@ -29,10 +29,11 @@
 #ifndef STRESSLINEVIS_STRESSLINEHIERARCHYMAPPINGWIDGET_HPP
 #define STRESSLINEVIS_STRESSLINEHIERARCHYMAPPINGWIDGET_HPP
 
-#include <Graphics/Color.hpp>
-#include <Graphics/Texture/Texture.hpp>
 #include <string>
 #include <vector>
+
+#include <Graphics/Color.hpp>
+#include <Graphics/Texture/Texture.hpp>
 
 struct HierarchyMappingPoint {
     HierarchyMappingPoint(float mappedValue, float hierarchyLevel)

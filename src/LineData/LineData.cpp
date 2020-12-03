@@ -189,5 +189,7 @@ void LineData::setUniformGatherShaderData_AllPasses() {
 }
 
 void LineData::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader) {
-    ;
+    gatherShader->setUniformOptional(
+            "transferFunctionTexture",
+            transferFunctionWindow.getTransferFunctionMapTexture(), 0);
 }

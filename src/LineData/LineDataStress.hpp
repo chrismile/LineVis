@@ -31,6 +31,7 @@
 
 #include "LineData.hpp"
 #include "Widgets/StressLineHierarchyMappingWidget.hpp"
+#include "Widgets/MultiVarTransferFunctionWindow.hpp"
 
 //const char *const DISTANCE_MEASURES[] = {
 //        "Distance Exponential Kernel",
@@ -104,6 +105,9 @@ public:
     virtual bool renderGuiWindow(bool isRasterizer) override;
     /// Certain GUI widgets might need the clear color.
     virtual void setClearColor(const sgl::Color& clearColor);
+    /// Whether to use linear RGB when rendering.
+    virtual void setUseLinearRGB(bool useLinearRGB) override;
+    virtual bool shallRenderTransferFunctionWindow() override { return !usePrincipalStressDirectionIndex; }
 
     /// Set current rendering mode (e.g. for making visible certain UI options only for certain renderers).
     virtual void setRenderingMode(RenderingMode renderingMode) override;
@@ -143,6 +147,7 @@ private:
 
     // Color legend widgets for different principal stress directions.
     StressLineHierarchyMappingWidget stressLineHierarchyMappingWidget;
+    MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
 
     // For computing distance do degenerate regions.
     /*const size_t NUM_DISTANCE_MEASURES = 2;

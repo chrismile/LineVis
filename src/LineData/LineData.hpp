@@ -159,9 +159,12 @@ public:
     virtual bool renderGuiWindow(bool isRasterizer);
     /// Certain GUI widgets might need the clear color.
     virtual void setClearColor(const sgl::Color& clearColor);
+    /// Whether to use linear RGB when rendering.
+    virtual void setUseLinearRGB(bool useLinearRGB) {}
     /// Set current rendering mode (e.g. for making visible certain UI options only for certain renderers).
     virtual void setLineRenderer(LineRenderer* lineRenderer) { this->lineRenderer = lineRenderer; }
     virtual void setRenderingMode(RenderingMode renderingMode) { this->renderingMode = renderingMode; }
+    virtual bool shallRenderTransferFunctionWindow() { return true; }
 
 protected:
     void rebuildInternalRepresentationIfNecessary();

@@ -47,7 +47,8 @@ bool LineDataStress::usePrincipalStressDirectionIndex = true;
 const char* const stressDirectionNames[] = { "Major", "Medium", "Minor" };
 
 LineDataStress::LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow)
-        : LineData(transferFunctionWindow, DATA_SET_TYPE_STRESS_LINES) {
+        : LineData(transferFunctionWindow, DATA_SET_TYPE_STRESS_LINES),
+          multiVarTransferFunctionWindow("stress", { "red.xml", "green.xml", "blue.xml" }) {
     colorLegendWidgets.resize(3);
     for (int psIdx = 0; psIdx < 3; psIdx++) {
         colorLegendWidgets[psIdx].setPositionIndex(psIdx, 3);
@@ -61,6 +62,9 @@ LineDataStress::~LineDataStress() {
 void LineDataStress::update(float dt) {
     if (rendererSupportsTransparency && useLineHierarchy) {
         stressLineHierarchyMappingWidget.update(dt);
+    }
+    if (usePrincipalStressDirectionIndex) {
+        multiVarTransferFunctionWindow.update(dt);
     }
 }
 
@@ -130,6 +134,16 @@ bool LineDataStress::renderGuiWindow(bool isRasterizer) {
         }
     }
 
+    if (usePrincipalStressDirectionIndex && multiVarTransferFunctionWindow.renderGui()) {
+        reRender = true;
+        if (transferFunctionWindow.getTransferFunctionMapRebuilt()) {
+            onTransferFunctionMapRebuilt();
+            if (lineRenderer) {
+                lineRenderer->onTransferFunctionMapRebuilt();
+            }
+        }
+    }
+
     if (usePrincipalStressDirectionIndex && shallRenderColorLegendWidgets) {
         for (int i = 0; i < colorLegendWidgets.size(); i++) {
             colorLegendWidgets.at(i).renderGui();
@@ -143,6 +157,11 @@ bool LineDataStress::renderGuiWindow(bool isRasterizer) {
 void LineDataStress::setClearColor(const sgl::Color& clearColor) {
     LineData::setClearColor(clearColor);
     stressLineHierarchyMappingWidget.setClearColor(clearColor);
+    multiVarTransferFunctionWindow.setClearColor(clearColor);
+}
+
+void LineDataStress::setUseLinearRGB(bool useLinearRGB) {
+    multiVarTransferFunctionWindow.setUseLinearRGB(useLinearRGB);
 }
 
 bool LineDataStress::loadFromFile(
@@ -306,6 +325,23 @@ void LineDataStress::recomputeHistogram() {
     }
     //glm::vec2 minMaxAttributes = minMaxAttributeValues.at(selectedAttributeIndex);
     transferFunctionWindow.computeHistogram(attributeList, 0.0f, 1.0f);
+
+    std::vector<std::string> attrNamesMultiVarWindow;
+    std::vector<std::vector<float>> attributesValuesMultiVarWindow;
+    for (int psIdx = 0; psIdx < 3; psIdx++) {
+        attrNamesMultiVarWindow.push_back(
+                std::string() + attributeNames.at(selectedAttributeIndex) + " (" + stressDirectionNames[psIdx] + ")");
+        std::vector<float> attributeValues;
+        Trajectories& trajectories = trajectoriesPs.at(psIdx);
+        for (Trajectory& trajectory : trajectories) {
+            for (float& attrVal : trajectory.attributes.at(selectedAttributeIndex)) {
+                attributeValues.push_back(attrVal);
+            }
+        }
+        attributesValuesMultiVarWindow.push_back(attributeValues);
+    }
+    multiVarTransferFunctionWindow.setAttributesValues(attrNamesMultiVarWindow, attributesValuesMultiVarWindow);
+
     recomputeColorLegend();
 }
 
@@ -582,6 +618,7 @@ std::vector<std::vector<std::vector<glm::vec3>>> LineDataStress::getFilteredPrin
 sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
     if (usePrincipalStressDirectionIndex) {
         sgl::ShaderManager->addPreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", "");
+        sgl::ShaderManager->addPreprocessorDefine("USE_MULTI_VAR_TRANSFER_FUNCTION", "");
     }
     if (useLineHierarchy) {
         sgl::ShaderManager->addPreprocessorDefine("USE_LINE_HIERARCHY_LEVEL", "");
@@ -598,6 +635,7 @@ sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
     }
     if (usePrincipalStressDirectionIndex) {
         sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX");
+        sgl::ShaderManager->removePreprocessorDefine("USE_MULTI_VAR_TRANSFER_FUNCTION");
     }
     return gatherShader;
 }
@@ -930,7 +968,14 @@ void LineDataStress::setUniformGatherShaderData_AllPasses() {
 }
 
 void LineDataStress::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader) {
-    LineData::setUniformGatherShaderData_Pass(gatherShader);
+    if (!usePrincipalStressDirectionIndex) {
+        LineData::setUniformGatherShaderData_Pass(gatherShader);
+    } else {
+        gatherShader->setUniformOptional(
+                "transferFunctionTexture",
+                multiVarTransferFunctionWindow.getTransferFunctionMapTexture(), 0);
+    }
+
     if (useLineHierarchy) {
         if (!rendererSupportsTransparency) {
             gatherShader->setUniform("lineHierarchySlider", glm::vec3(1.0f) - lineHierarchySliderValues);

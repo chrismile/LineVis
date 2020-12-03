@@ -30,6 +30,7 @@
 #define STRESSLINEVIS_LINEDATAMULTIVAR_HPP
 
 #include "LineDataFlow.hpp"
+#include "Widgets/MultiVarTransferFunctionWindow.hpp"
 #include "MultiVar/BezierTrajectory.hpp"
 #include "MultiVar/MultiVarWindow.hpp"
 
@@ -55,6 +56,7 @@ class LineDataMultiVar : public LineDataFlow {
 public:
     LineDataMultiVar(sgl::TransferFunctionWindow &transferFunctionWindow);
     ~LineDataMultiVar();
+    virtual void update(float dt) override;
     virtual void setTrajectoryData(const Trajectories& trajectories) override;
 
     // --- Retrieve data for rendering. Preferred way. ---
@@ -76,6 +78,8 @@ public:
     virtual bool renderGuiWindow(bool isRasterizer) override;
     /// Certain GUI widgets might need the clear color.
     virtual void setClearColor(const sgl::Color& clearColor) override;
+    /// Whether to use linear RGB when rendering.
+    virtual void setUseLinearRGB(bool useLinearRGB) override;
 
 private:
     virtual void recomputeHistogram() override;
@@ -129,6 +133,7 @@ private:
 
     // GUI window for inspecting variable distributions over lines.
     MultiVarWindow multiVarWindow;
+    MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
     sgl::Color clearColor;
 
     // Multi-Variate settings.

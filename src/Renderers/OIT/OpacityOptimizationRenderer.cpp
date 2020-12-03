@@ -533,10 +533,6 @@ void OpacityOptimizationRenderer::setUniformData() {
     gatherPpllFinalShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeOpacity);
     gatherPpllFinalShader->setUniform("cameraPosition", sceneData.camera->getPosition());
     gatherPpllFinalShader->setUniform("lineWidth", lineWidth);
-    if (gatherPpllFinalShader->hasUniform("transferFunctionTexture")) {
-        gatherPpllFinalShader->setUniform(
-                "transferFunctionTexture", transferFunctionWindow.getTransferFunctionMapTexture(), 0);
-    }
     if (gatherPpllFinalShader->hasUniform("backgroundColor")) {
         glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
         gatherPpllFinalShader->setUniform("backgroundColor", backgroundColor);

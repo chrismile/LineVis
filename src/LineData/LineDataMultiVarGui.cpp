@@ -32,6 +32,7 @@
 #include <Graphics/Shader/ShaderManager.hpp>
 #include <Utils/File/Logfile.hpp>
 
+#include "Renderers/LineRenderer.hpp"
 #include "Renderers/Tubes/Tubes.hpp"
 
 #include "LineDataMultiVar.hpp"
@@ -55,6 +56,11 @@ void LineDataMultiVar::setClearColor(const sgl::Color& clearColor) {
     LineData::setClearColor(clearColor);
     this->clearColor = clearColor;
     multiVarWindow.setClearColor(clearColor);
+    multiVarTransferFunctionWindow.setClearColor(clearColor);
+}
+
+void LineDataMultiVar::setUseLinearRGB(bool useLinearRGB) {
+    multiVarTransferFunctionWindow.setUseLinearRGB(useLinearRGB);
 }
 
 void LineDataMultiVar::recomputeWidgetPositions() {
@@ -92,6 +98,16 @@ bool LineDataMultiVar::renderGuiWindow(bool isRasterizer)  {
         }
     } else {
         shallReloadGatherShader = LineData::renderGuiWindow(isRasterizer) || shallReloadGatherShader;
+    }
+
+    if (multiVarTransferFunctionWindow.renderGui()) {
+        reRender = true;
+        if (transferFunctionWindow.getTransferFunctionMapRebuilt()) {
+            onTransferFunctionMapRebuilt();
+            if (lineRenderer) {
+                lineRenderer->onTransferFunctionMapRebuilt();
+            }
+        }
     }
 
     return shallReloadGatherShader;

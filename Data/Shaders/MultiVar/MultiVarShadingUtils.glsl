@@ -1,3 +1,5 @@
+#include "TransferFunction.glsl"
+
 ///////////////////////////////////////////
 // RGB <-> HSV color space mapping
 

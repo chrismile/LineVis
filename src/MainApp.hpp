@@ -82,7 +82,7 @@ private:
     int selectedDataSetIndex = 0; //< Contains "Local file..." at beginning, thus starts actually at 1.
     int currentlyLoadedDataSetIndex = -1;
     std::string customDataSetFileName;
-    DataSetType dataSetType = DATA_SET_TYPE_FLOW_LINES;
+    DataSetType dataSetType = DATA_SET_TYPE_NONE;
 
     // Coloring & filtering dependent on importance criteria.
     sgl::TransferFunctionWindow transferFunctionWindow;

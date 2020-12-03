@@ -89,7 +89,6 @@ MainApp::MainApp()
         sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
         window->setWindowSize(recordingResolution.x, recordingResolution.y);
         realTimeCameraFlight = false;
-        transferFunctionWindow.loadFunctionFromFile("Data/TransferFunctions/Standard_PerVertex.xml");
         loadLineDataSet({ "Data/LineDataSets/rings.obj" });
         renderingMode = RENDERING_MODE_OPACITY_OPTIMIZATION;
     }
@@ -146,8 +145,8 @@ void MainApp::setNewState(const InternalState &newState) {
         window->setWindowSize(newResolution.x, newResolution.y);
     }
 
-    // 1.1. Handle the new tiling mode for SSBO accesses (TODO).
-    //setNewTilingMode(newState.tilingWidth, newState.tilingHeight, newState.useMortonCodeForTiling);
+    // 1.1. Handle the new tiling mode for SSBO accesses.
+    setNewTilingMode(newState.tilingWidth, newState.tilingHeight, newState.useMortonCodeForTiling);
 
     // 1.2. Load the new transfer function if necessary.
     if (!newState.transferFunctionName.empty() && newState.transferFunctionName != lastState.transferFunctionName) {
@@ -238,6 +237,7 @@ void MainApp::resolutionChanged(sgl::EventPtr event) {
 void MainApp::updateColorSpaceMode() {
     SciVisApp::updateColorSpaceMode();
     transferFunctionWindow.setUseLinearRGB(useLinearRGB);
+    lineData->setUseLinearRGB(useLinearRGB);
 }
 
 void MainApp::render() {
@@ -298,7 +298,7 @@ void MainApp::renderGui() {
         ImGui::End();
     }
 
-    if (dataSetType != DATA_SET_TYPE_FLOW_LINES_MULTIVAR && transferFunctionWindow.renderGui()) {
+    if ((!lineData || lineData->shallRenderTransferFunctionWindow()) && transferFunctionWindow.renderGui()) {
         reRender = true;
         if (transferFunctionWindow.getTransferFunctionMapRebuilt()) {
             if (lineData) {
@@ -471,6 +471,7 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
 
     if (dataLoaded) {
         lineData->setClearColor(clearColor);
+        lineData->setUseLinearRGB(useLinearRGB);
         lineData->setRenderingMode(renderingMode);
         lineData->setLineRenderer(lineRenderer);
         newMeshLoaded = true;

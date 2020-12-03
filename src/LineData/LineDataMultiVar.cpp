@@ -65,8 +65,13 @@ const int MAX_NUM_VARIABLES = 20;
 
 
 LineDataMultiVar::LineDataMultiVar(sgl::TransferFunctionWindow &transferFunctionWindow)
-        : LineDataFlow(transferFunctionWindow) {
+        : LineDataFlow(transferFunctionWindow),
+          multiVarTransferFunctionWindow("multivar", { "red.xml", "green.xml", "blue.xml" }) {
     dataSetType = DATA_SET_TYPE_FLOW_LINES_MULTIVAR;
+}
+
+void LineDataMultiVar::update(float dt) {
+    multiVarTransferFunctionWindow.update(dt);
 }
 
 LineDataMultiVar::~LineDataMultiVar() {
@@ -86,6 +91,7 @@ void LineDataMultiVar::recomputeHistogram() {
         }
     }
     multiVarWindow.setAttributes(attributesList, attributeNames);
+    multiVarTransferFunctionWindow.setAttributesValues(attributeNames, attributesList);
 }
 
 sgl::ShaderProgramPtr LineDataMultiVar::reloadGatherShader() {
@@ -198,6 +204,10 @@ void LineDataMultiVar::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& ga
         LineData::setUniformGatherShaderData_Pass(gatherShader);
         return;
     }
+
+    gatherShader->setUniformOptional(
+            "transferFunctionTexture",
+            multiVarTransferFunctionWindow.getTransferFunctionMapTexture(), 0);
 
     gatherShader->setUniformOptional("numVariables", std::min(numVariablesSelected, MAX_NUM_VARIABLES));
     gatherShader->setUniformOptional("maxNumVariables", static_cast<int32_t>(attributeNames.size()));

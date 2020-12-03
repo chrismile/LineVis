@@ -251,10 +251,6 @@ void PerPixelLinkedListLineRenderer::setUniformData() {
     gatherShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSize);
     gatherShader->setUniform("cameraPosition", sceneData.camera->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
-    if (gatherShader->hasUniform("transferFunctionTexture")) {
-        gatherShader->setUniform(
-                "transferFunctionTexture", transferFunctionWindow.getTransferFunctionMapTexture(), 0);
-    }
     if (gatherShader->hasUniform("backgroundColor")) {
         glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
         gatherShader->setUniform("backgroundColor", backgroundColor);
