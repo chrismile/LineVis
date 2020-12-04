@@ -175,6 +175,7 @@ protected:
     sgl::AABB3 modelBoundingBox;
     std::vector<std::string> attributeNames;
     std::vector<glm::vec2> minMaxAttributeValues;
+    std::vector<glm::vec2> minMaxAttributeValuesPs[3];
     int selectedAttributeIndex = 0; ///< Selected attribute/importance criterion index.
     int selectedAttributeIndexUi = 0;
     bool dirty = false; ///< Should be set to true if the representation changed.

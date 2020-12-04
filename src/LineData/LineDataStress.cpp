@@ -214,19 +214,26 @@ void LineDataStress::setStressTrajectoryData(
     colorLegendWidgets.resize(std::max(attributeNames.size(), size_t(3)));
 
     for (size_t i = 0; i < attributeNames.size(); i++) {
-        float minAttr = std::numeric_limits<float>::max();
-        float maxAttr = std::numeric_limits<float>::lowest();
+        size_t psIdx = 0;
+        float minAttrTotal = std::numeric_limits<float>::max();
+        float maxAttrTotal = std::numeric_limits<float>::lowest();
         for (const Trajectories& trajectories : trajectoriesPs) {
+            float minAttr = std::numeric_limits<float>::max();
+            float maxAttr = std::numeric_limits<float>::lowest();
             for (const Trajectory& trajectory : trajectories) {
                 for (float val : trajectory.attributes.at(i)) {
                     minAttr = std::min(minAttr, val);
                     maxAttr = std::max(maxAttr, val);
                 }
             }
+            minMaxAttributeValuesPs[psIdx].push_back(glm::vec2(minAttr, maxAttr));
+            minAttrTotal = std::min(minAttrTotal, minAttr);
+            maxAttrTotal = std::max(maxAttrTotal, maxAttr);
+            psIdx++;
         }
-        minMaxAttributeValues.push_back(glm::vec2(minAttr, maxAttr));
+        minMaxAttributeValues.push_back(glm::vec2(minAttrTotal, maxAttrTotal));
     }
-    normalizeTrajectoriesPsVertexAttributes(this->trajectoriesPs);
+    normalizeTrajectoriesPsVertexAttributes_PerPs(this->trajectoriesPs);
 
     for (int psIdx = 0; psIdx < 3; psIdx++) {
         std::vector<float> lineHierarchyLevelValues;
@@ -280,6 +287,7 @@ void LineDataStress::setDegeneratePoints(
 
     // Find for all line points the distance to the closest degenerate point.
     for (Trajectories& trajectories : trajectoriesPs) {
+        size_t psIdx = 0;
         for (Trajectory& trajectory : trajectories) {
             std::vector<float> distanceMeasuresExponentialKernel;
             std::vector<float> distanceMeasuresSquaredExponentialKernel;
@@ -301,12 +309,15 @@ void LineDataStress::setDegeneratePoints(
             trajectory.attributes.push_back(distanceMeasuresExponentialKernel);
             trajectory.attributes.push_back(distanceMeasuresSquaredExponentialKernel);
         }
+        minMaxAttributeValuesPs[psIdx].push_back(glm::vec2(0.0f, 1.0f));
+        minMaxAttributeValuesPs[psIdx].push_back(glm::vec2(0.0f, 1.0f));
+        psIdx++;
     }
 
+    minMaxAttributeValues.push_back(glm::vec2(0.0f, 1.0f));
+    minMaxAttributeValues.push_back(glm::vec2(0.0f, 1.0f));
     attributeNames.push_back("Distance Exponential Kernel");
     attributeNames.push_back("Distance Squared Exponential Kernel");
-    minMaxAttributeValues.push_back(glm::vec2(0.0f, 1.0f));
-    minMaxAttributeValues.push_back(glm::vec2(0.0f, 1.0f));
 }
 
 void LineDataStress::setUsedPsDirections(const std::vector<bool>& usedPsDirections) {
@@ -351,12 +362,13 @@ void LineDataStress::recomputeColorLegend() {
             colorLegendWidgets[psIdx].setAttributeDisplayName(
                     std::string() + attributeNames.at(selectedAttributeIndex)
                     + " (" + stressDirectionNames[psIdx] + ")");
-            glm::vec2 minMaxAttributes = minMaxAttributeValues.at(selectedAttributeIndex);
+
+            glm::vec2 minMaxAttributes = minMaxAttributeValuesPs[psIdx].at(selectedAttributeIndex);
             colorLegendWidgets[psIdx].setAttributeMinValue(minMaxAttributes.x);
             colorLegendWidgets[psIdx].setAttributeMaxValue(minMaxAttributes.y);
             colorLegendWidgets[psIdx].setPositionIndex(psIdx, 3);
 
-            glm::vec3 baseColor;
+            /*glm::vec3 baseColor;
             if (psIdx == 0) {
                 baseColor = glm::vec3(1.0, 0.0, 0.0);
             } else if (psIdx == 1) {
@@ -373,7 +385,9 @@ void LineDataStress::recomputeColorLegend() {
                 glm::vec3 color_sRGB = sgl::TransferFunctionWindow::linearRGBTosRGB(color);
                 transferFunctionColorMap.push_back(color_sRGB);
             }
-            colorLegendWidgets[psIdx].setTransferFunctionColorMap(transferFunctionColorMap);
+            colorLegendWidgets[psIdx].setTransferFunctionColorMap(transferFunctionColorMap);*/
+            colorLegendWidgets[psIdx].setTransferFunctionColorMap(
+                    multiVarTransferFunctionWindow.getTransferFunctionMap_sRGB(psIdx));
         }
     } else {
         colorLegendWidgets[selectedAttributeIndex].setAttributeDisplayName(

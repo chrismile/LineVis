@@ -185,7 +185,7 @@ void normalizeTrajectoriesPsVertexPositions(
     normalizeTrajectoriesPsVertexPositions(trajectoriesPs, aabb, vertexTransformationMatrixPtr);
 }
 
-void normalizeTrajectoriesPsVertexAttributes(std::vector<Trajectories>& trajectoriesPs) {
+void normalizeTrajectoriesPsVertexAttributes_Total(std::vector<Trajectories>& trajectoriesPs) {
     size_t numAttributes = 0;
     if (!trajectoriesPs.empty() && !trajectoriesPs.front().empty()) {
         numAttributes = trajectoriesPs.front().front().attributes.size();
@@ -204,6 +204,35 @@ void normalizeTrajectoriesPsVertexAttributes(std::vector<Trajectories>& trajecto
             }
         }
         for (Trajectories& trajectories : trajectoriesPs) {
+            #pragma omp parallel for shared(trajectories, attributeIdx, minVal, maxVal) default(none)
+            for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+                std::vector<float>& attributes = trajectories.at(trajectoryIdx).attributes.at(attributeIdx);
+                for (float& attrVal : attributes) {
+                    attrVal = (attrVal - minVal) / (maxVal - minVal);
+                }
+            }
+        }
+    }
+}
+
+void normalizeTrajectoriesPsVertexAttributes_PerPs(std::vector<Trajectories>& trajectoriesPs) {
+    size_t numAttributes = 0;
+    if (!trajectoriesPs.empty() && !trajectoriesPs.front().empty()) {
+        numAttributes = trajectoriesPs.front().front().attributes.size();
+    }
+
+    for (size_t attributeIdx = 0; attributeIdx < numAttributes; attributeIdx++) {
+        for (Trajectories& trajectories : trajectoriesPs) {
+            float minVal = FLT_MAX, maxVal = -FLT_MAX;
+            #pragma omp parallel for shared(trajectories, attributeIdx) default(none) reduction(min: minVal) reduction(max: maxVal)
+            for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+                const std::vector<float>& attributes = trajectories.at(trajectoryIdx).attributes.at(attributeIdx);
+                for (const float& attrVal : attributes) {
+                    minVal = std::min(minVal, attrVal);
+                    maxVal = std::max(maxVal, attrVal);
+                }
+            }
+
             #pragma omp parallel for shared(trajectories, attributeIdx, minVal, maxVal) default(none)
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
                 std::vector<float>& attributes = trajectories.at(trajectoryIdx).attributes.at(attributeIdx);
@@ -266,7 +295,7 @@ void loadStressTrajectoriesFromFile(
         normalizeTrajectoriesPsVertexPositions(trajectoriesPs, aabb, vertexTransformationMatrixPtr);
     }
     if (normalizeAttributes) {
-        normalizeTrajectoriesPsVertexAttributes(trajectoriesPs);
+        normalizeTrajectoriesPsVertexAttributes_PerPs(trajectoriesPs);
     }
 }
 

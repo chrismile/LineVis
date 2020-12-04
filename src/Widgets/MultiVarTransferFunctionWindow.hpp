@@ -38,7 +38,6 @@ class GuiVarData {
     friend class MultiVarTransferFunctionWindow;
 public:
     /**
-     *
      * @param window The @see MultiVarTransferFunctionWindow parent instance.
      * @param tfPresetFile The preset transfer function file.
      * @param transferFunctionMap_sRGB The memory for storing the sRGB transfer function map.
@@ -48,9 +47,11 @@ public:
             MultiVarTransferFunctionWindow* window, const std::string& tfPresetFile,
             sgl::Color* transferFunctionMap_sRGB,
             sgl::Color* transferFunctionMap_linearRGB);
+
     bool saveTfToFile(const std::string& filename);
     bool loadTfFromFile(const std::string& filename);
     void setAttributeValues(const std::string& name, const std::vector<float>& attributes);
+
     bool renderGui();
     inline const std::string& getSaveFileString() { return saveFileString; }
 
@@ -109,7 +110,6 @@ class MultiVarTransferFunctionWindow {
     friend class GuiVarData;
 public:
     /**
-     *
      * @param saveDirectoryPrefix A prefix directory attached to the file names (e.g., "stress", "multivar").
      * @param tfPresetFiles A list of preset transfer function files. If more variables are given than preset files,
      * the files are repeated.
@@ -134,6 +134,7 @@ public:
     // 1D array texture, with one 1D color (RGBA) texture slice per variable.
     sgl::TexturePtr& getTransferFunctionMapTexture();
     bool getTransferFunctionMapRebuilt();
+    std::vector<sgl::Color> getTransferFunctionMap_sRGB(int varIdx);
 
 private:
     void updateAvailableFiles();

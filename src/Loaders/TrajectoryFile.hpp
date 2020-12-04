@@ -72,7 +72,10 @@ void normalizeTrajectoriesPsVertexPositions(
 void normalizeTrajectoriesPsVertexPositions(
         std::vector<Trajectories>& trajectoriesPs, const sgl::AABB3& aabb,
         const glm::mat4* vertexTransformationMatrixPtr = nullptr);
-void normalizeTrajectoriesPsVertexAttributes(std::vector<Trajectories>& trajectoriesPs);
+/// Normalize attributes per principal stress direction?
+void normalizeTrajectoriesPsVertexAttributes_Total(std::vector<Trajectories>& trajectoriesPs);
+/// Normalize across principal stress directions?
+void normalizeTrajectoriesPsVertexAttributes_PerPs(std::vector<Trajectories>& trajectoriesPs);
 
 /**
  * Selects @see loadTrajectoriesFromObj, @see loadTrajectoriesFromNetCdf or @see loadTrajectoriesFromBinLines depending

@@ -786,6 +786,12 @@ bool MultiVarTransferFunctionWindow::getTransferFunctionMapRebuilt() {
     return false;
 }
 
+std::vector<sgl::Color> MultiVarTransferFunctionWindow::getTransferFunctionMap_sRGB(int varIdx) {
+    return std::vector<sgl::Color>(
+            transferFunctionMap_sRGB.cbegin() + TRANSFER_FUNCTION_TEXTURE_SIZE * varIdx,
+            transferFunctionMap_sRGB.cbegin() + TRANSFER_FUNCTION_TEXTURE_SIZE * (varIdx + 1));
+}
+
 void MultiVarTransferFunctionWindow::update(float dt) {
     if (currVarData) {
         currVarData->dragPoint();
