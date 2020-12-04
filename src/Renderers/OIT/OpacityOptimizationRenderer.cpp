@@ -542,6 +542,7 @@ void OpacityOptimizationRenderer::setUniformData() {
         glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
         gatherPpllFinalShader->setUniform("foregroundColor", foregroundColor);
     }
+    lineData->setUniformGatherShaderData_Pass(gatherPpllFinalShader);
 
     resolvePpllOpacitiesShader->setUniform("viewportW", paddedViewportWidthOpacity);
     resolvePpllOpacitiesShader->setUniform("q", q);

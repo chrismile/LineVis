@@ -203,7 +203,6 @@ protected:
     std::vector<std::string> sampleModeNames;
 
     // Multisampling (CSAA) data.
-    sgl::TexturePtr msaaTexture;
     sgl::FramebufferObjectPtr msaaSceneFBO;
     sgl::TexturePtr msaaRenderTexture;
     sgl::RenderbufferObjectPtr msaaDepthRBO;

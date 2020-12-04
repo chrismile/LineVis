@@ -140,11 +140,11 @@ void loadStressTrajectoriesFromDat(
                             psData.at(pointIdx * 12 + 11)));
                     trajectory.attributes.at(0).push_back(vonMisesData.at(pointIdx));
                     if (psIdx == 0) {
-                        trajectory.attributes.at(1).push_back(stressTrajectoryData.majorPs.back());
+                        trajectory.attributes.at(1).push_back(std::abs(stressTrajectoryData.majorPs.back()));
                     } else if (psIdx == 1) {
-                        trajectory.attributes.at(1).push_back(stressTrajectoryData.mediumPs.back());
+                        trajectory.attributes.at(1).push_back(std::abs(stressTrajectoryData.mediumPs.back()));
                     } else {
-                        trajectory.attributes.at(1).push_back(stressTrajectoryData.minorPs.back());
+                        trajectory.attributes.at(1).push_back(std::abs(stressTrajectoryData.minorPs.back()));
                     }
                 }
             }

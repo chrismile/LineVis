@@ -48,7 +48,7 @@ const char* const stressDirectionNames[] = { "Major", "Medium", "Minor" };
 
 LineDataStress::LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_STRESS_LINES),
-          multiVarTransferFunctionWindow("stress", { "red.xml", "green.xml", "blue.xml" }) {
+          multiVarTransferFunctionWindow("stress", { "reds.xml", "greens.xml", "blues.xml" }) {
     colorLegendWidgets.resize(3);
     for (int psIdx = 0; psIdx < 3; psIdx++) {
         colorLegendWidgets[psIdx].setPositionIndex(psIdx, 3);
@@ -136,7 +136,7 @@ bool LineDataStress::renderGuiWindow(bool isRasterizer) {
 
     if (usePrincipalStressDirectionIndex && multiVarTransferFunctionWindow.renderGui()) {
         reRender = true;
-        if (transferFunctionWindow.getTransferFunctionMapRebuilt()) {
+        if (multiVarTransferFunctionWindow.getTransferFunctionMapRebuilt()) {
             onTransferFunctionMapRebuilt();
             if (lineRenderer) {
                 lineRenderer->onTransferFunctionMapRebuilt();
@@ -286,8 +286,8 @@ void LineDataStress::setDegeneratePoints(
     const float lengthScale = 0.02f;
 
     // Find for all line points the distance to the closest degenerate point.
+    size_t psIdx = 0;
     for (Trajectories& trajectories : trajectoriesPs) {
-        size_t psIdx = 0;
         for (Trajectory& trajectory : trajectories) {
             std::vector<float> distanceMeasuresExponentialKernel;
             std::vector<float> distanceMeasuresSquaredExponentialKernel;
@@ -1003,7 +1003,7 @@ void LineDataStress::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gath
             //gatherShader->setUniform("lineHierarchySliderLower", lineHierarchySliderValuesLower);
             //gatherShader->setUniform("lineHierarchySliderUpper", lineHierarchySliderValuesUpper);
 
-            gatherShader->setUniform(
+            gatherShader->setUniformOptional(
                     "lineHierarchyImportanceMap",
                     stressLineHierarchyMappingWidget.getHierarchyMappingTexture(), 1);
         }

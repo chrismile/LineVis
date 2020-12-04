@@ -2,18 +2,7 @@ uniform float minCriterionValue = 0.0;
 uniform float maxCriterionValue = 1.0;
 
 // Transfer function color lookup table.
-#ifndef USE_MULTI_VAR_TRANSFER_FUNCTION
-
-uniform sampler1D transferFunctionTexture;
-
-vec4 transferFunction(float attr) {
-    // Transfer to range [0,1].
-    float posFloat = clamp((attr - minCriterionValue) / (maxCriterionValue - minCriterionValue), 0.0, 1.0);
-    // Look up the color value.
-    return texture(transferFunctionTexture, posFloat);
-}
-
-#else
+#if defined(USE_MULTI_VAR_TRANSFER_FUNCTION) || defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX)
 
 uniform sampler1DArray transferFunctionTexture;
 
@@ -22,6 +11,17 @@ vec4 transferFunction(float attr, uint variableIndex) {
     float posFloat = clamp((attr - minCriterionValue) / (maxCriterionValue - minCriterionValue), 0.0, 1.0);
     // Look up the color value.
     return texture(transferFunctionTexture, vec2(posFloat, variableIndex));
+}
+
+#else
+
+uniform sampler1D transferFunctionTexture;
+
+vec4 transferFunction(float attr) {
+    // Transfer to range [0,1].
+    float posFloat = clamp((attr - minCriterionValue) / (maxCriterionValue - minCriterionValue), 0.0, 1.0);
+    // Look up the color value.
+    return texture(transferFunctionTexture, posFloat);
 }
 
 #endif

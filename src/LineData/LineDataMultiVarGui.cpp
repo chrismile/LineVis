@@ -102,7 +102,7 @@ bool LineDataMultiVar::renderGuiWindow(bool isRasterizer)  {
 
     if (multiVarTransferFunctionWindow.renderGui()) {
         reRender = true;
-        if (transferFunctionWindow.getTransferFunctionMapRebuilt()) {
+        if (multiVarTransferFunctionWindow.getTransferFunctionMapRebuilt()) {
             onTransferFunctionMapRebuilt();
             if (lineRenderer) {
                 lineRenderer->onTransferFunctionMapRebuilt();
