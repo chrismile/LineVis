@@ -35,7 +35,7 @@
 #include <Graphics/Shader/Shader.hpp>
 #include <Graphics/Shader/ShaderAttributes.hpp>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
-#include "Widgets/ColorLegendWidget.hpp"
+#include <ImGui/Widgets/ColorLegendWidget.hpp>
 #include "Utils/InternalState.hpp"
 #include "Loaders/DataSetList.hpp"
 #include "Loaders/TrajectoryFile.hpp"
@@ -186,7 +186,7 @@ protected:
 
     // Color legend widgets for different attributes.
     bool shallRenderColorLegendWidgets = true;
-    std::vector<ColorLegendWidget> colorLegendWidgets;
+    std::vector<sgl::ColorLegendWidget> colorLegendWidgets;
 
     // Rendering settings.
     RenderingMode renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
