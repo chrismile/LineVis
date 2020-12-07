@@ -111,6 +111,8 @@ public:
     inline bool isDirty() { return dirty; }
     // Returns if the data needs to be re-rendered, but the visualization mapping is valid.
     virtual bool needsReRender() { bool tmp = reRender; reRender = false; return tmp; }
+    // Do non-static settings that lead to a gather shader reload differ?
+    virtual bool settingsDiffer(LineData* other) { return false; }
 
     /**
      * Load line data from the selected file(s).

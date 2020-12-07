@@ -55,3 +55,12 @@ void LineRenderer::renderGuiWindow() {
         }
     }
 }
+
+void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewMesh) {
+    if (!this->lineData || lineData->getType() != this->lineData->getType()
+        || lineData->settingsDiffer(this->lineData.get())) {
+        this->lineData = lineData;
+        reloadGatherShader(false);
+    }
+    this->lineData = lineData;
+}

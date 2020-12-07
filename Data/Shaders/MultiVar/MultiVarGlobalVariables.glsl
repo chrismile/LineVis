@@ -1,3 +1,5 @@
+#include "TransferFunction.glsl"
+
 // Current number of variables to display
 uniform int numVariables;
 // Maximum number of variables to display
@@ -80,7 +82,10 @@ void sampleVariableFromLineSSBO(
     VarDescData varDesc = varDescs[maxNumVariables * lineID + varID];
     const uint varOffset = uint(varDesc.info.r);
     // Output
-    minMax = varDesc.info.gb;
+    //minMax = varDesc.info.gb;
+
+    minMax = minMaxValues[varID];
+
     value = varArray[startIndex + varOffset + elementID];
 }
 

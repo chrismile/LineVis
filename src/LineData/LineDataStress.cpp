@@ -59,6 +59,10 @@ LineDataStress::LineDataStress(sgl::TransferFunctionWindow &transferFunctionWind
 LineDataStress::~LineDataStress() {
 }
 
+bool LineDataStress::settingsDiffer(LineData* other) {
+    return useLineHierarchy != static_cast<LineDataStress*>(other)->useLineHierarchy;
+}
+
 void LineDataStress::update(float dt) {
     if (rendererSupportsTransparency && useLineHierarchy) {
         stressLineHierarchyMappingWidget.update(dt);

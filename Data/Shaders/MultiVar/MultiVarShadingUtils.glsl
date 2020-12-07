@@ -1,5 +1,4 @@
 //uniform float minColorIntensity;
-uniform int useColorIntensity = 1;
 
 #include "TransferFunction.glsl"
 

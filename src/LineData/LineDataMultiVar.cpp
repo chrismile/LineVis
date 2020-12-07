@@ -42,6 +42,46 @@ const std::string MULTI_VAR_RENDER_MODE_SHADER_NAMES[] = {
         "MultiVarOrientedColorBandsRibbon", "MultiVarCheckerboard", "MultiVarFibers"
 };
 
+LineDataMultiVar::OrientedRibbonMode LineDataMultiVar::orientedRibbonMode =
+        LineDataMultiVar::ORIENTED_RIBBON_MODE_FIXED_BAND_WIDTH;
+bool LineDataMultiVar::mapColorToSaturation = true; ///< !mapColorToSaturation -> DIRECT_COLOR_MAPPING in gather shader.
+
+///< Use multivariate or single attribute rendering? If true, falls back to code from @see LineDataFlow.
+bool LineDataMultiVar::useMultiVarRendering = true;
+
+// Rendering modes.
+LineDataMultiVar::MultiVarRenderMode LineDataMultiVar::multiVarRenderMode =
+        LineDataMultiVar::MULTIVAR_RENDERMODE_ROLLS;
+LineDataMultiVar::MultiVarRadiusMappingMode LineDataMultiVar::multiVarRadiusMappingMode =
+        LineDataMultiVar::MULTIVAR_RADIUSMODE_GLOBAL;
+
+// Multi-Variate settings.
+int32_t LineDataMultiVar::numLineSegments = 8;
+int32_t LineDataMultiVar::numInstances = 12;
+int32_t LineDataMultiVar::rollWidth = 1;
+float LineDataMultiVar::separatorWidth = 0.15f;
+bool LineDataMultiVar::mapTubeDiameter = false;
+float LineDataMultiVar::twistOffset = 0.1f;
+bool LineDataMultiVar::constantTwistOffset = false;
+int32_t LineDataMultiVar::checkerboardWidth = 3;
+int32_t LineDataMultiVar::checkerboardHeight = 2;
+int32_t LineDataMultiVar::checkerboardIterator = 2;
+/// For orientedRibbonMode == ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH
+glm::vec4 LineDataMultiVar::bandBackgroundColor = glm::vec4(0.5f, 0.5f, 0.5f, 1.0f);
+
+// Line settings.
+float LineDataMultiVar::minRadiusFactor = 0.5f;
+float LineDataMultiVar::fiberRadius = 0.0005f;
+
+// Lighting settings.
+bool LineDataMultiVar::useColorIntensity = true;
+float LineDataMultiVar::materialConstantAmbient = 0.1f;
+float LineDataMultiVar::materialConstantDiffuse = 0.85f;
+float LineDataMultiVar::materialConstantSpecular = 0.05f;
+float LineDataMultiVar::materialConstantSpecularExp = 10.0f;
+bool LineDataMultiVar::drawHalo = true;
+float LineDataMultiVar::haloFactor = 1.2f;
+
 /*const std::vector<glm::vec4> defaultColors = {
         // RED
         glm::vec4(228 / 255.0, 26 / 255.0, 28 / 255.0, 1.0),
@@ -70,6 +110,10 @@ LineDataMultiVar::LineDataMultiVar(sgl::TransferFunctionWindow &transferFunction
               "reds.xml", "blues.xml", "greens.xml", "purples.xml", "oranges.xml", "pinks.xml", "golds.xml",
               "dark-blues.xml" }) {
     dataSetType = DATA_SET_TYPE_FLOW_LINES_MULTIVAR;
+}
+
+bool LineDataMultiVar::settingsDiffer(LineData* other) {
+    return false;
 }
 
 void LineDataMultiVar::update(float dt) {

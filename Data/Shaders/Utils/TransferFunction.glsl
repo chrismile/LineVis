@@ -1,3 +1,5 @@
+#ifndef TRANSFER_FUNCTION_GLSL
+#define TRANSFER_FUNCTION_GLSL
 
 // Transfer function color lookup table.
 #if defined(USE_MULTI_VAR_TRANSFER_FUNCTION) || defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX)
@@ -6,6 +8,10 @@ uniform sampler1DArray transferFunctionTexture;
 layout (std430, binding = 9) readonly buffer MinMaxBuffer {
     vec2 minMaxValues[];
 };
+
+#ifdef IS_MULTIVAR_DATA
+uniform int useColorIntensity = 1;
+#endif
 
 vec4 transferFunction(float attr, uint variableIndex) {
     vec2 minMaxValue = minMaxValues[variableIndex];
@@ -59,3 +65,5 @@ vec4 transferFunction(float attr) {
 //    return color;
 //}
 //#endif
+
+#endif

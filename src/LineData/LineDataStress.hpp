@@ -43,6 +43,7 @@ class LineDataStress : public LineData {
 public:
     LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow);
     ~LineDataStress();
+    virtual bool settingsDiffer(LineData* other) override;
     virtual void update(float dt) override;
 
     /**

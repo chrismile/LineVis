@@ -56,6 +56,7 @@ class LineDataMultiVar : public LineDataFlow {
 public:
     LineDataMultiVar(sgl::TransferFunctionWindow &transferFunctionWindow);
     ~LineDataMultiVar();
+    virtual bool settingsDiffer(LineData* other) override;
     virtual void update(float dt) override;
     virtual void setTrajectoryData(const Trajectories& trajectories) override;
 
@@ -91,6 +92,12 @@ private:
 
     /// Create render data.
     TubeRenderDataMultiVar getTubeRenderDataMultiVar();
+    BezierTrajectories bezierTrajectories;
+
+    // GUI window for inspecting variable distributions over lines.
+    MultiVarWindow multiVarWindow;
+    MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
+    sgl::Color clearColor;
 
     enum MultiVarRenderMode {
         MULTIVAR_RENDERMODE_ROLLS,
@@ -114,15 +121,15 @@ private:
         ORIENTED_RIBBON_MODE_VARYING_BAND_RATIO,
         ORIENTED_RIBBON_MODE_VARYING_RIBBON_WIDTH
     };
-    OrientedRibbonMode orientedRibbonMode = ORIENTED_RIBBON_MODE_FIXED_BAND_WIDTH;
-    bool mapColorToSaturation = true; ///< !mapColorToSaturation -> DIRECT_COLOR_MAPPING in gather shader.
+    static OrientedRibbonMode orientedRibbonMode;
+    static bool mapColorToSaturation; ///< !mapColorToSaturation -> DIRECT_COLOR_MAPPING in gather shader.
 
     ///< Use multivariate or single attribute rendering? If true, falls back to code from @see LineDataFlow.
-    bool useMultiVarRendering = true;
-    BezierTrajectories bezierTrajectories;
+    static bool useMultiVarRendering;
+
     // Rendering modes.
-    MultiVarRenderMode multiVarRenderMode = MULTIVAR_RENDERMODE_ROLLS;
-    MultiVarRadiusMappingMode multiVarRadiusMappingMode = MULTIVAR_RADIUSMODE_GLOBAL;
+    static MultiVarRenderMode multiVarRenderMode;
+    static MultiVarRadiusMappingMode multiVarRadiusMappingMode;
 
     // Line SSBO data.
     sgl::GeometryBufferPtr variableArrayBuffer;
@@ -132,43 +139,37 @@ private:
     sgl::GeometryBufferPtr varSelectedArrayBuffer;
     //sgl::GeometryBufferPtr varColorArrayBuffer;
 
-    // GUI window for inspecting variable distributions over lines.
-    MultiVarWindow multiVarWindow;
-    MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
-    sgl::Color clearColor;
-
     // Multi-Variate settings.
     std::vector<std::uint32_t> varSelected;
     //std::vector<glm::vec4> varColors;
     std::string comboValue = "";
     int32_t numVariablesSelected = 0;
     int32_t maxNumVariables = 6;
-    int32_t numLineSegments = 8;
-    int32_t numInstances = 12;
-    int32_t rollWidth = 1;
-    float separatorWidth = 0.15f;
-    bool mapTubeDiameter = false;
-    float twistOffset = 0.1f;
-    bool constantTwistOffset = false;
-    int32_t checkerboardWidth = 3;
-    int32_t checkerboardHeight = 2;
-    int32_t checkerboardIterator = 2;
+    static int32_t numLineSegments;
+    static int32_t numInstances;
+    static int32_t rollWidth;
+    static float separatorWidth;
+    static bool mapTubeDiameter;
+    static float twistOffset;
+    static bool constantTwistOffset;
+    static int32_t checkerboardWidth;
+    static int32_t checkerboardHeight;
+    static int32_t checkerboardIterator;
     /// For orientedRibbonMode == ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH
-    glm::vec4 bandBackgroundColor = glm::vec4(0.5f, 0.5f, 0.5f, 1.0f);
+    static glm::vec4 bandBackgroundColor ;
 
     // Line settings.
-    float minRadiusFactor = 0.5f;
-    float fiberRadius = 0.0005f;
+    static float minRadiusFactor;
+    static float fiberRadius;
 
     // Lighting settings.
-    bool useColorIntensity = true;
-    //float minColorIntensity = 0.0f;
-    float materialConstantAmbient = 0.1f;
-    float materialConstantDiffuse = 0.85f;
-    float materialConstantSpecular = 0.05f;
-    float materialConstantSpecularExp = 10.0f;
-    bool drawHalo = true;
-    float haloFactor = 1.2f;
+    static bool useColorIntensity;
+    static float materialConstantAmbient;
+    static float materialConstantDiffuse;
+    static float materialConstantSpecular;
+    static float materialConstantSpecularExp;
+    static bool drawHalo;
+    static float haloFactor;
 };
 
 #endif //STRESSLINEVIS_LINEDATAMULTIVAR_HPP

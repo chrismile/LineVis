@@ -87,6 +87,7 @@ public:
 protected:
     // Reload the gather shader.
     virtual void reloadGatherShader(bool canCopyShaderAttributes = true)=0;
+    void updateNewLineData(LineDataPtr& lineData, bool isNewMesh);
     // GUI rendering code to be implemented by sub-classes.
     virtual void renderGui()=0;
     bool showRendererWindow = true;
