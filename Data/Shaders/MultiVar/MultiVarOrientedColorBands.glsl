@@ -112,8 +112,8 @@ void main() {
         sampleVariableFromLineSSBO(vertexOutput[0].vLineID, sampleActualVarID(varID), vertexOutput[0].vElementNextID, variableNextValue, variableNextMinMax);
 
         // 2) Normalize values.
-        variableValue = (variableValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
-        variableNextValue = (variableNextValue - variableNextMinMax.x) / (variableNextMinMax.y - variableNextMinMax.x);
+        //variableValue = (variableValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
+        //variableNextValue = (variableNextValue - variableNextMinMax.x) / (variableNextMinMax.y - variableNextMinMax.x);
 
         // 3) Interpolate linearly.
         variables[varID] = mix(variableValue, variableNextValue, vertexOutput[0].vElementInterpolant);
@@ -146,8 +146,8 @@ void main() {
         sampleVariableFromLineSSBO(vertexOutput[0].vLineID, sampleActualVarID(varID), _fragElementNextID, variableNextValue, variableNextMinMax);
 
         // 2) Normalize values.
-        variableValue = (variableValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
-        variableNextValue = (variableNextValue - variableNextMinMax.x) / (variableNextMinMax.y - variableNextMinMax.x);
+        //variableValue = (variableValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
+        //variableNextValue = (variableNextValue - variableNextMinMax.x) / (variableNextMinMax.y - variableNextMinMax.x);
 
         // 3) Interpolate linearly.
         variables[varID] = mix(variableValue, variableNextValue, _fragElementInterpolant);
@@ -339,8 +339,8 @@ void main() {
         sampleVariableFromLineSSBO(fragLineID, sampleActualVarID(varID), fragElementNextID, variableNextValue, variableNextMinMax);
 
         // 1.2) Normalize values.
-        variableValue = (variableValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
-        variableNextValue = (variableNextValue - variableNextMinMax.x) / (variableNextMinMax.y - variableNextMinMax.x);
+        //variableValue = (variableValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
+        //variableNextValue = (variableNextValue - variableNextMinMax.x) / (variableNextMinMax.y - variableNextMinMax.x);
 
         // 1.3) Interpolate linearly.
         variables[varID] = mix(variableValue, variableNextValue, fragElementInterpolant);
@@ -373,8 +373,8 @@ void main() {
     sampleVariableFromLineSSBO(fragLineID, sampleActualVarID(varID), fragElementNextID, variableNextValue, variableNextMinMax);
 
     // 3) Normalize values
-    variableValue = (variableValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
-    variableNextValue = (variableNextValue - variableNextMinMax.x) / (variableNextMinMax.y - variableNextMinMax.x);
+    //variableValue = (variableValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
+    //variableNextValue = (variableNextValue - variableNextMinMax.x) / (variableNextMinMax.y - variableNextMinMax.x);
 
     // 4) Determine variable color
     vec4 surfaceColor = determineColorLinearInterpolate(

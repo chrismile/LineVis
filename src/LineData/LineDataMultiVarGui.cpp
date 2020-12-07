@@ -93,6 +93,10 @@ bool LineDataMultiVar::renderGuiWindow(bool isRasterizer)  {
     if (useMultiVarRendering && shallRenderColorLegendWidgets) {
         for (int i = 0; i < colorLegendWidgets.size(); i++) {
             if (varSelected.at(i)) {
+                colorLegendWidgets.at(i).setAttributeMinValue(
+                        multiVarTransferFunctionWindow.getSelectedRangeMin(i));
+                colorLegendWidgets.at(i).setAttributeMaxValue(
+                        multiVarTransferFunctionWindow.getSelectedRangeMax(i));
                 colorLegendWidgets.at(i).renderGui();
             }
         }
@@ -211,7 +215,11 @@ bool LineDataMultiVar::renderGuiTechniqueSettings() {
         reRender = true;
     }
 
-    if (ImGui::SliderFloat("Min Color Intensity", &minColorIntensity, 0.0, 1.0, "%.2f")) {
+    //if (ImGui::SliderFloat("Min Color Intensity", &minColorIntensity, 0.0, 1.0, "%.2f")) {
+    //    reRender = true;
+    //    recomputeColorLegend();
+    //}
+    if (ImGui::Checkbox("Use Color Intensity", &useColorIntensity)) {
         reRender = true;
         recomputeColorLegend();
     }
@@ -261,7 +269,7 @@ bool LineDataMultiVar::renderGuiTechniqueSettings() {
 
     ImGui::NewLine();
 
-    bool colorHasChanged = false;
+    /*bool colorHasChanged = false;
     for (auto v = 0; v < varSelected.size(); ++v) {
         if (varSelected[v]) {
             std::vector<std::string> names;
@@ -282,7 +290,7 @@ bool LineDataMultiVar::renderGuiTechniqueSettings() {
                 sgl::SHADER_STORAGE_BUFFER);
         recomputeColorLegend();
         reRender = true;
-    }
+    }*/
 
     return shallReloadGatherShader;
 }

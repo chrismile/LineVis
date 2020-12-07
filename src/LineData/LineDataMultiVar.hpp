@@ -49,7 +49,7 @@ struct TubeRenderDataMultiVar {
     sgl::GeometryBufferPtr varDescArrayBuffer;
     sgl::GeometryBufferPtr lineVarDescArrayBuffer;
     sgl::GeometryBufferPtr varSelectedArrayBuffer;
-    sgl::GeometryBufferPtr varColorArrayBuffer;
+    //sgl::GeometryBufferPtr varColorArrayBuffer;
 };
 
 class LineDataMultiVar : public LineDataFlow {
@@ -80,6 +80,7 @@ public:
     virtual void setClearColor(const sgl::Color& clearColor) override;
     /// Whether to use linear RGB when rendering.
     virtual void setUseLinearRGB(bool useLinearRGB) override;
+    virtual bool shallRenderTransferFunctionWindow() override { return !useMultiVarRendering; }
 
 private:
     virtual void recomputeHistogram() override;
@@ -129,7 +130,7 @@ private:
     sgl::GeometryBufferPtr varDescArrayBuffer;
     sgl::GeometryBufferPtr lineVarDescArrayBuffer;
     sgl::GeometryBufferPtr varSelectedArrayBuffer;
-    sgl::GeometryBufferPtr varColorArrayBuffer;
+    //sgl::GeometryBufferPtr varColorArrayBuffer;
 
     // GUI window for inspecting variable distributions over lines.
     MultiVarWindow multiVarWindow;
@@ -138,16 +139,16 @@ private:
 
     // Multi-Variate settings.
     std::vector<std::uint32_t> varSelected;
-    std::vector<glm::vec4> varColors;
+    //std::vector<glm::vec4> varColors;
     std::string comboValue = "";
     int32_t numVariablesSelected = 0;
     int32_t maxNumVariables = 6;
     int32_t numLineSegments = 8;
     int32_t numInstances = 12;
     int32_t rollWidth = 1;
-    float separatorWidth = 0.15;
+    float separatorWidth = 0.15f;
     bool mapTubeDiameter = false;
-    float twistOffset = 0.1;
+    float twistOffset = 0.1f;
     bool constantTwistOffset = false;
     int32_t checkerboardWidth = 3;
     int32_t checkerboardHeight = 2;
@@ -160,13 +161,14 @@ private:
     float fiberRadius = 0.0005f;
 
     // Lighting settings.
-    float minColorIntensity = 0.1;
-    float materialConstantAmbient = 0.1;
-    float materialConstantDiffuse = 0.85;
-    float materialConstantSpecular = 0.05;
-    float materialConstantSpecularExp = 10;
+    bool useColorIntensity = true;
+    //float minColorIntensity = 0.0f;
+    float materialConstantAmbient = 0.1f;
+    float materialConstantDiffuse = 0.85f;
+    float materialConstantSpecular = 0.05f;
+    float materialConstantSpecularExp = 10.0f;
     bool drawHalo = true;
-    float haloFactor = 1.2;
+    float haloFactor = 1.2f;
 };
 
 #endif //STRESSLINEVIS_LINEDATAMULTIVAR_HPP

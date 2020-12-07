@@ -42,7 +42,7 @@ const std::string MULTI_VAR_RENDER_MODE_SHADER_NAMES[] = {
         "MultiVarOrientedColorBandsRibbon", "MultiVarCheckerboard", "MultiVarFibers"
 };
 
-const std::vector<glm::vec4> defaultColors = {
+/*const std::vector<glm::vec4> defaultColors = {
         // RED
         glm::vec4(228 / 255.0, 26 / 255.0, 28 / 255.0, 1.0),
         // BLUE
@@ -59,14 +59,16 @@ const std::vector<glm::vec4> defaultColors = {
         glm::vec4(254 / 255.0, 178 / 255.0, 76 / 255.0, 1.0),
         // DARK BLUE
         glm::vec4(0 / 255.0, 7 / 255.0, 255 / 255.0, 1.0)
-};
+};*/
 
 const int MAX_NUM_VARIABLES = 20;
 
 
 LineDataMultiVar::LineDataMultiVar(sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineDataFlow(transferFunctionWindow),
-          multiVarTransferFunctionWindow("multivar", { "red.xml", "green.xml", "blue.xml" }) {
+          multiVarTransferFunctionWindow("multivar", {
+              "reds.xml", "blues.xml", "greens.xml", "purples.xml", "oranges.xml", "pinks.xml", "golds.xml",
+              "dark-blues.xml" }) {
     dataSetType = DATA_SET_TYPE_FLOW_LINES_MULTIVAR;
 }
 
@@ -78,8 +80,6 @@ LineDataMultiVar::~LineDataMultiVar() {
 }
 
 void LineDataMultiVar::recomputeHistogram() {
-    LineDataFlow::recomputeHistogram();
-
     const size_t numAttributes = attributeNames.size();
     std::vector<std::vector<float>> attributesList(numAttributes);
     for (const Trajectory& trajectory : trajectories) {
@@ -90,8 +90,10 @@ void LineDataMultiVar::recomputeHistogram() {
             }
         }
     }
-    multiVarWindow.setAttributes(attributesList, attributeNames);
     multiVarTransferFunctionWindow.setAttributesValues(attributeNames, attributesList);
+    multiVarWindow.setAttributes(attributesList, attributeNames);
+
+    LineDataFlow::recomputeHistogram();
 }
 
 sgl::ShaderProgramPtr LineDataMultiVar::reloadGatherShader() {
@@ -105,6 +107,8 @@ sgl::ShaderProgramPtr LineDataMultiVar::reloadGatherShader() {
     sgl::ShaderManager->addPreprocessorDefine("NUM_SEGMENTS", numLineSegments);
     sgl::ShaderManager->addPreprocessorDefine("NUM_LINESEGMENTS", numInstances);
     sgl::ShaderManager->addPreprocessorDefine("MAX_NUM_VARIABLES", MAX_NUM_VARIABLES);
+    sgl::ShaderManager->addPreprocessorDefine("USE_MULTI_VAR_TRANSFER_FUNCTION", "");
+    sgl::ShaderManager->addPreprocessorDefine("IS_MULTIVAR_DATA", "");
 
     if (multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS
             || multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS_RIBBON) {
@@ -134,6 +138,8 @@ sgl::ShaderProgramPtr LineDataMultiVar::reloadGatherShader() {
     sgl::ShaderManager->removePreprocessorDefine("NUM_SEGMENTS");
     sgl::ShaderManager->removePreprocessorDefine("NUM_LINESEGMENTS");
     sgl::ShaderManager->removePreprocessorDefine("MAX_NUM_VARIABLES");
+    sgl::ShaderManager->removePreprocessorDefine("USE_MULTI_VAR_TRANSFER_FUNCTION");
+    sgl::ShaderManager->removePreprocessorDefine("IS_MULTIVAR_DATA");
 
     return gatherShader;
 }
@@ -149,7 +155,7 @@ sgl::ShaderAttributesPtr LineDataMultiVar::getGatherShaderAttributes(sgl::Shader
     varDescArrayBuffer = sgl::GeometryBufferPtr();
     lineVarDescArrayBuffer = sgl::GeometryBufferPtr();
     varSelectedArrayBuffer = sgl::GeometryBufferPtr();
-    varColorArrayBuffer = sgl::GeometryBufferPtr();
+    //varColorArrayBuffer = sgl::GeometryBufferPtr();
 
     sgl::ShaderAttributesPtr shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
 
@@ -176,7 +182,7 @@ sgl::ShaderAttributesPtr LineDataMultiVar::getGatherShaderAttributes(sgl::Shader
     varDescArrayBuffer = tubeRenderData.varDescArrayBuffer;
     lineVarDescArrayBuffer = tubeRenderData.lineVarDescArrayBuffer;
     varSelectedArrayBuffer = tubeRenderData.varSelectedArrayBuffer;
-    varColorArrayBuffer = tubeRenderData.varColorArrayBuffer;
+    //varColorArrayBuffer = tubeRenderData.varColorArrayBuffer;
 
     return shaderAttributes;
 }
@@ -196,7 +202,8 @@ void LineDataMultiVar::setUniformGatherShaderData_AllPasses() {
     sgl::ShaderManager->bindShaderStorageBuffer(5, varDescArrayBuffer);
     sgl::ShaderManager->bindShaderStorageBuffer(6, lineVarDescArrayBuffer);
     sgl::ShaderManager->bindShaderStorageBuffer(7, varSelectedArrayBuffer);
-    sgl::ShaderManager->bindShaderStorageBuffer(8, varColorArrayBuffer);
+    //sgl::ShaderManager->bindShaderStorageBuffer(8, varColorArrayBuffer);
+    sgl::ShaderManager->bindShaderStorageBuffer(9, multiVarTransferFunctionWindow.getMinMaxSsbo());
 }
 
 void LineDataMultiVar::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader) {
@@ -224,7 +231,8 @@ void LineDataMultiVar::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& ga
     gatherShader->setUniformOptional("twistOffset", twistOffset);
     gatherShader->setUniformOptional("fiberRadius", fiberRadius);
     gatherShader->setUniformOptional("minRadiusFactor", minRadiusFactor);
-    gatherShader->setUniformOptional("minColorIntensity", minColorIntensity);
+    //gatherShader->setUniformOptional("minColorIntensity", minColorIntensity);
+    gatherShader->setUniformOptional("useColorIntensity", int(useColorIntensity));
     gatherShader->setUniformOptional("checkerboardWidth", checkerboardWidth);
     gatherShader->setUniformOptional("checkerboardHeight", checkerboardHeight);
     gatherShader->setUniformOptional("checkerboardIterator", checkerboardIterator);
@@ -245,16 +253,16 @@ void LineDataMultiVar::setTrajectoryData(const Trajectories& trajectories) {
     numVariablesSelected = 0;
 
     // Set starting colors based on default color array.
-    varColors = std::vector<glm::vec4>(attributeNames.size());
+    /*varColors = std::vector<glm::vec4>(attributeNames.size());
     for (auto c = 0; c < varColors.size(); ++c) {
         varColors[c] = defaultColors[c % defaultColors.size()];
-    }
+    }*/
 }
 
 void LineDataMultiVar::recomputeColorLegend() {
     if (useMultiVarRendering) {
         for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
-            glm::vec3 baseColor_sRGB = varColors.at(i);
+            /*glm::vec3 baseColor_sRGB = varColors.at(i);
             glm::vec3 baseColor_linearRGB = sgl::TransferFunctionWindow::sRGBToLinearRGB(baseColor_sRGB);
 
             std::vector<sgl::Color> transferFunctionColorMap;
@@ -268,6 +276,15 @@ void LineDataMultiVar::recomputeColorLegend() {
                 glm::vec3 color_sRGB = sgl::TransferFunctionWindow::linearRGBTosRGB(color_linearRGB);
 
                 transferFunctionColorMap.push_back(color_sRGB);
+            }
+            colorLegendWidgets.at(i).setTransferFunctionColorMap(transferFunctionColorMap);*/
+
+            std::vector<sgl::Color> transferFunctionColorMap =
+                    multiVarTransferFunctionWindow.getTransferFunctionMap_sRGB(i);
+            if (!useColorIntensity) {
+                for (size_t i = 0; i < transferFunctionColorMap.size(); i++) {
+                    transferFunctionColorMap.at(i) = transferFunctionColorMap.back();
+                }
             }
             colorLegendWidgets.at(i).setTransferFunctionColorMap(transferFunctionColorMap);
         }
@@ -434,9 +451,9 @@ TubeRenderDataMultiVar LineDataMultiVar::getTubeRenderDataMultiVar() {
     tubeRenderData.varSelectedArrayBuffer = sgl::Renderer->createGeometryBuffer(
             varSelected.size()*sizeof(uint32_t), (void*)&varSelected.front(),
             sgl::SHADER_STORAGE_BUFFER);
-    tubeRenderData.varColorArrayBuffer = sgl::Renderer->createGeometryBuffer(
+    /*tubeRenderData.varColorArrayBuffer = sgl::Renderer->createGeometryBuffer(
             varColors.size()*sizeof(glm::vec4), (void*)&varColors.front(),
-            sgl::SHADER_STORAGE_BUFFER);
+            sgl::SHADER_STORAGE_BUFFER);*/
 
     return tubeRenderData;
 }

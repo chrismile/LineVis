@@ -27,6 +27,12 @@
  */
 
 #include <cmath>
+
+#ifdef __linux__
+#include <sys/inotify.h>
+#include <poll.h>
+#endif
+
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 
@@ -179,17 +185,16 @@ void GuiVarData::setAttributeValues(const std::string& name, const std::vector<f
     attributeName = name;
     this->attributes = attributes;
 
-    float minValue = std::numeric_limits<float>::max();
-    float maxValue = std::numeric_limits<float>::lowest();
-    #pragma omp parallel for reduction(min: minValue) reduction(max: maxValue) shared(attributes) default(none)
+    float minAttr = std::numeric_limits<float>::max();
+    float maxAttr = std::numeric_limits<float>::lowest();
+    #pragma omp parallel for reduction(min: minAttr) reduction(max: maxAttr) shared(attributes) default(none)
     for (size_t i = 0; i < attributes.size(); i++) {
         float value = attributes.at(i);
-        minValue = std::min(minValue, value);
-        maxValue = std::max(maxValue, value);
+        minAttr = std::min(minAttr, value);
+        maxAttr = std::max(maxAttr, value);
     }
-    minAttr = minValue;
-    maxAttr = maxValue;
-
+    this->dataRange = glm::vec2(minAttr, maxAttr);
+    this->selectedRange = glm::vec2(minAttr, maxAttr);
     computeHistogram();
 }
 
@@ -199,7 +204,7 @@ void GuiVarData::computeHistogram() {
 
     for (const float& value : attributes) {
         int32_t index = glm::clamp(
-                static_cast<int>((value - minAttr) / (maxAttr - minAttr)
+                static_cast<int>((value - selectedRange.x) / (selectedRange.y - selectedRange.x)
                 * static_cast<float>(histogramResolution)), 0, histogramResolution - 1);
         histogram.at(index)++;
     }
@@ -355,6 +360,19 @@ bool GuiVarData::renderGui() {
             "Color Space", (int*)&interpolationColorSpace,
             sgl::COLOR_SPACE_NAMES, IM_ARRAYSIZE(sgl::COLOR_SPACE_NAMES))) {
         rebuildTransferFunctionMap();
+        reRender = true;
+    }
+
+    if (ImGui::SliderFloat2("Range", &selectedRange.x, dataRange.x, dataRange.y)) {
+        computeHistogram();
+        window->rebuildRangeUbo();
+        reRender = true;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Reset")) {
+        selectedRange = dataRange;
+        computeHistogram();
+        window->rebuildRangeUbo();
         reRender = true;
     }
 
@@ -712,11 +730,22 @@ bool GuiVarData::selectNearestColorPoint(int& currentSelectionIndex, const glm::
 MultiVarTransferFunctionWindow::MultiVarTransferFunctionWindow(
         const std::string& saveDirectoryPrefix,
         const std::vector<std::string>& tfPresetFiles) {
-    saveDirectory = saveDirectory + saveDirectoryPrefix + "/";
+    if (!saveDirectoryPrefix.empty()) {
+        directoryName = saveDirectoryPrefix;
+        parentDirectory = saveDirectory;
+        saveDirectory = saveDirectory + saveDirectoryPrefix + "/";
+    }
     this->tfPresetFiles = tfPresetFiles;
+
+    directoryContentWatch.setPath(saveDirectory, true);
+    directoryContentWatch.initialize();
+
     tfMapTextureSettings.type = sgl::TEXTURE_1D_ARRAY;
     tfMapTextureSettings.internalFormat = GL_RGBA16;
     updateAvailableFiles();
+}
+
+MultiVarTransferFunctionWindow::~MultiVarTransferFunctionWindow() {
 }
 
 void MultiVarTransferFunctionWindow::setAttributesValues(
@@ -733,6 +762,10 @@ void MultiVarTransferFunctionWindow::setAttributesValues(
         guiVarData.reserve(names.size());
         tfMapTexture = sgl::TextureManager->createEmptyTexture(
                 TRANSFER_FUNCTION_TEXTURE_SIZE, names.size(), tfMapTextureSettings);
+        minMaxUbo = sgl::Renderer->createGeometryBuffer(
+                names.size() * sizeof(glm::vec2), sgl::UNIFORM_BUFFER);
+        minMaxData.clear();
+        minMaxData.resize(names.size() * 2, 0);
 
         for (size_t varIdx = 0; varIdx < names.size(); varIdx++) {
             guiVarData.push_back(GuiVarData(
@@ -751,12 +784,22 @@ void MultiVarTransferFunctionWindow::setAttributesValues(
 
     updateAvailableFiles();
     rebuildTransferFunctionMapComplete();
+    rebuildRangeUbo();
 }
 
 
 void MultiVarTransferFunctionWindow::updateAvailableFiles() {
     sgl::FileUtils::get()->ensureDirectoryExists(saveDirectory);
-    availableFiles = sgl::FileUtils::get()->getFilesInDirectoryVector(saveDirectory);
+    std::vector<std::string> availableFilesAll = sgl::FileUtils::get()->getFilesInDirectoryVector(saveDirectory);
+    availableFiles.clear();
+    availableFiles.reserve(availableFilesAll.size());
+
+    for (const std::string& filename : availableFilesAll) {
+        if (sgl::FileUtils::get()->hasExtension(filename.c_str(), ".xml")) {
+            availableFiles.push_back(filename);
+        }
+    }
+    std::sort(availableFiles.begin(), availableFiles.end());
 
     // Update currently selected filename
     for (size_t i = 0; i < availableFiles.size(); i++) {
@@ -792,7 +835,10 @@ std::vector<sgl::Color> MultiVarTransferFunctionWindow::getTransferFunctionMap_s
             transferFunctionMap_sRGB.cbegin() + TRANSFER_FUNCTION_TEXTURE_SIZE * (varIdx + 1));
 }
 
+#include <iostream>
+
 void MultiVarTransferFunctionWindow::update(float dt) {
+    directoryContentWatch.update([this] { this->updateAvailableFiles(); });
     if (currVarData) {
         currVarData->dragPoint();
     }
@@ -809,6 +855,16 @@ void MultiVarTransferFunctionWindow::rebuildTransferFunctionMapComplete() {
     }
 
     rebuildTransferFunctionMap();
+}
+
+void MultiVarTransferFunctionWindow::rebuildRangeUbo() {
+    for (size_t varIdx = 0; varIdx < guiVarData.size(); varIdx++) {
+        GuiVarData& varData = guiVarData.at(varIdx);
+        const glm::vec2& range = varData.getSelectedRange();
+        minMaxData[varIdx * 2] = range.x;
+        minMaxData[varIdx * 2 + 1] = range.y;
+    }
+    minMaxUbo->subData(0, minMaxData.size() * sizeof(float), minMaxData.data());
 }
 
 void MultiVarTransferFunctionWindow::rebuildTransferFunctionMap() {

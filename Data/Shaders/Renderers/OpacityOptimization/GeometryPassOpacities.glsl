@@ -133,6 +133,11 @@ uniform sampler1DArray lineHierarchyImportanceMap;
 
 uniform vec3 cameraPosition;
 
+#ifndef USE_LINE_HIERARCHY_LEVEL
+uniform float minAttrValue = 0.0f;
+uniform float maxAttrValue = 1.0f;
+#endif
+
 #include "FloatPack.glsl"
 #include "LinkedListHeaderOpacities.glsl"
 
@@ -152,7 +157,7 @@ void main() {
             lineHierarchyImportanceMap, vec2(fragmentLineHierarchyLevel, float(fragmentPrincipalStressIndex))).r;
     packFloat22Float10(frag.depth, gl_FragCoord.z, fragmentAttributeHierarchy);
 #else
-    packFloat22Float10(frag.depth, gl_FragCoord.z, fragmentAttribute);
+    packFloat22Float10(frag.depth, gl_FragCoord.z, (fragmentAttribute - minAttrValue) / (maxAttrValue - minAttrValue));
 #endif
 
     uint insertIndex = atomicCounterIncrement(fragCounter);

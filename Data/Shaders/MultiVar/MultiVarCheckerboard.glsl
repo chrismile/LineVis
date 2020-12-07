@@ -131,16 +131,16 @@ void main() {
     const int elementID = vertexOutput[0].vElementID;
     const int lineID = vertexOutput[0].vLineID;
 
-    float variableValueOrig = 0;
+    //float variableValueOrig = 0;
     float variableValue = 0;
     vec2 variableMinMax = vec2(0);
 
     //    vec4 varInfo = vertexOutput[0].lineVariable;
 
     if (varID >= 0)     {
-        sampleVariableFromLineSSBO(lineID, varID, elementID, variableValueOrig, variableMinMax);
+        sampleVariableFromLineSSBO(lineID, varID, elementID, variableValue, variableMinMax);
         // Normalize value
-        variableValue = (variableValueOrig - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
+        //variableValue = (variableValueOrig - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
         //        variableValue = (varInfo.x - varInfo.y) / (varInfo.z - varInfo.y);
     }
 
@@ -211,7 +211,8 @@ void main() {
         {
             sampleVariableFromLineSSBO(lineID, varID, elementNextID, variableNextValue, variableMinMax);
             // Normalize value
-            fragVariableNextValue = (variableNextValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
+            //fragVariableNextValue = (variableNextValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
+            fragVariableNextValue = variableNextValue;
         }
 //        fragVariableNextID = elementNextID;
         fragElementInterpolant = vertexOutput[0].vElementInterpolant;
@@ -263,7 +264,8 @@ void main() {
         if (elementNextID >= 0) {
             sampleVariableFromLineSSBO(lineID, varID, elementNextID, variableNextValue, variableMinMax);
             // Normalize value
-            fragVariableNextValue = (variableNextValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
+            //fragVariableNextValue = (variableNextValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
+            fragVariableNextValue = variableNextValue;
         }
         ////////////////////////
 

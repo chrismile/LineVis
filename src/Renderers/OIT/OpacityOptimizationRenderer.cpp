@@ -527,6 +527,8 @@ void OpacityOptimizationRenderer::setUniformData() {
     gatherPpllOpacitiesShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeOpacity);
     gatherPpllOpacitiesShader->setUniform("cameraPosition", sceneData.camera->getPosition());
     gatherPpllOpacitiesShader->setUniform("lineWidth", lineWidth);
+    gatherPpllOpacitiesShader->setUniformOptional("minAttrValue", transferFunctionWindow.getDataRangeMin());
+    gatherPpllOpacitiesShader->setUniformOptional("maxAttrValue", transferFunctionWindow.getDataRangeMax());
     lineData->setUniformGatherShaderData_Pass(gatherPpllOpacitiesShader);
 
     gatherPpllFinalShader->setUniform("viewportW", paddedViewportWidthFinal);

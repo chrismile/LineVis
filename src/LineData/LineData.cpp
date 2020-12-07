@@ -79,6 +79,10 @@ bool LineData::renderGui(bool isRasterizer) {
 
 bool LineData::renderGuiWindow(bool isRasterizer) {
     if (shallRenderColorLegendWidgets) {
+        colorLegendWidgets.at(selectedAttributeIndex).setAttributeMinValue(
+                transferFunctionWindow.getSelectedRangeMin());
+        colorLegendWidgets.at(selectedAttributeIndex).setAttributeMaxValue(
+                transferFunctionWindow.getSelectedRangeMax());
         colorLegendWidgets.at(selectedAttributeIndex).renderGui();
     }
     return false;
@@ -192,4 +196,6 @@ void LineData::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShad
     gatherShader->setUniformOptional(
             "transferFunctionTexture",
             transferFunctionWindow.getTransferFunctionMapTexture(), 0);
+    gatherShader->setUniformOptional("minAttributeValue", transferFunctionWindow.getSelectedRangeMin());
+    gatherShader->setUniformOptional("maxAttributeValue", transferFunctionWindow.getSelectedRangeMax());
 }

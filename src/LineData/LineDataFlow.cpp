@@ -96,7 +96,7 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
         colorLegendWidgets[i].setAttributeDisplayName(
                 std::string() + attributeNames.at(i));
     }
-    normalizeTrajectoriesVertexAttributes(this->trajectories);
+    //normalizeTrajectoriesVertexAttributes(this->trajectories);
 
     dirty = true;
 }
@@ -110,8 +110,8 @@ void LineDataFlow::recomputeHistogram() {
             attributeList.push_back(val);
         }
     }
-    //glm::vec2 minMaxAttributes = minMaxAttributeValues.at(selectedAttributeIndex);
-    transferFunctionWindow.computeHistogram(attributeList, 0.0f, 1.0f);
+    glm::vec2 minMaxAttributes = minMaxAttributeValues.at(selectedAttributeIndex);
+    transferFunctionWindow.computeHistogram(attributeList, minMaxAttributes.x, minMaxAttributes.y);
 
     recomputeColorLegend();
 }

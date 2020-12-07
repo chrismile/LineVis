@@ -1,12 +1,14 @@
+//uniform float minColorIntensity;
+uniform int useColorIntensity = 1;
+
 #include "TransferFunction.glsl"
 
 ///////////////////////////////////////////
 // RGB <-> HSV color space mapping
 
-// TODO: Move to another shader
-layout (std430, binding = 8) buffer VarColorArray {
+/*layout (std430, binding = 8) buffer VarColorArray {
     vec4 colorVars[];
-};
+};*/
 
 vec3 rgbToHSV(in vec3 color) {
     float minValue = min(color.r, min(color.g, color.b));
@@ -119,7 +121,7 @@ vec4 mapColor(in float value, uint index) {
     return vec4(0);
 }
 
-vec4 determineVariableColor(in int varID) {
+/*vec4 determineVariableColor(in int varID) {
     vec4 surfaceColor = vec4(0.2, 0.2, 0.2, 1);
 
     if (varID >= maxNumVariables || varID < 0) {
@@ -140,13 +142,12 @@ vec4 determineVariableColor(in int varID) {
     surfaceColor.rgb = sRGBToLinearRGB(surfaceColor.rgb);
 
     return surfaceColor;
-}
+}*/
 
-uniform float minColorIntensity;
 
 vec4 determineColor(in int varID, in float variableValue) {
     // Determine variable color
-    vec4 surfaceColor = determineVariableColor(varID);
+    /*vec4 surfaceColor = determineVariableColor(varID);
 
     if (varID >= 0)
     {
@@ -155,8 +156,17 @@ vec4 determineColor(in int varID, in float variableValue) {
         hsvCol.g = hsvCol.g * (minColorIntensity + (1.0 - minColorIntensity) * rate);
         surfaceColor.rgb = hsvCol.rgb;
         surfaceColor.rgb = hsvToRGB(surfaceColor.rgb);
+    }*/
+    if (varID >= maxNumVariables || varID < 0) {
+        return vec4(0.4, 0.4, 0.4, 1);
     }
 
+    //vec4 surfaceColor = transferFunction(variableValue * (1.0 - minColorIntensity) + minColorIntensity, varID);
+    float value = 1.0;
+    if (useColorIntensity == 1) {
+        value = variableValue;
+    }
+    vec4 surfaceColor = transferFunction(value, varID);
     return surfaceColor;
 }
 
@@ -164,7 +174,7 @@ vec4 determineColor(in int varID, in float variableValue) {
 vec4 determineColorLinearInterpolate(
         in int varID, in float variableValue, in float variableNextValue, in float interpolant) {
     // Determine variable color
-    vec4 surfaceColor = determineVariableColor(varID);
+    /*vec4 surfaceColor = determineVariableColor(varID);
 
 #ifndef DIRECT_COLOR_MAPPING
     vec3 hsvCol = rgbToHSV(surfaceColor.rgb);
@@ -181,7 +191,15 @@ vec4 determineColorLinearInterpolate(
     //vec4 surfaceColor2 = mapColor(variableNextValue, varID);
     //surfaceColor = mix(surfaceColor, surfaceColor2, fragElementInterpolant);
 #endif
+    */
 
+    if (varID >= maxNumVariables || varID < 0) {
+        return vec4(0.4, 0.4, 0.4, 1);
+    }
+
+    float rate = mix(variableValue, variableNextValue, interpolant);
+    float value = rate;
+    vec4 surfaceColor = transferFunction(value, varID);
     return surfaceColor;
 }
 

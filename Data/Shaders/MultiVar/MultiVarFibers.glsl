@@ -282,8 +282,8 @@ void main()
     sampleVariableFromLineSSBO(fragLineID, varID, fragElementNextID, variableNextValue, variableNextMinMax);
 //
 //    // 3) Normalize values
-    variableValue = (variableValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
-    variableNextValue = (variableNextValue - variableNextMinMax.x) / (variableNextMinMax.y - variableNextMinMax.x);
+    //variableValue = (variableValue - variableMinMax.x) / (variableMinMax.y - variableMinMax.x);
+    //variableNextValue = (variableNextValue - variableNextMinMax.x) / (variableNextMinMax.y - variableNextMinMax.x);
 //
 //    // 4) Determine variable color
     vec4 surfaceColor = determineColorLinearInterpolate(

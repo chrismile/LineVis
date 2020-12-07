@@ -29,6 +29,7 @@
 #ifndef STRESSLINEVIS_MULTIVARTRANSFERFUNCTIONWINDOW_HPP
 #define STRESSLINEVIS_MULTIVARTRANSFERFUNCTIONWINDOW_HPP
 
+#include <Utils/File/PathWatch.hpp>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
 
 class MultiVarTransferFunctionWindow;
@@ -55,6 +56,14 @@ public:
     bool renderGui();
     inline const std::string& getSaveFileString() { return saveFileString; }
 
+    // Get data range.
+    inline float getDataRangeMin() const { return dataRange.x; }
+    inline float getDataRangeMax() const { return dataRange.y; }
+    inline const glm::vec2& getDataRange() const { return dataRange; }
+    inline float getSelectedRangeMin() const { return selectedRange.x; }
+    inline float getSelectedRangeMax() const { return selectedRange.y; }
+    inline const glm::vec2& getSelectedRange() const { return selectedRange; }
+
 private:
     void computeHistogram();
 
@@ -72,9 +81,10 @@ private:
     MultiVarTransferFunctionWindow* window;
 
     std::string attributeName;
-    int histogramResolution = 256;
+    int histogramResolution = 64;
     std::vector<float> histogram;
-    float minAttr = 0.0f, maxAttr = 1.0f;
+    glm::vec2 dataRange = glm::vec2(0.0f);
+    glm::vec2 selectedRange = glm::vec2(0.0f);
     std::vector<float> attributes;
 
     // Drag-and-drop data
@@ -117,6 +127,7 @@ public:
     MultiVarTransferFunctionWindow(
             const std::string& saveDirectoryPrefix,
             const std::vector<std::string>& tfPresetFiles = {});
+    ~MultiVarTransferFunctionWindow();
 
     // Multi-var functions.
     void setAttributesValues(
@@ -136,21 +147,42 @@ public:
     bool getTransferFunctionMapRebuilt();
     std::vector<sgl::Color> getTransferFunctionMap_sRGB(int varIdx);
 
+    // Get data range.
+    inline float getDataRangeMin(int varIdx) const { return guiVarData.at(varIdx).dataRange.x; }
+    inline float getDataRangeMax(int varIdx) const { return guiVarData.at(varIdx).dataRange.y; }
+    inline const glm::vec2& getDataRange(int varIdx) const { return guiVarData.at(varIdx).dataRange; }
+    inline float getSelectedRangeMin(int varIdx) const { return guiVarData.at(varIdx).selectedRange.x; }
+    inline float getSelectedRangeMax(int varIdx) const { return guiVarData.at(varIdx).selectedRange.y; }
+    inline const glm::vec2& getSelectedRange(int varIdx) const { return guiVarData.at(varIdx).selectedRange; }
+
+    /// Returns the Data range uniform buffer object.
+    inline sgl::GeometryBufferPtr& getMinMaxSsbo() { return minMaxUbo; }
+
 private:
     void updateAvailableFiles();
     void rebuildTransferFunctionMap();
     void rebuildTransferFunctionMapComplete();
+    void rebuildRangeUbo();
 
     std::vector<std::string> varNames;
     std::vector<GuiVarData> guiVarData;
     size_t selectedVarIndex = 0;
     GuiVarData* currVarData = nullptr;
 
+    // Data range uniform buffer object.
+    sgl::GeometryBufferPtr minMaxUbo;
+    std::vector<float> minMaxData;
+
     // GUI
     bool showWindow = true;
     bool reRender = false;
     sgl::Color clearColor;
 
+    // Transfer function directory watch.
+    sgl::PathWatch directoryContentWatch;
+
+    std::string directoryName = "TransferFunctions";
+    std::string parentDirectory = "Data/";
     std::string saveDirectory = "Data/TransferFunctions/";
     std::vector<std::string> tfPresetFiles;
     std::vector<std::string> availableFiles;

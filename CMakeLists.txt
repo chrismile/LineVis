@@ -45,7 +45,6 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(JSONCPP jsoncpp)
 target_link_libraries(StressLineVis tinyxml2)
 target_link_libraries(StressLineVis sgl ${Boost_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${NETCDF_LIBRARIES} ${JSONCPP_LIBRARIES})
-
 include_directories(${sgl_INCLUDES} ${Boost_INCLUDES} ${OPENGL_INCLUDE_DIRS} ${GLEW_INCLUDES} ${NETCDF_INCLUDES} ${JSONCPP_INCLUDES})
 
 if(OPENMP_FOUND)

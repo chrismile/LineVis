@@ -146,6 +146,10 @@ bool LineDataStress::renderGuiWindow(bool isRasterizer) {
 
     if (usePrincipalStressDirectionIndex && shallRenderColorLegendWidgets) {
         for (int i = 0; i < colorLegendWidgets.size(); i++) {
+            colorLegendWidgets.at(i).setAttributeMinValue(
+                    multiVarTransferFunctionWindow.getSelectedRangeMin(i));
+            colorLegendWidgets.at(i).setAttributeMaxValue(
+                    multiVarTransferFunctionWindow.getSelectedRangeMax(i));
             colorLegendWidgets.at(i).renderGui();
         }
         return false;
@@ -233,7 +237,7 @@ void LineDataStress::setStressTrajectoryData(
         }
         minMaxAttributeValues.push_back(glm::vec2(minAttrTotal, maxAttrTotal));
     }
-    normalizeTrajectoriesPsVertexAttributes_PerPs(this->trajectoriesPs);
+    //normalizeTrajectoriesPsVertexAttributes_PerPs(this->trajectoriesPs);
 
     for (int psIdx = 0; psIdx < 3; psIdx++) {
         std::vector<float> lineHierarchyLevelValues;
@@ -334,8 +338,8 @@ void LineDataStress::recomputeHistogram() {
             }
         }
     }
-    //glm::vec2 minMaxAttributes = minMaxAttributeValues.at(selectedAttributeIndex);
-    transferFunctionWindow.computeHistogram(attributeList, 0.0f, 1.0f);
+    glm::vec2 minMaxAttributes = minMaxAttributeValues.at(selectedAttributeIndex);
+    transferFunctionWindow.computeHistogram(attributeList, minMaxAttributes.x, minMaxAttributes.y);
 
     std::vector<std::string> attrNamesMultiVarWindow;
     std::vector<std::vector<float>> attributesValuesMultiVarWindow;
@@ -978,6 +982,10 @@ void LineDataStress::setUniformGatherShaderData_AllPasses() {
     LineData::setUniformGatherShaderData_AllPasses();
     if (useLineHierarchy && linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
         sgl::ShaderManager->bindShaderStorageBuffer(3, lineHierarchyLevelsSSBO);
+    }
+
+    if (usePrincipalStressDirectionIndex) {
+        sgl::ShaderManager->bindShaderStorageBuffer(9, multiVarTransferFunctionWindow.getMinMaxSsbo());
     }
 }
 
