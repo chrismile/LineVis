@@ -46,8 +46,8 @@ public:
      */
     GuiVarData(
             MultiVarTransferFunctionWindow* window, const std::string& tfPresetFile,
-            sgl::Color* transferFunctionMap_sRGB,
-            sgl::Color* transferFunctionMap_linearRGB);
+            sgl::Color16* transferFunctionMap_sRGB,
+            sgl::Color16* transferFunctionMap_linearRGB);
 
     bool saveTfToFile(const std::string& filename);
     bool loadTfFromFile(const std::string& filename);
@@ -107,8 +107,8 @@ private:
     void rebuildTransferFunctionMap_LinearRGB();
 
     // Pointer (with offset) to data stored by @see MultiVarTransferFunctionWindow.
-    sgl::Color* transferFunctionMap_sRGB = nullptr;
-    sgl::Color* transferFunctionMap_linearRGB = nullptr;
+    sgl::Color16* transferFunctionMap_sRGB = nullptr;
+    sgl::Color16* transferFunctionMap_linearRGB = nullptr;
 
     sgl::ColorSpace interpolationColorSpace = sgl::COLOR_SPACE_LINEAR_RGB;
     std::vector<sgl::OpacityPoint> opacityPoints;
@@ -145,7 +145,7 @@ public:
     // 1D array texture, with one 1D color (RGBA) texture slice per variable.
     sgl::TexturePtr& getTransferFunctionMapTexture();
     bool getTransferFunctionMapRebuilt();
-    std::vector<sgl::Color> getTransferFunctionMap_sRGB(int varIdx);
+    std::vector<sgl::Color16> getTransferFunctionMap_sRGB(int varIdx);
 
     // Get data range.
     inline float getDataRangeMin(int varIdx) const { return guiVarData.at(varIdx).dataRange.x; }
@@ -191,8 +191,8 @@ private:
 
     bool useLinearRGB = true;
     bool transferFunctionMapRebuilt = true;
-    std::vector<sgl::Color> transferFunctionMap_sRGB;
-    std::vector<sgl::Color> transferFunctionMap_linearRGB;
+    std::vector<sgl::Color16> transferFunctionMap_sRGB;
+    std::vector<sgl::Color16> transferFunctionMap_linearRGB;
 };
 
 #endif //STRESSLINEVIS_MULTIVARTRANSFERFUNCTIONWINDOW_HPP
