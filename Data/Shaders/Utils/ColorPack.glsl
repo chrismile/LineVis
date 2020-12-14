@@ -42,9 +42,9 @@ void updatePackedColorAlpha(inout uint packedColor, in float newAlpha)
 uint packColor30bit(vec4 vecColor)
 {
     uint packedColor;
-    packedColor = uint(round(vecColor.r * 255.0)) & 0x3FFu;
-    packedColor |= (uint(round(vecColor.g * 255.0)) & 0x3FFu) << 10;
-    packedColor |= (uint(round(vecColor.b * 255.0)) & 0x3FFu) << 20;
+    packedColor = uint(round(vecColor.r * 1023.0)) & 0x3FFu;
+    packedColor |= (uint(round(vecColor.g * 1023.0)) & 0x3FFu) << 10;
+    packedColor |= (uint(round(vecColor.b * 1023.0)) & 0x3FFu) << 20;
     return packedColor;
 }
 
@@ -52,9 +52,9 @@ uint packColor30bit(vec4 vecColor)
 vec4 unpackColor30bit(uint packedColor)
 {
     vec4 vecColor;
-    vecColor.r = float(packedColor & 0x3FFu) / 255.0;
-    vecColor.g = float((packedColor >> 10)  & 0x3FFu) / 255.0;
-    vecColor.b = float((packedColor >> 20) & 0x3FFu) / 255.0;
+    vecColor.r = float(packedColor & 0x3FFu) / 1023.0;
+    vecColor.g = float((packedColor >> 10)  & 0x3FFu) / 1023.0;
+    vecColor.b = float((packedColor >> 20) & 0x3FFu) / 1023.0;
     vecColor.a = 1.0;
     return vecColor;
 }
