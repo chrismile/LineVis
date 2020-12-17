@@ -167,7 +167,7 @@ bool GuiVarData::loadTfFromFile(const std::string& filename) {
     auto colorPointsNode = tfNode->FirstChildElement("ColorPoints");
     if (colorPointsNode != NULL) {
         sgl::ColorDataMode colorDataMode = sgl::COLOR_DATA_MODE_UNSIGNED_BYTE;
-        const char* colorDataModeName = tfNode->Attribute("color_data");
+        const char* colorDataModeName = colorPointsNode->Attribute("color_data");
         if (colorDataModeName != nullptr) {
             colorDataMode = sgl::parseColorDataModeName(colorDataModeName);
         }
@@ -598,7 +598,8 @@ void GuiVarData::onColorBarClick() {
         // A) Point near to normalized position
         if (ImGui::GetIO().MouseClicked[0]) {
             // A.1 Left clicked? Select/drag-and-drop
-            colorSelection = ImColor(colorPoints.at(currentSelectionIndex).color.getColorRGB());
+            sgl::Color16& color16 = colorPoints.at(currentSelectionIndex).color;
+            colorSelection = ImColor(color16.getFloatR(), color16.getFloatG(), color16.getFloatB());
             selectedPointType = sgl::SELECTED_POINT_TYPE_COLOR;
             if (currentSelectionIndex != 0 && currentSelectionIndex != int(colorPoints.size())-1) {
                 dragging = true;
@@ -653,7 +654,8 @@ void GuiVarData::onColorBarClick() {
                 // colorPoints_LinearRGB computed in @ref rebuildTransferFunctionMap
             }
             currentSelectionIndex = insertPosition;
-            colorSelection = ImColor(colorPoints.at(currentSelectionIndex).color.getColorRGB());
+            sgl::Color16& color16 = colorPoints.at(currentSelectionIndex).color;
+            colorSelection = ImColor(color16.getFloatR(), color16.getFloatG(), color16.getFloatB());
             selectedPointType = sgl::SELECTED_POINT_TYPE_COLOR;
             reRender = true;
         }
@@ -821,7 +823,7 @@ void MultiVarTransferFunctionWindow::updateAvailableFiles() {
             availableFiles.push_back(filename);
         }
     }
-    std::sort(availableFiles.begin(), availableFiles.end());
+    sgl::FileUtils::get()->sortPathStrings(availableFiles);
 
     // Update currently selected filename
     for (size_t i = 0; i < availableFiles.size(); i++) {

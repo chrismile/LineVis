@@ -154,7 +154,7 @@ struct InternalState {
                && this->tilingWidth == rhs.tilingWidth && this->tilingHeight == rhs.tilingHeight
                && this->useMortonCodeForTiling == rhs.useMortonCodeForTiling
                && this->transferFunctionName == rhs.transferFunctionName
-               && this->windowResolution == windowResolution;
+               && this->windowResolution == rhs.windowResolution;
     }
 
     bool operator!=(const InternalState& rhs) const {
