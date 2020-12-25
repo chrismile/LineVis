@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 3.11)
 option(USE_GTEST "USE_GTEST" OFF)
 
-project (StressLineVis)
+project (LineVis)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/CMake)
 #MESSAGE(STATUS "CMAKE_MODULE_PATH: " ${CMAKE_MODULE_PATH})
 
@@ -21,16 +21,16 @@ include_directories(src)
 #endif()
 
 IF(WIN32)
-	add_executable(StressLineVis WIN32 ${SOURCES})
+	add_executable(LineVis WIN32 ${SOURCES})
 ELSE()
-	add_executable(StressLineVis ${SOURCES})
+	add_executable(LineVis ${SOURCES})
 ENDIF()
 
 IF(WIN32)
 	SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mwindows")
-	target_link_libraries(StressLineVis mingw32 SDL2main SDL2)
+	target_link_libraries(LineVis mingw32 SDL2main SDL2)
 ELSE()
-	target_link_libraries(StressLineVis SDL2)
+	target_link_libraries(LineVis SDL2)
 ENDIF()
 
 
@@ -43,8 +43,8 @@ find_package(OpenGL REQUIRED)
 find_package(NetCDF REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(JSONCPP jsoncpp)
-target_link_libraries(StressLineVis tinyxml2)
-target_link_libraries(StressLineVis sgl ${Boost_LIBRARIES} ${OPENGL_LIBRARIES} GLEW::GLEW ${NETCDF_LIBRARIES} ${JSONCPP_LIBRARIES})
+target_link_libraries(LineVis tinyxml2)
+target_link_libraries(LineVis sgl ${Boost_LIBRARIES} ${OPENGL_LIBRARIES} GLEW::GLEW ${NETCDF_LIBRARIES} ${JSONCPP_LIBRARIES})
 include_directories(${sgl_INCLUDES} ${Boost_INCLUDES} ${OPENGL_INCLUDE_DIRS} ${GLEW_INCLUDES} ${NETCDF_INCLUDES} ${JSONCPP_INCLUDES})
 
 if(OPENMP_FOUND)
@@ -57,10 +57,10 @@ endif()
 if (USE_GTEST)
 	include(GoogleTest)
 	enable_testing()
-	add_executable(StressLineVis_test test/TestKdTreeNearestNeighbor.cpp
+	add_executable(LineVis_test test/TestKdTreeNearestNeighbor.cpp
 			src/LineData/SearchStructures/NearestNeighborNaive.cpp
 			src/LineData/SearchStructures/SearchStructure.cpp
 			src/LineData/SearchStructures/KdTree.cpp)
-	target_link_libraries(StressLineVis_test gtest gtest_main)
-	gtest_add_tests(TARGET StressLineVis_test)
+	target_link_libraries(LineVis_test gtest gtest_main)
+	gtest_add_tests(TARGET LineVis_test)
 endif()
