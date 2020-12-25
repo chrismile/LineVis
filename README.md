@@ -1,6 +1,6 @@
 # Flow and Stress Line Visualization
 
-StressLineVis is a visualization tool for rendering dense sets of 3D lines.
+LineVis is a visualization tool for rendering dense sets of 3D lines using OpenGL.
 It supports loading both traditional flow lines as well as stress lines from multiple principle stress directions.
 
 The following rendering modes are supported:
@@ -22,7 +22,7 @@ Comput. Graph. Forum 36, 2 (May 2017), 153–162. DOI:https://doi.org/10.1111/cg
 ## Building and running the programm
 
 The program requires the library sgl (https://github.com/chrismile/sgl).
-On Ubuntu 18.04 for example, you can install all other necessary dependencies with this command (additionally to the prerequisites required by sgl):
+On Ubuntu 20.04 for example, you can install all other necessary dependencies with this command (additionally to the prerequisites required by sgl):
 
 ```
 sudo apt-get install libjsoncpp-dev libnetcdf-dev netcdf-bin
@@ -55,7 +55,7 @@ cmake .. -G"MSYS Makefiles"
 To run the program, execute:
 ```
 export LD_LIBRARY_PATH=/usr/local/lib
-./StressLineVis
+./LineVis
 ```
 
 ## How to add new data sets
