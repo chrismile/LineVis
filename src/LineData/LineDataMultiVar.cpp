@@ -135,7 +135,7 @@ void LineDataMultiVar::recomputeHistogram() {
         }
     }
     multiVarTransferFunctionWindow.setAttributesValues(attributeNames, attributesList);
-    multiVarWindow.setAttributes(attributesList, attributeNames);
+    //multiVarWindow.setAttributes(attributesList, attributeNames);
 
     LineDataFlow::recomputeHistogram();
 }

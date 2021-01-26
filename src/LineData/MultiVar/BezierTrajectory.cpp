@@ -97,9 +97,8 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
         std::exit(-2);
     }
 
-    std::vector<glm::vec2> attributesMinMax(numVariables,
-                                            glm::vec2(std::numeric_limits<float>::max(),
-                                                      std::numeric_limits<float>::lowest()));
+    std::vector<glm::vec2> attributesMinMax(
+            numVariables, glm::vec2(std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest()));
 
     const uint32_t maxNumVariables = inTrajectories[0].attributes.size();
     const uint32_t numLines = inTrajectories.size();
@@ -114,18 +113,16 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
 
     for (const auto &trajectory : inTrajectories) {
         uint32_t varOffsetPerLine = 0;
-        const int maxVertices = trajectory.positions.size();
 
         for (auto v = 0; v < maxNumVariables; ++v) {
             VarDesc varDescPerLine = {0};
-            varDescPerLine.minMax = glm::vec2(std::numeric_limits<float>::max(),
-                                              std::numeric_limits<float>::lowest());
+            varDescPerLine.minMax = glm::vec2(
+                    std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest());
             varDescPerLine.startIndex = varOffsetPerLine;
             varDescPerLine.dummy = 0.0f;
 
             const std::vector<float>& variableArray = trajectory.attributes[v];
 
-//            uint32_t vCounter = 0;
             for (const auto &variable : variableArray) {
                 attributesMinMax[v].x = std::min(attributesMinMax[v].x, variable);
                 attributesMinMax[v].y = std::max(attributesMinMax[v].y, variable);
@@ -171,8 +168,8 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
         BCurves[0].evaluate(0, pos, tangent);
 
         newTrajectory.positions.push_back(pos);
-        newTrajectory.tangents.push_back(tangent);
-        newTrajectory.segmentID.push_back(lineID);
+        //newTrajectory.tangents.push_back(tangent);
+        //newTrajectory.segmentID.push_back(lineID);
 
         // Now we store variable, min, and max, and var ID per vertex as new attributes
         newTrajectory.attributes.resize(8);
@@ -192,19 +189,9 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
         newTrajectory.attributes[7].push_back(0.0f);
 
 
-
-//        newTrajectory.attributes.resize(inTrajectories[traj].attributes.size());
-
-
-//        for (auto a = 0; a < inTrajectories[traj].attributes.size(); ++a)
-//        {
-//            newTrajectory.attributes[a].push_back(inTrajectories[traj].attributes[a][lineID]);
-//        }
-
         curArcLength += rollSegLength;
-//
-//        lineID = 0;
-        float sumArcLengths = 0.0f;  //BCurves[0].totalArcLength;
+
+        float sumArcLengths = 0.0f;
         float sumArcLengthsNext = BCurves[0].totalArcLength;
 
         varIDPerLine++;
@@ -224,11 +211,10 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
             float t = BCurve.solveTForArcLength(curArcLength - sumArcLengths);
 
             BCurves[lineID].evaluate(t, pos, tangent);
-//            attributes = inTrajectories[traj].attributes[lineID];
 
             newTrajectory.positions.push_back(pos);
-            newTrajectory.tangents.push_back(tangent);
-            newTrajectory.segmentID.push_back(lineID);
+            //newTrajectory.tangents.push_back(tangent);
+            //newTrajectory.segmentID.push_back(lineID);
 
             if (varIDPerLine < numVariables) {
                 float varValue = inTrajectories[traj].attributes[varIDPerLine][lineID];
@@ -255,13 +241,6 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
             // interpolant t
             float normalizedT = BCurve.normalizeT(t);
             newTrajectory.attributes[7].push_back(normalizedT);
-
-
-            // We only store one variable per trajectory vertex
-//            for (auto a = 0; a < inTrajectories[traj].attributes.size(); ++a)
-//            {
-//                newTrajectory.attributes[a].push_back(inTrajectories[traj].attributes[a][lineID]);
-//            }
 
             curArcLength += rollSegLength;
             varIDPerLine++;

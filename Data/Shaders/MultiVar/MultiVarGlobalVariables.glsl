@@ -81,7 +81,6 @@ void sampleVariableFromLineSSBO(
     uint startIndex = uint(lineDescs[lineID].startIndex);
     VarDescData varDesc = varDescs[maxNumVariables * lineID + varID];
     const uint varOffset = uint(varDesc.info.r);
-    // Output
     //minMax = varDesc.info.gb;
 
     minMax = minMaxValues[varID];

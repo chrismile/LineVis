@@ -34,7 +34,7 @@
 // Describes the position of variables in the buffer and the total number of variable values for the entire line
 struct LineDesc {
     float startIndex; // pointer to index in array
-    float numValues;     // number of variables along line after Bezier curve transformation
+    float numValues; // number of variables along line after Bezier curve transformation
 };
 
 // Describes the range of values for each variable and the offset within each line
@@ -48,13 +48,18 @@ class BezierTrajectory {
 public:
     BezierTrajectory() {}
 
+    // Per Bezier point data.
     std::vector<glm::vec3> positions;
     std::vector<std::vector<float>> attributes;
-    std::vector<glm::vec3> tangents;
-    std::vector<uint32_t> segmentID;
+    //std::vector<glm::vec3> tangents; // Not used for now - computed automatically by createLineTubesRenderDataCPU.
+    //std::vector<uint32_t> segmentID;
 
+    // Packed array of base trajectory attributes.
     std::vector<float> multiVarData;
+
+    // Information about this line/trajectory.
     LineDesc lineDesc;
+    // Information about all variables.
     std::vector<VarDesc> multiVarDescs;
 };
 typedef std::vector<BezierTrajectory> BezierTrajectories;

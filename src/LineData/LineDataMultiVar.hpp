@@ -95,7 +95,7 @@ private:
     BezierTrajectories bezierTrajectories;
 
     // GUI window for inspecting variable distributions over lines.
-    MultiVarWindow multiVarWindow;
+    //MultiVarWindow multiVarWindow;
     MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
     sgl::Color clearColor;
 

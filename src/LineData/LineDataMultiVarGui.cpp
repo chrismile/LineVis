@@ -33,7 +33,6 @@
 #include <Utils/File/Logfile.hpp>
 
 #include "Renderers/LineRenderer.hpp"
-#include "Renderers/Tubes/Tubes.hpp"
 
 #include "LineDataMultiVar.hpp"
 
@@ -55,7 +54,7 @@ const char *const ORIENTED_RIBBON_MODE_DISPLAYNAMES[] = {
 void LineDataMultiVar::setClearColor(const sgl::Color& clearColor) {
     LineData::setClearColor(clearColor);
     this->clearColor = clearColor;
-    multiVarWindow.setClearColor(clearColor);
+    //multiVarWindow.setClearColor(clearColor);
     multiVarTransferFunctionWindow.setClearColor(clearColor);
 }
 
@@ -87,7 +86,7 @@ void LineDataMultiVar::recomputeWidgetPositions() {
 }
 
 bool LineDataMultiVar::renderGuiWindow(bool isRasterizer)  {
-    multiVarWindow.renderGui();
+    //multiVarWindow.renderGui();
 
     bool shallReloadGatherShader = false;
     if (useMultiVarRendering && shallRenderColorLegendWidgets) {
