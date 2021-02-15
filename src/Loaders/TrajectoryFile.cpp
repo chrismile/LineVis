@@ -151,7 +151,8 @@ sgl::AABB3 computeTrajectoriesPsAABB3(const std::vector<Trajectories>& trajector
 }
 
 void normalizeTrajectoriesPsVertexPositions(
-        std::vector<Trajectories>& trajectoriesPs, const sgl::AABB3& aabb, const glm::mat4* vertexTransformationMatrixPtr) {
+        std::vector<Trajectories>& trajectoriesPs, const sgl::AABB3& aabb,
+        const glm::mat4* vertexTransformationMatrixPtr) {
     glm::vec3 translation = -aabb.getCenter();
     glm::vec3 scale3D = 0.5f / aabb.getDimensions();
     float scale = std::min(scale3D.x, std::min(scale3D.y, scale3D.z));
@@ -178,6 +179,63 @@ void normalizeTrajectoriesPsVertexPositions(
         }
     }
 }
+
+void normalizeTrajectoriesPsVertexPositions(
+        std::vector<Trajectories>& trajectoriesPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsListLeftPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsListRightPs,
+        const sgl::AABB3& aabb, const glm::mat4* vertexTransformationMatrixPtr) {
+    glm::vec3 translation = -aabb.getCenter();
+    glm::vec3 scale3D = 0.5f / aabb.getDimensions();
+    float scale = std::min(scale3D.x, std::min(scale3D.y, scale3D.z));
+
+    for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
+        Trajectories& trajectories = trajectoriesPs.at(psIdx);
+        std::vector<std::vector<glm::vec3>>& bandPointsListLeft = bandPointsListLeftPs.at(psIdx);
+        std::vector<std::vector<glm::vec3>>& bandPointsListRight = bandPointsListRightPs.at(psIdx);
+
+        #pragma omp parallel for shared(trajectories, bandPointsListLeft, bandPointsListRight, scale, translation) default(none)
+        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            Trajectory& trajectory = trajectories.at(trajectoryIdx);
+            for (glm::vec3& v : trajectory.positions) {
+                v = (v + translation) * scale;
+            }
+
+            std::vector<glm::vec3>& bandPointsLeft = bandPointsListLeft.at(trajectoryIdx);
+            for (glm::vec3& v : bandPointsLeft) {
+                v = (v + translation) * scale;
+            }
+
+            std::vector<glm::vec3>& bandPointsRight = bandPointsListRight.at(trajectoryIdx);
+            for (glm::vec3& v : bandPointsRight) {
+                v = (v + translation) * scale;
+            }
+        }
+
+        if (vertexTransformationMatrixPtr != nullptr) {
+            glm::mat4 transformationMatrix = *vertexTransformationMatrixPtr;
+
+            #pragma omp parallel for shared(trajectories, bandPointsListLeft, bandPointsListRight, transformationMatrix) default(none)
+            for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+                Trajectory& trajectory = trajectories.at(trajectoryIdx);
+                for (glm::vec3& v : trajectory.positions) {
+                    v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                }
+
+                std::vector<glm::vec3>& bandPointsLeft = bandPointsListLeft.at(trajectoryIdx);
+                for (glm::vec3& v : bandPointsLeft) {
+                    v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                }
+
+                std::vector<glm::vec3>& bandPointsRight = bandPointsListRight.at(trajectoryIdx);
+                for (glm::vec3& v : bandPointsRight) {
+                    v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                }
+            }
+        }
+    }
+}
+
 
 void normalizeTrajectoriesPsVertexPositions(
         std::vector<Trajectories>& trajectoriesPs, const glm::mat4* vertexTransformationMatrixPtr) {
@@ -275,14 +333,24 @@ Trajectories loadFlowTrajectoriesFromFile(
 void loadStressTrajectoriesFromFile(
         const std::vector<std::string>& filenamesTrajectories,
         const std::vector<std::string>& filenamesHierarchy,
+        std::vector<int>& loadedPsIndices,
         std::vector<Trajectories>& trajectoriesPs,
         std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
-        bool normalizeVertexPositions, bool normalizeAttributes,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsListLeftPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsListRightPs,
+        bool containsBandData, bool normalizeVertexPositions, bool normalizeAttributes,
         sgl::AABB3* oldAABB, const glm::mat4* vertexTransformationMatrixPtr) {
     std::string lowerCaseFilename = boost::to_lower_copy(filenamesTrajectories.front());
     if (boost::ends_with(lowerCaseFilename, ".dat")) {
-        loadStressTrajectoriesFromDat(
-                filenamesTrajectories, filenamesHierarchy, trajectoriesPs, stressTrajectoriesDataPs);
+        if (containsBandData) {
+            loadStressTrajectoriesFromDat_v2(
+                    filenamesTrajectories, loadedPsIndices, trajectoriesPs, stressTrajectoriesDataPs,
+                    bandPointsListLeftPs, bandPointsListRightPs);
+        } else {
+            loadStressTrajectoriesFromDat(
+                    filenamesTrajectories, filenamesHierarchy, loadedPsIndices, trajectoriesPs,
+                    stressTrajectoriesDataPs);
+        }
     } else {
         sgl::Logfile::get()->writeError("ERROR in loadStressTrajectoriesFromFile: Unknown file extension.");
     }
@@ -292,7 +360,12 @@ void loadStressTrajectoriesFromFile(
         if (oldAABB) {
             *oldAABB = aabb;
         }
-        normalizeTrajectoriesPsVertexPositions(trajectoriesPs, aabb, vertexTransformationMatrixPtr);
+        if (containsBandData) {
+            normalizeTrajectoriesPsVertexPositions(
+                    trajectoriesPs, bandPointsListLeftPs, bandPointsListRightPs, aabb, vertexTransformationMatrixPtr);
+        } else {
+            normalizeTrajectoriesPsVertexPositions(trajectoriesPs, aabb, vertexTransformationMatrixPtr);
+        }
     }
     if (normalizeAttributes) {
         normalizeTrajectoriesPsVertexAttributes_PerPs(trajectoriesPs);

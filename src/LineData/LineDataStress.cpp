@@ -29,6 +29,7 @@
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
 
+#include "Utils/TriangleNormals.hpp"
 #include "Loaders/TrajectoryFile.hpp"
 #include "Renderers/Tubes/Tubes.hpp"
 #include "Renderers/OIT/OpacityOptimizationRenderer.hpp"
@@ -102,18 +103,20 @@ bool LineDataStress::renderGui(bool isRasterizer) {
             shallReloadGatherShader = true;
         }
         if (!rendererSupportsTransparency && useLineHierarchy) {
-            for (int i = 0; i < 3; i++) {
+            //for (int psIdx = 0; psIdx < 3; psIdx++) {
+            for (int psIdx : loadedPsIndices) {
                 if (ImGui::SliderFloat(
-                        stressDirectionNames[i], &lineHierarchySliderValues[i], 0.0f, 1.0f)) {
+                        stressDirectionNames[psIdx], &lineHierarchySliderValues[psIdx], 0.0f, 1.0f)) {
                     reRender = true;
                     recomputeOpacityOptimization = true;
                 }
             }
         }
         //if (rendererSupportsTransparency && useLineHierarchy) {
-        //    for (int i = 0; i < 3; i++) {
+        //    //for (int psIdx = 0; psIdx < 3; psIdx++) {
+        //    for (int psIdx : loadedPsIndices) {
         //        if (ImGui::SliderFloat2(
-        //                stressDirectionNames[i], &lineHierarchySliderValuesTransparency[i][0],
+        //                stressDirectionNames[psIdx], &lineHierarchySliderValuesTransparency[psIdx][0],
         //                0.0f, 1.0f)) {
         //            reRender = true;
         //            recomputeOpacityOptimization = true;
@@ -149,12 +152,12 @@ bool LineDataStress::renderGuiWindow(bool isRasterizer) {
     }
 
     if (usePrincipalStressDirectionIndex && shallRenderColorLegendWidgets) {
-        for (int i = 0; i < colorLegendWidgets.size(); i++) {
-            colorLegendWidgets.at(i).setAttributeMinValue(
-                    multiVarTransferFunctionWindow.getSelectedRangeMin(i));
-            colorLegendWidgets.at(i).setAttributeMaxValue(
-                    multiVarTransferFunctionWindow.getSelectedRangeMax(i));
-            colorLegendWidgets.at(i).renderGui();
+        for (int psIdx : loadedPsIndices) {
+            colorLegendWidgets.at(psIdx).setAttributeMinValue(
+                    multiVarTransferFunctionWindow.getSelectedRangeMin(psIdx));
+            colorLegendWidgets.at(psIdx).setAttributeMaxValue(
+                    multiVarTransferFunctionWindow.getSelectedRangeMax(psIdx));
+            colorLegendWidgets.at(psIdx).renderGui();
         }
         return false;
     } else {
@@ -176,12 +179,17 @@ bool LineDataStress::loadFromFile(
         const std::vector<std::string>& fileNames, DataSetInformation dataSetInformation,
         glm::mat4* transformationMatrixPtr) {
     hasLineHierarchy = useLineHierarchy = !dataSetInformation.filenamesStressLineHierarchy.empty();
+    if (dataSetInformation.containsBandData) {
+        hasLineHierarchy = useLineHierarchy = true;
+    }
     attributeNames = dataSetInformation.attributeNames;
     std::vector<Trajectories> trajectoriesPs;
     std::vector<StressTrajectoriesData> stressTrajectoriesDataPs;
     sgl::AABB3 oldAABB;
     loadStressTrajectoriesFromFile(
-            fileNames, dataSetInformation.filenamesStressLineHierarchy, trajectoriesPs, stressTrajectoriesDataPs,
+            fileNames, dataSetInformation.filenamesStressLineHierarchy, loadedPsIndices,
+            trajectoriesPs, stressTrajectoriesDataPs,
+            bandPointsListLeftPs, bandPointsListRightPs, dataSetInformation.containsBandData,
             true, false, &oldAABB, transformationMatrixPtr);
     bool dataLoaded = !trajectoriesPs.empty();
 
@@ -195,6 +203,19 @@ bool LineDataStress::loadFromFile(
             setDegeneratePoints(degeneratePoints, attributeNames);
         }
         modelBoundingBox = computeTrajectoriesPsAABB3(trajectoriesPs);
+
+        std::vector<bool> usedPsDirections = {false, false, false};
+        for (size_t i = 0; i < loadedPsIndices.size(); i++) {
+            int psIdx = loadedPsIndices.at(i);
+            colorLegendWidgets[psIdx].setPositionIndex(int(i), int(loadedPsIndices.size()));
+            usedPsDirections.at(psIdx) = true;
+        }
+        setUsedPsDirections(usedPsDirections);
+
+        // Use bands if possible.
+        if (!bandPointsListLeftPs.empty()) {
+            linePrimitiveMode = LINE_PRIMITIVES_BAND;
+        }
 
         for (size_t attrIdx = attributeNames.size(); attrIdx < getNumAttributes(); attrIdx++) {
             attributeNames.push_back(std::string() + "Attribute #" + std::to_string(attrIdx + 1));
@@ -221,15 +242,16 @@ void LineDataStress::setStressTrajectoryData(
     colorLegendWidgets.clear();
     colorLegendWidgets.resize(std::max(attributeNames.size(), size_t(3)));
 
-    for (size_t i = 0; i < attributeNames.size(); i++) {
-        size_t psIdx = 0;
+    for (size_t attrIdx = 0; attrIdx < attributeNames.size(); attrIdx++) {
         float minAttrTotal = std::numeric_limits<float>::max();
         float maxAttrTotal = std::numeric_limits<float>::lowest();
+        int i = 0;
         for (const Trajectories& trajectories : trajectoriesPs) {
+            size_t psIdx = loadedPsIndices.at(i);
             float minAttr = std::numeric_limits<float>::max();
             float maxAttr = std::numeric_limits<float>::lowest();
             for (const Trajectory& trajectory : trajectories) {
-                for (float val : trajectory.attributes.at(i)) {
+                for (float val : trajectory.attributes.at(attrIdx)) {
                     minAttr = std::min(minAttr, val);
                     maxAttr = std::max(maxAttr, val);
                 }
@@ -237,15 +259,17 @@ void LineDataStress::setStressTrajectoryData(
             minMaxAttributeValuesPs[psIdx].push_back(glm::vec2(minAttr, maxAttr));
             minAttrTotal = std::min(minAttrTotal, minAttr);
             maxAttrTotal = std::max(maxAttrTotal, maxAttr);
-            psIdx++;
+            i++;
         }
         minMaxAttributeValues.push_back(glm::vec2(minAttrTotal, maxAttrTotal));
     }
     //normalizeTrajectoriesPsVertexAttributes_PerPs(this->trajectoriesPs);
 
-    for (int psIdx = 0; psIdx < 3; psIdx++) {
+    //for (int psIdx = 0; psIdx < 3; psIdx++) {
+    for (size_t i = 0; i < loadedPsIndices.size(); i++) {
+        int psIdx = loadedPsIndices.at(i);
         std::vector<float> lineHierarchyLevelValues;
-        const StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(psIdx);
+        const StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
         for (const StressTrajectoryData& stressTrajectoryData : stressTrajectoriesData) {
             lineHierarchyLevelValues.push_back(stressTrajectoryData.hierarchyLevel);
         }
@@ -330,6 +354,9 @@ void LineDataStress::setDegeneratePoints(
 
 void LineDataStress::setUsedPsDirections(const std::vector<bool>& usedPsDirections) {
     this->usedPsDirections = usedPsDirections;
+    useMajorPS = usedPsDirections.at(0);
+    useMediumPS = usedPsDirections.at(1);
+    useMinorPS = usedPsDirections.at(2);
     dirty = true;
 }
 
@@ -348,14 +375,21 @@ void LineDataStress::recomputeHistogram() {
     std::vector<std::string> attrNamesMultiVarWindow;
     std::vector<std::vector<float>> attributesValuesMultiVarWindow;
     for (int psIdx = 0; psIdx < 3; psIdx++) {
+    //for (size_t i = 0; i < loadedPsIndices.size(); i++) {
+        //int psIdx = loadedPsIndices.at(i);
         attrNamesMultiVarWindow.push_back(
                 std::string() + attributeNames.at(selectedAttributeIndex) + " (" + stressDirectionNames[psIdx] + ")");
         std::vector<float> attributeValues;
-        Trajectories& trajectories = trajectoriesPs.at(psIdx);
-        for (Trajectory& trajectory : trajectories) {
-            for (float& attrVal : trajectory.attributes.at(selectedAttributeIndex)) {
-                attributeValues.push_back(attrVal);
+        auto it = std::find(loadedPsIndices.begin(), loadedPsIndices.end(), psIdx);
+        if (it != loadedPsIndices.end()) {
+            Trajectories& trajectories = trajectoriesPs.at(std::distance(loadedPsIndices.begin(), it));
+            for (Trajectory& trajectory : trajectories) {
+                for (float& attrVal : trajectory.attributes.at(selectedAttributeIndex)) {
+                    attributeValues.push_back(attrVal);
+                }
             }
+        } else {
+            attributeValues = {0.0f, 1.0f};
         }
         attributesValuesMultiVarWindow.push_back(attributeValues);
     }
@@ -366,7 +400,8 @@ void LineDataStress::recomputeHistogram() {
 
 void LineDataStress::recomputeColorLegend() {
     if (usePrincipalStressDirectionIndex) {
-        for (int psIdx = 0; psIdx < 3; psIdx++) {
+        //for (int psIdx = 0; psIdx < 3; psIdx++) {
+        for (int psIdx : loadedPsIndices) {
             colorLegendWidgets[psIdx].setAttributeDisplayName(
                     std::string() + attributeNames.at(selectedAttributeIndex)
                     + " (" + stressDirectionNames[psIdx] + ")");
@@ -405,7 +440,8 @@ void LineDataStress::recomputeColorLegend() {
         colorLegendWidgets[selectedAttributeIndex].setAttributeMaxValue(minMaxAttributes.y);
         colorLegendWidgets[selectedAttributeIndex].setPositionIndex(0, 1);
         LineData::recomputeColorLegend();
-        /*for (int psIdx = 0; psIdx < 3; psIdx++) {
+        /*//for (int psIdx = 0; psIdx < 3; psIdx++) {
+        for (int psIdx : loadedPsIndices) {
             colorLegendWidgets[psIdx].setTransferFunctionColorMap(
                     transferFunctionWindow.getTransferFunctionMap_sRGB());
         }*/
@@ -454,8 +490,9 @@ size_t LineDataStress::getNumLineSegments() {
 Trajectories LineDataStress::filterTrajectoryData() {
     Trajectories trajectoriesFiltered;
 
-    for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
-        const Trajectories& trajectories = trajectoriesPs.at(psIdx);
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        int psIdx = loadedPsIndices.at(i);
+        const Trajectories& trajectories = trajectoriesPs.at(i);
         if (!usedPsDirections.at(psIdx)) {
             continue;
         }
@@ -498,8 +535,9 @@ Trajectories LineDataStress::filterTrajectoryData() {
 
 std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines() {
     std::vector<std::vector<glm::vec3>> linesFiltered;
-    for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
-        const Trajectories& trajectories = trajectoriesPs.at(psIdx);
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        int psIdx = loadedPsIndices.at(i);
+        const Trajectories& trajectories = trajectoriesPs.at(i);
         if (!usedPsDirections.at(psIdx)) {
             continue;
         }
@@ -541,8 +579,9 @@ std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines() {
 std::vector<Trajectories> LineDataStress::filterTrajectoryPsData() {
     std::vector<Trajectories> trajectoriesPsFiltered;
     trajectoriesPsFiltered.reserve(trajectoriesPs.size());
-    for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
-        const Trajectories& trajectories = trajectoriesPs.at(psIdx);
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        int psIdx = loadedPsIndices.at(i);
+        const Trajectories& trajectories = trajectoriesPs.at(i);
         if (!usedPsDirections.at(psIdx)) {
             continue;
         }
@@ -590,8 +629,9 @@ std::vector<Trajectories> LineDataStress::filterTrajectoryPsData() {
 std::vector<std::vector<std::vector<glm::vec3>>> LineDataStress::getFilteredPrincipalStressLines() {
     std::vector<std::vector<std::vector<glm::vec3>>> linesPsFiltered;
     linesPsFiltered.reserve(trajectoriesPs.size());
-    for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
-        const Trajectories& trajectories = trajectoriesPs.at(psIdx);
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        int psIdx = loadedPsIndices.at(i);
+        const Trajectories& trajectories = trajectoriesPs.at(i);
         if (!usedPsDirections.at(psIdx)) {
             continue;
         }
@@ -648,7 +688,18 @@ sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
     if (rendererSupportsTransparency) {
         sgl::ShaderManager->addPreprocessorDefine("USE_TRANSPARENCY", "");
     }
-    sgl::ShaderProgramPtr gatherShader = LineData::reloadGatherShader();
+
+    sgl::ShaderProgramPtr gatherShader;
+    if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
+        sgl::ShaderManager->invalidateShaderCache();
+        gatherShader = sgl::ShaderManager->getShaderProgram({
+            "GeometryPassNormalBand.Vertex",
+            "GeometryPassNormalBand.Fragment"
+        });
+    } else {
+        gatherShader = LineData::reloadGatherShader();
+    }
+
     if (rendererSupportsTransparency) {
         sgl::ShaderManager->removePreprocessorDefine("USE_TRANSPARENCY");
     }
@@ -674,13 +725,14 @@ TubeRenderData LineDataStress::getTubeRenderData() {
     std::vector<uint32_t> vertexPrincipalStressIndices;
     std::vector<float> vertexLineHierarchyLevels;
 
-    for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        int psIdx = loadedPsIndices.at(i);
         if (!usedPsDirections.at(psIdx)) {
             continue;
         }
 
-        Trajectories& trajectories = trajectoriesPs.at(psIdx);
-        StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(psIdx);
+        Trajectories& trajectories = trajectoriesPs.at(i);
+        StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
 
         // 1. Compute all tangents.
         std::vector<std::vector<glm::vec3>> lineCentersList;
@@ -761,13 +813,14 @@ TubeRenderDataProgrammableFetch LineDataStress::getTubeRenderDataProgrammableFet
     std::vector<uint32_t> vertexPrincipalStressIndices;
     std::vector<float> vertexLineHierarchyLevels;
 
-    for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        int psIdx = loadedPsIndices.at(i);
         if (!usedPsDirections.at(psIdx)) {
             continue;
         }
 
-        Trajectories& trajectories = trajectoriesPs.at(psIdx);
-        StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(psIdx);
+        Trajectories& trajectories = trajectoriesPs.at(i);
+        StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
 
         // 1. Compute all tangents.
         std::vector<std::vector<glm::vec3>> lineCentersList;
@@ -855,13 +908,14 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
     std::vector<uint32_t> vertexPrincipalStressIndices;
     std::vector<float> vertexLineHierarchyLevels;
 
-    for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        int psIdx = loadedPsIndices.at(i);
         if (!usedPsDirections.at(psIdx)) {
             continue;
         }
 
-        Trajectories& trajectories = trajectoriesPs.at(psIdx);
-        StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(psIdx);
+        Trajectories& trajectories = trajectoriesPs.at(i);
+        StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
 
         // 1. Compute all tangents.
         std::vector<std::vector<glm::vec3>> lineCentersList;
@@ -934,10 +988,157 @@ PointRenderData LineDataStress::getDegeneratePointsRenderData() {
     return renderData;
 }
 
+BandRenderData LineDataStress::getBandRenderData() {
+    rebuildInternalRepresentationIfNecessary();
+    BandRenderData bandRenderData;
+
+    std::vector<uint32_t> triangleIndices;
+    std::vector<glm::vec3> vertexPositions;
+    std::vector<glm::vec3> vertexNormals;
+    std::vector<float> vertexAttributes;
+    std::vector<float> vertexBandPositions;
+    std::vector<uint32_t> vertexPrincipalStressIndices;
+    std::vector<float> vertexLineHierarchyLevels;
+
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        int psIdx = loadedPsIndices.at(i);
+        if (!usedPsDirections.at(psIdx)) {
+            continue;
+        }
+
+        Trajectories& trajectories = trajectoriesPs.at(i);
+        StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
+        std::vector<std::vector<glm::vec3>>& bandPointsListLeft = bandPointsListLeftPs.at(i);
+        std::vector<std::vector<glm::vec3>>& bandPointsRightLeft = bandPointsListRightPs.at(i);
+
+        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            Trajectory& trajectory = trajectories.at(trajectoryIdx);
+            StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
+            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
+            std::vector<glm::vec3>& bandPointsLeft = bandPointsListLeft.at(trajectoryIdx);
+            std::vector<glm::vec3>& bandPointsRight = bandPointsRightLeft.at(trajectoryIdx);
+            assert(attributes.size() == trajectory.positions.size());
+            assert(attributes.size() == bandPointsLeft.size());
+            assert(attributes.size() == bandPointsRight.size());
+
+            if (trajectory.positions.size() < 2) {
+                continue;
+            }
+
+            size_t indexStart = vertexPositions.size();
+            for (size_t i = 0; i < trajectory.positions.size(); i++) {
+                vertexPositions.push_back(bandPointsLeft.at(i));
+                vertexBandPositions.push_back(-1.0f);
+                vertexPositions.push_back(trajectory.positions.at(i));
+                vertexBandPositions.push_back(0.0f);
+                vertexPositions.push_back(bandPointsRight.at(i));
+                vertexBandPositions.push_back(1.0f);
+
+                float vertexAttribute = attributes.at(i);
+                for (int j = 0; j < 3; j++) {
+                    vertexAttributes.push_back(vertexAttribute);
+                    vertexPrincipalStressIndices.push_back(psIdx);
+                    if (hasLineHierarchy) {
+                        vertexLineHierarchyLevels.push_back(stressTrajectoryData.hierarchyLevel);
+                    }
+                }
+            }
+
+            for (size_t i = 0; i < trajectory.positions.size() - 1; i++) {
+                triangleIndices.push_back(indexStart + 0);
+                triangleIndices.push_back(indexStart + 1);
+                triangleIndices.push_back(indexStart + 4);
+
+                triangleIndices.push_back(indexStart + 0);
+                triangleIndices.push_back(indexStart + 4);
+                triangleIndices.push_back(indexStart + 3);
+
+                triangleIndices.push_back(indexStart + 1);
+                triangleIndices.push_back(indexStart + 2);
+                triangleIndices.push_back(indexStart + 5);
+
+                triangleIndices.push_back(indexStart + 1);
+                triangleIndices.push_back(indexStart + 5);
+                triangleIndices.push_back(indexStart + 4);
+
+                indexStart += 3;
+            }
+        }
+    }
+
+    computeSmoothTriangleNormals(vertexPositions, triangleIndices, vertexNormals);
+
+    // Add the index buffer.
+    bandRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
+            triangleIndices.size()*sizeof(uint32_t), (void*)&triangleIndices.front(), sgl::INDEX_BUFFER);
+
+    // Add the position buffer.
+    bandRenderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexPositions.size()*sizeof(glm::vec3), (void*)&vertexPositions.front(), sgl::VERTEX_BUFFER);
+
+    // Add the attribute buffer.
+    bandRenderData.vertexAttributeBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexAttributes.size()*sizeof(float), (void*)&vertexAttributes.front(), sgl::VERTEX_BUFFER);
+
+    // Add the normal buffer.
+    bandRenderData.vertexNormalBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexNormals.size()*sizeof(glm::vec3), (void*)&vertexNormals.front(), sgl::VERTEX_BUFFER);
+
+    // Add the tangent buffer.
+    bandRenderData.vertexBandPositionBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexBandPositions.size()*sizeof(float), (void*)&vertexBandPositions.front(), sgl::VERTEX_BUFFER);
+
+    // Add the principal stress index buffer.
+    bandRenderData.vertexPrincipalStressIndexBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexPrincipalStressIndices.size()*sizeof(uint32_t),
+            (void*)&vertexPrincipalStressIndices.front(), sgl::VERTEX_BUFFER);
+
+    if (hasLineHierarchy) {
+        // Add the line hierarchy level buffer.
+        bandRenderData.vertexLineHierarchyLevelBuffer = sgl::Renderer->createGeometryBuffer(
+                vertexLineHierarchyLevels.size()*sizeof(float),
+                (void*)&vertexLineHierarchyLevels.front(), sgl::VERTEX_BUFFER);
+    }
+
+    return bandRenderData;
+}
+
 sgl::ShaderAttributesPtr LineDataStress::getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader) {
     sgl::ShaderAttributesPtr shaderAttributes;
 
-    if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
+    if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
+        BandRenderData tubeRenderData = this->getBandRenderData();
+        linePointDataSSBO = sgl::GeometryBufferPtr();
+        lineHierarchyLevelsSSBO = sgl::GeometryBufferPtr();
+
+        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
+
+        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_TRIANGLES);
+        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
+        shaderAttributes->addGeometryBuffer(
+                tubeRenderData.vertexPositionBuffer, "vertexPosition",
+                sgl::ATTRIB_FLOAT, 3);
+        shaderAttributes->addGeometryBufferOptional(
+                tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
+                sgl::ATTRIB_FLOAT, 1);
+        shaderAttributes->addGeometryBufferOptional(
+                tubeRenderData.vertexNormalBuffer, "vertexNormal",
+                sgl::ATTRIB_FLOAT, 3);
+        shaderAttributes->addGeometryBufferOptional(
+                tubeRenderData.vertexBandPositionBuffer, "vertexBandPosition",
+                sgl::ATTRIB_FLOAT, 1);
+        if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
+            shaderAttributes->addGeometryBufferOptional(
+                    tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
+                    sgl::ATTRIB_UNSIGNED_INT,
+                    1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
+        }
+        if (tubeRenderData.vertexLineHierarchyLevelBuffer) {
+            shaderAttributes->addGeometryBufferOptional(
+                    tubeRenderData.vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel",
+                    sgl::ATTRIB_FLOAT, 1);
+        }
+    } else if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
         TubeRenderDataProgrammableFetch tubeRenderData = this->getTubeRenderDataProgrammableFetch();
         linePointDataSSBO = tubeRenderData.linePointsBuffer;
         lineHierarchyLevelsSSBO = tubeRenderData.lineHierarchyLevelsBuffer;

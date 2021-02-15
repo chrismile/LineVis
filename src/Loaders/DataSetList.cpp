@@ -121,7 +121,7 @@ std::vector<DataSetInformation> loadDataSetList(const std::string& filename) {
                     lineDataSetsDirectory + source["degenerate_points"].asString();
         }
 
-        // Optional stress line data:
+        // Optional stress line data: Line hierarchy.
         if (source.isMember("line_hierarchy")) {
             Json::Value lineHierarchyFilenames = source["line_hierarchy"];
             if (lineHierarchyFilenames.isArray()) {
@@ -134,6 +134,11 @@ std::vector<DataSetInformation> loadDataSetList(const std::string& filename) {
                 dataSetInformation.filenamesStressLineHierarchy.push_back(
                         lineDataSetsDirectory + lineHierarchyFilenames.asString());
             }
+        }
+
+        // Optional stress line data: Does the file contain band data?
+        if (source.isMember("contains_band_data")) {
+            dataSetInformation.containsBandData = source["contains_band_data"].asBool();
         }
 
         dataSetList.push_back(dataSetInformation);

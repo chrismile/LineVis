@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2021, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,37 +26,32 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEDENSITYCONTROL_DATASETLIST_HPP
-#define LINEDENSITYCONTROL_DATASETLIST_HPP
+#include <glm/glm.hpp>
 
-#include <Math/Geometry/MatrixUtil.hpp>
-#include <vector>
+#include "TriangleNormals.hpp"
 
-const std::string lineDataSetsDirectory = "Data/LineDataSets/";
+void computeSmoothTriangleNormals(
+        const std::vector<glm::vec3>& vertexPositions, const std::vector<uint32_t>& triangleIndices,
+        std::vector<glm::vec3>& vertexNormals) {
+    vertexNormals.resize(vertexPositions.size(), glm::vec3(0.0f));
 
-enum DataSetType {
-    DATA_SET_TYPE_NONE, DATA_SET_TYPE_FLOW_LINES, DATA_SET_TYPE_STRESS_LINES, DATA_SET_TYPE_FLOW_LINES_MULTIVAR
-};
+    for (size_t i = 0; i < triangleIndices.size(); i += 3) {
+        uint32_t vertexIndex0 = triangleIndices.at(i);
+        uint32_t vertexIndex1 = triangleIndices.at(i+1);
+        uint32_t vertexIndex2 = triangleIndices.at(i+2);
 
-struct DataSetInformation {
-    DataSetType type = DATA_SET_TYPE_FLOW_LINES;
-    std::string name;
-    std::vector<std::string> filenames;
+        const glm::vec3& vertexPosition0 = vertexPositions.at(vertexIndex0);
+        const glm::vec3& vertexPosition1 = vertexPositions.at(vertexIndex1);
+        const glm::vec3& vertexPosition2 = vertexPositions.at(vertexIndex2);
 
-    // Optional attributes.
-    bool hasCustomLineWidth = false;
-    float lineWidth = 0.002f;
-    bool hasCustomTransform = false;
-    glm::mat4 transformMatrix = sgl::matrixIdentity();
-    std::vector<std::string> attributeNames; ///< Names of the associated importance criteria.
+        glm::vec3 triangleNormal = glm::cross(vertexPosition2 - vertexPosition0, vertexPosition1 - vertexPosition0);
+        vertexNormals.at(vertexIndex0) += triangleNormal;
+        vertexNormals.at(vertexIndex1) += triangleNormal;
+        vertexNormals.at(vertexIndex2) += triangleNormal;
+    }
 
-    // Stress lines: Additional information (optional).
-    std::string meshFilename;
-    std::string degeneratePointsFilename;
-    std::vector<std::string> filenamesStressLineHierarchy;
-    bool containsBandData = false;
-};
-
-std::vector<DataSetInformation> loadDataSetList(const std::string& filename);
-
-#endif //LINEDENSITYCONTROL_DATASETLIST_HPP
+    for (size_t i = 0; i < vertexNormals.size(); i++) {
+        glm::vec3& vertexNormal = vertexNormals.at(i);
+        vertexNormal = glm::normalize(vertexNormal);
+    }
+}

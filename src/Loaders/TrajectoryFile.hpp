@@ -97,9 +97,14 @@ Trajectories loadFlowTrajectoriesFromFile(
  * datasets.
  * @param filenamesTrajectories The names of the principal stress trajectory files to open.
  * @param filenamesHierarchy The names of the line hierarchy files to open (optional; can be empty).
- * @param The three trajectory sets loaded from the file (empty if the file(s) could not be opened).
- * @param The principal stress data of the three trajectory sets loaded from the file (empty if the file could not be
- * opened).
+ * @param loadedPsIndices Which of the three principal stress directions (0 = major, 1 = medium, 2 = minor) were
+ * loaded from the passed files.
+ * @param trajectoriesPs The three trajectory sets loaded from the file (empty if the file(s) could not be opened).
+ * @param stressTrajectoriesDataPs The principal stress data of the three trajectory sets loaded from the file (empty if
+ * the file could not be opened).
+ * @param bandPointsListLeftPs The band points on the left band strand.
+ * @param bandPointsListRightPs The band points on the right band strand.
+ * @param containsBandData Whether the file contains band data.
  * @param normalizeVertexPositions Whether to normalize the vertex positions.
  * @param normalizeAttributes Whether to normalize the list of attributes to the range [0,1].
  * @param oldAABB The old AABB before normalization is stored in the pointer (optional, can be nullptr).
@@ -108,9 +113,12 @@ Trajectories loadFlowTrajectoriesFromFile(
 void loadStressTrajectoriesFromFile(
         const std::vector<std::string>& filenamesTrajectories,
         const std::vector<std::string>& filenamesHierarchy,
+        std::vector<int>& loadedPsIndices,
         std::vector<Trajectories>& trajectoriesPs,
         std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
-        bool normalizeVertexPositions = true, bool normalizeAttributes = false,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsListLeftPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsListRightPs,
+        bool containsBandData, bool normalizeVertexPositions = true, bool normalizeAttributes = false,
         sgl::AABB3* oldAABB = nullptr, const glm::mat4* vertexTransformationMatrixPtr = nullptr);
 
 Trajectories loadTrajectoriesFromObj(const std::string& filename, std::vector<std::string>& attributeNames);

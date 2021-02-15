@@ -58,6 +58,16 @@ struct TubeRenderData {
     sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
 };
 
+struct BandRenderData {
+    sgl::GeometryBufferPtr indexBuffer;
+    sgl::GeometryBufferPtr vertexPositionBuffer;
+    sgl::GeometryBufferPtr vertexAttributeBuffer;
+    sgl::GeometryBufferPtr vertexNormalBuffer;
+    sgl::GeometryBufferPtr vertexBandPositionBuffer;
+    sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
+    sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
+};
+
 /// For internal use of subclasses.
 struct LinePointDataProgrammableFetch {
     glm::vec3 vertexPosition;
@@ -168,6 +178,14 @@ public:
     virtual void setRenderingMode(RenderingMode renderingMode) { this->renderingMode = renderingMode; }
     virtual bool shallRenderTransferFunctionWindow() { return true; }
 
+    enum LinePrimitiveMode {
+        LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH,
+        LINE_PRIMITIVES_RIBBON_GEOMETRY_SHADER,
+        LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER,
+        LINE_PRIMITIVES_BAND, //< Only for stress lines for now.
+    };
+    inline LinePrimitiveMode getLinePrimitiveMode() { return linePrimitiveMode; }
+
 protected:
     void rebuildInternalRepresentationIfNecessary();
     virtual void recomputeHistogram()=0;
@@ -177,7 +195,6 @@ protected:
     sgl::AABB3 modelBoundingBox;
     std::vector<std::string> attributeNames;
     std::vector<glm::vec2> minMaxAttributeValues;
-    std::vector<glm::vec2> minMaxAttributeValuesPs[3];
     int selectedAttributeIndex = 0; ///< Selected attribute/importance criterion index.
     int selectedAttributeIndexUi = 0;
     bool dirty = false; ///< Should be set to true if the representation changed.
@@ -191,11 +208,6 @@ protected:
     // Rendering settings.
     RenderingMode renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
     LineRenderer* lineRenderer = nullptr;
-    enum LinePrimitiveMode {
-        LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH,
-        LINE_PRIMITIVES_RIBBON_GEOMETRY_SHADER,
-        LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
-    };
     static LinePrimitiveMode linePrimitiveMode;
     static int tubeNumSubdivisions; ///< Number of tube subdivisions for LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER.
     std::vector<std::string> supportedRenderingModes;

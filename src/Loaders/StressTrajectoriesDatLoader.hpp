@@ -36,6 +36,8 @@
  * One .dat file can contain stress lines from either one or up to three principal stress directions.
  * @param filenamesTrajectories The names of the principal stress trajectory files to open.
  * @param filenamesHierarchy The names of the line hierarchy files to open (optional; can be empty).
+ * @param loadedPsIndices Which of the three principal stress directions (0 = major, 1 = medium, 2 = minor) were
+ * loaded from the passed files.
  * @param The three trajectory sets loaded from the file (empty if the file could not be opened).
  * @param The principal stress data of the three trajectory sets loaded from the file (empty if the file could not be
  * opened).
@@ -43,7 +45,29 @@
 void loadStressTrajectoriesFromDat(
         const std::vector<std::string>& filenamesTrajectories,
         const std::vector<std::string>& filenamesHierarchy,
+        std::vector<int>& loadedPsIndices,
         std::vector<Trajectories>& trajectoriesPs,
         std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs);
+
+/**
+ * Loads principal stress lines from the specified files.
+ * One .dat file can contain stress lines from either one or up to three principal stress directions.
+ * The .dat version 2 format stores band geometry data, and supplies pre-computed scalar field data.
+ * @param filenamesTrajectories The names of the principal stress trajectory files to open.
+ * @param loadedPsIndices Which of the three principal stress directions (0 = major, 1 = medium, 2 = minor) were
+ * loaded from the passed files.
+ * @param The three trajectory sets loaded from the file (empty if the file could not be opened).
+ * @param The principal stress data of the three trajectory sets loaded from the file (empty if the file could not be
+ * opened).
+ * @param bandPointsListLeftPs The band points on the left band strand.
+ * @param bandPointsListRightPs The band points on the right band strand.
+ */
+void loadStressTrajectoriesFromDat_v2(
+        const std::vector<std::string>& filenamesTrajectories,
+        std::vector<int>& loadedPsIndices,
+        std::vector<Trajectories>& trajectoriesPs,
+        std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsListLeftPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsListRightPs);
 
 #endif //STRESSLINEVIS_STRESSTRAJECTORIESDATLOADER_HPP

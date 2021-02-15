@@ -38,7 +38,7 @@ LineData::LinePrimitiveMode LineData::linePrimitiveMode = LineData::LINE_PRIMITI
 int LineData::tubeNumSubdivisions = 5;
 
 const char *const LINE_PRIMITIVE_MODE_DISPLAYNAMES[] = {
-        "Ribbon (Programmable Fetch)", "Ribbon (Geometry Shader)", "Tube (Geometry Shader)"
+        "Ribbon (Programmable Fetch)", "Ribbon (Geometry Shader)", "Tube (Geometry Shader)", "Band"
 };
 
 LineData::LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType)
@@ -187,7 +187,7 @@ void LineData::setUniformGatherShaderData(sgl::ShaderProgramPtr& gatherShader) {
 }
 
 void LineData::setUniformGatherShaderData_AllPasses() {
-    if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
+    if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH && linePointDataSSBO) {
         sgl::ShaderManager->bindShaderStorageBuffer(2, linePointDataSSBO);
     }
 }

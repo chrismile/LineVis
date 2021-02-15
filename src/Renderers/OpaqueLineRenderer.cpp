@@ -83,13 +83,16 @@ void OpaqueLineRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
     shaderAttributesDegeneratePoints = sgl::ShaderAttributesPtr();
 
     shaderAttributes = lineData->getGatherShaderAttributes(gatherShader);
-    if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
+    if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES
+            && static_cast<LineDataStress*>(lineData.get())->getHasDegeneratePoints()) {
         PointRenderData pointRenderData = static_cast<LineDataStress*>(lineData.get())->getDegeneratePointsRenderData();
         shaderAttributesDegeneratePoints = sgl::ShaderManager->createShaderAttributes(gatherShaderPoints);
         shaderAttributesDegeneratePoints->setVertexMode(sgl::VERTEX_MODE_POINTS);
         shaderAttributesDegeneratePoints->addGeometryBuffer(
                 pointRenderData.vertexPositionBuffer, "vertexPosition",
                 sgl::ATTRIB_FLOAT, 3);
+    } else {
+        hasDegeneratePoints = false;
     }
 
     dirty = false;
@@ -135,9 +138,15 @@ void OpaqueLineRenderer::render() {
                 GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, sceneData.clearColor);
     }
 
+    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
+        glDisable(GL_CULL_FACE);
+    }
     sgl::Renderer->render(shaderAttributes);
+    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
+        glEnable(GL_CULL_FACE);
+    }
 
-    if (shaderAttributesDegeneratePoints && showDegeneratePoints) {
+    if (shaderAttributesDegeneratePoints && showDegeneratePoints && hasDegeneratePoints) {
         gatherShaderPoints->setUniform("cameraPosition", sceneData.camera->getPosition());
         gatherShaderPoints->setUniform("pointWidth", pointWidth);
         gatherShaderPoints->setUniform("foregroundColor", foregroundColor);
@@ -159,10 +168,11 @@ void OpaqueLineRenderer::renderGui() {
     if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
         reRender = true;
     }
-    if (shaderAttributesDegeneratePoints && ImGui::Checkbox("Show Degenerate Points", &showDegeneratePoints)) {
+    if (shaderAttributesDegeneratePoints && hasDegeneratePoints
+            && ImGui::Checkbox("Show Degenerate Points", &showDegeneratePoints)) {
         reRender = true;
     }
-    if (shaderAttributesDegeneratePoints && showDegeneratePoints) {
+    if (shaderAttributesDegeneratePoints && showDegeneratePoints && hasDegeneratePoints) {
         if (shaderAttributesDegeneratePoints && ImGui::SliderFloat(
                 "Point Width", &pointWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH)) {
             reRender = true;

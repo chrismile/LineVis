@@ -67,6 +67,7 @@ protected:
     bool useMultisampling = true;
 
     bool showDegeneratePoints = false; ///< Only for stress lines.
+    bool hasDegeneratePoints = false;
     float pointWidth = STANDARD_LINE_WIDTH;
 
     int maximumNumberOfSamples = 1;

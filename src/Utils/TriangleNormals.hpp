@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2021, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,37 +26,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEDENSITYCONTROL_DATASETLIST_HPP
-#define LINEDENSITYCONTROL_DATASETLIST_HPP
+#ifndef LINEVIS_TRIANGLENORMALS_HPP
+#define LINEVIS_TRIANGLENORMALS_HPP
 
-#include <Math/Geometry/MatrixUtil.hpp>
 #include <vector>
 
-const std::string lineDataSetsDirectory = "Data/LineDataSets/";
+#include <glm/vec3.hpp>
 
-enum DataSetType {
-    DATA_SET_TYPE_NONE, DATA_SET_TYPE_FLOW_LINES, DATA_SET_TYPE_STRESS_LINES, DATA_SET_TYPE_FLOW_LINES_MULTIVAR
-};
+/**
+ * Computes smooth normals for the passed triangle data.
+ * @param vertexPositions The vertex positions.
+ * @param triangleIndices A list of triangle indices. Three consecutive entries form one triangle.
+ * @param vertexNormals The output vertex normals.
+ */
+void computeSmoothTriangleNormals(
+        const std::vector<glm::vec3>& vertexPositions, const std::vector<uint32_t>& triangleIndices,
+        std::vector<glm::vec3>& vertexNormals);
 
-struct DataSetInformation {
-    DataSetType type = DATA_SET_TYPE_FLOW_LINES;
-    std::string name;
-    std::vector<std::string> filenames;
-
-    // Optional attributes.
-    bool hasCustomLineWidth = false;
-    float lineWidth = 0.002f;
-    bool hasCustomTransform = false;
-    glm::mat4 transformMatrix = sgl::matrixIdentity();
-    std::vector<std::string> attributeNames; ///< Names of the associated importance criteria.
-
-    // Stress lines: Additional information (optional).
-    std::string meshFilename;
-    std::string degeneratePointsFilename;
-    std::vector<std::string> filenamesStressLineHierarchy;
-    bool containsBandData = false;
-};
-
-std::vector<DataSetInformation> loadDataSetList(const std::string& filename);
-
-#endif //LINEDENSITYCONTROL_DATASETLIST_HPP
+#endif //LINEVIS_TRIANGLENORMALS_HPP

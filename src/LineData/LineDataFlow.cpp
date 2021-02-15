@@ -37,6 +37,10 @@
 
 LineDataFlow::LineDataFlow(sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_FLOW_LINES) {
+    // Bands not supported by flow lines at the moment.
+    if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
+        linePrimitiveMode = LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
+    }
 }
 
 LineDataFlow::~LineDataFlow() {

@@ -67,6 +67,7 @@ public:
     void setUsedPsDirections(const std::vector<bool>& usedPsDirections);
     inline bool getUsePrincipalStressDirectionIndex() { return usePrincipalStressDirectionIndex; }
     inline bool getUseLineHierarchy() { return useLineHierarchy; }
+    inline bool getHasDegeneratePoints() { return !degeneratePoints.empty(); }
 
     // Statistics.
     virtual size_t getNumStressDirections() { return trajectoriesPs.size(); }
@@ -93,6 +94,7 @@ public:
     TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch();
     TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization();
     PointRenderData getDegeneratePointsRenderData();
+    BandRenderData getBandRenderData();
 
     /**
      * For selecting rendering technique (e.g., screen-oriented bands, tubes) and other line data settings.
@@ -127,10 +129,14 @@ private:
     static bool usePrincipalStressDirectionIndex;
 
     // Principal stress lines (usually three line sets for three directions).
+    std::vector<int> loadedPsIndices; ///< 0 = major, 1 = medium, 2 = minor.
     std::vector<Trajectories> trajectoriesPs;
     std::vector<StressTrajectoriesData> stressTrajectoriesDataPs;
     std::vector<glm::vec3> degeneratePoints;
     std::vector<bool> usedPsDirections; ///< What principal stress (PS) directions do we want to display?
+    std::vector<glm::vec2> minMaxAttributeValuesPs[3];
+    // If optional band data is provided:
+    std::vector<std::vector<std::vector<glm::vec3>>> bandPointsListLeftPs, bandPointsListRightPs;
 
     // Rendering mode settings.
     bool rendererSupportsTransparency = false;
