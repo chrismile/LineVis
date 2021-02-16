@@ -63,7 +63,9 @@ struct BandRenderData {
     sgl::GeometryBufferPtr vertexPositionBuffer;
     sgl::GeometryBufferPtr vertexAttributeBuffer;
     sgl::GeometryBufferPtr vertexNormalBuffer;
-    sgl::GeometryBufferPtr vertexBandPositionBuffer;
+    sgl::GeometryBufferPtr vertexTangentBuffer;
+    sgl::GeometryBufferPtr vertexOffsetLeftBuffer;
+    sgl::GeometryBufferPtr vertexOffsetRightBuffer;
     sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
     sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
 };
@@ -158,12 +160,17 @@ public:
     virtual TubeRenderData getTubeRenderData()=0;
     virtual TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch()=0;
     virtual TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization()=0;
+    virtual BandRenderData getBandRenderData() { return BandRenderData(); }
 
     /**
      * For selecting rendering technique (e.g., screen-oriented bands, tubes) and other line data settings.
      * @return true if the gather shader needs to be reloaded.
      */
     virtual bool renderGui(bool isRasterizer);
+    /**
+     * For changing other line rendering settings.
+     */
+    virtual bool renderGuiRenderingSettings() { return false; }
     /**
      * For rendering a separate ImGui window.
      * @return true if the gather shader needs to be reloaded.

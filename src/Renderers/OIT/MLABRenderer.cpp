@@ -298,7 +298,13 @@ void MLABRenderer::gather() {
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     // Now, the final gather step.
+    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
+        glDisable(GL_CULL_FACE);
+    }
     sgl::Renderer->render(shaderAttributes);
+    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
+        glEnable(GL_CULL_FACE);
+    }
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }
 
@@ -325,6 +331,9 @@ void MLABRenderer::resolve() {
 void MLABRenderer::renderGui() {
     if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
         reRender = true;
+    }
+    if (lineData) {
+        lineData->renderGuiRenderingSettings();
     }
     if (ImGui::SliderInt("Num Layers", &numLayers, 1, 64)) {
         updateLayerMode();

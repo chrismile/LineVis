@@ -362,7 +362,29 @@ void loadStressTrajectoriesFromFile(
         }
         if (containsBandData) {
             normalizeTrajectoriesPsVertexPositions(
-                    trajectoriesPs, bandPointsListLeftPs, bandPointsListRightPs, aabb, vertexTransformationMatrixPtr);
+                    trajectoriesPs, bandPointsListLeftPs, bandPointsListRightPs, aabb,
+                    vertexTransformationMatrixPtr);
+
+            for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
+                Trajectories& trajectories = trajectoriesPs.at(psIdx);
+                std::vector<std::vector<glm::vec3>>& bandPointsListLeft = bandPointsListLeftPs.at(psIdx);
+                std::vector<std::vector<glm::vec3>>& bandPointsListRight = bandPointsListRightPs.at(psIdx);
+
+                for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+                    Trajectory& trajectory = trajectories.at(trajectoryIdx);
+                    std::vector<glm::vec3>& bandPointsLeft = bandPointsListLeft.at(trajectoryIdx);
+                    std::vector<glm::vec3>& bandPointsRight = bandPointsListRight.at(trajectoryIdx);
+                    for (size_t linePos = 0; linePos < trajectory.positions.size(); linePos++) {
+                        glm::vec3& trajectoryPoint = trajectory.positions.at(linePos);
+                        glm::vec3& bandPointLeft = bandPointsLeft.at(linePos);
+                        glm::vec3& bandPointRight = bandPointsRight.at(linePos);
+                        bandPointLeft = bandPointLeft - trajectoryPoint;
+                        bandPointRight = bandPointRight - trajectoryPoint;
+                        bandPointLeft /= 0.005f;
+                        bandPointRight /= 0.005f;
+                    }
+                }
+            }
         } else {
             normalizeTrajectoriesPsVertexPositions(trajectoriesPs, aabb, vertexTransformationMatrixPtr);
         }

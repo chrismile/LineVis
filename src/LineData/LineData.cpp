@@ -32,6 +32,7 @@
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_custom.h>
 
+#include "Renderers/LineRenderer.hpp"
 #include "LineData.hpp"
 
 LineData::LinePrimitiveMode LineData::linePrimitiveMode = LineData::LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
@@ -51,9 +52,13 @@ LineData::~LineData() {
 bool LineData::renderGui(bool isRasterizer) {
     bool shallReloadGatherShader = false;
     if (isRasterizer) {
+        size_t numPrimitiveModes = IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES);
+        if (getType() != DATA_SET_TYPE_STRESS_LINES) {
+            numPrimitiveModes -= 1;
+        }
         if (renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION && ImGui::Combo(
                 "Line Primitives", (int*)&linePrimitiveMode,
-                LINE_PRIMITIVE_MODE_DISPLAYNAMES, IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES))) {
+                LINE_PRIMITIVE_MODE_DISPLAYNAMES, numPrimitiveModes)) {
             dirty = true;
             shallReloadGatherShader = true;
         }

@@ -137,12 +137,17 @@ void OpacityOptimizationRenderer::reloadResolveShader() {
 void OpacityOptimizationRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     sgl::ShaderManager->invalidateShaderCache();
 
+    bool isStressLineData = false;
     bool usePrincipalStressDirectionIndex = false;
     bool useLineHierarchy = false;
     if (lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
         LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
+        isStressLineData = true;
         usePrincipalStressDirectionIndex = lineDataStress->getUsePrincipalStressDirectionIndex();
         useLineHierarchy = lineDataStress->getUseLineHierarchy();
+    }
+    if (isStressLineData) {
+        sgl::ShaderManager->addPreprocessorDefine("IS_PSL_DATA", "");
     }
     if (usePrincipalStressDirectionIndex) {
         sgl::ShaderManager->addPreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", "");
@@ -151,22 +156,40 @@ void OpacityOptimizationRenderer::reloadGatherShader(bool canCopyShaderAttribute
         sgl::ShaderManager->addPreprocessorDefine("USE_LINE_HIERARCHY_LEVEL", "");
     }
     sgl::ShaderManager->addPreprocessorDefine("USE_TRANSPARENCY", "");
-    gatherPpllOpacitiesShader = sgl::ShaderManager->getShaderProgram({
-        "GeometryPassOpacities.VBO.Vertex",
-        "GeometryPassOpacities.VBO.Geometry",
-        "GeometryPassOpacities.Fragment"
-    });
-    gatherPpllFinalShader = sgl::ShaderManager->getShaderProgram({
-        "GeometryPassFinal.VBO.Vertex",
-        "GeometryPassFinal.VBO.Geometry",
-        "GeometryPassFinal.Fragment"
-    });
+
+    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
+        gatherPpllOpacitiesShader = sgl::ShaderManager->getShaderProgram({
+                "GeometryPassOpacitiesBand.VBO.Vertex",
+                "GeometryPassOpacitiesBand.VBO.Geometry",
+                "GeometryPassOpacitiesBand.Fragment"
+        });
+        gatherPpllFinalShader = sgl::ShaderManager->getShaderProgram({
+                "GeometryPassFinalBand.VBO.Vertex",
+                "GeometryPassFinalBand.VBO.Geometry",
+                "GeometryPassFinalBand.Fragment"
+        });
+    } else {
+        gatherPpllOpacitiesShader = sgl::ShaderManager->getShaderProgram({
+                "GeometryPassOpacities.VBO.Vertex",
+                "GeometryPassOpacities.VBO.Geometry",
+                "GeometryPassOpacities.Fragment"
+        });
+        gatherPpllFinalShader = sgl::ShaderManager->getShaderProgram({
+                "GeometryPassFinal.VBO.Vertex",
+                "GeometryPassFinal.VBO.Geometry",
+                "GeometryPassFinal.Fragment"
+        });
+    }
+
     sgl::ShaderManager->removePreprocessorDefine("USE_TRANSPARENCY");
     if (useLineHierarchy) {
         sgl::ShaderManager->removePreprocessorDefine("USE_LINE_HIERARCHY_LEVEL");
     }
     if (usePrincipalStressDirectionIndex) {
         sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX");
+    }
+    if (isStressLineData) {
+        sgl::ShaderManager->removePreprocessorDefine("IS_PSL_DATA");
     }
 
     if (canCopyShaderAttributes && gatherPpllOpacitiesRenderData) {
@@ -237,13 +260,43 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewM
     gatherPpllFinalRenderData = sgl::ShaderAttributesPtr();
     updateLargeMeshMode();
 
-    TubeRenderDataOpacityOptimization tubeRenderData = lineData->getTubeRenderDataOpacityOptimization();
     lines = lineData->getFilteredLines();
+
+    sgl::GeometryBufferPtr indexBuffer;
+    sgl::GeometryBufferPtr vertexPositionBuffer;
+    sgl::GeometryBufferPtr vertexAttributeBuffer;
+    sgl::GeometryBufferPtr vertexNormalBuffer;
+    sgl::GeometryBufferPtr vertexTangentBuffer;
+    sgl::GeometryBufferPtr vertexOffsetLeftBuffer;
+    sgl::GeometryBufferPtr vertexOffsetRightBuffer;
+    sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
+    sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
+
+    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
+        BandRenderData tubeRenderData = lineData->getBandRenderData();
+        indexBuffer = tubeRenderData.indexBuffer;
+        vertexPositionBuffer = tubeRenderData.vertexPositionBuffer;
+        vertexAttributeBuffer = tubeRenderData.vertexAttributeBuffer;
+        vertexNormalBuffer = tubeRenderData.vertexNormalBuffer;
+        vertexTangentBuffer = tubeRenderData.vertexTangentBuffer;
+        vertexOffsetLeftBuffer = tubeRenderData.vertexOffsetLeftBuffer;
+        vertexOffsetRightBuffer = tubeRenderData.vertexOffsetRightBuffer;
+        vertexPrincipalStressIndexBuffer = tubeRenderData.vertexPrincipalStressIndexBuffer;
+        vertexLineHierarchyLevelBuffer = tubeRenderData.vertexLineHierarchyLevelBuffer;
+    } else {
+        TubeRenderDataOpacityOptimization tubeRenderData = lineData->getTubeRenderDataOpacityOptimization();
+        indexBuffer = tubeRenderData.indexBuffer;
+        vertexPositionBuffer = tubeRenderData.vertexPositionBuffer;
+        vertexAttributeBuffer = tubeRenderData.vertexAttributeBuffer;
+        vertexTangentBuffer = tubeRenderData.vertexTangentBuffer;
+        vertexPrincipalStressIndexBuffer = tubeRenderData.vertexPrincipalStressIndexBuffer;
+        vertexLineHierarchyLevelBuffer = tubeRenderData.vertexLineHierarchyLevelBuffer;
+    }
 
     gatherPpllOpacitiesRenderData = sgl::ShaderManager->createShaderAttributes(gatherPpllOpacitiesShader);
     gatherPpllFinalRenderData = sgl::ShaderManager->createShaderAttributes(gatherPpllFinalShader);
 
-    numLineVertices = tubeRenderData.vertexPositionBuffer->getSize() / sizeof(glm::vec3);
+    numLineVertices = vertexPositionBuffer->getSize() / sizeof(glm::vec3);
     generateBlendingWeightParametrization(isNewMesh);
 
     vertexOpacityBuffer = sgl::Renderer->createGeometryBuffer(
@@ -253,25 +306,30 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewM
     glClearNamedBufferData(bufferId, GL_R32F, GL_RED, GL_FLOAT, (const void*)&clearVal);
 
     gatherPpllOpacitiesRenderData->setVertexMode(sgl::VERTEX_MODE_LINES);
-    gatherPpllOpacitiesRenderData->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
+    gatherPpllOpacitiesRenderData->setIndexGeometryBuffer(indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
     gatherPpllOpacitiesRenderData->addGeometryBuffer(
-            tubeRenderData.vertexPositionBuffer, "vertexPosition",
-            sgl::ATTRIB_FLOAT, 3);
+            vertexPositionBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
     gatherPpllOpacitiesRenderData->addGeometryBufferOptional(
-            tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
-            sgl::ATTRIB_FLOAT, 1);
+            vertexAttributeBuffer, "vertexAttribute", sgl::ATTRIB_FLOAT, 1);
     gatherPpllOpacitiesRenderData->addGeometryBuffer(
-            tubeRenderData.vertexTangentBuffer, "vertexTangent",
-            sgl::ATTRIB_FLOAT, 3);
-    if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
+            vertexTangentBuffer, "vertexTangent", sgl::ATTRIB_FLOAT, 3);
+    if (vertexOffsetLeftBuffer) {
+        gatherPpllOpacitiesRenderData->addGeometryBuffer(
+                vertexOffsetLeftBuffer, "vertexOffsetLeft", sgl::ATTRIB_FLOAT, 3);
+    }
+    if (vertexOffsetRightBuffer) {
+        gatherPpllOpacitiesRenderData->addGeometryBuffer(
+                vertexOffsetRightBuffer, "vertexOffsetRight", sgl::ATTRIB_FLOAT, 3);
+    }
+    if (vertexPrincipalStressIndexBuffer) {
         gatherPpllOpacitiesRenderData->addGeometryBufferOptional(
-                tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
+                vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
                 sgl::ATTRIB_UNSIGNED_INT,
                 1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
     }
-    if (tubeRenderData.vertexLineHierarchyLevelBuffer) {
+    if (vertexLineHierarchyLevelBuffer) {
         gatherPpllOpacitiesRenderData->addGeometryBufferOptional(
-                tubeRenderData.vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel",
+                vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel",
                 sgl::ATTRIB_FLOAT, 1);
     }
     gatherPpllOpacitiesRenderData->addGeometryBuffer(
@@ -279,22 +337,30 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewM
             1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
 
     gatherPpllFinalRenderData->setVertexMode(sgl::VERTEX_MODE_LINES);
-    gatherPpllFinalRenderData->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
+    gatherPpllFinalRenderData->setIndexGeometryBuffer(indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
     gatherPpllFinalRenderData->addGeometryBuffer(
-            tubeRenderData.vertexPositionBuffer, "vertexPosition",
-            sgl::ATTRIB_FLOAT, 3);
+            vertexPositionBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
     gatherPpllFinalRenderData->addGeometryBufferOptional(
-            tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
-            sgl::ATTRIB_FLOAT, 1);
+            vertexAttributeBuffer, "vertexAttribute", sgl::ATTRIB_FLOAT, 1);
+    if (vertexNormalBuffer) {
+        gatherPpllFinalRenderData->addGeometryBuffer(
+                vertexNormalBuffer, "vertexNormal", sgl::ATTRIB_FLOAT, 3);
+    }
     gatherPpllFinalRenderData->addGeometryBuffer(
-            tubeRenderData.vertexTangentBuffer, "vertexTangent",
-            sgl::ATTRIB_FLOAT, 3);
+            vertexTangentBuffer, "vertexTangent", sgl::ATTRIB_FLOAT, 3);
+    if (vertexOffsetLeftBuffer) {
+        gatherPpllFinalRenderData->addGeometryBuffer(
+                vertexOffsetLeftBuffer, "vertexOffsetLeft", sgl::ATTRIB_FLOAT, 3);
+    }
+    if (vertexOffsetRightBuffer) {
+        gatherPpllFinalRenderData->addGeometryBuffer(
+                vertexOffsetRightBuffer, "vertexOffsetRight", sgl::ATTRIB_FLOAT, 3);
+    }
     gatherPpllFinalRenderData->addGeometryBuffer(
-            this->vertexOpacityBuffer, "vertexOpacity",
-            sgl::ATTRIB_FLOAT, 1);
-    if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
+            this->vertexOpacityBuffer, "vertexOpacity", sgl::ATTRIB_FLOAT, 1);
+    if (vertexPrincipalStressIndexBuffer) {
         gatherPpllFinalRenderData->addGeometryBufferOptional(
-                tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
+                vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
                 sgl::ATTRIB_UNSIGNED_INT,
                 1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
     }
@@ -519,6 +585,10 @@ void OpacityOptimizationRenderer::render() {
 }
 
 void OpacityOptimizationRenderer::setUniformData() {
+    if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
+        lineData->setUniformGatherShaderData_AllPasses();
+    }
+
     gatherPpllOpacitiesShader->setUniform("viewportW", paddedViewportWidthOpacity);
     gatherPpllOpacitiesShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeOpacity);
     gatherPpllOpacitiesShader->setUniform("cameraPosition", sceneData.camera->getPosition());
@@ -605,7 +675,13 @@ void OpacityOptimizationRenderer::gatherPpllOpacities() {
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     // Now, the final gather step.
+    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
+        glDisable(GL_CULL_FACE);
+    }
     sgl::Renderer->render(gatherPpllOpacitiesRenderData);
+    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
+        glEnable(GL_CULL_FACE);
+    }
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }
 
@@ -740,7 +816,13 @@ void OpacityOptimizationRenderer::gatherPpllFinal() {
     }
 
     // Now, the final gather step.
+    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
+        glDisable(GL_CULL_FACE);
+    }
     sgl::Renderer->render(gatherPpllFinalRenderData);
+    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
+        glEnable(GL_CULL_FACE);
+    }
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
     if (useMultisampling) {
@@ -773,6 +855,9 @@ void OpacityOptimizationRenderer::renderGui() {
     if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
         reRender = true;
         onHasMoved();
+    }
+    if (lineData) {
+        lineData->renderGuiRenderingSettings();
     }
     if (ImGui::SliderFloat("q", &q, 0.0f, 5000.0f, "%.1f")) {
         reRender = true;

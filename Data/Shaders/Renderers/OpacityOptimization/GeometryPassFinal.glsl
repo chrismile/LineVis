@@ -175,13 +175,13 @@ void gatherFragmentCustomDepth(vec4 color, float fragmentDepth) {
     float depthNormalized = convertLinearDepthToDepthBufferValue(
             convertDepthBufferValueToLinearDepth(gl_FragCoord.z) + fragmentDepth - length(fragmentPositionWorld - cameraPosition) - 0.0001);
 
-    #ifdef USE_COVERAGE_MASK
+#ifdef USE_COVERAGE_MASK
     //packFloat24Uint8(frag.depth, gl_FragCoord.z, gl_SampleMaskIn[0]);
     float coverageRatio = float(bitCount(gl_SampleMaskIn[0])) / float(gl_NumSamples);
     packFloat24Float8(frag.depth, depthNormalized, coverageRatio);
-    #else
+#else
     frag.depth = convertNormalizedFloatToUint32(depthNormalized);
-    #endif
+#endif
 
     uint insertIndex = atomicCounterIncrement(fragCounter);
 

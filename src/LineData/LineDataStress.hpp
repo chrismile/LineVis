@@ -90,17 +90,21 @@ public:
     virtual void setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader);
 
     // --- Retrieve data for rendering. ---
-    TubeRenderData getTubeRenderData();
-    TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch();
-    TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization();
+    virtual TubeRenderData getTubeRenderData() override;
+    virtual TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch() override;
+    virtual TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization() override;
     PointRenderData getDegeneratePointsRenderData();
-    BandRenderData getBandRenderData();
+    virtual BandRenderData getBandRenderData() override;
 
     /**
      * For selecting rendering technique (e.g., screen-oriented bands, tubes) and other line data settings.
      * @return true if the gather shader needs to be reloaded.
      */
     virtual bool renderGui(bool isRasterizer) override;
+    /**
+     * For changing other line rendering settings.
+     */
+    virtual bool renderGuiRenderingSettings() override;
     /**
      * For rendering a separate ImGui window.
      * @return true if the gather shader needs to be reloaded.
@@ -137,6 +141,7 @@ private:
     std::vector<glm::vec2> minMaxAttributeValuesPs[3];
     // If optional band data is provided:
     std::vector<std::vector<std::vector<glm::vec3>>> bandPointsListLeftPs, bandPointsListRightPs;
+    std::array<bool, 3> psUseBands = {true, true, false};
 
     // Rendering mode settings.
     bool rendererSupportsTransparency = false;

@@ -218,6 +218,9 @@ void DepthComplexityRenderer::renderGui() {
     if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
         reRender = true;
     }
+    if (lineData) {
+        lineData->renderGuiRenderingSettings();
+    }
     if (ImGui::ColorEdit4("Coloring", (float*)&colorSelection, 0)) {
         sgl::Color newColor = sgl::colorFromFloat(colorSelection.x, colorSelection.y, colorSelection.z, 1.0f);
         renderColor = newColor;

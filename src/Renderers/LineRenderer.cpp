@@ -29,6 +29,7 @@
 #include "LineRenderer.hpp"
 
 float LineRenderer::lineWidth = STANDARD_LINE_WIDTH;
+float LineRenderer::bandWidth = STANDARD_BAND_WIDTH;
 
 void LineRenderer::renderGuiWindow() {
     bool shallReloadGatherShader = false;
@@ -58,7 +59,7 @@ void LineRenderer::renderGuiWindow() {
 
 void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewMesh) {
     if (!this->lineData || lineData->getType() != this->lineData->getType()
-        || lineData->settingsDiffer(this->lineData.get())) {
+            || lineData->settingsDiffer(this->lineData.get())) {
         this->lineData = lineData;
         reloadGatherShader(false);
     }

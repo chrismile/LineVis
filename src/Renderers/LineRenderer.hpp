@@ -37,13 +37,18 @@ namespace sgl {
 }
 struct InternalState;
 class SettingsMap;
+class LineDataStress;
 
 const float STANDARD_LINE_WIDTH = 0.002f;
+const float STANDARD_BAND_WIDTH = 0.005f;
 
 /**
  * Super-class for line renderers.
  */
 class LineRenderer {
+    friend class LineData;
+    friend class LineDataStress;
+
 public:
     LineRenderer(
             const std::string& windowName, SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow)
@@ -103,9 +108,10 @@ protected:
     bool reRender = true;
 
     // Minimum and maximum values in the UI.
-    const float MIN_LINE_WIDTH = 0.001f;
-    const float MAX_LINE_WIDTH = 0.005f;
+    static constexpr float MIN_LINE_WIDTH = 0.001f;
+    static constexpr float MAX_LINE_WIDTH = 0.008f;
     static float lineWidth;
+    static float bandWidth;
 };
 
 #endif // RENDERERS_HEXAHEDRALMESHRENDERER_HPP
