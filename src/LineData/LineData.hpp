@@ -145,6 +145,11 @@ public:
     virtual size_t getNumLinePoints()=0;
     virtual size_t getNumLineSegments()=0;
 
+    // Public interface for filtering trajectories.
+    virtual void iterateOverTrajectories(std::function<void(const Trajectory&)> callback)=0;
+    virtual void filterTrajectories(std::function<bool(const Trajectory&)> callback)=0;
+    virtual void resetTrajectoryFilter()=0;
+
     // Get filtered line data (only containing points also shown when rendering).
     virtual Trajectories filterTrajectoryData()=0;
     virtual std::vector<std::vector<glm::vec3>> getFilteredLines()=0;

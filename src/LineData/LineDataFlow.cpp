@@ -151,10 +151,41 @@ size_t LineDataFlow::getNumLineSegments() {
 }
 
 
+void LineDataFlow::iterateOverTrajectories(std::function<void(const Trajectory&)> callback) {
+    for (const Trajectory& trajectory : trajectories) {
+        callback(trajectory);
+    }
+}
+
+void LineDataFlow::filterTrajectories(std::function<bool(const Trajectory&)> callback) {
+    size_t trajectoryIdx = 0;
+    for (const Trajectory& trajectory : trajectories) {
+        if (callback(trajectory)) {
+            filteredTrajectories.at(trajectoryIdx) = true;
+        }
+        trajectoryIdx++;
+    }
+}
+
+void LineDataFlow::resetTrajectoryFilter()  {
+    if (filteredTrajectories.empty()) {
+        filteredTrajectories.resize(trajectories.size(), false);
+    } else {
+        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            filteredTrajectories.at(trajectoryIdx) = false;
+        }
+    }
+}
+
 Trajectories LineDataFlow::filterTrajectoryData() {
     Trajectories trajectoriesFiltered;
     trajectoriesFiltered.reserve(trajectories.size());
+    size_t trajectoryIndex = 0;
     for (const Trajectory& trajectory : trajectories) {
+        if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIndex)) {
+            continue;
+        }
+
         Trajectory trajectoryFiltered;
         trajectoryFiltered.attributes.resize(attributeNames.size());
         size_t n = trajectory.positions.size();
@@ -186,6 +217,8 @@ Trajectories LineDataFlow::filterTrajectoryData() {
         if (numValidLinePoints > 1) {
             trajectoriesFiltered.push_back(trajectoryFiltered);
         }
+
+        trajectoryIndex++;
     }
     return trajectoriesFiltered;
 }
@@ -193,7 +226,12 @@ Trajectories LineDataFlow::filterTrajectoryData() {
 std::vector<std::vector<glm::vec3>> LineDataFlow::getFilteredLines() {
     std::vector<std::vector<glm::vec3>> linesFiltered;
     linesFiltered.reserve(trajectories.size());
+    size_t trajectoryIndex = 0;
     for (const Trajectory& trajectory : trajectories) {
+        if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIndex)) {
+            continue;
+        }
+
         std::vector<glm::vec3> lineFiltered;
         size_t n = trajectory.positions.size();
 
@@ -221,6 +259,8 @@ std::vector<std::vector<glm::vec3>> LineDataFlow::getFilteredLines() {
         if (numValidLinePoints > 1) {
             linesFiltered.push_back(lineFiltered);
         }
+
+        trajectoryIndex++;
     }
     return linesFiltered;
 }
@@ -242,6 +282,10 @@ TubeRenderData LineDataFlow::getTubeRenderData() {
     lineCentersList.resize(trajectories.size());
     lineAttributesList.resize(trajectories.size());
     for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+        if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+            continue;
+        }
+
         Trajectory& trajectory = trajectories.at(trajectoryIdx);
         std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
         assert(attributes.size() == trajectory.positions.size());
@@ -298,6 +342,10 @@ TubeRenderDataProgrammableFetch LineDataFlow::getTubeRenderDataProgrammableFetch
     lineCentersList.resize(trajectories.size());
     lineAttributesList.resize(trajectories.size());
     for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+        if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+            continue;
+        }
+
         Trajectory& trajectory = trajectories.at(trajectoryIdx);
         std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
         assert(attributes.size() == trajectory.positions.size());
@@ -362,6 +410,10 @@ TubeRenderDataOpacityOptimization LineDataFlow::getTubeRenderDataOpacityOptimiza
     lineCentersList.resize(trajectories.size());
     lineAttributesList.resize(trajectories.size());
     for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+        if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+            continue;
+        }
+
         Trajectory& trajectory = trajectories.at(trajectoryIdx);
         std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
         assert(attributes.size() == trajectory.positions.size());

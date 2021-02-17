@@ -39,6 +39,7 @@
 
 #include "Loaders/DataSetList.hpp"
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
+#include "LineData/Filters/LineFilter.hpp"
 #include "Renderers/SceneData.hpp"
 
 class LineRenderer;
@@ -102,10 +103,15 @@ private:
     virtual void reloadDataSet() override;
     /// Prepares the visualization pipeline for rendering.
     void prepareVisualizationPipeline();
+    /// Returns the filtered mesh that is passed to the renderers.
+    void filterData(bool& isDirty);
     /// Change the importance criterion used for coloring.
     void changeQualityMeasureType();
     /// Sets the used renderers.
     void setRenderer();
+
+    /// A list of filters that are applied sequentially on the data.
+    std::vector<LineFilter*> dataFilters;
 
     LineRenderer* lineRenderer = nullptr;
     LineDataPtr lineData;

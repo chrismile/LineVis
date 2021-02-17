@@ -104,6 +104,31 @@ void main() {
     vec3 offsetDirectionRight0;
     vec3 offsetDirectionLeft1;
     vec3 offsetDirectionRight1;
+#ifdef BAND_RENDERING_THICK
+    vec3 viewDirection0 = normalize(cameraPosition - linePosition0);
+    vec3 viewDirection1 = normalize(cameraPosition - linePosition1);
+    offsetDirectionRight0 = normalize(cross(tangent0, viewDirection0));
+    offsetDirectionRight1 = normalize(cross(tangent1, viewDirection1));
+
+    offsetDirectionLeft0 = -offsetDirectionRight0;
+    offsetDirectionLeft1 = -offsetDirectionRight1;
+    if (useBand != 0) {
+        const float MIN_THICKNESS = 0.15;
+
+        vec3 helperVec0 = offsetDirectionRight0;
+        vec3 viewDirectionNew0 = normalize(cross(helperVec0, tangent0));
+
+        vec3 helperVec1 = offsetDirectionRight1;
+        vec3 viewDirectionNew1 = normalize(cross(helperVec1, tangent1));
+
+        float thickness0 = max(abs(dot(v_in[0].lineNormal, viewDirectionNew0)), MIN_THICKNESS);
+        float thickness1 = max(abs(dot(v_in[1].lineNormal, viewDirectionNew1)), MIN_THICKNESS);
+        offsetDirectionRight0 *= thickness0 * length(v_in[0].lineOffsetLeft);
+        offsetDirectionLeft0 *= thickness0 * length(v_in[0].lineOffsetRight);
+        offsetDirectionRight1 *= thickness1 * length(v_in[1].lineOffsetLeft);
+        offsetDirectionLeft1 *= thickness1 * length(v_in[1].lineOffsetRight);
+    }
+#else
     if (useBand != 0) {
         offsetDirectionLeft0 = v_in[0].lineOffsetLeft;
         offsetDirectionRight0 = v_in[0].lineOffsetRight;
@@ -117,6 +142,7 @@ void main() {
         offsetDirectionRight1 = normalize(cross(tangent1, viewDirection1));
         offsetDirectionLeft1 = -offsetDirectionRight1;
     }
+#endif
 
     vec3 vertexPosition;
 

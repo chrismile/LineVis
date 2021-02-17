@@ -53,6 +53,7 @@
 #include "LineData/LineDataFlow.hpp"
 #include "LineData/LineDataStress.hpp"
 #include "LineData/LineDataMultiVar.hpp"
+#include "LineData/Filters/LineLengthFilter.hpp"
 #include "Renderers/OIT/TilingMode.hpp"
 #include "Renderers/OpaqueLineRenderer.hpp"
 #include "Renderers/OIT/PerPixelLinkedListLineRenderer.hpp"
@@ -81,6 +82,8 @@ MainApp::MainApp()
     sgl::Renderer->setErrorCallback(&openglErrorCallback);
     sgl::Renderer->setDebugVerbosity(sgl::DEBUG_OUTPUT_CRITICAL_ONLY);
     resolutionChanged(sgl::EventPtr());
+
+    dataFilters.push_back(new LineLengthFilter);
 
     if (usePerformanceMeasurementMode) {
         useCameraFlight = true;
@@ -127,6 +130,11 @@ MainApp::~MainApp() {
         performanceMeasurer = nullptr;
     }
 
+    for (LineFilter* dataFilter : dataFilters) {
+        delete dataFilter;
+    }
+    dataFilters.clear();
+
     delete lineRenderer;
 }
 
@@ -166,7 +174,15 @@ void MainApp::setNewState(const InternalState &newState) {
     lineRenderer->setNewState(newState);
     lineRenderer->setNewSettings(newState.rendererSettings);
 
-    // 3. Load the correct mesh file.
+    // 3. Pass state change to filters to handle internally necessary state changes.
+    for (LineFilter* filter : dataFilters) {
+        filter->setNewState(newState);
+    }
+    for (size_t i = 0; i < newState.filterSettings.size(); i++) {
+        dataFilters.at(i)->setNewSettings(newState.filterSettings.at(i));
+    }
+
+    // 4. Load the correct mesh file.
     if (newState.dataSetDescriptor != lastState.dataSetDescriptor) {
         selectedDataSetIndex = 0;
         std::string nameLower = boost::algorithm::to_lower_copy(newState.dataSetDescriptor.name);
@@ -316,6 +332,9 @@ void MainApp::renderGui() {
         hasMoved();
     }
 
+    for (LineFilter* dataFilter : dataFilters) {
+        dataFilter->renderGui();
+    }
     lineRenderer->renderGuiWindow();
 
     sgl::ImGuiWrapper::get()->renderEnd();
@@ -454,6 +473,10 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
         transformationMatrixPtr = &transformationMatrix;
     }
 
+    // Delete old data to get more free RAM.
+    lineData = LineDataPtr();
+    //lineRenderer->removeOldData();
+
     if (dataSetType == DATA_SET_TYPE_FLOW_LINES) {
         LineDataFlow* lineDataFlow = new LineDataFlow(transferFunctionWindow);
         lineData = LineDataPtr(lineDataFlow);
@@ -483,6 +506,10 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
         }
         checkpointWindow.onLoadDataSet(meshDescriptorName);
 
+        for (LineFilter* dataFilter : dataFilters) {
+            dataFilter->onDataLoaded(lineData);
+        }
+
         if (true) { // useCameraFlight
             std::string cameraPathFilename =
                     saveDirectoryCameraPaths + sgl::FileUtils::get()->getPathAsList(meshDescriptorName).back()
@@ -506,8 +533,36 @@ void MainApp::reloadDataSet() {
 }
 
 void MainApp::prepareVisualizationPipeline() {
-    if (lineData && lineRenderer && (lineRenderer->isDirty() || lineData->isDirty())) {
-        lineRenderer->setLineData(lineData, newMeshLoaded);
+    if (lineData && lineRenderer) {
+        bool isPreviousNodeDirty = lineData->isDirty();
+        filterData(isPreviousNodeDirty);
+        if (lineRenderer->isDirty() || isPreviousNodeDirty) {
+            lineRenderer->setLineData(lineData, newMeshLoaded);
+        }
     }
     newMeshLoaded = false;
+}
+
+void MainApp::filterData(bool& isDirty) {
+    // Test if we need to re-run the filters.
+    for (LineFilter* dataFilter : dataFilters) {
+        if (!dataFilter->isEnabled()) {
+            continue;
+        }
+        if (dataFilter->isDirty()) {
+            isDirty = true;
+            reRender = true;
+        }
+    }
+
+    if (isDirty) {
+        lineData->resetTrajectoryFilter();
+        // Pass the output of each filter to the next filter.
+        for (LineFilter* dataFilter : dataFilters) {
+            if (!dataFilter->isEnabled()) {
+                continue;
+            }
+            dataFilter->filterData(lineData);
+        }
+    }
 }

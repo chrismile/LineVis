@@ -55,6 +55,11 @@ public:
     virtual size_t getNumLinePoints() override;
     virtual size_t getNumLineSegments() override;
 
+    // Public interface for filtering trajectories.
+    virtual void iterateOverTrajectories(std::function<void(const Trajectory&)> callback) override;
+    virtual void filterTrajectories(std::function<bool(const Trajectory&)> callback) override;
+    virtual void resetTrajectoryFilter() override;
+
     // Get filtered line data (only containing points also shown when rendering).
     virtual Trajectories filterTrajectoryData() override;
     virtual std::vector<std::vector<glm::vec3>> getFilteredLines() override;
@@ -68,6 +73,7 @@ protected:
     virtual void recomputeHistogram() override;
 
     Trajectories trajectories;
+    std::vector<bool> filteredTrajectories;
 };
 
 #endif //STRESSLINEVIS_LINEDATAFLOW_HPP

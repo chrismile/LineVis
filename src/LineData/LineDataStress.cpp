@@ -123,6 +123,10 @@ bool LineDataStress::renderGui(bool isRasterizer) {
         if (usedBandsChanged) {
             dirty = true;
         }
+
+        if (ImGui::Checkbox("Render Thick Bands", &renderThickBands)) {
+            shallReloadGatherShader = true;
+        }
     }
 
     if (lineRenderer && renderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION && recomputeOpacityOptimization) {
@@ -242,6 +246,7 @@ void LineDataStress::setStressTrajectoryData(
         const std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs) {
     this->trajectoriesPs = trajectoriesPs;
     this->stressTrajectoriesDataPs = stressTrajectoriesDataPs;
+    filteredTrajectoriesPs.resize(trajectoriesPs.size());
 
     sgl::Logfile::get()->writeInfo(
             std::string() + "Number of lines: " + std::to_string(getNumLines()));
@@ -499,6 +504,42 @@ size_t LineDataStress::getNumLineSegments() {
 }
 
 
+void LineDataStress::iterateOverTrajectories(std::function<void(const Trajectory&)> callback) {
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        for (const Trajectory& trajectory : trajectoriesPs.at(i)) {
+            callback(trajectory);
+        }
+    }
+}
+
+void LineDataStress::filterTrajectories(std::function<bool(const Trajectory&)> callback) {
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        Trajectories& trajectories = trajectoriesPs.at(i);
+        std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
+
+        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            if (callback(trajectories.at(trajectoryIdx))) {
+                filteredTrajectories.at(trajectoryIdx) = true;
+            }
+        }
+    }
+}
+
+void LineDataStress::resetTrajectoryFilter()  {
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        Trajectories & trajectories = trajectoriesPs.at(i);
+        std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
+
+        if (filteredTrajectories.empty()) {
+            filteredTrajectories.resize(trajectories.size(), false);
+        } else {
+            for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+                filteredTrajectories.at(trajectoryIdx) = false;
+            }
+        }
+    }
+}
+
 Trajectories LineDataStress::filterTrajectoryData() {
     Trajectories trajectoriesFiltered;
 
@@ -509,7 +550,13 @@ Trajectories LineDataStress::filterTrajectoryData() {
             continue;
         }
 
+        std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
+        size_t trajectoryIdx = 0;
         for (const Trajectory &trajectory : trajectories) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+
             Trajectory trajectoryFiltered;
             size_t n = trajectory.positions.size();
 
@@ -540,6 +587,8 @@ Trajectories LineDataStress::filterTrajectoryData() {
             if (numValidLinePoints > 1) {
                 trajectoriesFiltered.push_back(trajectoryFiltered);
             }
+
+            trajectoryIdx++;
         }
     }
     return trajectoriesFiltered;
@@ -554,7 +603,13 @@ std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines() {
             continue;
         }
 
+        std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
+        size_t trajectoryIdx = 0;
         for (const Trajectory &trajectory : trajectories) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+
             std::vector<glm::vec3> lineFiltered;
             size_t n = trajectory.positions.size();
 
@@ -582,6 +637,8 @@ std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines() {
             if (numValidLinePoints > 1) {
                 linesFiltered.push_back(lineFiltered);
             }
+
+            trajectoryIdx++;
         }
     }
     return linesFiltered;
@@ -600,7 +657,13 @@ std::vector<Trajectories> LineDataStress::filterTrajectoryPsData() {
 
         Trajectories trajectoriesFiltered;
         trajectoriesFiltered.reserve(trajectories.size());
-        for (const Trajectory& trajectory : trajectories) {
+        std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
+        size_t trajectoryIdx = 0;
+        for (const Trajectory &trajectory : trajectories) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+
             Trajectory trajectoryFiltered;
             size_t n = trajectory.positions.size();
 
@@ -631,6 +694,8 @@ std::vector<Trajectories> LineDataStress::filterTrajectoryPsData() {
             if (numValidLinePoints > 1) {
                 trajectoriesFiltered.push_back(trajectoryFiltered);
             }
+
+            trajectoryIdx++;
         }
 
         trajectoriesPsFiltered.push_back(trajectoriesFiltered);
@@ -650,7 +715,13 @@ std::vector<std::vector<std::vector<glm::vec3>>> LineDataStress::getFilteredPrin
 
         std::vector<std::vector<glm::vec3>> linesFiltered;
         linesFiltered.reserve(trajectories.size());
-        for (const Trajectory& trajectory : trajectories) {
+        std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
+        size_t trajectoryIdx = 0;
+        for (const Trajectory &trajectory : trajectories) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+
             std::vector<glm::vec3> lineFiltered;
             size_t n = trajectory.positions.size();
 
@@ -678,6 +749,8 @@ std::vector<std::vector<std::vector<glm::vec3>>> LineDataStress::getFilteredPrin
             if (numValidLinePoints > 1) {
                 linesFiltered.push_back(lineFiltered);
             }
+
+            trajectoryIdx++;
         }
 
         trajectoriesPs.push_back(trajectories);
@@ -700,6 +773,9 @@ sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
     if (rendererSupportsTransparency) {
         sgl::ShaderManager->addPreprocessorDefine("USE_TRANSPARENCY", "");
     }
+    if (linePrimitiveMode == LINE_PRIMITIVES_BAND && renderThickBands) {
+        sgl::ShaderManager->addPreprocessorDefine("BAND_RENDERING_THICK", "");
+    }
 
     sgl::ShaderProgramPtr gatherShader;
     if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
@@ -713,6 +789,9 @@ sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
         gatherShader = LineData::reloadGatherShader();
     }
 
+    if (linePrimitiveMode == LINE_PRIMITIVES_BAND && renderThickBands) {
+        sgl::ShaderManager->removePreprocessorDefine("BAND_RENDERING_THICK");
+    }
     if (rendererSupportsTransparency) {
         sgl::ShaderManager->removePreprocessorDefine("USE_TRANSPARENCY");
     }
@@ -753,7 +832,12 @@ TubeRenderData LineDataStress::getTubeRenderData() {
 
         lineCentersList.resize(trajectories.size());
         lineAttributesList.resize(trajectories.size());
+        std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
             StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
             std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
@@ -841,7 +925,12 @@ TubeRenderDataProgrammableFetch LineDataStress::getTubeRenderDataProgrammableFet
 
         lineCentersList.resize(trajectories.size());
         lineAttributesList.resize(trajectories.size());
+        std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
             StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
             std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
@@ -936,7 +1025,12 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
 
         lineCentersList.resize(trajectories.size());
         lineAttributesList.resize(trajectories.size());
+        std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
             StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
             std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
@@ -1028,7 +1122,12 @@ BandRenderData LineDataStress::getBandRenderData() {
             std::vector<std::vector<glm::vec3>>& bandPointsListLeft = bandPointsListLeftPs.at(i);
             std::vector<std::vector<glm::vec3>>& bandPointsRightLeft = bandPointsListRightPs.at(i);
 
+            std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+                if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                    continue;
+                }
+
                 Trajectory& trajectory = trajectories.at(trajectoryIdx);
                 StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
                 std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
@@ -1083,7 +1182,12 @@ BandRenderData LineDataStress::getBandRenderData() {
 
             lineCentersList.resize(trajectories.size());
             lineAttributesList.resize(trajectories.size());
+            std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+                if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                    continue;
+                }
+
                 Trajectory& trajectory = trajectories.at(trajectoryIdx);
                 StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
                 std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);

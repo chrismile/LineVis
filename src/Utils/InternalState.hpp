@@ -151,6 +151,7 @@ struct InternalState {
         return this->dataSetDescriptor == rhs.dataSetDescriptor && this->name == rhs.name
                && this->renderingMode == rhs.renderingMode
                && this->rendererSettings == rhs.rendererSettings
+               && this->filterSettings == rhs.filterSettings
                && this->tilingWidth == rhs.tilingWidth && this->tilingHeight == rhs.tilingHeight
                && this->useMortonCodeForTiling == rhs.useMortonCodeForTiling
                && this->transferFunctionName == rhs.transferFunctionName
@@ -165,6 +166,7 @@ struct InternalState {
     std::string name;
     RenderingMode renderingMode;
     SettingsMap rendererSettings;
+    std::vector<SettingsMap> filterSettings;
     int tilingWidth = 2;
     int tilingHeight = 8;
     bool useMortonCodeForTiling = false;
