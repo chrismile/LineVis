@@ -26,6 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <Graphics/Renderer.hpp>
+#include <Graphics/OpenGL/RendererGL.hpp>
 #include "LineRenderer.hpp"
 
 float LineRenderer::lineWidth = STANDARD_LINE_WIDTH;
@@ -64,4 +66,28 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewMesh) {
         reloadGatherShader(false);
     }
     this->lineData = lineData;
+
+    if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
+        shaderAttributesHull = sgl::ShaderAttributesPtr();
+        shaderAttributesHull = lineData->getGatherShaderAttributesHull(gatherShaderHull);
+    }
+}
+
+void LineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
+    if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
+        gatherShaderHull = lineData->reloadGatherShaderHull();
+        if (canCopyShaderAttributes && shaderAttributesHull) {
+            shaderAttributesHull = shaderAttributesHull->copy(gatherShaderHull);
+        }
+    }
+}
+
+void LineRenderer::renderHull() {
+    if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
+        lineData->setUniformGatherShaderDataHull_Pass(gatherShaderHull);
+        gatherShaderHull->setUniformOptional("cameraPosition", sceneData.camera->getPosition());
+        glDisable(GL_CULL_FACE);
+        sgl::Renderer->render(shaderAttributesHull);
+        glEnable(GL_CULL_FACE);
+    }
 }

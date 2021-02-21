@@ -128,6 +128,7 @@ void MLABRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
         sgl::ShaderManager->addPreprocessorDefine("GATHER_NO_DISCARD", "");
     }
 
+    LineRenderer::reloadGatherShader();
     gatherShader = lineData->reloadGatherShader();
     if (canCopyShaderAttributes && shaderAttributes) {
         shaderAttributes = shaderAttributes->copy(gatherShader);
@@ -302,6 +303,7 @@ void MLABRenderer::gather() {
         glDisable(GL_CULL_FACE);
     }
     sgl::Renderer->render(shaderAttributes);
+    renderHull();
     if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
         glEnable(GL_CULL_FACE);
     }

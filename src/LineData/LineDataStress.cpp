@@ -215,6 +215,10 @@ bool LineDataStress::loadFromFile(
             normalizeVertexPositions(degeneratePoints, oldAABB, transformationMatrixPtr);
             setDegeneratePoints(degeneratePoints, attributeNames);
         }
+        if (!dataSetInformation.meshFilename.empty()) {
+            shallRenderSimulationMeshBoundary = true;
+            loadSimulationMeshOutlineFromFile(dataSetInformation.meshFilename, oldAABB, transformationMatrixPtr);
+        }
         modelBoundingBox = computeTrajectoriesPsAABB3(trajectoriesPs);
 
         std::vector<bool> usedPsDirections = {false, false, false};

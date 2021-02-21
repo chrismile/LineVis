@@ -97,6 +97,11 @@ struct PointRenderData {
     sgl::GeometryBufferPtr vertexPositionBuffer;
 };
 
+struct SimulationMeshOutlineRenderData {
+    sgl::GeometryBufferPtr indexBuffer;
+    sgl::GeometryBufferPtr vertexPositionBuffer;
+};
+
 enum LineRasterizationRenderingTechnique {
     // Render screen-oriented bands, based on programmable vertex fetching or a geometry shader.
     LINE_RASTERIZATION_BAND_PROGRAMMABLE_FETCH,
@@ -167,6 +172,14 @@ public:
     virtual TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization()=0;
     virtual BandRenderData getBandRenderData() { return BandRenderData(); }
 
+    // Retrieve simulation mesh outline (optional).
+    inline bool hasSimulationMeshOutline() { return !simulationMeshOutlineVertexPositions.empty(); }
+    sgl::ShaderProgramPtr reloadGatherShaderHull();
+    sgl::ShaderAttributesPtr getGatherShaderAttributesHull(sgl::ShaderProgramPtr& gatherShader);
+    void setUniformGatherShaderDataHull_Pass(sgl::ShaderProgramPtr& gatherShader);
+    SimulationMeshOutlineRenderData getSimulationMeshOutlineRenderData();
+    virtual bool shallRenderTransferFunctionWindow() { return true; }
+
     /**
      * For selecting rendering technique (e.g., screen-oriented bands, tubes) and other line data settings.
      * @return true if the gather shader needs to be reloaded.
@@ -188,7 +201,7 @@ public:
     /// Set current rendering mode (e.g. for making visible certain UI options only for certain renderers).
     virtual void setLineRenderer(LineRenderer* lineRenderer) { this->lineRenderer = lineRenderer; }
     virtual void setRenderingMode(RenderingMode renderingMode) { this->renderingMode = renderingMode; }
-    virtual bool shallRenderTransferFunctionWindow() { return true; }
+    inline bool getShallRenderSimulationMeshBoundary() { return shallRenderSimulationMeshBoundary; }
 
     enum LinePrimitiveMode {
         LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH,
@@ -199,6 +212,8 @@ public:
     inline LinePrimitiveMode getLinePrimitiveMode() { return linePrimitiveMode; }
 
 protected:
+    void loadSimulationMeshOutlineFromFile(
+            const std::string& simulationMeshFilename, const sgl::AABB3& oldAABB, glm::mat4* transformationMatrixPtr);
     void rebuildInternalRepresentationIfNecessary();
     virtual void recomputeHistogram()=0;
     virtual void recomputeColorLegend();
@@ -226,6 +241,14 @@ protected:
 
     /// Stores line point data if linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH.
     sgl::GeometryBufferPtr linePointDataSSBO;
+
+    // Optional.
+    bool shallRenderSimulationMeshBoundary = false;
+    glm::vec4 hullColor = glm::vec4(
+            sgl::TransferFunctionWindow::sRGBToLinearRGB(glm::vec3(0.5, 0.5, 0.5f)), 0.3f);
+    float hullOpacity = 0.15f;
+    std::vector<uint32_t> simulationMeshOutlineTriangleIndices;
+    std::vector<glm::vec3> simulationMeshOutlineVertexPositions;
 };
 
 #endif //STRESSLINEVIS_LINEDATA_HPP

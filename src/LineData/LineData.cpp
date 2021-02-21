@@ -26,13 +26,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <Utils/File/Logfile.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/Shader/ShaderAttributes.hpp>
+#include <Graphics/Renderer.hpp>
 
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_custom.h>
 
 #include "Renderers/LineRenderer.hpp"
+#include "Mesh/MeshBoundarySurface.hpp"
 #include "LineData.hpp"
 
 LineData::LinePrimitiveMode LineData::linePrimitiveMode = LineData::LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
@@ -78,6 +81,19 @@ bool LineData::renderGui(bool isRasterizer) {
         setSelectedAttributeIndex(selectedAttributeIndexUi);
     }
     ImGui::Checkbox("Render Color Legend", &shallRenderColorLegendWidgets);
+
+    if (!simulationMeshOutlineTriangleIndices.empty()) {
+        ImGui::Checkbox("Render Mesh Boundary", &shallRenderSimulationMeshBoundary);
+
+        if (shallRenderSimulationMeshBoundary) {
+            if (ImGui::SliderFloat("Hull Opacity", &hullOpacity, 0.0f, 1.0f, "%.4f")) {
+                reRender = true;
+            }
+            if (ImGui::ColorEdit3("Hull Color", &hullColor.r)) {
+                reRender = true;
+            }
+        }
+    }
 
     return shallReloadGatherShader;
 }
@@ -186,6 +202,50 @@ sgl::ShaderAttributesPtr LineData::getGatherShaderAttributes(sgl::ShaderProgramP
     return shaderAttributes;
 }
 
+sgl::ShaderProgramPtr LineData::reloadGatherShaderHull() {
+    sgl::ShaderManager->invalidateShaderCache();
+    sgl::ShaderProgramPtr shaderProgramPtr = sgl::ShaderManager->getShaderProgram({
+            "MeshHull.Vertex", "MeshHull.Fragment"
+    });
+    return shaderProgramPtr;
+}
+
+sgl::ShaderAttributesPtr LineData::getGatherShaderAttributesHull(sgl::ShaderProgramPtr& gatherShader) {
+    SimulationMeshOutlineRenderData renderData = this->getSimulationMeshOutlineRenderData();
+    linePointDataSSBO = sgl::GeometryBufferPtr();
+
+    sgl::ShaderAttributesPtr shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
+    shaderAttributes->setVertexMode(sgl::VERTEX_MODE_TRIANGLES);
+    shaderAttributes->setIndexGeometryBuffer(renderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
+    shaderAttributes->addGeometryBuffer(
+            renderData.vertexPositionBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
+
+    return shaderAttributes;
+}
+
+SimulationMeshOutlineRenderData LineData::getSimulationMeshOutlineRenderData() {
+    SimulationMeshOutlineRenderData renderData;
+
+    // Add the index buffer.
+    renderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
+            sizeof(uint32_t)*simulationMeshOutlineTriangleIndices.size(),
+            (void*)&simulationMeshOutlineTriangleIndices.front(), sgl::INDEX_BUFFER);
+
+    // Add the position buffer.
+    renderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
+            simulationMeshOutlineVertexPositions.size()*sizeof(glm::vec3),
+            (void*)&simulationMeshOutlineVertexPositions.front(), sgl::VERTEX_BUFFER);
+
+    return renderData;
+}
+
+void LineData::loadSimulationMeshOutlineFromFile(
+        const std::string& simulationMeshFilename, const sgl::AABB3& oldAABB, glm::mat4* transformationMatrixPtr) {
+    loadMeshBoundarySurfaceFromFile(
+            simulationMeshFilename, simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
+    normalizeVertexPositions(simulationMeshOutlineVertexPositions, oldAABB, transformationMatrixPtr);
+}
+
 void LineData::setUniformGatherShaderData(sgl::ShaderProgramPtr& gatherShader) {
     setUniformGatherShaderData_AllPasses();
     setUniformGatherShaderData_Pass(gatherShader);
@@ -203,4 +263,9 @@ void LineData::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShad
             transferFunctionWindow.getTransferFunctionMapTexture(), 0);
     gatherShader->setUniformOptional("minAttributeValue", transferFunctionWindow.getSelectedRangeMin());
     gatherShader->setUniformOptional("maxAttributeValue", transferFunctionWindow.getSelectedRangeMax());
+}
+
+void LineData::setUniformGatherShaderDataHull_Pass(sgl::ShaderProgramPtr& gatherShader) {
+    gatherShader->setUniformOptional("color", glm::vec4(hullColor.r, hullColor.g, hullColor.b, hullOpacity));
+    //gatherShader->setUniformOptional("useShading", int(useShading));
 }

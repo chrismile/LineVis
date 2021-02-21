@@ -193,7 +193,7 @@ void MainApp::setNewState(const InternalState &newState) {
             }
         }
         if (selectedDataSetIndex == 0) {
-            if (dataSetInformation.at(selectedDataSetIndex - 1).type == DATA_SET_TYPE_STRESS_LINES
+            if (dataSetInformation.at(selectedDataSetIndex - 2).type == DATA_SET_TYPE_STRESS_LINES
                     && newState.dataSetDescriptor.enabledFileIndices.size() == 3) {
                 LineDataStress::setUseMajorPS(newState.dataSetDescriptor.enabledFileIndices.at(0));
                 LineDataStress::setUseMediumPS(newState.dataSetDescriptor.enabledFileIndices.at(1));
@@ -314,6 +314,10 @@ void MainApp::renderGui() {
         ImGui::End();
     }
 
+    if (selectedDataSetIndex == 1) {
+        stressLineTracingRequester.renderGui();
+    }
+
     if ((!lineData || lineData->shallRenderTransferFunctionWindow()) && transferFunctionWindow.renderGui()) {
         reRender = true;
         if (transferFunctionWindow.getTransferFunctionMapRebuilt()) {
@@ -343,6 +347,7 @@ void MainApp::renderGui() {
 void MainApp::loadAvailableDataSetInformation() {
     dataSetNames.clear();
     dataSetNames.push_back("Local file...");
+    dataSetNames.push_back("Stress Line Tracer");
     selectedDataSetIndex = 0;
 
     if (sgl::FileUtils::get()->exists(lineDataSetsDirectory + "datasets.json")) {
@@ -359,9 +364,13 @@ std::vector<std::string> MainApp::getSelectedMeshFilenames() {
         dataSetType = DATA_SET_TYPE_FLOW_LINES;
         filenames.push_back(customDataSetFileName);
         return filenames;
+    } else if (selectedDataSetIndex == 1) {
+        dataSetType = DATA_SET_TYPE_STRESS_LINES;
+        filenames.push_back(customDataSetFileName);
+        return filenames;
     }
-    dataSetType = dataSetInformation.at(selectedDataSetIndex - 1).type;
-    for (const std::string& filename : dataSetInformation.at(selectedDataSetIndex - 1).filenames) {
+    dataSetType = dataSetInformation.at(selectedDataSetIndex - 2).type;
+    for (const std::string& filename : dataSetInformation.at(selectedDataSetIndex - 2).filenames) {
         filenames.push_back(filename);
     }
     return filenames;
@@ -371,7 +380,9 @@ void MainApp::renderFileSelectionSettingsGui() {
     if (ImGui::Combo(
             "Data Set", &selectedDataSetIndex, dataSetNames.data(),
             dataSetNames.size())) {
-        loadLineDataSet(getSelectedMeshFilenames());
+        if (selectedDataSetIndex >= 2) {
+            loadLineDataSet(getSelectedMeshFilenames());
+        }
     }
 
     if (selectedDataSetIndex == 0) {
@@ -452,8 +463,8 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
     LineRenderer::setLineWidth(STANDARD_LINE_WIDTH);
 
     DataSetInformation selectedDataSetInformation;
-    if (selectedDataSetIndex > 0 && dataSetInformation.size() > 0) {
-        selectedDataSetInformation = dataSetInformation.at(selectedDataSetIndex - 1);
+    if (selectedDataSetIndex >= 2 && dataSetInformation.size() > 0) {
+        selectedDataSetInformation = dataSetInformation.at(selectedDataSetIndex - 2);
         if (selectedDataSetInformation.hasCustomLineWidth) {
             LineRenderer::setLineWidth(selectedDataSetInformation.lineWidth);
         }

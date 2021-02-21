@@ -113,9 +113,6 @@ protected:
     int numLayers = 8;
     SyncMode syncMode; ///!< Initialized depending on system capabilities.
     bool useOrderedFragmentShaderInterlock = true;
-
-    // GUI data.
-    bool showRendererWindow = true;
 };
 
 #endif //STRESSLINEVIS_MLABRENDERER_HPP

@@ -40,6 +40,7 @@
 #include "Loaders/DataSetList.hpp"
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
 #include "LineData/Filters/LineFilter.hpp"
+#include "LineData/StressLineTracingRequester.hpp"
 #include "Renderers/SceneData.hpp"
 
 class LineRenderer;
@@ -117,6 +118,7 @@ private:
     LineDataPtr lineData;
     bool newMeshLoaded = true;
     sgl::AABB3 modelBoundingBox;
+    StressLineTracingRequester stressLineTracingRequester;
 };
 
 #endif // MAINAPP_HPP

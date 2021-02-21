@@ -69,6 +69,7 @@ DepthComplexityRenderer::DepthComplexityRenderer(SceneData &sceneData, sgl::Tran
 }
 
 void DepthComplexityRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
+    LineRenderer::reloadGatherShader();
     gatherShader = lineData->reloadGatherShader();
     if (canCopyShaderAttributes && shaderAttributes) {
         shaderAttributes = shaderAttributes->copy(gatherShader);
@@ -159,6 +160,7 @@ void DepthComplexityRenderer::gather() {
 
     // Now, the final gather step.
     sgl::Renderer->render(shaderAttributes);
+    //renderHull(); // Doesn't make sense for this renderer.
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     glEnable(GL_CULL_FACE);
 }

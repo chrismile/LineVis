@@ -99,6 +99,7 @@ void PerPixelLinkedListLineRenderer::reloadResolveShader() {
 }
 
 void PerPixelLinkedListLineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
+    LineRenderer::reloadGatherShader();
     gatherShader = lineData->reloadGatherShader();
     if (canCopyShaderAttributes && shaderAttributes) {
         shaderAttributes = shaderAttributes->copy(gatherShader);
@@ -284,11 +285,6 @@ void PerPixelLinkedListLineRenderer::clear() {
 }
 
 void PerPixelLinkedListLineRenderer::gather() {
-    // Recording mode.
-    if (sceneData.recordingMode && sceneData.useCameraFlight) {
-        // TODO: Adapt focus radius depending on distance of camera to origin?
-    }
-
     // Enable the depth test, but disable depth write for gathering.
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -311,6 +307,7 @@ void PerPixelLinkedListLineRenderer::gather() {
         glDisable(GL_CULL_FACE);
     }
     sgl::Renderer->render(shaderAttributes);
+    renderHull();
     if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
         glEnable(GL_CULL_FACE);
     }

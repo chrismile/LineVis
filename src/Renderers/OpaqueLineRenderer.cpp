@@ -61,6 +61,7 @@ void OpaqueLineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     sgl::ShaderManager->invalidateShaderCache();
     sgl::ShaderManager->addPreprocessorDefine("DIRECT_BLIT_GATHER", "");
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "GatherDummy.glsl");
+    LineRenderer::reloadGatherShader();
     gatherShader = lineData->reloadGatherShader();
     gatherShaderPoints = sgl::ShaderManager->getShaderProgram({
         "Point.Vertex", "Point.Geometry", "Point.Fragment"
@@ -153,6 +154,8 @@ void OpaqueLineRenderer::render() {
         gatherShaderPoints->setUniform("pointColor", glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
         sgl::Renderer->render(shaderAttributesDegeneratePoints);
     }
+
+    renderHull();
 
     if (useMultisampling) {
         sgl::Renderer->bindFBO(sceneData.framebuffer);

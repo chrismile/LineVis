@@ -91,15 +91,21 @@ public:
 
 protected:
     // Reload the gather shader.
-    virtual void reloadGatherShader(bool canCopyShaderAttributes = true)=0;
+    virtual void reloadGatherShader(bool canCopyShaderAttributes = true);
     void updateNewLineData(LineDataPtr& lineData, bool isNewMesh);
     // GUI rendering code to be implemented by sub-classes.
     virtual void renderGui()=0;
     bool showRendererWindow = true;
+    // Rendering helpers for sub-classes.
+    void renderHull();
 
     // Metadata about renderer.
     bool isRasterizer = true;
     std::string windowName;
+
+    // For rendering the simulation mesh hull.
+    sgl::ShaderProgramPtr gatherShaderHull;
+    sgl::ShaderAttributesPtr shaderAttributesHull;
 
     SceneData& sceneData;
     LineDataPtr lineData;

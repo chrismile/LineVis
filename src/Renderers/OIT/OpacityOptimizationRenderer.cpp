@@ -157,6 +157,7 @@ void OpacityOptimizationRenderer::reloadGatherShader(bool canCopyShaderAttribute
     }
     sgl::ShaderManager->addPreprocessorDefine("USE_TRANSPARENCY", "");
 
+    LineRenderer::reloadGatherShader();
     if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
         gatherPpllOpacitiesShader = sgl::ShaderManager->getShaderProgram({
                 "GeometryPassOpacitiesBand.VBO.Vertex",
@@ -820,6 +821,7 @@ void OpacityOptimizationRenderer::gatherPpllFinal() {
         glDisable(GL_CULL_FACE);
     }
     sgl::Renderer->render(gatherPpllFinalRenderData);
+    renderHull();
     if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
         glEnable(GL_CULL_FACE);
     }
