@@ -3,15 +3,15 @@
 #version 430 core
 
 layout(location = 0) in vec3 vertexPosition;
-//layout(location = 1) in vec3 vertexNormal;
+layout(location = 1) in vec3 vertexNormal;
 
 out vec3 fragmentPositionWorld;
-//out vec3 fragmentNormal;
+out vec3 fragmentNormal;
 out vec4 fragmentColor;
 
 void main()
 {
-    //fragmentNormal = vertexNormal;
+    fragmentNormal = vertexNormal;
     fragmentPositionWorld = (mMatrix * vec4(vertexPosition, 1.0)).xyz;
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
 }
@@ -23,29 +23,29 @@ void main()
 uniform vec4 color;
 
 in vec3 fragmentPositionWorld;
-//in vec3 fragmentNormal;
+in vec3 fragmentNormal;
 
 #if defined(DIRECT_BLIT_GATHER)
 out vec4 fragColor;
 #endif
 
-//uniform vec3 cameraPosition; // in world space
-//uniform int useShading = 1;
+uniform vec3 cameraPosition; // in world space
+uniform int useShading = 1;
 
 #if !defined(DIRECT_BLIT_GATHER)
 #include OIT_GATHER_HEADER
 #endif
 
-//#include "Lighting.glsl"
+#include "Lighting.glsl"
 
 void main()
 {
     vec4 phongColor;
-    //if (useShading == 1) {
-    //    phongColor = blinnPhongShading(color);
-    //} else {
+    if (useShading == 1) {
+        phongColor = blinnPhongShading(color, fragmentNormal);
+    } else {
         phongColor = color;
-    //}
+    }
 
 #if defined(DIRECT_BLIT_GATHER)
     // Direct rendering, no transparency.

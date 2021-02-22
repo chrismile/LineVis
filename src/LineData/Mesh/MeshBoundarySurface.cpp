@@ -222,6 +222,7 @@ void loadMeshBoundarySurfaceFromFile(
         triangleIndices.push_back(vertexIndexMap[f.vs[3]]);
     }
 
+
     for (auto& it : meshLoaderMap) {
         delete it.second;
     }

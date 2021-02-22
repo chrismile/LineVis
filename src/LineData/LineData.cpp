@@ -34,6 +34,7 @@
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_custom.h>
 
+#include "Utils/TriangleNormals.hpp"
 #include "Renderers/LineRenderer.hpp"
 #include "Mesh/MeshBoundarySurface.hpp"
 #include "LineData.hpp"
@@ -90,6 +91,9 @@ bool LineData::renderGui(bool isRasterizer) {
                 reRender = true;
             }
             if (ImGui::ColorEdit3("Hull Color", &hullColor.r)) {
+                reRender = true;
+            }
+            if (ImGui::Checkbox("Use Shading for Hull", &hullUseShading)) {
                 reRender = true;
             }
         }
@@ -219,6 +223,8 @@ sgl::ShaderAttributesPtr LineData::getGatherShaderAttributesHull(sgl::ShaderProg
     shaderAttributes->setIndexGeometryBuffer(renderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
     shaderAttributes->addGeometryBuffer(
             renderData.vertexPositionBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
+    shaderAttributes->addGeometryBuffer(
+            renderData.vertexNormalBuffer, "vertexNormal", sgl::ATTRIB_FLOAT, 3);
 
     return shaderAttributes;
 }
@@ -236,6 +242,11 @@ SimulationMeshOutlineRenderData LineData::getSimulationMeshOutlineRenderData() {
             simulationMeshOutlineVertexPositions.size()*sizeof(glm::vec3),
             (void*)&simulationMeshOutlineVertexPositions.front(), sgl::VERTEX_BUFFER);
 
+    // Add the normal buffer.
+    renderData.vertexNormalBuffer = sgl::Renderer->createGeometryBuffer(
+            simulationMeshOutlineVertexNormals.size()*sizeof(glm::vec3),
+            (void*)&simulationMeshOutlineVertexNormals.front(), sgl::VERTEX_BUFFER);
+
     return renderData;
 }
 
@@ -244,6 +255,9 @@ void LineData::loadSimulationMeshOutlineFromFile(
     loadMeshBoundarySurfaceFromFile(
             simulationMeshFilename, simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
     normalizeVertexPositions(simulationMeshOutlineVertexPositions, oldAABB, transformationMatrixPtr);
+    computeSmoothTriangleNormals(
+            simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions,
+            simulationMeshOutlineVertexNormals);
 }
 
 void LineData::setUniformGatherShaderData(sgl::ShaderProgramPtr& gatherShader) {
@@ -267,5 +281,5 @@ void LineData::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShad
 
 void LineData::setUniformGatherShaderDataHull_Pass(sgl::ShaderProgramPtr& gatherShader) {
     gatherShader->setUniformOptional("color", glm::vec4(hullColor.r, hullColor.g, hullColor.b, hullOpacity));
-    //gatherShader->setUniformOptional("useShading", int(useShading));
+    gatherShader->setUniformOptional("useShading", int(hullUseShading));
 }

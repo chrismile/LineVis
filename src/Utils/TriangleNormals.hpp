@@ -35,12 +35,12 @@
 
 /**
  * Computes smooth normals for the passed triangle data.
- * @param vertexPositions The vertex positions.
  * @param triangleIndices A list of triangle indices. Three consecutive entries form one triangle.
+ * @param vertexPositions The vertex positions.
  * @param vertexNormals The output vertex normals.
  */
 void computeSmoothTriangleNormals(
-        const std::vector<glm::vec3>& vertexPositions, const std::vector<uint32_t>& triangleIndices,
+        const std::vector<uint32_t>& triangleIndices, const std::vector<glm::vec3>& vertexPositions,
         std::vector<glm::vec3>& vertexNormals);
 
 #endif //LINEVIS_TRIANGLENORMALS_HPP

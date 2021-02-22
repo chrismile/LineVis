@@ -31,7 +31,7 @@
 #include "TriangleNormals.hpp"
 
 void computeSmoothTriangleNormals(
-        const std::vector<glm::vec3>& vertexPositions, const std::vector<uint32_t>& triangleIndices,
+        const std::vector<uint32_t>& triangleIndices, const std::vector<glm::vec3>& vertexPositions,
         std::vector<glm::vec3>& vertexNormals) {
     vertexNormals.resize(vertexPositions.size(), glm::vec3(0.0f));
 
