@@ -42,17 +42,24 @@
 #include "MLABRenderer.hpp"
 
 // Whether to use stencil buffer to mask unused pixels.
-static bool useStencilBuffer = false;
+bool MLABRenderer::useStencilBuffer = true;
 
 MLABRenderer::MLABRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
+        : MLABRenderer("Multi-Layer Alpha Blending Renderer", sceneData, transferFunctionWindow) {
+}
+
+MLABRenderer::MLABRenderer(
+        const std::string& windowName, SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineRenderer("Multi-Layer Alpha Blending Renderer", sceneData, transferFunctionWindow) {
+}
+
+void MLABRenderer::initialize() {
     clearBitSet = true;
     syncMode = getSupportedSyncMode();
 
-    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"MLABGather.glsl\"");
     updateLayerMode();
     sgl::ShaderManager->invalidateShaderCache();
-    resolveShader = sgl::ShaderManager->getShaderProgram({"MLABResolve.Vertex", "MLABResolve.Fragment"});
+    reloadResolveShader();
     clearShader = sgl::ShaderManager->getShaderProgram({"MLABClear.Vertex", "MLABClear.Fragment"});
 
     // Create blitting data (fullscreen rectangle in normalized device coordinates).
@@ -82,7 +89,7 @@ void MLABRenderer::updateSyncMode() {
     if (syncMode == SYNC_SPINLOCK) {
         spinlockViewportBuffer = sgl::Renderer->createGeometryBuffer(
                 sizeof(uint32_t) * size_t(paddedWidth) * size_t(paddedHeight),
-                NULL, sgl::SHADER_STORAGE_BUFFER);
+                nullptr, sgl::SHADER_STORAGE_BUFFER);
 
         // Set all values in the buffer to zero.
         GLuint bufferId = static_cast<sgl::GeometryBufferGL*>(spinlockViewportBuffer.get())->getBuffer();
@@ -128,11 +135,15 @@ void MLABRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
         sgl::ShaderManager->addPreprocessorDefine("GATHER_NO_DISCARD", "");
     }
 
+    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"MLABGather.glsl\"");
+
     LineRenderer::reloadGatherShader();
     gatherShader = lineData->reloadGatherShader();
     if (canCopyShaderAttributes && shaderAttributes) {
         shaderAttributes = shaderAttributes->copy(gatherShader);
     }
+
+    sgl::ShaderManager->removePreprocessorDefine("OIT_GATHER_HEADER");
 
     if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
         sgl::ShaderManager->removePreprocessorDefine("USE_SYNC_FRAGMENT_SHADER_INTERLOCK");
@@ -179,7 +190,6 @@ void MLABRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
 
     // Unload old data.
     shaderAttributes = sgl::ShaderAttributesPtr();
-
     shaderAttributes = lineData->getGatherShaderAttributes(gatherShader);
 
     dirty = false;
@@ -214,7 +224,6 @@ void MLABRenderer::reallocateFragmentBuffer() {
             fragmentBufferSizeBytes, NULL, sgl::SHADER_STORAGE_BUFFER);
 
     updateSyncMode();
-
 
     // Buffer has to be cleared again.
     clearBitSet = true;

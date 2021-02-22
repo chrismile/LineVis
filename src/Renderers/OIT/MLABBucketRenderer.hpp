@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2021, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,44 +26,41 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef STRESSLINEVIS_MLABRENDERER_HPP
-#define STRESSLINEVIS_MLABRENDERER_HPP
+#ifndef LINEVIS_MLABBUCKETRENDERER_HPP
+#define LINEVIS_MLABBUCKETRENDERER_HPP
 
 #include <Graphics/Shader/ShaderAttributes.hpp>
 #include <Graphics/OpenGL/TimerGL.hpp>
 
 #include "SyncMode.hpp"
-#include "Renderers/LineRenderer.hpp"
+#include "MLABRenderer.hpp"
 
 /**
  * Renders all lines with transparency values determined by the transfer function set by the user.
- * For this, the order-independent transparency (OIT) technique Multi-Layer Alpha Blending (MLAB) is used.
- * For more details see: Marco Salvi and Karthik Vaidyanathan. 2014. Multi-layer Alpha Blending. In Proceedings of the
- * 18th Meeting of the ACM SIGGRAPH Symposium on Interactive 3D Graphics and Games (San Francisco, California)
+ * For this, the order-independent transparency (OIT) technique Multi-Layer Alpha Blending with Depth Buckets (MLABDB)
+ * is used. This is a revised version of Multi-Layer Alpha Blending (MLAB).
+ *
+ * For more details on MLAB see: Marco Salvi and Karthik Vaidyanathan. 2014. Multi-layer Alpha Blending. In Proceedings
+ * of the 18th Meeting of the ACM SIGGRAPH Symposium on Interactive 3D Graphics and Games (San Francisco, California)
  * (I3D ’14). ACM, New York, NY, USA, 151–158. https://doi.org/10.1145/2556700.2556705
  *
- * For a comparison of different OIT algorithms see:
+ * For more details on MLABDB and a comparison of different OIT algorithms see:
  * M. Kern, C. Neuhauser, T. Maack, M. Han, W. Usher and R. Westermann, "A Comparison of Rendering Techniques for 3D
  * Line Sets with Transparency," in IEEE Transactions on Visualization and Computer Graphics, 2020.
  * doi: 10.1109/TVCG.2020.2975795
  * URL: http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9007507&isnumber=4359476
  */
-class MLABRenderer : public LineRenderer {
+class MLABBucketRenderer : public MLABRenderer {
 public:
-    MLABRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
-    MLABRenderer(
-            const std::string& windowName, SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow);
+    MLABBucketRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     virtual void initialize();
-    virtual ~MLABRenderer() {}
+    virtual ~MLABBucketRenderer();
 
     /**
      * Re-generates the visualization mapping.
      * @param lineData The render data.
      */
     virtual void setLineData(LineDataPtr& lineData, bool isNewMesh);
-
-    /// Called when the resolution of the application window has changed.
-    virtual void onResolutionChanged();
 
     // Renders the object to the scene framebuffer.
     virtual void render();
@@ -74,48 +71,15 @@ public:
     virtual void setNewState(const InternalState& newState);
 
 protected:
-    void updateSyncMode();
-    void updateLayerMode();
-    virtual void reallocateFragmentBuffer();
-    void setUniformData();
-    void clear();
-    void gather();
-    void resolve();
-    void reloadShaders();
     void reloadGatherShader(bool canCopyShaderAttributes = true) override;
-    void reloadResolveShader();
+    void reallocateFragmentBuffer() override;
+    void setUniformData();
+    void gather();
+    void computeDepthRange();
 
-    // Shaders.
-    sgl::ShaderProgramPtr gatherShader;
-    sgl::ShaderProgramPtr clearShader;
-    sgl::ShaderProgramPtr resolveShader;
-
-    // Render data.
-    sgl::ShaderAttributesPtr shaderAttributes;
-    // Blit data (ignores model-view-projection matrix and uses normalized device coordinates).
-    sgl::ShaderAttributesPtr blitRenderData;
-    sgl::ShaderAttributesPtr clearRenderData;
-
-    // Stored fragment data.
-    sgl::GeometryBufferPtr fragmentBuffer;
-    sgl::GeometryBufferPtr spinlockViewportBuffer; ///!< if (syncMode == SYNC_SPINLOCK)
-
-    // Window data.
-    int windowWidth = 0, windowHeight = 0;
-    int paddedWindowWidth = 0, paddedWindowHeight = 0;
-    bool clearBitSet = true;
-
-    // Data for performance measurements.
-    int frameCounter = 0;
-    std::string currentStateName;
-    bool timerDataIsWritten = true;
-    sgl::TimerGL* timer = nullptr;
-
-    // MLAB settings.
-    static bool useStencilBuffer;
-    int numLayers = 8;
-    SyncMode syncMode; ///!< Initialized depending on system capabilities.
-    bool useOrderedFragmentShaderInterlock = true;
+    sgl::ShaderProgramPtr minDepthPassShader;
+    sgl::ShaderAttributesPtr minDepthPassShaderAttributes;
+    sgl::GeometryBufferPtr minDepthBuffer;
 };
 
-#endif //STRESSLINEVIS_MLABRENDERER_HPP
+#endif //LINEVIS_MLABBUCKETRENDERER_HPP

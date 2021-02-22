@@ -87,6 +87,17 @@ layout (std430, binding = 0) coherent buffer FragmentNodes {
 };
 
 
+#ifdef MLAB_MIN_DEPTH_BUCKETS
+struct MinDepthNode {
+    float minDepth;
+    float minOpaqueDepth;
+};
+
+layout (std430, binding = 1) coherent buffer MinDepthBuffer {
+    MinDepthNode depthBuffer[];
+};
+#endif
+
 
 // Load the fragments into "nodeArray"
 void loadFragmentNodes(in uint pixelIndex, out MLABFragmentNode nodeArray[MAX_NUM_LAYERS+1]) {
@@ -140,4 +151,11 @@ void clearPixel(uint pixelIndex) {
         nodeArray[i].premulColor = 0xFF000000u; // 100% transparency, i.e. 0% opacity
     }
     storeFragmentNodes(pixelIndex, nodeArray);
+
+#ifdef MLAB_MIN_DEPTH_BUCKETS
+    MinDepthNode depthInfo;
+    depthInfo.minDepth = 1.0;
+    depthInfo.minOpaqueDepth = 1.0;
+    depthBuffer[pixelIndex] = depthInfo;
+#endif
 }

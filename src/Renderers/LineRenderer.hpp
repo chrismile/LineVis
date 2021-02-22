@@ -53,6 +53,7 @@ public:
     LineRenderer(
             const std::string& windowName, SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow)
         : windowName(windowName), sceneData(sceneData), transferFunctionWindow(transferFunctionWindow) {}
+    virtual void initialize() {}
     virtual ~LineRenderer() {}
 
     // Returns if the visualization mapping needs to be re-generated.

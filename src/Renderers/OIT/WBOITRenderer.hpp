@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2021, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,35 +26,24 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef STRESSLINEVIS_MLABRENDERER_HPP
-#define STRESSLINEVIS_MLABRENDERER_HPP
+#ifndef LINEVIS_WBOITRENDERER_HPP
+#define LINEVIS_WBOITRENDERER_HPP
 
-#include <Graphics/Shader/ShaderAttributes.hpp>
-#include <Graphics/OpenGL/TimerGL.hpp>
-
-#include "SyncMode.hpp"
 #include "Renderers/LineRenderer.hpp"
 
 /**
  * Renders all lines with transparency values determined by the transfer function set by the user.
- * For this, the order-independent transparency (OIT) technique Multi-Layer Alpha Blending (MLAB) is used.
- * For more details see: Marco Salvi and Karthik Vaidyanathan. 2014. Multi-layer Alpha Blending. In Proceedings of the
- * 18th Meeting of the ACM SIGGRAPH Symposium on Interactive 3D Graphics and Games (San Francisco, California)
- * (I3D ’14). ACM, New York, NY, USA, 151–158. https://doi.org/10.1145/2556700.2556705
+ * For this, the order-independent transparency (OIT) technique Weighted Blended Order-Independent Transparency (WBOIT)
+ * is used. For more details see: Morgan McGuire and Louis Bavoil. 2013. Weighted Blended Order-Independent
+ * Transparency. Journal of Computer Graphics Techniques (JCGT), vol. 2, no. 2, 122-141, 2013.
  *
- * For a comparison of different OIT algorithms see:
- * M. Kern, C. Neuhauser, T. Maack, M. Han, W. Usher and R. Westermann, "A Comparison of Rendering Techniques for 3D
- * Line Sets with Transparency," in IEEE Transactions on Visualization and Computer Graphics, 2020.
- * doi: 10.1109/TVCG.2020.2975795
- * URL: http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9007507&isnumber=4359476
+ * For more details regarding the implementation see:
+ * http://casual-effects.blogspot.com/2015/03/implemented-weighted-blended-order.html
  */
-class MLABRenderer : public LineRenderer {
+class WBOITRenderer : public LineRenderer {
 public:
-    MLABRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
-    MLABRenderer(
-            const std::string& windowName, SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow);
-    virtual void initialize();
-    virtual ~MLABRenderer() {}
+    WBOITRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+    virtual ~WBOITRenderer() {}
 
     /**
      * Re-generates the visualization mapping.
@@ -70,52 +59,26 @@ public:
     // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
     virtual void renderGui();
 
-    /// For changing performance measurement modes.
-    virtual void setNewState(const InternalState& newState);
-
-protected:
-    void updateSyncMode();
-    void updateLayerMode();
-    virtual void reallocateFragmentBuffer();
+private:
     void setUniformData();
     void clear();
-    void gather();
-    void resolve();
     void reloadShaders();
     void reloadGatherShader(bool canCopyShaderAttributes = true) override;
     void reloadResolveShader();
 
     // Shaders.
     sgl::ShaderProgramPtr gatherShader;
-    sgl::ShaderProgramPtr clearShader;
     sgl::ShaderProgramPtr resolveShader;
 
     // Render data.
     sgl::ShaderAttributesPtr shaderAttributes;
     // Blit data (ignores model-view-projection matrix and uses normalized device coordinates).
     sgl::ShaderAttributesPtr blitRenderData;
-    sgl::ShaderAttributesPtr clearRenderData;
 
-    // Stored fragment data.
-    sgl::GeometryBufferPtr fragmentBuffer;
-    sgl::GeometryBufferPtr spinlockViewportBuffer; ///!< if (syncMode == SYNC_SPINLOCK)
-
-    // Window data.
-    int windowWidth = 0, windowHeight = 0;
-    int paddedWindowWidth = 0, paddedWindowHeight = 0;
-    bool clearBitSet = true;
-
-    // Data for performance measurements.
-    int frameCounter = 0;
-    std::string currentStateName;
-    bool timerDataIsWritten = true;
-    sgl::TimerGL* timer = nullptr;
-
-    // MLAB settings.
-    static bool useStencilBuffer;
-    int numLayers = 8;
-    SyncMode syncMode; ///!< Initialized depending on system capabilities.
-    bool useOrderedFragmentShaderInterlock = true;
+    // Render data of depth peeling
+    sgl::FramebufferObjectPtr gatherPassFBO;
+    sgl::TexturePtr accumulationRenderTexture;
+    sgl::TexturePtr revealageRenderTexture;
 };
 
-#endif //STRESSLINEVIS_MLABRENDERER_HPP
+#endif //LINEVIS_WBOITRENDERER_HPP

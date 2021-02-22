@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2021, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,35 +26,28 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef STRESSLINEVIS_MLABRENDERER_HPP
-#define STRESSLINEVIS_MLABRENDERER_HPP
+#ifndef LINEVIS_MBOITRENDERER_HPP
+#define LINEVIS_MBOITRENDERER_HPP
 
-#include <Graphics/Shader/ShaderAttributes.hpp>
-#include <Graphics/OpenGL/TimerGL.hpp>
-
-#include "SyncMode.hpp"
 #include "Renderers/LineRenderer.hpp"
+#include "SyncMode.hpp"
+#include "MBOITUtils.hpp"
 
 /**
  * Renders all lines with transparency values determined by the transfer function set by the user.
- * For this, the order-independent transparency (OIT) technique Multi-Layer Alpha Blending (MLAB) is used.
- * For more details see: Marco Salvi and Karthik Vaidyanathan. 2014. Multi-layer Alpha Blending. In Proceedings of the
- * 18th Meeting of the ACM SIGGRAPH Symposium on Interactive 3D Graphics and Games (San Francisco, California)
- * (I3D ’14). ACM, New York, NY, USA, 151–158. https://doi.org/10.1145/2556700.2556705
+ * For this, the order-independent transparency (OIT) technique moment-based order-independent transparency (MBOIT) is
+ * used.
  *
- * For a comparison of different OIT algorithms see:
- * M. Kern, C. Neuhauser, T. Maack, M. Han, W. Usher and R. Westermann, "A Comparison of Rendering Techniques for 3D
- * Line Sets with Transparency," in IEEE Transactions on Visualization and Computer Graphics, 2020.
- * doi: 10.1109/TVCG.2020.2975795
- * URL: http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9007507&isnumber=4359476
+ * C. Munstermann, S. Krumpen, R. Klein, and C. Peters, "Moment-based order-independent transparency," Proceedings of
+ * the ACM on Computer Graphics and Interactive Techniques, vol. 1, no. 1, pp. 7:1–7:20, May 2018.
+ *
+ * This implementation only supports the variant of MBOIT using fragment shader interlock/ROVs (i.e.,
+ * GL_ARB_fragment_shader_interlock).
  */
-class MLABRenderer : public LineRenderer {
+class MBOITRenderer : public LineRenderer {
 public:
-    MLABRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
-    MLABRenderer(
-            const std::string& windowName, SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow);
-    virtual void initialize();
-    virtual ~MLABRenderer() {}
+    MBOITRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+    virtual ~MBOITRenderer() {}
 
     /**
      * Re-generates the visualization mapping.
@@ -73,49 +66,51 @@ public:
     /// For changing performance measurement modes.
     virtual void setNewState(const InternalState& newState);
 
-protected:
+private:
     void updateSyncMode();
-    void updateLayerMode();
-    virtual void reallocateFragmentBuffer();
+    void updateMomentMode();
     void setUniformData();
-    void clear();
+    void computeDepthRange();
     void gather();
     void resolve();
     void reloadShaders();
     void reloadGatherShader(bool canCopyShaderAttributes = true) override;
     void reloadResolveShader();
 
-    // Shaders.
-    sgl::ShaderProgramPtr gatherShader;
-    sgl::ShaderProgramPtr clearShader;
-    sgl::ShaderProgramPtr resolveShader;
+    sgl::ShaderProgramPtr mboitPass1Shader;
+    sgl::ShaderAttributesPtr shaderAttributesPass1;
+    sgl::ShaderProgramPtr mboitPass2Shader;
+    sgl::ShaderAttributesPtr shaderAttributesPass2;
+    sgl::ShaderProgramPtr blendShader;
 
-    // Render data.
-    sgl::ShaderAttributesPtr shaderAttributes;
-    // Blit data (ignores model-view-projection matrix and uses normalized device coordinates).
+    MomentOITUniformData momentUniformData;
+    sgl::GeometryBufferPtr momentOITUniformBuffer;
+
+    // Blit data (ignores model-view-projection matrix and uses normalized device coordinates)
     sgl::ShaderAttributesPtr blitRenderData;
-    sgl::ShaderAttributesPtr clearRenderData;
+    //sgl::ShaderAttributesPtr clearRenderData;
 
-    // Stored fragment data.
-    sgl::GeometryBufferPtr fragmentBuffer;
+    sgl::TexturePtr b0;
+    sgl::TexturePtr b;
+    sgl::TexturePtr bExtra;
+    sgl::TextureSettings textureSettingsB0;
+    sgl::TextureSettings textureSettingsB;
+    sgl::TextureSettings textureSettingsBExtra;
+
+    sgl::FramebufferObjectPtr blendFBO;
+    sgl::TexturePtr blendRenderTexture;
+
     sgl::GeometryBufferPtr spinlockViewportBuffer; ///!< if (syncMode == SYNC_SPINLOCK)
-
-    // Window data.
-    int windowWidth = 0, windowHeight = 0;
-    int paddedWindowWidth = 0, paddedWindowHeight = 0;
-    bool clearBitSet = true;
-
-    // Data for performance measurements.
-    int frameCounter = 0;
-    std::string currentStateName;
-    bool timerDataIsWritten = true;
-    sgl::TimerGL* timer = nullptr;
-
-    // MLAB settings.
-    static bool useStencilBuffer;
-    int numLayers = 8;
     SyncMode syncMode; ///!< Initialized depending on system capabilities.
     bool useOrderedFragmentShaderInterlock = true;
+
+    // Internal mode
+    static bool useStencilBuffer; ///< Use stencil buffer to mask unused pixels.
+    static bool usePowerMoments;
+    static int numMoments;
+    static MBOITPixelFormat pixelFormat;
+    static bool USE_R_RG_RGBA_FOR_MBOIT6;
+    static float overestimationBeta;
 };
 
-#endif //STRESSLINEVIS_MLABRENDERER_HPP
+#endif //LINEVIS_MBOITRENDERER_HPP

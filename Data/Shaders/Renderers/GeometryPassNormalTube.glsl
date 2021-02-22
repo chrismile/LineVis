@@ -53,6 +53,9 @@ uniform vec3 cameraPosition;
 uniform float lineWidth;
 
 out vec3 fragmentPositionWorld;
+#ifdef USE_SCREEN_SPACE_POSITION
+out vec3 screenSpacePosition;
+#endif
 out float fragmentAttribute;
 out vec3 fragmentNormal;
 out vec3 fragmentTangent;
@@ -132,11 +135,17 @@ void main() {
         gl_Position = pvMatrix * vec4(circlePointsCurrent[i], 1.0);
         fragmentNormal = vertexNormalsCurrent[i];
         fragmentPositionWorld = (mMatrix * vec4(circlePointsCurrent[i], 1.0)).xyz;
+#ifdef USE_SCREEN_SPACE_POSITION
+        screenSpacePosition = (vMatrix * vec4(circlePointsCurrent[i], 1.0)).xyz;
+#endif
         EmitVertex();
 
         gl_Position = pvMatrix * vec4(circlePointsCurrent[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0);
         fragmentNormal = vertexNormalsCurrent[(i+1)%NUM_TUBE_SUBDIVISIONS];
         fragmentPositionWorld = (mMatrix * vec4(circlePointsCurrent[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0)).xyz;
+#ifdef USE_SCREEN_SPACE_POSITION
+        screenSpacePosition = (vMatrix * vec4(circlePointsCurrent[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0)).xyz;
+#endif
         EmitVertex();
 
 
@@ -152,11 +161,17 @@ void main() {
         gl_Position = pvMatrix * vec4(circlePointsNext[i], 1.0);
         fragmentNormal = vertexNormalsNext[i];
         fragmentPositionWorld = (mMatrix * vec4(circlePointsNext[i], 1.0)).xyz;
+#ifdef USE_SCREEN_SPACE_POSITION
+        screenSpacePosition = (vMatrix * vec4(circlePointsNext[i], 1.0)).xyz;
+#endif
         EmitVertex();
 
         gl_Position = pvMatrix * vec4(circlePointsNext[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0);
         fragmentNormal = vertexNormalsNext[(i+1)%NUM_TUBE_SUBDIVISIONS];
         fragmentPositionWorld = (mMatrix * vec4(circlePointsNext[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0)).xyz;
+#ifdef USE_SCREEN_SPACE_POSITION
+        screenSpacePosition = (vMatrix * vec4(circlePointsNext[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0)).xyz;
+#endif
         EmitVertex();
 
         EndPrimitive();
@@ -168,6 +183,9 @@ void main() {
 #version 450 core
 
 in vec3 fragmentPositionWorld;
+#ifdef USE_SCREEN_SPACE_POSITION
+in vec3 screenSpacePosition;
+#endif
 in float fragmentAttribute;
 in vec3 fragmentNormal;
 in vec3 fragmentTangent;
@@ -290,7 +308,7 @@ void main() {
 #elif defined(USE_SYNC_FRAGMENT_SHADER_INTERLOCK)
     // Area of mutual exclusion for fragments mapping to the same pixel
     beginInvocationInterlockARB();
-    gatherFragmentCustomDepth(colorOut, fragmentDepth);
+    gatherFragment(colorOut);
     endInvocationInterlockARB();
 #elif defined(USE_SYNC_SPINLOCK)
     uint x = uint(gl_FragCoord.x);
@@ -304,7 +322,7 @@ void main() {
         bool keepWaiting = true;
         while (keepWaiting) {
             if (atomicCompSwap(spinlockViewportBuffer[pixelIndex], 0, 1) == 0) {
-                gatherFragmentCustomDepth(colorOut, fragmentDepth);
+                gatherFragment(colorOut);
                 memoryBarrier();
                 atomicExchange(spinlockViewportBuffer[pixelIndex], 0);
                 keepWaiting = false;
@@ -312,6 +330,6 @@ void main() {
         }
     }
 #else
-    gatherFragmentCustomDepth(colorOut, fragmentDepth);
+    gatherFragment(colorOut);
 #endif
 }

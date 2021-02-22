@@ -61,6 +61,9 @@ uniform float bandWidth;
 uniform ivec3 psUseBands;
 
 out vec3 fragmentPositionWorld;
+#ifdef USE_SCREEN_SPACE_POSITION
+out vec3 screenSpacePosition;
+#endif
 out float fragmentAttribute;
 out float fragmentNormalFloat; // Between -1 and 1
 out vec3 normal0;
@@ -167,12 +170,18 @@ void main() {
 
     vertexPosition = linePosition0 + lineRadius * offsetDirectionLeft0;
     fragmentPositionWorld = vertexPosition;
+#ifdef USE_SCREEN_SPACE_POSITION
+    screenSpacePosition = (vMatrix * vec4(vertexPosition, 1.0)).xyz;
+#endif
     fragmentNormalFloat = -1.0;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
     vertexPosition = linePosition0 + lineRadius * offsetDirectionRight0;
     fragmentPositionWorld = vertexPosition;
+#ifdef USE_SCREEN_SPACE_POSITION
+    screenSpacePosition = (vMatrix * vec4(vertexPosition, 1.0)).xyz;
+#endif
     fragmentNormalFloat = 1.0;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
@@ -195,12 +204,18 @@ void main() {
 
     vertexPosition = linePosition1 + lineRadius * offsetDirectionLeft1;
     fragmentPositionWorld = vertexPosition;
+#ifdef USE_SCREEN_SPACE_POSITION
+    screenSpacePosition = (vMatrix * vec4(vertexPosition, 1.0)).xyz;
+#endif
     fragmentNormalFloat = -1.0;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
     vertexPosition = linePosition1 + lineRadius * offsetDirectionRight1;
     fragmentPositionWorld = vertexPosition;
+#ifdef USE_SCREEN_SPACE_POSITION
+    screenSpacePosition = (vMatrix * vec4(vertexPosition, 1.0)).xyz;
+#endif
     fragmentNormalFloat = 1.0;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
@@ -213,6 +228,9 @@ void main() {
 #version 450 core
 
 in vec3 fragmentPositionWorld;
+#ifdef USE_SCREEN_SPACE_POSITION
+in vec3 screenSpacePosition;
+#endif
 in float fragmentAttribute;
 in float fragmentNormalFloat;
 in vec3 normal0;
@@ -312,7 +330,8 @@ void main() {
     }
     //gl_FragDepth = clamp(gl_FragCoord.z + depthOffset, 0.0, 0.999);
     gl_FragDepth = convertLinearDepthToDepthBufferValue(
-    convertDepthBufferValueToLinearDepth(gl_FragCoord.z) + fragmentDepth - length(fragmentPositionWorld - cameraPosition) - 0.0001);
+            convertDepthBufferValueToLinearDepth(gl_FragCoord.z) + fragmentDepth
+            - length(fragmentPositionWorld - cameraPosition) - 0.0001);
     if (colorOut.a < 0.01) {
         discard;
     }
@@ -321,7 +340,7 @@ void main() {
 #elif defined(USE_SYNC_FRAGMENT_SHADER_INTERLOCK)
     // Area of mutual exclusion for fragments mapping to the same pixel
     beginInvocationInterlockARB();
-    gatherFragmentCustomDepth(colorOut, fragmentDepth);
+    gatherFragment(colorOut);
     endInvocationInterlockARB();
 #elif defined(USE_SYNC_SPINLOCK)
     uint x = uint(gl_FragCoord.x);
@@ -335,7 +354,7 @@ void main() {
         bool keepWaiting = true;
         while (keepWaiting) {
             if (atomicCompSwap(spinlockViewportBuffer[pixelIndex], 0, 1) == 0) {
-                gatherFragmentCustomDepth(colorOut, fragmentDepth);
+                gatherFragment(colorOut);
                 memoryBarrier();
                 atomicExchange(spinlockViewportBuffer[pixelIndex], 0);
                 keepWaiting = false;
@@ -343,6 +362,6 @@ void main() {
         }
     }
 #else
-    gatherFragmentCustomDepth(colorOut, fragmentDepth);
+    gatherFragment(colorOut);
 #endif
 }

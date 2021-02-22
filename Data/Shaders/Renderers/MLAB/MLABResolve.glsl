@@ -20,8 +20,7 @@ void main()
 
 out vec4 fragColor;
 
-void main()
-{
+void main() {
     uint x = uint(gl_FragCoord.x);
     uint y = uint(gl_FragCoord.y);
     uint pixelIndex = addrGen(uvec2(x,y));

@@ -1,3 +1,6 @@
+#ifndef DEPTH_HELPER_GLSL
+#define DEPTH_HELPER_GLSL
+
 /**
  * See: http://www.songho.ca/opengl/gl_projectionmatrix.html
  * We know (OpenGL matrices are column-major):
@@ -16,6 +19,7 @@
  * (the answer also contains infos to convert NDC to eye position).
  */
 #ifdef DEPTH_HELPER_USE_PROJECTION_MATRIX
+
 float convertDepthBufferValueToLinearDepth(float depth) {
     // The depth buffer stores values in [0,1], but OpenGL uses [-1,1] for NDC.
     float z_ndc = 2.0 * depth - 1.0;
@@ -47,3 +51,5 @@ float convertLinearDepthToDepthBufferValue(float z_eye) {
 }
 
 #endif
+
+#endif // DEPTH_HELPER_GLSL

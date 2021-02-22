@@ -109,12 +109,12 @@ void DepthComplexityRenderer::onResolutionChanged() {
 void DepthComplexityRenderer::setUniformData() {
     sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
     int width = window->getWidth();
-    int height = window->getHeight();
+
+    sgl::ShaderManager->bindShaderStorageBuffer(0, fragmentCounterBuffer);
 
     gatherShader->setUniformOptional("cameraPosition", sceneData.camera->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
     gatherShader->setUniform("viewportW", width);
-    gatherShader->setShaderStorageBuffer(0, "FragmentCounterBuffer", fragmentCounterBuffer);
     lineData->setUniformGatherShaderData(gatherShader);
 
     resolveShader->setUniform("viewportW", width);

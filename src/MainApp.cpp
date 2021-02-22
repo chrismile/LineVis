@@ -60,6 +60,10 @@
 #include "Renderers/OIT/MLABRenderer.hpp"
 #include "Renderers/OIT/OpacityOptimizationRenderer.hpp"
 #include "Renderers/OIT/DepthComplexityRenderer.hpp"
+#include "Renderers/OIT/MBOITRenderer.hpp"
+#include "Renderers/OIT/MLABBucketRenderer.hpp"
+#include "Renderers/OIT/WBOITRenderer.hpp"
+#include "Renderers/OIT/DepthPeelingRenderer.hpp"
 #include "MainApp.hpp"
 
 void openglErrorCallback() {
@@ -235,7 +239,16 @@ void MainApp::setRenderer() {
         lineRenderer = new OpacityOptimizationRenderer(sceneData, transferFunctionWindow);
     } else if (renderingMode == RENDERING_MODE_DEPTH_COMPLEXITY) {
         lineRenderer = new DepthComplexityRenderer(sceneData, transferFunctionWindow);
+    } else if (renderingMode == RENDERING_MODE_MBOIT) {
+        lineRenderer = new MBOITRenderer(sceneData, transferFunctionWindow);
+    } else if (renderingMode == RENDERING_MODE_MLAB_BUCKETS) {
+        lineRenderer = new MLABBucketRenderer(sceneData, transferFunctionWindow);
+    } else if (renderingMode == RENDERING_MODE_WBOIT) {
+        lineRenderer = new WBOITRenderer(sceneData, transferFunctionWindow);
+    } else if (renderingMode == RENDERING_MODE_DEPTH_PEELING) {
+        lineRenderer = new DepthPeelingRenderer(sceneData, transferFunctionWindow);
     }
+    lineRenderer->initialize();
 
     if (lineData) {
         lineData->setRenderingMode(renderingMode);
