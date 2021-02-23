@@ -95,6 +95,8 @@ bool StressLineTracingRequester::getHasNewData(DataSetInformation& dataSetInform
     return false;
 }
 
+
+
 StressLineTracingRequesterSocket::StressLineTracingRequesterSocket(const std::string& address, int port)
         : address(address), port(port) {
     jsonCharReader = readerBuilder.newCharReader();
