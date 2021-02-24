@@ -259,6 +259,11 @@ void PerPixelLinkedListLineRenderer::setUniformData() {
     }
     lineData->setUniformGatherShaderData(gatherShader);
 
+    if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
+        gatherShaderHull->setUniform("viewportW", paddedWindowWidth);
+        gatherShaderHull->setUniform("linkedListSize", (unsigned int)fragmentBufferSize);
+    }
+
     resolveShader->setUniform("viewportW", paddedWindowWidth);
     clearShader->setUniform("viewportW", paddedWindowWidth);
 }

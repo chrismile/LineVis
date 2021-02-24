@@ -28,25 +28,85 @@
 
 #include <iostream>
 
-#ifdef USE_ZEROMQ
-#include <zmq.hpp>
-#endif
-
+#include <Utils/File/Logfile.hpp>
+#include <Utils/File/FileUtils.hpp>
 #include <Utils/Regex/TransformString.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
+#include <ImGui/imgui_custom.h>
+#include <ImGui/imgui_stdlib.h>
 
 #include "Loaders/DataSetList.hpp"
 #include "StressLineTracingRequester.hpp"
 
+StressLineTracingRequester::StressLineTracingRequester() {
+    loadMeshList();
+}
+
+void StressLineTracingRequester::loadMeshList() {
+    meshNames.clear();
+    meshFilenames.clear();
+    meshNames.push_back("Local file...");
+
+    std::string filename = lineDataSetsDirectory + "meshes.json";
+    if (sgl::FileUtils::get()->exists(filename)) {
+        // Parse the passed JSON file.
+        std::ifstream jsonFileStream(filename.c_str());
+        Json::CharReaderBuilder builder;
+        JSONCPP_STRING errorString;
+        Json::Value root;
+        if (!parseFromStream(builder, jsonFileStream, &root, &errorString)) {
+            sgl::Logfile::get()->writeError(errorString);
+            return;
+        }
+        jsonFileStream.close();
+
+        Json::Value sources = root["meshes"];
+        for (Json::Value::const_iterator sourceIt = sources.begin(); sourceIt != sources.end(); ++sourceIt) {
+            DataSetInformation dataSetInformation;
+            Json::Value source = *sourceIt;
+
+            meshNames.push_back(source["name"].asString());
+            meshFilenames.push_back(source["filename"].asString());
+        }
+    }
+}
+
 void StressLineTracingRequester::renderGui() {
     if (ImGui::Begin("Stress Line Tracing", &showWindow)) {
-        //ImGui::Checkbox("", )
+        bool changed = false;
+        if (ImGui::Combo("Data Set", &selectedMeshIndex, meshNames.data(), meshNames.size())) {
+            if (selectedMeshIndex >= 1) {
+                meshFilename = meshFilenames.at(selectedMeshIndex - 1);
+                changed = true;
+            }
+        }
+        if (selectedMeshIndex == 0) {
+            ImGui::InputText("##meshfilenamelabel", &meshFilename);
+            ImGui::SameLine();
+            if (ImGui::Button("Load File")) {
+                changed = true;
+            }
+        }
+
+        changed |= ImGui::Combo(
+                "Seed Strategy", (int*)&seedStrategy, SEED_STRATEGY_NAMES,
+                IM_ARRAYSIZE(SEED_STRATEGY_NAMES));
+        changed |= ImGui::SliderInt("Minimum Epsilon", &minimumEpsilon, 1, 40);
+        changed |= ImGui::SliderInt("#Levels", &minimumEpsilon, 1, 40);
+        if (changed) {
+            requestNewData();
+        }
     }
     ImGui::End();
 }
 
 void StressLineTracingRequester::requestNewData() {
-    worker.queueRequestString("Test");
+    Json::Value request;
+    request["fileName"] = meshFilename;
+    request["seedStrategy"] = SEED_STRATEGY_ABBREVIATIONS[int(seedStrategy)];
+    request["minimumEpsilon"] = minimumEpsilon;
+    request["numLevels"] = numLevels;
+    worker.queueRequestJson(request);
 }
 
 bool StressLineTracingRequester::getHasNewData(DataSetInformation& dataSetInformation) {
@@ -55,8 +115,9 @@ bool StressLineTracingRequester::getHasNewData(DataSetInformation& dataSetInform
         dataSetInformation.type = DATA_SET_TYPE_STRESS_LINES;
         dataSetInformation.transformMatrix = parseTransformString("rotate(270°, 1, 0, 0)");
         dataSetInformation.containsBandData = true;
+        dataSetInformation.meshFilename = meshFilename;
 
-        Json::Value filenames = reply["filenames"];
+        Json::Value filenames = reply["fileName"];
         if (filenames.isArray()) {
             for (Json::Value::const_iterator filenameIt = filenames.begin();
                  filenameIt != filenames.end(); ++filenameIt) {
@@ -77,15 +138,28 @@ bool StressLineTracingRequester::getHasNewData(DataSetInformation& dataSetInform
             } else {
                 dataSetInformation.attributeNames.push_back(attributes.asString());
             }
-        }
+        } else {
+            //dataSetInformation.attributeNames.push_back("Sigma");
+            //dataSetInformation.attributeNames.push_back("Sigma_vM");
+            //dataSetInformation.attributeNames.push_back("Sigma_xx");
+            //dataSetInformation.attributeNames.push_back("Sigma_yy");
+            //dataSetInformation.attributeNames.push_back("Sigma_zz");
+            //dataSetInformation.attributeNames.push_back("Sigma_yz");
+            //dataSetInformation.attributeNames.push_back("Sigma_zx");
+            //dataSetInformation.attributeNames.push_back("Sigma_xy");
 
-        // Optional stress line data: Mesh file.
-        if (reply.isMember("mesh")) {
-            dataSetInformation.meshFilename = lineDataSetsDirectory + reply["mesh"].asString();
+            dataSetInformation.attributeNames.push_back("Major Principle Stress");
+            dataSetInformation.attributeNames.push_back("von Mises Stress");
+            dataSetInformation.attributeNames.push_back("Normal Stress (xx)");
+            dataSetInformation.attributeNames.push_back("Normal Stress (yy)");
+            dataSetInformation.attributeNames.push_back("Normal Stress (zz)");
+            dataSetInformation.attributeNames.push_back("Shear Stress (yz)");
+            dataSetInformation.attributeNames.push_back("Shear Stress (zx)");
+            dataSetInformation.attributeNames.push_back("Shear Stress (xy)");
         }
 
         // Optional stress line data: Degenerate points file.
-        if (reply.isMember("degenerate_points")) {
+        if (reply.isMember("degeneratePoints")) {
             dataSetInformation.degeneratePointsFilename =
                     lineDataSetsDirectory + reply["degenerate_points"].asString();
         }
@@ -93,136 +167,4 @@ bool StressLineTracingRequester::getHasNewData(DataSetInformation& dataSetInform
         return true;
     }
     return false;
-}
-
-
-
-StressLineTracingRequesterSocket::StressLineTracingRequesterSocket(const std::string& address, int port)
-        : address(address), port(port) {
-    jsonCharReader = readerBuilder.newCharReader();
-    requesterThread = std::thread(&StressLineTracingRequesterSocket::mainLoop, this);
-}
-
-StressLineTracingRequesterSocket::~StressLineTracingRequesterSocket() {
-    join();
-    delete jsonCharReader;
-    jsonCharReader = nullptr;
-}
-
-void StressLineTracingRequesterSocket::join() {
-    if (!programIsFinished) {
-        {
-            std::lock_guard<std::mutex> lock(requestMutex);
-            programIsFinished = true;
-            hasRequest = true;
-
-            {
-                std::lock_guard<std::mutex> lock(replyMutex);
-                this->hasReply = false;
-                this->replyMessage.clear();
-            }
-            hasReplyConditionVariable.notify_all();
-        }
-        hasRequestConditionVariable.notify_all();
-        requesterThread.join();
-    }
-}
-
-void StressLineTracingRequesterSocket::queueRequestString(const std::string& requestMessage) {
-    {
-        std::lock_guard<std::mutex> lock(replyMutex);
-        this->requestMessage = requestMessage;
-        hasRequest = true;
-    }
-    hasRequestConditionVariable.notify_all();
-}
-
-void StressLineTracingRequesterSocket::queueRequestJson(const Json::Value& request) {
-    {
-        std::lock_guard<std::mutex> lock(replyMutex);
-        requestMessage = Json::writeString(builder, request);
-        hasRequest = true;
-    }
-    hasRequestConditionVariable.notify_all();
-}
-
-bool StressLineTracingRequesterSocket::getReplyString(std::string& replyMessage) {
-    bool hasReply;
-    {
-        std::lock_guard<std::mutex> lock(replyMutex);
-        hasReply = this->hasReply;
-        if (hasReply) {
-            replyMessage = this->replyMessage;
-        }
-
-        // Now, new requests can be worked on.
-        this->hasReply = false;
-        this->replyMessage.clear();
-    }
-    hasReplyConditionVariable.notify_all();
-    return hasReply;
-}
-
-bool StressLineTracingRequesterSocket::getReplyJson(Json::Value& reply) {
-    bool hasReply;
-    {
-        std::lock_guard<std::mutex> lock(replyMutex);
-        hasReply = this->hasReply;
-        if (hasReply) {
-            std::string jsonErrorString;
-            if (!jsonCharReader->parse(
-                    replyMessage.c_str(), replyMessage.c_str() + replyMessage.size(),
-                    &reply, &jsonErrorString)) {
-                std::cerr << "Error in StressLineTracingRequesterSocket::getReplyJson: Couldn't parse JSON string."
-                          << std::endl << jsonErrorString << std::endl;
-            }
-        }
-
-        // Now, new requests can be worked on.
-        this->hasReply = false;
-        this->replyMessage.clear();
-    }
-    hasReplyConditionVariable.notify_all();
-    return hasReply;
-}
-
-void StressLineTracingRequesterSocket::mainLoop() {
-#ifdef USE_ZEROMQ
-    zmq::context_t context{1};
-    zmq::socket_t socket(context, zmq::socket_type::req);
-    std::string endpoint = std::string() + "tcp://" + address + ":" + std::to_string(port);
-    socket.connect(endpoint.c_str());
-#endif
-
-    while (true) {
-        std::unique_lock<std::mutex> requestLock(requestMutex);
-        hasRequestConditionVariable.wait(requestLock, [this] { return hasRequest; });
-
-        if (programIsFinished) {
-            break;
-        }
-
-        if (hasRequest) {
-#ifdef USE_ZEROMQ
-            socket.send(zmq::buffer(requestMessage), zmq::send_flags::none);
-#endif
-
-            hasRequest = false;
-            requestLock.unlock();
-
-#ifdef USE_ZEROMQ
-            zmq::message_t reply{};
-            zmq::recv_result_t result = socket.recv(reply, zmq::recv_flags::none);
-            if (result.value() == 0) {
-                throw std::runtime_error(
-                        "Error in StressLineTracingRequesterSocket::mainLoop: Received empty response.");
-            }
-            std::string replyString = reply.to_string();
-
-            std::lock_guard<std::mutex> replyLock(requestMutex);
-            hasReply = true;
-            replyMessage = replyString;
-#endif
-        }
-    }
 }

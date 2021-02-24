@@ -29,87 +29,49 @@
 #ifndef LINEVIS_STRESSLINETRACINGREQUESTER_HPP
 #define LINEVIS_STRESSLINETRACINGREQUESTER_HPP
 
-#include <condition_variable>
-#include <thread>
-
-#ifdef __MINGW32__
-#include <json/json.h>
-#else
-#include <jsoncpp/json/json.h>
-#endif
+#include "StressLineTracingRequesterSocket.hpp"
 
 class DataSetInformation;
 
-/**
- * A multi-threaded requester socket for stress line tracing. It listens on port 17384.
- * Similar to a mailbox queue of size 1 in the Vulkan API (cmp. VK_PRESENT_MODE_MAILBOX_KHR), it stores the most recent
- * request and reply. Older requests and reply are discarded if they are not handled fast enough.
- */
-class StressLineTracingRequesterSocket {
-public:
-    StressLineTracingRequesterSocket(const std::string& address = "localhost", int port = 17384);
-    ~StressLineTracingRequesterSocket();
-
-    /**
-     * Stops the requester thread.
-     */
-    void join();
-
-    /**
-     * Queues the request for sending to the request worker over TCP.
-     * @param requestMessage The message to queue.
-     */
-    void queueRequestString(const std::string& requestMessage);
-    /**
-     * Queues the request for sending to the request worker over TCP.
-     * @param request The message to queue.
-     */
-    void queueRequestJson(const Json::Value& request);
-    /**
-     * Checks if a reply was received to a request. If a reply was received, it is stored in replyMessage.
-     * @param replyMessage Where to store the reply (if one was received).
-     * @return Whether a reply was received.
-     */
-    bool getReplyString(std::string& replyMessage);
-    /**
-     * Checks if a reply was received to a request. If a reply was received, it is stored in reply.
-     * @param reply Where to store the reply (if one was received).
-     * @return Whether a reply was received.
-     */
-    bool getReplyJson(Json::Value& reply);
-
-private:
-    std::thread requesterThread;
-    std::condition_variable hasRequestConditionVariable;
-    std::condition_variable hasReplyConditionVariable;
-    std::mutex requestMutex;
-    std::mutex replyMutex;
-
-    std::string address;
-    int port;
-    bool programIsFinished = false;
-    bool hasRequest = false;
-    bool hasReply = false;
-    std::string requestMessage;
-    std::string replyMessage;
-
-    Json::CharReaderBuilder readerBuilder;
-    Json::CharReader* jsonCharReader = nullptr;
-    Json::StreamWriterBuilder builder;
-
-    /// The main loop of the requester thread.
-    void mainLoop();
+enum class SeedStrategy {
+    VOLUME, SURFACE, LOADING_AREA, APPROX_TOPOLOGY
 };
+const char* const SEED_STRATEGY_NAMES[] = {
+        "Homogeneous Volume Seeding",
+        "Surface Seeding",
+        "Loading Areas Seeding",
+        "Approximate Topology Seeding"
+};
+const char* const SEED_STRATEGY_ABBREVIATIONS[] = {
+        "Volume",
+        "Surface",
+        "LoadingArea",
+        "ApproxTopology"
+};
+const int NUM_SEED_STRATEGIES = ((int)(sizeof(SEED_STRATEGY_NAMES) / sizeof(*SEED_STRATEGY_NAMES)));
 
 class StressLineTracingRequester {
 public:
+    StressLineTracingRequester();
     void renderGui();
     bool getHasNewData(DataSetInformation& dataSetInformation);
 
 private:
+    void loadMeshList();
     void requestNewData();
     StressLineTracingRequesterSocket worker;
     bool showWindow = true;
+
+    // UI settings.
+    std::vector<std::string> meshNames;
+    std::vector<std::string> meshFilenames;
+    int selectedMeshIndex = 0;
+
+    // Line tracer settings.
+    std::string meshFilename;
+    SeedStrategy seedStrategy = SeedStrategy::APPROX_TOPOLOGY;
+    int minimumEpsilon = 10;
+    int numLevels = 5;
 };
 
 #endif //LINEVIS_STRESSLINETRACINGREQUESTER_HPP

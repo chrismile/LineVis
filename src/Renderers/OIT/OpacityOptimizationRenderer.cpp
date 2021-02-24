@@ -157,7 +157,10 @@ void OpacityOptimizationRenderer::reloadGatherShader(bool canCopyShaderAttribute
     }
     sgl::ShaderManager->addPreprocessorDefine("USE_TRANSPARENCY", "");
 
+    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"LinkedListGather.glsl\"");
     LineRenderer::reloadGatherShader();
+    sgl::ShaderManager->removePreprocessorDefine("OIT_GATHER_HEADER");
+
     if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
         gatherPpllOpacitiesShader = sgl::ShaderManager->getShaderProgram({
                 "GeometryPassOpacitiesBand.VBO.Vertex",
@@ -599,7 +602,7 @@ void OpacityOptimizationRenderer::setUniformData() {
     lineData->setUniformGatherShaderData_Pass(gatherPpllOpacitiesShader);
 
     gatherPpllFinalShader->setUniform("viewportW", paddedViewportWidthFinal);
-    gatherPpllFinalShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeOpacity);
+    gatherPpllFinalShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeFinal);
     gatherPpllFinalShader->setUniform("cameraPosition", sceneData.camera->getPosition());
     gatherPpllFinalShader->setUniform("lineWidth", lineWidth);
     if (gatherPpllFinalShader->hasUniform("backgroundColor")) {
@@ -612,6 +615,11 @@ void OpacityOptimizationRenderer::setUniformData() {
         gatherPpllFinalShader->setUniform("foregroundColor", foregroundColor);
     }
     lineData->setUniformGatherShaderData_Pass(gatherPpllFinalShader);
+
+    if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
+        gatherShaderHull->setUniform("viewportW", paddedViewportWidthFinal);
+        gatherShaderHull->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeFinal);
+    }
 
     resolvePpllOpacitiesShader->setUniform("viewportW", paddedViewportWidthOpacity);
     resolvePpllOpacitiesShader->setUniform("q", q);

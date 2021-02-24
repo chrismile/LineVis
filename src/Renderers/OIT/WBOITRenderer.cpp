@@ -192,4 +192,10 @@ void WBOITRenderer::render() {
 }
 
 void WBOITRenderer::renderGui() {
+    if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
+        reRender = true;
+    }
+    if (lineData) {
+        lineData->renderGuiRenderingSettings();
+    }
 }

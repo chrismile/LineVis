@@ -125,8 +125,6 @@ void MBOITRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
         shaderAttributesPass1 = shaderAttributesPass1->copy(mboitPass1Shader);
     }
 
-    sgl::ShaderManager->removePreprocessorDefine("USE_SCREEN_SPACE_POSITION");
-
     if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
         sgl::ShaderManager->removePreprocessorDefine("USE_SYNC_FRAGMENT_SHADER_INTERLOCK");
         if (!useOrderedFragmentShaderInterlock) {
@@ -143,6 +141,8 @@ void MBOITRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     if (canCopyShaderAttributes && shaderAttributesPass2) {
         shaderAttributesPass2 = shaderAttributesPass2->copy(mboitPass2Shader);
     }
+
+    sgl::ShaderManager->removePreprocessorDefine("USE_SCREEN_SPACE_POSITION");
 }
 
 void MBOITRenderer::reloadResolveShader() {

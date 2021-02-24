@@ -52,6 +52,10 @@ struct TubeRenderDataMultiVar {
     //sgl::GeometryBufferPtr varColorArrayBuffer;
 };
 
+/**
+ * Flow line data with multiple variables being displayed at once.
+ * The lines are smoothed using Bezier curves.
+ */
 class LineDataMultiVar : public LineDataFlow {
 public:
     LineDataMultiVar(sgl::TransferFunctionWindow &transferFunctionWindow);
@@ -140,7 +144,7 @@ private:
     //sgl::GeometryBufferPtr varColorArrayBuffer;
 
     // Multi-Variate settings.
-    std::vector<std::uint32_t> varSelected;
+    std::vector<uint32_t> varSelected;
     //std::vector<glm::vec4> varColors;
     std::string comboValue = "";
     int32_t numVariablesSelected = 0;

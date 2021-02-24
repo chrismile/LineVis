@@ -84,7 +84,9 @@ bool LineData::renderGui(bool isRasterizer) {
     ImGui::Checkbox("Render Color Legend", &shallRenderColorLegendWidgets);
 
     if (!simulationMeshOutlineTriangleIndices.empty()) {
-        ImGui::Checkbox("Render Mesh Boundary", &shallRenderSimulationMeshBoundary);
+        if (ImGui::Checkbox("Render Mesh Boundary", &shallRenderSimulationMeshBoundary)) {
+            reRender = true;
+        }
 
         if (shallRenderSimulationMeshBoundary) {
             if (ImGui::SliderFloat("Hull Opacity", &hullOpacity, 0.0f, 1.0f, "%.4f")) {

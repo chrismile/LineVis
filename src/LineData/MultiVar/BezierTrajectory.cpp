@@ -43,21 +43,19 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
     float numSegments = 0;
 
     int32_t trajCounter = 0;
-    for (const auto &trajectory : inTrajectories) {
+    for (const auto& trajectory : inTrajectories) {
         std::vector<BezierCurve> &curveSet = curves[trajCounter];
 
         const int maxVertices = trajectory.positions.size();
-
-        Trajectory BezierTrajectory;
 
         float minT = 0.0f;
         float maxT = 1.0f;
 
         for (int v = 0; v < maxVertices - 1; ++v) {
-            const glm::vec3 &pos0 = trajectory.positions[std::max(0, v - 1)];
-            const glm::vec3 &pos1 = trajectory.positions[v];
-            const glm::vec3 &pos2 = trajectory.positions[v + 1];
-            const glm::vec3 &pos3 = trajectory.positions[std::min(v + 2, maxVertices - 1)];
+            const glm::vec3& pos0 = trajectory.positions[std::max(0, v - 1)];
+            const glm::vec3& pos1 = trajectory.positions[v];
+            const glm::vec3& pos2 = trajectory.positions[v + 1];
+            const glm::vec3& pos3 = trajectory.positions[std::min(v + 2, maxVertices - 1)];
 
             const glm::vec3 cotangent1 = glm::normalize(pos2 - pos0);
             const glm::vec3 cotangent2 = glm::normalize(pos3 - pos1);
@@ -111,7 +109,7 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
     uint32_t lineOffset = 0;
     uint32_t lineID = 0;
 
-    for (const auto &trajectory : inTrajectories) {
+    for (const auto& trajectory : inTrajectories) {
         uint32_t varOffsetPerLine = 0;
 
         for (auto v = 0; v < maxNumVariables; ++v) {
@@ -163,7 +161,6 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
         glm::vec3 tangent;
         uint32_t lineID = 0;
         uint32_t varIDPerLine = 0;
-        std::vector<float> attributes = inTrajectories[traj].attributes[lineID];
         // Start with first segment
         BCurves[0].evaluate(0, pos, tangent);
 

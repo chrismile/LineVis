@@ -432,6 +432,10 @@ void MainApp::update(float dt) {
 
     updateCameraFlight(lineData.get() != nullptr, usesNewState);
 
+    if (stressLineTracingRequester.getHasNewData(stressLineTracerDataSetInformation)) {
+        loadLineDataSet(stressLineTracerDataSetInformation.filenames);
+    }
+
     transferFunctionWindow.update(dt);
     if (lineData) {
         lineData->update(dt);
@@ -481,6 +485,8 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
         if (selectedDataSetInformation.hasCustomLineWidth) {
             LineRenderer::setLineWidth(selectedDataSetInformation.lineWidth);
         }
+    } else if (selectedDataSetIndex == 1) {
+        selectedDataSetInformation = stressLineTracerDataSetInformation;
     } else {
         selectedDataSetInformation.type = dataSetType;
         selectedDataSetInformation.filenames = fileNames;

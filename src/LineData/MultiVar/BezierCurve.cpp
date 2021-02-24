@@ -62,7 +62,7 @@ void BezierCurve::evaluate(const float t, glm::vec3 &P, glm::vec3 &dt) const {
     assert(minT <= t && t <= maxT);
 
     float tN = normalizeT(t);
-    float negT = 1.0f - tN;
+    //float negT = 1.0f - tN;
     // Check old algorithm to verify the Bezier Curve
     // Original algebraic solution
 //    glm::vec3 pos = float(std::pow(negT, 3)) * controlPoints[0]

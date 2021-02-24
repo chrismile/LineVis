@@ -266,6 +266,10 @@ void MLABRenderer::setUniformData() {
     }
     lineData->setUniformGatherShaderData(gatherShader);
 
+    if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
+        gatherShaderHull->setUniform("viewportW", paddedWindowWidth);
+    }
+
     resolveShader->setUniform("viewportW", paddedWindowWidth);
     clearShader->setUniform("viewportW", paddedWindowWidth);
 }
