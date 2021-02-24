@@ -220,13 +220,16 @@ sgl::ShaderAttributesPtr LineData::getGatherShaderAttributesHull(sgl::ShaderProg
     SimulationMeshOutlineRenderData renderData = this->getSimulationMeshOutlineRenderData();
     linePointDataSSBO = sgl::GeometryBufferPtr();
 
-    sgl::ShaderAttributesPtr shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
-    shaderAttributes->setVertexMode(sgl::VERTEX_MODE_TRIANGLES);
-    shaderAttributes->setIndexGeometryBuffer(renderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-    shaderAttributes->addGeometryBuffer(
-            renderData.vertexPositionBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
-    shaderAttributes->addGeometryBuffer(
-            renderData.vertexNormalBuffer, "vertexNormal", sgl::ATTRIB_FLOAT, 3);
+    sgl::ShaderAttributesPtr shaderAttributes;
+    if (gatherShader) {
+        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
+        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_TRIANGLES);
+        shaderAttributes->setIndexGeometryBuffer(renderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
+        shaderAttributes->addGeometryBuffer(
+                renderData.vertexPositionBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
+        shaderAttributes->addGeometryBuffer(
+                renderData.vertexNormalBuffer, "vertexNormal", sgl::ATTRIB_FLOAT, 3);
+    }
 
     return shaderAttributes;
 }

@@ -156,7 +156,7 @@ public:
     inline const glm::vec2& getSelectedRange(int varIdx) const { return guiVarData.at(varIdx).selectedRange; }
 
     /// Returns the Data range uniform buffer object.
-    inline sgl::GeometryBufferPtr& getMinMaxSsbo() { return minMaxUbo; }
+    inline sgl::GeometryBufferPtr& getMinMaxSsbo() { return minMaxSsbo; }
 
 private:
     void updateAvailableFiles();
@@ -170,7 +170,7 @@ private:
     GuiVarData* currVarData = nullptr;
 
     // Data range uniform buffer object.
-    sgl::GeometryBufferPtr minMaxUbo;
+    sgl::GeometryBufferPtr minMaxSsbo;
     std::vector<float> minMaxData;
 
     // GUI

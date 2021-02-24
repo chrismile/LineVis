@@ -786,8 +786,8 @@ void MultiVarTransferFunctionWindow::setAttributesValues(
         guiVarData.reserve(names.size());
         tfMapTexture = sgl::TextureManager->createEmptyTexture(
                 TRANSFER_FUNCTION_TEXTURE_SIZE, names.size(), tfMapTextureSettings);
-        minMaxUbo = sgl::Renderer->createGeometryBuffer(
-                names.size() * sizeof(glm::vec2), sgl::UNIFORM_BUFFER);
+        minMaxSsbo = sgl::Renderer->createGeometryBuffer(
+                names.size() * sizeof(glm::vec2), sgl::SHADER_STORAGE_BUFFER);
         minMaxData.clear();
         minMaxData.resize(names.size() * 2, 0);
 
@@ -888,7 +888,7 @@ void MultiVarTransferFunctionWindow::rebuildRangeUbo() {
         minMaxData[varIdx * 2] = range.x;
         minMaxData[varIdx * 2 + 1] = range.y;
     }
-    minMaxUbo->subData(0, minMaxData.size() * sizeof(float), minMaxData.data());
+    minMaxSsbo->subData(0, minMaxData.size() * sizeof(float), minMaxData.data());
 }
 
 void MultiVarTransferFunctionWindow::rebuildTransferFunctionMap() {
