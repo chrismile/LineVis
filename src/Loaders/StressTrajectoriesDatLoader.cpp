@@ -361,7 +361,7 @@ void parseOutlineMeshHull(
 
 void loadStressTrajectoriesFromDat_v3(
         const std::vector<std::string>& filenamesTrajectories,
-        std::vector<int>& loadedPsIndices,
+        std::vector<int>& loadedPsIndices, MeshType& meshType,
         std::vector<Trajectories>& trajectoriesPs,
         std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
         std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsUnsmoothedListLeftPs,
@@ -392,7 +392,16 @@ void loadStressTrajectoriesFromDat_v3(
             std::vector<std::vector<glm::vec3>> bandPointsSmoothedListRight;
             std::vector<std::string> linesInfo = lineReader.readVectorLine<std::string>();
 
-            if (linesInfo.size() == 1 && linesInfo.front() == "#Outline") {
+            if (linesInfo.front() == "#Outline") {
+                if (linesInfo.size() == 1) {
+                    meshType = MeshType::CARTESIAN;
+                } else {
+                    if (linesInfo.at(1) == "Cartesian") {
+                        meshType = MeshType::CARTESIAN;
+                    } else {
+                        meshType = MeshType::UNSTRUCTURED;
+                    }
+                }
                 parseOutlineMeshHull(
                         lineReader, simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
                 continue;

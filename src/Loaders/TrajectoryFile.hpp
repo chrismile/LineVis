@@ -56,6 +56,10 @@ struct StressTrajectoryData {
 };
 typedef std::vector<StressTrajectoryData> StressTrajectoriesData;
 
+enum class MeshType {
+    CARTESIAN, UNSTRUCTURED
+};
+
 sgl::AABB3 computeTrajectoriesAABB3(const Trajectories& trajectories);
 void normalizeTrajectoriesVertexPositions(
         Trajectories& trajectories, const glm::mat4* vertexTransformationMatrixPtr = nullptr);
@@ -99,6 +103,8 @@ Trajectories loadFlowTrajectoriesFromFile(
  * @param filenamesHierarchy The names of the line hierarchy files to open (optional; can be empty).
  * @param loadedPsIndices Which of the three principal stress directions (0 = major, 1 = medium, 2 = minor) were
  * loaded from the passed files.
+ * @param meshType The type of the mesh (Cartesian or unstructured). This is important to decide whether to smooth the
+ * mesh or not.
  * @param trajectoriesPs The three trajectory sets loaded from the file (empty if the file(s) could not be opened).
  * @param stressTrajectoriesDataPs The principal stress data of the three trajectory sets loaded from the file (empty if
  * the file could not be opened).
@@ -115,7 +121,7 @@ Trajectories loadFlowTrajectoriesFromFile(
  */
 void loadStressTrajectoriesFromFile(
         const std::vector<std::string>& filenamesTrajectories, const std::vector<std::string>& filenamesHierarchy,
-        int version, std::vector<int>& loadedPsIndices,
+        int version, std::vector<int>& loadedPsIndices, MeshType& meshType,
         std::vector<Trajectories>& trajectoriesPs, std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
         std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsUnsmoothedListLeftPs,
         std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsUnsmoothedListRightPs,

@@ -130,19 +130,29 @@ void StressLineTracingRequester::requestNewData() {
 bool StressLineTracingRequester::getHasNewData(DataSetInformation& dataSetInformation) {
     Json::Value reply;
     if (worker.getReplyJson(reply)) {
+        dataSetInformation = DataSetInformation();
         dataSetInformation.type = DATA_SET_TYPE_STRESS_LINES;
+        dataSetInformation.hasCustomTransform = true;
         dataSetInformation.transformMatrix = parseTransformString("rotate(270°, 1, 0, 0)");
         dataSetInformation.version = 3;
         dataSetInformation.meshFilename = meshFilename;
+
+        std::string meshName;
+        if (selectedMeshIndex == 0) {
+            meshName = sgl::FileUtils::get()->getPureFilename(meshFilename);
+        } else {
+            meshName = meshNames.at(selectedMeshIndex);
+        }
+        dataSetInformation.name = meshName;
 
         Json::Value filenames = reply["fileName"];
         if (filenames.isArray()) {
             for (Json::Value::const_iterator filenameIt = filenames.begin();
                  filenameIt != filenames.end(); ++filenameIt) {
-                dataSetInformation.filenames.push_back(lineDataSetsDirectory + filenameIt->asString());
+                dataSetInformation.filenames.push_back(filenameIt->asString());
             }
         } else {
-            dataSetInformation.filenames.push_back(lineDataSetsDirectory + filenames.asString());
+            dataSetInformation.filenames.push_back(filenames.asString());
         }
 
         // Optional data: Attribute (importance criteria) display names.

@@ -312,10 +312,10 @@ void PerPixelLinkedListLineRenderer::gather() {
         glDisable(GL_CULL_FACE);
     }
     sgl::Renderer->render(shaderAttributes);
+    renderHull();
     if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
         glEnable(GL_CULL_FACE);
     }
-    renderHull();
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }
 

@@ -433,6 +433,7 @@ void MainApp::update(float dt) {
     updateCameraFlight(lineData.get() != nullptr, usesNewState);
 
     if (stressLineTracingRequester.getHasNewData(stressLineTracerDataSetInformation)) {
+        dataSetType = stressLineTracerDataSetInformation.type;
         loadLineDataSet(stressLineTracerDataSetInformation.filenames);
     }
 
@@ -516,6 +517,9 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
     } else if (dataSetType == DATA_SET_TYPE_FLOW_LINES_MULTIVAR) {
         LineDataMultiVar* lineDataMultiVar = new LineDataMultiVar(transferFunctionWindow);
         lineData = LineDataPtr(lineDataMultiVar);
+    } else {
+        sgl::Logfile::get()->writeError("Error in MainApp::loadLineDataSet: Invalid data set type.");
+        return;
     }
     bool dataLoaded = lineData->loadFromFile(fileNames, selectedDataSetInformation, transformationMatrixPtr);
     if (!dataLoaded) {

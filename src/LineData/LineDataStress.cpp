@@ -214,9 +214,10 @@ bool LineDataStress::loadFromFile(
     std::vector<Trajectories> trajectoriesPs;
     std::vector<StressTrajectoriesData> stressTrajectoriesDataPs;
     sgl::AABB3 oldAABB;
+    MeshType meshType = MeshType::CARTESIAN;
     loadStressTrajectoriesFromFile(
             fileNames, dataSetInformation.filenamesStressLineHierarchy, dataSetInformation.version, loadedPsIndices,
-            trajectoriesPs, stressTrajectoriesDataPs,
+            meshType, trajectoriesPs, stressTrajectoriesDataPs,
             bandPointsUnsmoothedListLeftPs, bandPointsUnsmoothedListRightPs,
             bandPointsSmoothedListLeftPs, bandPointsSmoothedListRightPs,
             simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions,
@@ -224,7 +225,9 @@ bool LineDataStress::loadFromFile(
     hasBandsData = !bandPointsUnsmoothedListLeftPs.empty();
     if (!simulationMeshOutlineTriangleIndices.empty()) {
         normalizeVertexPositions(simulationMeshOutlineVertexPositions, oldAABB, transformationMatrixPtr);
-        laplacianSmoothing(simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
+        if (meshType == MeshType::CARTESIAN) {
+            laplacianSmoothing(simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
+        }
         computeSmoothTriangleNormals(
                 simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions,
                 simulationMeshOutlineVertexNormals);

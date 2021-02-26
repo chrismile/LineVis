@@ -148,12 +148,16 @@ void StressLineTracingRequesterSocket::mainLoop() {
             const int sentBytes = zmq_send(
                     socket.handle(), sendBuffer.data(), sendBuffer.size(), static_cast<int>(zmq::send_flags::none));
             //zmq::send_result_t sendResult = socket.send(zmq::buffer(requestMessage), zmq::send_flags::none);
-            if (sentBytes <= 0) {
+            std::cout << zmq_errno() << " " << sentBytes << std::endl;
+            if (sentBytes < 0) {
+                if (zmq_errno() == ETERM) {
+                    break;
+                }
                 continue;
             }
-            if (zmq_errno() == EAGAIN) {
-                continue;
-            }
+            //if (zmq_errno() == EAGAIN) {
+            //    continue;
+            //}
 #endif
 
             hasRequest = false;

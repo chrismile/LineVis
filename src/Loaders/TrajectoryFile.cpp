@@ -358,7 +358,7 @@ Trajectories loadFlowTrajectoriesFromFile(
 
 void loadStressTrajectoriesFromFile(
         const std::vector<std::string>& filenamesTrajectories, const std::vector<std::string>& filenamesHierarchy,
-        int version, std::vector<int>& loadedPsIndices,
+        int version, std::vector<int>& loadedPsIndices, MeshType& meshType,
         std::vector<Trajectories>& trajectoriesPs, std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
         std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsUnsmoothedListLeftPs,
         std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsUnsmoothedListRightPs,
@@ -374,15 +374,17 @@ void loadStressTrajectoriesFromFile(
             loadStressTrajectoriesFromDat_v1(
                     filenamesTrajectories, filenamesHierarchy, loadedPsIndices, trajectoriesPs,
                     stressTrajectoriesDataPs);
+            meshType = MeshType::CARTESIAN;
         } else if (version == 2) {
             loadStressTrajectoriesFromDat_v2(
                     filenamesTrajectories, loadedPsIndices, trajectoriesPs, stressTrajectoriesDataPs,
                     bandPointsUnsmoothedListLeftPs, bandPointsUnsmoothedListRightPs);
             bandPointsSmoothedListLeftPs = bandPointsUnsmoothedListLeftPs;
             bandPointsSmoothedListRightPs = bandPointsUnsmoothedListRightPs;
+            meshType = MeshType::CARTESIAN;
         } else if (version == 3) {
             loadStressTrajectoriesFromDat_v3(
-                    filenamesTrajectories, loadedPsIndices, trajectoriesPs, stressTrajectoriesDataPs,
+                    filenamesTrajectories, loadedPsIndices, meshType, trajectoriesPs, stressTrajectoriesDataPs,
                     bandPointsUnsmoothedListLeftPs, bandPointsUnsmoothedListRightPs,
                     bandPointsSmoothedListLeftPs, bandPointsSmoothedListRightPs,
                     simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);

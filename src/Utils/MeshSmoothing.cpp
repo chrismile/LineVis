@@ -51,11 +51,14 @@ void laplacianSmoothing(
     for (uint32_t i = 0; i < pointsIn.size(); i++) {
         float weightSum = 0.0f;
         glm::vec3 pointSum(0.0f);
-        const std::unordered_set<uint32_t>& neighbors = neighborsMap.find(i)->second;
-        for (uint32_t j : neighbors) {
-            float w_ij = 1.0f / glm::length(pointsIn.at(i) - pointsIn.at(j));
-            weightSum += w_ij;
-            pointSum += w_ij * pointsIn.at(j);
+        auto it = neighborsMap.find(i);
+        if (it != neighborsMap.end()) {
+            const std::unordered_set<uint32_t>& neighbors = it->second;
+            for (uint32_t j : neighbors) {
+                float w_ij = 1.0f / glm::length(pointsIn.at(i) - pointsIn.at(j));
+                weightSum += w_ij;
+                pointSum += w_ij * pointsIn.at(j);
+            }
         }
         pointsOut.at(i) = pointsIn.at(i) + lambda * (1.0f / weightSum * pointSum - pointsIn.at(i));
     }
