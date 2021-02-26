@@ -36,6 +36,7 @@
 #include <Utils/File/Logfile.hpp>
 
 #include "Utils/TriangleNormals.hpp"
+#include "Utils/MeshSmoothing.hpp"
 #include "Loaders/DegeneratePointsDatLoader.hpp"
 #include "SearchStructures/KdTree.hpp"
 #include "Renderers/LineRenderer.hpp"
@@ -223,6 +224,7 @@ bool LineDataStress::loadFromFile(
     hasBandsData = !bandPointsUnsmoothedListLeftPs.empty();
     if (!simulationMeshOutlineTriangleIndices.empty()) {
         normalizeVertexPositions(simulationMeshOutlineVertexPositions, oldAABB, transformationMatrixPtr);
+        laplacianSmoothing(simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
         computeSmoothTriangleNormals(
                 simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions,
                 simulationMeshOutlineVertexNormals);

@@ -155,9 +155,9 @@ void OpaqueLineRenderer::render() {
         sgl::Renderer->render(shaderAttributesDegeneratePoints);
     }
 
-    glDepthMask(GL_FALSE);
+    //glDepthMask(GL_FALSE);
     renderHull();
-    glDepthMask(GL_TRUE);
+    //glDepthMask(GL_TRUE);
 
     if (useMultisampling) {
         sgl::Renderer->bindFBO(sceneData.framebuffer);

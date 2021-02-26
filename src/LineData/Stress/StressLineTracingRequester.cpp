@@ -34,6 +34,7 @@
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
 #include <ImGui/imgui_stdlib.h>
+#include <boost/filesystem.hpp>
 
 #include "Loaders/DataSetList.hpp"
 #include "StressLineTracingRequester.hpp"
@@ -91,14 +92,16 @@ void StressLineTracingRequester::renderGui() {
         changed |= ImGui::Combo(
                 "Seed Strategy", (int*)&seedStrategy, SEED_STRATEGY_NAMES,
                 IM_ARRAYSIZE(SEED_STRATEGY_NAMES));
-        changed |= ImGui::SliderInt("Minimum Epsilon", &minimumEpsilon, 1, 40);
-        changed |= ImGui::SliderInt("#Levels", &minimumEpsilon, 1, 10);
+        changed |= ImGui::SliderInt("Minimum Epsilon", &minimumEpsilon, 5, 10);
+        changed |= ImGui::SliderInt("#Levels", &numLevels, 1, 5);
 
         if (ImGui::CollapsingHeader("Scene Settings", nullptr, ImGuiTreeNodeFlags_DefaultOpen)) {
-            changed |= ImGui::SliderInt("Max Angle Deviation", &maxAngleDeviation, 1, 20);
+            changed |= ImGui::SliderInt("Max Angle Deviation", &maxAngleDeviation, 5, 20);
             changed |= ImGui::Checkbox("Snapping Close PSLs", &snappingOpt);
-            changed |= ImGui::SliderInt("Min PSL Length", &minPslLength, 1, 20);
-            changed |= ImGui::SliderInt("Volume Seeding Opt", &volumeSeedingOpt, 1, 10);
+            changed |= ImGui::SliderInt("Min PSL Length", &minPslLength, 5, 20);
+            if (seedStrategy == SeedStrategy::VOLUME) {
+                changed |= ImGui::SliderInt("Volume Seeding Opt", &volumeSeedingOpt, 2, 10);
+            }
         }
 
         if (changed) {
@@ -110,14 +113,17 @@ void StressLineTracingRequester::renderGui() {
 
 void StressLineTracingRequester::requestNewData() {
     Json::Value request;
-    request["fileName"] = meshFilename;
+    request["fileName"] = boost::filesystem::absolute(lineDataSetsDirectory + meshFilename).c_str();
     request["seedStrategy"] = SEED_STRATEGY_ABBREVIATIONS[int(seedStrategy)];
     request["minimumEpsilon"] = minimumEpsilon;
     request["numLevels"] = numLevels;
     request["maxAngleDevi"] = maxAngleDeviation;
     request["snappingOpt"] = snappingOpt;
     request["minPSLength"] = minPslLength;
+    //if (seedStrategy == SeedStrategy::VOLUME) {
     request["volumeSeedingOpt"] = volumeSeedingOpt;
+    //}
+    std::cout << request << std::endl;
     worker.queueRequestJson(request);
 }
 

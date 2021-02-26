@@ -35,6 +35,7 @@
 #include <ImGui/imgui_custom.h>
 
 #include "Utils/TriangleNormals.hpp"
+#include "Utils/MeshSmoothing.hpp"
 #include "Renderers/LineRenderer.hpp"
 #include "Mesh/MeshBoundarySurface.hpp"
 #include "LineData.hpp"
@@ -260,6 +261,7 @@ void LineData::loadSimulationMeshOutlineFromFile(
     loadMeshBoundarySurfaceFromFile(
             simulationMeshFilename, simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
     normalizeVertexPositions(simulationMeshOutlineVertexPositions, oldAABB, transformationMatrixPtr);
+    laplacianSmoothing(simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
     computeSmoothTriangleNormals(
             simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions,
             simulationMeshOutlineVertexNormals);

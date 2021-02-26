@@ -356,14 +356,6 @@ void parseOutlineMeshHull(
         simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(0));
         simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(2));
         simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(3));
-
-        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(2));
-        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(1));
-        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(0));
-
-        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(3));
-        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(2));
-        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(0));
     }
 }
 

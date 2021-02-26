@@ -69,7 +69,7 @@ private:
 
     // Line tracer settings.
     std::string meshFilename;
-    SeedStrategy seedStrategy = SeedStrategy::APPROX_TOPOLOGY;
+    SeedStrategy seedStrategy = SeedStrategy::SURFACE;
     int minimumEpsilon = 10;
     int numLevels = 5;
 
