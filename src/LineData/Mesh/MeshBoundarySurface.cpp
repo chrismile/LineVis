@@ -213,13 +213,6 @@ void loadMeshBoundarySurfaceFromFile(
         triangleIndices.push_back(vertexIndexMap[f.vs[3]]);
         triangleIndices.push_back(vertexIndexMap[f.vs[2]]);
         triangleIndices.push_back(vertexIndexMap[f.vs[0]]);
-
-        triangleIndices.push_back(vertexIndexMap[f.vs[0]]);
-        triangleIndices.push_back(vertexIndexMap[f.vs[1]]);
-        triangleIndices.push_back(vertexIndexMap[f.vs[2]]);
-        triangleIndices.push_back(vertexIndexMap[f.vs[0]]);
-        triangleIndices.push_back(vertexIndexMap[f.vs[2]]);
-        triangleIndices.push_back(vertexIndexMap[f.vs[3]]);
     }
 
 
