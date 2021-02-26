@@ -182,8 +182,10 @@ void normalizeTrajectoriesPsVertexPositions(
 
 void normalizeTrajectoriesPsVertexPositions(
         std::vector<Trajectories>& trajectoriesPs,
-        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsListLeftPs,
-        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsListRightPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsUnsmoothedListLeftPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsUnsmoothedListRightPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsSmoothedListLeftPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsSmoothedListRightPs,
         const sgl::AABB3& aabb, const glm::mat4* vertexTransformationMatrixPtr) {
     glm::vec3 translation = -aabb.getCenter();
     glm::vec3 scale3D = 0.5f / aabb.getDimensions();
@@ -191,23 +193,36 @@ void normalizeTrajectoriesPsVertexPositions(
 
     for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
         Trajectories& trajectories = trajectoriesPs.at(psIdx);
-        std::vector<std::vector<glm::vec3>>& bandPointsListLeft = bandPointsListLeftPs.at(psIdx);
-        std::vector<std::vector<glm::vec3>>& bandPointsListRight = bandPointsListRightPs.at(psIdx);
+        std::vector<std::vector<glm::vec3>>& bandPointsUnsmoothedListLeft = bandPointsUnsmoothedListLeftPs.at(psIdx);
+        std::vector<std::vector<glm::vec3>>& bandPointsUnsmoothedListRight = bandPointsUnsmoothedListRightPs.at(psIdx);
+        std::vector<std::vector<glm::vec3>>& bandPointsSmoothedListLeft = bandPointsSmoothedListLeftPs.at(psIdx);
+        std::vector<std::vector<glm::vec3>>& bandPointsSmoothedListRight = bandPointsSmoothedListRightPs.at(psIdx);
 
-        #pragma omp parallel for shared(trajectories, bandPointsListLeft, bandPointsListRight, scale, translation) default(none)
+        #pragma omp parallel for shared(trajectories, bandPointsUnsmoothedListLeft, bandPointsUnsmoothedListRight) \
+        shared(bandPointsSmoothedListLeft, bandPointsSmoothedListRight, scale, translation) default(none)
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
             for (glm::vec3& v : trajectory.positions) {
                 v = (v + translation) * scale;
             }
 
-            std::vector<glm::vec3>& bandPointsLeft = bandPointsListLeft.at(trajectoryIdx);
-            for (glm::vec3& v : bandPointsLeft) {
+            std::vector<glm::vec3>& bandPointsUnsmoothedLeft = bandPointsUnsmoothedListLeft.at(trajectoryIdx);
+            for (glm::vec3& v : bandPointsUnsmoothedLeft) {
                 v = (v + translation) * scale;
             }
 
-            std::vector<glm::vec3>& bandPointsRight = bandPointsListRight.at(trajectoryIdx);
-            for (glm::vec3& v : bandPointsRight) {
+            std::vector<glm::vec3>& bandPointsUnsmoothedRight = bandPointsUnsmoothedListRight.at(trajectoryIdx);
+            for (glm::vec3& v : bandPointsUnsmoothedRight) {
+                v = (v + translation) * scale;
+            }
+
+            std::vector<glm::vec3>& bandPointsSmoothedLeft = bandPointsSmoothedListLeft.at(trajectoryIdx);
+            for (glm::vec3& v : bandPointsSmoothedLeft) {
+                v = (v + translation) * scale;
+            }
+
+            std::vector<glm::vec3>& bandPointsSmoothedRight = bandPointsSmoothedListRight.at(trajectoryIdx);
+            for (glm::vec3& v : bandPointsSmoothedRight) {
                 v = (v + translation) * scale;
             }
         }
@@ -215,19 +230,30 @@ void normalizeTrajectoriesPsVertexPositions(
         if (vertexTransformationMatrixPtr != nullptr) {
             glm::mat4 transformationMatrix = *vertexTransformationMatrixPtr;
 
-            #pragma omp parallel for shared(trajectories, bandPointsListLeft, bandPointsListRight, transformationMatrix) default(none)
+            #pragma omp parallel for shared(trajectories, bandPointsUnsmoothedListLeft, bandPointsUnsmoothedListRight) \
+            shared(bandPointsSmoothedListLeft, bandPointsSmoothedListRight, transformationMatrix) default(none)
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
                 Trajectory& trajectory = trajectories.at(trajectoryIdx);
                 for (glm::vec3& v : trajectory.positions) {
                     v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
                 }
 
-                std::vector<glm::vec3>& bandPointsLeft = bandPointsListLeft.at(trajectoryIdx);
+                std::vector<glm::vec3>& bandPointsUnsmoothedLeft = bandPointsUnsmoothedListLeft.at(trajectoryIdx);
+                for (glm::vec3& v : bandPointsUnsmoothedLeft) {
+                    v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                }
+
+                std::vector<glm::vec3>& bandPointsUnsmoothedRight = bandPointsUnsmoothedListRight.at(trajectoryIdx);
+                for (glm::vec3& v : bandPointsUnsmoothedRight) {
+                    v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                }
+
+                std::vector<glm::vec3>& bandPointsLeft = bandPointsSmoothedListLeft.at(trajectoryIdx);
                 for (glm::vec3& v : bandPointsLeft) {
                     v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
                 }
 
-                std::vector<glm::vec3>& bandPointsRight = bandPointsListRight.at(trajectoryIdx);
+                std::vector<glm::vec3>& bandPointsRight = bandPointsSmoothedListRight.at(trajectoryIdx);
                 for (glm::vec3& v : bandPointsRight) {
                     v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
                 }
@@ -331,25 +357,37 @@ Trajectories loadFlowTrajectoriesFromFile(
 }
 
 void loadStressTrajectoriesFromFile(
-        const std::vector<std::string>& filenamesTrajectories,
-        const std::vector<std::string>& filenamesHierarchy,
-        std::vector<int>& loadedPsIndices,
-        std::vector<Trajectories>& trajectoriesPs,
-        std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
-        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsListLeftPs,
-        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsListRightPs,
-        bool containsBandData, bool normalizeVertexPositions, bool normalizeAttributes,
+        const std::vector<std::string>& filenamesTrajectories, const std::vector<std::string>& filenamesHierarchy,
+        int version, std::vector<int>& loadedPsIndices,
+        std::vector<Trajectories>& trajectoriesPs, std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsUnsmoothedListLeftPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsUnsmoothedListRightPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsSmoothedListLeftPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsSmoothedListRightPs,
+        std::vector<uint32_t>& simulationMeshOutlineTriangleIndices,
+        std::vector<glm::vec3>& simulationMeshOutlineVertexPositions,
+        bool normalizeVertexPositions, bool normalizeAttributes,
         sgl::AABB3* oldAABB, const glm::mat4* vertexTransformationMatrixPtr) {
     std::string lowerCaseFilename = boost::to_lower_copy(filenamesTrajectories.front());
     if (boost::ends_with(lowerCaseFilename, ".dat")) {
-        if (containsBandData) {
-            loadStressTrajectoriesFromDat_v2(
-                    filenamesTrajectories, loadedPsIndices, trajectoriesPs, stressTrajectoriesDataPs,
-                    bandPointsListLeftPs, bandPointsListRightPs);
-        } else {
-            loadStressTrajectoriesFromDat(
+        if (version == 1) {
+            loadStressTrajectoriesFromDat_v1(
                     filenamesTrajectories, filenamesHierarchy, loadedPsIndices, trajectoriesPs,
                     stressTrajectoriesDataPs);
+        } else if (version == 2) {
+            loadStressTrajectoriesFromDat_v2(
+                    filenamesTrajectories, loadedPsIndices, trajectoriesPs, stressTrajectoriesDataPs,
+                    bandPointsUnsmoothedListLeftPs, bandPointsUnsmoothedListRightPs);
+            bandPointsSmoothedListLeftPs = bandPointsUnsmoothedListLeftPs;
+            bandPointsSmoothedListRightPs = bandPointsUnsmoothedListRightPs;
+        } else if (version == 3) {
+            loadStressTrajectoriesFromDat_v3(
+                    filenamesTrajectories, loadedPsIndices, trajectoriesPs, stressTrajectoriesDataPs,
+                    bandPointsUnsmoothedListLeftPs, bandPointsUnsmoothedListRightPs,
+                    bandPointsSmoothedListLeftPs, bandPointsSmoothedListRightPs,
+                    simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
+        } else {
+            sgl::Logfile::get()->writeError("ERROR in loadStressTrajectoriesFromFile: Unknown version number.");
         }
     } else {
         sgl::Logfile::get()->writeError("ERROR in loadStressTrajectoriesFromFile: Unknown file extension.");
@@ -360,28 +398,40 @@ void loadStressTrajectoriesFromFile(
         if (oldAABB) {
             *oldAABB = aabb;
         }
-        if (containsBandData) {
+        if (version >= 2) {
             normalizeTrajectoriesPsVertexPositions(
-                    trajectoriesPs, bandPointsListLeftPs, bandPointsListRightPs, aabb,
-                    vertexTransformationMatrixPtr);
+                    trajectoriesPs, bandPointsUnsmoothedListLeftPs, bandPointsUnsmoothedListRightPs,
+                    bandPointsSmoothedListLeftPs, bandPointsSmoothedListRightPs, aabb, vertexTransformationMatrixPtr);
 
             for (size_t psIdx = 0; psIdx < trajectoriesPs.size(); psIdx++) {
                 Trajectories& trajectories = trajectoriesPs.at(psIdx);
-                std::vector<std::vector<glm::vec3>>& bandPointsListLeft = bandPointsListLeftPs.at(psIdx);
-                std::vector<std::vector<glm::vec3>>& bandPointsListRight = bandPointsListRightPs.at(psIdx);
+                std::vector<std::vector<glm::vec3>>& bandPointsUnsmoothedListLeft = bandPointsUnsmoothedListLeftPs.at(psIdx);
+                std::vector<std::vector<glm::vec3>>& bandPointsUnsmoothedListRight = bandPointsUnsmoothedListRightPs.at(psIdx);
+                std::vector<std::vector<glm::vec3>>& bandPointsSmoothedListLeft = bandPointsSmoothedListLeftPs.at(psIdx);
+                std::vector<std::vector<glm::vec3>>& bandPointsSmoothedListRight = bandPointsSmoothedListRightPs.at(psIdx);
 
                 for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
                     Trajectory& trajectory = trajectories.at(trajectoryIdx);
-                    std::vector<glm::vec3>& bandPointsLeft = bandPointsListLeft.at(trajectoryIdx);
-                    std::vector<glm::vec3>& bandPointsRight = bandPointsListRight.at(trajectoryIdx);
+                    std::vector<glm::vec3>& bandPointsUnsmoothedLeft = bandPointsUnsmoothedListLeft.at(trajectoryIdx);
+                    std::vector<glm::vec3>& bandPointsUnsmoothedRight = bandPointsUnsmoothedListRight.at(trajectoryIdx);
+                    std::vector<glm::vec3>& bandPointsSmoothedLeft = bandPointsSmoothedListLeft.at(trajectoryIdx);
+                    std::vector<glm::vec3>& bandPointsSmoothedRight = bandPointsSmoothedListRight.at(trajectoryIdx);
                     for (size_t linePos = 0; linePos < trajectory.positions.size(); linePos++) {
                         glm::vec3& trajectoryPoint = trajectory.positions.at(linePos);
-                        glm::vec3& bandPointLeft = bandPointsLeft.at(linePos);
-                        glm::vec3& bandPointRight = bandPointsRight.at(linePos);
-                        bandPointLeft = bandPointLeft - trajectoryPoint;
-                        bandPointRight = bandPointRight - trajectoryPoint;
-                        bandPointLeft /= 0.005f;
-                        bandPointRight /= 0.005f;
+
+                        glm::vec3& bandPointUnsmoothedLeft = bandPointsUnsmoothedLeft.at(linePos);
+                        glm::vec3& bandPointUnsmoothedRight = bandPointsUnsmoothedRight.at(linePos);
+                        bandPointUnsmoothedLeft = bandPointUnsmoothedLeft - trajectoryPoint;
+                        bandPointUnsmoothedRight = bandPointUnsmoothedRight - trajectoryPoint;
+                        bandPointUnsmoothedLeft /= 0.005f;
+                        bandPointUnsmoothedRight /= 0.005f;
+
+                        glm::vec3& bandPointSmoothedLeft = bandPointsSmoothedLeft.at(linePos);
+                        glm::vec3& bandPointSmoothedRight = bandPointsSmoothedRight.at(linePos);
+                        bandPointSmoothedLeft = bandPointSmoothedLeft - trajectoryPoint;
+                        bandPointSmoothedRight = bandPointSmoothedRight - trajectoryPoint;
+                        bandPointSmoothedLeft /= 0.005f;
+                        bandPointSmoothedRight /= 0.005f;
                     }
                 }
             }

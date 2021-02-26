@@ -72,6 +72,12 @@ private:
     SeedStrategy seedStrategy = SeedStrategy::APPROX_TOPOLOGY;
     int minimumEpsilon = 10;
     int numLevels = 5;
+
+    // Expert options.
+    int maxAngleDeviation = 10;
+    bool snappingOpt = true;
+    int minPslLength = 10;
+    int volumeSeedingOpt = 5;
 };
 
 #endif //LINEVIS_STRESSLINETRACINGREQUESTER_HPP

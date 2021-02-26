@@ -43,8 +43,8 @@ typedef std::vector<Trajectory> Trajectories;
 
 struct StressTrajectoryData {
     // Per line data.
-    ///< Hierarchy level between 0 and 1.
-    float hierarchyLevel = 0.0f;
+    ///< Hierarchy levels between 0 and 1.
+    std::vector<float> hierarchyLevels;
 
     // Per line point data.
     std::vector<float> majorPs;
@@ -93,7 +93,7 @@ Trajectories loadFlowTrajectoriesFromFile(
         const glm::mat4* vertexTransformationMatrixPtr = nullptr);
 
 /**
- * Uses @see loadStressTrajectoriesFromDat depending on the file endings and performs some normalization for special
+ * Uses @see loadStressTrajectoriesFromDat_v1 depending on the file endings and performs some normalization for special
  * datasets.
  * @param filenamesTrajectories The names of the principal stress trajectory files to open.
  * @param filenamesHierarchy The names of the line hierarchy files to open (optional; can be empty).
@@ -102,23 +102,28 @@ Trajectories loadFlowTrajectoriesFromFile(
  * @param trajectoriesPs The three trajectory sets loaded from the file (empty if the file(s) could not be opened).
  * @param stressTrajectoriesDataPs The principal stress data of the three trajectory sets loaded from the file (empty if
  * the file could not be opened).
- * @param bandPointsListLeftPs The band points on the left band strand.
- * @param bandPointsListRightPs The band points on the right band strand.
- * @param containsBandData Whether the file contains band data.
+ * @param bandPointsUnsmoothedListLeftPs The (unsmoothed) band points on the left band strand.
+ * @param bandPointsUnsmoothedListRightPs The (unsmoothed) band points on the right band strand.
+ * @param bandPointsSmoothedListLeftPs The (smoothed) band points on the left band strand.
+ * @param bandPointsSmoothedListRightPs The (smoothed) band points on the right band strand.
+ * @param simulationMeshOutlineTriangleIndices The triangle indices of the hull mesh (optional output).
+ * @param simulationMeshOutlineVertexPositions The vertex positions of the hull mesh (optional output).
  * @param normalizeVertexPositions Whether to normalize the vertex positions.
  * @param normalizeAttributes Whether to normalize the list of attributes to the range [0,1].
  * @param oldAABB The old AABB before normalization is stored in the pointer (optional, can be nullptr).
  * @param vertexTransformationMatrixPtr Can be used to pass a transformation matrix for the vertex positions (optional).
  */
 void loadStressTrajectoriesFromFile(
-        const std::vector<std::string>& filenamesTrajectories,
-        const std::vector<std::string>& filenamesHierarchy,
-        std::vector<int>& loadedPsIndices,
-        std::vector<Trajectories>& trajectoriesPs,
-        std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
-        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsListLeftPs,
-        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsListRightPs,
-        bool containsBandData, bool normalizeVertexPositions = true, bool normalizeAttributes = false,
+        const std::vector<std::string>& filenamesTrajectories, const std::vector<std::string>& filenamesHierarchy,
+        int version, std::vector<int>& loadedPsIndices,
+        std::vector<Trajectories>& trajectoriesPs, std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsUnsmoothedListLeftPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsUnsmoothedListRightPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsSmoothedListLeftPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsSmoothedListRightPs,
+        std::vector<uint32_t>& simulationMeshOutlineTriangleIndices,
+        std::vector<glm::vec3>& simulationMeshOutlineVertexPositions,
+        bool normalizeVertexPositions = true, bool normalizeAttributes = false,
         sgl::AABB3* oldAABB = nullptr, const glm::mat4* vertexTransformationMatrixPtr = nullptr);
 
 Trajectories loadTrajectoriesFromObj(const std::string& filename, std::vector<std::string>& attributeNames);

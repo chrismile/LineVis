@@ -49,12 +49,12 @@ struct DataSetInformation {
     bool hasCustomTransform = false;
     glm::mat4 transformMatrix = sgl::matrixIdentity();
     std::vector<std::string> attributeNames; ///< Names of the associated importance criteria.
+    int version = 1;
 
     // Stress lines: Additional information (optional).
     std::string meshFilename;
     std::string degeneratePointsFilename;
     std::vector<std::string> filenamesStressLineHierarchy;
-    bool containsBandData = false;
 };
 
 std::vector<DataSetInformation> loadDataSetList(const std::string& filename);

@@ -92,7 +92,15 @@ void StressLineTracingRequester::renderGui() {
                 "Seed Strategy", (int*)&seedStrategy, SEED_STRATEGY_NAMES,
                 IM_ARRAYSIZE(SEED_STRATEGY_NAMES));
         changed |= ImGui::SliderInt("Minimum Epsilon", &minimumEpsilon, 1, 40);
-        changed |= ImGui::SliderInt("#Levels", &minimumEpsilon, 1, 40);
+        changed |= ImGui::SliderInt("#Levels", &minimumEpsilon, 1, 10);
+
+        if (ImGui::CollapsingHeader("Scene Settings", nullptr, ImGuiTreeNodeFlags_DefaultOpen)) {
+            changed |= ImGui::SliderInt("Max Angle Deviation", &maxAngleDeviation, 1, 20);
+            changed |= ImGui::Checkbox("Snapping Close PSLs", &snappingOpt);
+            changed |= ImGui::SliderInt("Min PSL Length", &minPslLength, 1, 20);
+            changed |= ImGui::SliderInt("Volume Seeding Opt", &volumeSeedingOpt, 1, 10);
+        }
+
         if (changed) {
             requestNewData();
         }
@@ -106,6 +114,10 @@ void StressLineTracingRequester::requestNewData() {
     request["seedStrategy"] = SEED_STRATEGY_ABBREVIATIONS[int(seedStrategy)];
     request["minimumEpsilon"] = minimumEpsilon;
     request["numLevels"] = numLevels;
+    request["maxAngleDevi"] = maxAngleDeviation;
+    request["snappingOpt"] = snappingOpt;
+    request["minPSLength"] = minPslLength;
+    request["volumeSeedingOpt"] = volumeSeedingOpt;
     worker.queueRequestJson(request);
 }
 
@@ -114,7 +126,7 @@ bool StressLineTracingRequester::getHasNewData(DataSetInformation& dataSetInform
     if (worker.getReplyJson(reply)) {
         dataSetInformation.type = DATA_SET_TYPE_STRESS_LINES;
         dataSetInformation.transformMatrix = parseTransformString("rotate(270°, 1, 0, 0)");
-        dataSetInformation.containsBandData = true;
+        dataSetInformation.version = 3;
         dataSetInformation.meshFilename = meshFilename;
 
         Json::Value filenames = reply["fileName"];

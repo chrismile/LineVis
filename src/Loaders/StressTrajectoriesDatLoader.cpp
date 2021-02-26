@@ -35,6 +35,7 @@
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/LineReader.hpp>
 
+#include "Utils/TriangleNormals.hpp"
 #include "StressTrajectoriesDatLoader.hpp"
 
 void loadStressLineHierarchyFromDat(
@@ -64,7 +65,7 @@ void loadStressLineHierarchyFromDat(
             for (uint32_t lineIdx = 0; lineIdx < numLines; lineIdx++) {
                 StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(lineIdx);
                 float lineHierarchyLevel = lineReader.readScalarLine<float>();
-                stressTrajectoryData.hierarchyLevel = lineHierarchyLevel;
+                stressTrajectoryData.hierarchyLevels.push_back(lineHierarchyLevel);
             }
 
             psIdx++;
@@ -72,7 +73,7 @@ void loadStressLineHierarchyFromDat(
     }
 }
 
-void loadStressTrajectoriesFromDat(
+void loadStressTrajectoriesFromDat_v1(
         const std::vector<std::string>& filenamesTrajectories,
         const std::vector<std::string>& filenamesHierarchy,
         std::vector<int>& loadedPsIndices,
@@ -111,7 +112,7 @@ void loadStressTrajectoriesFromDat(
                 }
             } else {
                 sgl::Logfile::get()->writeError(
-                        std::string() + "ERROR in loadStressTrajectoriesFromDat: Invalid line metadata in file \""
+                        std::string() + "ERROR in loadStressTrajectoriesFromDat_v1: Invalid line metadata in file \""
                         + filename + "\".");
             }
             trajectories.resize(numLines);
@@ -265,7 +266,7 @@ void loadStressTrajectoriesFromDat_v2(
                 }
                 uint32_t lineLength = sgl::fromString<uint32_t>(firstLineVector.at(0));
                 float hierarchyLevel = sgl::fromString<float>(firstLineVector.at(1));
-                stressTrajectoryData.hierarchyLevel = hierarchyLevel;
+                stressTrajectoryData.hierarchyLevels.push_back(hierarchyLevel);
                 trajectory.positions.reserve(lineLength);
                 trajectory.attributes.resize(1);
                 trajectory.attributes.front().reserve(lineLength);
@@ -314,6 +315,218 @@ void loadStressTrajectoriesFromDat_v2(
             stressTrajectoriesDataPs.emplace_back(stressTrajectoriesData);
             bandPointsListLeftPs.emplace_back(bandPointsListLeft);
             bandPointsListRightPs.emplace_back(bandPointsListRight);
+            psIdx++;
+        }
+    }
+
+    std::cout << "Size of line geometry data (MiB): " << (geometryByteSize / (1024.0 * 1024.0)) << std::endl;
+}
+
+
+
+void parseOutlineMeshHull(
+        sgl::LineReader& lineReader,
+        std::vector<uint32_t>& simulationMeshOutlineTriangleIndices,
+        std::vector<glm::vec3>& simulationMeshOutlineVertexPositions) {
+    std::vector<std::string> numVerticesLine = lineReader.readVectorLine<std::string>();
+    if (numVerticesLine.size() != 2 || numVerticesLine.front() != "#Vertices") {
+        sgl::Logfile::get()->writeError("Error in parseOutlineMeshHull: Invalid vertex information.");
+    }
+    uint32_t numVertices = sgl::fromString<uint32_t>(numVerticesLine.at(1));
+    for (uint32_t vertexIdx = 0; vertexIdx < numVertices; vertexIdx++) {
+        std::vector<float> vertexPosition = lineReader.readVectorLine<float>(3);
+        assert(vertexPosition.size() == 3);
+        simulationMeshOutlineVertexPositions.push_back(
+                glm::vec3(vertexPosition.at(0), vertexPosition.at(1), vertexPosition.at(2)));
+    }
+
+    std::vector<std::string> numFacesLine = lineReader.readVectorLine<std::string>();
+    if (numFacesLine.size() != 2 || numFacesLine.front() != "#Faces") {
+        sgl::Logfile::get()->writeError("Error in parseOutlineMeshHull: Invalid face information.");
+    }
+    uint32_t numFaces = sgl::fromString<uint32_t>(numFacesLine.at(1));
+    for (uint32_t faceIdx = 0; faceIdx < numFaces; faceIdx++) {
+        std::vector<uint32_t> faceIndices = lineReader.readVectorLine<uint32_t>(4);
+        assert(faceIndices.size() == 4);
+
+        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(0));
+        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(1));
+        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(2));
+
+        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(0));
+        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(2));
+        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(3));
+
+        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(2));
+        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(1));
+        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(0));
+
+        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(3));
+        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(2));
+        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(0));
+    }
+}
+
+void loadStressTrajectoriesFromDat_v3(
+        const std::vector<std::string>& filenamesTrajectories,
+        std::vector<int>& loadedPsIndices,
+        std::vector<Trajectories>& trajectoriesPs,
+        std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsUnsmoothedListLeftPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsUnsmoothedListRightPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsSmoothedListLeftPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsSmoothedListRightPs,
+        std::vector<uint32_t>& simulationMeshOutlineTriangleIndices,
+        std::vector<glm::vec3>& simulationMeshOutlineVertexPositions) {
+    trajectoriesPs.reserve(filenamesTrajectories.size());
+    stressTrajectoriesDataPs.reserve(filenamesTrajectories.size());
+    bandPointsUnsmoothedListLeftPs.reserve(filenamesTrajectories.size());
+    bandPointsUnsmoothedListRightPs.reserve(filenamesTrajectories.size());
+    bandPointsSmoothedListLeftPs.reserve(filenamesTrajectories.size());
+    bandPointsSmoothedListRightPs.reserve(filenamesTrajectories.size());
+    size_t geometryByteSize = 0;
+
+    size_t psIdx = 0;
+    for (size_t fileIdx = 0; fileIdx < filenamesTrajectories.size(); fileIdx++) {
+        const std::string& filename = filenamesTrajectories.at(fileIdx);
+
+        sgl::LineReader lineReader(filename);
+        while (lineReader.isLineLeft()) {
+            Trajectories trajectories;
+            StressTrajectoriesData stressTrajectoriesData;
+            std::vector<std::vector<glm::vec3>> bandPointsUnsmoothedListLeft;
+            std::vector<std::vector<glm::vec3>> bandPointsUnsmoothedListRight;
+            std::vector<std::vector<glm::vec3>> bandPointsSmoothedListLeft;
+            std::vector<std::vector<glm::vec3>> bandPointsSmoothedListRight;
+            std::vector<std::string> linesInfo = lineReader.readVectorLine<std::string>();
+
+            if (linesInfo.size() == 1 && linesInfo.front() == "#Outline") {
+                parseOutlineMeshHull(
+                        lineReader, simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
+                continue;
+            }
+
+            // Line metadata saved?
+            uint32_t numLines = 0;
+            if (linesInfo.size() == 1) {
+                numLines = sgl::fromString<uint32_t>(linesInfo.at(0));
+            } else if (linesInfo.size() == 2) {
+                boost::algorithm::to_lower(linesInfo.at(0));
+                if (boost::ends_with(linesInfo.at(0), "major")) {
+                    loadedPsIndices.push_back(0);
+                } else if (boost::ends_with(linesInfo.at(0), "medium")) {
+                    loadedPsIndices.push_back(1);
+                } else if (boost::ends_with(linesInfo.at(0), "minor")) {
+                    loadedPsIndices.push_back(2);
+                } else {
+                    sgl::Logfile::get()->writeError(
+                            std::string() + "ERROR in loadStressTrajectoriesFromDat_v2: "
+                            + "Invalid principal stress identifier \"" + linesInfo.at(0) + "\".");
+                }
+                numLines = sgl::fromString<uint32_t>(linesInfo.at(1));
+            } else {
+                sgl::Logfile::get()->writeError(
+                        std::string() + "ERROR in loadStressTrajectoriesFromDat_v2: "
+                        + "Invalid line metadata in file \"" + filename + "\".");
+            }
+            trajectories.resize(numLines);
+            stressTrajectoriesData.resize(numLines);
+            bandPointsUnsmoothedListLeft.resize(numLines);
+            bandPointsUnsmoothedListRight.resize(numLines);
+            bandPointsSmoothedListLeft.resize(numLines);
+            bandPointsSmoothedListRight.resize(numLines);
+            for (uint32_t lineIdx = 0; lineIdx < numLines; lineIdx++) {
+                Trajectory& trajectory = trajectories.at(lineIdx);
+                StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(lineIdx);
+                std::vector<glm::vec3>& bandPointsUnsmoothedLeft = bandPointsUnsmoothedListLeft.at(lineIdx);
+                std::vector<glm::vec3>& bandPointsUnsmoothedRight = bandPointsUnsmoothedListRight.at(lineIdx);
+                std::vector<glm::vec3>& bandPointsSmoothedLeft = bandPointsSmoothedListLeft.at(lineIdx);
+                std::vector<glm::vec3>& bandPointsSmoothedRight = bandPointsSmoothedListRight.at(lineIdx);
+
+                std::vector<std::string> firstLineVector = lineReader.readVectorLine<std::string>();
+                if (firstLineVector.size() == 0) {
+                    sgl::Logfile::get()->writeError(
+                            std::string() + "ERROR in loadStressTrajectoriesFromDat_v2: "
+                            + "Invalid per line metadata in file \"" + filename + "\".");
+                }
+                uint32_t lineLength = sgl::fromString<uint32_t>(firstLineVector.at(0));
+
+                // Add the hierarchy levels.
+                for (uint32_t hierarchyIdx = 1; hierarchyIdx < firstLineVector.size(); hierarchyIdx++) {
+                    float hierarchyLevel = sgl::fromString<float>(firstLineVector.at(hierarchyIdx));
+                    stressTrajectoryData.hierarchyLevels.push_back(hierarchyLevel);
+                }
+                trajectory.positions.reserve(lineLength);
+                bandPointsUnsmoothedLeft.reserve(lineLength);
+                bandPointsUnsmoothedRight.reserve(lineLength);
+                bandPointsSmoothedLeft.reserve(lineLength);
+                bandPointsSmoothedRight.reserve(lineLength);
+                std::vector<float> positionData = lineReader.readVectorLine<float>(
+                        lineLength * 3);
+                std::vector<float> bandVertexDataUnsmoothed = lineReader.readVectorLine<float>(
+                        lineLength * 6);
+                std::vector<float> bandVertexDataSmoothed = lineReader.readVectorLine<float>(
+                        lineLength * 6);
+
+                for (uint32_t pointIdx = 0; pointIdx < lineLength; pointIdx++) {
+                    trajectory.positions.push_back(glm::vec3(
+                            positionData.at(pointIdx * 3),
+                            positionData.at(pointIdx * 3 + 1),
+                            positionData.at(pointIdx * 3 + 2)));
+                    bandPointsUnsmoothedLeft.push_back(glm::vec3(
+                            bandVertexDataUnsmoothed.at(pointIdx * 6 + 0),
+                            bandVertexDataUnsmoothed.at(pointIdx * 6 + 1),
+                            bandVertexDataUnsmoothed.at(pointIdx * 6 + 2)));
+                    bandPointsUnsmoothedRight.push_back(glm::vec3(
+                            bandVertexDataUnsmoothed.at(pointIdx * 6 + 3),
+                            bandVertexDataUnsmoothed.at(pointIdx * 6 + 4),
+                            bandVertexDataUnsmoothed.at(pointIdx * 6 + 5)));
+                    bandPointsSmoothedLeft.push_back(glm::vec3(
+                            bandVertexDataSmoothed.at(pointIdx * 6 + 0),
+                            bandVertexDataSmoothed.at(pointIdx * 6 + 1),
+                            bandVertexDataSmoothed.at(pointIdx * 6 + 2)));
+                    bandPointsSmoothedRight.push_back(glm::vec3(
+                            bandVertexDataSmoothed.at(pointIdx * 6 + 3),
+                            bandVertexDataSmoothed.at(pointIdx * 6 + 4),
+                            bandVertexDataSmoothed.at(pointIdx * 6 + 5)));
+                }
+
+                trajectory.attributes.resize(8);
+                for (int varIdx = 0; varIdx < 8; varIdx++) {
+                    trajectory.attributes.at(varIdx).reserve(lineLength);
+                    std::vector<float> scalarFieldData = lineReader.readVectorLine<float>(lineLength);
+                    for (uint32_t pointIdx = 0; pointIdx < lineLength; pointIdx++) {
+                        trajectory.attributes.at(varIdx).push_back(scalarFieldData.at(pointIdx));
+                    }
+                }
+            }
+
+            for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+                Trajectory& trajectory = trajectories.at(trajectoryIdx);
+                StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
+                geometryByteSize += trajectory.positions.size() * sizeof(float) * 3;
+                geometryByteSize += sizeof(float); // hierarchy level
+                geometryByteSize += stressTrajectoryData.majorPs.size() * sizeof(float);
+                geometryByteSize += stressTrajectoryData.mediumPs.size() * sizeof(float);
+                geometryByteSize += stressTrajectoryData.minorPs.size() * sizeof(float);
+                geometryByteSize += stressTrajectoryData.majorPsDir.size() * sizeof(float) * 3;
+                geometryByteSize += stressTrajectoryData.mediumPsDir.size() * sizeof(float) * 3;
+                geometryByteSize += stressTrajectoryData.minorPsDir.size() * sizeof(float) * 3;
+                for (const std::vector<float>& attributes : trajectory.attributes) {
+                    geometryByteSize += attributes.size() * sizeof(float);
+                }
+                geometryByteSize += bandPointsUnsmoothedListLeft.at(trajectoryIdx).size() * sizeof(float) * 3;
+                geometryByteSize += bandPointsUnsmoothedListRight.at(trajectoryIdx).size() * sizeof(float) * 3;
+                geometryByteSize += bandPointsSmoothedListLeft.at(trajectoryIdx).size() * sizeof(float) * 3;
+                geometryByteSize += bandPointsSmoothedListRight.at(trajectoryIdx).size() * sizeof(float) * 3;
+            }
+
+            trajectoriesPs.emplace_back(trajectories);
+            stressTrajectoriesDataPs.emplace_back(stressTrajectoriesData);
+            bandPointsUnsmoothedListLeftPs.emplace_back(bandPointsUnsmoothedListLeft);
+            bandPointsUnsmoothedListRightPs.emplace_back(bandPointsUnsmoothedListRight);
+            bandPointsSmoothedListLeftPs.emplace_back(bandPointsSmoothedListLeft);
+            bandPointsSmoothedListRightPs.emplace_back(bandPointsSmoothedListRight);
             psIdx++;
         }
     }

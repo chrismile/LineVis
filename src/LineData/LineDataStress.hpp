@@ -145,17 +145,26 @@ private:
     std::vector<bool> usedPsDirections; ///< What principal stress (PS) directions do we want to display?
     std::vector<std::vector<bool>> filteredTrajectoriesPs;
     std::vector<glm::vec2> minMaxAttributeValuesPs[3];
+    int fileFormatVersion = 0;
     // If optional band data is provided:
-    std::vector<std::vector<std::vector<glm::vec3>>> bandPointsListLeftPs, bandPointsListRightPs;
+    bool hasBandsData = false;
+    std::vector<std::vector<std::vector<glm::vec3>>> bandPointsUnsmoothedListLeftPs, bandPointsUnsmoothedListRightPs;
+    std::vector<std::vector<std::vector<glm::vec3>>> bandPointsSmoothedListLeftPs, bandPointsSmoothedListRightPs;
     std::array<bool, 3> psUseBands = {true, true, false};
     bool renderThickBands = false;
+    bool useSmoothedBands = true;
 
     // Rendering mode settings.
     bool rendererSupportsTransparency = false;
 
     // Optional line hierarchy settings.
+    void updateLineHierarchyHistogram();
     bool hasLineHierarchy = false;
     bool useLineHierarchy = false;
+    enum class LineHierarchyType {
+        GEO, PS, VM, LENGTH
+    };
+    LineHierarchyType lineHierarchyType = LineHierarchyType::GEO;
     glm::vec3 lineHierarchySliderValues = glm::vec3(1.0f);
     //glm::vec3 lineHierarchySliderValuesLower;
     //glm::vec3 lineHierarchySliderValuesUpper;

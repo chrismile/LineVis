@@ -35,6 +35,7 @@
 
 #include <Utils/File/Logfile.hpp>
 
+#include "Utils/TriangleNormals.hpp"
 #include "Loaders/DegeneratePointsDatLoader.hpp"
 #include "SearchStructures/KdTree.hpp"
 #include "Renderers/LineRenderer.hpp"
@@ -46,6 +47,7 @@ bool LineDataStress::useMinorPS = true;
 bool LineDataStress::usePrincipalStressDirectionIndex = true;
 
 const char* const stressDirectionNames[] = { "Major", "Medium", "Minor" };
+const char* const lineHierarchyTypeNames[] = { "geo-based", "PS-based", "vM-based", "Length-based" };
 
 LineDataStress::LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_STRESS_LINES),
@@ -61,8 +63,7 @@ LineDataStress::~LineDataStress() {
 }
 
 bool LineDataStress::settingsDiffer(LineData* other) {
-    return useLineHierarchy != static_cast<LineDataStress*>(other)->useLineHierarchy
-            || (bandPointsListLeftPs.empty() != static_cast<LineDataStress*>(other)->bandPointsListLeftPs.empty());
+    return useLineHierarchy != static_cast<LineDataStress*>(other)->useLineHierarchy || (hasBandsData != hasBandsData);
 }
 
 void LineDataStress::update(float dt) {
@@ -103,6 +104,14 @@ bool LineDataStress::renderGui(bool isRasterizer) {
             dirty = true;
             shallReloadGatherShader = true;
         }
+        if (fileFormatVersion >= 3) {
+            if (ImGui::Combo(
+                    "Line Hierarchy Type", (int*)&lineHierarchyType,
+                    lineHierarchyTypeNames, IM_ARRAYSIZE(lineHierarchyTypeNames))) {
+                updateLineHierarchyHistogram();
+                dirty = true;
+            }
+        }
         if (!rendererSupportsTransparency && useLineHierarchy) {
             for (int psIdx : loadedPsIndices) {
                 if (ImGui::SliderFloat(
@@ -126,6 +135,10 @@ bool LineDataStress::renderGui(bool isRasterizer) {
 
         if (ImGui::Checkbox("Render Thick Bands", &renderThickBands)) {
             shallReloadGatherShader = true;
+        }
+
+        if (fileFormatVersion >= 3 && ImGui::Checkbox("Smoothed Bands", &useSmoothedBands)) {
+            dirty = true;
         }
     }
 
@@ -192,22 +205,33 @@ bool LineDataStress::loadFromFile(
         const std::vector<std::string>& fileNames, DataSetInformation dataSetInformation,
         glm::mat4* transformationMatrixPtr) {
     hasLineHierarchy = useLineHierarchy = !dataSetInformation.filenamesStressLineHierarchy.empty();
-    if (dataSetInformation.containsBandData) {
+    if (dataSetInformation.version >= 2) {
         hasLineHierarchy = useLineHierarchy = true;
     }
     attributeNames = dataSetInformation.attributeNames;
+
     std::vector<Trajectories> trajectoriesPs;
     std::vector<StressTrajectoriesData> stressTrajectoriesDataPs;
     sgl::AABB3 oldAABB;
     loadStressTrajectoriesFromFile(
-            fileNames, dataSetInformation.filenamesStressLineHierarchy, loadedPsIndices,
+            fileNames, dataSetInformation.filenamesStressLineHierarchy, dataSetInformation.version, loadedPsIndices,
             trajectoriesPs, stressTrajectoriesDataPs,
-            bandPointsListLeftPs, bandPointsListRightPs, dataSetInformation.containsBandData,
+            bandPointsUnsmoothedListLeftPs, bandPointsUnsmoothedListRightPs,
+            bandPointsSmoothedListLeftPs, bandPointsSmoothedListRightPs,
+            simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions,
             true, false, &oldAABB, transformationMatrixPtr);
+    hasBandsData = !bandPointsUnsmoothedListLeftPs.empty();
+    if (!simulationMeshOutlineTriangleIndices.empty()) {
+        normalizeVertexPositions(simulationMeshOutlineVertexPositions, oldAABB, transformationMatrixPtr);
+        computeSmoothTriangleNormals(
+                simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions,
+                simulationMeshOutlineVertexNormals);
+    }
     bool dataLoaded = !trajectoriesPs.empty();
 
     if (dataLoaded) {
         setStressTrajectoryData(trajectoriesPs, stressTrajectoriesDataPs);
+
         if (!dataSetInformation.degeneratePointsFilename.empty()) {
             std::vector<glm::vec3> degeneratePoints;
             loadDegeneratePointsFromDat(
@@ -215,10 +239,13 @@ bool LineDataStress::loadFromFile(
             normalizeVertexPositions(degeneratePoints, oldAABB, transformationMatrixPtr);
             setDegeneratePoints(degeneratePoints, attributeNames);
         }
-        if (!dataSetInformation.meshFilename.empty()) {
-            shallRenderSimulationMeshBoundary = true;
+        if (!dataSetInformation.meshFilename.empty() && simulationMeshOutlineTriangleIndices.empty()) {
             loadSimulationMeshOutlineFromFile(dataSetInformation.meshFilename, oldAABB, transformationMatrixPtr);
         }
+        if (!simulationMeshOutlineTriangleIndices.empty()) {
+            shallRenderSimulationMeshBoundary = true;
+        }
+        fileFormatVersion = dataSetInformation.version;
         modelBoundingBox = computeTrajectoriesPsAABB3(trajectoriesPs);
 
         std::vector<bool> usedPsDirections = {false, false, false};
@@ -230,15 +257,12 @@ bool LineDataStress::loadFromFile(
         setUsedPsDirections(usedPsDirections);
 
         // Use bands if possible.
-        if (!bandPointsListLeftPs.empty()) {
+        if (hasBandsData) {
             linePrimitiveMode = LINE_PRIMITIVES_BAND;
         } else if (LINE_PRIMITIVES_BAND) {
             linePrimitiveMode = LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
         }
 
-        for (size_t attrIdx = attributeNames.size(); attrIdx < getNumAttributes(); attrIdx++) {
-            attributeNames.push_back(std::string() + "Attribute #" + std::to_string(attrIdx + 1));
-        }
         recomputeHistogram();
     }
 
@@ -251,6 +275,9 @@ void LineDataStress::setStressTrajectoryData(
     this->trajectoriesPs = trajectoriesPs;
     this->stressTrajectoriesDataPs = stressTrajectoriesDataPs;
     filteredTrajectoriesPs.resize(trajectoriesPs.size());
+    for (size_t attrIdx = attributeNames.size(); attrIdx < getNumAttributes(); attrIdx++) {
+        attributeNames.push_back(std::string() + "Attribute #" + std::to_string(attrIdx + 1));
+    }
 
     sgl::Logfile::get()->writeInfo(
             std::string() + "Number of lines: " + std::to_string(getNumLines()));
@@ -283,19 +310,24 @@ void LineDataStress::setStressTrajectoryData(
         }
         minMaxAttributeValues.push_back(glm::vec2(minAttrTotal, maxAttrTotal));
     }
-    //normalizeTrajectoriesPsVertexAttributes_PerPs(this->trajectoriesPs);
 
-    for (size_t i = 0; i < loadedPsIndices.size(); i++) {
-        int psIdx = loadedPsIndices.at(i);
-        std::vector<float> lineHierarchyLevelValues;
-        const StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
-        for (const StressTrajectoryData& stressTrajectoryData : stressTrajectoriesData) {
-            lineHierarchyLevelValues.push_back(stressTrajectoryData.hierarchyLevel);
-        }
-        stressLineHierarchyMappingWidget.setLineHierarchyLevelValues(psIdx, lineHierarchyLevelValues);
-    }
+    updateLineHierarchyHistogram();
 
     dirty = true;
+}
+
+void LineDataStress::updateLineHierarchyHistogram() {
+    if (hasLineHierarchy) {
+        for (size_t i = 0; i < loadedPsIndices.size(); i++) {
+            int psIdx = loadedPsIndices.at(i);
+            std::vector<float> lineHierarchyLevelValues;
+            const StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
+            for (const StressTrajectoryData& stressTrajectoryData : stressTrajectoriesData) {
+                lineHierarchyLevelValues.push_back(stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
+            }
+            stressLineHierarchyMappingWidget.setLineHierarchyLevelValues(psIdx, lineHierarchyLevelValues);
+        }
+    }
 }
 
 // Exponential kernel: f_1(x,y) = exp(-||x-y||_2 / l), l \in \mathbb{R}
@@ -852,7 +884,8 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                 lineCenters.push_back(trajectory.positions.at(i));
                 lineAttributes.push_back(attributes.at(i));
                 if (hasLineHierarchy) {
-                    vertexLineHierarchyLevels.push_back(stressTrajectoryData.hierarchyLevel);
+                    vertexLineHierarchyLevels.push_back(
+                            stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
                 }
             }
         }
@@ -945,7 +978,8 @@ TubeRenderDataProgrammableFetch LineDataStress::getTubeRenderDataProgrammableFet
                 lineCenters.push_back(trajectory.positions.at(i));
                 lineAttributes.push_back(attributes.at(i));
                 if (hasLineHierarchy) {
-                    vertexLineHierarchyLevels.push_back(stressTrajectoryData.hierarchyLevel);
+                    vertexLineHierarchyLevels.push_back(
+                            stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
                 }
             }
         }
@@ -1045,7 +1079,8 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
                 lineCenters.push_back(trajectory.positions.at(i));
                 lineAttributes.push_back(attributes.at(i));
                 if (hasLineHierarchy) {
-                    vertexLineHierarchyLevels.push_back(stressTrajectoryData.hierarchyLevel);
+                    vertexLineHierarchyLevels.push_back(
+                            stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
                 }
             }
         }
@@ -1123,8 +1158,17 @@ BandRenderData LineDataStress::getBandRenderData() {
         StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
 
         if (psUseBands.at(psIdx)) {
-            std::vector<std::vector<glm::vec3>>& bandPointsListLeft = bandPointsListLeftPs.at(i);
-            std::vector<std::vector<glm::vec3>>& bandPointsRightLeft = bandPointsListRightPs.at(i);
+            std::vector<std::vector<std::vector<glm::vec3>>>* bandPointsListLeftPs;
+            std::vector<std::vector<std::vector<glm::vec3>>>* bandPointsListRightPs;
+            if (useSmoothedBands) {
+                bandPointsListLeftPs = &bandPointsSmoothedListLeftPs;
+                bandPointsListRightPs = &bandPointsSmoothedListRightPs;
+            } else {
+                bandPointsListLeftPs = &bandPointsUnsmoothedListLeftPs;
+                bandPointsListRightPs = &bandPointsUnsmoothedListRightPs;
+            }
+            std::vector<std::vector<glm::vec3>>& bandPointsListLeft = bandPointsListLeftPs->at(i);
+            std::vector<std::vector<glm::vec3>>& bandPointsRightLeft = bandPointsListRightPs->at(i);
 
             std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
@@ -1170,7 +1214,8 @@ BandRenderData LineDataStress::getBandRenderData() {
                     vertexAttributes.push_back(attributes.at(i));
                     vertexPrincipalStressIndices.push_back(psIdx);
                     if (hasLineHierarchy) {
-                        vertexLineHierarchyLevels.push_back(stressTrajectoryData.hierarchyLevel);
+                        vertexLineHierarchyLevels.push_back(
+                                stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
                     }
                 }
 
@@ -1202,7 +1247,8 @@ BandRenderData LineDataStress::getBandRenderData() {
                     lineCenters.push_back(trajectory.positions.at(i));
                     lineAttributes.push_back(attributes.at(i));
                     if (hasLineHierarchy) {
-                        vertexLineHierarchyLevels.push_back(stressTrajectoryData.hierarchyLevel);
+                        vertexLineHierarchyLevels.push_back(
+                                stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
                     }
                 }
             }

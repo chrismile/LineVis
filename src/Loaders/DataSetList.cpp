@@ -110,6 +110,11 @@ std::vector<DataSetInformation> loadDataSetList(const std::string& filename) {
             }
         }
 
+        // Optional data: The version of the file format.
+        if (source.isMember("version")) {
+            dataSetInformation.version = source["version"].asInt();
+        }
+
         // Optional stress line data: Mesh file.
         if (source.isMember("mesh")) {
             dataSetInformation.meshFilename = lineDataSetsDirectory + source["mesh"].asString();
@@ -134,11 +139,6 @@ std::vector<DataSetInformation> loadDataSetList(const std::string& filename) {
                 dataSetInformation.filenamesStressLineHierarchy.push_back(
                         lineDataSetsDirectory + lineHierarchyFilenames.asString());
             }
-        }
-
-        // Optional stress line data: Does the file contain band data?
-        if (source.isMember("contains_band_data")) {
-            dataSetInformation.containsBandData = source["contains_band_data"].asBool();
         }
 
         dataSetList.push_back(dataSetInformation);

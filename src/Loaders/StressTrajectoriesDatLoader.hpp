@@ -42,7 +42,7 @@
  * @param The principal stress data of the three trajectory sets loaded from the file (empty if the file could not be
  * opened).
  */
-void loadStressTrajectoriesFromDat(
+void loadStressTrajectoriesFromDat_v1(
         const std::vector<std::string>& filenamesTrajectories,
         const std::vector<std::string>& filenamesHierarchy,
         std::vector<int>& loadedPsIndices,
@@ -69,5 +69,36 @@ void loadStressTrajectoriesFromDat_v2(
         std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
         std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsListLeftPs,
         std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsListRightPs);
+
+
+/**
+ * Loads principal stress lines from the specified files.
+ * One .dat file can contain stress lines from either one or up to three principal stress directions.
+ * The .dat version 2 format stores band geometry data, and supplies pre-computed scalar field data
+ * and simulation mesh hulls.
+ * @param filenamesTrajectories The names of the principal stress trajectory files to open.
+ * @param loadedPsIndices Which of the three principal stress directions (0 = major, 1 = medium, 2 = minor) were
+ * loaded from the passed files.
+ * @param The three trajectory sets loaded from the file (empty if the file could not be opened).
+ * @param The principal stress data of the three trajectory sets loaded from the file (empty if the file could not be
+ * opened).
+ * @param bandPointsUnsmoothedListLeftPs The (unsmoothed) band points on the left band strand.
+ * @param bandPointsUnsmoothedListRightPs The (unsmoothed) band points on the right band strand.
+ * @param bandPointsSmoothedListLeftPs The (smoothed) band points on the left band strand.
+ * @param bandPointsSmoothedListRightPs The (smoothed) band points on the right band strand.
+ * @param simulationMeshOutlineTriangleIndices The triangle indices of the hull mesh (output).
+ * @param simulationMeshOutlineVertexPositions The vertex positions of the hull mesh (output).
+ */
+void loadStressTrajectoriesFromDat_v3(
+        const std::vector<std::string>& filenamesTrajectories,
+        std::vector<int>& loadedPsIndices,
+        std::vector<Trajectories>& trajectoriesPs,
+        std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsUnsmoothedListLeftPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsUnsmoothedListRightPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsSmoothedListLeftPs,
+        std::vector<std::vector<std::vector<glm::vec3>>>& bandPointsSmoothedListRightPs,
+        std::vector<uint32_t>& simulationMeshOutlineTriangleIndices,
+        std::vector<glm::vec3>& simulationMeshOutlineVertexPositions);
 
 #endif //STRESSLINEVIS_STRESSTRAJECTORIESDATLOADER_HPP
