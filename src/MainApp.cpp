@@ -35,6 +35,10 @@
 #include <GL/glew.h>
 #include <boost/algorithm/string.hpp>
 
+#ifdef USE_ZEROMQ
+#include <zmq.h>
+#endif
+
 #include <Utils/Timer.hpp>
 #include <Utils/AppSettings.hpp>
 #include <Utils/File/Logfile.hpp>
@@ -74,7 +78,13 @@ MainApp::MainApp()
         : sceneData(
                 sceneFramebuffer, sceneTexture, sceneDepthRBO, camera,
                 clearColor, screenshotTransparentBackground,
-                performanceMeasurer, recording, useCameraFlight)  {
+                performanceMeasurer, recording, useCameraFlight),
+#ifdef USE_ZEROMQ
+          zeromqContext(zmq_ctx_new()),
+#else
+          zeromqContext(nullptr),
+#endif
+          stressLineTracingRequester(new StressLineTracingRequester(zeromqContext)) {
     CAMERA_PATH_TIME_PERFORMANCE_MEASUREMENT = TIME_PERFORMANCE_MEASUREMENT;
     usePerformanceMeasurementMode = false;
 
@@ -129,6 +139,13 @@ MainApp::MainApp()
 }
 
 MainApp::~MainApp() {
+    delete stressLineTracingRequester;
+    stressLineTracingRequester = nullptr;
+#ifdef USE_ZEROMQ
+    zmq_ctx_destroy(zeromqContext);
+    zeromqContext = nullptr;
+#endif
+
     if (usePerformanceMeasurementMode) {
         delete performanceMeasurer;
         performanceMeasurer = nullptr;
@@ -328,7 +345,7 @@ void MainApp::renderGui() {
     }
 
     if (selectedDataSetIndex == 1) {
-        stressLineTracingRequester.renderGui();
+        stressLineTracingRequester->renderGui();
     }
 
     if ((!lineData || lineData->shallRenderTransferFunctionWindow()) && transferFunctionWindow.renderGui()) {
@@ -432,7 +449,7 @@ void MainApp::update(float dt) {
 
     updateCameraFlight(lineData.get() != nullptr, usesNewState);
 
-    if (stressLineTracingRequester.getHasNewData(stressLineTracerDataSetInformation)) {
+    if (stressLineTracingRequester->getHasNewData(stressLineTracerDataSetInformation)) {
         dataSetType = stressLineTracerDataSetInformation.type;
         loadLineDataSet(stressLineTracerDataSetInformation.filenames);
     }

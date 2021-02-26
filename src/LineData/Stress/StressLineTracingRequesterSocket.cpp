@@ -34,14 +34,31 @@
 
 #include "StressLineTracingRequesterSocket.hpp"
 
-StressLineTracingRequesterSocket::StressLineTracingRequesterSocket(const std::string& address, int port)
-        : address(address), port(port) {
+StressLineTracingRequesterSocket::StressLineTracingRequesterSocket(void* context, const std::string& address, int port)
+        : context(context), address(address), port(port) {
     jsonCharReader = readerBuilder.newCharReader();
+
+    controllerSocketPub = zmq_socket(context, ZMQ_PUB);
+    if (controllerSocketPub == nullptr) {
+        throw std::runtime_error(
+                "Error in StressLineTracingRequesterSocket::StressLineTracingRequesterSocket: "
+                "controllerSocketPub == nullptr");
+    }
+    int lingerIntervalMs = 0;
+    zmq_setsockopt(controllerSocketPub, ZMQ_LINGER, &lingerIntervalMs, sizeof(lingerIntervalMs));
+    zmq_bind(controllerSocketPub, controllerAddress.c_str());
+
     requesterThread = std::thread(&StressLineTracingRequesterSocket::mainLoop, this);
 }
 
 StressLineTracingRequesterSocket::~StressLineTracingRequesterSocket() {
     join();
+
+    if (controllerSocketPub != nullptr) {
+        zmq_close(controllerSocketPub);
+        controllerSocketPub = nullptr;
+    }
+
     delete jsonCharReader;
     jsonCharReader = nullptr;
 }
@@ -49,6 +66,7 @@ StressLineTracingRequesterSocket::~StressLineTracingRequesterSocket() {
 void StressLineTracingRequesterSocket::join() {
     if (!programIsFinished) {
         {
+            zmq_send(controllerSocketPub, "KILL", 4, ZMQ_DONTWAIT);
             std::lock_guard<std::mutex> lock(requestMutex);
             programIsFinished = true;
             hasRequest = true;
@@ -125,13 +143,27 @@ bool StressLineTracingRequesterSocket::getReplyJson(Json::Value& reply) {
 
 void StressLineTracingRequesterSocket::mainLoop() {
 #ifdef USE_ZEROMQ
-    zmq::context_t context{1};
-    zmq::socket_t socket(context, zmq::socket_type::req);
     std::string endpoint = std::string() + "tcp://" + address + ":" + std::to_string(port);
-    socket.setsockopt(ZMQ_SNDTIMEO, 1000);
-    //socket.setsockopt(ZMQ_RCVTIMEO, 1000);
-    socket.setsockopt(ZMQ_LINGER, 1000);
-    socket.connect(endpoint.c_str());
+    void* socket = zmq_socket(context, ZMQ_REQ);
+    if (socket == nullptr) {
+        throw std::runtime_error("Error in StressLineTracingRequesterSocket::mainLoop: socket == nullptr");
+    }
+    int lingerIntervalMs = 0;
+    zmq_setsockopt(socket, ZMQ_LINGER, &lingerIntervalMs, sizeof(lingerIntervalMs));
+    zmq_connect(socket, endpoint.c_str());
+
+    void* controllerSocketSub = zmq_socket(context, ZMQ_SUB);
+    if (controllerSocketSub == nullptr) {
+        throw std::runtime_error("Error in StressLineTracingRequesterSocket::mainLoop: controllerSocket == nullptr");
+    }
+    zmq_setsockopt(controllerSocketSub, ZMQ_LINGER, &lingerIntervalMs, sizeof(lingerIntervalMs));
+    zmq_setsockopt(controllerSocketSub, ZMQ_SUBSCRIBE, "", 0);
+    zmq_connect(controllerSocketSub, controllerAddress.c_str());
+
+    zmq_pollitem_t items [] = {
+            { socket, 0, ZMQ_POLLIN, 0 },
+            { controllerSocketSub, 0, ZMQ_POLLIN, 0 }
+    };
 #endif
 
     while (true) {
@@ -145,41 +177,44 @@ void StressLineTracingRequesterSocket::mainLoop() {
         if (hasRequest) {
 #ifdef USE_ZEROMQ
             auto sendBuffer = zmq::buffer(requestMessage);
-            const int sentBytes = zmq_send(
-                    socket.handle(), sendBuffer.data(), sendBuffer.size(), static_cast<int>(zmq::send_flags::none));
-            //zmq::send_result_t sendResult = socket.send(zmq::buffer(requestMessage), zmq::send_flags::none);
-            std::cout << zmq_errno() << " " << sentBytes << std::endl;
+            int sentBytes = zmq_send(socket, sendBuffer.data(), sendBuffer.size(), 0);
             if (sentBytes < 0) {
                 if (zmq_errno() == ETERM) {
                     break;
                 }
                 continue;
             }
-            //if (zmq_errno() == EAGAIN) {
-            //    continue;
-            //}
 #endif
 
             hasRequest = false;
             requestLock.unlock();
 
 #ifdef USE_ZEROMQ
-            zmq::message_t reply{};
-            zmq::recv_result_t recvResult = socket.recv(reply, zmq::recv_flags::none);
-            if (!recvResult.has_value()) {
-                throw std::runtime_error(
-                        "Error in StressLineTracingRequesterSocket::mainLoop: Nothing received.");
-            }
-            if (recvResult.value() == 0) {
-                throw std::runtime_error(
-                        "Error in StressLineTracingRequesterSocket::mainLoop: Received empty response.");
-            }
-            std::string replyString = reply.to_string();
+            zmq_poll(items, 2, -1);
 
-            std::lock_guard<std::mutex> replyLock(requestMutex);
-            hasReply = true;
-            replyMessage = replyString;
+            if (items[0].revents & ZMQ_POLLIN) {
+                zmq::message_t reply{};
+                const int receivedBytes = zmq_msg_recv(reply.handle(), socket, 0);
+                if (receivedBytes < 0) {
+                    if (zmq_errno() == ETERM) {
+                        break;
+                    }
+                    continue;
+                }
+                std::string replyString = reply.to_string();
+
+                std::lock_guard<std::mutex> replyLock(requestMutex);
+                hasReply = true;
+                replyMessage = replyString;
+            }
+
+            if (items[1].revents & ZMQ_POLLIN) {
+                break;
+            }
 #endif
         }
     }
+
+    zmq_close(socket);
+    zmq_close(controllerSocketSub);
 }

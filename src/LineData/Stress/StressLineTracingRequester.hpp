@@ -52,13 +52,19 @@ const int NUM_SEED_STRATEGIES = ((int)(sizeof(SEED_STRATEGY_NAMES) / sizeof(*SEE
 
 class StressLineTracingRequester {
 public:
-    StressLineTracingRequester();
+    /**
+     * @param context The ZeroMQ context.
+     */
+    StressLineTracingRequester(void* context);
     void renderGui();
     bool getHasNewData(DataSetInformation& dataSetInformation);
 
 private:
     void loadMeshList();
     void requestNewData();
+
+    // ZeroMQ context
+    void* context;
     StressLineTracingRequesterSocket worker;
     bool showWindow = true;
 

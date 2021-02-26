@@ -39,7 +39,7 @@
 #include "Loaders/DataSetList.hpp"
 #include "StressLineTracingRequester.hpp"
 
-StressLineTracingRequester::StressLineTracingRequester() {
+StressLineTracingRequester::StressLineTracingRequester(void* context) : context(context), worker(context) {
     loadMeshList();
 }
 

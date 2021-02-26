@@ -45,7 +45,13 @@
  */
 class StressLineTracingRequesterSocket {
 public:
-    StressLineTracingRequesterSocket(const std::string& address = "localhost", int port = 17384);
+    /**
+     * TODO
+     * @param context The ZeroMQ context.
+     * @param address
+     * @param port
+     */
+    StressLineTracingRequesterSocket(void* context, const std::string& address = "localhost", int port = 17384);
     ~StressLineTracingRequesterSocket();
 
     /**
@@ -83,8 +89,13 @@ private:
     std::mutex requestMutex;
     std::mutex replyMutex;
 
+    void* context;
     std::string address;
     int port;
+
+    std::string controllerAddress = "inproc://psl-tracing-req";
+    void* controllerSocketPub;
+
     bool programIsFinished = false;
     bool hasRequest = false;
     bool hasReply = false;

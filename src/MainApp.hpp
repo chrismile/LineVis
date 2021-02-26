@@ -118,7 +118,8 @@ private:
     LineDataPtr lineData;
     bool newMeshLoaded = true;
     sgl::AABB3 modelBoundingBox;
-    StressLineTracingRequester stressLineTracingRequester;
+    void* zeromqContext;
+    StressLineTracingRequester* stressLineTracingRequester;
     DataSetInformation stressLineTracerDataSetInformation;
 };
 
