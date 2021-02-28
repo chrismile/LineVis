@@ -29,14 +29,18 @@
 #ifndef LINEDENSITYCONTROL_DATASETLIST_HPP
 #define LINEDENSITYCONTROL_DATASETLIST_HPP
 
-#include <Math/Geometry/MatrixUtil.hpp>
 #include <vector>
+
+#include <Math/Geometry/MatrixUtil.hpp>
 
 const std::string lineDataSetsDirectory = "Data/LineDataSets/";
 
 enum DataSetType {
     DATA_SET_TYPE_NONE, DATA_SET_TYPE_FLOW_LINES, DATA_SET_TYPE_STRESS_LINES, DATA_SET_TYPE_FLOW_LINES_MULTIVAR
 };
+
+const float STANDARD_LINE_WIDTH = 0.002f;
+const float STANDARD_BAND_WIDTH = 0.005f;
 
 struct DataSetInformation {
     DataSetType type = DATA_SET_TYPE_FLOW_LINES;
@@ -45,7 +49,7 @@ struct DataSetInformation {
 
     // Optional attributes.
     bool hasCustomLineWidth = false;
-    float lineWidth = 0.002f;
+    float lineWidth = STANDARD_LINE_WIDTH;
     bool hasCustomTransform = false;
     glm::mat4 transformMatrix = sgl::matrixIdentity();
     std::vector<std::string> attributeNames; ///< Names of the associated importance criteria.

@@ -29,8 +29,8 @@
 #ifndef LINEVIS_STRESSLINETRACINGREQUESTERSOCKET_HPP
 #define LINEVIS_STRESSLINETRACINGREQUESTERSOCKET_HPP
 
-#include <condition_variable>
 #include <thread>
+#include <condition_variable>
 
 #ifdef __MINGW32__
 #include <json/json.h>
@@ -41,15 +41,14 @@
 /**
  * A multi-threaded requester socket for stress line tracing. It listens on port 17384.
  * Similar to a mailbox queue of size 1 in the Vulkan API (cmp. VK_PRESENT_MODE_MAILBOX_KHR), it stores the most recent
- * request and reply. Older requests and reply are discarded if they are not handled fast enough.
+ * request and reply. Older requests and replies are discarded if they are not handled fast enough.
  */
 class StressLineTracingRequesterSocket {
 public:
     /**
-     * TODO
      * @param context The ZeroMQ context.
-     * @param address
-     * @param port
+     * @param address The address to use for the socket (e.g., an IP address, localhost, or a different host name).
+     * @param port The port to use for communication over TCP.
      */
     StressLineTracingRequesterSocket(void* context, const std::string& address = "localhost", int port = 17384);
     ~StressLineTracingRequesterSocket();
@@ -58,6 +57,7 @@ public:
      * Stops the requester thread.
      */
     void join();
+
 
     /**
      * Queues the request for sending to the request worker over TCP.
@@ -82,7 +82,15 @@ public:
      */
     bool getReplyJson(Json::Value& reply);
 
+    /**
+     * @return Whether a request is currently processed (for UI progress spinner).
+     */
+    inline bool getIsProcessingRequest() const { return isProcessingRequest; }
+
 private:
+    /// The main loop of the requester thread.
+    void mainLoop();
+
     std::thread requesterThread;
     std::condition_variable hasRequestConditionVariable;
     std::condition_variable hasReplyConditionVariable;
@@ -99,15 +107,13 @@ private:
     bool programIsFinished = false;
     bool hasRequest = false;
     bool hasReply = false;
+    bool isProcessingRequest = false;
     std::string requestMessage;
     std::string replyMessage;
 
     Json::CharReaderBuilder readerBuilder;
     Json::CharReader* jsonCharReader = nullptr;
     Json::StreamWriterBuilder builder;
-
-    /// The main loop of the requester thread.
-    void mainLoop();
 };
 
 #endif //LINEVIS_STRESSLINETRACINGREQUESTERSOCKET_HPP

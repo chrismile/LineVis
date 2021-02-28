@@ -39,6 +39,7 @@
 
 #include "Loaders/DataSetList.hpp"
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
+#include "LineData/LineDataRequester.hpp"
 #include "LineData/Filters/LineFilter.hpp"
 #include "LineData/Stress/StressLineTracingRequester.hpp"
 #include "Renderers/SceneData.hpp"
@@ -100,6 +101,8 @@ private:
 
     /// Loads a hexahedral mesh from a file.
     void loadLineDataSet(const std::vector<std::string>& fileName);
+    /// Checks if an asynchronous loading request was finished.
+    void checkLoadingRequestFinished();
     /// Reload the currently loaded data set.
     virtual void reloadDataSet() override;
     /// Prepares the visualization pipeline for rendering.
@@ -116,6 +119,7 @@ private:
 
     LineRenderer* lineRenderer = nullptr;
     LineDataPtr lineData;
+    LineDataRequester lineDataRequester;
     bool newMeshLoaded = true;
     sgl::AABB3 modelBoundingBox;
     void* zeromqContext;

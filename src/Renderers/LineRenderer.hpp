@@ -39,9 +39,6 @@ struct InternalState;
 class SettingsMap;
 class LineDataStress;
 
-const float STANDARD_LINE_WIDTH = 0.002f;
-const float STANDARD_BAND_WIDTH = 0.005f;
-
 /**
  * Super-class for line renderers.
  */

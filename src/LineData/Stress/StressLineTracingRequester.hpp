@@ -58,6 +58,7 @@ public:
     StressLineTracingRequester(void* context);
     void renderGui();
     bool getHasNewData(DataSetInformation& dataSetInformation);
+    inline bool getIsProcessingRequest() const { return worker.getIsProcessingRequest(); }
 
 private:
     void loadMeshList();

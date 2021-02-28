@@ -205,6 +205,7 @@ void LineDataStress::setUseLinearRGB(bool useLinearRGB) {
 bool LineDataStress::loadFromFile(
         const std::vector<std::string>& fileNames, DataSetInformation dataSetInformation,
         glm::mat4* transformationMatrixPtr) {
+    this->fileNames = fileNames;
     hasLineHierarchy = useLineHierarchy = !dataSetInformation.filenamesStressLineHierarchy.empty();
     if (dataSetInformation.version >= 2) {
         hasLineHierarchy = useLineHierarchy = true;
@@ -268,7 +269,7 @@ bool LineDataStress::loadFromFile(
             linePrimitiveMode = LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
         }
 
-        recomputeHistogram();
+        //recomputeHistogram(); ///< Called after data is loaded using LineDataRequester.
     }
 
     return dataLoaded;

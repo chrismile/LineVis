@@ -49,6 +49,7 @@ LineDataFlow::~LineDataFlow() {
 bool LineDataFlow::loadFromFile(
         const std::vector<std::string>& fileNames, DataSetInformation dataSetInformation,
         glm::mat4* transformationMatrixPtr) {
+    this->fileNames = fileNames;
     attributeNames = dataSetInformation.attributeNames;
     Trajectories trajectories;
     trajectories = loadFlowTrajectoriesFromFile(
@@ -62,7 +63,7 @@ bool LineDataFlow::loadFromFile(
         }
         setTrajectoryData(trajectories);
         modelBoundingBox = computeTrajectoriesAABB3(trajectories);
-        recomputeHistogram();
+        //recomputeHistogram(); ///< Called after data is loaded using LineDataRequester.
     }
 
     return dataLoaded;

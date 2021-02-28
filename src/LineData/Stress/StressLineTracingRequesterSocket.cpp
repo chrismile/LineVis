@@ -187,6 +187,7 @@ void StressLineTracingRequesterSocket::mainLoop() {
 #endif
 
             hasRequest = false;
+            isProcessingRequest = true;
             requestLock.unlock();
 
 #ifdef USE_ZEROMQ
@@ -206,6 +207,7 @@ void StressLineTracingRequesterSocket::mainLoop() {
                 std::lock_guard<std::mutex> replyLock(requestMutex);
                 hasReply = true;
                 replyMessage = replyString;
+                isProcessingRequest = false;
             }
 
             if (items[1].revents & ZMQ_POLLIN) {

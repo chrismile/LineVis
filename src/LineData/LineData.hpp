@@ -144,6 +144,16 @@ public:
             const std::vector<std::string>& fileNames, DataSetInformation dataSetInformation,
             glm::mat4* transformationMatrixPtr)=0;
 
+    /**
+     * Gets the file names that were used for loading.
+     */
+     inline const std::vector<std::string>& getFileNames() { return fileNames; }
+
+    /**
+     * Only has to be called by the main thread once after loading is finished.
+     */
+    virtual void recomputeHistogram()=0;
+
     // Statistics.
     inline const sgl::AABB3& getModelBoundingBox() { return modelBoundingBox; }
     virtual size_t getNumAttributes()=0;
@@ -216,11 +226,11 @@ protected:
     void loadSimulationMeshOutlineFromFile(
             const std::string& simulationMeshFilename, const sgl::AABB3& oldAABB, glm::mat4* transformationMatrixPtr);
     void rebuildInternalRepresentationIfNecessary();
-    virtual void recomputeHistogram()=0;
     virtual void recomputeColorLegend();
 
     DataSetType dataSetType;
     sgl::AABB3 modelBoundingBox;
+    std::vector<std::string> fileNames;
     std::vector<std::string> attributeNames;
     std::vector<glm::vec2> minMaxAttributeValues;
     int selectedAttributeIndex = 0; ///< Selected attribute/importance criterion index.

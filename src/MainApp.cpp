@@ -79,6 +79,7 @@ MainApp::MainApp()
                 sceneFramebuffer, sceneTexture, sceneDepthRBO, camera,
                 clearColor, screenshotTransparentBackground,
                 performanceMeasurer, recording, useCameraFlight),
+          lineDataRequester(transferFunctionWindow),
 #ifdef USE_ZEROMQ
           zeromqContext(zmq_ctx_new()),
 #else
@@ -415,6 +416,14 @@ void MainApp::renderFileSelectionSettingsGui() {
         }
     }
 
+    if (lineDataRequester.getIsProcessingRequest() || stressLineTracingRequester->getIsProcessingRequest()) {
+        ImGui::SameLine();
+        ImGui::ProgressSpinner(
+                "##progress-spinner", -1.0f, -1.0f, 4.0f,
+                ImVec4(0.1, 0.5, 1.0, 1.0));
+    }
+
+
     if (selectedDataSetIndex == 0) {
         ImGui::InputText("##meshfilenamelabel", &customDataSetFileName);
         ImGui::SameLine();
@@ -453,6 +462,7 @@ void MainApp::update(float dt) {
         dataSetType = stressLineTracerDataSetInformation.type;
         loadLineDataSet(stressLineTracerDataSetInformation.filenames);
     }
+    checkLoadingRequestFinished();
 
     transferFunctionWindow.update(dt);
     if (lineData) {
@@ -495,14 +505,10 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
         return;
     }
     currentlyLoadedDataSetIndex = selectedDataSetIndex;
-    LineRenderer::setLineWidth(STANDARD_LINE_WIDTH);
 
     DataSetInformation selectedDataSetInformation;
     if (selectedDataSetIndex >= 2 && dataSetInformation.size() > 0) {
         selectedDataSetInformation = dataSetInformation.at(selectedDataSetIndex - 2);
-        if (selectedDataSetInformation.hasCustomLineWidth) {
-            LineRenderer::setLineWidth(selectedDataSetInformation.lineWidth);
-        }
     } else if (selectedDataSetIndex == 1) {
         selectedDataSetInformation = stressLineTracerDataSetInformation;
     } else {
@@ -521,9 +527,9 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
         transformationMatrixPtr = &transformationMatrix;
     }
 
-    // Delete old data to get more free RAM.
-    lineData = LineDataPtr();
-    //lineRenderer->removeOldData();
+#ifndef BLOCKING_DATA_LOADING
+    LineDataPtr lineData;
+#endif
 
     if (dataSetType == DATA_SET_TYPE_FLOW_LINES) {
         LineDataFlow* lineDataFlow = new LineDataFlow(transferFunctionWindow);
@@ -538,6 +544,8 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
         sgl::Logfile::get()->writeError("Error in MainApp::loadLineDataSet: Invalid data set type.");
         return;
     }
+
+#ifdef BLOCKING_DATA_LOADING
     bool dataLoaded = lineData->loadFromFile(fileNames, selectedDataSetInformation, transformationMatrixPtr);
     if (!dataLoaded) {
         lineData = LineDataPtr();
@@ -554,6 +562,56 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
         std::string meshDescriptorName = fileNames.front();
         if (fileNames.size() > 1) {
             meshDescriptorName += std::string() + "_" + std::to_string(fileNames.size());
+        }
+        checkpointWindow.onLoadDataSet(meshDescriptorName);
+
+        for (LineFilter* dataFilter : dataFilters) {
+            dataFilter->onDataLoaded(lineData);
+        }
+
+        if (true) { // useCameraFlight
+            std::string cameraPathFilename =
+                    saveDirectoryCameraPaths + sgl::FileUtils::get()->getPathAsList(meshDescriptorName).back()
+                    + ".binpath";
+            if (sgl::FileUtils::get()->exists(cameraPathFilename)) {
+                cameraPath.fromBinaryFile(cameraPathFilename);
+            } else {
+                cameraPath.fromCirclePath(
+                        modelBoundingBox, meshDescriptorName,
+                        usePerformanceMeasurementMode
+                        ? CAMERA_PATH_TIME_PERFORMANCE_MEASUREMENT : CAMERA_PATH_TIME_RECORDING,
+                        usePerformanceMeasurementMode);
+                //cameraPath.saveToBinaryFile(cameraPathFilename);
+            }
+        }
+    }
+
+#else
+    lineDataRequester.queueRequest(lineData, fileNames, selectedDataSetInformation, transformationMatrixPtr);
+#endif
+}
+
+void MainApp::checkLoadingRequestFinished() {
+    DataSetInformation loadedDataSetInformation;
+    LineDataPtr lineData = lineDataRequester.getLoadedData(loadedDataSetInformation);
+
+    if (lineData) {
+        if (loadedDataSetInformation.hasCustomLineWidth) {
+            LineRenderer::setLineWidth(loadedDataSetInformation.lineWidth);
+        }
+
+        this->lineData = lineData;
+        lineData->recomputeHistogram();
+        lineData->setClearColor(clearColor);
+        lineData->setUseLinearRGB(useLinearRGB);
+        lineData->setRenderingMode(renderingMode);
+        lineData->setLineRenderer(lineRenderer);
+        newMeshLoaded = true;
+        modelBoundingBox = lineData->getModelBoundingBox();
+
+        std::string meshDescriptorName = lineData->getFileNames().front();
+        if (lineData->getFileNames().size() > 1) {
+            meshDescriptorName += std::string() + "_" + std::to_string(lineData->getFileNames().size());
         }
         checkpointWindow.onLoadDataSet(meshDescriptorName);
 
