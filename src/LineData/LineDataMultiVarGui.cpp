@@ -151,9 +151,6 @@ bool LineDataMultiVar::renderGuiTechniqueSettings() {
 
     ImGui::Separator();
     ImGui::Text("Technique settings:");
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS) {
-
-    }
 
     if (multiVarRenderMode == MULTIVAR_RENDERMODE_ROLLS
         || multiVarRenderMode == MULTIVAR_RENDERMODE_COLOR_BANDS

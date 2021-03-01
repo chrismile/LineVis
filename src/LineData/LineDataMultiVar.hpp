@@ -118,22 +118,8 @@ private:
         MULTIVAR_RADIUSMODE_LINE
     };
 
-    // --- For MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS, MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS_RIBBON ---
-    enum OrientedRibbonMode {
-        ORIENTED_RIBBON_MODE_FIXED_BAND_WIDTH,
-        ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH,
-        ORIENTED_RIBBON_MODE_VARYING_BAND_RATIO,
-        ORIENTED_RIBBON_MODE_VARYING_RIBBON_WIDTH
-    };
-    static OrientedRibbonMode orientedRibbonMode;
-    static bool mapColorToSaturation; ///< !mapColorToSaturation -> DIRECT_COLOR_MAPPING in gather shader.
-
     ///< Use multivariate or single attribute rendering? If true, falls back to code from @see LineDataFlow.
     static bool useMultiVarRendering;
-
-    // Rendering modes.
-    static MultiVarRenderMode multiVarRenderMode;
-    static MultiVarRadiusMappingMode multiVarRadiusMappingMode;
 
     // Line SSBO data.
     sgl::GeometryBufferPtr variableArrayBuffer;
@@ -143,7 +129,7 @@ private:
     sgl::GeometryBufferPtr varSelectedArrayBuffer;
     //sgl::GeometryBufferPtr varColorArrayBuffer;
 
-    // Multi-Variate settings.
+    // Multi-variable settings.
     std::vector<uint32_t> varSelected;
     //std::vector<glm::vec4> varColors;
     std::string comboValue = "";
@@ -160,7 +146,21 @@ private:
     static int32_t checkerboardHeight;
     static int32_t checkerboardIterator;
     /// For orientedRibbonMode == ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH
-    static glm::vec4 bandBackgroundColor ;
+    static glm::vec4 bandBackgroundColor;
+
+    // Rendering modes.
+    static MultiVarRenderMode multiVarRenderMode;
+    static MultiVarRadiusMappingMode multiVarRadiusMappingMode;
+
+    // For MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS, MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS_RIBBON
+    enum OrientedRibbonMode {
+        ORIENTED_RIBBON_MODE_FIXED_BAND_WIDTH,
+        ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH,
+        ORIENTED_RIBBON_MODE_VARYING_BAND_RATIO,
+        ORIENTED_RIBBON_MODE_VARYING_RIBBON_WIDTH
+    };
+    static OrientedRibbonMode orientedRibbonMode;
+    static bool mapColorToSaturation; ///< !mapColorToSaturation -> DIRECT_COLOR_MAPPING in gather shader.
 
     // Line settings.
     static float minRadiusFactor;

@@ -35,7 +35,7 @@
 
 int main(int argc, char *argv[]) {
     // Initialize the filesystem utilities
-    sgl::FileUtils::get()->initialize("StressLineVis", argc, argv);
+    sgl::FileUtils::get()->initialize("LineVis", argc, argv);
 
     // Load the file containing the app settings
     std::string settingsFile = sgl::FileUtils::get()->getConfigDirectory() + "settings.txt";
@@ -44,6 +44,7 @@ int main(int argc, char *argv[]) {
     sgl::AppSettings::get()->getSettings().addKeyValue("window-debugContext", true);
     sgl::AppSettings::get()->getSettings().addKeyValue("window-vSync", true);
     sgl::AppSettings::get()->getSettings().addKeyValue("window-resizable", true);
+    sgl::AppSettings::get()->getSettings().addKeyValue("window-savePosition", true);
 
     ImVector<ImWchar> fontRanges;
     ImFontGlyphRangesBuilder builder;
