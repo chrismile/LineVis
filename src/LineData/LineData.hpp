@@ -257,7 +257,7 @@ protected:
     bool shallRenderSimulationMeshBoundary = false;
     glm::vec4 hullColor = glm::vec4(
             sgl::TransferFunctionWindow::sRGBToLinearRGB(glm::vec3(0.5, 0.5, 0.5f)), 0.3f);
-    float hullOpacity = 0.15f;
+    float hullOpacity = 0.4f;
     bool hullUseShading = true;
     std::vector<uint32_t> simulationMeshOutlineTriangleIndices;
     std::vector<glm::vec3> simulationMeshOutlineVertexPositions;

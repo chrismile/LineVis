@@ -92,11 +92,15 @@ void StressLineTracingRequester::renderGui() {
         changed |= ImGui::Combo(
                 "Seed Strategy", (int*)&seedStrategy, SEED_STRATEGY_NAMES,
                 IM_ARRAYSIZE(SEED_STRATEGY_NAMES));
-        changed |= ImGui::SliderInt("Minimum Epsilon", &minimumEpsilon, 5, 10);
+        changed |= ImGui::SliderInt("Minimum Epsilon", &minimumEpsilon, 2, 10);
         changed |= ImGui::SliderInt("#Levels", &numLevels, 1, 5);
 
-        if (ImGui::CollapsingHeader("Scene Settings", nullptr, ImGuiTreeNodeFlags_DefaultOpen)) {
-            changed |= ImGui::SliderInt("Max Angle Deviation", &maxAngleDeviation, 5, 20);
+        if (ImGui::CollapsingHeader(
+                "Advanced Settings", nullptr, ImGuiTreeNodeFlags_DefaultOpen)) {
+            changed |= ImGui::Combo(
+                    "Tracing Algorithm", (int*)&tracingAlgorithm, TRACING_ALGORITHM_NAMES,
+                    IM_ARRAYSIZE(TRACING_ALGORITHM_NAMES));
+            changed |= ImGui::SliderInt("Max Angle Deviation", &maxAngleDeviation, 2, 20);
             changed |= ImGui::Checkbox("Snapping Close PSLs", &snappingOpt);
             changed |= ImGui::SliderInt("Min PSL Length", &minPslLength, 5, 20);
             if (seedStrategy == SeedStrategy::VOLUME) {
@@ -123,6 +127,7 @@ void StressLineTracingRequester::requestNewData() {
     //if (seedStrategy == SeedStrategy::VOLUME) {
     request["volumeSeedingOpt"] = volumeSeedingOpt;
     //}
+    request["traceAlgorithm"] = TRACING_ALGORITHM_ABBREVIATIONS[int(tracingAlgorithm)];
     std::cout << request << std::endl;
     worker.queueRequestJson(request);
 }

@@ -48,7 +48,16 @@ const char* const SEED_STRATEGY_ABBREVIATIONS[] = {
         "LoadingArea",
         "ApproxTopology"
 };
-const int NUM_SEED_STRATEGIES = ((int)(sizeof(SEED_STRATEGY_NAMES) / sizeof(*SEED_STRATEGY_NAMES)));
+
+enum class TracingAlgorithm {
+    EULER, RK2, RK4
+};
+const char* const TRACING_ALGORITHM_NAMES[] = {
+        "Euler", "Runge-Kutta 2nd Order", "Runge-Kutta 4th Order"
+};
+const char* const TRACING_ALGORITHM_ABBREVIATIONS[] = {
+        "Euler", "RK2", "RK4"
+};
 
 class StressLineTracingRequester {
 public:
@@ -68,6 +77,7 @@ private:
     void* context;
     StressLineTracingRequesterSocket worker;
     bool showWindow = true;
+    bool showAdvancedSettings = false;
 
     // UI settings.
     std::vector<std::string> meshNames;
@@ -81,6 +91,7 @@ private:
     int numLevels = 5;
 
     // Expert options.
+    TracingAlgorithm tracingAlgorithm = TracingAlgorithm::EULER;
     int maxAngleDeviation = 10;
     bool snappingOpt = true;
     int minPslLength = 10;

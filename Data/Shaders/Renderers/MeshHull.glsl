@@ -47,6 +47,13 @@ void main()
         phongColor = color;
     }
 
+    vec3 viewDir = normalize(cameraPosition - fragmentPositionWorld);
+    float cosAngle = dot(fragmentNormal, viewDir);
+    if (cosAngle < 0.0f) {
+        cosAngle *= -1.0f;
+    }
+    phongColor.a *= 1.0f - cosAngle;
+
 #if defined(DIRECT_BLIT_GATHER)
     // Direct rendering, no transparency.
     fragColor = phongColor.rgba;

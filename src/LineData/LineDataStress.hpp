@@ -150,9 +150,9 @@ private:
     bool hasBandsData = false;
     std::vector<std::vector<std::vector<glm::vec3>>> bandPointsUnsmoothedListLeftPs, bandPointsUnsmoothedListRightPs;
     std::vector<std::vector<std::vector<glm::vec3>>> bandPointsSmoothedListLeftPs, bandPointsSmoothedListRightPs;
-    std::array<bool, 3> psUseBands = {true, true, false};
-    bool renderThickBands = false;
-    bool useSmoothedBands = true;
+    static std::array<bool, 3> psUseBands;
+    static bool renderThickBands;
+    static bool useSmoothedBands;
 
     // Rendering mode settings.
     bool rendererSupportsTransparency = false;
@@ -164,11 +164,8 @@ private:
     enum class LineHierarchyType {
         GEO, PS, VM, LENGTH
     };
-    LineHierarchyType lineHierarchyType = LineHierarchyType::GEO;
-    glm::vec3 lineHierarchySliderValues = glm::vec3(1.0f);
-    //glm::vec3 lineHierarchySliderValuesLower;
-    //glm::vec3 lineHierarchySliderValuesUpper;
-    //float lineHierarchySliderValuesTransparency[3][2] = { { 0.0f, 1.0f }, { 0.0f, 1.0f }, { 0.0f, 1.0f } };
+    static LineHierarchyType lineHierarchyType;
+    static glm::vec3 lineHierarchySliderValues;
 
     /// Stores line point data if useProgrammableFetch is true.
     sgl::GeometryBufferPtr lineHierarchyLevelsSSBO;

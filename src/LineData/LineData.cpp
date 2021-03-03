@@ -90,7 +90,7 @@ bool LineData::renderGui(bool isRasterizer) {
         }
 
         if (shallRenderSimulationMeshBoundary) {
-            if (ImGui::SliderFloat("Hull Opacity", &hullOpacity, 0.0f, 0.5f, "%.4f")) {
+            if (ImGui::SliderFloat("Hull Opacity", &hullOpacity, 0.0f, 1.0f, "%.4f")) {
                 reRender = true;
             }
             if (ImGui::ColorEdit3("Hull Color", &hullColor.r)) {

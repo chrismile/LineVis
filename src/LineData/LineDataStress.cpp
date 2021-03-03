@@ -46,6 +46,11 @@ bool LineDataStress::useMajorPS = true;
 bool LineDataStress::useMediumPS = true;
 bool LineDataStress::useMinorPS = true;
 bool LineDataStress::usePrincipalStressDirectionIndex = true;
+std::array<bool, 3> LineDataStress::psUseBands = {true, true, false};
+bool LineDataStress::renderThickBands = false;
+bool LineDataStress::useSmoothedBands = true;
+LineDataStress::LineHierarchyType LineDataStress::lineHierarchyType = LineDataStress::LineHierarchyType::GEO;
+glm::vec3 LineDataStress::lineHierarchySliderValues = glm::vec3(1.0f);
 
 const char* const stressDirectionNames[] = { "Major", "Medium", "Minor" };
 const char* const lineHierarchyTypeNames[] = { "geo-based", "PS-based", "vM-based", "Length-based" };
