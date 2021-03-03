@@ -54,6 +54,8 @@ MLABRenderer::MLABRenderer(
 }
 
 void MLABRenderer::initialize() {
+    LineRenderer::initialize();
+
     clearBitSet = true;
     syncMode = getSupportedSyncMode();
 
@@ -265,6 +267,7 @@ void MLABRenderer::setUniformData() {
         gatherShader->setUniform("foregroundColor", foregroundColor);
     }
     lineData->setUniformGatherShaderData(gatherShader);
+    setUniformData_Pass(gatherShader);
 
     if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
         gatherShaderHull->setUniform("viewportW", paddedWindowWidth);

@@ -371,6 +371,7 @@ void MBOITRenderer::setUniformData() {
         mboitPass1Shader->setUniform("foregroundColor", foregroundColor);
     }
     lineData->setUniformGatherShaderData_Pass(mboitPass1Shader);
+    setUniformData_Pass(mboitPass1Shader);
 
     mboitPass2Shader->setUniformImageTexture(
             0, b0, textureSettingsB0.internalFormat, GL_READ_WRITE,
@@ -391,6 +392,7 @@ void MBOITRenderer::setUniformData() {
         mboitPass2Shader->setUniform("foregroundColor", foregroundColor);
     }
     lineData->setUniformGatherShaderData(mboitPass2Shader);
+    setUniformData_Pass(mboitPass2Shader);
 
     blendShader->setUniformImageTexture(
             0, b0, textureSettingsB0.internalFormat, GL_READ_WRITE,

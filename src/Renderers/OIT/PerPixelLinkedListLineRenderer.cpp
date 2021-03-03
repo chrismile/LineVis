@@ -258,6 +258,7 @@ void PerPixelLinkedListLineRenderer::setUniformData() {
         gatherShader->setUniform("foregroundColor", foregroundColor);
     }
     lineData->setUniformGatherShaderData(gatherShader);
+    setUniformData_Pass(gatherShader);
 
     if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
         gatherShaderHull->setUniform("viewportW", paddedWindowWidth);

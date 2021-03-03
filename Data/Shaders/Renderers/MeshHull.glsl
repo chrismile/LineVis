@@ -36,6 +36,9 @@ uniform int useShading = 1;
 #include OIT_GATHER_HEADER
 #endif
 
+#ifdef USE_DEPTH_CUES
+#undef USE_DEPTH_CUES
+#endif
 #include "Lighting.glsl"
 
 void main()

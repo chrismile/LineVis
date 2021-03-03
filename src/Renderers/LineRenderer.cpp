@@ -26,12 +26,78 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <iostream>
+
+#include <Math/Geometry/MatrixUtil.hpp>
 #include <Graphics/Renderer.hpp>
+#include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/OpenGL/RendererGL.hpp>
+
 #include "LineRenderer.hpp"
 
 float LineRenderer::lineWidth = STANDARD_LINE_WIDTH;
 float LineRenderer::bandWidth = STANDARD_BAND_WIDTH;
+
+void LineRenderer::initialize() {
+    updateDepthCueMode();
+}
+
+LineRenderer::~LineRenderer() {
+    if (useDepthCues && lineData) {
+        sgl::ShaderManager->removePreprocessorDefine("USE_SCREEN_SPACE_POSITION");
+        sgl::ShaderManager->removePreprocessorDefine("USE_DEPTH_CUES");
+    }
+}
+
+void LineRenderer::update(float dt) {
+}
+
+void LineRenderer::updateDepthCueMode() {
+    if (useDepthCues) {
+        sgl::ShaderManager->addPreprocessorDefine("USE_SCREEN_SPACE_POSITION", "");
+        sgl::ShaderManager->addPreprocessorDefine("USE_DEPTH_CUES", "");
+    } else {
+        sgl::ShaderManager->removePreprocessorDefine("USE_SCREEN_SPACE_POSITION");
+        sgl::ShaderManager->removePreprocessorDefine("USE_DEPTH_CUES");
+    }
+}
+
+void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
+    if (useDepthCues && lineData) {
+        bool useBoundingBox = false; // lineData->getNumLines() > 1000
+        if (useBoundingBox) {
+            const sgl::AABB3& boundingBox = lineData->getModelBoundingBox();
+            sgl::AABB3 screenSpaceBoundingBox = boundingBox.transformed(sceneData.camera->getViewMatrix());
+            minDepth = -screenSpaceBoundingBox.getMaximum().z;
+            maxDepth = -screenSpaceBoundingBox.getMinimum().z;
+        } else {
+            std::cout << lineData->getNumLines() << std::endl;
+            glm::mat4 viewMatrix = sceneData.camera->getViewMatrix();
+            minDepth = std::numeric_limits<float>::max();
+            maxDepth = std::numeric_limits<float>::lowest();
+            #pragma omp parallel for default(none) shared(viewMatrix, filteredLines) \
+            reduction(min: minDepth) reduction(max: maxDepth)
+            for (size_t lineIdx = 0; lineIdx < filteredLines.size(); lineIdx++) {
+                const std::vector<glm::vec3>& line = filteredLines.at(lineIdx);
+                for (const glm::vec3& point : line) {
+                    float depth = -sgl::transformPoint(viewMatrix, point).z;
+                    minDepth = std::min(minDepth, depth);
+                    maxDepth = std::max(maxDepth, depth);
+                }
+            }
+        }
+
+        minDepth = std::max(minDepth, sceneData.camera->getNearClipDistance());
+        maxDepth = std::min(maxDepth, sceneData.camera->getFarClipDistance());
+        minDepth = std::min(minDepth, sceneData.camera->getFarClipDistance());
+        maxDepth = std::max(maxDepth, sceneData.camera->getNearClipDistance());
+    }
+
+    if (useDepthCues) {
+        shaderProgram->setUniformOptional("minDepth", minDepth);
+        shaderProgram->setUniformOptional("maxDepth", maxDepth);
+    }
+}
 
 void LineRenderer::renderGuiWindow() {
     bool shallReloadGatherShader = false;
@@ -42,6 +108,11 @@ void LineRenderer::renderGuiWindow() {
             ImGui::Separator();
             if (lineData->renderGui(isRasterizer)) {
                 shallReloadGatherShader = true;
+            }
+            if (ImGui::Checkbox("Depth Cues", &useDepthCues)) {
+                updateDepthCueMode();
+                shallReloadGatherShader = true;
+                reRender = true;
             }
         }
     }
@@ -66,6 +137,7 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewMesh) {
         reloadGatherShader(false);
     }
     this->lineData = lineData;
+    filteredLines = lineData->getFilteredLines();
 
     if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
         shaderAttributesHull = sgl::ShaderAttributesPtr();

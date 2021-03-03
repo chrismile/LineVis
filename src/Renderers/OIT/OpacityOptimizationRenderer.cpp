@@ -600,6 +600,7 @@ void OpacityOptimizationRenderer::setUniformData() {
     gatherPpllOpacitiesShader->setUniformOptional("minAttrValue", transferFunctionWindow.getDataRangeMin());
     gatherPpllOpacitiesShader->setUniformOptional("maxAttrValue", transferFunctionWindow.getDataRangeMax());
     lineData->setUniformGatherShaderData_Pass(gatherPpllOpacitiesShader);
+    setUniformData_Pass(gatherPpllOpacitiesShader);
 
     gatherPpllFinalShader->setUniform("viewportW", paddedViewportWidthFinal);
     gatherPpllFinalShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeFinal);
@@ -615,6 +616,7 @@ void OpacityOptimizationRenderer::setUniformData() {
         gatherPpllFinalShader->setUniform("foregroundColor", foregroundColor);
     }
     lineData->setUniformGatherShaderData_Pass(gatherPpllFinalShader);
+    setUniformData_Pass(gatherPpllFinalShader);
 
     if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
         gatherShaderHull->setUniform("viewportW", paddedViewportWidthFinal);

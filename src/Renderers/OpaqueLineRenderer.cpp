@@ -132,6 +132,7 @@ void OpaqueLineRenderer::render() {
         gatherShader->setUniform("foregroundColor", foregroundColor);
     }
     lineData->setUniformGatherShaderData(gatherShader);
+    setUniformData_Pass(gatherShader);
 
     if (useMultisampling) {
         sgl::Renderer->bindFBO(msaaSceneFBO);

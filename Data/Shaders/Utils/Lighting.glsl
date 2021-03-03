@@ -1,3 +1,8 @@
+#ifdef USE_DEPTH_CUES
+uniform float minDepth = 0.0f;
+uniform float maxDepth = 1.0f;
+#endif
+
 /**
  * Simplified Blinn-Phong shading assuming the ambient and diffuse color are equal and the specular color is white.
  * Assumes the following global variables are given: cameraPosition, fragmentPositionWorld, fragmentNormal.
@@ -25,6 +30,12 @@ vec4 blinnPhongShading(in vec4 baseColor, in vec3 fragmentNormal) {
     vec3 Is = kS * pow(clamp(abs(dot(n, h)), 0.0, 1.0), s) * lightColor;
 
     phongColor = Ia + Id + Is;
+
+#ifdef USE_DEPTH_CUES
+    float depthCueFactor = (-screenSpacePosition.z - minDepth) / (maxDepth - minDepth);
+    depthCueFactor = depthCueFactor*depthCueFactor;
+    phongColor = mix(phongColor, vec3(0.5, 0.5, 0.5), depthCueFactor);
+#endif
 
     vec4 color = vec4(phongColor, baseColor.a);
     return color;

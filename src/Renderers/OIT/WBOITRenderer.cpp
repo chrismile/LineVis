@@ -140,6 +140,7 @@ void WBOITRenderer::setUniformData() {
         gatherShader->setUniform("foregroundColor", foregroundColor);
     }
     lineData->setUniformGatherShaderData(gatherShader);
+    setUniformData_Pass(gatherShader);
 
     resolveShader->setUniform("accumulationTexture", accumulationRenderTexture, 0);
     resolveShader->setUniform("revealageTexture", revealageRenderTexture, 1);

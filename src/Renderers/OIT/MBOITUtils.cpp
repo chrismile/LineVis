@@ -37,7 +37,7 @@ float circleToParameter(float angle, float* pOutMaxParameter /* = nullptr */) {
  * Given an angle in radians providing the size of the wrapping zone, this function computes all constants required by
  * the shader.
  */
-void computeWrappingZoneParameters(glm::vec4 &p_out_wrapping_zone_parameters,
+void computeWrappingZoneParameters(glm::vec4& p_out_wrapping_zone_parameters,
         float new_wrapping_zone_angle /* = 0.1f * M_PI */) {
     p_out_wrapping_zone_parameters[0] = new_wrapping_zone_angle;
     p_out_wrapping_zone_parameters[1] = M_PI - 0.5f * new_wrapping_zone_angle;

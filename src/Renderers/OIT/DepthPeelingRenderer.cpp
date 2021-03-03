@@ -143,6 +143,7 @@ void DepthPeelingRenderer::setUniformData() {
         gatherShader->setUniform("foregroundColor", foregroundColor);
     }
     lineData->setUniformGatherShaderData_Pass(gatherShader);
+    setUniformData_Pass(gatherShader);
 }
 
 void DepthPeelingRenderer::render() {

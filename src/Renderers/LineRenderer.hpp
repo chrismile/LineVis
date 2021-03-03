@@ -50,8 +50,8 @@ public:
     LineRenderer(
             const std::string& windowName, SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow)
         : windowName(windowName), sceneData(sceneData), transferFunctionWindow(transferFunctionWindow) {}
-    virtual void initialize() {}
-    virtual ~LineRenderer() {}
+    virtual void initialize();
+    virtual ~LineRenderer();
 
     // Returns if the visualization mapping needs to be re-generated.
     inline bool isDirty() { return dirty; }
@@ -69,7 +69,7 @@ public:
     // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
     virtual void renderGuiWindow();
     // Updates the internal logic (called once per frame).
-    virtual void update(float dt) {}
+    virtual void update(float dt);
 
     // Called when the resolution of the application window has changed.
     virtual void onResolutionChanged() {}
@@ -110,6 +110,14 @@ protected:
     sgl::TransferFunctionWindow& transferFunctionWindow;
     bool dirty = true;
     bool reRender = true;
+
+    // Whether to use depth cues (optionally selected in the UI).
+    void updateDepthCueMode();
+    void setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram);
+    bool useDepthCues = true;
+    float minDepth = 0.0f;
+    float maxDepth = 1.0f;
+    std::vector<std::vector<glm::vec3>> filteredLines;
 
     // Minimum and maximum values in the UI.
     static constexpr float MIN_LINE_WIDTH = 0.001f;
