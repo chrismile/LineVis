@@ -33,6 +33,7 @@ vec4 blinnPhongShading(in vec4 baseColor, in vec3 fragmentNormal) {
 
 #ifdef USE_DEPTH_CUES
     float depthCueFactor = (-screenSpacePosition.z - minDepth) / (maxDepth - minDepth);
+    depthCueFactor = depthCueFactor * 0.7;
     depthCueFactor = depthCueFactor*depthCueFactor;
     phongColor = mix(phongColor, vec3(0.5, 0.5, 0.5), depthCueFactor);
 #endif

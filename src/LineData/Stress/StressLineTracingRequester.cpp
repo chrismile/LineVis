@@ -116,6 +116,10 @@ void StressLineTracingRequester::renderGui() {
 }
 
 void StressLineTracingRequester::requestNewData() {
+    if (meshFilename.empty()) {
+        return;
+    }
+
     Json::Value request;
     request["fileName"] = boost::filesystem::absolute(lineDataSetsDirectory + meshFilename).c_str();
     request["seedStrategy"] = SEED_STRATEGY_ABBREVIATIONS[int(seedStrategy)];
