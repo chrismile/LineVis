@@ -113,11 +113,18 @@ protected:
 
     // Whether to use depth cues (optionally selected in the UI).
     void updateDepthCueMode();
+    void updateDepthCueGeometryData();
     void setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram);
     bool useDepthCues = true;
+    float depthCueStrength = 0.5f;
+    bool computeDepthCuesOnGpu = true;
     float minDepth = 0.0f;
     float maxDepth = 1.0f;
     std::vector<std::vector<glm::vec3>> filteredLines;
+    sgl::GeometryBufferPtr filteredLinesVerticesBuffer;
+    sgl::GeometryBufferPtr depthMinMaxBuffers[2];
+    sgl::ShaderProgramPtr computeDepthValuesShaderProgram;
+    sgl::ShaderProgramPtr minMaxReduceDepthShaderProgram;
 
     // Minimum and maximum values in the UI.
     static constexpr float MIN_LINE_WIDTH = 0.001f;

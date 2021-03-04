@@ -38,8 +38,14 @@
 float LineRenderer::lineWidth = STANDARD_LINE_WIDTH;
 float LineRenderer::bandWidth = STANDARD_BAND_WIDTH;
 
+// For compute shaders.
+constexpr size_t BLOCK_SIZE = 256;
+
 void LineRenderer::initialize() {
     updateDepthCueMode();
+    sgl::ShaderManager->addPreprocessorDefine("COMPUTE_DEPTH_CUES_GPU", "");
+    computeDepthValuesShaderProgram = sgl::ShaderManager->getShaderProgram({"ComputeDepthValues.Compute"});
+    minMaxReduceDepthShaderProgram = sgl::ShaderManager->getShaderProgram({"MinMaxReduceDepth.Compute"});
 }
 
 LineRenderer::~LineRenderer() {
@@ -47,6 +53,7 @@ LineRenderer::~LineRenderer() {
         sgl::ShaderManager->removePreprocessorDefine("USE_SCREEN_SPACE_POSITION");
         sgl::ShaderManager->removePreprocessorDefine("USE_DEPTH_CUES");
     }
+    sgl::ShaderManager->removePreprocessorDefine("COMPUTE_DEPTH_CUES_GPU");
 }
 
 void LineRenderer::update(float dt) {
@@ -56,15 +63,77 @@ void LineRenderer::updateDepthCueMode() {
     if (useDepthCues) {
         sgl::ShaderManager->addPreprocessorDefine("USE_SCREEN_SPACE_POSITION", "");
         sgl::ShaderManager->addPreprocessorDefine("USE_DEPTH_CUES", "");
+
+        if (lineData && filteredLines.empty()) {
+            updateDepthCueGeometryData();
+        }
     } else {
         sgl::ShaderManager->removePreprocessorDefine("USE_SCREEN_SPACE_POSITION");
         sgl::ShaderManager->removePreprocessorDefine("USE_DEPTH_CUES");
     }
 }
 
+void LineRenderer::updateDepthCueGeometryData() {
+    filteredLines = lineData->getFilteredLines();
+    std::vector<glm::vec4> filteredLinesVertices;
+    for (std::vector<glm::vec3>& line : filteredLines) {
+        for (const glm::vec3& point : line) {
+            filteredLinesVertices.push_back(glm::vec4(point.x, point.y, point.z, 1.0f));
+        }
+    }
+    filteredLinesVerticesBuffer = sgl::Renderer->createGeometryBuffer(
+            filteredLinesVertices.size() * sizeof(glm::vec4), (void*)&filteredLinesVertices.front(),
+            sgl::SHADER_STORAGE_BUFFER);
+
+    depthMinMaxBuffers[0] = sgl::Renderer->createGeometryBuffer(
+            sgl::iceil(filteredLinesVertices.size(), BLOCK_SIZE) * sizeof(glm::vec2),
+            sgl::SHADER_STORAGE_BUFFER);
+    depthMinMaxBuffers[1] = sgl::Renderer->createGeometryBuffer(
+            sgl::iceil(filteredLinesVertices.size(), BLOCK_SIZE * BLOCK_SIZE * 2) * sizeof(glm::vec2),
+            sgl::SHADER_STORAGE_BUFFER);
+}
+
 void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
-    if (useDepthCues && lineData) {
-        bool useBoundingBox = false; // lineData->getNumLines() > 1000
+    if (useDepthCues && lineData && computeDepthCuesOnGpu) {
+        sgl::ShaderManager->bindShaderStorageBuffer(12, filteredLinesVerticesBuffer);
+        sgl::ShaderManager->bindShaderStorageBuffer(11, depthMinMaxBuffers[0]);
+        uint32_t numVertices = filteredLinesVerticesBuffer->getSize() / sizeof(glm::vec4);
+        uint32_t numBlocks = sgl::iceil(numVertices, BLOCK_SIZE);
+        computeDepthValuesShaderProgram->setUniform("numVertices", numVertices);
+        computeDepthValuesShaderProgram->setUniform("nearDist", sceneData.camera->getNearClipDistance());
+        computeDepthValuesShaderProgram->setUniform("farDist", sceneData.camera->getFarClipDistance());
+        computeDepthValuesShaderProgram->setUniform("cameraViewMatrix", sceneData.camera->getViewMatrix());
+        computeDepthValuesShaderProgram->dispatchCompute(numBlocks);
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+        minMaxReduceDepthShaderProgram->setUniform("nearDist", sceneData.camera->getNearClipDistance());
+        minMaxReduceDepthShaderProgram->setUniform("farDist", sceneData.camera->getFarClipDistance());
+        int iteration = 0;
+        uint32_t inputSize;
+        while (numBlocks > 1) {
+            if (iteration != 0) {
+                // Already bound for computeDepthValuesShaderProgram if i == 0.
+                sgl::ShaderManager->bindShaderStorageBuffer(11, depthMinMaxBuffers[iteration % 2]);
+            }
+            sgl::ShaderManager->bindShaderStorageBuffer(12, depthMinMaxBuffers[(iteration + 1) % 2]);
+
+            inputSize = numBlocks;
+            numBlocks = sgl::iceil(numBlocks, BLOCK_SIZE*2);
+            minMaxReduceDepthShaderProgram->setUniform("sizeOfInput", inputSize);
+            minMaxReduceDepthShaderProgram->dispatchCompute(numBlocks);
+            glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+            iteration++;
+        }
+
+        // Bind the output of ComputeDepthValues.glsl to position 12 for Lighting.glsl if no reduction was necessary.
+        if (iteration == 0) {
+            sgl::ShaderManager->bindShaderStorageBuffer(12, depthMinMaxBuffers[0]);
+        }
+    }
+
+    if (useDepthCues && lineData && !computeDepthCuesOnGpu) {
+        bool useBoundingBox = lineData->getNumLines() > 1000;
         if (useBoundingBox) {
             const sgl::AABB3& boundingBox = lineData->getModelBoundingBox();
             sgl::AABB3 screenSpaceBoundingBox = boundingBox.transformed(sceneData.camera->getViewMatrix());
@@ -87,16 +156,16 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
             }
         }
 
-        minDepth = std::max(minDepth, sceneData.camera->getNearClipDistance());
-        maxDepth = std::min(maxDepth, sceneData.camera->getFarClipDistance());
-        minDepth = std::min(minDepth, sceneData.camera->getFarClipDistance());
-        maxDepth = std::max(maxDepth, sceneData.camera->getNearClipDistance());
-    }
+        minDepth = glm::clamp(
+                minDepth, sceneData.camera->getFarClipDistance(), sceneData.camera->getNearClipDistance());
+        maxDepth = glm::clamp(
+                maxDepth, sceneData.camera->getFarClipDistance(), sceneData.camera->getNearClipDistance());
 
-    if (useDepthCues) {
         shaderProgram->setUniformOptional("minDepth", minDepth);
         shaderProgram->setUniformOptional("maxDepth", maxDepth);
     }
+
+    shaderProgram->setUniformOptional("depthCueStrength", depthCueStrength);
 }
 
 void LineRenderer::renderGuiWindow() {
@@ -112,6 +181,10 @@ void LineRenderer::renderGuiWindow() {
             if (ImGui::Checkbox("Depth Cues", &useDepthCues)) {
                 updateDepthCueMode();
                 shallReloadGatherShader = true;
+                reRender = true;
+            }
+            if (useDepthCues && ImGui::SliderFloat(
+                    "Depth Cue Strngth", &depthCueStrength, 0.0f, 1.0f)) {
                 reRender = true;
             }
         }
@@ -137,7 +210,14 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewMesh) {
         reloadGatherShader(false);
     }
     this->lineData = lineData;
-    filteredLines = lineData->getFilteredLines();
+
+    filteredLines.clear();
+    filteredLinesVerticesBuffer = sgl::GeometryBufferPtr();
+    depthMinMaxBuffers[0] = sgl::GeometryBufferPtr();
+    depthMinMaxBuffers[1] = sgl::GeometryBufferPtr();
+    if (useDepthCues) {
+        updateDepthCueGeometryData();
+    }
 
     if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
         shaderAttributesHull = sgl::ShaderAttributesPtr();

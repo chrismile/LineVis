@@ -1,6 +1,14 @@
 #ifdef USE_DEPTH_CUES
+#ifdef COMPUTE_DEPTH_CUES_GPU
+layout (std430, binding = 12) readonly buffer DepthMinMaxBuffer {
+    float minDepth;
+    float maxDepth;
+};
+#else
 uniform float minDepth = 0.0f;
 uniform float maxDepth = 1.0f;
+#endif
+uniform float depthCueStrength = 0.8f;
 #endif
 
 /**
@@ -33,8 +41,7 @@ vec4 blinnPhongShading(in vec4 baseColor, in vec3 fragmentNormal) {
 
 #ifdef USE_DEPTH_CUES
     float depthCueFactor = (-screenSpacePosition.z - minDepth) / (maxDepth - minDepth);
-    depthCueFactor = depthCueFactor * 0.7;
-    depthCueFactor = depthCueFactor*depthCueFactor;
+    depthCueFactor = depthCueFactor * depthCueFactor * depthCueStrength;
     phongColor = mix(phongColor, vec3(0.5, 0.5, 0.5), depthCueFactor);
 #endif
 
