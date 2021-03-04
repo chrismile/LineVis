@@ -53,6 +53,9 @@ uniform float bandWidth;
 uniform ivec3 psUseBands;
 
 out vec3 fragmentPositionWorld;
+#ifdef USE_SCREEN_SPACE_POSITION
+out vec3 screenSpacePosition;
+#endif
 out float fragmentAttribute;
 out float fragmentOpacity;
 out float fragmentNormalFloat; // Between -1 and 1
@@ -127,12 +130,18 @@ void main() {
 
     vertexPosition = linePosition0 + lineRadius * offsetDirectionLeft0;
     fragmentPositionWorld = vertexPosition;
+#ifdef USE_SCREEN_SPACE_POSITION
+    screenSpacePosition = (vMatrix * vec4(vertexPosition, 1.0)).xyz;
+#endif
     fragmentNormalFloat = -1.0;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
     vertexPosition = linePosition0 + lineRadius * offsetDirectionRight0;
     fragmentPositionWorld = vertexPosition;
+#ifdef USE_SCREEN_SPACE_POSITION
+    screenSpacePosition = (vMatrix * vec4(vertexPosition, 1.0)).xyz;
+#endif
     fragmentNormalFloat = 1.0;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
@@ -153,12 +162,18 @@ void main() {
 
     vertexPosition = linePosition1 + lineRadius * offsetDirectionLeft1;
     fragmentPositionWorld = vertexPosition;
+#ifdef USE_SCREEN_SPACE_POSITION
+    screenSpacePosition = (vMatrix * vec4(vertexPosition, 1.0)).xyz;
+#endif
     fragmentNormalFloat = -1.0;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
     vertexPosition = linePosition1 + lineRadius * offsetDirectionRight1;
     fragmentPositionWorld = vertexPosition;
+#ifdef USE_SCREEN_SPACE_POSITION
+    screenSpacePosition = (vMatrix * vec4(vertexPosition, 1.0)).xyz;
+#endif
     fragmentNormalFloat = 1.0;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
@@ -171,6 +186,9 @@ void main() {
 #version 430 core
 
 in vec3 fragmentPositionWorld;
+#ifdef USE_SCREEN_SPACE_POSITION
+in vec3 screenSpacePosition;
+#endif
 in float fragmentAttribute;
 in float fragmentOpacity;
 in float fragmentNormalFloat;

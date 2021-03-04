@@ -140,7 +140,6 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
             minDepth = -screenSpaceBoundingBox.getMaximum().z;
             maxDepth = -screenSpaceBoundingBox.getMinimum().z;
         } else {
-            //std::cout << lineData->getNumLines() << std::endl;
             glm::mat4 viewMatrix = sceneData.camera->getViewMatrix();
             minDepth = std::numeric_limits<float>::max();
             maxDepth = std::numeric_limits<float>::lowest();
