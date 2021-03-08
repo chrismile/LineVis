@@ -161,7 +161,7 @@ void OpacityOptimizationRenderer::reloadGatherShader(bool canCopyShaderAttribute
     LineRenderer::reloadGatherShader();
     sgl::ShaderManager->removePreprocessorDefine("OIT_GATHER_HEADER");
 
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
+    if (lineData->useBands()) {
         gatherPpllOpacitiesShader = sgl::ShaderManager->getShaderProgram({
                 "GeometryPassOpacitiesBand.VBO.Vertex",
                 "GeometryPassOpacitiesBand.VBO.Geometry",
@@ -276,7 +276,7 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewM
     sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
     sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
 
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
+    if (lineData->useBands()) {
         BandRenderData tubeRenderData = lineData->getBandRenderData();
         indexBuffer = tubeRenderData.indexBuffer;
         vertexPositionBuffer = tubeRenderData.vertexPositionBuffer;

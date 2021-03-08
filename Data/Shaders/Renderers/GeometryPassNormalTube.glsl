@@ -47,7 +47,8 @@ void main() {
 #version 430 core
 
 layout(lines) in;
-layout(triangle_strip, max_vertices = 32) out;
+//layout(triangle_strip, max_vertices = 32) out;
+layout(triangle_strip, max_vertices = 64) out;
 
 uniform vec3 cameraPosition;
 uniform float lineWidth;
@@ -66,6 +67,12 @@ flat out uint fragmentPrincipalStressIndex;
 flat out float fragmentLineHierarchyLevel;
 #endif
 
+#ifdef USE_BANDS
+uniform float bandWidth;
+uniform ivec3 psUseBands;
+flat out int useBand;
+#endif
+
 in VertexData {
     vec3 linePosition;
     float lineAttribute;
@@ -79,11 +86,30 @@ in VertexData {
 #endif
 } v_in[];
 
+# define M_PI 3.14159265358979323846
+
 void main() {
     vec3 linePosition0 = (mMatrix * vec4(v_in[0].linePosition, 1.0)).xyz;
     vec3 linePosition1 = (mMatrix * vec4(v_in[1].linePosition, 1.0)).xyz;
 
+#ifdef USE_BANDS
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL) || defined(IS_PSL_DATA)
+    useBand = psUseBands[v_in[0].linePrincipalStressIndex];
+#else
+    useBand = 1;
+#endif
+
+#ifdef BAND_RENDERING_THICK
+    const float MIN_THICKNESS = 0.15;
+#else
+    const float MIN_THICKNESS = 1e-2;
+#endif
+    float thickness = useBand != 0 ? MIN_THICKNESS : 1.0f;
+
+    const float lineRadius = (useBand != 0 ? bandWidth : lineWidth) * 0.5;
+#else
     const float lineRadius = lineWidth * 0.5;
+#endif
     const mat4 pvMatrix = pMatrix * vMatrix;
 
     vec3 circlePointsCurrent[NUM_TUBE_SUBDIVISIONS];
@@ -98,10 +124,31 @@ void main() {
     vec3 tangentNext = v_in[1].lineTangent;
     vec3 binormalNext = cross(tangentNext, normalNext);
 
+#ifdef USE_BANDS
     mat3 tangentFrameMatrixCurrent = mat3(normalCurrent, binormalCurrent, tangentCurrent);
     mat3 tangentFrameMatrixNext = mat3(normalNext, binormalNext, tangentNext);
+#else
+    mat3 tangentFrameMatrixCurrent = mat3(normalCurrent, binormalCurrent, tangentCurrent);
+    mat3 tangentFrameMatrixNext = mat3(normalNext, binormalNext, tangentNext);
+#endif
 
-    const float theta = 2.0 * 3.1415926 / float(NUM_TUBE_SUBDIVISIONS);
+#ifdef USE_BANDS
+    //thickness = 1.0f;
+    for (int i = 0; i < NUM_TUBE_SUBDIVISIONS; i++) {
+        float t = float(i) / float(NUM_TUBE_SUBDIVISIONS) * 2.0 * M_PI;
+        float cosAngle = cos(t);
+        float sinAngle = sin(t);
+        vec3 localPosition = vec3(thickness * cosAngle, sinAngle, 0.0f);
+        vec3 localNormal = vec3(cosAngle, thickness * sinAngle, 0.0f);
+        //vec3 localNormal = vec3(cosAngle, sinAngle, 0.0f);
+        //vec3 localNormal = vec3(thickness * cosAngle, sinAngle, 0.0f);
+        circlePointsCurrent[i] = lineRadius * (tangentFrameMatrixCurrent * localPosition) + linePosition0;
+        circlePointsNext[i] = lineRadius * (tangentFrameMatrixNext * localPosition) + linePosition1;
+        vertexNormalsCurrent[i] = normalize(tangentFrameMatrixCurrent * localNormal);
+        vertexNormalsNext[i] = normalize(tangentFrameMatrixNext * localNormal);
+    }
+#else
+    const float theta = 2.0 * M_PI / float(NUM_TUBE_SUBDIVISIONS);
     const float tangetialFactor = tan(theta); // opposite / adjacent
     const float radialFactor = cos(theta); // adjacent / hypotenuse
 
@@ -119,6 +166,7 @@ void main() {
         position += tangetialFactor * circleTangent;
         position *= radialFactor;
     }
+#endif
 
 
     // Emit the tube triangle vertices
@@ -212,6 +260,11 @@ uniform float lineWidth;
 uniform vec3 backgroundColor;
 uniform vec3 foregroundColor;
 
+#ifdef USE_BANDS
+flat in int useBand;
+uniform float bandWidth;
+#endif
+
 #define M_PI 3.14159265358979323846
 
 #include "TransferFunction.glsl"
@@ -277,17 +330,23 @@ void main() {
             lineHierarchyImportanceMap, vec2(fragmentLineHierarchyLevel, float(fragmentPrincipalStressIndex))).r;
 #endif
 
-    fragmentColor = blinnPhongShading(fragmentColor, fragmentNormal);
+    //fragmentColor = blinnPhongShading(fragmentColor, fragmentNormal);
 
     float absCoords = abs(ribbonPosition);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
     const float WHITE_THRESHOLD = 0.7;
+#ifdef USE_BANDS
+    float EPSILON = clamp(fragmentDepth * 0.001 / (useBand != 0 ? bandWidth : lineWidth), 0.0, 0.49);
+#else
     float EPSILON = clamp(fragmentDepth * 0.001 / lineWidth, 0.0, 0.49);
+#endif
     float coverage = 1.0 - smoothstep(1.0 - 2.0*EPSILON, 1.0, absCoords);
     //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(ribbonPosition));
     vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor,
             smoothstep(WHITE_THRESHOLD - EPSILON, WHITE_THRESHOLD + EPSILON, absCoords)),
             fragmentColor.a * coverage);
+    //colorOut.rgb = vec3(abs(length(cross(newV, n))));
+    //colorOut.rgb = vec3((n + 1.0) * 0.5);
 
 #if defined(DIRECT_BLIT_GATHER)
     // To counteract depth fighting with overlay wireframe.

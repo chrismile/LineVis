@@ -129,7 +129,7 @@ bool LineDataStress::renderGui(bool isRasterizer) {
         }
     }
 
-    if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
+    if (useBands()) {
         ImGui::Text("Render as bands:");
         bool usedBandsChanged = false;
         usedBandsChanged |= ImGui::Checkbox("Major##bandsmajor", &psUseBands[0]); ImGui::SameLine();
@@ -156,7 +156,7 @@ bool LineDataStress::renderGui(bool isRasterizer) {
 }
 
 bool LineDataStress::renderGuiRenderingSettings() {
-    if (linePrimitiveMode == LINE_PRIMITIVES_BAND && ImGui::SliderFloat(
+    if (useBands() && ImGui::SliderFloat(
             "Band Width", &LineRenderer::bandWidth, LineRenderer::MIN_LINE_WIDTH, LineRenderer::MAX_LINE_WIDTH,
             "%.4f")) {
         reRender = true;
@@ -270,7 +270,7 @@ bool LineDataStress::loadFromFile(
         // Use bands if possible.
         if (hasBandsData) {
             linePrimitiveMode = LINE_PRIMITIVES_BAND;
-        } else if (LINE_PRIMITIVES_BAND) {
+        } else if (useBands()) {
             linePrimitiveMode = LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
         }
 
@@ -820,23 +820,13 @@ sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
     if (rendererSupportsTransparency) {
         sgl::ShaderManager->addPreprocessorDefine("USE_TRANSPARENCY", "");
     }
-    if (linePrimitiveMode == LINE_PRIMITIVES_BAND && renderThickBands) {
+    if (useBands() && renderThickBands) {
         sgl::ShaderManager->addPreprocessorDefine("BAND_RENDERING_THICK", "");
     }
 
-    sgl::ShaderProgramPtr gatherShader;
-    if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
-        sgl::ShaderManager->invalidateShaderCache();
-        gatherShader = sgl::ShaderManager->getShaderProgram({
-            "GeometryPassNormalBand.VBO.Vertex",
-            "GeometryPassNormalBand.VBO.Geometry",
-            "GeometryPassNormalBand.Fragment"
-        });
-    } else {
-        gatherShader = LineData::reloadGatherShader();
-    }
+    sgl::ShaderProgramPtr gatherShader = LineData::reloadGatherShader();
 
-    if (linePrimitiveMode == LINE_PRIMITIVES_BAND && renderThickBands) {
+    if (useBands() && renderThickBands) {
         sgl::ShaderManager->removePreprocessorDefine("BAND_RENDERING_THICK");
     }
     if (rendererSupportsTransparency) {
@@ -864,6 +854,15 @@ TubeRenderData LineDataStress::getTubeRenderData() {
     std::vector<uint32_t> vertexPrincipalStressIndices;
     std::vector<float> vertexLineHierarchyLevels;
 
+    std::vector<std::vector<std::vector<glm::vec3>>> *bandPointsListRightPs;
+    if (useBands()) {
+        if (useSmoothedBands) {
+            bandPointsListRightPs = &bandPointsSmoothedListRightPs;
+        } else {
+            bandPointsListRightPs = &bandPointsUnsmoothedListRightPs;
+        }
+    }
+
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
         int psIdx = loadedPsIndices.at(i);
         if (!usedPsDirections.at(psIdx)) {
@@ -873,43 +872,160 @@ TubeRenderData LineDataStress::getTubeRenderData() {
         Trajectories& trajectories = trajectoriesPs.at(i);
         StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
 
-        // 1. Compute all tangents.
         std::vector<std::vector<glm::vec3>> lineCentersList;
         std::vector<std::vector<float>> lineAttributesList;
 
-        lineCentersList.resize(trajectories.size());
-        lineAttributesList.resize(trajectories.size());
-        std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
-        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
-            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+        if (useBands() && psUseBands.at(psIdx)) {
+            std::vector<std::vector<glm::vec3>> bandRightVectorList;
+            std::vector<std::vector<glm::vec3>>& bandPointsListRight = bandPointsListRightPs->at(i);
+
+            lineCentersList.resize(trajectories.size());
+            lineAttributesList.resize(trajectories.size());
+            bandRightVectorList.resize(trajectories.size());
+            std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
+            for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+                if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                    continue;
+                }
+
+                Trajectory& trajectory = trajectories.at(trajectoryIdx);
+                StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
+                std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
+                std::vector<glm::vec3>& bandPointsRight = bandPointsListRight.at(trajectoryIdx);
+                assert(attributes.size() == trajectory.positions.size());
+                std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
+                std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
+                std::vector<glm::vec3>& bandRightVectors = bandRightVectorList.at(trajectoryIdx);
+                for (size_t i = 0; i < trajectory.positions.size(); i++) {
+                    lineCenters.push_back(trajectory.positions.at(i));
+                    lineAttributes.push_back(attributes.at(i));
+                    if (hasLineHierarchy) {
+                        vertexLineHierarchyLevels.push_back(
+                                stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
+                    }
+                    bandRightVectors.push_back(bandPointsRight.at(i));
+                }
+            }
+
+            size_t numVerticesOld = vertexPositions.size();
+
+            for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
+                const std::vector<glm::vec3> &lineCenters = lineCentersList.at(lineId);
+                const std::vector<float> &lineAttributes = lineAttributesList.at(lineId);
+                const std::vector<glm::vec3> &bandRightVectors = bandRightVectorList.at(lineId);
+                assert(lineCenters.size() == lineAttributes.size());
+                size_t n = lineCenters.size();
+                size_t indexOffset = vertexPositions.size();
+
+                if (n < 2) {
+                    continue;
+                }
+
+                glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
+                int numValidLinePoints = 0;
+                for (size_t i = 0; i < n; i++) {
+                    glm::vec3 tangent, normal;
+                    if (i == 0) {
+                        tangent = lineCenters[i+1] - lineCenters[i];
+                    } else if (i == n - 1) {
+                        tangent = lineCenters[i] - lineCenters[i-1];
+                    } else {
+                        tangent = (lineCenters[i+1] - lineCenters[i-1]);
+                    }
+                    float lineSegmentLength = glm::length(tangent);
+
+                    if (lineSegmentLength < 0.0001f) {
+                        // In case the two vertices are almost identical, just skip this path line segment
+                        continue;
+                    }
+                    tangent = glm::normalize(tangent);
+
+                    normal = glm::cross(bandRightVectors.at(i), tangent);
+
+                    vertexPositions.push_back(lineCenters.at(i));
+                    vertexNormals.push_back(normal);
+                    vertexTangents.push_back(tangent);
+                    vertexAttributes.push_back(lineAttributes.at(i));
+                    numValidLinePoints++;
+                }
+
+                if (numValidLinePoints == 1) {
+                    // Only one vertex left -> Output nothing (tube consisting only of one point).
+                    vertexPositions.pop_back();
+                    vertexNormals.pop_back();
+                    vertexTangents.pop_back();
+                    vertexAttributes.pop_back();
+                    continue;
+                }
+
+                // Create indices
+                for (int i = 0; i < numValidLinePoints-1; i++) {
+                    lineIndices.push_back(indexOffset + i);
+                    lineIndices.push_back(indexOffset + i + 1);
+                }
+            }
+
+            size_t numVerticesAdded = vertexPositions.size() - numVerticesOld;
+            for (size_t i = 0; i < numVerticesAdded; i++) {
+                vertexPrincipalStressIndices.push_back(psIdx);
+            }
+        } else {
+            // Compute all tangents.
+            lineCentersList.resize(trajectories.size());
+            lineAttributesList.resize(trajectories.size());
+            std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
+            for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+                if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                    continue;
+                }
+
+                Trajectory& trajectory = trajectories.at(trajectoryIdx);
+                StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
+                std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
+                assert(attributes.size() == trajectory.positions.size());
+                std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
+                std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
+                for (size_t i = 0; i < trajectory.positions.size(); i++) {
+                    lineCenters.push_back(trajectory.positions.at(i));
+                    lineAttributes.push_back(attributes.at(i));
+                    if (hasLineHierarchy) {
+                        vertexLineHierarchyLevels.push_back(
+                                stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
+                    }
+                }
+            }
+
+            size_t numVerticesOld = vertexPositions.size();
+            createLineTubesRenderDataCPU(
+                    lineCentersList, lineAttributesList,
+                    lineIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes);
+            size_t numVerticesAdded = vertexPositions.size() - numVerticesOld;
+            for (size_t i = 0; i < numVerticesAdded; i++) {
+                vertexPrincipalStressIndices.push_back(psIdx);
+            }
+        }
+    }
+
+    if (useBands()) {
+        for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+            // 1. Compute all tangents.
+            std::vector<std::vector<glm::vec3>> lineCentersList;
+            std::vector<std::vector<float>> lineAttributesList;
+
+        }
+    } else {
+        for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+            int psIdx = loadedPsIndices.at(i);
+            if (!usedPsDirections.at(psIdx)) {
                 continue;
             }
 
-            Trajectory& trajectory = trajectories.at(trajectoryIdx);
-            StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
-            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
-            assert(attributes.size() == trajectory.positions.size());
-            std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
-            std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
-            for (size_t i = 0; i < trajectory.positions.size(); i++) {
-                lineCenters.push_back(trajectory.positions.at(i));
-                lineAttributes.push_back(attributes.at(i));
-                if (hasLineHierarchy) {
-                    vertexLineHierarchyLevels.push_back(
-                            stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
-                }
-            }
-        }
+            Trajectories& trajectories = trajectoriesPs.at(i);
+            StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
 
-        size_t numVerticesOld = vertexPositions.size();
-        createLineTubesRenderDataCPU(
-                lineCentersList, lineAttributesList,
-                lineIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes);
-        size_t numVerticesAdded = vertexPositions.size() - numVerticesOld;
-        for (size_t i = 0; i < numVerticesAdded; i++) {
-            vertexPrincipalStressIndices.push_back(psIdx);
         }
     }
+
 
     // Add the index buffer.
     tubeRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
@@ -1179,7 +1295,7 @@ BandRenderData LineDataStress::getBandRenderData() {
                 bandPointsListRightPs = &bandPointsUnsmoothedListRightPs;
             }
             std::vector<std::vector<glm::vec3>>& bandPointsListLeft = bandPointsListLeftPs->at(i);
-            std::vector<std::vector<glm::vec3>>& bandPointsRightLeft = bandPointsListRightPs->at(i);
+            std::vector<std::vector<glm::vec3>>& bandPointsListRight = bandPointsListRightPs->at(i);
 
             std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
@@ -1191,7 +1307,7 @@ BandRenderData LineDataStress::getBandRenderData() {
                 StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
                 std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
                 std::vector<glm::vec3>& bandPointsLeft = bandPointsListLeft.at(trajectoryIdx);
-                std::vector<glm::vec3>& bandPointsRight = bandPointsRightLeft.at(trajectoryIdx);
+                std::vector<glm::vec3>& bandPointsRight = bandPointsListRight.at(trajectoryIdx);
                 assert(attributes.size() == trajectory.positions.size());
                 assert(attributes.size() == bandPointsLeft.size());
                 assert(attributes.size() == bandPointsRight.size());
@@ -1430,22 +1546,13 @@ void LineDataStress::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gath
         if (!rendererSupportsTransparency) {
             gatherShader->setUniform("lineHierarchySlider", glm::vec3(1.0f) - lineHierarchySliderValues);
         } else {
-            //lineHierarchySliderValuesLower[0] = lineHierarchySliderValuesTransparency[0][0];
-            //lineHierarchySliderValuesLower[1] = lineHierarchySliderValuesTransparency[1][0];
-            //lineHierarchySliderValuesLower[2] = lineHierarchySliderValuesTransparency[2][0];
-            //lineHierarchySliderValuesUpper[0] = lineHierarchySliderValuesTransparency[0][1];
-            //lineHierarchySliderValuesUpper[1] = lineHierarchySliderValuesTransparency[1][1];
-            //lineHierarchySliderValuesUpper[2] = lineHierarchySliderValuesTransparency[2][1];
-            //gatherShader->setUniform("lineHierarchySliderLower", lineHierarchySliderValuesLower);
-            //gatherShader->setUniform("lineHierarchySliderUpper", lineHierarchySliderValuesUpper);
-
             gatherShader->setUniformOptional(
                     "lineHierarchyImportanceMap",
                     stressLineHierarchyMappingWidget.getHierarchyMappingTexture(), 1);
         }
     }
 
-    if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
+    if (useBands()) {
         gatherShader->setUniform("bandWidth", LineRenderer::bandWidth);
         gatherShader->setUniform(
                 "psUseBands", glm::ivec3(psUseBands[0], psUseBands[1], psUseBands[2]));

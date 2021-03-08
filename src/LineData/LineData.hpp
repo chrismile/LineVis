@@ -182,6 +182,7 @@ public:
     virtual TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch()=0;
     virtual TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization()=0;
     virtual BandRenderData getBandRenderData() { return BandRenderData(); }
+    virtual BandRenderData getTubeBandRenderData() { return BandRenderData(); }
 
     // Retrieve simulation mesh outline (optional).
     inline bool hasSimulationMeshOutline() { return !simulationMeshOutlineVertexPositions.empty(); }
@@ -219,8 +220,12 @@ public:
         LINE_PRIMITIVES_RIBBON_GEOMETRY_SHADER,
         LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER,
         LINE_PRIMITIVES_BAND, //< Only for stress lines for now.
+        LINE_PRIMITIVES_TUBE_BAND, //< Only for stress lines for now.
     };
     inline LinePrimitiveMode getLinePrimitiveMode() { return linePrimitiveMode; }
+    inline bool useBands() {
+        return linePrimitiveMode == LINE_PRIMITIVES_BAND || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND;
+    }
 
 protected:
     void loadSimulationMeshOutlineFromFile(

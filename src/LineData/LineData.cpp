@@ -44,7 +44,8 @@ LineData::LinePrimitiveMode LineData::linePrimitiveMode = LineData::LINE_PRIMITI
 int LineData::tubeNumSubdivisions = 5;
 
 const char *const LINE_PRIMITIVE_MODE_DISPLAYNAMES[] = {
-        "Ribbon (Programmable Fetch)", "Ribbon (Geometry Shader)", "Tube (Geometry Shader)", "Band"
+        "Ribbon (Programmable Fetch)", "Ribbon (Geometry Shader)", "Tube (Geometry Shader)",
+        "Ribbon Bands", "Tube Bands"
 };
 
 LineData::LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType)
@@ -59,7 +60,7 @@ bool LineData::renderGui(bool isRasterizer) {
     if (isRasterizer) {
         size_t numPrimitiveModes = IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES);
         if (getType() != DATA_SET_TYPE_STRESS_LINES) {
-            numPrimitiveModes -= 1;
+            numPrimitiveModes -= 2;
         }
         if (renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION && ImGui::Combo(
                 "Line Primitives", (int*)&linePrimitiveMode,
@@ -69,7 +70,8 @@ bool LineData::renderGui(bool isRasterizer) {
         }
 
         if (renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION
-                && linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER) {
+                && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
+                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND)) {
             if (ImGui::SliderInt("Tube Subdivisions", &tubeNumSubdivisions, 3, 8)) {
                 shallReloadGatherShader = true;
             }
@@ -162,7 +164,7 @@ sgl::ShaderProgramPtr LineData::reloadGatherShader() {
                 "GeometryPassNormal.VBO.Geometry",
                 "GeometryPassNormal.Fragment"
         });
-    } else { //if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER) {
+    } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER) {
         sgl::ShaderManager->addPreprocessorDefine("NUM_TUBE_SUBDIVISIONS", tubeNumSubdivisions);
         shaderProgramPtr = sgl::ShaderManager->getShaderProgram({
                 "GeometryPassNormalTube.VBO.Vertex",
@@ -170,6 +172,26 @@ sgl::ShaderProgramPtr LineData::reloadGatherShader() {
                 "GeometryPassNormalTube.Fragment"
         });
         sgl::ShaderManager->removePreprocessorDefine("NUM_TUBE_SUBDIVISIONS");
+    } else if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
+        sgl::ShaderManager->addPreprocessorDefine("USE_BANDS", "");
+        shaderProgramPtr = sgl::ShaderManager->getShaderProgram({
+                "GeometryPassNormalBand.VBO.Vertex",
+                "GeometryPassNormalBand.VBO.Geometry",
+                "GeometryPassNormalBand.Fragment"
+        });
+        sgl::ShaderManager->removePreprocessorDefine("USE_BANDS");
+    } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND) {
+        sgl::ShaderManager->addPreprocessorDefine("NUM_TUBE_SUBDIVISIONS", tubeNumSubdivisions);
+        sgl::ShaderManager->addPreprocessorDefine("USE_BANDS", "");
+        shaderProgramPtr = sgl::ShaderManager->getShaderProgram({
+                "GeometryPassNormalTube.VBO.Vertex",
+                "GeometryPassNormalTube.VBO.Geometry",
+                "GeometryPassNormalTube.Fragment"
+        });
+        sgl::ShaderManager->removePreprocessorDefine("USE_BANDS");
+        sgl::ShaderManager->removePreprocessorDefine("NUM_TUBE_SUBDIVISIONS");
+    } else {
+        sgl::Logfile::get()->writeError("Error in LineData::reloadGatherShader: Invalid line primitive mode.");
     }
     return shaderProgramPtr;
 }
