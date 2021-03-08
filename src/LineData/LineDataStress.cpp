@@ -269,7 +269,7 @@ bool LineDataStress::loadFromFile(
 
         // Use bands if possible.
         if (hasBandsData) {
-            linePrimitiveMode = LINE_PRIMITIVES_BAND;
+            linePrimitiveMode = LINE_PRIMITIVES_TUBE_BAND;
         } else if (useBands()) {
             linePrimitiveMode = LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
         }

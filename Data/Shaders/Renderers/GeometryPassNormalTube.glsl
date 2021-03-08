@@ -47,8 +47,7 @@ void main() {
 #version 430 core
 
 layout(lines) in;
-//layout(triangle_strip, max_vertices = 32) out;
-layout(triangle_strip, max_vertices = 64) out;
+layout(triangle_strip, max_vertices = 32) out;
 
 uniform vec3 cameraPosition;
 uniform float lineWidth;
@@ -71,6 +70,9 @@ flat out float fragmentLineHierarchyLevel;
 uniform float bandWidth;
 uniform ivec3 psUseBands;
 flat out int useBand;
+out float phi;
+out float thickness;
+out mat3 tangentFrameMatrix;
 #endif
 
 in VertexData {
@@ -104,7 +106,7 @@ void main() {
 #else
     const float MIN_THICKNESS = 1e-2;
 #endif
-    float thickness = useBand != 0 ? MIN_THICKNESS : 1.0f;
+    thickness = useBand != 0 ? MIN_THICKNESS : 1.0f;
 
     const float lineRadius = (useBand != 0 ? bandWidth : lineWidth) * 0.5;
 #else
@@ -133,15 +135,12 @@ void main() {
 #endif
 
 #ifdef USE_BANDS
-    //thickness = 1.0f;
     for (int i = 0; i < NUM_TUBE_SUBDIVISIONS; i++) {
         float t = float(i) / float(NUM_TUBE_SUBDIVISIONS) * 2.0 * M_PI;
         float cosAngle = cos(t);
         float sinAngle = sin(t);
         vec3 localPosition = vec3(thickness * cosAngle, sinAngle, 0.0f);
         vec3 localNormal = vec3(cosAngle, thickness * sinAngle, 0.0f);
-        //vec3 localNormal = vec3(cosAngle, sinAngle, 0.0f);
-        //vec3 localNormal = vec3(thickness * cosAngle, sinAngle, 0.0f);
         circlePointsCurrent[i] = lineRadius * (tangentFrameMatrixCurrent * localPosition) + linePosition0;
         circlePointsNext[i] = lineRadius * (tangentFrameMatrixNext * localPosition) + linePosition1;
         vertexNormalsCurrent[i] = normalize(tangentFrameMatrixCurrent * localNormal);
@@ -169,8 +168,17 @@ void main() {
 #endif
 
 
+#ifdef USE_BANDS
+    const float factor = 2.0 * M_PI / float(NUM_TUBE_SUBDIVISIONS);
+#endif
+
     // Emit the tube triangle vertices
     for (int i = 0; i < NUM_TUBE_SUBDIVISIONS; i++) {
+#ifdef USE_BANDS
+        phi = float(i) * factor;
+        tangentFrameMatrix = tangentFrameMatrixCurrent;
+#endif
+
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
         fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
 #endif
@@ -188,6 +196,10 @@ void main() {
 #endif
         EmitVertex();
 
+#ifdef USE_BANDS
+        phi = float(i + 1) * factor;
+#endif
+
         gl_Position = pvMatrix * vec4(circlePointsCurrent[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0);
         fragmentNormal = vertexNormalsCurrent[(i+1)%NUM_TUBE_SUBDIVISIONS];
         fragmentPositionWorld = (mMatrix * vec4(circlePointsCurrent[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0)).xyz;
@@ -196,6 +208,11 @@ void main() {
 #endif
         EmitVertex();
 
+
+#ifdef USE_BANDS
+        phi = float(i) * factor;
+        tangentFrameMatrix = tangentFrameMatrixNext;
+#endif
 
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
         fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
@@ -213,6 +230,10 @@ void main() {
         screenSpacePosition = (vMatrix * vec4(circlePointsNext[i], 1.0)).xyz;
 #endif
         EmitVertex();
+
+#ifdef USE_BANDS
+        phi = float(i + 1) * factor;
+#endif
 
         gl_Position = pvMatrix * vec4(circlePointsNext[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0);
         fragmentNormal = vertexNormalsNext[(i+1)%NUM_TUBE_SUBDIVISIONS];
@@ -243,8 +264,6 @@ flat in uint fragmentPrincipalStressIndex;
 #ifdef USE_LINE_HIERARCHY_LEVEL
 flat in float fragmentLineHierarchyLevel;
 #ifdef USE_TRANSPARENCY
-//uniform vec3 lineHierarchySliderLower;
-//uniform vec3 lineHierarchySliderUpper;
 uniform sampler1DArray lineHierarchyImportanceMap;
 #else
 uniform vec3 lineHierarchySlider;
@@ -261,8 +280,11 @@ uniform vec3 backgroundColor;
 uniform vec3 foregroundColor;
 
 #ifdef USE_BANDS
-flat in int useBand;
 uniform float bandWidth;
+flat in int useBand;
+in float phi;
+in float thickness;
+in mat3 tangentFrameMatrix;
 #endif
 
 #define M_PI 3.14159265358979323846
@@ -285,13 +307,33 @@ void main() {
     }
 #endif
 
-    // 1) Determine variable ID along tube geometry
     const vec3 n = normalize(fragmentNormal);
     const vec3 v = normalize(cameraPosition - fragmentPositionWorld);
     const vec3 t = normalize(fragmentTangent);
     // Project v into plane perpendicular to t to get newV.
     vec3 helperVec = normalize(cross(t, v));
     vec3 newV = normalize(cross(helperVec, t));
+
+#ifdef USE_BANDS
+    vec2 localV = normalize((transpose(tangentFrameMatrix) * newV).xy);
+    vec2 p = vec2(thickness * cos(phi), sin(phi));
+    float d = length(p);
+    p = normalize(p);
+    float alpha = acos(dot(localV, p));
+
+    float phiMax = atan(localV.x, -thickness * localV.y);
+
+    vec2 pointMax0 = vec2(thickness * cos(phiMax), sin(phiMax));
+    vec2 pointMax1 = vec2(thickness * cos(phiMax + M_PI), sin(phiMax + M_PI));
+    vec2 planeDir = pointMax1 - pointMax0;
+    float totalDist = length(planeDir);
+    planeDir = normalize(planeDir);
+
+    float beta = acos(dot(planeDir, localV));
+
+    float x = d / sin(beta) * sin(alpha);
+    float ribbonPosition = x / totalDist * 2;
+#else
     // Get the symmetric ribbon position (ribbon direction is perpendicular to line direction) between 0 and 1.
     // NOTE: len(cross(a, b)) == area of parallelogram spanned by a and b.
     vec3 crossProdVn = cross(newV, n);
@@ -314,6 +356,7 @@ void main() {
     // Normalize the ribbon position: [-1, 1] -> [0, 1].
     //ribbonPosition = ribbonPosition / 2.0 + 0.5;
     ribbonPosition = clamp(ribbonPosition, -1.0, 1.0);
+#endif
 
 
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
@@ -323,14 +366,11 @@ void main() {
 #endif
 
 #if defined(USE_LINE_HIERARCHY_LEVEL) && defined(USE_TRANSPARENCY)
-    //float lower = lineHierarchySliderLower[fragmentPrincipalStressIndex];
-    //float upper = lineHierarchySliderUpper[fragmentPrincipalStressIndex];
-    //fragmentColor.a *= (upper - lower) * fragmentLineHierarchyLevel + lower;
     fragmentColor.a *= texture(
             lineHierarchyImportanceMap, vec2(fragmentLineHierarchyLevel, float(fragmentPrincipalStressIndex))).r;
 #endif
 
-    //fragmentColor = blinnPhongShading(fragmentColor, fragmentNormal);
+    fragmentColor = blinnPhongShading(fragmentColor, fragmentNormal);
 
     float absCoords = abs(ribbonPosition);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
@@ -345,8 +385,6 @@ void main() {
     vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor,
             smoothstep(WHITE_THRESHOLD - EPSILON, WHITE_THRESHOLD + EPSILON, absCoords)),
             fragmentColor.a * coverage);
-    //colorOut.rgb = vec3(abs(length(cross(newV, n))));
-    //colorOut.rgb = vec3((n + 1.0) * 0.5);
 
 #if defined(DIRECT_BLIT_GATHER)
     // To counteract depth fighting with overlay wireframe.

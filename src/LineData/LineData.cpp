@@ -41,7 +41,7 @@
 #include "LineData.hpp"
 
 LineData::LinePrimitiveMode LineData::linePrimitiveMode = LineData::LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
-int LineData::tubeNumSubdivisions = 5;
+int LineData::tubeNumSubdivisions = 6;
 
 const char *const LINE_PRIMITIVE_MODE_DISPLAYNAMES[] = {
         "Ribbon (Programmable Fetch)", "Ribbon (Geometry Shader)", "Tube (Geometry Shader)",
