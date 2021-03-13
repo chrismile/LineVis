@@ -332,7 +332,7 @@ void main() {
     float beta = acos(dot(planeDir, localV));
 
     float x = d / sin(beta) * sin(alpha);
-    float ribbonPosition = x / totalDist * 2;
+    float ribbonPosition = x / totalDist * 2.0;
 #else
     // Get the symmetric ribbon position (ribbon direction is perpendicular to line direction) between 0 and 1.
     // NOTE: len(cross(a, b)) == area of parallelogram spanned by a and b.

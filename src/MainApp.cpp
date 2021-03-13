@@ -58,6 +58,7 @@
 #include "LineData/LineDataStress.hpp"
 #include "LineData/LineDataMultiVar.hpp"
 #include "LineData/Filters/LineLengthFilter.hpp"
+#include "LineData/Filters/MaxLineAttributeFilter.hpp"
 #include "Renderers/OIT/TilingMode.hpp"
 #include "Renderers/OpaqueLineRenderer.hpp"
 #include "Renderers/OIT/PerPixelLinkedListLineRenderer.hpp"
@@ -99,6 +100,7 @@ MainApp::MainApp()
     resolutionChanged(sgl::EventPtr());
 
     dataFilters.push_back(new LineLengthFilter);
+    dataFilters.push_back(new MaxLineAttributeFilter);
 
     if (usePerformanceMeasurementMode) {
         useCameraFlight = true;

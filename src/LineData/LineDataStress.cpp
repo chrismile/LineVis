@@ -601,6 +601,7 @@ Trajectories LineDataStress::filterTrajectoryData() {
         size_t trajectoryIdx = 0;
         for (const Trajectory &trajectory : trajectories) {
             if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                trajectoryIdx++;
                 continue;
             }
 
@@ -654,6 +655,7 @@ std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines() {
         size_t trajectoryIdx = 0;
         for (const Trajectory &trajectory : trajectories) {
             if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                trajectoryIdx++;
                 continue;
             }
 
@@ -708,6 +710,7 @@ std::vector<Trajectories> LineDataStress::filterTrajectoryPsData() {
         size_t trajectoryIdx = 0;
         for (const Trajectory &trajectory : trajectories) {
             if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                trajectoryIdx++;
                 continue;
             }
 
@@ -766,6 +769,7 @@ std::vector<std::vector<std::vector<glm::vec3>>> LineDataStress::getFilteredPrin
         size_t trajectoryIdx = 0;
         for (const Trajectory &trajectory : trajectories) {
             if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                trajectoryIdx++;
                 continue;
             }
 

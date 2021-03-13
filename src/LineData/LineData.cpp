@@ -124,10 +124,10 @@ void LineData::setClearColor(const sgl::Color& clearColor) {
     }
 }
 
-void LineData::setSelectedAttributeIndex(int qualityMeasureIdx) {
-    if (this->selectedAttributeIndex != qualityMeasureIdx) {
+void LineData::setSelectedAttributeIndex(int attributeIndex) {
+    if (this->selectedAttributeIndex != attributeIndex) {
         dirty = true;
-        this->selectedAttributeIndex = qualityMeasureIdx;
+        this->selectedAttributeIndex = attributeIndex;
     }
     recomputeHistogram();
 }

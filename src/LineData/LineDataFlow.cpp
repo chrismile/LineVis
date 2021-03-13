@@ -184,6 +184,7 @@ Trajectories LineDataFlow::filterTrajectoryData() {
     size_t trajectoryIndex = 0;
     for (const Trajectory& trajectory : trajectories) {
         if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIndex)) {
+            trajectoryIndex++;
             continue;
         }
 
@@ -230,6 +231,7 @@ std::vector<std::vector<glm::vec3>> LineDataFlow::getFilteredLines() {
     size_t trajectoryIndex = 0;
     for (const Trajectory& trajectory : trajectories) {
         if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIndex)) {
+            trajectoryIndex++;
             continue;
         }
 

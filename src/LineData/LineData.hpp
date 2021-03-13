@@ -122,7 +122,8 @@ public:
     LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType);
     virtual ~LineData();
     virtual void update(float dt) {}
-    void setSelectedAttributeIndex(int qualityMeasureIdx);
+    inline int getSelectedAttributeIndex() { return selectedAttributeIndex; }
+    void setSelectedAttributeIndex(int attributeIndex);
     void onTransferFunctionMapRebuilt();
     inline DataSetType getType() { return dataSetType; }
     // Returns if the visualization mapping needs to be re-generated.
