@@ -103,6 +103,8 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
         computeDepthValuesShaderProgram->setUniform("nearDist", sceneData.camera->getNearClipDistance());
         computeDepthValuesShaderProgram->setUniform("farDist", sceneData.camera->getFarClipDistance());
         computeDepthValuesShaderProgram->setUniform("cameraViewMatrix", sceneData.camera->getViewMatrix());
+        computeDepthValuesShaderProgram->setUniform(
+                "cameraProjectionMatrix", sceneData.camera->getProjectionMatrix());
         computeDepthValuesShaderProgram->dispatchCompute(numBlocks);
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 

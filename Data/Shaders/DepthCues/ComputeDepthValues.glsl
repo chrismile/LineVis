@@ -20,6 +20,7 @@ uniform uint numVertices; ///< Number of entries in VertexPositionBuffer.
 uniform float nearDist; ///< The distance of the near plane.
 uniform float farDist; ///< The distance of the far plane.
 uniform mat4 cameraViewMatrix;
+uniform mat4 cameraProjectionMatrix;
 
 shared vec2 sharedMemoryMinMaxDepth[BLOCK_SIZE];
 
@@ -32,8 +33,13 @@ void main() {
     if (gl_GlobalInvocationID.x < numVertices) {
         vec4 vertexPosition = vertexPositions[gl_GlobalInvocationID.x];
         vec4 screenSpacePosition = cameraViewMatrix * vertexPosition;
-        float depth = clamp(-screenSpacePosition.z, nearDist, farDist);
-        depthMinMax = vec2(depth, depth);
+        vec4 ndcPosition = cameraProjectionMatrix * screenSpacePosition;
+        ndcPosition.xyz /= ndcPosition.w;
+        // View frustum culling.
+        if (all(greaterThanEqual(ndcPosition.xyz, vec3(-1.0))) && all(lessThanEqual(ndcPosition.xyz, vec3(1.0)))) {
+            float depth = clamp(-screenSpacePosition.z, nearDist, farDist);
+            depthMinMax = vec2(depth, depth);
+        }
     }
 
     sharedMemoryMinMaxDepth[localIdx] = depthMinMax;
