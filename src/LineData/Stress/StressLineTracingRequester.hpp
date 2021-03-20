@@ -40,13 +40,13 @@ const char* const SEED_STRATEGY_NAMES[] = {
         "Homogeneous Volume Seeding",
         "Surface Seeding",
         "Loading Areas Seeding",
-        "Approximate Topology Seeding"
+        "Fixed Area Seeding"
 };
 const char* const SEED_STRATEGY_ABBREVIATIONS[] = {
         "Volume",
         "Surface",
         "LoadingArea",
-        "ApproxTopology"
+        "FixedArea"
 };
 
 enum class TracingAlgorithm {
@@ -86,16 +86,20 @@ private:
 
     // Line tracer settings.
     std::string meshFilename;
-    SeedStrategy seedStrategy = SeedStrategy::SURFACE;
-    int minimumEpsilon = 10;
-    int numLevels = 5;
+    SeedStrategy seedStrategy = SeedStrategy::VOLUME;
+    int lineDensCtrl = 0;
+    int seedDensCtrl = 0; // 0 means default
+    bool useCustomLineDensity = false, useCustomSeedDensity = false, useCustomNumLevels = false;
+    int numLevels = 0; // 5
+    // Should we trace major, medium and/or minor principal stress lines?
+    bool traceMajorPS = true, traceMediumPS = false, traceMinorPS = true;
 
     // Expert options.
-    TracingAlgorithm tracingAlgorithm = TracingAlgorithm::EULER;
-    int maxAngleDeviation = 10;
-    bool snappingOpt = true;
-    int minPslLength = 10;
-    int volumeSeedingOpt = 5;
+    TracingAlgorithm tracingAlgorithm = TracingAlgorithm::RK2;
+    int maxAngleDeviation = 6;
+    bool mergingOpt = true;
+    bool snappingOpt = false;
+    glm::vec3 multiMergingThresholds = glm::vec3(1, 1, 1);
 };
 
 #endif //LINEVIS_STRESSLINETRACINGREQUESTER_HPP

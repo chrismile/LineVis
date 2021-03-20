@@ -92,20 +92,25 @@ void StressLineTracingRequester::renderGui() {
         changed |= ImGui::Combo(
                 "Seed Strategy", (int*)&seedStrategy, SEED_STRATEGY_NAMES,
                 IM_ARRAYSIZE(SEED_STRATEGY_NAMES));
-        changed |= ImGui::SliderInt("Minimum Epsilon", &minimumEpsilon, 2, 10);
-        changed |= ImGui::SliderInt("#Levels", &numLevels, 1, 5);
+        changed |= ImGui::Checkbox("##customlinedensity", &useCustomLineDensity);ImGui::SameLine();
+        changed |= ImGui::SliderInt("Line Density", &lineDensCtrl, 0, 50);
+        changed |= ImGui::Checkbox("##customseeddensity", &useCustomSeedDensity);ImGui::SameLine();
+        changed |= ImGui::SliderInt("Seed Density", &seedDensCtrl, 0, 5);
+        changed |= ImGui::Checkbox("##customnumlevels", &useCustomNumLevels);ImGui::SameLine();
+        changed |= ImGui::SliderInt("#Levels", &numLevels, 0, 5);
+        changed |= ImGui::Checkbox("Major##tracepsmajor", &traceMajorPS); ImGui::SameLine();
+        changed |= ImGui::Checkbox("Medium##tracepsmedium", &traceMediumPS); ImGui::SameLine();
+        changed |= ImGui::Checkbox("Minor##tracepsminor", &traceMinorPS);
 
         if (ImGui::CollapsingHeader(
                 "Advanced Settings", nullptr, ImGuiTreeNodeFlags_DefaultOpen)) {
             changed |= ImGui::Combo(
                     "Tracing Algorithm", (int*)&tracingAlgorithm, TRACING_ALGORITHM_NAMES,
                     IM_ARRAYSIZE(TRACING_ALGORITHM_NAMES));
-            changed |= ImGui::SliderInt("Max Angle Deviation", &maxAngleDeviation, 2, 20);
-            changed |= ImGui::Checkbox("Snapping Close PSLs", &snappingOpt);
-            changed |= ImGui::SliderInt("Min PSL Length", &minPslLength, 5, 20);
-            if (seedStrategy == SeedStrategy::VOLUME) {
-                changed |= ImGui::SliderInt("Volume Seeding Opt", &volumeSeedingOpt, 2, 10);
-            }
+            changed |= ImGui::SliderInt("Max Angle Deviation", &maxAngleDeviation, 1, 20);
+            changed |= ImGui::Checkbox("Merge Close PSLs", &mergingOpt);
+            changed |= ImGui::Checkbox("Snap Close PSLs", &snappingOpt);
+            changed |= ImGui::SliderFloat3("Merging Thresholds", &multiMergingThresholds.x, 1, 5);
         }
 
         if (changed) {
@@ -122,15 +127,37 @@ void StressLineTracingRequester::requestNewData() {
 
     Json::Value request;
     request["fileName"] = boost::filesystem::absolute(lineDataSetsDirectory + meshFilename).c_str();
+    if (lineDensCtrl > 0 && useCustomLineDensity) {
+        request["lineDensCtrl"] = lineDensCtrl;
+    } else {
+        request["lineDensCtrl"] = "default";
+    }
+    if (numLevels > 0 && useCustomNumLevels) {
+        request["numLevels"] = numLevels;
+    } else {
+        request["numLevels"] = "default";
+    }
     request["seedStrategy"] = SEED_STRATEGY_ABBREVIATIONS[int(seedStrategy)];
-    request["minimumEpsilon"] = minimumEpsilon;
-    request["numLevels"] = numLevels;
-    request["maxAngleDevi"] = maxAngleDeviation;
+    if (seedDensCtrl > 0 && useCustomSeedDensity) {
+        request["seedDensCtrl"] = seedDensCtrl;
+    } else {
+        request["seedDensCtrl"] = "default";
+    }
+    if (traceMajorPS) {
+        request["selectedPrincipalStressField"].append(1);
+    }
+    if (traceMediumPS) {
+        request["selectedPrincipalStressField"].append(2);
+    }
+    if (traceMinorPS) {
+        request["selectedPrincipalStressField"].append(3);
+    }
+    request["mergingOpt"] = mergingOpt;
     request["snappingOpt"] = snappingOpt;
-    request["minPSLength"] = minPslLength;
-    //if (seedStrategy == SeedStrategy::VOLUME) {
-    request["volumeSeedingOpt"] = volumeSeedingOpt;
-    //}
+    request["maxAngleDevi"] = maxAngleDeviation;
+    for (int i = 0; i < 3; i++) {
+        request["multiMergingThresholds"].append(multiMergingThresholds[i]);
+    }
     request["traceAlgorithm"] = TRACING_ALGORITHM_ABBREVIATIONS[int(tracingAlgorithm)];
     std::cout << request << std::endl;
     worker.queueRequestJson(request);
@@ -185,7 +212,7 @@ bool StressLineTracingRequester::getHasNewData(DataSetInformation& dataSetInform
             //dataSetInformation.attributeNames.push_back("Sigma_zx");
             //dataSetInformation.attributeNames.push_back("Sigma_xy");
 
-            dataSetInformation.attributeNames.push_back("Major Principle Stress");
+            dataSetInformation.attributeNames.push_back("Principal Stress");
             dataSetInformation.attributeNames.push_back("von Mises Stress");
             dataSetInformation.attributeNames.push_back("Normal Stress (xx)");
             dataSetInformation.attributeNames.push_back("Normal Stress (yy)");

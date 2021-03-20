@@ -51,13 +51,23 @@ public:
     // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
     virtual void renderGui();
 
+    // For use in MainApp.cpp.
+    void setVisualizeSeedingProcess(bool visualizeSeedingProcess);
+
 protected:
+    void reloadSphereRenderData();
+    void renderSphere(const glm::vec3& position, float radius, const sgl::Color& color);
     void reloadGatherShader(bool canCopyShaderAttributes = true) override;
 
     sgl::ShaderProgramPtr gatherShader;
-    sgl::ShaderProgramPtr gatherShaderPoints;
     sgl::ShaderAttributesPtr shaderAttributes;
+
+    /// For rendering degenerate points (as points extruded to billboard spheres).
+    sgl::ShaderProgramPtr gatherShaderPoints;
     sgl::ShaderAttributesPtr shaderAttributesDegeneratePoints; ///< Stress lines only.
+    /// For rendering the current seed point.
+    sgl::ShaderProgramPtr gatherShaderSphere;
+    sgl::ShaderAttributesPtr shaderAttributesSphere; ///< Stress lines only.
 
     sgl::FramebufferObjectPtr msaaSceneFBO;
     sgl::TexturePtr msaaRenderTexture;
@@ -66,8 +76,9 @@ protected:
     // GUI data.
     bool useMultisampling = true;
 
-    bool showDegeneratePoints = false; ///< Only for stress lines.
-    bool hasDegeneratePoints = false;
+    bool showDegeneratePoints = false; ///< Stress lines only.
+    bool hasDegeneratePoints = false; ///< Stress lines only.
+    bool visualizeSeedingProcess = false; ///< Stress lines only.
     float pointWidth = STANDARD_LINE_WIDTH;
 
     int maximumNumberOfSamples = 1;

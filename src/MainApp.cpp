@@ -446,12 +446,39 @@ void MainApp::renderSceneSettingsGui() {
 
     SciVisApp::renderSceneSettingsGuiPre();
     ImGui::Checkbox("Show Transfer Function Window", &transferFunctionWindow.getShowTransferFunctionWindow());
+    if (lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES && renderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
+        if (ImGui::Checkbox("Visualize Seeding Process", &visualizeSeedingProcess)) {
+            LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
+            OpaqueLineRenderer* opaqueLineRenderer = static_cast<OpaqueLineRenderer*>(lineRenderer);
+            opaqueLineRenderer->setVisualizeSeedingProcess(true);
+            recordingTimeStampStart = sgl::Timer->getTicksMicroseconds();
+            //useCameraFlight = visualizeSeedingProcess;
+            //startedCameraFlightPerUI = true;
+            recordingTime = 0.0f;
+            //realTimeCameraFlight = false;
+            //cameraPath.resetTime();
+            customEndTime = TIME_PER_SEED_POINT * (lineDataStress->getNumSeedPoints() + 1);
+            reRender = true;
+        }
+    }
 
     SciVisApp::renderSceneSettingsGuiPost();
 }
 
 void MainApp::update(float dt) {
     sgl::SciVisApp::update(dt);
+
+    if (visualizeSeedingProcess) {
+        const int seedPointIdx = recordingTime / TIME_PER_SEED_POINT - 1;
+        LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
+        OpaqueLineRenderer* opaqueLineRenderer = static_cast<OpaqueLineRenderer*>(lineRenderer);
+        if (seedPointIdx < lineDataStress->getNumSeedPoints()) {
+            lineDataStress->setCurrentSeedIdx(seedPointIdx);
+        } else {
+            visualizeSeedingProcess = false;
+            recording = false;
+        }
+    }
 
     if (usePerformanceMeasurementMode && !performanceMeasurer->update(recordingTime)) {
         // All modes were tested -> quit.

@@ -185,7 +185,7 @@ void LineRenderer::renderGuiWindow() {
                 reRender = true;
             }
             if (useDepthCues && ImGui::SliderFloat(
-                    "Depth Cue Strngth", &depthCueStrength, 0.0f, 1.0f)) {
+                    "Depth Cue Strength", &depthCueStrength, 0.0f, 1.0f)) {
                 reRender = true;
             }
         }

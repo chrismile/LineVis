@@ -43,7 +43,7 @@
 #include "LineDataStress.hpp"
 
 bool LineDataStress::useMajorPS = true;
-bool LineDataStress::useMediumPS = true;
+bool LineDataStress::useMediumPS = false;
 bool LineDataStress::useMinorPS = true;
 bool LineDataStress::usePrincipalStressDirectionIndex = true;
 std::array<bool, 3> LineDataStress::psUseBands = {true, true, false};
@@ -242,6 +242,15 @@ bool LineDataStress::loadFromFile(
 
     if (dataLoaded) {
         setStressTrajectoryData(trajectoriesPs, stressTrajectoriesDataPs);
+
+        seedPoints.resize(getNumLines());
+        for (StressTrajectoriesData& stressTrajectoriesData : stressTrajectoriesDataPs) {
+            normalizeVertexPositions(degeneratePoints, oldAABB, transformationMatrixPtr);
+            for (StressTrajectoryData& stressTrajectoryData : stressTrajectoriesData) {
+                normalizeVertexPosition(stressTrajectoryData.seedPosition, oldAABB, transformationMatrixPtr);
+                seedPoints.at(stressTrajectoryData.appearanceOrder) = stressTrajectoryData.seedPosition;
+            }
+        }
 
         if (!dataSetInformation.degeneratePointsFilename.empty()) {
             std::vector<glm::vec3> degeneratePoints;
@@ -857,6 +866,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
     std::vector<float> vertexAttributes;
     std::vector<uint32_t> vertexPrincipalStressIndices;
     std::vector<float> vertexLineHierarchyLevels;
+    std::vector<uint32_t> vertexLineAppearanceOrders;
 
     std::vector<std::vector<std::vector<glm::vec3>>> *bandPointsListRightPs;
     if (useBands()) {
@@ -907,6 +917,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                         vertexLineHierarchyLevels.push_back(
                                 stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
                     }
+                    vertexLineAppearanceOrders.push_back(stressTrajectoryData.appearanceOrder);
                     bandRightVectors.push_back(bandPointsRight.at(i));
                 }
             }
@@ -996,6 +1007,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                         vertexLineHierarchyLevels.push_back(
                                 stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
                     }
+                    vertexLineAppearanceOrders.push_back(stressTrajectoryData.appearanceOrder);
                 }
             }
 
@@ -1062,6 +1074,11 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                 vertexLineHierarchyLevels.size()*sizeof(float),
                 (void*)&vertexLineHierarchyLevels.front(), sgl::VERTEX_BUFFER);
     }
+
+    // Add the line appearance order buffer.
+    tubeRenderData.vertexLineAppearanceOrderBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexLineAppearanceOrders.size()*sizeof(uint32_t),
+            (void*)&vertexLineAppearanceOrders.front(), sgl::VERTEX_BUFFER);
 
     return tubeRenderData;
 }
@@ -1278,6 +1295,7 @@ BandRenderData LineDataStress::getBandRenderData() {
     std::vector<glm::vec3> vertexOffsetsRight;
     std::vector<uint32_t> vertexPrincipalStressIndices;
     std::vector<float> vertexLineHierarchyLevels;
+    std::vector<uint32_t> vertexLineAppearanceOrders;
 
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
         int psIdx = loadedPsIndices.at(i);
@@ -1348,6 +1366,7 @@ BandRenderData LineDataStress::getBandRenderData() {
                         vertexLineHierarchyLevels.push_back(
                                 stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
                     }
+                    vertexLineAppearanceOrders.push_back(stressTrajectoryData.appearanceOrder);
                 }
 
                 for (size_t i = 0; i < trajectory.positions.size() - 1; i++) {
@@ -1381,6 +1400,7 @@ BandRenderData LineDataStress::getBandRenderData() {
                         vertexLineHierarchyLevels.push_back(
                                 stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
                     }
+                    vertexLineAppearanceOrders.push_back(stressTrajectoryData.appearanceOrder);
                 }
             }
 
@@ -1437,6 +1457,11 @@ BandRenderData LineDataStress::getBandRenderData() {
                 (void*)&vertexLineHierarchyLevels.front(), sgl::VERTEX_BUFFER);
     }
 
+    // Add the line appearance order buffer.
+    bandRenderData.vertexLineAppearanceOrderBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexLineAppearanceOrders.size()*sizeof(uint32_t),
+            (void*)&vertexLineAppearanceOrders.front(), sgl::VERTEX_BUFFER);
+
     return bandRenderData;
 }
 
@@ -1481,6 +1506,11 @@ sgl::ShaderAttributesPtr LineDataStress::getGatherShaderAttributes(sgl::ShaderPr
                     tubeRenderData.vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel",
                     sgl::ATTRIB_FLOAT, 1);
         }
+        if (tubeRenderData.vertexLineAppearanceOrderBuffer) {
+            shaderAttributes->addGeometryBufferOptional(
+                    tubeRenderData.vertexLineAppearanceOrderBuffer, "vertexLineAppearanceOrder",
+                    sgl::ATTRIB_UNSIGNED_INT, 1);
+        }
     } else if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
         TubeRenderDataProgrammableFetch tubeRenderData = this->getTubeRenderDataProgrammableFetch();
         linePointDataSSBO = tubeRenderData.linePointsBuffer;
@@ -1521,6 +1551,12 @@ sgl::ShaderAttributesPtr LineDataStress::getGatherShaderAttributes(sgl::ShaderPr
                     tubeRenderData.vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel",
                     sgl::ATTRIB_FLOAT, 1);
         }
+        if (tubeRenderData.vertexLineAppearanceOrderBuffer) {
+            shaderAttributes->addGeometryBufferOptional(
+                    tubeRenderData.vertexLineAppearanceOrderBuffer, "vertexLineAppearanceOrder",
+                    sgl::ATTRIB_UNSIGNED_INT,
+                    1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
+        }
     }
 
     return shaderAttributes;
@@ -1545,6 +1581,7 @@ void LineDataStress::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gath
                 "transferFunctionTexture",
                 multiVarTransferFunctionWindow.getTransferFunctionMapTexture(), 0);
     }
+    gatherShader->setUniformOptional("currentSeedIdx", int32_t(currentSeedIdx));
 
     if (useLineHierarchy) {
         if (!rendererSupportsTransparency) {

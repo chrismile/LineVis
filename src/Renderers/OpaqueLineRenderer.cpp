@@ -39,6 +39,7 @@
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
 
 #include "LineData/LineDataStress.hpp"
+#include "Helpers/Sphere.hpp"
 #include "OpaqueLineRenderer.hpp"
 
 OpaqueLineRenderer::OpaqueLineRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
@@ -54,25 +55,88 @@ OpaqueLineRenderer::OpaqueLineRenderer(SceneData& sceneData, sgl::TransferFuncti
         sampleModeNames.push_back(std::to_string(i));
     }
 
+    reloadSphereRenderData();
     onResolutionChanged();
+}
+
+void OpaqueLineRenderer::setVisualizeSeedingProcess(bool visualizeSeedingProcess) {
+    if (this->visualizeSeedingProcess != visualizeSeedingProcess) {
+        this->visualizeSeedingProcess = visualizeSeedingProcess;
+        if (lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
+            reloadGatherShader();
+        }
+    }
+}
+
+void OpaqueLineRenderer::reloadSphereRenderData() {
+    std::vector<glm::vec3> sphereVertexPositions;
+    std::vector<glm::vec3> sphereVertexNormals;
+    std::vector<uint32_t> sphereIndices;
+    getSphereSurfaceRenderData(
+            glm::vec3(0,0,0), 1.0f, 32, 32,
+            sphereVertexPositions, sphereVertexNormals, sphereIndices);
+
+    gatherShaderSphere = sgl::ShaderManager->getShaderProgram({
+            "Sphere.Vertex", "Sphere.Fragment"
+    });
+
+    shaderAttributesSphere = sgl::ShaderManager->createShaderAttributes(gatherShaderSphere);
+    shaderAttributesSphere->setVertexMode(sgl::VERTEX_MODE_TRIANGLES);
+    sgl::GeometryBufferPtr focusPointVertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
+            sphereVertexPositions.size() * sizeof(glm::vec3), sphereVertexPositions.data(), sgl::VERTEX_BUFFER);
+    shaderAttributesSphere->addGeometryBuffer(
+            focusPointVertexPositionBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
+    sgl::GeometryBufferPtr focusPointVertexNormalBuffer = sgl::Renderer->createGeometryBuffer(
+            sphereVertexNormals.size() * sizeof(glm::vec3), sphereVertexNormals.data(), sgl::VERTEX_BUFFER);
+    shaderAttributesSphere->addGeometryBuffer(
+            focusPointVertexNormalBuffer, "vertexNormal", sgl::ATTRIB_FLOAT, 3);
+    sgl::GeometryBufferPtr focusPointIndexBuffer = sgl::Renderer->createGeometryBuffer(
+            sphereIndices.size() * sizeof(uint32_t), sphereIndices.data(), sgl::INDEX_BUFFER);
+    shaderAttributesSphere->setIndexGeometryBuffer(focusPointIndexBuffer, sgl::ATTRIB_UNSIGNED_INT);
+}
+
+void OpaqueLineRenderer::renderSphere(const glm::vec3& position, float radius, const sgl::Color& color) {
+    gatherShaderSphere->setUniform("spherePosition", position);
+    gatherShaderSphere->setUniform("sphereRadius", radius);
+    gatherShaderSphere->setUniform("sphereColor", color);
+    gatherShaderSphere->setUniform("cameraPosition", sceneData.camera->getPosition());
+    if (gatherShaderSphere->hasUniform("backgroundColor")) {
+        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        gatherShaderSphere->setUniform("backgroundColor", backgroundColor);
+    }
+    glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+    glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
+    if (gatherShaderSphere->hasUniform("foregroundColor")) {
+        gatherShaderSphere->setUniform("foregroundColor", foregroundColor);
+    }
+    sgl::Renderer->render(shaderAttributesSphere);
 }
 
 void OpaqueLineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     sgl::ShaderManager->invalidateShaderCache();
     sgl::ShaderManager->addPreprocessorDefine("DIRECT_BLIT_GATHER", "");
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "GatherDummy.glsl");
+    if (visualizeSeedingProcess) {
+        sgl::ShaderManager->addPreprocessorDefine("VISUALIZE_SEEDING_PROCESS", "");
+    }
     LineRenderer::reloadGatherShader();
     gatherShader = lineData->reloadGatherShader();
     gatherShaderPoints = sgl::ShaderManager->getShaderProgram({
-        "Point.Vertex", "Point.Geometry", "Point.Fragment"
+            "Point.Vertex", "Point.Geometry", "Point.Fragment"
     });
     sgl::ShaderManager->removePreprocessorDefine("DIRECT_BLIT_GATHER");
 
+    if (visualizeSeedingProcess) {
+        sgl::ShaderManager->removePreprocessorDefine("VISUALIZE_SEEDING_PROCESS");
+    }
     if (canCopyShaderAttributes && shaderAttributes) {
         shaderAttributes = shaderAttributes->copy(gatherShader);
     }
     if (canCopyShaderAttributes && shaderAttributesDegeneratePoints) {
         shaderAttributesDegeneratePoints = shaderAttributesDegeneratePoints->copy(gatherShaderPoints);
+    }
+    if (canCopyShaderAttributes && shaderAttributesSphere) {
+        shaderAttributesSphere = shaderAttributesSphere->copy(gatherShaderSphere);
     }
 }
 
@@ -84,16 +148,16 @@ void OpaqueLineRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
     shaderAttributesDegeneratePoints = sgl::ShaderAttributesPtr();
 
     shaderAttributes = lineData->getGatherShaderAttributes(gatherShader);
-    if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES
-            && static_cast<LineDataStress*>(lineData.get())->getHasDegeneratePoints()) {
+    hasDegeneratePoints =
+            lineData->getType() == DATA_SET_TYPE_STRESS_LINES &&
+            static_cast<LineDataStress*>(lineData.get())->getHasDegeneratePoints();
+    if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES && hasDegeneratePoints) {
         PointRenderData pointRenderData = static_cast<LineDataStress*>(lineData.get())->getDegeneratePointsRenderData();
         shaderAttributesDegeneratePoints = sgl::ShaderManager->createShaderAttributes(gatherShaderPoints);
         shaderAttributesDegeneratePoints->setVertexMode(sgl::VERTEX_MODE_POINTS);
         shaderAttributesDegeneratePoints->addGeometryBuffer(
                 pointRenderData.vertexPositionBuffer, "vertexPosition",
                 sgl::ATTRIB_FLOAT, 3);
-    } else {
-        hasDegeneratePoints = false;
     }
 
     dirty = false;
@@ -146,6 +210,16 @@ void OpaqueLineRenderer::render() {
     sgl::Renderer->render(shaderAttributes);
     if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
         glEnable(GL_CULL_FACE);
+    }
+    if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
+        LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
+        if (lineDataStress->getShallRenderSeedProcess()) {
+            int currentSeedIdx = lineDataStress->getCurrentSeedIdx();
+            if (currentSeedIdx >= 0) {
+                renderSphere(
+                        lineDataStress->getCurrentSeedPosition(), 0.005f, sgl::Color(100, 128, 255));
+            }
+        }
     }
 
     if (shaderAttributesDegeneratePoints && showDegeneratePoints && hasDegeneratePoints) {

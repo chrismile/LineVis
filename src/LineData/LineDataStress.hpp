@@ -128,6 +128,14 @@ public:
     static inline void setUseMediumPS(bool val) { useMediumPS = val; }
     static inline void setUseMinorPS(bool val) { useMinorPS = val; }
 
+    // The seed process can be rendered for the video.
+    inline bool getHasSeedPoints() const { return !seedPoints.empty(); }
+    inline bool getShallRenderSeedProcess() const { return shallRenderSeedProcess; }
+    inline int getNumSeedPoints() const { return int(seedPoints.size()); }
+    inline int getCurrentSeedIdx() const { return currentSeedIdx; }
+    inline void setCurrentSeedIdx(int currentSeedIdx) { this->currentSeedIdx = currentSeedIdx; }
+    inline const glm::vec3& getCurrentSeedPosition() const { return seedPoints.at(currentSeedIdx); }
+
 private:
     virtual void recomputeHistogram() override;
     virtual void recomputeColorLegend() override;
@@ -166,6 +174,11 @@ private:
     };
     static LineHierarchyType lineHierarchyType;
     static glm::vec3 lineHierarchySliderValues;
+
+    // The seed process can be rendered for the video.
+    bool shallRenderSeedProcess = true;
+    int currentSeedIdx = 0;
+    std::vector<glm::vec3> seedPoints;
 
     /// Stores line point data if useProgrammableFetch is true.
     sgl::GeometryBufferPtr lineHierarchyLevelsSSBO;

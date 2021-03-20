@@ -453,10 +453,18 @@ void loadStressTrajectoriesFromDat_v3(
                 uint32_t lineLength = sgl::fromString<uint32_t>(firstLineVector.at(0));
 
                 // Add the hierarchy levels.
-                for (uint32_t hierarchyIdx = 1; hierarchyIdx < firstLineVector.size(); hierarchyIdx++) {
+                for (int hierarchyIdx = 1; hierarchyIdx < std::max(int(firstLineVector.size()), 5); hierarchyIdx++) {
                     float hierarchyLevel = sgl::fromString<float>(firstLineVector.at(hierarchyIdx));
                     stressTrajectoryData.hierarchyLevels.push_back(hierarchyLevel);
                 }
+                if (firstLineVector.size() == 9) {
+                    stressTrajectoryData.appearanceOrder = sgl::fromString<int>(firstLineVector.at(5)) - 1;
+                    stressTrajectoryData.seedPosition = glm::vec3(
+                            sgl::fromString<float>(firstLineVector.at(6)),
+                            sgl::fromString<float>(firstLineVector.at(7)),
+                            sgl::fromString<float>(firstLineVector.at(8)));
+                }
+
                 trajectory.positions.reserve(lineLength);
                 bandPointsUnsmoothedLeft.reserve(lineLength);
                 bandPointsUnsmoothedRight.reserve(lineLength);

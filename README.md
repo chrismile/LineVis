@@ -1,7 +1,7 @@
 # Flow and Stress Line Visualization
 
 LineVis is a visualization tool for rendering dense sets of 3D lines using OpenGL.
-It supports loading both traditional flow lines as well as stress lines from multiple principle stress directions.
+It supports loading both traditional flow lines as well as stress lines from multiple principal stress directions.
 
 The following rendering modes are supported:
 

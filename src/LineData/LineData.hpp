@@ -56,6 +56,7 @@ struct TubeRenderData {
     sgl::GeometryBufferPtr vertexTangentBuffer;
     sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
     sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
+    sgl::GeometryBufferPtr vertexLineAppearanceOrderBuffer; ///< Empty for flow lines.
 };
 
 struct BandRenderData {
@@ -68,6 +69,7 @@ struct BandRenderData {
     sgl::GeometryBufferPtr vertexOffsetRightBuffer;
     sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
     sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
+    sgl::GeometryBufferPtr vertexLineAppearanceOrderBuffer; ///< Empty for flow lines.
 };
 
 /// For internal use of subclasses.

@@ -46,6 +46,10 @@ struct StressTrajectoryData {
     ///< Hierarchy levels between 0 and 1.
     std::vector<float> hierarchyLevels;
 
+    // Information about the seeding process: The position of the line in the seeding process and the seed point.
+    int appearanceOrder = 0;
+    glm::vec3 seedPosition = glm::vec3(0.0f);
+
     // Per line point data.
     std::vector<float> majorPs;
     std::vector<float> mediumPs;
@@ -67,6 +71,9 @@ void normalizeTrajectoriesVertexPositions(
         Trajectories& trajectories, const sgl::AABB3& aabb, const glm::mat4* vertexTransformationMatrixPtr = nullptr);
 void normalizeVertexPositions(
         std::vector<glm::vec3>& vertexPositions, const sgl::AABB3& aabb,
+        const glm::mat4* vertexTransformationMatrixPtr = nullptr);
+void normalizeVertexPosition(
+        glm::vec3& vertexPosition, const sgl::AABB3& aabb,
         const glm::mat4* vertexTransformationMatrixPtr = nullptr);
 void normalizeTrajectoriesVertexAttributes(Trajectories& trajectories);
 

@@ -14,6 +14,9 @@ layout(location = 6) in uint vertexPrincipalStressIndex;
 #ifdef USE_LINE_HIERARCHY_LEVEL
 layout(location = 7) in float vertexLineHierarchyLevel;
 #endif
+#ifdef VISUALIZE_SEEDING_PROCESS
+layout(location = 8) in uint vertexLineAppearanceOrder;
+#endif
 
 out VertexData {
     vec3 linePosition;
@@ -27,6 +30,9 @@ out VertexData {
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
     float lineLineHierarchyLevel;
+#endif
+#ifdef VISUALIZE_SEEDING_PROCESS
+    uint lineLineAppearanceOrder;
 #endif
 };
 
@@ -44,6 +50,9 @@ void main() {
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
     lineLineHierarchyLevel = vertexLineHierarchyLevel;
+#endif
+#ifdef VISUALIZE_SEEDING_PROCESS
+    lineLineAppearanceOrder = vertexLineAppearanceOrder;
 #endif
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
 }
@@ -75,6 +84,9 @@ flat out uint fragmentPrincipalStressIndex;
 #ifdef USE_LINE_HIERARCHY_LEVEL
 flat out float fragmentLineHierarchyLevel;
 #endif
+#ifdef VISUALIZE_SEEDING_PROCESS
+flat out uint fragmentLineAppearanceOrder;
+#endif
 
 in VertexData {
     vec3 linePosition;
@@ -88,6 +100,9 @@ in VertexData {
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
     float lineLineHierarchyLevel;
+#endif
+#ifdef VISUALIZE_SEEDING_PROCESS
+    uint lineLineAppearanceOrder;
 #endif
 } v_in[];
 
@@ -167,6 +182,9 @@ void main() {
 #ifdef USE_LINE_HIERARCHY_LEVEL
     fragmentLineHierarchyLevel = v_in[0].lineLineHierarchyLevel;
 #endif
+#ifdef VISUALIZE_SEEDING_PROCESS
+    fragmentLineAppearanceOrder = v_in[0].lineLineAppearanceOrder;
+#endif
 
     vertexPosition = linePosition0 + lineRadius * offsetDirectionLeft0;
     fragmentPositionWorld = vertexPosition;
@@ -200,6 +218,9 @@ void main() {
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
     fragmentLineHierarchyLevel = v_in[1].lineLineHierarchyLevel;
+#endif
+#ifdef VISUALIZE_SEEDING_PROCESS
+    fragmentLineAppearanceOrder = v_in[1].lineLineAppearanceOrder;
 #endif
 
     vertexPosition = linePosition1 + lineRadius * offsetDirectionLeft1;
@@ -249,6 +270,10 @@ uniform sampler1DArray lineHierarchyImportanceMap;
 uniform vec3 lineHierarchySlider;
 #endif
 #endif
+#ifdef VISUALIZE_SEEDING_PROCESS
+flat in uint fragmentLineAppearanceOrder;
+uniform int currentSeedIdx;
+#endif
 
 #if defined(DIRECT_BLIT_GATHER)
 out vec4 fragColor;
@@ -276,6 +301,11 @@ void main() {
 #if defined(USE_LINE_HIERARCHY_LEVEL) && !defined(USE_TRANSPARENCY)
     float slider = lineHierarchySlider[fragmentPrincipalStressIndex];
     if (slider > fragmentLineHierarchyLevel) {
+        discard;
+    }
+#endif
+#ifdef VISUALIZE_SEEDING_PROCESS
+    if (int(fragmentLineAppearanceOrder) > currentSeedIdx) {
         discard;
     }
 #endif

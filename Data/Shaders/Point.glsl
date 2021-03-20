@@ -88,6 +88,11 @@ void main()
     float EPSILON = clamp(fragmentDepth / 2.0, 0.0, 0.49);
     //float coverage = 1.0 - smoothstep(1.0 - 2.0*EPSILON, 1.0, lengthCoords);
     float coverage = 1.0 - step(1.0, lengthCoords);
+
+    if (coverage < 0.999) {
+        discard;
+    }
+
     fragColor = vec4(mix(pointColor.rgb, foregroundColor,
             smoothstep(WHITE_THRESHOLD - EPSILON, WHITE_THRESHOLD + EPSILON, lengthCoords)),
             pointColor.a * coverage);
