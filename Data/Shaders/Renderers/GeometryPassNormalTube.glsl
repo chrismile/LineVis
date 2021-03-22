@@ -84,7 +84,9 @@ uniform ivec3 psUseBands;
 flat out int useBand;
 out float phi;
 out float thickness;
-out mat3 tangentFrameMatrix;
+//out mat3 tangentFrameMatrix;
+out vec3 lineNormal;
+out vec3 linePosition;
 #endif
 
 in VertexData {
@@ -191,7 +193,9 @@ void main() {
     for (int i = 0; i < NUM_TUBE_SUBDIVISIONS; i++) {
 #ifdef USE_BANDS
         phi = float(i) * factor;
-        tangentFrameMatrix = tangentFrameMatrixCurrent;
+        //tangentFrameMatrix = tangentFrameMatrixCurrent;
+        linePosition = linePosition0;
+        lineNormal = normalCurrent;
 #endif
 
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
@@ -229,7 +233,9 @@ void main() {
 
 #ifdef USE_BANDS
         phi = float(i) * factor;
-        tangentFrameMatrix = tangentFrameMatrixNext;
+        //tangentFrameMatrix = tangentFrameMatrixNext;
+        linePosition = linePosition1;
+        lineNormal = normalNext;
 #endif
 
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
@@ -309,7 +315,9 @@ uniform float bandWidth;
 flat in int useBand;
 in float phi;
 in float thickness;
-in mat3 tangentFrameMatrix;
+//in mat3 tangentFrameMatrix;
+in vec3 lineNormal;
+in vec3 linePosition;
 #endif
 
 #define M_PI 3.14159265358979323846
@@ -323,6 +331,15 @@ in mat3 tangentFrameMatrix;
 #define DEPTH_HELPER_USE_PROJECTION_MATRIX
 #include "DepthHelper.glsl"
 #include "Lighting.glsl"
+
+//#define USE_ORTHOGRAPHIC_TUBE_PROJECTION
+
+#ifndef USE_ORTHOGRAPHIC_TUBE_PROJECTION
+mat3 shearSymmetricMatrix(vec3 p) {
+    return mat3(vec3(0.0, -p.z, p.y), vec3(p.z, 0.0, -p.x), vec3(-p.y, p.x, 0.0));
+}
+#endif
+
 
 void main() {
 #if defined(USE_LINE_HIERARCHY_LEVEL) && !defined(USE_TRANSPARENCY)
@@ -345,6 +362,11 @@ void main() {
     vec3 newV = normalize(cross(helperVec, t));
 
 #ifdef USE_BANDS
+    vec3 lineN = normalize(lineNormal);
+    vec3 lineB = cross(t, lineN);
+    mat3 tangentFrameMatrix = mat3(lineN, lineB, t);
+
+#ifdef USE_ORTHOGRAPHIC_TUBE_PROJECTION
     vec2 localV = normalize((transpose(tangentFrameMatrix) * newV).xy);
     vec2 p = vec2(thickness * cos(phi), sin(phi));
     float d = length(p);
@@ -363,6 +385,67 @@ void main() {
 
     float x = d / sin(beta) * sin(alpha);
     float ribbonPosition = x / totalDist * 2.0;
+#else
+    // Project onto the tangent plane.
+    const vec3 cNorm = cameraPosition - linePosition;
+    const float dist = dot(cNorm, fragmentTangent);
+    const vec3 cHat = transpose(tangentFrameMatrix) * (cNorm - dist * fragmentTangent);
+    const float lineRadius = (useBand != 0 ? bandWidth : lineWidth) * 0.5;
+
+    // Homogeneous, normalized coordinates of the camera position in the tangent plane.
+    const vec3 c = vec3(cHat.xy / lineRadius, 1.0);
+
+    // Primal conic section matrix.
+    const mat3 A = mat3(
+            1 / (thickness*thickness), 0.0, 0.0,
+            0.0, 1.0, 0.0,
+            0.0, 0.0, -1.0
+    );
+
+    // Polar of c.
+    const vec3 l = A * c;
+
+    const mat3 M_l = shearSymmetricMatrix(l);
+    const mat3 B = transpose(M_l) * A * M_l;
+
+    const float EPSILON = 1e-4;
+    float alpha = 0.0;
+    float discr = 0.0;
+    if (abs(l.z) > EPSILON) {
+        discr = -B[0][0] * B[1][1] + B[0][1] * B[1][0];
+        alpha = sqrt(discr) / l.z;
+    } else if (abs(l.y) > EPSILON) {
+        discr = -B[0][0] * B[2][2] + B[0][2] * B[2][0];
+        alpha = sqrt(discr) / l.y;
+    } else if (abs(l.x) > EPSILON) {
+        discr = -B[1][1] * B[2][2] + B[1][2] * B[2][1];
+        alpha = sqrt(discr) / l.x;
+    }
+
+    // No real intersection points.
+    //if (discr <= 0.0) {
+    //    return 1.0;
+    //}
+
+    mat3 C = B + alpha * M_l;
+
+    vec2 pointMax0 = vec2(0.0);
+    vec2 pointMax1 = vec2(0.0);
+    for (int i = 0; i < 2; ++i) {
+        if (abs(C[i][i]) > EPSILON) {
+            pointMax0 = C[i].xy / C[i].z; // column vector
+            pointMax1 = vec2(C[0][i], C[1][i]) / C[2][i]; // row vector
+        }
+    }
+
+    vec2 p = vec2(thickness * cos(phi), sin(phi));
+
+    vec3 pLineHomogeneous = cross(l, cross(c, vec3(p, 1.0)));
+    vec2 pLine = pLineHomogeneous.xy / pLineHomogeneous.z;
+
+    float ribbonPosition = length(pLine - pointMax0) / length(pointMax1 - pointMax0) * 2.0 - 1.0;
+#endif
+
 #else
     // Get the symmetric ribbon position (ribbon direction is perpendicular to line direction) between 0 and 1.
     // NOTE: len(cross(a, b)) == area of parallelogram spanned by a and b.
@@ -406,25 +489,28 @@ void main() {
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
     const float WHITE_THRESHOLD = 0.7;
 #ifdef USE_BANDS
-    float EPSILON = clamp(fragmentDepth * 0.001 / (useBand != 0 ? bandWidth : lineWidth), 0.0, 0.49);
+    float EPSILON_OUTLINE = clamp(fragmentDepth * 0.001 / (useBand != 0 ? bandWidth : lineWidth), 0.0, 0.49);
 #else
-    float EPSILON = clamp(fragmentDepth * 0.001 / lineWidth, 0.0, 0.49);
+    float EPSILON_OUTLINE = clamp(fragmentDepth * 0.001 / lineWidth, 0.0, 0.49);
 #endif
-    float coverage = 1.0 - smoothstep(1.0 - 2.0*EPSILON, 1.0, absCoords);
+    float coverage = 1.0 - smoothstep(1.0 - 2.0*EPSILON_OUTLINE, 1.0, absCoords);
     //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(ribbonPosition));
     vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor,
-            smoothstep(WHITE_THRESHOLD - EPSILON, WHITE_THRESHOLD + EPSILON, absCoords)),
+            smoothstep(WHITE_THRESHOLD - EPSILON_OUTLINE, WHITE_THRESHOLD + EPSILON_OUTLINE, absCoords)),
             fragmentColor.a * coverage);
+
+    //colorOut = vec4(vec3(absCoords), 1.0);
 
 #if defined(DIRECT_BLIT_GATHER)
     // To counteract depth fighting with overlay wireframe.
     float depthOffset = -0.00001;
-    if (absCoords >= WHITE_THRESHOLD - EPSILON) {
+    if (absCoords >= WHITE_THRESHOLD - EPSILON_OUTLINE) {
         depthOffset = 0.002;
     }
     //gl_FragDepth = clamp(gl_FragCoord.z + depthOffset, 0.0, 0.999);
     gl_FragDepth = convertLinearDepthToDepthBufferValue(
-    convertDepthBufferValueToLinearDepth(gl_FragCoord.z) + fragmentDepth - length(fragmentPositionWorld - cameraPosition) - 0.0001);
+            convertDepthBufferValueToLinearDepth(gl_FragCoord.z) + fragmentDepth
+            - length(fragmentPositionWorld - cameraPosition) - 0.0001);
 #ifdef LOW_OPACITY_DISCARD
     if (colorOut.a < 0.01) {
         discard;
