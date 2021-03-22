@@ -84,7 +84,6 @@ uniform ivec3 psUseBands;
 flat out int useBand;
 out float phi;
 out float thickness;
-//out mat3 tangentFrameMatrix;
 out vec3 lineNormal;
 out vec3 linePosition;
 #endif
@@ -193,7 +192,6 @@ void main() {
     for (int i = 0; i < NUM_TUBE_SUBDIVISIONS; i++) {
 #ifdef USE_BANDS
         phi = float(i) * factor;
-        //tangentFrameMatrix = tangentFrameMatrixCurrent;
         linePosition = linePosition0;
         lineNormal = normalCurrent;
 #endif
@@ -233,7 +231,6 @@ void main() {
 
 #ifdef USE_BANDS
         phi = float(i) * factor;
-        //tangentFrameMatrix = tangentFrameMatrixNext;
         linePosition = linePosition1;
         lineNormal = normalNext;
 #endif
@@ -431,11 +428,6 @@ void main() {
         discr = -B[1][1] * B[2][2] + B[1][2] * B[2][1];
         alpha = sqrt(discr) / l.x;
     }
-
-    // No real intersection points.
-    //if (discr <= 0.0) {
-    //    return 1.0;
-    //}
 
     mat3 C = B + alpha * M_l;
 
