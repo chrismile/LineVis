@@ -396,17 +396,27 @@ void main() {
     const vec3 c = vec3(cHat.xy / lineRadius, 1.0);
 
     // Primal conic section matrix.
-    const mat3 A = mat3(
-            1 / (thickness*thickness), 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, -1.0
-    );
+    //const mat3 A = mat3(
+    //        1.0 / (thickness*thickness), 0.0, 0.0,
+    //        0.0, 1.0, 0.0,
+    //        0.0, 0.0, -1.0
+    //);
 
     // Polar of c.
-    const vec3 l = A * c;
+    //const vec3 l = A * c;
+
+    // Polar of c.
+    const float a = 1.0 / (thickness*thickness);
+    const vec3 l = vec3(a * c.x, c.y, -1.0);
 
     const mat3 M_l = shearSymmetricMatrix(l);
-    const mat3 B = transpose(M_l) * A * M_l;
+    //const mat3 B = transpose(M_l) * A * M_l;
+
+    const mat3 B = mat3(
+        l.z*l.z - l.y*l.y, l.x*l.y, -l.x*l.z,
+        l.x*l.y, a*l.z*l.z - l.x*l.x, -a*l.y*l.z,
+        -l.x*l.z, -a*l.y*l.z, a*l.y*l.y + l.x*l.x
+    );
 
     const float EPSILON = 1e-4;
     float alpha = 0.0;
