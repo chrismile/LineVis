@@ -47,7 +47,7 @@ bool LineDataStress::useMediumPS = false;
 bool LineDataStress::useMinorPS = true;
 bool LineDataStress::usePrincipalStressDirectionIndex = true;
 std::array<bool, 3> LineDataStress::psUseBands = {true, true, false};
-bool LineDataStress::renderThickBands = false;
+bool LineDataStress::renderThickBands = true;
 bool LineDataStress::useSmoothedBands = true;
 LineDataStress::LineHierarchyType LineDataStress::lineHierarchyType = LineDataStress::LineHierarchyType::GEO;
 glm::vec3 LineDataStress::lineHierarchySliderValues = glm::vec3(1.0f);
@@ -279,6 +279,7 @@ bool LineDataStress::loadFromFile(
         // Use bands if possible.
         if (hasBandsData) {
             linePrimitiveMode = LINE_PRIMITIVES_TUBE_BAND;
+            tubeNumSubdivisions = 8;
         } else if (useBands()) {
             linePrimitiveMode = LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
         }

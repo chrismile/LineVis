@@ -24,17 +24,17 @@ vec4 blinnPhongShading(in vec4 baseColor, in vec3 fragmentNormal) {
     vec3 phongColor = vec3(0);
 
 #ifdef USE_BANDS
-    const float kA = 0.0;
+    const float kA = 0.1;
     const vec3 Ia = kA * ambientColor;
     const float kD = 1.0;
     const float kS = useBand == 0 ? 0.3 : 0.0;
-    const float s = 20;
+    const float s = 50;
 #else
-    const float kA = 0.2;
+    const float kA = 0.1;//0.2;
     const vec3 Ia = kA * ambientColor;
-    const float kD = 0.7;
-    const float kS = 0.1;
-    const float s = 10;
+    const float kD = 1.0;//0.7;
+    const float kS = 0.3;//0.1;
+    const float s = 50;//10;
 #endif
 
     const vec3 n = normalize(fragmentNormal);

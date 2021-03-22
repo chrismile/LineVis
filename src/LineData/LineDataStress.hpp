@@ -176,7 +176,7 @@ private:
     static glm::vec3 lineHierarchySliderValues;
 
     // The seed process can be rendered for the video.
-    bool shallRenderSeedProcess = true;
+    bool shallRenderSeedProcess = false;
     int currentSeedIdx = 0;
     std::vector<glm::vec3> seedPoints;
 

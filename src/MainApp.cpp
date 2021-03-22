@@ -90,6 +90,7 @@ MainApp::MainApp()
     CAMERA_PATH_TIME_PERFORMANCE_MEASUREMENT = TIME_PERFORMANCE_MEASUREMENT;
     usePerformanceMeasurementMode = false;
 
+    useLinearRGB = false;
     transferFunctionWindow.setClearColor(clearColor);
     transferFunctionWindow.setUseLinearRGB(useLinearRGB);
 
