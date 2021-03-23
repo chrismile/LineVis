@@ -93,11 +93,11 @@ void StressLineTracingRequester::renderGui() {
                 "Seed Strategy", (int*)&seedStrategy, SEED_STRATEGY_NAMES,
                 IM_ARRAYSIZE(SEED_STRATEGY_NAMES));
         changed |= ImGui::Checkbox("##customlinedensity", &useCustomLineDensity);ImGui::SameLine();
-        changed |= ImGui::SliderInt("Line Density", &lineDensCtrl, 0, 50);
+        changed |= ImGui::SliderFloatActive("Line Density", &lineDensCtrl, 1, 50, useCustomLineDensity);
         changed |= ImGui::Checkbox("##customseeddensity", &useCustomSeedDensity);ImGui::SameLine();
-        changed |= ImGui::SliderInt("Seed Density", &seedDensCtrl, 0, 5);
+        changed |= ImGui::SliderFloatActive("Seed Density", &seedDensCtrl, 1, 5, useCustomSeedDensity);
         changed |= ImGui::Checkbox("##customnumlevels", &useCustomNumLevels);ImGui::SameLine();
-        changed |= ImGui::SliderInt("#Levels", &numLevels, 0, 5);
+        changed |= ImGui::SliderIntActive("#Levels", &numLevels, 1, 5, useCustomNumLevels);
         changed |= ImGui::Checkbox("Major##tracepsmajor", &traceMajorPS); ImGui::SameLine();
         changed |= ImGui::Checkbox("Medium##tracepsmedium", &traceMediumPS); ImGui::SameLine();
         changed |= ImGui::Checkbox("Minor##tracepsminor", &traceMinorPS);

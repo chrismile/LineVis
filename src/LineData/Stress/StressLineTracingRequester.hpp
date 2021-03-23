@@ -87,10 +87,10 @@ private:
     // Line tracer settings.
     std::string meshFilename;
     SeedStrategy seedStrategy = SeedStrategy::VOLUME;
-    int lineDensCtrl = 0;
-    int seedDensCtrl = 0; // 0 means default
+    float lineDensCtrl = 16; // 0 means default
+    float seedDensCtrl = 4; // 0 means default
     bool useCustomLineDensity = false, useCustomSeedDensity = false, useCustomNumLevels = false;
-    int numLevels = 0; // 5
+    int numLevels = 4; // 0 means default
     // Should we trace major, medium and/or minor principal stress lines?
     bool traceMajorPS = true, traceMediumPS = false, traceMinorPS = true;
 
