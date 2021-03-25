@@ -179,13 +179,18 @@ void LineRenderer::renderGuiWindow() {
             if (lineData->renderGui(isRasterizer)) {
                 shallReloadGatherShader = true;
             }
-            if (ImGui::Checkbox("Depth Cues", &useDepthCues)) {
-                updateDepthCueMode();
-                shallReloadGatherShader = true;
-                reRender = true;
-            }
-            if (useDepthCues && ImGui::SliderFloat(
+            if (ImGui::SliderFloat(
                     "Depth Cue Strength", &depthCueStrength, 0.0f, 1.0f)) {
+                if (depthCueStrength <= 0.0f && useDepthCues) {
+                    useDepthCues = false;
+                    updateDepthCueMode();
+                    shallReloadGatherShader = true;
+                }
+                if (depthCueStrength > 0.0f && !useDepthCues) {
+                    useDepthCues = true;
+                    updateDepthCueMode();
+                    shallReloadGatherShader = true;
+                }
                 reRender = true;
             }
         }

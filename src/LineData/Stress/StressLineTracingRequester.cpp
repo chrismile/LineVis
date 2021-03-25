@@ -89,9 +89,6 @@ void StressLineTracingRequester::renderGui() {
             }
         }
 
-        changed |= ImGui::Combo(
-                "Seed Strategy", (int*)&seedStrategy, SEED_STRATEGY_NAMES,
-                IM_ARRAYSIZE(SEED_STRATEGY_NAMES));
         changed |= ImGui::Checkbox("##customlinedensity", &useCustomLineDensity);ImGui::SameLine();
         changed |= ImGui::SliderFloatActive("Line Density", &lineDensCtrl, 1, 50, useCustomLineDensity);
         changed |= ImGui::Checkbox("##customseeddensity", &useCustomSeedDensity);ImGui::SameLine();
@@ -104,6 +101,9 @@ void StressLineTracingRequester::renderGui() {
 
         if (ImGui::CollapsingHeader(
                 "Advanced Settings", nullptr, ImGuiTreeNodeFlags_DefaultOpen)) {
+            changed |= ImGui::Combo(
+                    "Seed Strategy", (int*)&seedStrategy, SEED_STRATEGY_NAMES,
+                    IM_ARRAYSIZE(SEED_STRATEGY_NAMES));
             changed |= ImGui::Combo(
                     "Tracing Algorithm", (int*)&tracingAlgorithm, TRACING_ALGORITHM_NAMES,
                     IM_ARRAYSIZE(TRACING_ALGORITHM_NAMES));

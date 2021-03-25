@@ -87,18 +87,16 @@ bool LineData::renderGui(bool isRasterizer) {
     ImGui::Checkbox("Render Color Legend", &shallRenderColorLegendWidgets);
 
     if (!simulationMeshOutlineTriangleIndices.empty()) {
-        if (ImGui::Checkbox("Render Mesh Boundary", &shallRenderSimulationMeshBoundary)) {
+        //if (ImGui::Checkbox("Render Mesh Boundary", &shallRenderSimulationMeshBoundary)) {
+        //    reRender = true;
+        //}
+
+        if (ImGui::SliderFloat("Hull Opacity", &hullOpacity, 0.0f, 1.0f, "%.4f")) {
+            shallRenderSimulationMeshBoundary = hullOpacity > 0.0f;
             reRender = true;
         }
-
         if (shallRenderSimulationMeshBoundary) {
-            if (ImGui::SliderFloat("Hull Opacity", &hullOpacity, 0.0f, 1.0f, "%.4f")) {
-                reRender = true;
-            }
             if (ImGui::ColorEdit3("Hull Color", &hullColor.r)) {
-                reRender = true;
-            }
-            if (ImGui::Checkbox("Use Shading for Hull", &hullUseShading)) {
                 reRender = true;
             }
         }

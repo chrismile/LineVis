@@ -97,55 +97,71 @@ bool LineDataStress::renderGui(bool isRasterizer) {
         setUsedPsDirections({useMajorPS, useMediumPS, useMinorPS});
         shallReloadGatherShader = true;
     }
-    if (ImGui::Checkbox("Use Principal Stress Direction Index", &usePrincipalStressDirectionIndex)) {
-        dirty = true;
-        shallReloadGatherShader = true;
-        recomputeColorLegend();
-    }
 
     bool recomputeOpacityOptimization = false;
-
-    if (hasLineHierarchy) {
-        if (ImGui::Checkbox("Use Hierarchy Culling", &useLineHierarchy)) {
-            dirty = true;
-            shallReloadGatherShader = true;
-        }
-        if (fileFormatVersion >= 3) {
-            if (ImGui::Combo(
-                    "Line Hierarchy Type", (int*)&lineHierarchyType,
-                    lineHierarchyTypeNames, IM_ARRAYSIZE(lineHierarchyTypeNames))) {
-                updateLineHierarchyHistogram();
-                dirty = true;
+    if (ImGui::CollapsingHeader(
+            "Expert Settings", nullptr, 0)) {
+        if (hasLineHierarchy) {
+            //if (ImGui::Checkbox("Use Hierarchy Culling", &useLineHierarchy)) {
+            //    dirty = true;
+            //    shallReloadGatherShader = true;
+            //}
+            if (fileFormatVersion >= 3) {
+                if (ImGui::Combo(
+                        "Line Hierarchy Type", (int*)&lineHierarchyType,
+                        lineHierarchyTypeNames, IM_ARRAYSIZE(lineHierarchyTypeNames))) {
+                    updateLineHierarchyHistogram();
+                    dirty = true;
+                }
             }
-        }
-        if (!rendererSupportsTransparency && useLineHierarchy) {
-            for (int psIdx : loadedPsIndices) {
-                if (ImGui::SliderFloat(
-                        stressDirectionNames[psIdx], &lineHierarchySliderValues[psIdx], 0.0f, 1.0f)) {
-                    reRender = true;
-                    recomputeOpacityOptimization = true;
+            if (!rendererSupportsTransparency && useLineHierarchy) {
+                bool sliderChanged = false;
+                for (int psIdx : loadedPsIndices) {
+                    if (ImGui::SliderFloat(
+                            stressDirectionNames[psIdx], &lineHierarchySliderValues[psIdx], 0.0f, 1.0f)) {
+                        reRender = true;
+                        recomputeOpacityOptimization = true;
+                        sliderChanged = true;
+                    }
+                }
+                if (sliderChanged) {
+                    bool useLineHierarchyNew = glm::any(
+                            glm::lessThan(lineHierarchySliderValues, glm::vec3(1.0f)));
+                    if (useLineHierarchy != useLineHierarchyNew) {
+                        dirty = true;
+                        shallReloadGatherShader = true;
+                    }
                 }
             }
         }
-    }
 
-    if (useBands()) {
-        ImGui::Text("Render as bands:");
-        bool usedBandsChanged = false;
-        usedBandsChanged |= ImGui::Checkbox("Major##bandsmajor", &psUseBands[0]); ImGui::SameLine();
-        usedBandsChanged |= ImGui::Checkbox("Medium##bandsmedium", &psUseBands[1]); ImGui::SameLine();
-        usedBandsChanged |= ImGui::Checkbox("Minor##bandsminor", &psUseBands[2]);
-        if (usedBandsChanged) {
-            dirty = true;
+        if (useBands()) {
+            ImGui::Text("Render as bands:");
+            bool usedBandsChanged = false;
+            usedBandsChanged |= ImGui::Checkbox("Major##bandsmajor", &psUseBands[0]); ImGui::SameLine();
+            usedBandsChanged |= ImGui::Checkbox("Medium##bandsmedium", &psUseBands[1]); ImGui::SameLine();
+            usedBandsChanged |= ImGui::Checkbox("Minor##bandsminor", &psUseBands[2]);
+            if (usedBandsChanged) {
+                dirty = true;
+            }
+
+            if (ImGui::Checkbox("Render Thick Bands", &renderThickBands)) {
+                shallReloadGatherShader = true;
+            }
+            ImGui::SameLine();
+
+            if (fileFormatVersion >= 3 && ImGui::Checkbox("Smoothed Bands", &useSmoothedBands)) {
+                dirty = true;
+            }
         }
 
-        if (ImGui::Checkbox("Render Thick Bands", &renderThickBands)) {
+        if (ImGui::Checkbox("Use Principal Stress Direction Index", &usePrincipalStressDirectionIndex)) {
+            dirty = true;
             shallReloadGatherShader = true;
+            recomputeColorLegend();
         }
 
-        if (fileFormatVersion >= 3 && ImGui::Checkbox("Smoothed Bands", &useSmoothedBands)) {
-            dirty = true;
-        }
+        ImGui::Separator();
     }
 
     if (lineRenderer && renderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION && recomputeOpacityOptimization) {

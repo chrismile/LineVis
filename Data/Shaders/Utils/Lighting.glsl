@@ -26,9 +26,9 @@ vec4 blinnPhongShading(in vec4 baseColor, in vec3 fragmentNormal) {
 #ifdef USE_BANDS
     const float kA = 0.1;
     const vec3 Ia = kA * ambientColor;
-    const float kD = 1.0;
-    const float kS = useBand == 0 ? 0.3 : 0.0;
-    const float s = 50;
+    const float kD = 0.9;
+    const float kS = useBand == 0 ? 0.3 : 0.3;
+    const float s = 30;
 #else
     const float kA = 0.1;//0.2;
     const vec3 Ia = kA * ambientColor;
