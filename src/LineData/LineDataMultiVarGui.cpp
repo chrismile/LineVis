@@ -85,9 +85,7 @@ void LineDataMultiVar::recomputeWidgetPositions() {
     }
 }
 
-bool LineDataMultiVar::renderGuiWindow(bool isRasterizer)  {
-    //multiVarWindow.renderGui();
-
+bool LineDataMultiVar::renderGuiWindowSecondary(bool isRasterizer)  {
     bool shallReloadGatherShader = false;
     if (useMultiVarRendering && shallRenderColorLegendWidgets) {
         for (int i = 0; i < colorLegendWidgets.size(); i++) {
@@ -100,7 +98,7 @@ bool LineDataMultiVar::renderGuiWindow(bool isRasterizer)  {
             }
         }
     } else {
-        shallReloadGatherShader = LineData::renderGuiWindow(isRasterizer) || shallReloadGatherShader;
+        shallReloadGatherShader = LineData::renderGuiWindowSecondary(isRasterizer) || shallReloadGatherShader;
     }
 
     if (multiVarTransferFunctionWindow.renderGui()) {
@@ -116,7 +114,15 @@ bool LineDataMultiVar::renderGuiWindow(bool isRasterizer)  {
     return shallReloadGatherShader;
 }
 
-bool LineDataMultiVar::renderGui(bool isRasterizer) {
+bool LineDataMultiVar::renderGuiRenderer(bool isRasterizer) {
+    bool shallReloadGatherShader = LineData::renderGuiRenderer(isRasterizer);
+    if (ImGui::CollapsingHeader("Line Rendering Settings", NULL, ImGuiTreeNodeFlags_DefaultOpen )) {
+        shallReloadGatherShader = renderGuiLineRenderingSettings() || shallReloadGatherShader;
+    }
+    return shallReloadGatherShader;
+}
+
+bool LineDataMultiVar::renderGuiLineData(bool isRasterizer) {
     bool shallReloadGatherShader = false;
     if (ImGui::Checkbox("Multivariate Rendering", &useMultiVarRendering)) {
         dirty = true;
@@ -126,15 +132,11 @@ bool LineDataMultiVar::renderGui(bool isRasterizer) {
     }
 
     if (!useMultiVarRendering) {
-        return LineData::renderGui(isRasterizer) || shallReloadGatherShader;
+        return LineData::renderGuiLineData(isRasterizer) || shallReloadGatherShader;
     }
 
     if (ImGui::CollapsingHeader("Multi-Variate Settings", NULL, ImGuiTreeNodeFlags_DefaultOpen)) {
         shallReloadGatherShader = renderGuiTechniqueSettings() || shallReloadGatherShader;
-    }
-
-    if (ImGui::CollapsingHeader("Line Rendering Settings", NULL, ImGuiTreeNodeFlags_DefaultOpen )) {
-        shallReloadGatherShader = renderGuiLineRenderingSettings() || shallReloadGatherShader;
     }
 
     return shallReloadGatherShader;

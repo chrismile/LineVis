@@ -196,10 +196,15 @@ public:
     virtual bool shallRenderTransferFunctionWindow() { return true; }
 
     /**
-     * For selecting rendering technique (e.g., screen-oriented bands, tubes) and other line data settings.
+     * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
      * @return true if the gather shader needs to be reloaded.
      */
-    virtual bool renderGui(bool isRasterizer);
+    virtual bool renderGuiRenderer(bool isRasterizer);
+    /**
+     * For line data settings.
+     * @return true if the gather shader needs to be reloaded.
+     */
+    virtual bool renderGuiLineData(bool isRasterizer);
     /**
      * For changing other line rendering settings.
      */
@@ -209,6 +214,12 @@ public:
      * @return true if the gather shader needs to be reloaded.
      */
     virtual bool renderGuiWindow(bool isRasterizer);
+    /**
+     * For rendering secondary ImGui windows (e.g., for transfer function widgets).
+     * @return true if the gather shader needs to be reloaded.
+     */
+    virtual bool renderGuiWindowSecondary(bool isRasterizer);
+
     /// Certain GUI widgets might need the clear color.
     virtual void setClearColor(const sgl::Color& clearColor);
     /// Whether to use linear RGB when rendering.
@@ -257,6 +268,8 @@ protected:
     static LinePrimitiveMode linePrimitiveMode;
     static int tubeNumSubdivisions; ///< Number of tube subdivisions for LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER.
     std::vector<std::string> supportedRenderingModes;
+    bool showLineDataWindow = true;
+    std::string lineDataWindowName;
 
     /// Stores line point data if linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH.
     sgl::GeometryBufferPtr linePointDataSSBO;

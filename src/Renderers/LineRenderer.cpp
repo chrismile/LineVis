@@ -176,7 +176,7 @@ void LineRenderer::renderGuiWindow() {
         this->renderGui();
         if (lineData) {
             ImGui::Separator();
-            if (lineData->renderGui(isRasterizer)) {
+            if (lineData->renderGuiRenderer(isRasterizer)) {
                 shallReloadGatherShader = true;
             }
             if (ImGui::SliderFloat(
@@ -198,6 +198,9 @@ void LineRenderer::renderGuiWindow() {
     ImGui::End();
 
     if (lineData && lineData->renderGuiWindow(isRasterizer)) {
+        shallReloadGatherShader = true;
+    }
+    if (lineData && lineData->renderGuiWindowSecondary(isRasterizer)) {
         shallReloadGatherShader = true;
     }
 

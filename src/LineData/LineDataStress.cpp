@@ -63,6 +63,7 @@ LineDataStress::LineDataStress(sgl::TransferFunctionWindow &transferFunctionWind
         colorLegendWidgets[psIdx].setPositionIndex(psIdx, 3);
     }
     setUsedPsDirections({useMajorPS, useMediumPS, useMinorPS});
+    lineDataWindowName = "Line Data (Stress)";
 }
 
 LineDataStress::~LineDataStress() {
@@ -86,8 +87,13 @@ void LineDataStress::setRenderingMode(RenderingMode renderingMode) {
     rendererSupportsTransparency = renderingMode != RENDERING_MODE_ALL_LINES_OPAQUE;
 }
 
-bool LineDataStress::renderGui(bool isRasterizer) {
-    bool shallReloadGatherShader = LineData::renderGui(isRasterizer);
+bool LineDataStress::renderGuiRenderer(bool isRasterizer) {
+    bool shallReloadGatherShader = LineData::renderGuiRenderer(isRasterizer);
+    return shallReloadGatherShader;
+}
+
+bool LineDataStress::renderGuiLineData(bool isRasterizer) {
+    bool shallReloadGatherShader = LineData::renderGuiLineData(isRasterizer);
 
     bool usedPsChanged = false;
     usedPsChanged |= ImGui::Checkbox("Major##usedpsmajor", &useMajorPS); ImGui::SameLine();
@@ -99,52 +105,50 @@ bool LineDataStress::renderGui(bool isRasterizer) {
     }
 
     bool recomputeOpacityOptimization = false;
-    if (ImGui::CollapsingHeader(
-            "Expert Settings", nullptr, 0)) {
-        if (hasLineHierarchy) {
-            //if (ImGui::Checkbox("Use Hierarchy Culling", &useLineHierarchy)) {
-            //    dirty = true;
-            //    shallReloadGatherShader = true;
-            //}
-            if (fileFormatVersion >= 3) {
-                if (ImGui::Combo(
-                        "Line Hierarchy Type", (int*)&lineHierarchyType,
-                        lineHierarchyTypeNames, IM_ARRAYSIZE(lineHierarchyTypeNames))) {
-                    updateLineHierarchyHistogram();
-                    dirty = true;
+    if (hasLineHierarchy) {
+        if (fileFormatVersion >= 3) {
+            if (ImGui::Combo(
+                    "Line Hierarchy Type", (int*)&lineHierarchyType,
+                    lineHierarchyTypeNames, IM_ARRAYSIZE(lineHierarchyTypeNames))) {
+                updateLineHierarchyHistogram();
+                dirty = true;
+            }
+        }
+        if (!rendererSupportsTransparency && useLineHierarchy) {
+            bool sliderChanged = false;
+            for (int psIdx : loadedPsIndices) {
+                if (ImGui::SliderFloat(
+                        stressDirectionNames[psIdx], &lineHierarchySliderValues[psIdx], 0.0f, 1.0f)) {
+                    reRender = true;
+                    recomputeOpacityOptimization = true;
+                    sliderChanged = true;
                 }
             }
-            if (!rendererSupportsTransparency && useLineHierarchy) {
-                bool sliderChanged = false;
-                for (int psIdx : loadedPsIndices) {
-                    if (ImGui::SliderFloat(
-                            stressDirectionNames[psIdx], &lineHierarchySliderValues[psIdx], 0.0f, 1.0f)) {
-                        reRender = true;
-                        recomputeOpacityOptimization = true;
-                        sliderChanged = true;
-                    }
-                }
-                if (sliderChanged) {
-                    bool useLineHierarchyNew = glm::any(
-                            glm::lessThan(lineHierarchySliderValues, glm::vec3(1.0f)));
-                    if (useLineHierarchy != useLineHierarchyNew) {
-                        dirty = true;
-                        shallReloadGatherShader = true;
-                    }
+            if (sliderChanged) {
+                bool useLineHierarchyNew = glm::any(
+                        glm::lessThan(lineHierarchySliderValues, glm::vec3(1.0f)));
+                if (useLineHierarchy != useLineHierarchyNew) {
+                    dirty = true;
+                    shallReloadGatherShader = true;
                 }
             }
         }
+    }
 
+    if (useBands()) {
+        ImGui::Text("Render as bands:");
+        bool usedBandsChanged = false;
+        usedBandsChanged |= ImGui::Checkbox("Major##bandsmajor", &psUseBands[0]); ImGui::SameLine();
+        usedBandsChanged |= ImGui::Checkbox("Medium##bandsmedium", &psUseBands[1]); ImGui::SameLine();
+        usedBandsChanged |= ImGui::Checkbox("Minor##bandsminor", &psUseBands[2]);
+        if (usedBandsChanged) {
+            dirty = true;
+        }
+    }
+
+    if (ImGui::CollapsingHeader(
+            "Advanced Settings", nullptr, 0)) {
         if (useBands()) {
-            ImGui::Text("Render as bands:");
-            bool usedBandsChanged = false;
-            usedBandsChanged |= ImGui::Checkbox("Major##bandsmajor", &psUseBands[0]); ImGui::SameLine();
-            usedBandsChanged |= ImGui::Checkbox("Medium##bandsmedium", &psUseBands[1]); ImGui::SameLine();
-            usedBandsChanged |= ImGui::Checkbox("Minor##bandsminor", &psUseBands[2]);
-            if (usedBandsChanged) {
-                dirty = true;
-            }
-
             if (ImGui::Checkbox("Render Thick Bands", &renderThickBands)) {
                 shallReloadGatherShader = true;
             }
@@ -161,7 +165,6 @@ bool LineDataStress::renderGui(bool isRasterizer) {
             recomputeColorLegend();
         }
 
-        ImGui::Separator();
     }
 
     if (lineRenderer && renderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION && recomputeOpacityOptimization) {
@@ -180,7 +183,7 @@ bool LineDataStress::renderGuiRenderingSettings() {
     return false;
 }
 
-bool LineDataStress::renderGuiWindow(bool isRasterizer) {
+bool LineDataStress::renderGuiWindowSecondary(bool isRasterizer) {
     if (rendererSupportsTransparency && useLineHierarchy) {
         bool hierarchyMappingChanged = stressLineHierarchyMappingWidget.renderGui();
         reRender = reRender || hierarchyMappingChanged;
@@ -209,7 +212,7 @@ bool LineDataStress::renderGuiWindow(bool isRasterizer) {
         }
         return false;
     } else {
-        return LineData::renderGuiWindow(isRasterizer);
+        return LineData::renderGuiWindowSecondary(isRasterizer);
     }
 }
 

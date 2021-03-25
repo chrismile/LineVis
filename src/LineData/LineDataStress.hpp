@@ -102,19 +102,24 @@ public:
     virtual BandRenderData getBandRenderData() override;
 
     /**
-     * For selecting rendering technique (e.g., screen-oriented bands, tubes) and other line data settings.
+     * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
      * @return true if the gather shader needs to be reloaded.
      */
-    virtual bool renderGui(bool isRasterizer) override;
+    virtual bool renderGuiRenderer(bool isRasterizer);
+    /**
+     * For line data settings.
+     * @return true if the gather shader needs to be reloaded.
+     */
+    virtual bool renderGuiLineData(bool isRasterizer);
     /**
      * For changing other line rendering settings.
      */
     virtual bool renderGuiRenderingSettings() override;
     /**
-     * For rendering a separate ImGui window.
+     * For rendering secondary ImGui windows (e.g., for transfer function widgets).
      * @return true if the gather shader needs to be reloaded.
      */
-    virtual bool renderGuiWindow(bool isRasterizer) override;
+    virtual bool renderGuiWindowSecondary(bool isRasterizer) override;
     /// Certain GUI widgets might need the clear color.
     virtual void setClearColor(const sgl::Color& clearColor);
     /// Whether to use linear RGB when rendering.

@@ -41,6 +41,7 @@ LineDataFlow::LineDataFlow(sgl::TransferFunctionWindow &transferFunctionWindow)
     if (linePrimitiveMode == LINE_PRIMITIVES_BAND || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND) {
         linePrimitiveMode = LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
     }
+    lineDataWindowName = "Line Data (Flow)";
 }
 
 LineDataFlow::~LineDataFlow() {

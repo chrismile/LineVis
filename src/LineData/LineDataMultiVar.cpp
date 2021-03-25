@@ -110,6 +110,7 @@ LineDataMultiVar::LineDataMultiVar(sgl::TransferFunctionWindow &transferFunction
               "reds.xml", "blues.xml", "greens.xml", "purples.xml", "oranges.xml", "pinks.xml", "golds.xml",
               "dark-blues.xml" }) {
     dataSetType = DATA_SET_TYPE_FLOW_LINES_MULTIVAR;
+    lineDataWindowName = "Line Data (MultiVar)";
 }
 
 bool LineDataMultiVar::settingsDiffer(LineData* other) {

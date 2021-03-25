@@ -55,8 +55,16 @@ LineData::LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetT
 LineData::~LineData() {
 }
 
-bool LineData::renderGui(bool isRasterizer) {
+bool LineData::renderGuiRenderer(bool isRasterizer) {
     bool shallReloadGatherShader = false;
+
+    // Switch importance criterion.
+    if (ImGui::Combo(
+            "Attribute", (int*)&selectedAttributeIndexUi,
+            attributeNames.data(), attributeNames.size())) {
+        setSelectedAttributeIndex(selectedAttributeIndexUi);
+    }
+
     if (isRasterizer) {
         size_t numPrimitiveModes = IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES);
         if (getType() != DATA_SET_TYPE_STRESS_LINES) {
@@ -70,7 +78,7 @@ bool LineData::renderGui(bool isRasterizer) {
         }
 
         if (renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION
-                && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
+            && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
                 || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND)) {
             if (ImGui::SliderInt("Tube Subdivisions", &tubeNumSubdivisions, 3, 8)) {
                 shallReloadGatherShader = true;
@@ -78,12 +86,6 @@ bool LineData::renderGui(bool isRasterizer) {
         }
     }
 
-    // Switch importance criterion.
-    if (ImGui::Combo(
-            "Attribute", (int*)&selectedAttributeIndexUi,
-            attributeNames.data(), attributeNames.size())) {
-        setSelectedAttributeIndex(selectedAttributeIndexUi);
-    }
     ImGui::Checkbox("Render Color Legend", &shallRenderColorLegendWidgets);
 
     if (!simulationMeshOutlineTriangleIndices.empty()) {
@@ -105,7 +107,32 @@ bool LineData::renderGui(bool isRasterizer) {
     return shallReloadGatherShader;
 }
 
+bool LineData::renderGuiLineData(bool isRasterizer) {
+    // Switch importance criterion.
+    if (ImGui::Combo(
+            "Attribute", (int*)&selectedAttributeIndexUi,
+            attributeNames.data(), attributeNames.size())) {
+        setSelectedAttributeIndex(selectedAttributeIndexUi);
+    }
+    return false;
+}
+
 bool LineData::renderGuiWindow(bool isRasterizer) {
+    bool shallReloadGatherShader = false;
+
+    if (ImGui::Begin(lineDataWindowName.c_str(), &showLineDataWindow)) {
+        if (renderGuiLineData(isRasterizer)) {
+            shallReloadGatherShader = true;
+        }
+    }
+    ImGui::End();
+
+    return shallReloadGatherShader;
+}
+
+bool LineData::renderGuiWindowSecondary(bool isRasterizer) {
+    bool shallReloadGatherShader = false;
+
     if (shallRenderColorLegendWidgets) {
         colorLegendWidgets.at(selectedAttributeIndex).setAttributeMinValue(
                 transferFunctionWindow.getSelectedRangeMin());
@@ -113,7 +140,8 @@ bool LineData::renderGuiWindow(bool isRasterizer) {
                 transferFunctionWindow.getSelectedRangeMax());
         colorLegendWidgets.at(selectedAttributeIndex).renderGui();
     }
-    return false;
+
+    return shallReloadGatherShader;
 }
 
 void LineData::setClearColor(const sgl::Color& clearColor) {
