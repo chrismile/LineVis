@@ -84,6 +84,7 @@ Data/Checkpoints/*
 Data/Screenshots/*
 Data/Videos/*
 Data/TransferFunctions/*
+Data/ReplayScripts/__pycache__/*
 
 Data/ControlPoints.txt
 imgui.ini
