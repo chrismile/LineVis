@@ -53,7 +53,7 @@ LineDataStress::LineHierarchyType LineDataStress::lineHierarchyType = LineDataSt
 glm::vec3 LineDataStress::lineHierarchySliderValues = glm::vec3(1.0f);
 
 const char* const stressDirectionNames[] = { "Major", "Medium", "Minor" };
-const char* const lineHierarchyTypeNames[] = { "geo-based", "PS-based", "vM-based", "Length-based" };
+const char* const lineHierarchyTypeNames[] = { "GEO-based", "PS-based", "vM-based", "Length-based" };
 
 LineDataStress::LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_STRESS_LINES),

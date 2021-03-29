@@ -80,6 +80,9 @@ MainApp::MainApp()
                 sceneFramebuffer, sceneTexture, sceneDepthRBO, camera,
                 clearColor, screenshotTransparentBackground,
                 performanceMeasurer, recording, useCameraFlight),
+#ifdef USE_PYTHON
+          replayWidget(sceneData, transferFunctionWindow, checkpointWindow),
+#endif
           lineDataRequester(transferFunctionWindow),
 #ifdef USE_ZEROMQ
           zeromqContext(zmq_ctx_new()),
@@ -87,6 +90,35 @@ MainApp::MainApp()
           zeromqContext(nullptr),
 #endif
           stressLineTracingRequester(new StressLineTracingRequester(zeromqContext)) {
+#ifdef USE_PYTHON
+    replayWidget.setLoadMeshCallback([this](const std::string& datasetFilename) {
+        // TODO
+        //std::string meshFilenameNew = meshDescriptor.getFilename();
+        //if (loadedMeshFilename != meshFilenameNew) {
+        //    loadLineDataSet({ meshFilenameNew });
+        //}
+    });
+    replayWidget.setLoadRendererCallback([this](const std::string& rendererName) {
+        RenderingMode renderingModeNew = renderingMode;
+        int i;
+        for (i = 0; i < IM_ARRAYSIZE(RENDERING_MODE_NAMES); i++) {
+            if (RENDERING_MODE_NAMES[i] == rendererName) {
+                renderingModeNew = RenderingMode(i);
+                break;
+            }
+        }
+        if (i == IM_ARRAYSIZE(RENDERING_MODE_NAMES)) {
+            sgl::Logfile::get()->writeError(
+                    std::string() + "ERROR in replay widget load renderer callback: Unknown renderer name \""
+                    + rendererName + "\".");
+        }
+        if (renderingModeNew != renderingMode) {
+            renderingMode = renderingModeNew;
+            setRenderer();
+        }
+    });
+#endif
+
     CAMERA_PATH_TIME_PERFORMANCE_MEASUREMENT = TIME_PERFORMANCE_MEASUREMENT;
     usePerformanceMeasurementMode = false;
 
@@ -370,6 +402,57 @@ void MainApp::renderGui() {
         hasMoved();
     }
 
+#ifdef USE_PYTHON
+    ReplayWidget::ReplayWidgetUpdateType replayWidgetUpdateType = replayWidget.renderGui();
+    if (replayWidgetUpdateType == ReplayWidget::REPLAY_WIDGET_UPDATE_LOAD) {
+        recordingTime = 0.0f;
+        //realTimeReplayUpdates = true;
+        realTimeReplayUpdates = false;
+    }
+    if (replayWidgetUpdateType == ReplayWidget::REPLAY_WIDGET_UPDATE_START_RECORDING) {
+        sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
+        if (useRecordingResolution && window->getWindowResolution() != recordingResolution) {
+            window->setWindowSize(recordingResolution.x, recordingResolution.y);
+        }
+
+        if (videoWriter) {
+            delete videoWriter;
+            videoWriter = nullptr;
+        }
+
+        recordingTime = 0.0f;
+        realTimeReplayUpdates = false;
+        recordingTimeStampStart = sgl::Timer->getTicksMicroseconds();
+
+        recording = true;
+        videoWriter = new sgl::VideoWriter(
+                saveDirectoryVideos + saveFilenameVideos
+                + "_" + sgl::toString(videoNumber++) + ".mp4", FRAME_RATE_VIDEOS);
+    }
+    if (replayWidgetUpdateType == ReplayWidget::REPLAY_WIDGET_UPDATE_STOP_RECORDING) {
+        recording = false;
+        if (videoWriter) {
+            delete videoWriter;
+            videoWriter = nullptr;
+        }
+    }
+    if (replayWidget.getUseCameraFlight()
+        && replayWidgetUpdateType != ReplayWidget::REPLAY_WIDGET_UPDATE_STOP_RECORDING) {
+        useCameraFlight = true;
+        startedCameraFlightPerUI = true;
+        realTimeCameraFlight = false;
+        cameraPath.resetTime();
+    }
+    if (replayWidget.getUseCameraFlight()
+        && replayWidgetUpdateType == ReplayWidget::REPLAY_WIDGET_UPDATE_STOP_RECORDING) {
+        useCameraFlight = false;
+        cameraPath.resetTime();
+    }
+    if (replayWidgetUpdateType != ReplayWidget::REPLAY_WIDGET_UPDATE_NONE) {
+        reRender = true;
+    }
+#endif
+
     for (LineFilter* dataFilter : dataFilters) {
         dataFilter->renderGui();
     }
@@ -488,6 +571,46 @@ void MainApp::update(float dt) {
 
     updateCameraFlight(lineData.get() != nullptr, usesNewState);
 
+#ifdef USE_PYTHON
+    bool stopRecording = false;
+    bool stopCameraFlight = false;
+    if (replayWidget.update(recordingTime, stopRecording, stopCameraFlight)) {
+        if (!useCameraFlight) {
+            camera->overwriteViewMatrix(replayWidget.getViewMatrix());
+        }
+        SettingsMap currentRendererSettings = replayWidget.getCurrentRendererSettings();
+        if (lineRenderer != nullptr) {
+            lineRenderer->setNewSettings(currentRendererSettings);
+        }
+        reRender = true;
+
+        if (!useCameraFlight) {
+            if (realTimeReplayUpdates) {
+                uint64_t currentTimeStamp = sgl::Timer->getTicksMicroseconds();
+                uint64_t timeElapsedMicroSec = currentTimeStamp - recordingTimeStampStart;
+                recordingTime = timeElapsedMicroSec * 1e-6;
+            } else {
+                recordingTime += FRAME_TIME_CAMERA_PATH;
+            }
+        }
+    }
+    if (stopRecording) {
+        recording = false;
+        if (videoWriter) {
+            delete videoWriter;
+            videoWriter = nullptr;
+        }
+        if (useCameraFlight) {
+            useCameraFlight = false;
+            cameraPath.resetTime();
+        }
+    }
+    if (stopCameraFlight) {
+        useCameraFlight = false;
+        cameraPath.resetTime();
+    }
+#endif
+
     if (stressLineTracingRequester->getHasNewData(stressLineTracerDataSetInformation)) {
         dataSetType = stressLineTracerDataSetInformation.type;
         loadLineDataSet(stressLineTracerDataSetInformation.filenames);
@@ -517,7 +640,9 @@ void MainApp::update(float dt) {
 
     moveCameraMouse(dt);
 
-    lineRenderer->update(dt);
+    if (lineRenderer != nullptr) {
+        lineRenderer->update(dt);
+    }
 }
 
 void MainApp::hasMoved() {

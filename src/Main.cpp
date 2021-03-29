@@ -26,6 +26,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef USE_PYTHON
+#include <Python.h>
+#endif
+
 #include <Utils/File/FileUtils.hpp>
 #include <Utils/AppSettings.hpp>
 #include <Utils/AppLogic.hpp>
@@ -55,12 +59,20 @@ int main(int argc, char *argv[]) {
     sgl::Window *window = sgl::AppSettings::get()->createWindow();
     sgl::AppSettings::get()->initializeSubsystems();
 
+#ifdef USE_PYTHON
+    Py_Initialize();
+#endif
+
     sgl::AppLogic *app = new MainApp();
     app->run();
 
     delete app;
     sgl::AppSettings::get()->release();
     delete window;
+
+#ifdef USE_PYTHON
+    Py_Finalize();
+#endif
 
     return 0;
 }

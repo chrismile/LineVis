@@ -59,11 +59,11 @@ bool LineData::renderGuiRenderer(bool isRasterizer) {
     bool shallReloadGatherShader = false;
 
     // Switch importance criterion.
-    if (ImGui::Combo(
-            "Attribute", (int*)&selectedAttributeIndexUi,
-            attributeNames.data(), attributeNames.size())) {
-        setSelectedAttributeIndex(selectedAttributeIndexUi);
-    }
+    //if (ImGui::Combo(
+    //        "Attribute", (int*)&selectedAttributeIndexUi,
+    //        attributeNames.data(), attributeNames.size())) {
+    //    setSelectedAttributeIndex(selectedAttributeIndexUi);
+    //}
 
     if (isRasterizer) {
         size_t numPrimitiveModes = IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES);

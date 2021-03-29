@@ -44,6 +44,10 @@
 #include "LineData/Stress/StressLineTracingRequester.hpp"
 #include "Renderers/SceneData.hpp"
 
+#ifdef USE_PYTHON
+#include "Widgets/ReplayWidget.hpp"
+#endif
+
 class LineRenderer;
 class LineData;
 typedef std::shared_ptr<LineData> LineDataPtr;
@@ -97,6 +101,11 @@ private:
     InternalState lastState;
     bool firstState = true;
     bool usesNewState = true;
+
+#ifdef USE_PYTHON
+    ReplayWidget replayWidget;
+    bool realTimeReplayUpdates = false;
+#endif
 
 
     /// --- Visualization pipeline ---

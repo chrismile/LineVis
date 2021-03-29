@@ -20,6 +20,20 @@ include_directories(src)
 #	set(CMAKE_CXX_FLAGS "-Wall")
 #endif()
 
+option(USE_PYTHON "Build with Python 3 support for replay scripts" ON)
+
+if (USE_PYTHON)
+	find_package(Python3 COMPONENTS Development QUIET)
+endif()
+
+if (Python3_FOUND AND USE_PYTHON)
+	MESSAGE(STATUS "Found Python 3. Enabling replay script support.")
+else()
+	list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Widgets/ReplayWidget.cpp)
+	MESSAGE(STATUS "Python 3 couldn't be found. Switching off replay script support.")
+endif()
+
+
 IF(WIN32)
 	add_executable(LineVis WIN32 ${SOURCES})
 ELSE()
@@ -61,6 +75,12 @@ else()
 		target_link_libraries(LineVis PUBLIC ${ZeroMQ_LIBRARY})
 		add_compile_definitions(USE_ZEROMQ)
 	#endif()
+endif()
+
+if (Python3_FOUND AND USE_PYTHON)
+	add_definitions(-DUSE_PYTHON)
+	target_link_libraries(LineVis PUBLIC Python3::Python)
+	include_directories(${Python3_INCLUDE_DIRS})
 endif()
 
 if(OPENMP_FOUND)
