@@ -812,6 +812,20 @@ void MultiVarTransferFunctionWindow::setAttributesValues(
 }
 
 
+bool MultiVarTransferFunctionWindow::loadFromTfNameList(const std::vector<std::string>& tfNames) {
+    if (tfNames.size() != guiVarData.size()) {
+        sgl::Logfile::get()->writeError(
+                "MultiVarTransferFunctionWindow::loadFromTfNameList: tfNames.size() != guiVarData.size()");
+        return false;
+    }
+
+    for (size_t varIdx = 0; varIdx < tfNames.size(); varIdx++) {
+        GuiVarData& varData = guiVarData.at(varIdx);
+        varData.loadTfFromFile(saveDirectory + tfNames.at(varIdx));
+    }
+    return true;
+}
+
 void MultiVarTransferFunctionWindow::updateAvailableFiles() {
     sgl::FileUtils::get()->ensureDirectoryExists(saveDirectory);
     std::vector<std::string> availableFilesAll = sgl::FileUtils::get()->getFilesInDirectoryVector(saveDirectory);

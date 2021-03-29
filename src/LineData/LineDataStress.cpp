@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2020-2021, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -60,7 +60,7 @@ LineDataStress::LineDataStress(sgl::TransferFunctionWindow &transferFunctionWind
           //multiVarTransferFunctionWindow("stress", { "reds.xml", "greens.xml", "blues.xml" }) {
           multiVarTransferFunctionWindow(
                   "stress",
-                  { "qualitative-pale-lilic.xml", "qualitative-emerald.xml", "qualitative-ocher.xml" }) {
+                  { "qualitative-pale-lilac.xml", "qualitative-emerald.xml", "qualitative-ocher.xml" }) {
     colorLegendWidgets.resize(3);
     for (int psIdx = 0; psIdx < 3; psIdx++) {
         colorLegendWidgets[psIdx].setPositionIndex(psIdx, 3);
@@ -88,6 +88,73 @@ void LineDataStress::update(float dt) {
 void LineDataStress::setRenderingMode(RenderingMode renderingMode) {
     LineData::setRenderingMode(renderingMode);
     rendererSupportsTransparency = renderingMode != RENDERING_MODE_ALL_LINES_OPAQUE;
+}
+
+bool LineDataStress::setNewSettings(const SettingsMap& settings) {
+    bool shallReloadGatherShader = LineData::setNewSettings(settings);
+
+    bool usedPsChanged = false;
+    usedPsChanged |= settings.getValueOpt("major_on", useMajorPS);
+    usedPsChanged |= settings.getValueOpt("medium_on", useMediumPS);
+    usedPsChanged |= settings.getValueOpt("minor_on", useMinorPS);
+    if (usedPsChanged) {
+        setUsedPsDirections({useMajorPS, useMediumPS, useMinorPS});
+        shallReloadGatherShader = true;
+    }
+
+    bool recomputeOpacityOptimization = false;
+    if (hasLineHierarchy) {
+        bool sliderChanged = false;
+        const char* const stressDirectionLodNames[] = { "major_lod", "medium_lod", "minor_lod" };
+        for (int psIdx : loadedPsIndices) {
+            if (settings.getValueOpt(
+                    stressDirectionLodNames[psIdx], lineHierarchySliderValues[psIdx])) {
+                reRender = true;
+                recomputeOpacityOptimization = true;
+                sliderChanged = true;
+            }
+        }
+        if (sliderChanged) {
+            bool useLineHierarchyNew = glm::any(
+                    glm::lessThan(lineHierarchySliderValues, glm::vec3(1.0f)));
+            if (useLineHierarchy != useLineHierarchyNew) {
+                dirty = true;
+                shallReloadGatherShader = true;
+            }
+        }
+    }
+
+    if (useBands()) {
+        bool usedBandsChanged = false;
+        usedBandsChanged |= settings.getValueOpt("major_use_bands", psUseBands[0]);
+        usedBandsChanged |= settings.getValueOpt("medium_use_bands", psUseBands[1]);
+        usedBandsChanged |= settings.getValueOpt("minor_use_bands", psUseBands[2]);
+        if (usedBandsChanged) {
+            dirty = true;
+        }
+    }
+
+    if (useBands()) {
+        if (settings.getValueOpt("thick_bands", renderThickBands)) {
+            shallReloadGatherShader = true;
+        }
+
+        if (fileFormatVersion >= 3 && settings.getValueOpt("smoothed_bands", useSmoothedBands)) {
+            dirty = true;
+        }
+    }
+
+    if (settings.getValueOpt("use_principal_stress_direction_index", usePrincipalStressDirectionIndex)) {
+        dirty = true;
+        shallReloadGatherShader = true;
+        recomputeColorLegend();
+    }
+
+    if (lineRenderer && renderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION && recomputeOpacityOptimization) {
+        static_cast<OpacityOptimizationRenderer*>(lineRenderer)->onHasMoved();
+    }
+
+    return shallReloadGatherShader;
 }
 
 bool LineDataStress::renderGuiRenderer(bool isRasterizer) {
@@ -167,7 +234,6 @@ bool LineDataStress::renderGuiLineData(bool isRasterizer) {
             shallReloadGatherShader = true;
             recomputeColorLegend();
         }
-
     }
 
     if (lineRenderer && renderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION && recomputeOpacityOptimization) {

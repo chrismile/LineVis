@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2020-2021, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -173,16 +173,20 @@ struct ReplayState {
     std::string datasetName;
     std::string rendererName;
     std::string transferFunctionName;
+    std::vector<std::string> multiVarTransferFunctionNames;
 
     // The camera state to load (optional).
     bool cameraPositionSet = false;
     bool cameraOrientationSet = false;
+    bool cameraFovySet = false;
     std::string cameraCheckpointName;
     glm::vec3 cameraPosition;
     glm::quat cameraOrientation;
+    float cameraFovy;
 
     // Renderer settings (optional).
     ReplaySettingsMap rendererSettings;
+    ReplaySettingsMap datasetSettings;
 };
 
 
@@ -203,13 +207,17 @@ public:
     };
     ReplayWidgetUpdateType renderGui();
 
-    inline glm::mat4x4 getViewMatrix() { return currentCameraMatrix; }
+    inline const glm::mat4x4& getViewMatrix() { return currentCameraMatrix; }
+    inline float getCameraFovy() { return currentFovy; }
     inline SettingsMap getCurrentRendererSettings() { return currentRendererSettings; }
+    inline SettingsMap getCurrentDatasetSettings() { return currentDatasetSettings; }
     inline bool getUseCameraFlight() { return useCameraFlight; }
 
     /// Callback functions when, e.g., a new renderer is requested.
     void setLoadMeshCallback(std::function<void(const std::string& datasetName)> loadMeshCallback);
     void setLoadRendererCallback(std::function<void(const std::string& rendererName)> loadRendererCallback);
+    void setLoadMultiVarTransferFunctionsCallback(
+            std::function<void(const std::vector<std::string>& tfNames)> loadMultiVarTransferFunctions);
 
 
 private:
@@ -223,8 +231,9 @@ private:
     std::string scriptDirectory = "Data/ReplayScripts/";
     std::string scriptFileName = "";
     void updateAvailableReplayScripts();
-    std::function<void(const std::string& rendererName)> loadRendererCallback;
     std::function<void(const std::string& datasetName)> loadMeshCallback;
+    std::function<void(const std::string& rendererName)> loadRendererCallback;
+    std::function<void(const std::vector<std::string>& tfNames)> loadMultiVarTransferFunctions;
 
     // Script data.
     bool runScript(const std::string& filename);
@@ -232,11 +241,15 @@ private:
     bool firstTimeState = true;
     int currentStateIndex = 0;
 
-    ReplaySettingsMap replaySettingsLast;
+    ReplaySettingsMap replaySettingsRendererLast;
+    ReplaySettingsMap replaySettingsDatasetLast;
     SettingsMap currentRendererSettings;
+    SettingsMap currentDatasetSettings;
     glm::vec3 cameraPositionLast;
     glm::quat cameraOrientationLast;
+    float cameraFovyLast;
     glm::mat4x4 currentCameraMatrix;
+    float currentFovy;
     bool useCameraFlight = false;
 
     // Gui functions & data.

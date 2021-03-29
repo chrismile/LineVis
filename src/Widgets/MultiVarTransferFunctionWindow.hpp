@@ -136,6 +136,7 @@ public:
 
     bool saveCurrentVarTfToFile(const std::string& filename);
     bool loadTfFromFile(int varIdx, const std::string& filename);
+    bool loadFromTfNameList(const std::vector<std::string>& tfNames);
 
     bool renderGui();
     void update(float dt);

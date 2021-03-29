@@ -111,7 +111,7 @@ private:
     /// --- Visualization pipeline ---
 
     /// Loads a hexahedral mesh from a file.
-    void loadLineDataSet(const std::vector<std::string>& fileName);
+    void loadLineDataSet(const std::vector<std::string>& fileName, bool blockingDataLoading = false);
     /// Checks if an asynchronous loading request was finished.
     void checkLoadingRequestFinished();
     /// Reload the currently loaded data set.

@@ -91,12 +91,23 @@ MainApp::MainApp()
 #endif
           stressLineTracingRequester(new StressLineTracingRequester(zeromqContext)) {
 #ifdef USE_PYTHON
-    replayWidget.setLoadMeshCallback([this](const std::string& datasetFilename) {
-        // TODO
-        //std::string meshFilenameNew = meshDescriptor.getFilename();
-        //if (loadedMeshFilename != meshFilenameNew) {
-        //    loadLineDataSet({ meshFilenameNew });
-        //}
+    replayWidget.setLoadMeshCallback([this](const std::string& datasetName) {
+        int i;
+        int oldSelectedDataSetIndex = selectedDataSetIndex;
+        for (i = 0; i < int(dataSetNames.size()); i++) {
+            if (dataSetNames.at(i) == datasetName) {
+                selectedDataSetIndex = i;
+                break;
+            }
+        }
+        if (i != int(dataSetNames.size())) {
+            if (selectedDataSetIndex >= 2 && oldSelectedDataSetIndex != selectedDataSetIndex) {
+                loadLineDataSet(getSelectedMeshFilenames(), true);
+            }
+        } else {
+            sgl::Logfile::get()->writeError(
+                    "Replay widget: loadMeshCallback: Invalid data set name \"" + datasetName + "\".");
+        }
     });
     replayWidget.setLoadRendererCallback([this](const std::string& rendererName) {
         RenderingMode renderingModeNew = renderingMode;
@@ -117,10 +128,37 @@ MainApp::MainApp()
             setRenderer();
         }
     });
+    replayWidget.setLoadMultiVarTransferFunctionsCallback([this](
+            const std::vector<std::string>& tfNames) {
+        if (lineData) {
+            tfNames;
+            MultiVarTransferFunctionWindow* multiVarTransferFunctionWindow;
+            if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
+                LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
+                multiVarTransferFunctionWindow = &lineDataStress->getMultiVarTransferFunctionWindow();
+            } else if (lineData->getType() == DATA_SET_TYPE_FLOW_LINES_MULTIVAR) {
+                LineDataMultiVar* lineDataMultiVar = static_cast<LineDataMultiVar*>(lineData.get());
+                multiVarTransferFunctionWindow = &lineDataMultiVar->getMultiVarTransferFunctionWindow();
+            } else {
+                sgl::Logfile::get()->writeError(
+                        "ERROR in replay widget load multi-var transfer functions callback: Invalid data type .");
+                return;
+            }
+            multiVarTransferFunctionWindow->loadFromTfNameList(tfNames);
+        }
+    });
 #endif
 
     CAMERA_PATH_TIME_PERFORMANCE_MEASUREMENT = TIME_PERFORMANCE_MEASUREMENT;
     usePerformanceMeasurementMode = false;
+    cameraPath.setApplicationCallback([this](
+            const std::string& modelFilename, glm::vec3& centerOffset, float& startAngle, float& pulseFactor,
+            float& standardZoom) {
+        if (boost::starts_with(modelFilename, "Data/LineDataSets/")) {
+            pulseFactor = 0.0f;
+            standardZoom = 1.9f;
+        }
+    });
 
     useLinearRGB = false;
     transferFunctionWindow.setClearColor(clearColor);
@@ -228,8 +266,12 @@ void MainApp::setNewState(const InternalState &newState) {
     }
 
     // 2.2. Pass state change to renderers to handle internally necessary state changes.
+    bool reloadGatherShader = false;
     lineRenderer->setNewState(newState);
-    lineRenderer->setNewSettings(newState.rendererSettings);
+    reloadGatherShader |= lineRenderer->setNewSettings(newState.rendererSettings);
+    if (reloadGatherShader) {
+        lineRenderer->reloadGatherShaderExternal();
+    }
 
     // 3. Pass state change to filters to handle internally necessary state changes.
     for (LineFilter* filter : dataFilters) {
@@ -577,10 +619,21 @@ void MainApp::update(float dt) {
     if (replayWidget.update(recordingTime, stopRecording, stopCameraFlight)) {
         if (!useCameraFlight) {
             camera->overwriteViewMatrix(replayWidget.getViewMatrix());
+            if (camera->getFOVy() != replayWidget.getCameraFovy()) {
+                camera->setFOVy(replayWidget.getCameraFovy());
+            }
         }
         SettingsMap currentRendererSettings = replayWidget.getCurrentRendererSettings();
+        SettingsMap currentDatasetSettings = replayWidget.getCurrentDatasetSettings();
+        bool reloadGatherShader = false;
         if (lineRenderer != nullptr) {
-            lineRenderer->setNewSettings(currentRendererSettings);
+            reloadGatherShader |= lineRenderer->setNewSettings(currentRendererSettings);
+        }
+        if (lineData != nullptr) {
+            reloadGatherShader |= lineData->setNewSettings(currentDatasetSettings);
+        }
+        if (reloadGatherShader) {
+            lineRenderer->reloadGatherShaderExternal();
         }
         reRender = true;
 
@@ -654,7 +707,7 @@ void MainApp::hasMoved() {
 
 // --- Visualization pipeline ---
 
-void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
+void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames, bool blockingDataLoading) {
     if (fileNames.size() == 0 || fileNames.front().size() == 0) {
         lineData = LineDataPtr();
         return;
@@ -682,9 +735,7 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
         transformationMatrixPtr = &transformationMatrix;
     }
 
-#ifndef BLOCKING_DATA_LOADING
     LineDataPtr lineData;
-#endif
 
     if (dataSetType == DATA_SET_TYPE_FLOW_LINES) {
         LineDataFlow* lineDataFlow = new LineDataFlow(transferFunctionWindow);
@@ -700,50 +751,52 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames) {
         return;
     }
 
-#ifdef BLOCKING_DATA_LOADING
-    bool dataLoaded = lineData->loadFromFile(fileNames, selectedDataSetInformation, transformationMatrixPtr);
-    if (!dataLoaded) {
-        lineData = LineDataPtr();
-    }
+    if (blockingDataLoading) {
+        bool dataLoaded = lineData->loadFromFile(fileNames, selectedDataSetInformation, transformationMatrixPtr);
 
-    if (dataLoaded) {
-        lineData->setClearColor(clearColor);
-        lineData->setUseLinearRGB(useLinearRGB);
-        lineData->setRenderingMode(renderingMode);
-        lineData->setLineRenderer(lineRenderer);
-        newMeshLoaded = true;
-        modelBoundingBox = lineData->getModelBoundingBox();
+        if (dataLoaded) {
+            if (selectedDataSetInformation.hasCustomLineWidth) {
+                LineRenderer::setLineWidth(selectedDataSetInformation.lineWidth);
+            }
 
-        std::string meshDescriptorName = fileNames.front();
-        if (fileNames.size() > 1) {
-            meshDescriptorName += std::string() + "_" + std::to_string(fileNames.size());
-        }
-        checkpointWindow.onLoadDataSet(meshDescriptorName);
+            this->lineData = lineData;
+            lineData->recomputeHistogram();
+            lineData->setClearColor(clearColor);
+            lineData->setUseLinearRGB(useLinearRGB);
+            lineData->setRenderingMode(renderingMode);
+            lineData->setLineRenderer(lineRenderer);
+            newMeshLoaded = true;
+            modelBoundingBox = lineData->getModelBoundingBox();
 
-        for (LineFilter* dataFilter : dataFilters) {
-            dataFilter->onDataLoaded(lineData);
-        }
+            std::string meshDescriptorName = fileNames.front();
+            if (fileNames.size() > 1) {
+                meshDescriptorName += std::string() + "_" + std::to_string(fileNames.size());
+            }
+            checkpointWindow.onLoadDataSet(meshDescriptorName);
 
-        if (true) { // useCameraFlight
-            std::string cameraPathFilename =
-                    saveDirectoryCameraPaths + sgl::FileUtils::get()->getPathAsList(meshDescriptorName).back()
-                    + ".binpath";
-            if (sgl::FileUtils::get()->exists(cameraPathFilename)) {
-                cameraPath.fromBinaryFile(cameraPathFilename);
-            } else {
-                cameraPath.fromCirclePath(
-                        modelBoundingBox, meshDescriptorName,
-                        usePerformanceMeasurementMode
-                        ? CAMERA_PATH_TIME_PERFORMANCE_MEASUREMENT : CAMERA_PATH_TIME_RECORDING,
-                        usePerformanceMeasurementMode);
-                //cameraPath.saveToBinaryFile(cameraPathFilename);
+            for (LineFilter* dataFilter : dataFilters) {
+                dataFilter->onDataLoaded(lineData);
+            }
+
+            if (true) { // useCameraFlight
+                std::string cameraPathFilename =
+                        saveDirectoryCameraPaths + sgl::FileUtils::get()->getPathAsList(meshDescriptorName).back()
+                        + ".binpath";
+                if (sgl::FileUtils::get()->exists(cameraPathFilename)) {
+                    cameraPath.fromBinaryFile(cameraPathFilename);
+                } else {
+                    cameraPath.fromCirclePath(
+                            modelBoundingBox, meshDescriptorName,
+                            usePerformanceMeasurementMode
+                            ? CAMERA_PATH_TIME_PERFORMANCE_MEASUREMENT : CAMERA_PATH_TIME_RECORDING,
+                            usePerformanceMeasurementMode);
+                    //cameraPath.saveToBinaryFile(cameraPathFilename);
+                }
             }
         }
+    } else {
+        lineDataRequester.queueRequest(lineData, fileNames, selectedDataSetInformation, transformationMatrixPtr);
     }
-
-#else
-    lineDataRequester.queueRequest(lineData, fileNames, selectedDataSetInformation, transformationMatrixPtr);
-#endif
 }
 
 void MainApp::checkLoadingRequestFinished() {

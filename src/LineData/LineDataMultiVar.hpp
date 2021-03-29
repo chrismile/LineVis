@@ -60,6 +60,7 @@ class LineDataMultiVar : public LineDataFlow {
 public:
     LineDataMultiVar(sgl::TransferFunctionWindow &transferFunctionWindow);
     ~LineDataMultiVar();
+    inline MultiVarTransferFunctionWindow& getMultiVarTransferFunctionWindow() { return multiVarTransferFunctionWindow; }
     virtual bool settingsDiffer(LineData* other) override;
     virtual void update(float dt) override;
     virtual void setTrajectoryData(const Trajectories& trajectories) override;

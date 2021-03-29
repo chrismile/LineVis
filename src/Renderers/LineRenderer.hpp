@@ -81,8 +81,9 @@ public:
     virtual void onHasMoved() {}
 
     /// For changing performance measurement modes.
-    virtual void setNewState(const InternalState& newState) {}
-    virtual void setNewSettings(const SettingsMap& settings) {}
+    virtual void setNewState(const InternalState& newState) { }
+    virtual bool setNewSettings(const SettingsMap& settings);
+    void reloadGatherShaderExternal();
 
     /// Sets the global line width.
     static void setLineWidth(float lineWidth) { LineRenderer::lineWidth = lineWidth; }

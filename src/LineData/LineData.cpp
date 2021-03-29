@@ -55,6 +55,27 @@ LineData::LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetT
 LineData::~LineData() {
 }
 
+bool LineData::setNewSettings(const SettingsMap& settings) {
+    std::string attributeName;
+    if (settings.getValueOpt("attribute", attributeName)) {
+        int i;
+        for (i = 0; i < int(attributeNames.size()); i++) {
+            if (attributeNames.at(i) == attributeName) {
+                selectedAttributeIndexUi = i;
+                break;
+            }
+        }
+        if (i != int(attributeNames.size())) {
+            setSelectedAttributeIndex(selectedAttributeIndexUi);
+        } else {
+            sgl::Logfile::get()->writeError(
+                    "LineData::setNewSettings: Invalid attribute name \"" + attributeName + "\".");
+        }
+    }
+
+    return false;
+}
+
 bool LineData::renderGuiRenderer(bool isRasterizer) {
     bool shallReloadGatherShader = false;
 

@@ -135,6 +135,11 @@ public:
     // Do non-static settings that lead to a gather shader reload differ?
     virtual bool settingsDiffer(LineData* other) { return false; }
 
+    /// For changing performance measurement modes.
+    virtual bool setNewState(const InternalState& newState) { return false; }
+    /// For changing internal settings programmatically and not over the GUI.
+    virtual bool setNewSettings(const SettingsMap& settings);
+
     /**
      * Load line data from the selected file(s).
      * @param fileNames The names of the files to load. More than one file makes primarily sense for, e.g., stress line

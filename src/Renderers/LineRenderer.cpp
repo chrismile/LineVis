@@ -169,6 +169,34 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
     shaderProgram->setUniformOptional("depthCueStrength", depthCueStrength);
 }
 
+bool LineRenderer::setNewSettings(const SettingsMap& settings) {
+    bool shallReloadGatherShader = false;
+
+    settings.getValueOpt("line_width", lineWidth);
+
+    if (settings.getValueOpt("depth_cue_strength", depthCueStrength)) {
+        if (depthCueStrength <= 0.0f && useDepthCues) {
+            useDepthCues = false;
+            updateDepthCueMode();
+            shallReloadGatherShader = true;
+        }
+        if (depthCueStrength > 0.0f && !useDepthCues) {
+            useDepthCues = true;
+            updateDepthCueMode();
+            shallReloadGatherShader = true;
+        }
+    }
+
+    return shallReloadGatherShader;
+}
+
+void LineRenderer::reloadGatherShaderExternal() {
+    if (lineData) {
+        reloadGatherShader(false);
+        setLineData(lineData, false);
+    }
+}
+
 void LineRenderer::renderGuiWindow() {
     bool shallReloadGatherShader = false;
 
@@ -205,10 +233,7 @@ void LineRenderer::renderGuiWindow() {
     }
 
     if (shallReloadGatherShader) {
-        reloadGatherShader(false);
-        if (lineData) {
-            setLineData(lineData, false);
-        }
+        reloadGatherShaderExternal();
     }
 }
 

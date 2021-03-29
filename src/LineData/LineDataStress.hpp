@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2020-2021, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,6 +46,9 @@ public:
     virtual bool settingsDiffer(LineData* other) override;
     virtual void update(float dt) override;
 
+    /// For changing internal settings programmatically and not over the GUI.
+    virtual bool setNewSettings(const SettingsMap& settings);
+
     /**
      * Load line data from the selected file(s).
      * @param fileNames The names of the files to load. More than one file makes primarily sense for, e.g., stress line
@@ -68,6 +71,7 @@ public:
     inline bool getUsePrincipalStressDirectionIndex() { return usePrincipalStressDirectionIndex; }
     inline bool getUseLineHierarchy() { return useLineHierarchy; }
     inline bool getHasDegeneratePoints() { return !degeneratePoints.empty(); }
+    inline MultiVarTransferFunctionWindow& getMultiVarTransferFunctionWindow() { return multiVarTransferFunctionWindow; }
 
     // Statistics.
     virtual size_t getNumStressDirections() { return trajectoriesPs.size(); }

@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2020-2021, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,7 +55,7 @@ static bool isFirstState = true;
 static PyObject* py_set_duration(PyObject* self, PyObject* args) {
     float duration = 0.0f;
     if (!PyArg_ParseTuple(args, "f", &duration)) {
-        return NULL;
+        return nullptr;
     }
 
     if (!isFirstState) {
@@ -71,10 +71,10 @@ static PyObject* py_set_duration(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
-static PyObject* py_set_mesh(PyObject* self, PyObject* args) {
+static PyObject* py_set_dataset(PyObject* self, PyObject* args) {
     const char* datasetName = nullptr;
     if (!PyArg_ParseTuple(args, "s", &datasetName)) {
-        return NULL;
+        return nullptr;
     }
     currentReplayStateGlobal.datasetName = datasetName;
     Py_RETURN_NONE;
@@ -83,29 +83,65 @@ static PyObject* py_set_mesh(PyObject* self, PyObject* args) {
 static PyObject* py_set_transfer_function(PyObject* self, PyObject* args) {
     const char* transferFunctionName = nullptr;
     if (!PyArg_ParseTuple(args, "s", &transferFunctionName)) {
-        return NULL;
+        return nullptr;
     }
     currentReplayStateGlobal.transferFunctionName = transferFunctionName;
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_set_transfer_functions(PyObject* self, PyObject* args) {
+    PyObject* listObj = nullptr;
+    if (!PyArg_ParseTuple(args, "O", &listObj)) {
+        return nullptr;
+    }
+
+    if (!PyList_Check(listObj)) {
+        sgl::Logfile::get()->writeInfo("INFO in py_set_renderer: Type check of list failed.");
+        return nullptr;
+    }
+
+    PyObject* iter = PyObject_GetIter(listObj);
+    if (!iter) {
+        sgl::Logfile::get()->writeInfo("INFO in py_set_renderer: !iter");
+        return nullptr;
+    }
+
+    currentReplayStateGlobal.multiVarTransferFunctionNames.clear();
+    while (true) {
+        PyObject* next = PyIter_Next(iter);
+        if (!next) {
+            break;
+        }
+
+        if (!PyUnicode_CheckExact(next) && !PyByteArray_CheckExact(next)) {
+            sgl::Logfile::get()->writeInfo("INFO in py_set_renderer: Type check of list element failed.");
+            return nullptr;
+        }
+        Py_ssize_t stringSize = 0;
+        std::string valueString = PyUnicode_AsUTF8AndSize(next, &stringSize);
+        currentReplayStateGlobal.multiVarTransferFunctionNames.push_back(valueString);
+    }
+
     Py_RETURN_NONE;
 }
 
 static PyObject* py_set_renderer(PyObject* self, PyObject* args) {
     const char* rendererName = nullptr;
     if (!PyArg_ParseTuple(args, "s", &rendererName)) {
-        return NULL;
+        return nullptr;
     }
     currentReplayStateGlobal.rendererName = rendererName;
     Py_RETURN_NONE;
 }
 
-static PyObject* py_set_rendering_algorithm_settings(PyObject* self, PyObject* args) {
+static PyObject* parseSettingsDict(PyObject* self, PyObject* args, ReplaySettingsMap& settingsMap) {
     PyObject* dict = nullptr;
     if (!PyArg_ParseTuple(args, "O", &dict)) {
-        return NULL;
+        return nullptr;
     }
 
     if (!PyDict_Check(dict)) {
-        return NULL;
+        return nullptr;
     }
 
     PyObject* key, *value;
@@ -141,9 +177,9 @@ static PyObject* py_set_rendering_algorithm_settings(PyObject* self, PyObject* a
         }
 
         if (replayDataType == REPLAY_DATA_TYPE_BOOLEAN) {
-            currentReplayStateGlobal.rendererSettings.insert(keyString, bool(PyObject_IsTrue(value)));
+            settingsMap.insert(keyString, bool(PyObject_IsTrue(value)));
         } else if (replayDataType == REPLAY_DATA_TYPE_VEC2 || replayDataType == REPLAY_DATA_TYPE_VEC3
-                || replayDataType == REPLAY_DATA_TYPE_VEC4) {
+                   || replayDataType == REPLAY_DATA_TYPE_VEC4) {
             Py_ssize_t tupleSize = PyTuple_Size(value);
             PyObject* tupleValues[4] = { nullptr, nullptr, nullptr, nullptr };
             float values[4];
@@ -168,29 +204,43 @@ static PyObject* py_set_rendering_algorithm_settings(PyObject* self, PyObject* a
             }
 
             if (tupleSize == 2) {
-                currentReplayStateGlobal.rendererSettings.insert(
+                settingsMap.insert(
                         keyString,
                         vec2ToString(glm::vec2(values[0], values[1])),
                         replayDataType);
             } else if (tupleSize == 3) {
-                currentReplayStateGlobal.rendererSettings.insert(
+                settingsMap.insert(
                         keyString,
                         vec3ToString(glm::vec3(values[0], values[1], values[2])),
                         replayDataType);
             } else if (tupleSize == 4) {
-                currentReplayStateGlobal.rendererSettings.insert(
+                settingsMap.insert(
                         keyString,
                         vec4ToString(glm::vec4(values[0], values[1], values[2], values[3])),
                         replayDataType);
             }
         } else {
-            PyObject* valueRepresentation = PyObject_Repr(value);
-            std::string valueString = PyUnicode_AsUTF8(valueRepresentation);
-            currentReplayStateGlobal.rendererSettings.insert(keyString, valueString, replayDataType);
+            Py_ssize_t stringSize = 0;
+            std::string valueString;
+            if (replayDataType == REPLAY_DATA_TYPE_STRING) {
+                valueString = PyUnicode_AsUTF8AndSize(value, &stringSize);
+            } else {
+                PyObject* valueRepresentation = PyObject_Repr(value);
+                valueString = PyUnicode_AsUTF8AndSize(valueRepresentation, &stringSize);
+            }
+            settingsMap.insert(keyString, valueString, replayDataType);
         }
     }
 
     Py_RETURN_NONE;
+}
+
+static PyObject* py_set_rendering_algorithm_settings(PyObject* self, PyObject* args) {
+    return parseSettingsDict(self, args, currentReplayStateGlobal.rendererSettings);
+}
+
+static PyObject* py_set_dataset_settings(PyObject* self, PyObject* args) {
+    return parseSettingsDict(self, args, currentReplayStateGlobal.datasetSettings);
 }
 
 static PyObject* py_set_camera_position(PyObject* self, PyObject* args) {
@@ -199,14 +249,14 @@ static PyObject* py_set_camera_position(PyObject* self, PyObject* args) {
     if (tupleSize == 1) {
         PyObject* positionTuple = nullptr;
         if (!PyArg_ParseTuple(args, "O", &positionTuple)) {
-            return NULL;
+            return nullptr;
         }
         if (!PyArg_ParseTuple(positionTuple, "fff", &cameraPosition.x, &cameraPosition.y, &cameraPosition.z)) {
-            return NULL;
+            return nullptr;
         }
     } else if (tupleSize == 3) {
         if (!PyArg_ParseTuple(args, "fff", &cameraPosition.x, &cameraPosition.y, &cameraPosition.z)) {
-            return NULL;
+            return nullptr;
         }
     } else {
         sgl::Logfile::get()->writeError(
@@ -225,19 +275,19 @@ static PyObject* py_set_camera_yaw_pitch_rad(PyObject* self, PyObject* args) {
     if (tupleSize == 1) {
         PyObject* yawPitchTuple = nullptr;
         if (!PyArg_ParseTuple(args, "O", &yawPitchTuple)) {
-            return NULL;
+            return nullptr;
         }
         if (!PyArg_ParseTuple(yawPitchTuple, "ff", &yaw, &pitch)) {
-            return NULL;
+            return nullptr;
         }
     } else if (tupleSize == 2) {
         if (!PyArg_ParseTuple(args, "ff", &yaw, &pitch)) {
-            return NULL;
+            return nullptr;
         }
     } else {
         sgl::Logfile::get()->writeError(
                 "ERROR in py_set_camera_yaw_pitch_rad: Tuple must contain two float values or one tuple.");
-        return NULL;
+        return nullptr;
     }
     glm::quat cameraOrientation = glm::vec3(0.0f);
 
@@ -251,7 +301,7 @@ static PyObject* py_set_camera_yaw_pitch_rad(PyObject* self, PyObject* args) {
 static PyObject* py_set_camera_checkpoint(PyObject* self, PyObject* args) {
     const char* cameraStateName = nullptr;
     if (!PyArg_ParseTuple(args, "s", &cameraStateName)) {
-        return NULL;
+        return nullptr;
     }
     currentReplayStateGlobal.cameraCheckpointName = cameraStateName;
     Py_RETURN_NONE;
@@ -260,7 +310,7 @@ static PyObject* py_set_camera_checkpoint(PyObject* self, PyObject* args) {
 static PyObject* py_set_use_camera_flight(PyObject* self, PyObject* args) {
     int useCameraFlight = false;
     if (!PyArg_ParseTuple(args, "p", &useCameraFlight)) {
-        return NULL;
+        return nullptr;
     }
 
     useCameraFlightGlobal = useCameraFlight;
@@ -270,14 +320,18 @@ static PyObject* py_set_use_camera_flight(PyObject* self, PyObject* args) {
 static PyMethodDef REPLAY_METHODS[] = {
         {"set_duration", py_set_duration, METH_VARARGS,
                 "Sets the duration of the state. Needs to be called as the first function in each state!"},
-        {"set_mesh", py_set_mesh, METH_VARARGS,
-                "Sets the name of mesh to load. Expects paper name, mesh name, mesh file extension."},
+        {"set_dataset", py_set_dataset, METH_VARARGS,
+                "Sets the name of data set to load."},
         {"set_transfer_function", py_set_transfer_function, METH_VARARGS,
                 "Sets the name of transfer function to load."},
+        {"set_transfer_functions", py_set_transfer_functions, METH_VARARGS,
+                "Sets the list of names of transfer functions to load (for multi-var or stress line data)."},
         {"set_renderer", py_set_renderer, METH_VARARGS,
                 "Sets the name of the renderer to use."},
         {"set_rendering_algorithm_settings", py_set_rendering_algorithm_settings, METH_VARARGS,
                 "Sets a dict of rendering algorithm settings."},
+        {"set_dataset_settings", py_set_dataset_settings, METH_VARARGS,
+                "Sets a dict of dataset settings."},
         {"set_camera_position", py_set_camera_position, METH_VARARGS,
                 "Sets the camera world position."},
         {"set_camera_yaw_pitch_rad", py_set_camera_yaw_pitch_rad, METH_VARARGS,
@@ -385,8 +439,11 @@ bool ReplayWidget::runScript(const std::string& filename) {
     cameraOrientationLast =
             glm::angleAxis(-sceneData.camera->getPitch(), glm::vec3(1, 0, 0))
             * glm::angleAxis(sceneData.camera->getYaw() + sgl::PI / 2.0f, glm::vec3(0, 1, 0));
+    cameraFovyLast = sceneData.camera->getFOVy();
     currentRendererSettings = std::map<std::string, std::string>();
-    replaySettingsLast = ReplaySettingsMap();
+    currentDatasetSettings = std::map<std::string, std::string>();
+    replaySettingsRendererLast = ReplaySettingsMap();
+    replaySettingsDatasetLast = ReplaySettingsMap();
 
     Py_DECREF(replayFunc);
     Py_DECREF(module);
@@ -410,6 +467,7 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
     }
 
     currentRendererSettings.clear();
+    currentDatasetSettings.clear();
     do {
         ReplayState& replayState = replayStates.at(currentStateIndex);
 
@@ -425,17 +483,22 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
                 transferFunctionWindow.loadFunctionFromFile(
                         transferFunctionWindow.getSaveDirectory() + replayState.transferFunctionName);
             }
+            if (!replayState.multiVarTransferFunctionNames.empty()) {
+                loadMultiVarTransferFunctions(replayState.multiVarTransferFunctionNames);
+            }
             if (!replayState.cameraCheckpointName.empty()) {
                 sgl::Checkpoint checkpoint;
                 checkpointWindow.getCheckpoint(replayState.cameraCheckpointName, checkpoint);
-                replayState.cameraPositionSet = replayState.cameraOrientationSet = true;
+                replayState.cameraPositionSet = replayState.cameraOrientationSet = replayState.cameraFovySet = true;
                 replayState.cameraPosition = checkpoint.position;
                 replayState.cameraOrientation =
                         glm::angleAxis(-checkpoint.pitch, glm::vec3(1, 0, 0))
                         * glm::angleAxis(checkpoint.yaw + sgl::PI / 2.0f, glm::vec3(0, 1, 0));
+                replayState.cameraFovy = checkpoint.fovy;
             }
 
             replayState.rendererSettings.setStaticSettings(currentRendererSettings);
+            replayState.datasetSettings.setStaticSettings(currentDatasetSettings);
 
             firstTimeState = false;
         }
@@ -452,12 +515,18 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
                 if (replayState.cameraOrientationSet) {
                     cameraOrientationLast = replayState.cameraOrientation;
                 }
+                if (replayState.cameraFovySet) {
+                    cameraFovyLast = replayState.cameraFovy;
+                }
 
                 currentCameraMatrix =
                         glm::toMat4(cameraOrientationLast) * sgl::matrixTranslation(-cameraPositionLast);
+                currentFovy = cameraFovyLast;
                 replayState.rendererSettings.setDynamicSettings(currentRendererSettings);
+                replayState.datasetSettings.setDynamicSettings(currentDatasetSettings);
 
-                replaySettingsLast.updateReplaySettings(replayState.rendererSettings);
+                replaySettingsRendererLast.updateReplaySettings(replayState.rendererSettings);
+                replaySettingsDatasetLast.updateReplaySettings(replayState.datasetSettings);
                 firstTimeState = true;
                 continue;
             }
@@ -468,15 +537,22 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
             float t = (currentTime - replayState.startTime) / (replayState.stopTime - replayState.startTime);
             glm::vec3 position = cameraPositionLast;
             glm::quat orientation = cameraOrientationLast;
+            float fovy = cameraFovyLast;
             if (replayState.cameraPositionSet) {
                 position = glm::mix(cameraPositionLast, replayState.cameraPosition, t);
             }
             if (replayState.cameraOrientationSet) {
                 orientation = glm::slerp(cameraOrientationLast, replayState.cameraOrientation, t);
             }
+            if (replayState.cameraFovySet) {
+                fovy = glm::mix(cameraFovyLast, replayState.cameraFovy, t);
+            }
             currentCameraMatrix = glm::toMat4(orientation) * sgl::matrixTranslation(-position);
-            replaySettingsLast.setInterpolatedDynamicSettings(
+            currentFovy = fovy;
+            replaySettingsRendererLast.setInterpolatedDynamicSettings(
                     replayState.rendererSettings, currentRendererSettings, t);
+            replaySettingsDatasetLast.setInterpolatedDynamicSettings(
+                    replayState.datasetSettings, currentDatasetSettings, t);
         }
     } while (currentStateIndex < int(replayStates.size()) && currentTime >= replayStates.at(currentStateIndex).stopTime);
 
@@ -489,6 +565,11 @@ void ReplayWidget::setLoadMeshCallback(std::function<void(const std::string& dat
 
 void ReplayWidget::setLoadRendererCallback(std::function<void(const std::string& rendererName)> loadRendererCallback) {
     this->loadRendererCallback = loadRendererCallback;
+}
+
+void ReplayWidget::setLoadMultiVarTransferFunctionsCallback(
+        std::function<void(const std::vector<std::string>& tfNames)> loadMultiVarTransferFunctions) {
+    this->loadMultiVarTransferFunctions = loadMultiVarTransferFunctions;
 }
 
 void ReplayWidget::updateAvailableReplayScripts() {
