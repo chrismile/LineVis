@@ -92,6 +92,18 @@ void createLineTubesRenderDataCPU(
         std::vector<glm::vec3>& vertexTangents,
         std::vector<T>& vertexAttributes);
 
+template<typename T>
+void createLineTubesRenderDataCPU(
+        const std::vector<std::vector<glm::vec3>>& lineCentersList,
+        const std::vector<std::vector<T>>& lineAttributesList,
+        std::vector<uint32_t>& lineIndices,
+        std::vector<glm::vec3>& vertexPositions,
+        std::vector<glm::vec3>& vertexNormals,
+        std::vector<glm::vec3>& vertexTangents,
+        std::vector<T>& vertexAttributes,
+        std::vector<uint32_t>& validLineIndices,
+        std::vector<uint32_t>& numValidLineVertices);
+
 
 /**
  * Globally accessible circle data. Can be shared
@@ -168,5 +180,29 @@ void createLineTubesRenderDataCPU<std::vector<float>>(
         std::vector<glm::vec3>& vertexNormals,
         std::vector<glm::vec3>& vertexTangents,
         std::vector<std::vector<float>>& vertexAttributes);
+
+extern template
+void createLineTubesRenderDataCPU<float>(
+        const std::vector<std::vector<glm::vec3>>& lineCentersList,
+        const std::vector<std::vector<float>>& lineAttributesList,
+        std::vector<uint32_t>& lineIndices,
+        std::vector<glm::vec3>& vertexPositions,
+        std::vector<glm::vec3>& vertexNormals,
+        std::vector<glm::vec3>& vertexTangents,
+        std::vector<float>& vertexAttributes,
+        std::vector<uint32_t>& validLineIndices,
+        std::vector<uint32_t>& numValidLineVertices);
+
+extern template
+void createLineTubesRenderDataCPU<std::vector<float>>(
+        const std::vector<std::vector<glm::vec3>>& lineCentersList,
+        const std::vector<std::vector<std::vector<float>>>& lineAttributesList,
+        std::vector<uint32_t>& lineIndices,
+        std::vector<glm::vec3>& vertexPositions,
+        std::vector<glm::vec3>& vertexNormals,
+        std::vector<glm::vec3>& vertexTangents,
+        std::vector<std::vector<float>>& vertexAttributes,
+        std::vector<uint32_t>& validLineIndices,
+        std::vector<uint32_t>& numValidLineVertices);
 
 #endif //HEXVOLUMERENDERER_TUBES_HPP

@@ -126,3 +126,111 @@ void createLineTubesRenderDataCPU<std::vector<float>>(
         std::vector<glm::vec3>& vertexNormals,
         std::vector<glm::vec3>& vertexTangents,
         std::vector<std::vector<float>>& vertexAttributes);
+
+
+template<typename T>
+void createLineTubesRenderDataCPU(
+        const std::vector<std::vector<glm::vec3>>& lineCentersList,
+        const std::vector<std::vector<T>>& lineAttributesList,
+        std::vector<uint32_t>& lineIndices,
+        std::vector<glm::vec3>& vertexPositions,
+        std::vector<glm::vec3>& vertexNormals,
+        std::vector<glm::vec3>& vertexTangents,
+        std::vector<T>& vertexAttributes,
+        std::vector<uint32_t>& validLineIndices,
+        std::vector<uint32_t>& numValidLineVertices) {
+    assert(lineCentersList.size() == lineAttributesList.size());
+    for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
+        const std::vector<glm::vec3> &lineCenters = lineCentersList.at(lineId);
+        const std::vector<T> &lineAttributes = lineAttributesList.at(lineId);
+        assert(lineCenters.size() == lineAttributes.size());
+        size_t n = lineCenters.size();
+        size_t indexOffset = vertexPositions.size();
+
+        if (n < 2) {
+            //sgl::Logfile::get()->writeError(
+            //        "ERROR in createLineTubesRenderDataCPU: Line must consist of at least two points.");
+            continue;
+        }
+
+        glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
+        int numValidLinePoints = 0;
+        for (size_t i = 0; i < n; i++) {
+            glm::vec3 tangent, normal;
+            if (i == 0) {
+                tangent = lineCenters[i+1] - lineCenters[i];
+            } else if (i == n - 1) {
+                tangent = lineCenters[i] - lineCenters[i-1];
+            } else {
+                tangent = (lineCenters[i+1] - lineCenters[i-1]);
+            }
+            float lineSegmentLength = glm::length(tangent);
+
+            if (lineSegmentLength < 0.0001f) {
+                // In case the two vertices are almost identical, just skip this path line segment
+                continue;
+            }
+            tangent = glm::normalize(tangent);
+
+            glm::vec3 helperAxis = lastLineNormal;
+            if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
+                // If tangent == lastNormal
+                helperAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+                if (glm::length(glm::cross(helperAxis, normal)) < 0.01f) {
+                    // If tangent == helperAxis
+                    helperAxis = glm::vec3(0.0f, 0.0f, 1.0f);
+                }
+            }
+            normal = glm::normalize(helperAxis - tangent * glm::dot(helperAxis, tangent)); // Gram-Schmidt
+            lastLineNormal = normal;
+
+            vertexPositions.push_back(lineCenters.at(i));
+            vertexNormals.push_back(normal);
+            vertexTangents.push_back(tangent);
+            vertexAttributes.push_back(lineAttributes.at(i));
+            numValidLinePoints++;
+        }
+
+        if (numValidLinePoints == 1) {
+            // Only one vertex left -> Output nothing (tube consisting only of one point).
+            vertexPositions.pop_back();
+            vertexNormals.pop_back();
+            vertexTangents.pop_back();
+            vertexAttributes.pop_back();
+            continue;
+        } else if (numValidLinePoints > 1) {
+            validLineIndices.push_back(lineId);
+            numValidLineVertices.push_back(numValidLinePoints);
+        }
+
+        // Create indices
+        for (int i = 0; i < numValidLinePoints-1; i++) {
+            lineIndices.push_back(indexOffset + i);
+            lineIndices.push_back(indexOffset + i + 1);
+        }
+    }
+}
+
+template
+void createLineTubesRenderDataCPU<float>(
+        const std::vector<std::vector<glm::vec3>>& lineCentersList,
+        const std::vector<std::vector<float>>& lineAttributesList,
+        std::vector<uint32_t>& lineIndices,
+        std::vector<glm::vec3>& vertexPositions,
+        std::vector<glm::vec3>& vertexNormals,
+        std::vector<glm::vec3>& vertexTangents,
+        std::vector<float>& vertexAttributes,
+        std::vector<uint32_t>& validLineIndices,
+        std::vector<uint32_t>& numValidLineVertices);
+
+template
+void createLineTubesRenderDataCPU<std::vector<float>>(
+        const std::vector<std::vector<glm::vec3>>& lineCentersList,
+        const std::vector<std::vector<std::vector<float>>>& lineAttributesList,
+        std::vector<uint32_t>& lineIndices,
+        std::vector<glm::vec3>& vertexPositions,
+        std::vector<glm::vec3>& vertexNormals,
+        std::vector<glm::vec3>& vertexTangents,
+        std::vector<std::vector<float>>& vertexAttributes,
+        std::vector<uint32_t>& validLineIndices,
+        std::vector<uint32_t>& numValidLineVertices);

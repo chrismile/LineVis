@@ -57,7 +57,10 @@ const char* const lineHierarchyTypeNames[] = { "geo-based", "PS-based", "vM-base
 
 LineDataStress::LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_STRESS_LINES),
-          multiVarTransferFunctionWindow("stress", { "reds.xml", "greens.xml", "blues.xml" }) {
+          //multiVarTransferFunctionWindow("stress", { "reds.xml", "greens.xml", "blues.xml" }) {
+          multiVarTransferFunctionWindow(
+                  "stress",
+                  { "qualitative-pale-lilic.xml", "qualitative-emerald.xml", "qualitative-ocher.xml" }) {
     colorLegendWidgets.resize(3);
     for (int psIdx = 0; psIdx < 3; psIdx++) {
         colorLegendWidgets[psIdx].setPositionIndex(psIdx, 3);
@@ -933,11 +936,6 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                 for (size_t i = 0; i < trajectory.positions.size(); i++) {
                     lineCenters.push_back(trajectory.positions.at(i));
                     lineAttributes.push_back(attributes.at(i));
-                    if (hasLineHierarchy) {
-                        vertexLineHierarchyLevels.push_back(
-                                stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
-                    }
-                    vertexLineAppearanceOrders.push_back(stressTrajectoryData.appearanceOrder);
                     bandRightVectors.push_back(bandPointsRight.at(i));
                 }
             }
@@ -948,6 +946,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                 const std::vector<glm::vec3> &lineCenters = lineCentersList.at(lineId);
                 const std::vector<float> &lineAttributes = lineAttributesList.at(lineId);
                 const std::vector<glm::vec3> &bandRightVectors = bandRightVectorList.at(lineId);
+                StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(lineId);
                 assert(lineCenters.size() == lineAttributes.size());
                 size_t n = lineCenters.size();
                 size_t indexOffset = vertexPositions.size();
@@ -981,6 +980,11 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                     vertexNormals.push_back(normal);
                     vertexTangents.push_back(tangent);
                     vertexAttributes.push_back(lineAttributes.at(i));
+                    if (hasLineHierarchy) {
+                        vertexLineHierarchyLevels.push_back(
+                                stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
+                    }
+                    vertexLineAppearanceOrders.push_back(stressTrajectoryData.appearanceOrder);
                     numValidLinePoints++;
                 }
 
@@ -990,6 +994,8 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                     vertexNormals.pop_back();
                     vertexTangents.pop_back();
                     vertexAttributes.pop_back();
+                    vertexLineHierarchyLevels.pop_back();
+                    vertexLineAppearanceOrders.pop_back();
                     continue;
                 }
 
@@ -1023,18 +1029,30 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                 for (size_t i = 0; i < trajectory.positions.size(); i++) {
                     lineCenters.push_back(trajectory.positions.at(i));
                     lineAttributes.push_back(attributes.at(i));
-                    if (hasLineHierarchy) {
-                        vertexLineHierarchyLevels.push_back(
-                                stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
-                    }
-                    vertexLineAppearanceOrders.push_back(stressTrajectoryData.appearanceOrder);
                 }
             }
 
             size_t numVerticesOld = vertexPositions.size();
+            std::vector<uint32_t> validLineIndices;
+            std::vector<uint32_t> numValidLineVertices;
             createLineTubesRenderDataCPU(
                     lineCentersList, lineAttributesList,
-                    lineIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes);
+                    lineIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes,
+                    validLineIndices, numValidLineVertices);
+            for (size_t idx = 0; idx < validLineIndices.size(); idx++) {
+                uint32_t trajectoryIdx = validLineIndices.at(idx);
+                uint32_t numValidPoints = numValidLineVertices.at(idx);
+                StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
+                if (hasLineHierarchy) {
+                    for (uint32_t counter = 0; counter < numValidPoints; counter++) {
+                        vertexLineHierarchyLevels.push_back(
+                                stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
+                    }
+                }
+                for (uint32_t counter = 0; counter < numValidPoints; counter++) {
+                    vertexLineAppearanceOrders.push_back(stressTrajectoryData.appearanceOrder);
+                }
+            }
             size_t numVerticesAdded = vertexPositions.size() - numVerticesOld;
             for (size_t i = 0; i < numVerticesAdded; i++) {
                 vertexPrincipalStressIndices.push_back(psIdx);
@@ -1145,17 +1163,28 @@ TubeRenderDataProgrammableFetch LineDataStress::getTubeRenderDataProgrammableFet
             for (size_t i = 0; i < trajectory.positions.size(); i++) {
                 lineCenters.push_back(trajectory.positions.at(i));
                 lineAttributes.push_back(attributes.at(i));
-                if (hasLineHierarchy) {
+            }
+        }
+
+
+        size_t numVerticesOld = vertexPositions.size();
+        std::vector<uint32_t> validLineIndices;
+        std::vector<uint32_t> numValidLineVertices;
+        createLineTubesRenderDataCPU(
+                lineCentersList, lineAttributesList,
+                lineIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes,
+                validLineIndices, numValidLineVertices);
+        for (size_t idx = 0; idx < validLineIndices.size(); idx++) {
+            uint32_t trajectoryIdx = validLineIndices.at(idx);
+            uint32_t numValidPoints = numValidLineVertices.at(idx);
+            StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
+            if (hasLineHierarchy) {
+                for (uint32_t counter = 0; counter < numValidPoints; counter++) {
                     vertexLineHierarchyLevels.push_back(
                             stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
                 }
             }
         }
-
-        size_t numVerticesOld = vertexPositions.size();
-        createLineTubesRenderDataCPU(
-                lineCentersList, lineAttributesList,
-                lineIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes);
         size_t numVerticesAdded = vertexPositions.size() - numVerticesOld;
         for (size_t i = 0; i < numVerticesAdded; i++) {
             vertexPrincipalStressIndices.push_back(psIdx);
@@ -1246,17 +1275,27 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
             for (size_t i = 0; i < trajectory.positions.size(); i++) {
                 lineCenters.push_back(trajectory.positions.at(i));
                 lineAttributes.push_back(attributes.at(i));
-                if (hasLineHierarchy) {
+            }
+        }
+
+        size_t numVerticesOld = vertexPositions.size();
+        std::vector<uint32_t> validLineIndices;
+        std::vector<uint32_t> numValidLineVertices;
+        createLineTubesRenderDataCPU(
+                lineCentersList, lineAttributesList,
+                lineIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes,
+                validLineIndices, numValidLineVertices);
+        for (size_t idx = 0; idx < validLineIndices.size(); idx++) {
+            uint32_t trajectoryIdx = validLineIndices.at(idx);
+            uint32_t numValidPoints = numValidLineVertices.at(idx);
+            StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
+            if (hasLineHierarchy) {
+                for (uint32_t counter = 0; counter < numValidPoints; counter++) {
                     vertexLineHierarchyLevels.push_back(
                             stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
                 }
             }
         }
-
-        size_t numVerticesOld = vertexPositions.size();
-        createLineTubesRenderDataCPU(
-                lineCentersList, lineAttributesList,
-                lineIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes);
         size_t numVerticesAdded = vertexPositions.size() - numVerticesOld;
         for (size_t i = 0; i < numVerticesAdded; i++) {
             vertexPrincipalStressIndices.push_back(psIdx);
@@ -1360,6 +1399,7 @@ BandRenderData LineDataStress::getBandRenderData() {
 
                 size_t indexStart = vertexPositions.size();
                 int n = int(trajectory.positions.size());
+                int numValidLinePoints = 0;
                 for (size_t i = 0; i < trajectory.positions.size(); i++) {
                     vertexPositions.push_back(trajectory.positions.at(i));
                     vertexOffsetsLeft.push_back(bandPointsLeft.at(i));
@@ -1387,9 +1427,21 @@ BandRenderData LineDataStress::getBandRenderData() {
                                 stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
                     }
                     vertexLineAppearanceOrders.push_back(stressTrajectoryData.appearanceOrder);
+                    numValidLinePoints++;
                 }
 
-                for (size_t i = 0; i < trajectory.positions.size() - 1; i++) {
+                if (numValidLinePoints == 1) {
+                    // Only one vertex left -> Output nothing (tube consisting only of one point).
+                    vertexPositions.pop_back();
+                    vertexNormals.pop_back();
+                    vertexTangents.pop_back();
+                    vertexAttributes.pop_back();
+                    vertexLineHierarchyLevels.pop_back();
+                    vertexLineAppearanceOrders.pop_back();
+                    continue;
+                }
+
+                for (int i = 0; i < numValidLinePoints-1; i++) {
                     lineIndices.push_back(indexStart + i);
                     lineIndices.push_back(indexStart + i + 1);
                 }
@@ -1416,18 +1468,30 @@ BandRenderData LineDataStress::getBandRenderData() {
                 for (size_t i = 0; i < trajectory.positions.size(); i++) {
                     lineCenters.push_back(trajectory.positions.at(i));
                     lineAttributes.push_back(attributes.at(i));
-                    if (hasLineHierarchy) {
-                        vertexLineHierarchyLevels.push_back(
-                                stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
-                    }
-                    vertexLineAppearanceOrders.push_back(stressTrajectoryData.appearanceOrder);
                 }
             }
 
             size_t numVerticesOld = vertexPositions.size();
+            std::vector<uint32_t> validLineIndices;
+            std::vector<uint32_t> numValidLineVertices;
             createLineTubesRenderDataCPU(
                     lineCentersList, lineAttributesList,
-                    lineIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes);
+                    lineIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes,
+                    validLineIndices, numValidLineVertices);
+            for (size_t idx = 0; idx < validLineIndices.size(); idx++) {
+                uint32_t trajectoryIdx = validLineIndices.at(idx);
+                uint32_t numValidPoints = numValidLineVertices.at(idx);
+                StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
+                if (hasLineHierarchy) {
+                    for (uint32_t counter = 0; counter < numValidPoints; counter++) {
+                        vertexLineHierarchyLevels.push_back(
+                                stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
+                    }
+                }
+                for (uint32_t counter = 0; counter < numValidPoints; counter++) {
+                    vertexLineAppearanceOrders.push_back(stressTrajectoryData.appearanceOrder);
+                }
+            }
             size_t numVerticesAdded = vertexPositions.size() - numVerticesOld;
             for (size_t i = 0; i < numVerticesAdded; i++) {
                 vertexPrincipalStressIndices.push_back(psIdx);

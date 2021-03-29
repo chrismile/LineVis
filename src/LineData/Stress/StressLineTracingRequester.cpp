@@ -92,7 +92,7 @@ void StressLineTracingRequester::renderGui() {
         changed |= ImGui::Checkbox("##customlinedensity", &useCustomLineDensity);ImGui::SameLine();
         changed |= ImGui::SliderFloatActive("Line Density", &lineDensCtrl, 1, 50, useCustomLineDensity);
         changed |= ImGui::Checkbox("##customseeddensity", &useCustomSeedDensity);ImGui::SameLine();
-        changed |= ImGui::SliderFloatActive("Seed Density", &seedDensCtrl, 1, 5, useCustomSeedDensity);
+        changed |= ImGui::SliderFloatActive("Seed Density", &seedDensCtrl, 1, 30, useCustomSeedDensity);
         changed |= ImGui::Checkbox("##customnumlevels", &useCustomNumLevels);ImGui::SameLine();
         changed |= ImGui::SliderIntActive("#Levels", &numLevels, 1, 5, useCustomNumLevels);
         changed |= ImGui::Checkbox("Major##tracepsmajor", &traceMajorPS); ImGui::SameLine();

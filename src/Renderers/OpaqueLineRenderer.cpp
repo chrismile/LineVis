@@ -204,13 +204,13 @@ void OpaqueLineRenderer::render() {
                 GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, sceneData.clearColor);
     }
 
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
+    //if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
         glDisable(GL_CULL_FACE);
-    }
+    //}
     sgl::Renderer->render(shaderAttributes);
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
+    //if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
         glEnable(GL_CULL_FACE);
-    }
+    //}
     if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
         LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
         if (lineDataStress->getShallRenderSeedProcess()) {
