@@ -12,39 +12,35 @@ def init_scene():
     g.set_dataset_settings({
         'attribute': "Principal Stress",
         'major_on': True,
-        'medium_on': True,
+        'medium_on': False,
         'minor_on': True,
-        'major_lod': 1.0,
-        'medium_lod': 1.0,
-        'minor_lod': 1.0,
-        'major_use_bands': False,
-        'medium_use_bands': False,
+        'major_lod': 0.3,
+        'minor_lod': 0.5,
+        'major_use_bands': True,
         'minor_use_bands': False,
         'thick_bands': True,
         'smoothed_bands': True,
         'use_principal_stress_direction_index': True,
     })
     g.set_transfer_functions(['qualitative-pale-lilac.xml', 'qualitative-emerald.xml', 'qualitative-ocher.xml'])
-    g.set_duration(8)
-
-def change_lod():
     g.set_duration(6)
-    g.set_dataset_settings({
-        'major_lod': 0.3,
-        'medium_lod': 0.3,
-        'minor_lod': 0.6
-    })
-    g.set_duration(10)
 
-def bands():
+def use_principal_stress():
+    g.set_duration(0)
+    g.set_transfer_functions(['blues.xml', 'greens.xml', 'reds.xml'])
+    g.set_transfer_functions_ranges([(-0.071, 0.551), (-0.213, 0.157), (-0.665, 0.096)])
+    g.set_duration(6)
+
+def use_von_mises_stress():
     g.set_duration(0)
     g.set_dataset_settings({
-        'medium_on': False,
-        'major_use_bands': True,
+        'attribute': "von Mises Stress",
+        'use_principal_stress_direction_index': False
     })
-    g.set_duration(10)
+    g.set_transfer_function_range((0.031, 1.124))
+    g.set_duration(6)
 
 def replay():
     init_scene()
-    change_lod()
-    bands()
+    use_principal_stress()
+    use_von_mises_stress()

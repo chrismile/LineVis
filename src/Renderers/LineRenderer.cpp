@@ -173,6 +173,7 @@ bool LineRenderer::setNewSettings(const SettingsMap& settings) {
     bool shallReloadGatherShader = false;
 
     settings.getValueOpt("line_width", lineWidth);
+    settings.getValueOpt("band_width", bandWidth);
 
     if (settings.getValueOpt("depth_cue_strength", depthCueStrength)) {
         if (depthCueStrength <= 0.0f && useDepthCues) {

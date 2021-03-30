@@ -80,6 +80,7 @@ private:
 
     /// Scene data used in user interface.
     RenderingMode renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+    RenderingMode oldRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
 
     // Data set GUI information.
     void loadAvailableDataSetInformation();
@@ -104,7 +105,10 @@ private:
 
 #ifdef USE_PYTHON
     ReplayWidget replayWidget;
+    bool replayWidgetRunning = false;
     bool realTimeReplayUpdates = false;
+    bool updateTransferFunctionRange = false;
+    glm::vec2 transferFunctionRange;
 #endif
 
 

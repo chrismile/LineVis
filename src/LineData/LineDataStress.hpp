@@ -151,6 +151,7 @@ public:
 private:
     virtual void recomputeHistogram() override;
     virtual void recomputeColorLegend() override;
+    void recomputeColorLegendPositions();
 
     // Should we show major, medium and/or minor principal stress lines?
     static bool useMajorPS, useMediumPS, useMinorPS;

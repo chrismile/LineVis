@@ -172,8 +172,16 @@ struct ReplayState {
     // Mesh name (optional).
     std::string datasetName;
     std::string rendererName;
+
+    // Transfer function data.
     std::string transferFunctionName;
+    bool transferFunctionRangeSet = false;
+    glm::vec2 transferFunctionRange;
+
+    // Transfer function data (stress or multi-var data).
     std::vector<std::string> multiVarTransferFunctionNames;
+    bool multiVarTransferFunctionRangesSet = false;
+    std::vector<glm::vec2> multiVarTransferFunctionRanges;
 
     // The camera state to load (optional).
     bool cameraPositionSet = false;
@@ -216,9 +224,14 @@ public:
     /// Callback functions when, e.g., a new renderer is requested.
     void setLoadMeshCallback(std::function<void(const std::string& datasetName)> loadMeshCallback);
     void setLoadRendererCallback(std::function<void(const std::string& rendererName)> loadRendererCallback);
+    void setLoadTransferFunctionCallback(
+            std::function<void(const std::string& tfName)> loadTransferFunctionCallback);
+    void setTransferFunctionRangeCallback(
+            std::function<void(const glm::vec2& tfRange)> transferFunctionRangeCallback);
     void setLoadMultiVarTransferFunctionsCallback(
-            std::function<void(const std::vector<std::string>& tfNames)> loadMultiVarTransferFunctions);
-
+            std::function<void(const std::vector<std::string>& tfNames)> loadMultiVarTransferFunctionsCallback);
+    void setMultiVarTransferFunctionsRangesCallback(
+            std::function<void(const std::vector<glm::vec2>& tfRanges)> multiVarTransferFunctionsRangesCallback);
 
 private:
     // Global data.
@@ -233,7 +246,10 @@ private:
     void updateAvailableReplayScripts();
     std::function<void(const std::string& datasetName)> loadMeshCallback;
     std::function<void(const std::string& rendererName)> loadRendererCallback;
-    std::function<void(const std::vector<std::string>& tfNames)> loadMultiVarTransferFunctions;
+    std::function<void(const std::string& tfName)> loadTransferFunctionCallback;
+    std::function<void(const glm::vec2& tfRange)> transferFunctionRangeCallback;
+    std::function<void(const std::vector<std::string>& tfNames)> loadMultiVarTransferFunctionsCallback;
+    std::function<void(const std::vector<glm::vec2>& tfRanges)> multiVarTransferFunctionsRangesCallback;
 
     // Script data.
     bool runScript(const std::string& filename);

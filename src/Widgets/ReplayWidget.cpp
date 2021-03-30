@@ -89,6 +89,32 @@ static PyObject* py_set_transfer_function(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+static PyObject* py_set_transfer_function_range(PyObject* self, PyObject* args) {
+    glm::vec2 range = glm::vec2(0.0f);
+    Py_ssize_t tupleSize = PyTuple_Size(args);
+    if (tupleSize == 1) {
+        PyObject* positionTuple = nullptr;
+        if (!PyArg_ParseTuple(args, "O", &positionTuple)) {
+            return nullptr;
+        }
+        if (!PyArg_ParseTuple(positionTuple, "ff", &range.x, &range.y)) {
+            return nullptr;
+        }
+    } else if (tupleSize == 2) {
+        if (!PyArg_ParseTuple(args, "ff", &range.x, &range.y)) {
+            return nullptr;
+        }
+    } else {
+        sgl::Logfile::get()->writeError(
+                "ERROR in py_set_transfer_function_range: Tuple must contain two float values or one tuple.");
+        return nullptr;
+    }
+
+    currentReplayStateGlobal.transferFunctionRangeSet = true;
+    currentReplayStateGlobal.transferFunctionRange = range;
+    Py_RETURN_NONE;
+}
+
 static PyObject* py_set_transfer_functions(PyObject* self, PyObject* args) {
     PyObject* listObj = nullptr;
     if (!PyArg_ParseTuple(args, "O", &listObj)) {
@@ -96,13 +122,13 @@ static PyObject* py_set_transfer_functions(PyObject* self, PyObject* args) {
     }
 
     if (!PyList_Check(listObj)) {
-        sgl::Logfile::get()->writeInfo("INFO in py_set_renderer: Type check of list failed.");
+        sgl::Logfile::get()->writeInfo("INFO in py_set_transfer_functions: Type check of list failed.");
         return nullptr;
     }
 
     PyObject* iter = PyObject_GetIter(listObj);
     if (!iter) {
-        sgl::Logfile::get()->writeInfo("INFO in py_set_renderer: !iter");
+        sgl::Logfile::get()->writeInfo("INFO in py_set_transfer_functions: !iter");
         return nullptr;
     }
 
@@ -114,13 +140,64 @@ static PyObject* py_set_transfer_functions(PyObject* self, PyObject* args) {
         }
 
         if (!PyUnicode_CheckExact(next) && !PyByteArray_CheckExact(next)) {
-            sgl::Logfile::get()->writeInfo("INFO in py_set_renderer: Type check of list element failed.");
+            sgl::Logfile::get()->writeInfo("INFO in py_set_transfer_functions: Type check of list element failed.");
             return nullptr;
         }
         Py_ssize_t stringSize = 0;
         std::string valueString = PyUnicode_AsUTF8AndSize(next, &stringSize);
         currentReplayStateGlobal.multiVarTransferFunctionNames.push_back(valueString);
     }
+
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_set_transfer_functions_ranges(PyObject* self, PyObject* args) {
+    PyObject* listObj = nullptr;
+    if (!PyArg_ParseTuple(args, "O", &listObj)) {
+        return nullptr;
+    }
+
+    if (!PyList_Check(listObj)) {
+        sgl::Logfile::get()->writeInfo("INFO in py_set_transfer_functions_ranges: Type check of list failed.");
+        return nullptr;
+    }
+
+    PyObject* iter = PyObject_GetIter(listObj);
+    if (!iter) {
+        sgl::Logfile::get()->writeInfo("INFO in py_set_transfer_functions_ranges: !iter");
+        return nullptr;
+    }
+
+    currentReplayStateGlobal.multiVarTransferFunctionRanges.clear();
+    while (true) {
+        PyObject* next = PyIter_Next(iter);
+        if (!next) {
+            break;
+        }
+
+        glm::vec2 range = glm::vec2(0.0f);
+        Py_ssize_t tupleSize = PyTuple_Size(next);
+        if (tupleSize == 1) {
+            PyObject* positionTuple = nullptr;
+            if (!PyArg_ParseTuple(next, "O", &positionTuple)) {
+                return nullptr;
+            }
+            if (!PyArg_ParseTuple(positionTuple, "ff", &range.x, &range.y)) {
+                return nullptr;
+            }
+        } else if (tupleSize == 2) {
+            if (!PyArg_ParseTuple(next, "ff", &range.x, &range.y)) {
+                return nullptr;
+            }
+        } else {
+            sgl::Logfile::get()->writeError(
+                    "ERROR in py_set_transfer_functions_ranges: Tuple must contain two float values or one tuple.");
+            return nullptr;
+        }
+
+        currentReplayStateGlobal.multiVarTransferFunctionRanges.push_back(range);
+    }
+    currentReplayStateGlobal.multiVarTransferFunctionRangesSet = true;
 
     Py_RETURN_NONE;
 }
@@ -261,7 +338,7 @@ static PyObject* py_set_camera_position(PyObject* self, PyObject* args) {
     } else {
         sgl::Logfile::get()->writeError(
                 "ERROR in py_set_camera_position: Tuple must contain three float values or one tuple.");
-        return NULL;
+        return nullptr;
     }
 
     currentReplayStateGlobal.cameraPositionSet = true;
@@ -324,8 +401,12 @@ static PyMethodDef REPLAY_METHODS[] = {
                 "Sets the name of data set to load."},
         {"set_transfer_function", py_set_transfer_function, METH_VARARGS,
                 "Sets the name of transfer function to load."},
+        {"set_transfer_function_range", py_set_transfer_function_range, METH_VARARGS,
+                "Sets the selected data range of the transfer function widget."},
         {"set_transfer_functions", py_set_transfer_functions, METH_VARARGS,
                 "Sets the list of names of transfer functions to load (for multi-var or stress line data)."},
+        {"set_transfer_functions_ranges", py_set_transfer_functions_ranges, METH_VARARGS,
+                "Sets the selected data ranges of the transfer functions (for multi-var or stress line data)."},
         {"set_renderer", py_set_renderer, METH_VARARGS,
                 "Sets the name of the renderer to use."},
         {"set_rendering_algorithm_settings", py_set_rendering_algorithm_settings, METH_VARARGS,
@@ -340,7 +421,7 @@ static PyMethodDef REPLAY_METHODS[] = {
                 "Sets the camera checkpoint corresponding to the passed string."},
         {"set_use_camera_flight", py_set_use_camera_flight, METH_VARARGS,
                 "Whether to use the pre-defined camera flight for camera positions and orientations."},
-        {NULL, NULL, 0, NULL}
+        {nullptr, nullptr, 0, nullptr}
 };
 
 static PyModuleDef EmbModule = {
@@ -480,11 +561,16 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
                 loadRendererCallback(replayState.rendererName);
             }
             if (!replayState.transferFunctionName.empty()) {
-                transferFunctionWindow.loadFunctionFromFile(
-                        transferFunctionWindow.getSaveDirectory() + replayState.transferFunctionName);
+                loadTransferFunctionCallback(replayState.transferFunctionName);
+            }
+            if (replayState.transferFunctionRangeSet) {
+                transferFunctionRangeCallback(replayState.transferFunctionRange);
             }
             if (!replayState.multiVarTransferFunctionNames.empty()) {
-                loadMultiVarTransferFunctions(replayState.multiVarTransferFunctionNames);
+                loadMultiVarTransferFunctionsCallback(replayState.multiVarTransferFunctionNames);
+            }
+            if (replayState.multiVarTransferFunctionRangesSet) {
+                multiVarTransferFunctionsRangesCallback(replayState.multiVarTransferFunctionRanges);
             }
             if (!replayState.cameraCheckpointName.empty()) {
                 sgl::Checkpoint checkpoint;
@@ -567,9 +653,24 @@ void ReplayWidget::setLoadRendererCallback(std::function<void(const std::string&
     this->loadRendererCallback = loadRendererCallback;
 }
 
+void ReplayWidget::setLoadTransferFunctionCallback(
+        std::function<void(const std::string& tfName)> loadTransferFunctionCallback) {
+    this->loadTransferFunctionCallback = loadTransferFunctionCallback;
+}
+
+void ReplayWidget::setTransferFunctionRangeCallback(
+        std::function<void(const glm::vec2& tfRange)> transferFunctionRangeCallback) {
+    this->transferFunctionRangeCallback = transferFunctionRangeCallback;
+}
+
 void ReplayWidget::setLoadMultiVarTransferFunctionsCallback(
-        std::function<void(const std::vector<std::string>& tfNames)> loadMultiVarTransferFunctions) {
-    this->loadMultiVarTransferFunctions = loadMultiVarTransferFunctions;
+        std::function<void(const std::vector<std::string>& tfNames)> loadMultiVarTransferFunctionsCallback) {
+    this->loadMultiVarTransferFunctionsCallback = loadMultiVarTransferFunctionsCallback;
+}
+
+void ReplayWidget::setMultiVarTransferFunctionsRangesCallback(
+        std::function<void(const std::vector<glm::vec2>& tfRanges)> multiVarTransferFunctionsRangesCallback) {
+    this->multiVarTransferFunctionsRangesCallback = multiVarTransferFunctionsRangesCallback;
 }
 
 void ReplayWidget::updateAvailableReplayScripts() {

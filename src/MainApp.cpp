@@ -91,6 +91,9 @@ MainApp::MainApp()
 #endif
           stressLineTracingRequester(new StressLineTracingRequester(zeromqContext)) {
 #ifdef USE_PYTHON
+    // TODO
+    sgl::ColorLegendWidget::setFontScaleStandard(1.0f);
+
     replayWidget.setLoadMeshCallback([this](const std::string& datasetName) {
         int i;
         int oldSelectedDataSetIndex = selectedDataSetIndex;
@@ -128,10 +131,30 @@ MainApp::MainApp()
             setRenderer();
         }
     });
+    replayWidget.setLoadTransferFunctionCallback([this](const std::string& tfName) {
+        if (lineData) {
+            transferFunctionWindow.loadFunctionFromFile(
+                    transferFunctionWindow.getSaveDirectory() + tfName);
+            lineData->onTransferFunctionMapRebuilt();
+            if (lineRenderer) {
+                lineRenderer->onTransferFunctionMapRebuilt();
+            }
+        }
+    });
+    replayWidget.setTransferFunctionRangeCallback([this](const glm::vec2& tfRange) {
+        if (lineData) {
+            transferFunctionWindow.setSelectedRange(tfRange);
+            updateTransferFunctionRange = true;
+            transferFunctionRange = tfRange;
+            lineData->onTransferFunctionMapRebuilt();
+            if (lineRenderer) {
+                lineRenderer->onTransferFunctionMapRebuilt();
+            }
+        }
+    });
     replayWidget.setLoadMultiVarTransferFunctionsCallback([this](
             const std::vector<std::string>& tfNames) {
         if (lineData) {
-            tfNames;
             MultiVarTransferFunctionWindow* multiVarTransferFunctionWindow;
             if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
                 LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
@@ -145,16 +168,52 @@ MainApp::MainApp()
                 return;
             }
             multiVarTransferFunctionWindow->loadFromTfNameList(tfNames);
+            lineData->onTransferFunctionMapRebuilt();
+            if (lineRenderer) {
+                lineRenderer->onTransferFunctionMapRebuilt();
+            }
+        }
+    });
+    replayWidget.setMultiVarTransferFunctionsRangesCallback([this](
+            const std::vector<glm::vec2>& tfRanges) {
+        if (lineData) {
+            MultiVarTransferFunctionWindow* multiVarTransferFunctionWindow;
+            if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
+                LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
+                multiVarTransferFunctionWindow = &lineDataStress->getMultiVarTransferFunctionWindow();
+            } else if (lineData->getType() == DATA_SET_TYPE_FLOW_LINES_MULTIVAR) {
+                LineDataMultiVar* lineDataMultiVar = static_cast<LineDataMultiVar*>(lineData.get());
+                multiVarTransferFunctionWindow = &lineDataMultiVar->getMultiVarTransferFunctionWindow();
+            } else {
+                sgl::Logfile::get()->writeError(
+                        "ERROR in replay widget multi-var transfer functions ranges callback: Invalid data type .");
+                return;
+            }
+
+            for (int varIdx = 0; varIdx < int(tfRanges.size()); varIdx++) {
+                multiVarTransferFunctionWindow->setSelectedRange(varIdx, tfRanges.at(varIdx));
+            }
+            lineData->onTransferFunctionMapRebuilt();
+            if (lineRenderer) {
+                lineRenderer->onTransferFunctionMapRebuilt();
+            }
         }
     });
 #endif
+
+    camera->setNearClipDistance(0.01f);
+    camera->setFarClipDistance(100.0f);
 
     CAMERA_PATH_TIME_PERFORMANCE_MEASUREMENT = TIME_PERFORMANCE_MEASUREMENT;
     usePerformanceMeasurementMode = false;
     cameraPath.setApplicationCallback([this](
             const std::string& modelFilename, glm::vec3& centerOffset, float& startAngle, float& pulseFactor,
             float& standardZoom) {
-        if (boost::starts_with(modelFilename, "Data/LineDataSets/")) {
+        if (boost::starts_with(modelFilename, "Data/LineDataSets/stress/PSLs-Vis2021/psl/Vis2021_femur3D")) {
+            pulseFactor = 0.0f;
+            standardZoom = 2.9f;
+            centerOffset.y = 0.001f;
+        } else if (boost::starts_with(modelFilename, "Data/LineDataSets/stress/PSLs-Vis2021")) {
             pulseFactor = 0.0f;
             standardZoom = 1.9f;
         }
@@ -324,6 +383,19 @@ void MainApp::setRenderer() {
         lineRenderer = nullptr;
     }
 
+    if (oldRenderingMode != renderingMode) {
+        // User depth buffer with higher accuracy when rendering lines opaquely.
+        if (renderingMode == RENDERING_MODE_ALL_LINES_OPAQUE || oldRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
+            if (renderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
+                sceneDepthRBOType = sgl::RBO_DEPTH32F_STENCIL8;
+            } else {
+                sceneDepthRBOType = sgl::RBO_DEPTH24_STENCIL8;
+            }
+            createSceneFramebuffer();
+        }
+        oldRenderingMode = renderingMode;
+    }
+
     if (renderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
         lineRenderer = new OpaqueLineRenderer(sceneData, transferFunctionWindow);
     } else if (renderingMode == RENDERING_MODE_PER_PIXEL_LINKED_LIST) {
@@ -450,6 +522,7 @@ void MainApp::renderGui() {
         recordingTime = 0.0f;
         //realTimeReplayUpdates = true;
         realTimeReplayUpdates = false;
+        sgl::ColorLegendWidget::setFontScale(1.0f);
     }
     if (replayWidgetUpdateType == ReplayWidget::REPLAY_WIDGET_UPDATE_START_RECORDING) {
         sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
@@ -467,28 +540,32 @@ void MainApp::renderGui() {
         recordingTimeStampStart = sgl::Timer->getTicksMicroseconds();
 
         recording = true;
+        sgl::ColorLegendWidget::setFontScale(1.0f);
         videoWriter = new sgl::VideoWriter(
                 saveDirectoryVideos + saveFilenameVideos
                 + "_" + sgl::toString(videoNumber++) + ".mp4", FRAME_RATE_VIDEOS);
     }
     if (replayWidgetUpdateType == ReplayWidget::REPLAY_WIDGET_UPDATE_STOP_RECORDING) {
         recording = false;
+        sgl::ColorLegendWidget::resetStandardSize();
         if (videoWriter) {
             delete videoWriter;
             videoWriter = nullptr;
         }
     }
     if (replayWidget.getUseCameraFlight()
-        && replayWidgetUpdateType != ReplayWidget::REPLAY_WIDGET_UPDATE_STOP_RECORDING) {
+            && replayWidgetUpdateType != ReplayWidget::REPLAY_WIDGET_UPDATE_STOP_RECORDING) {
         useCameraFlight = true;
         startedCameraFlightPerUI = true;
         realTimeCameraFlight = false;
         cameraPath.resetTime();
+        sgl::ColorLegendWidget::setFontScale(1.0f);
     }
     if (replayWidget.getUseCameraFlight()
-        && replayWidgetUpdateType == ReplayWidget::REPLAY_WIDGET_UPDATE_STOP_RECORDING) {
+            && replayWidgetUpdateType == ReplayWidget::REPLAY_WIDGET_UPDATE_STOP_RECORDING) {
         useCameraFlight = false;
         cameraPath.resetTime();
+        sgl::ColorLegendWidget::resetStandardSize();
     }
     if (replayWidgetUpdateType != ReplayWidget::REPLAY_WIDGET_UPDATE_NONE) {
         reRender = true;
@@ -584,7 +661,8 @@ void MainApp::renderSceneSettingsGui() {
             recordingTime = 0.0f;
             //realTimeCameraFlight = false;
             //cameraPath.resetTime();
-            customEndTime = TIME_PER_SEED_POINT * (lineDataStress->getNumSeedPoints() + 1);
+            customEndTime =
+                    visualizeSeedingProcess ? TIME_PER_SEED_POINT * (lineDataStress->getNumSeedPoints() + 1) : 0.0f;
             reRender = true;
         }
     }
@@ -604,6 +682,7 @@ void MainApp::update(float dt) {
         } else {
             visualizeSeedingProcess = false;
             recording = false;
+            sgl::ColorLegendWidget::resetStandardSize();
         }
     }
 
@@ -636,6 +715,18 @@ void MainApp::update(float dt) {
         if (reloadGatherShader) {
             lineRenderer->reloadGatherShaderExternal();
         }
+
+        if (updateTransferFunctionRange) {
+            transferFunctionWindow.setSelectedRange(transferFunctionRange);
+            updateTransferFunctionRange = false;
+            lineData->onTransferFunctionMapRebuilt();
+            if (lineRenderer) {
+                lineRenderer->onTransferFunctionMapRebuilt();
+            }
+
+        }
+
+        replayWidgetRunning = true;
         reRender = true;
 
         if (!useCameraFlight) {
@@ -647,9 +738,15 @@ void MainApp::update(float dt) {
                 recordingTime += FRAME_TIME_CAMERA_PATH;
             }
         }
+    } else {
+        if (replayWidgetRunning) {
+            sgl::ColorLegendWidget::resetStandardSize();
+            replayWidgetRunning = false;
+        }
     }
     if (stopRecording) {
         recording = false;
+        sgl::ColorLegendWidget::resetStandardSize();
         if (videoWriter) {
             delete videoWriter;
             videoWriter = nullptr;
@@ -660,6 +757,7 @@ void MainApp::update(float dt) {
         }
     }
     if (stopCameraFlight) {
+        sgl::ColorLegendWidget::resetStandardSize();
         useCameraFlight = false;
         cameraPath.resetTime();
     }
@@ -754,6 +852,7 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames, bool bl
 
     if (blockingDataLoading) {
         bool dataLoaded = lineData->loadFromFile(fileNames, selectedDataSetInformation, transformationMatrixPtr);
+        sgl::ColorLegendWidget::resetStandardSize();
 
         if (dataLoaded) {
             if (selectedDataSetInformation.hasCustomLineWidth) {
@@ -808,6 +907,7 @@ void MainApp::checkLoadingRequestFinished() {
         if (loadedDataSetInformation.hasCustomLineWidth) {
             LineRenderer::setLineWidth(loadedDataSetInformation.lineWidth);
         }
+        sgl::ColorLegendWidget::resetStandardSize();
 
         this->lineData = lineData;
         lineData->recomputeHistogram();

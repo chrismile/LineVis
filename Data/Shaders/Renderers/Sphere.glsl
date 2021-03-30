@@ -49,7 +49,7 @@ void main() {
     vec4 fragmentColor = blinnPhongShading(sphereColor, fragmentNormal);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
     const float WHITE_THRESHOLD = 0.7;
-    float EPSILON = clamp(fragmentDepth * 0.001 / sphereRadius, 0.0, 0.49);
+    float EPSILON = clamp(fragmentDepth * 0.0005 / sphereRadius, 0.0, 0.49);
     float coverage = 1.0 - smoothstep(1.0 - 2.0*EPSILON, 1.0, ribbonPosition);
     vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor,
             smoothstep(WHITE_THRESHOLD - EPSILON, WHITE_THRESHOLD + EPSILON, ribbonPosition)),

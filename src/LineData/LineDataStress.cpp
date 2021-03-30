@@ -277,7 +277,9 @@ bool LineDataStress::renderGuiWindowSecondary(bool isRasterizer) {
                     multiVarTransferFunctionWindow.getSelectedRangeMin(psIdx));
             colorLegendWidgets.at(psIdx).setAttributeMaxValue(
                     multiVarTransferFunctionWindow.getSelectedRangeMax(psIdx));
-            colorLegendWidgets.at(psIdx).renderGui();
+            if (usedPsDirections[psIdx]) {
+                colorLegendWidgets.at(psIdx).renderGui();
+            }
         }
         return false;
     } else {
@@ -526,6 +528,7 @@ void LineDataStress::setUsedPsDirections(const std::vector<bool>& usedPsDirectio
     if (std::find(loadedPsIndices.begin(), loadedPsIndices.end(), 2) == loadedPsIndices.end()) {
         useMinorPS = false;
     }
+    recomputeColorLegendPositions();
     dirty = true;
 }
 
@@ -565,8 +568,36 @@ void LineDataStress::recomputeHistogram() {
     recomputeColorLegend();
 }
 
+void LineDataStress::recomputeColorLegendPositions() {
+    int totalDisplayedPsIndices = 0;
+    for (size_t i = 0; i < loadedPsIndices.size(); i++) {
+        int psIdx = loadedPsIndices.at(i);
+        if (usedPsDirections[psIdx]) {
+            totalDisplayedPsIndices++;
+        }
+    }
+
+    int positionIndex = 0;
+    for (size_t i = 0; i < loadedPsIndices.size(); i++) {
+        int psIdx = loadedPsIndices.at(i);
+        colorLegendWidgets[psIdx].setPositionIndex(positionIndex, totalDisplayedPsIndices);
+        if (usedPsDirections[psIdx]) {
+            positionIndex++;
+        }
+    }
+}
+
 void LineDataStress::recomputeColorLegend() {
     if (usePrincipalStressDirectionIndex) {
+        int totalDisplayedPsIndices = 0;
+        for (size_t i = 0; i < loadedPsIndices.size(); i++) {
+            int psIdx = loadedPsIndices.at(i);
+            if (usedPsDirections[psIdx]) {
+                totalDisplayedPsIndices++;
+            }
+        }
+
+        int positionIndex = 0;
         for (size_t i = 0; i < loadedPsIndices.size(); i++) {
             int psIdx = loadedPsIndices.at(i);
             colorLegendWidgets[psIdx].setAttributeDisplayName(
@@ -576,7 +607,11 @@ void LineDataStress::recomputeColorLegend() {
             glm::vec2 minMaxAttributes = minMaxAttributeValuesPs[psIdx].at(selectedAttributeIndex);
             colorLegendWidgets[psIdx].setAttributeMinValue(minMaxAttributes.x);
             colorLegendWidgets[psIdx].setAttributeMaxValue(minMaxAttributes.y);
-            colorLegendWidgets[psIdx].setPositionIndex(int(i), int(loadedPsIndices.size()));
+            colorLegendWidgets[psIdx].setPositionIndex(positionIndex, totalDisplayedPsIndices);
+
+            if (usedPsDirections[psIdx]) {
+                positionIndex++;
+            }
 
             /*glm::vec3 baseColor;
             if (psIdx == 0) {
@@ -599,6 +634,7 @@ void LineDataStress::recomputeColorLegend() {
             colorLegendWidgets[psIdx].setTransferFunctionColorMap(
                     multiVarTransferFunctionWindow.getTransferFunctionMap_sRGB(psIdx));
         }
+        recomputeColorLegendPositions();
     } else {
         colorLegendWidgets[selectedAttributeIndex].setAttributeDisplayName(
                 std::string() + attributeNames.at(selectedAttributeIndex));

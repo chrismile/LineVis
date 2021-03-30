@@ -187,6 +187,10 @@ void LineData::recomputeColorLegend() {
     for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
         colorLegendWidgets[i].setTransferFunctionColorMap(
                 transferFunctionWindow.getTransferFunctionMap_sRGB());
+        colorLegendWidgets[i].setAttributeMinValue(
+                transferFunctionWindow.getSelectedRangeMin());
+        colorLegendWidgets[i].setAttributeMinValue(
+                transferFunctionWindow.getSelectedRangeMax());
     }
 }
 

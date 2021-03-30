@@ -411,7 +411,14 @@ void loadStressTrajectoriesFromDat_v3(
             uint32_t numLines = 0;
             if (linesInfo.size() == 1) {
                 numLines = sgl::fromString<uint32_t>(linesInfo.at(0));
+                if (numLines == 0) {
+                    continue;
+                }
             } else if (linesInfo.size() == 2) {
+                numLines = sgl::fromString<uint32_t>(linesInfo.at(1));
+                if (numLines == 0) {
+                    continue;
+                }
                 boost::algorithm::to_lower(linesInfo.at(0));
                 if (boost::ends_with(linesInfo.at(0), "major")) {
                     loadedPsIndices.push_back(0);
@@ -424,7 +431,6 @@ void loadStressTrajectoriesFromDat_v3(
                             std::string() + "ERROR in loadStressTrajectoriesFromDat_v2: "
                             + "Invalid principal stress identifier \"" + linesInfo.at(0) + "\".");
                 }
-                numLines = sgl::fromString<uint32_t>(linesInfo.at(1));
             } else {
                 sgl::Logfile::get()->writeError(
                         std::string() + "ERROR in loadStressTrajectoriesFromDat_v2: "

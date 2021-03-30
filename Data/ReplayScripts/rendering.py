@@ -41,23 +41,23 @@ def elliptic_tubes_on_depth_cues_on():
     })
     g.set_duration(6)
 
-def use_principal_stress():
-    g.set_duration(0)
-    g.set_transfer_functions(['blues.xml', 'greens.xml', 'reds.xml'])
-    g.set_duration(6)
-
-def use_von_mises_stress():
-    g.set_duration(0)
-    g.set_dataset_settings({
-        'attribute': "von Mises Stress",
-        'use_principal_stress_direction_index': False
-    })
-    g.set_duration(6)
+#def use_principal_stress():
+#    g.set_duration(0)
+#    g.set_transfer_functions(['blues.xml', 'greens.xml', 'reds.xml'])
+#    g.set_duration(6)
+#
+#def use_von_mises_stress():
+#    g.set_duration(0)
+#    g.set_dataset_settings({
+#        'attribute': "von Mises Stress",
+#        'use_principal_stress_direction_index': False
+#    })
+#    g.set_duration(6)
 
 def replay():
     init_scene()
     elliptic_tubes_off_depth_cues_off()
     elliptic_tubes_off_depth_cues_on()
     elliptic_tubes_on_depth_cues_on()
-    use_principal_stress()
-    use_von_mises_stress()
+    #use_principal_stress()
+    #use_von_mises_stress()

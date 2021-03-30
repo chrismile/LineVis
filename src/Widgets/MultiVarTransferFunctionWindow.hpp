@@ -155,6 +155,11 @@ public:
     inline float getSelectedRangeMin(int varIdx) const { return guiVarData.at(varIdx).selectedRange.x; }
     inline float getSelectedRangeMax(int varIdx) const { return guiVarData.at(varIdx).selectedRange.y; }
     inline const glm::vec2& getSelectedRange(int varIdx) const { return guiVarData.at(varIdx).selectedRange; }
+    inline void setSelectedRange(int varIdx, const glm::vec2& range) {
+        guiVarData.at(varIdx).selectedRange = range;
+        guiVarData.at(varIdx).computeHistogram();
+        guiVarData.at(varIdx).window->rebuildRangeUbo();
+    }
 
     /// Returns the Data range uniform buffer object.
     inline sgl::GeometryBufferPtr& getMinMaxSsbo() { return minMaxSsbo; }
