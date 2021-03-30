@@ -213,7 +213,7 @@ void OpaqueLineRenderer::render() {
     //}
     if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
         LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
-        if (lineDataStress->getShallRenderSeedProcess()) {
+        if (lineDataStress->getShallRenderSeedingProcess()) {
             int currentSeedIdx = lineDataStress->getCurrentSeedIdx();
             if (currentSeedIdx >= 0) {
                 renderSphere(

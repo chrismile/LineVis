@@ -575,6 +575,7 @@ void MainApp::renderSceneSettingsGui() {
     if (lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES && renderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
         if (ImGui::Checkbox("Visualize Seeding Process", &visualizeSeedingProcess)) {
             LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
+            lineDataStress->setShallRenderSeedingProcess(visualizeSeedingProcess);
             OpaqueLineRenderer* opaqueLineRenderer = static_cast<OpaqueLineRenderer*>(lineRenderer);
             opaqueLineRenderer->setVisualizeSeedingProcess(true);
             recordingTimeStampStart = sgl::Timer->getTicksMicroseconds();

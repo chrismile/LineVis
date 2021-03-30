@@ -139,7 +139,10 @@ public:
 
     // The seed process can be rendered for the video.
     inline bool getHasSeedPoints() const { return !seedPoints.empty(); }
-    inline bool getShallRenderSeedProcess() const { return shallRenderSeedProcess; }
+    inline bool getShallRenderSeedingProcess() const { return shallRenderSeedingProcess; }
+    inline void setShallRenderSeedingProcess(bool shallRenderSeedingProcess) {
+        this->shallRenderSeedingProcess = shallRenderSeedingProcess;
+    }
     inline int getNumSeedPoints() const { return int(seedPoints.size()); }
     inline int getCurrentSeedIdx() const { return currentSeedIdx; }
     inline void setCurrentSeedIdx(int currentSeedIdx) { this->currentSeedIdx = currentSeedIdx; }
@@ -185,7 +188,7 @@ private:
     static glm::vec3 lineHierarchySliderValues;
 
     // The seed process can be rendered for the video.
-    bool shallRenderSeedProcess = false;
+    bool shallRenderSeedingProcess = false;
     int currentSeedIdx = 0;
     std::vector<glm::vec3> seedPoints;
 
