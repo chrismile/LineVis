@@ -23,12 +23,16 @@ def init_scene():
         'use_principal_stress_direction_index': True,
     })
     g.set_transfer_functions(['qualitative-pale-lilac.xml', 'qualitative-emerald.xml', 'qualitative-ocher.xml'])
+    g.set_transfer_functions_ranges([(-0.06, 1.274), (-0.213, 0.157), (-0.96, 0.019)])
+    g.set_duration(0.001)
+    g.set_transfer_functions_ranges([(-0.06, 1.274), (-0.213, 0.157), (-0.96, 0.019)])
     g.set_duration(6)
 
 def use_principal_stress():
     g.set_duration(0)
     g.set_transfer_functions(['blues.xml', 'greens.xml', 'reds.xml'])
-    g.set_transfer_functions_ranges([(-0.071, 0.551), (-0.213, 0.157), (-0.665, 0.096)])
+    #g.set_transfer_functions_ranges([(-0.071, 0.551), (-0.213, 0.157), (-0.665, 0.096)])
+    g.set_transfer_functions_ranges([(-0.06, 1.274), (-0.213, 0.157), (-0.96, 0.019)])
     g.set_duration(6)
 
 def use_von_mises_stress():
@@ -37,7 +41,8 @@ def use_von_mises_stress():
         'attribute': "von Mises Stress",
         'use_principal_stress_direction_index': False
     })
-    g.set_transfer_function_range((0.031, 1.124))
+    #g.set_transfer_function_range((0.031, 1.124))
+    g.set_transfer_function_range((0.075, 1.236))
     g.set_duration(6)
 
 def replay():
