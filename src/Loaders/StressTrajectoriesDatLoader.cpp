@@ -506,8 +506,23 @@ void loadStressTrajectoriesFromDat_v3(
                             bandVertexDataSmoothed.at(pointIdx * 6 + 5)));
                 }
 
-                trajectory.attributes.resize(8);
-                for (int varIdx = 0; varIdx < 8; varIdx++) {
+                trajectory.attributes.resize(9);
+
+                // Principal stress.
+                trajectory.attributes.at(0).reserve(lineLength);
+                std::vector<float> scalarFieldData = lineReader.readVectorLine<float>(lineLength);
+                for (uint32_t pointIdx = 0; pointIdx < lineLength; pointIdx++) {
+                    trajectory.attributes.at(0).push_back(scalarFieldData.at(pointIdx));
+                }
+
+                // Principal stress magnitude.
+                for (uint32_t pointIdx = 0; pointIdx < lineLength; pointIdx++) {
+                    trajectory.attributes.at(1).push_back(std::abs(scalarFieldData.at(pointIdx)));
+                }
+
+                // Von Mises stress, normal stress (xx), normal stress (yy), normal stress (zz), shear stress (yz),
+                // shear stress (zx), shear stress (xy).
+                for (int varIdx = 2; varIdx < 9; varIdx++) {
                     trajectory.attributes.at(varIdx).reserve(lineLength);
                     std::vector<float> scalarFieldData = lineReader.readVectorLine<float>(lineLength);
                     for (uint32_t pointIdx = 0; pointIdx < lineLength; pointIdx++) {

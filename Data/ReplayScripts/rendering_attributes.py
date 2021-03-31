@@ -10,7 +10,7 @@ def init_scene():
         'depth_cue_strength': 0.8
     })
     g.set_dataset_settings({
-        'attribute': "Principal Stress",
+        'attribute': "Principal Stress Magnitude",
         'major_on': True,
         'medium_on': False,
         'minor_on': True,
@@ -23,16 +23,17 @@ def init_scene():
         'use_principal_stress_direction_index': True,
     })
     g.set_transfer_functions(['qualitative-pale-lilac.xml', 'qualitative-emerald.xml', 'qualitative-ocher.xml'])
-    g.set_transfer_functions_ranges([(-0.06, 1.274), (-0.213, 0.157), (-0.96, 0.019)])
+    g.set_transfer_functions_ranges([(0.0, 1.594), (0.0, 1.594), (0.0, 1.594)])
+    #g.set_transfer_functions_ranges([(-0.06, 1.274), (-0.213, 0.157), (-0.96, 0.019)])
     g.set_duration(0.001)
-    g.set_transfer_functions_ranges([(-0.06, 1.274), (-0.213, 0.157), (-0.96, 0.019)])
+    g.set_transfer_functions_ranges([(0.0, 1.594), (0.03, 1.594), (0.0, 1.594)])
     g.set_duration(6)
 
 def use_principal_stress():
     g.set_duration(0)
     g.set_transfer_functions(['blues.xml', 'greens.xml', 'reds.xml'])
     #g.set_transfer_functions_ranges([(-0.071, 0.551), (-0.213, 0.157), (-0.665, 0.096)])
-    g.set_transfer_functions_ranges([(-0.06, 1.274), (-0.213, 0.157), (-0.96, 0.019)])
+    #g.set_transfer_functions_ranges([(-0.06, 1.274), (-0.213, 0.157), (-0.96, 0.019)])
     g.set_duration(6)
 
 def use_von_mises_stress():
