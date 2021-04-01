@@ -82,7 +82,7 @@ protected:
     float pointWidth = STANDARD_LINE_WIDTH;
 
     int maximumNumberOfSamples = 1;
-    int numSamples = 16; // TODO: Reset to 4 after creating video
+    int numSamples = 4;
     int numSampleModes = -1;
     int sampleModeSelection = -1;
     std::vector<std::string> sampleModeNames;

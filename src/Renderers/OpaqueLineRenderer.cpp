@@ -50,7 +50,7 @@ OpaqueLineRenderer::OpaqueLineRenderer(SceneData& sceneData, sgl::TransferFuncti
         useMultisampling = false;
     }
     numSampleModes = sgl::intlog2(maximumNumberOfSamples) + 1;
-    sampleModeSelection = std::min(sgl::intlog2(4), numSampleModes - 1);
+    sampleModeSelection = std::min(sgl::intlog2(numSamples), numSampleModes - 1);
     for (int i = 1; i <= maximumNumberOfSamples; i *= 2) {
         sampleModeNames.push_back(std::to_string(i));
     }
