@@ -164,7 +164,7 @@ sgl::ShaderProgramPtr LineDataMultiVar::reloadGatherShader() {
     }
 
     int idx = int(multiVarRenderMode);
-    std::list<std::string> gatherShaderIDs = {
+    std::vector<std::string> gatherShaderIDs = {
             MULTI_VAR_RENDER_MODE_SHADER_NAMES[idx] + ".Vertex",
             MULTI_VAR_RENDER_MODE_SHADER_NAMES[idx] + ".Geometry",
             MULTI_VAR_RENDER_MODE_SHADER_NAMES[idx] + ".Fragment",
