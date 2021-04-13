@@ -91,7 +91,6 @@ MainApp::MainApp()
 #endif
           stressLineTracingRequester(new StressLineTracingRequester(zeromqContext)) {
 #ifdef USE_PYTHON
-    // TODO
     sgl::ColorLegendWidget::setFontScaleStandard(1.0f);
 
     replayWidget.setLoadMeshCallback([this](const std::string& datasetName) {
@@ -200,6 +199,9 @@ MainApp::MainApp()
         }
     });
 #endif
+
+    checkpointWindow.setStandardWindowSize(1254, 390);
+    checkpointWindow.setStandardWindowPosition(841, 53);
 
     camera->setNearClipDistance(0.01f);
     camera->setFarClipDistance(100.0f);
@@ -472,6 +474,8 @@ void MainApp::renderGui() {
     sgl::ImGuiWrapper::get()->renderStart();
 
     if (showSettingsWindow) {
+        ImGui::SetNextWindowSize(ImVec2(735, 1085), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowPos(ImVec2(3090, 56), ImGuiCond_FirstUseEver);
         if (ImGui::Begin("Settings", &showSettingsWindow)) {
             SciVisApp::renderGuiFpsCounter();
 

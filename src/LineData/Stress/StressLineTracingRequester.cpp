@@ -73,6 +73,8 @@ void StressLineTracingRequester::loadMeshList() {
 }
 
 void StressLineTracingRequester::renderGui() {
+    ImGui::SetNextWindowSize(ImVec2(760, 628), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(3072, 1146), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Stress Line Tracing", &showWindow)) {
         bool changed = false;
         if (ImGui::Combo("Data Set", &selectedMeshIndex, meshNames.data(), meshNames.size())) {

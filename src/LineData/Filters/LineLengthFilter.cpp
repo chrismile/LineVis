@@ -61,6 +61,8 @@ void LineLengthFilter::filterData(LineDataPtr lineDataIn) {
 }
 
 void LineLengthFilter::renderGui() {
+    ImGui::SetNextWindowSize(ImVec2(612, 120), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(3220, 1792), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Line Length Filter", &showFilterWindow)) {
         if (ImGui::SliderFloat("Min. Length", &trajectoryFilteringThreshold, 0.0f, maxTrajectoryLength)) {
             dirty = true;

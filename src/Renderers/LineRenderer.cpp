@@ -219,6 +219,9 @@ void LineRenderer::reloadGatherShaderExternal() {
 void LineRenderer::renderGuiWindow() {
     bool shallReloadGatherShader = false;
 
+    if (windowName == "Opaque Line Renderer") {
+        ImGui::SetNextWindowSize(ImVec2(500,210), ImGuiCond_FirstUseEver);
+    }
     if (ImGui::Begin(windowName.c_str(), &showRendererWindow)) {
         this->renderGui();
         if (lineData) {
