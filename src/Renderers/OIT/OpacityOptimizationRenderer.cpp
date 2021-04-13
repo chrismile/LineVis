@@ -384,7 +384,7 @@ void OpacityOptimizationRenderer::generateBlendingWeightParametrization(bool isN
 
 #ifdef OPENMP_NO_MEMBERS
     // Local variable for older versions of OpenMP.
-    float& linesLengthSum = this->numPolylineSegments;
+    float& linesLengthSum = this->linesLengthSum;
     uint32_t& numPolylineSegments = this->numPolylineSegments;
     std::vector<float>& polylineLengths = this->polylineLengths;
 

@@ -487,7 +487,9 @@ void LineDataStress::setDegeneratePoints(
             std::vector<float> distanceMeasuresSquaredExponentialKernel;
             distanceMeasuresExponentialKernel.resize(trajectory.positions.size());
             distanceMeasuresSquaredExponentialKernel.resize(trajectory.positions.size());
-            #pragma omp parallel for shared(trajectory, kdTree, degeneratePoints, lengthScale, distanceMeasuresExponentialKernel, distanceMeasuresSquaredExponentialKernel) default(none)
+#ifdef OPENMP_NO_MEMBERS
+            #pragma omp parallel for shared(trajectory, kdTree, degeneratePoints, lengthScale, \
+            distanceMeasuresExponentialKernel, distanceMeasuresSquaredExponentialKernel)
             for (size_t linePointIdx = 0; linePointIdx < trajectory.positions.size(); linePointIdx++) {
                 const glm::vec3& linePoint = trajectory.positions.at(linePointIdx);
 
@@ -500,6 +502,22 @@ void LineDataStress::setDegeneratePoints(
                 distanceMeasuresExponentialKernel.at(linePointIdx) = distanceExponentialKernel;
                 distanceMeasuresSquaredExponentialKernel.at(linePointIdx) = distanceSquaredExponentialKernel;
             }
+#else
+            #pragma omp parallel for shared(trajectory, kdTree, degeneratePoints, lengthScale, \
+            distanceMeasuresExponentialKernel, distanceMeasuresSquaredExponentialKernel) default(none)
+            for (size_t linePointIdx = 0; linePointIdx < trajectory.positions.size(); linePointIdx++) {
+                const glm::vec3& linePoint = trajectory.positions.at(linePointIdx);
+
+                IndexedPoint* nearestNeighbor = kdTree.findNearestNeighbor(linePoint);
+                float distanceExponentialKernel = exponentialKernel(
+                        linePoint, nearestNeighbor->position, lengthScale);
+                float distanceSquaredExponentialKernel = squaredExponentialKernel(
+                        linePoint, nearestNeighbor->position, lengthScale);
+
+                distanceMeasuresExponentialKernel.at(linePointIdx) = distanceExponentialKernel;
+                distanceMeasuresSquaredExponentialKernel.at(linePointIdx) = distanceSquaredExponentialKernel;
+            }
+#endif
             trajectory.attributes.push_back(distanceMeasuresExponentialKernel);
             trajectory.attributes.push_back(distanceMeasuresSquaredExponentialKernel);
         }
