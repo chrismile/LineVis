@@ -87,7 +87,7 @@ public:
         dataMap.insert(std::make_pair(key, std::make_pair(REPLAY_DATA_TYPE_VEC3, vec3ToString(value))));
     }
     void insert(const std::string& key, const glm::vec4& value) {
-        dataMap.insert(std::make_pair(key, std::make_pair(REPLAY_DATA_TYPE_VEC4, vec3ToString(value))));
+        dataMap.insert(std::make_pair(key, std::make_pair(REPLAY_DATA_TYPE_VEC4, vec4ToString(value))));
     }
     void insert(const std::string& key, const glm::quat& value) {
         dataMap.insert(std::make_pair(key, std::make_pair(REPLAY_DATA_TYPE_QUATERNION, quatToString(value))));

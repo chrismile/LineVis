@@ -44,7 +44,7 @@ The program requires the library sgl (https://github.com/chrismile/sgl).
 On Ubuntu 20.04 for example, you can install all other necessary dependencies with this command (additionally to the prerequisites required by sgl):
 
 ```
-sudo apt-get install libjsoncpp-dev libnetcdf-dev netcdf-bin libzmq3-dev python3
+sudo apt-get install libjsoncpp-dev libnetcdf-dev netcdf-bin libzmq3-dev python3-dev
 ```
 
 Python 3 is an optional dependency necessary for enabling replay script support.
