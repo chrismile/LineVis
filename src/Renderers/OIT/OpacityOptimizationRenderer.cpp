@@ -249,8 +249,8 @@ void OpacityOptimizationRenderer::updateLargeMeshMode() {
     }
     if (newMeshLargeMeshMode != largeMeshMode) {
         largeMeshMode = newMeshLargeMeshMode;
-        expectedAvgDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES[int(largeMeshMode)][0];
-        expectedMaxDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES[int(largeMeshMode)][1];
+        expectedAvgDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES_OPOPT[int(largeMeshMode)][0];
+        expectedMaxDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES_OPOPT[int(largeMeshMode)][1];
         reallocateFragmentBuffer();
         reloadResolveShader();
     }
@@ -375,11 +375,6 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewM
 }
 
 void OpacityOptimizationRenderer::generateBlendingWeightParametrization(bool isNewMesh) {
-#ifdef OPENMP_NO_MEMBERS
-    // Local variable for older versions of OpenMP.
-    uint32_t& numPolylineSegments = this->numPolylineSegments;
-#endif
-
     // First, compute data necessary for parametrizing the polylines (number of segments, segment lengths).
     linesLengthSum = 0.0f;
     numPolylineSegments = 0;
@@ -387,7 +382,11 @@ void OpacityOptimizationRenderer::generateBlendingWeightParametrization(bool isN
     polylineLengths.shrink_to_fit();
     polylineLengths.resize(lines.size());
 
-    #pragma omp parallel for reduction(+: linesLengthSum) reduction(+: numPolylineSegments) shared(polylineLengths) default(none)
+#ifdef OPENMP_NO_MEMBERS
+    // Local variable for older versions of OpenMP.
+    uint32_t& numPolylineSegments = this->numPolylineSegments;
+
+    #pragma omp parallel for reduction(+: linesLengthSum) reduction(+: numPolylineSegments) shared(polylineLengths)
     for (size_t lineIdx = 0; lineIdx < lines.size(); lineIdx++) {
         std::vector<glm::vec3>& line = lines.at(lineIdx);
         const size_t n = line.size();
@@ -399,6 +398,21 @@ void OpacityOptimizationRenderer::generateBlendingWeightParametrization(bool isN
         linesLengthSum += polylineLength;
         numPolylineSegments += n - 1;
     }
+#else
+    #pragma omp parallel for reduction(+: linesLengthSum) reduction(+: numPolylineSegments) shared(polylineLengths) \
+    default(none)
+    for (size_t lineIdx = 0; lineIdx < lines.size(); lineIdx++) {
+        std::vector<glm::vec3>& line = lines.at(lineIdx);
+        const size_t n = line.size();
+        float polylineLength = 0.0f;
+        for (size_t i = 1; i < n; i++) {
+            polylineLength += glm::length(line[i] - line[i-1]);
+        }
+        polylineLengths.at(lineIdx) = polylineLength;
+        linesLengthSum += polylineLength;
+        numPolylineSegments += n - 1;
+    }
+#endif
 
     if (useViewDependentParametrization) {
         recomputeViewDependentParametrization();

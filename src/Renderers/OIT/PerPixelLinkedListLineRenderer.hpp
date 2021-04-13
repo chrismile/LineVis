@@ -35,6 +35,11 @@
 #include "Renderers/PPLL.hpp"
 #include "Renderers/LineRenderer.hpp"
 
+const int MESH_MODE_DEPTH_COMPLEXITIES_PPLL[4][2] = {
+        80, 256, // avg and max depth complexity medium
+        120, 380 // avg and max depth complexity very large
+};
+
 /**
  * Renders all lines with transparency values determined by the transfer function set by the user.
  * For this, the order-independent transparency (OIT) technique per-pixel linked lists is used.
@@ -114,13 +119,9 @@ protected:
     enum LargeMeshMode {
         MESH_SIZE_MEDIUM, MESH_SIZE_LARGE
     };
-    const int MESH_MODE_DEPTH_COMPLEXITIES[4][2] = {
-            80, 256, // avg and max depth complexity medium
-            120, 380 // avg and max depth complexity very large
-    };
     LargeMeshMode largeMeshMode = MESH_SIZE_MEDIUM;
-    int expectedAvgDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES[0][0];
-    int expectedMaxDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES[0][1];
+    int expectedAvgDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES_PPLL[0][0];
+    int expectedMaxDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES_PPLL[0][1];
 
     // GUI data.
     bool showRendererWindow = true;

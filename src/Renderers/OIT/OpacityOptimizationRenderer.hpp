@@ -35,7 +35,7 @@
 #include "Renderers/PPLL.hpp"
 #include "Renderers/LineRenderer.hpp"
 
-const int MESH_MODE_DEPTH_COMPLEXITIES[2][2] = {
+const int MESH_MODE_DEPTH_COMPLEXITIES_OPOPT[2][2] = {
         80, 256, // avg and max depth complexity medium
         120, 380 // avg and max depth complexity very large
 };
@@ -183,8 +183,8 @@ protected:
         MESH_SIZE_MEDIUM, MESH_SIZE_LARGE
     };
     LargeMeshMode largeMeshMode = MESH_SIZE_MEDIUM;
-    int expectedAvgDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES[0][0];
-    int expectedMaxDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES[0][1];
+    int expectedAvgDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES_OPOPT[0][0];
+    int expectedMaxDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES_OPOPT[0][1];
 
     // Parameters for Opacity Optimization.
     float q = 2000.0f; ///< Overall opacity, q >= 0.
