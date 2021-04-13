@@ -145,6 +145,23 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
             glm::mat4 viewMatrix = sceneData.camera->getViewMatrix();
             minDepth = std::numeric_limits<float>::max();
             maxDepth = std::numeric_limits<float>::lowest();
+#ifdef OPENMP_NO_MEMBERS
+            // Local variable for older versions of OpenMP.
+            std::vector<std::vector<glm::vec3>>& filteredLines = this->filteredLines;
+            float& minDepth = this->minDepth;
+            float& maxDepth = this->maxDepth;
+
+            #pragma omp parallel for shared(viewMatrix, filteredLines) \
+            reduction(min: minDepth) reduction(max: maxDepth)
+            for (size_t lineIdx = 0; lineIdx < filteredLines.size(); lineIdx++) {
+                const std::vector<glm::vec3>& line = filteredLines.at(lineIdx);
+                for (const glm::vec3& point : line) {
+                    float depth = -sgl::transformPoint(viewMatrix, point).z;
+                    minDepth = std::min(minDepth, depth);
+                    maxDepth = std::max(maxDepth, depth);
+                }
+            }
+#else
             #pragma omp parallel for default(none) shared(viewMatrix, filteredLines) \
             reduction(min: minDepth) reduction(max: maxDepth)
             for (size_t lineIdx = 0; lineIdx < filteredLines.size(); lineIdx++) {
@@ -155,6 +172,7 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
                     maxDepth = std::max(maxDepth, depth);
                 }
             }
+#endif
         }
 
         minDepth = glm::clamp(

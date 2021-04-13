@@ -81,7 +81,8 @@ void normalizeTrajectoriesVertexPositions(
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
             for (glm::vec3& v : trajectory.positions) {
-                v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                glm::vec4 transformedVec = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                v = glm::vec3(transformedVec.x, transformedVec.y, transformedVec.z);
             }
         }
     }
@@ -111,7 +112,8 @@ void normalizeVertexPositions(
         #pragma omp parallel for shared(vertexPositions, transformationMatrix) default(none)
         for (size_t vertexIdx = 0; vertexIdx < vertexPositions.size(); vertexIdx++) {
             glm::vec3& v = vertexPositions.at(vertexIdx);
-            v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+            glm::vec4 transformedVec = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+            v = glm::vec3(transformedVec.x, transformedVec.y, transformedVec.z);
         }
     }
 }
@@ -129,7 +131,8 @@ void normalizeVertexPosition(
     if (vertexTransformationMatrixPtr != nullptr) {
         glm::mat4 transformationMatrix = *vertexTransformationMatrixPtr;
         glm::vec3& v = vertexPosition;
-        v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+        glm::vec4 transformedVec = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+        v = glm::vec3(transformedVec.x, transformedVec.y, transformedVec.z);
     }
 }
 
@@ -190,7 +193,8 @@ void normalizeTrajectoriesPsVertexPositions(
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
                 Trajectory& trajectory = trajectories.at(trajectoryIdx);
                 for (glm::vec3& v : trajectory.positions) {
-                    v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                    glm::vec4 transformedVec = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                    v = glm::vec3(transformedVec.x, transformedVec.y, transformedVec.z);
                 }
             }
         }
@@ -252,27 +256,32 @@ void normalizeTrajectoriesPsVertexPositions(
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
                 Trajectory& trajectory = trajectories.at(trajectoryIdx);
                 for (glm::vec3& v : trajectory.positions) {
-                    v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                    glm::vec4 transformedVec = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                    v = glm::vec3(transformedVec.x, transformedVec.y, transformedVec.z);
                 }
 
                 std::vector<glm::vec3>& bandPointsUnsmoothedLeft = bandPointsUnsmoothedListLeft.at(trajectoryIdx);
                 for (glm::vec3& v : bandPointsUnsmoothedLeft) {
-                    v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                    glm::vec4 transformedVec = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                    v = glm::vec3(transformedVec.x, transformedVec.y, transformedVec.z);
                 }
 
                 std::vector<glm::vec3>& bandPointsUnsmoothedRight = bandPointsUnsmoothedListRight.at(trajectoryIdx);
                 for (glm::vec3& v : bandPointsUnsmoothedRight) {
-                    v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                    glm::vec4 transformedVec = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                    v = glm::vec3(transformedVec.x, transformedVec.y, transformedVec.z);
                 }
 
                 std::vector<glm::vec3>& bandPointsLeft = bandPointsSmoothedListLeft.at(trajectoryIdx);
                 for (glm::vec3& v : bandPointsLeft) {
-                    v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                    glm::vec4 transformedVec = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                    v = glm::vec3(transformedVec.x, transformedVec.y, transformedVec.z);
                 }
 
                 std::vector<glm::vec3>& bandPointsRight = bandPointsSmoothedListRight.at(trajectoryIdx);
                 for (glm::vec3& v : bandPointsRight) {
-                    v = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                    glm::vec4 transformedVec = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
+                    v = glm::vec3(transformedVec.x, transformedVec.y, transformedVec.z);
                 }
             }
         }
