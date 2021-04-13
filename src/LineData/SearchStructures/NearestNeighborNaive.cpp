@@ -26,6 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <limits>
+
 #include "NearestNeighborNaive.hpp"
 
 glm::vec3 nearestNeighborNaive(const glm::vec3& point, const std::vector<glm::vec3>& searchPointList) {
