@@ -35,6 +35,11 @@
 #include "Renderers/PPLL.hpp"
 #include "Renderers/LineRenderer.hpp"
 
+const int MESH_MODE_DEPTH_COMPLEXITIES[2][2] = {
+        80, 256, // avg and max depth complexity medium
+        120, 380 // avg and max depth complexity very large
+};
+
 /**
  * Implementation of opacity optimization as described in:
  * Tobias Günther, Holger Theisel, and Markus Gross. 2017. Decoupled Opacity Optimization for Points, Lines and
@@ -176,10 +181,6 @@ protected:
     // Per-pixel linked list settings.
     enum LargeMeshMode {
         MESH_SIZE_MEDIUM, MESH_SIZE_LARGE
-    };
-    const int MESH_MODE_DEPTH_COMPLEXITIES[2][2] = {
-            80, 256, // avg and max depth complexity medium
-            120, 380 // avg and max depth complexity very large
     };
     LargeMeshMode largeMeshMode = MESH_SIZE_MEDIUM;
     int expectedAvgDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES[0][0];

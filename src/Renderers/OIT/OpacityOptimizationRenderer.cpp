@@ -375,6 +375,11 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewM
 }
 
 void OpacityOptimizationRenderer::generateBlendingWeightParametrization(bool isNewMesh) {
+#ifdef OPENMP_NO_MEMBERS
+    // Local variable for older versions of OpenMP.
+    uint32_t& numPolylineSegments = this->numPolylineSegments;
+#endif
+
     // First, compute data necessary for parametrizing the polylines (number of segments, segment lengths).
     linesLengthSum = 0.0f;
     numPolylineSegments = 0;
