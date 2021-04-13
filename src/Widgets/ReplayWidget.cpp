@@ -366,7 +366,6 @@ static PyObject* py_set_camera_yaw_pitch_rad(PyObject* self, PyObject* args) {
                 "ERROR in py_set_camera_yaw_pitch_rad: Tuple must contain two float values or one tuple.");
         return nullptr;
     }
-    glm::quat cameraOrientation = glm::vec3(0.0f);
 
     currentReplayStateGlobal.cameraOrientationSet = true;
     currentReplayStateGlobal.cameraOrientation =
