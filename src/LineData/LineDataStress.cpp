@@ -488,7 +488,7 @@ void LineDataStress::setDegeneratePoints(
             distanceMeasuresExponentialKernel.resize(trajectory.positions.size());
             distanceMeasuresSquaredExponentialKernel.resize(trajectory.positions.size());
 #ifdef OPENMP_NO_MEMBERS
-            #pragma omp parallel for shared(trajectory, kdTree, degeneratePoints, lengthScale, \
+            #pragma omp parallel for shared(trajectory, kdTree, degeneratePoints, \
             distanceMeasuresExponentialKernel, distanceMeasuresSquaredExponentialKernel)
             for (size_t linePointIdx = 0; linePointIdx < trajectory.positions.size(); linePointIdx++) {
                 const glm::vec3& linePoint = trajectory.positions.at(linePointIdx);

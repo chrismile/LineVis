@@ -176,8 +176,7 @@ void StressLineTracingRequesterSocket::mainLoop() {
 
         if (hasRequest) {
 #ifdef USE_ZEROMQ
-            auto sendBuffer = zmq::buffer(requestMessage);
-            int sentBytes = zmq_send(socket, sendBuffer.data(), sendBuffer.size(), 0);
+            int sentBytes = zmq_send(socket, requestMessage.data(), requestMessage.size(), 0);
             if (sentBytes < 0) {
                 if (zmq_errno() == ETERM) {
                     break;
@@ -194,15 +193,20 @@ void StressLineTracingRequesterSocket::mainLoop() {
             zmq_poll(items, 2, -1);
 
             if (items[0].revents & ZMQ_POLLIN) {
-                zmq::message_t reply{};
-                const int receivedBytes = zmq_msg_recv(reply.handle(), socket, 0);
+                zmq_msg_t reply;
+                int rc = zmq_msg_init(&reply);
+                assert(rc == 0);
+                const int receivedBytes = zmq_msg_recv(&reply, socket, 0);
                 if (receivedBytes < 0) {
+                    zmq_msg_close(&reply);
                     if (zmq_errno() == ETERM) {
                         break;
                     }
                     continue;
                 }
-                std::string replyString = reply.to_string();
+                std::string replyString = std::string(
+                        static_cast<const char*>(zmq_msg_data(&reply)), zmq_msg_size(&reply));
+                zmq_msg_close(&reply);
 
                 std::lock_guard<std::mutex> replyLock(requestMutex);
                 hasReply = true;
