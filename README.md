@@ -67,7 +67,7 @@ pacman -S mingw64/mingw-w64-x86_64-jsoncpp mingw64/mingw-w64-x86_64-netcdf mingw
 
 On Windows, using MSYS2 and Mingw-w64 (http://www.msys2.org/), it is best to use the following CMake command to configure CMake:
 ```
-cmake .. -G"MSYS Makefiles"
+cmake -G "MSYS Makefiles" -DPython3_FIND_REGISTRY=NEVER ..
 ```
 
 To run the program, execute:
