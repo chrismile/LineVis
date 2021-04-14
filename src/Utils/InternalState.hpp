@@ -33,6 +33,7 @@
 #include <map>
 #include <glm/glm.hpp>
 
+#include <Utils/AppSettings.hpp>
 #include <Utils/Convert.hpp>
 
 #include "Loaders/DataSetList.hpp"
@@ -112,11 +113,13 @@ struct DataSetDescriptor {
     DataSetDescriptor() {}
     DataSetDescriptor(DataSetType type, const std::string& name, const std::string& filename)
             : type(type), name(name) {
+        const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
         this->filenames.push_back(lineDataSetsDirectory + filename);
         enabledFileIndices.push_back(true);
     }
     DataSetDescriptor(DataSetType type, const std::string& name, const std::vector<std::string>& filenames)
             : type(type), name(name) {
+        const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
         for (const std::string& filename : filenames) {
             this->filenames.push_back(lineDataSetsDirectory + filename);
             enabledFileIndices.push_back(true);
@@ -126,6 +129,7 @@ struct DataSetDescriptor {
             DataSetType type, const std::string& name, const std::vector<std::string>& filenames,
             const std::vector<bool>& enabledFileIndices)
             : type(type), name(name), enabledFileIndices(enabledFileIndices) {
+        const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
         for (const std::string& filename : filenames) {
             this->filenames.push_back(lineDataSetsDirectory + filename);
         }

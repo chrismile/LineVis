@@ -35,6 +35,7 @@
 #endif
 
 #include <Utils/File/Logfile.hpp>
+#include <Utils/AppSettings.hpp>
 #include <Utils/Regex/TransformString.hpp>
 
 #include "DataSetList.hpp"
@@ -75,6 +76,7 @@ std::vector<DataSetInformation> loadDataSetList(const std::string& filename) {
         // Get the display name and the associated filenames.
         dataSetInformation.name = source["name"].asString();
         Json::Value filenames = source["filenames"];
+        const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
         if (filenames.isArray()) {
             for (Json::Value::const_iterator filenameIt = filenames.begin();
                  filenameIt != filenames.end(); ++filenameIt) {

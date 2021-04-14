@@ -141,6 +141,15 @@ bool LineData::renderGuiLineData(bool isRasterizer) {
 bool LineData::renderGuiWindow(bool isRasterizer) {
     bool shallReloadGatherShader = false;
 
+    /*if (lineDataWindowName == "Line Data (Flow)") {
+        ImGui::SetNextWindowSize(ImVec2(735, 575), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowPos(ImVec2(2, 580), ImGuiCond_FirstUseEver);
+    } else if (lineDataWindowName == "Line Data (Stress)") {
+        ImGui::SetNextWindowSize(ImVec2(735, 575), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowPos(ImVec2(2, 580), ImGuiCond_FirstUseEver);
+    }*/
+    ImGui::SetNextWindowSize(ImVec2(735, 575), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(2, 580), ImGuiCond_FirstUseEver);
     if (ImGui::Begin(lineDataWindowName.c_str(), &showLineDataWindow)) {
         if (renderGuiLineData(isRasterizer)) {
             shallReloadGatherShader = true;

@@ -28,6 +28,7 @@
 
 #include <iostream>
 
+#include <Utils/AppSettings.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/FileUtils.hpp>
 #include <Utils/Regex/TransformString.hpp>
@@ -48,6 +49,7 @@ void StressLineTracingRequester::loadMeshList() {
     meshFilenames.clear();
     meshNames.push_back("Local file...");
 
+    const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
     std::string filename = lineDataSetsDirectory + "meshes.json";
     if (sgl::FileUtils::get()->exists(filename)) {
         // Parse the passed JSON file.
@@ -128,6 +130,7 @@ void StressLineTracingRequester::requestNewData() {
     }
 
     Json::Value request;
+    const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
     request["fileName"] = boost::filesystem::absolute(lineDataSetsDirectory + meshFilename).c_str();
     if (lineDensCtrl > 0 && useCustomLineDensity) {
         request["lineDensCtrl"] = lineDensCtrl;
@@ -226,6 +229,7 @@ bool StressLineTracingRequester::getHasNewData(DataSetInformation& dataSetInform
 
         // Optional stress line data: Degenerate points file.
         if (reply.isMember("degeneratePoints")) {
+            const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
             dataSetInformation.degeneratePointsFilename =
                     lineDataSetsDirectory + reply["degenerate_points"].asString();
         }

@@ -188,8 +188,8 @@ private:
     sgl::PathWatch directoryContentWatch;
 
     std::string directoryName = "TransferFunctions";
-    std::string parentDirectory = "Data/";
-    std::string saveDirectory = "Data/TransferFunctions/";
+    std::string parentDirectory;
+    std::string saveDirectory;
     std::vector<std::string> tfPresetFiles;
     std::vector<std::string> availableFiles;
     sgl::TexturePtr tfMapTexture;

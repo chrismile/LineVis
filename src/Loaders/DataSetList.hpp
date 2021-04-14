@@ -33,8 +33,6 @@
 
 #include <Math/Geometry/MatrixUtil.hpp>
 
-const std::string lineDataSetsDirectory = "Data/LineDataSets/";
-
 enum DataSetType {
     DATA_SET_TYPE_NONE, DATA_SET_TYPE_FLOW_LINES, DATA_SET_TYPE_STRESS_LINES, DATA_SET_TYPE_FLOW_LINES_MULTIVAR
 };

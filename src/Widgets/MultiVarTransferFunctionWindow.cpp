@@ -42,6 +42,7 @@
 #include <ImGui/imgui_custom.h>
 #include <ImGui/imgui_stdlib.h>
 
+#include <Utils/AppSettings.hpp>
 #include <Utils/XML.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/FileUtils.hpp>
@@ -754,6 +755,9 @@ bool GuiVarData::selectNearestColorPoint(int& currentSelectionIndex, const glm::
 MultiVarTransferFunctionWindow::MultiVarTransferFunctionWindow(
         const std::string& saveDirectoryPrefix,
         const std::vector<std::string>& tfPresetFiles) {
+    parentDirectory = sgl::AppSettings::get()->getDataDirectory();
+    saveDirectory = sgl::AppSettings::get()->getDataDirectory() + "TransferFunctions/";
+
     if (!saveDirectoryPrefix.empty()) {
         directoryName = saveDirectoryPrefix;
         parentDirectory = saveDirectory;
@@ -922,6 +926,8 @@ void MultiVarTransferFunctionWindow::rebuildTransferFunctionMap() {
 }
 
 bool MultiVarTransferFunctionWindow::renderGui() {
+    ImGui::SetNextWindowSize(ImVec2(634, 818), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(2, 1278), ImGuiCond_FirstUseEver);
     if (showWindow && ImGui::Begin("Multi-Var Transfer Function", &showWindow)) {
         if (ImGui::BeginCombo("Variable", varNames.at(selectedVarIndex).c_str())) {
             for (size_t i = 0; i < varNames.size(); ++i) {

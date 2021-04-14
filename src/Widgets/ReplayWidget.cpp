@@ -33,6 +33,7 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
 
+#include <Utils/AppSettings.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
 #include <ImGui/Widgets/CheckpointWindow.hpp>
@@ -432,6 +433,7 @@ ReplayWidget::ReplayWidget(
         SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow,
         sgl::CheckpointWindow& checkpointWindow)
         : sceneData(sceneData), transferFunctionWindow(transferFunctionWindow), checkpointWindow(checkpointWindow) {
+    scriptDirectory = sgl::AppSettings::get()->getDataDirectory() + "ReplayScripts/";
     directoryContentWatch.setPath(scriptDirectory, true);
     directoryContentWatch.initialize();
     updateAvailableReplayScripts();

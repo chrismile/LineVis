@@ -211,11 +211,17 @@ MainApp::MainApp()
     cameraPath.setApplicationCallback([this](
             const std::string& modelFilename, glm::vec3& centerOffset, float& startAngle, float& pulseFactor,
             float& standardZoom) {
-        if (boost::starts_with(modelFilename, "Data/LineDataSets/stress/PSLs-Vis2021/psl/Vis2021_femur3D")) {
+        if (boost::starts_with(
+                modelFilename,
+                sgl::AppSettings::get()->getDataDirectory()
+                + "LineDataSets/stress/PSLs-Vis2021/psl/Vis2021_femur3D")) {
             pulseFactor = 0.0f;
             standardZoom = 2.9f;
             centerOffset.y = 0.001f;
-        } else if (boost::starts_with(modelFilename, "Data/LineDataSets/stress/PSLs-Vis2021")) {
+        } else if (boost::starts_with(
+                modelFilename,
+                sgl::AppSettings::get()->getDataDirectory()
+                + "LineDataSets/stress/PSLs-Vis2021")) {
             pulseFactor = 0.0f;
             standardZoom = 1.9f;
         }
@@ -241,7 +247,7 @@ MainApp::MainApp()
         sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
         window->setWindowSize(recordingResolution.x, recordingResolution.y);
         realTimeCameraFlight = false;
-        loadLineDataSet({ "Data/LineDataSets/rings.obj" });
+        loadLineDataSet({ sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/rings.obj" });
         renderingMode = RENDERING_MODE_OPACITY_OPTIMIZATION;
     }
 
@@ -314,7 +320,9 @@ void MainApp::setNewState(const InternalState &newState) {
 
     // 1.2. Load the new transfer function if necessary.
     if (!newState.transferFunctionName.empty() && newState.transferFunctionName != lastState.transferFunctionName) {
-        transferFunctionWindow.loadFunctionFromFile("Data/TransferFunctions/" + newState.transferFunctionName);
+        transferFunctionWindow.loadFunctionFromFile(
+                sgl::AppSettings::get()->getDataDirectory()
+                + "TransferFunctions/" + newState.transferFunctionName);
     }
 
     // 2.1. Do we need to load new renderers?
@@ -590,6 +598,7 @@ void MainApp::loadAvailableDataSetInformation() {
     dataSetNames.push_back("Stress Line Tracer");
     selectedDataSetIndex = 0;
 
+    const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
     if (sgl::FileUtils::get()->exists(lineDataSetsDirectory + "datasets.json")) {
         dataSetInformation = loadDataSetList(lineDataSetsDirectory + "datasets.json");
         for (DataSetInformation& dataSetInfo  : dataSetInformation) {

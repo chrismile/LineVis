@@ -55,7 +55,6 @@ mkdir build
 cd build
 cmake ..
 make -j
-ln -s ../Data .
 ```
 (Alternatively, use 'cp -R ../Data .' to copy the Data directory instead of creating a soft link to it).
 
