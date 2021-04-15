@@ -76,8 +76,8 @@ void DepthComplexityRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     }
 }
 
-void DepthComplexityRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
-    updateNewLineData(lineData, isNewMesh);
+void DepthComplexityRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
+    updateNewLineData(lineData, isNewData);
 
     // Unload old data.
     shaderAttributes = sgl::ShaderAttributesPtr();

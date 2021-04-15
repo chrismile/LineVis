@@ -305,8 +305,8 @@ void MBOITRenderer::setNewState(const InternalState& newState) {
     updateMomentMode();
 }
 
-void MBOITRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
-    updateNewLineData(lineData, isNewMesh);
+void MBOITRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
+    updateNewLineData(lineData, isNewData);
 
     // Unload old data.
     shaderAttributesPass1 = sgl::ShaderAttributesPtr();

@@ -62,7 +62,7 @@ public:
      * Re-generates the visualization mapping.
      * @param lineData The render data.
      */
-    virtual void setLineData(LineDataPtr& lineData, bool isNewMesh)=0;
+    virtual void setLineData(LineDataPtr& lineData, bool isNewData)=0;
 
     // Renders the object to the scene framebuffer.
     virtual void render()=0;
@@ -91,7 +91,7 @@ public:
 protected:
     // Reload the gather shader.
     virtual void reloadGatherShader(bool canCopyShaderAttributes = true);
-    void updateNewLineData(LineDataPtr& lineData, bool isNewMesh);
+    void updateNewLineData(LineDataPtr& lineData, bool isNewData);
     // GUI rendering code to be implemented by sub-classes.
     virtual void renderGui()=0;
     bool showRendererWindow = true;

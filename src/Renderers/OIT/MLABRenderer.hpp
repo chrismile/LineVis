@@ -60,7 +60,7 @@ public:
      * Re-generates the visualization mapping.
      * @param lineData The render data.
      */
-    virtual void setLineData(LineDataPtr& lineData, bool isNewMesh);
+    virtual void setLineData(LineDataPtr& lineData, bool isNewData);
 
     /// Called when the resolution of the application window has changed.
     virtual void onResolutionChanged();

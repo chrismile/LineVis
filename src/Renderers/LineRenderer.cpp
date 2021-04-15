@@ -49,7 +49,7 @@ void LineRenderer::initialize() {
 }
 
 LineRenderer::~LineRenderer() {
-    if (useDepthCues && lineData) {
+    if (useDepthCues) {
         sgl::ShaderManager->removePreprocessorDefine("USE_SCREEN_SPACE_POSITION");
         sgl::ShaderManager->removePreprocessorDefine("USE_DEPTH_CUES");
     }
@@ -261,7 +261,7 @@ void LineRenderer::renderGuiWindow() {
     }
 }
 
-void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewMesh) {
+void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewData) {
     if (!this->lineData || lineData->getType() != this->lineData->getType()
             || lineData->settingsDiffer(this->lineData.get())) {
         this->lineData = lineData;

@@ -69,8 +69,8 @@ void DepthPeelingRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
 void DepthPeelingRenderer::setNewState(const InternalState& newState) {
 }
 
-void DepthPeelingRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
-    updateNewLineData(lineData, isNewMesh);
+void DepthPeelingRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
+    updateNewLineData(lineData, isNewData);
 
     // Unload old data.
     shaderAttributes = sgl::ShaderAttributesPtr();

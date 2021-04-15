@@ -101,8 +101,8 @@ void MLABBucketRenderer::setNewState(const InternalState& newState) {
     upperBackBufferOpacity = newState.rendererSettings.getFloatValue("upperOpacity");
 }
 
-void MLABBucketRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
-    MLABRenderer::setLineData(lineData, isNewMesh);
+void MLABBucketRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
+    MLABRenderer::setLineData(lineData, isNewData);
 
     // Unload old data.
     minDepthPassShaderAttributes = sgl::ShaderAttributesPtr();

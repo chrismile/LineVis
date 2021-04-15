@@ -187,8 +187,8 @@ void MLABRenderer::setNewState(const InternalState& newState) {
     }
 }
 
-void MLABRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
-    updateNewLineData(lineData, isNewMesh);
+void MLABRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
+    updateNewLineData(lineData, isNewData);
 
     // Unload old data.
     shaderAttributes = sgl::ShaderAttributesPtr();

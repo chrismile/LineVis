@@ -140,8 +140,8 @@ void OpaqueLineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     }
 }
 
-void OpaqueLineRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
-    updateNewLineData(lineData, isNewMesh);
+void OpaqueLineRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
+    updateNewLineData(lineData, isNewData);
 
     // Unload old data.
     shaderAttributes = sgl::ShaderAttributesPtr();

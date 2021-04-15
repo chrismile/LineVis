@@ -158,8 +158,8 @@ void PerPixelLinkedListLineRenderer::updateLargeMeshMode() {
     }
 }
 
-void PerPixelLinkedListLineRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
-    updateNewLineData(lineData, isNewMesh);
+void PerPixelLinkedListLineRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
+    updateNewLineData(lineData, isNewData);
 
     // Unload old data.
     shaderAttributes = sgl::ShaderAttributesPtr();

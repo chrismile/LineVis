@@ -256,8 +256,8 @@ void OpacityOptimizationRenderer::updateLargeMeshMode() {
     }
 }
 
-void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewMesh) {
-    updateNewLineData(lineData, isNewMesh);
+void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
+    updateNewLineData(lineData, isNewData);
 
     // Unload old data.
     gatherPpllOpacitiesRenderData = sgl::ShaderAttributesPtr();
@@ -301,7 +301,7 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewM
     gatherPpllFinalRenderData = sgl::ShaderManager->createShaderAttributes(gatherPpllFinalShader);
 
     numLineVertices = vertexPositionBuffer->getSize() / sizeof(glm::vec3);
-    generateBlendingWeightParametrization(isNewMesh);
+    generateBlendingWeightParametrization(isNewData);
 
     vertexOpacityBuffer = sgl::Renderer->createGeometryBuffer(
             numLineVertices * sizeof(float), nullptr, sgl::VERTEX_BUFFER);
@@ -374,7 +374,7 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewM
     onHasMoved();
 }
 
-void OpacityOptimizationRenderer::generateBlendingWeightParametrization(bool isNewMesh) {
+void OpacityOptimizationRenderer::generateBlendingWeightParametrization(bool isNewData) {
     // First, compute data necessary for parametrizing the polylines (number of segments, segment lengths).
     linesLengthSum = 0.0f;
     numPolylineSegments = 0;
