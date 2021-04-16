@@ -56,7 +56,6 @@ cd build
 cmake ..
 make -j
 ```
-(Alternatively, use 'cp -R ../Data .' to copy the Data directory instead of creating a soft link to it).
 
 The build process was also tested on Windows 10 64-bit using MSYS2 and Mingw-w64 (http://www.msys2.org/). Using MSYS2 and Pacman, the following packages need to be installed additionally to the prerequisites required by sgl.
 
@@ -71,7 +70,7 @@ cmake -G "MSYS Makefiles" -DPython3_FIND_REGISTRY=NEVER ..
 
 To run the program, execute:
 ```
-export LD_LIBRARY_PATH=/usr/local/lib
+export PYTHONHOME="/mingw64"
 ./LineVis
 ```
 
