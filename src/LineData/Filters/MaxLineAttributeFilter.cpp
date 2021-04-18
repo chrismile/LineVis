@@ -70,8 +70,7 @@ void MaxLineAttributeFilter::filterData(LineDataPtr lineDataIn) {
 }
 
 void MaxLineAttributeFilter::renderGui() {
-    ImGui::SetNextWindowSize(ImVec2(612, 120), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowPos(ImVec2(3220, 1932), ImGuiCond_FirstUseEver);
+    sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(3220, 1932, 612, 120);
     if (ImGui::Begin("Line Attribute Filter", &showFilterWindow)) {
         if (ImGui::SliderFloat(
                 "Min. Attribute", &trajectoryFilteringThreshold, minGlobalAttribute, maxGlobalAttribute)) {

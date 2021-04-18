@@ -926,8 +926,7 @@ void MultiVarTransferFunctionWindow::rebuildTransferFunctionMap() {
 }
 
 bool MultiVarTransferFunctionWindow::renderGui() {
-    ImGui::SetNextWindowSize(ImVec2(634, 818), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowPos(ImVec2(2, 1278), ImGuiCond_FirstUseEver);
+    sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(2, 1278, 634, 818);
     if (showWindow && ImGui::Begin("Multi-Var Transfer Function", &showWindow)) {
         if (ImGui::BeginCombo("Variable", varNames.at(selectedVarIndex).c_str())) {
             for (size_t i = 0; i < varNames.size(); ++i) {
