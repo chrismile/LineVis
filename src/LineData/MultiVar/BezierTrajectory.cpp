@@ -199,8 +199,14 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
             while (sumArcLengthsNext <= curArcLength) {
                 varIDPerLine = 0;
                 lineID++;
+                if (lineID >= BCurves.size()) {
+                    break;
+                }
                 sumArcLengths = sumArcLengthsNext;
                 sumArcLengthsNext += BCurves[lineID].totalArcLength;
+            }
+            if (lineID >= BCurves.size()) {
+                break;
             }
 
             const auto &BCurve = BCurves[lineID];
