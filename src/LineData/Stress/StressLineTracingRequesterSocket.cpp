@@ -79,7 +79,9 @@ void StressLineTracingRequesterSocket::join() {
             hasReplyConditionVariable.notify_all();
         }
         hasRequestConditionVariable.notify_all();
-        requesterThread.join();
+        if (requesterThread.joinable()) {
+            requesterThread.join();
+        }
     }
 }
 
