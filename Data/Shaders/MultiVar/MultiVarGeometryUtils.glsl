@@ -88,6 +88,16 @@ void createPartialTubeSegments(
     // Shift positions for twisted rolls
     if (offset > 0) {
         float thetaOffset = offset * theta * vertexID;
+        float radialFactorOffsetCos = cos(thetaOffset); // adjacent / hypotenuse
+        float radialFactorOffsetSin = sin(thetaOffset); // opposite / hypotenuse
+
+        for (int i = 0; i < 1; i++) {
+            vec2 circleTangent = vec2(-position.y, position.x);
+            position = radialFactorOffsetCos * position + radialFactorOffsetSin * circleTangent;
+        }
+
+        // tan is unstable.
+        /*float thetaOffset = offset * theta * vertexID;
         float tangetialFactorOffset = tan(thetaOffset); // opposite / adjacent
         float radialFactorOffset = cos(thetaOffset); // adjacent / hypotenuse
 
@@ -95,7 +105,7 @@ void createPartialTubeSegments(
             vec2 circleTangent = vec2(-position.y, position.x);
             position += tangetialFactorOffset * circleTangent;
             position *= radialFactorOffset;
-        }
+        }*/
     }
 
     if (minRadius > 0) {
