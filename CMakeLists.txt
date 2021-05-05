@@ -27,6 +27,9 @@ endif()
 
 option(USE_PYTHON "Build with Python 3 support for replay scripts" ON)
 
+set(DATA_PATH "${CMAKE_SOURCE_DIR}/Data" CACHE PATH "location of folder 'Data'")
+add_definitions(-DDATA_PATH=\"${DATA_PATH}\")
+
 find_package(PkgConfig REQUIRED)
 
 if (USE_PYTHON)
