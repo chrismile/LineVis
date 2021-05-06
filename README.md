@@ -40,39 +40,14 @@ The following rendering modes are supported:
 
 ## Building and running the programm
 
-The program requires the library sgl (https://github.com/chrismile/sgl).
-On Ubuntu 20.04 for example, you can install all other necessary dependencies with this command (additionally to the prerequisites required by sgl):
+Currently, there are three main ways to compile the program:
+- Linux: Using the system package manager to install all dependencies (tested: apt on Ubuntu, pacman on Arch Linux).
+- Linux & Windows: Installing all dependencies using [vcpkg](https://github.com/microsoft/vcpkg).
+- Windows: Using MSYS2 to install all dependencies.
 
-```
-sudo apt-get install libjsoncpp-dev libnetcdf-dev netcdf-bin libzmq3-dev python3-dev
-```
+On Windows, we recommend to use vcpkg if you need to use Microsoft Visual Studio.
+Guides for the different build types can be found in the directory `docs/compilation`.
 
-Python 3 is an optional dependency necessary for enabling replay script support.
-After installing sgl (see above) execute in the repository directory:
-
-```
-mkdir build
-cd build
-cmake ..
-make -j
-```
-
-The build process was also tested on Windows 10 64-bit using MSYS2 and Mingw-w64 (http://www.msys2.org/). Using MSYS2 and Pacman, the following packages need to be installed additionally to the prerequisites required by sgl.
-
-```
-pacman -S mingw64/mingw-w64-x86_64-jsoncpp mingw64/mingw-w64-x86_64-netcdf mingw64/mingw-w64-x86_64-zeromq mingw64/mingw-w64-x86_64-python
-```
-
-On Windows, using MSYS2 and Mingw-w64 (http://www.msys2.org/), it is best to use the following CMake command to configure CMake:
-```
-cmake -G "MSYS Makefiles" -DPython3_FIND_REGISTRY=NEVER ..
-```
-
-To run the program, execute:
-```
-export PYTHONHOME="/mingw64"
-./LineVis
-```
 
 ## How to add new data sets
 
