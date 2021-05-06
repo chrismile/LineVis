@@ -31,8 +31,6 @@ option(USE_PYTHON "Build with Python 3 support for replay scripts" ON)
 set(DATA_PATH "${CMAKE_SOURCE_DIR}/Data" CACHE PATH "Location of folder 'Data'")
 add_definitions(-DDATA_PATH=\"${DATA_PATH}\")
 
-find_package(PkgConfig REQUIRED)
-
 if (USE_PYTHON)
 	if (${CMAKE_VERSION} VERSION_GREATER "3.11")
 		# 2021-05-06: CMake won't find vcpkg version if we don't search for the interpreter.
@@ -102,6 +100,7 @@ if (${cppzmq_FOUND})
 	endif()
 else()
 	# https://stackoverflow.com/questions/41251474/how-to-import-zeromq-libraries-in-cmake/41252437
+	find_package(PkgConfig REQUIRED)
 	pkg_check_modules(PC_ZeroMQ QUIET zmq)
 	#if (${PC_ZeroMQ_FOUND})
 		find_path(ZeroMQ_INCLUDE_DIRS NAMES zmq.hpp PATHS ${PC_ZeroMQ_INCLUDE_DIRS})
