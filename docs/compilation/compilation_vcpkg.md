@@ -58,7 +58,6 @@ mkdir build
 cd build
 cmake -DCMAKE_TOOLCHAIN_FILE=$VCPKG_HOME/scripts/buildsystems/vcpkg.cmake -Dsgl_DIR=<path-to-sgl>lib/cmake/sgl ..
 cmake --build . --parallel
-cmake --build . --target install
 ```
 
 Hint: To change the language of warnings and error messages to English even if your system uses another language,
