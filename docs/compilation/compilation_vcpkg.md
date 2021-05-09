@@ -11,8 +11,7 @@ All other necessary dependencies besides sgl can be installed using the followin
 On Windows `--triplet=x64-windows` needs to be added if the 64-bit version of the packages should be installed.
 
 ```
-./vcpkg install boost-core boost-algorithm boost-filesystem boost-locale libpng sdl2[vulkan] sdl2-image \
-tinyxml2 glew glm libarchive[bzip2,core,lz4,lzma,zstd] jsoncpp python3 cppzmq netcdf-c
+./vcpkg install boost-core boost-algorithm boost-filesystem sdl2[vulkan] glew glm python3 cppzmq netcdf-c
 ```
 
 
@@ -58,9 +57,37 @@ Then, the program can be built using the following commands. Please adapt the pa
 mkdir build
 cd build
 cmake -DCMAKE_TOOLCHAIN_FILE=$VCPKG_HOME/scripts/buildsystems/vcpkg.cmake -Dsgl_DIR=<path-to-sgl>lib/cmake/sgl ..
-cmake --build .
+cmake --build . --parallel
 cmake --build . --target install
 ```
 
 Hint: To change the language of warnings and error messages to English even if your system uses another language,
 consider setting the environment variable `set VSLANG=1033`.
+
+To run the program, use the following commands on cmd.exe ...
+
+```
+set PATH=%PATH%;<path-to-sgl>/bin
+
+# Debug
+set PATH=%PATH%;$VCPKG_HOME/installed/x64-windows/debug/bin
+
+# Release
+set PATH=%PATH%;$VCPKG_HOME/installed/x64-windows/bin
+
+LineVis.exe
+```
+
+... or the following commands on the PowerShell.
+
+```
+$env:Path += ";<path-to-sgl>/bin"
+
+# Debug
+$env:Path += ";$VCPKG_HOME/installed/x64-windows/debug/bin"
+
+# Release
+$env:Path += ";$VCPKG_HOME/installed/x64-windows/bin"
+
+./LineVis.exe
+```
