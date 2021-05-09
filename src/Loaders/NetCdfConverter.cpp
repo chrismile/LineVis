@@ -236,7 +236,9 @@ Trajectories convertLatLonToCartesian(float* lat, float* lon, float* pressure, s
     float maxPressure = -FLT_MAX;
     //float minPressure = 1200.0f;
     //float maxPressure = 0.0001f;
+#if _OPENMP >= 201107
 	#pragma omp parallel for reduction(min:minPressure) reduction(max:maxPressure)
+#endif
 	for (size_t idx = 0; idx < trajectoryDim*timeDim; idx++) {
 	    if (pressure[idx] > 0.0f) {
             minPressure = std::min(minPressure, pressure[idx]);

@@ -445,7 +445,9 @@ MeshRenderer parseMesh3d(const std::string &filename, sgl::ShaderProgramPtr shad
 
                 // Compute minimum and maximum value
                 float minValue = FLT_MAX, maxValue = 0.0f;
+#if _OPENMP >= 201107
                 #pragma omp parallel for reduction(min:minValue) reduction(max:maxValue)
+#endif
                 for (size_t k = 0; k < numAttributeValues; k++) {
                     minValue = std::min(minValue, importanceCriterionAttribute.attributes[k]);
                     maxValue = std::max(maxValue, importanceCriterionAttribute.attributes[k]);

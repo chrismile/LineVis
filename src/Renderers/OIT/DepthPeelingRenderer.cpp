@@ -184,7 +184,7 @@ void DepthPeelingRenderer::gather() {
     }
 
     // TODO: Set layers to higher numbers for better quality.
-    for (int i = 0; i < std::min(maxDepthComplexity, 2000ul); i++) {
+    for (int i = 0; i < std::min(maxDepthComplexity, uint64_t(2000ul)); i++) {
         // 1. Peel one layer of the scene
         glDisable(GL_BLEND); // Replace with current surface
         glEnable(GL_DEPTH_TEST);
@@ -274,7 +274,9 @@ void DepthPeelingRenderer::computeDepthComplexity() {
     uint32_t *data = (uint32_t*)fragmentCounterBuffer->mapBuffer(sgl::BUFFER_MAP_READ_ONLY);
 
     uint64_t maxDepthComplexity = 0;
+#if _OPENMP >= 201107
     #pragma omp parallel for reduction(max:maxDepthComplexity) default(none) shared(data, bufferSize) schedule(static)
+#endif
     for (int i = 0; i < bufferSize; i++) {
         maxDepthComplexity = std::max(maxDepthComplexity, (uint64_t)data[i]);
     }

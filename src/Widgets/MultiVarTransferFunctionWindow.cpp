@@ -212,7 +212,9 @@ void GuiVarData::setAttributeValues(const std::string& name, const std::vector<f
 
     float minAttr = std::numeric_limits<float>::max();
     float maxAttr = std::numeric_limits<float>::lowest();
+#if _OPENMP >= 201107
     #pragma omp parallel for reduction(min: minAttr) reduction(max: maxAttr) shared(attributes) default(none)
+#endif
     for (size_t i = 0; i < attributes.size(); i++) {
         float value = attributes.at(i);
         minAttr = std::min(minAttr, value);

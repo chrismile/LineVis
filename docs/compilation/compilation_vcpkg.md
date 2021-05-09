@@ -12,7 +12,7 @@ On Windows `--triplet=x64-windows` needs to be added if the 64-bit version of th
 
 ```
 ./vcpkg install boost-core boost-algorithm boost-filesystem boost-locale libpng sdl2[vulkan] sdl2-image \
-tinyxml2 glew glm libarchive[bzip2,core,lz4,lzma,zstd] jsoncpp python3 zeromq netcdf-c netcdf-cxx4
+tinyxml2 glew glm libarchive[bzip2,core,lz4,lzma,zstd] jsoncpp python3 cppzmq netcdf-c
 ```
 
 
@@ -25,7 +25,7 @@ Please adapt `sgl_DIR` depending on which path sgl was installed to.
 mkdir build
 cd build
 rm -rf *
-cmake -DCMAKE_TOOLCHAIN_FILE=$VCPKG_HOME/scripts/buildsystems/vcpkg.cmake -Dsgl_DIR=<path-to-sgl> ..
+cmake -DCMAKE_TOOLCHAIN_FILE=$VCPKG_HOME/scripts/buildsystems/vcpkg.cmake -Dsgl_DIR=<path-to-sgl>/lib/cmake/sgl ..
 make -j
 make install
 ```

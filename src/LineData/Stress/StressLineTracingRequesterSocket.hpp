@@ -32,11 +32,7 @@
 #include <thread>
 #include <condition_variable>
 
-#ifdef __MINGW32__
 #include <json/json.h>
-#else
-#include <jsoncpp/json/json.h>
-#endif
 
 /**
  * A multi-threaded requester socket for stress line tracing. It listens on port 17384.

@@ -55,7 +55,9 @@ void MultiVarWindow::setAttributes(
     for (const std::vector<float> &attrList : attributes) {
         float minValue = std::numeric_limits<float>::max();
         float maxValue = std::numeric_limits<float>::lowest();
+#if _OPENMP >= 201107
         #pragma omp parallel for reduction(min: minValue) reduction(max: maxValue) shared(attrList) default(none)
+#endif
         for (size_t i = 0; i < attrList.size(); i++) {
             float value = attrList.at(i);
             minValue = std::min(minValue, value);

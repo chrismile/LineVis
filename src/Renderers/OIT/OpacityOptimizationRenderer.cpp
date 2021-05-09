@@ -382,27 +382,10 @@ void OpacityOptimizationRenderer::generateBlendingWeightParametrization(bool isN
     polylineLengths.shrink_to_fit();
     polylineLengths.resize(lines.size());
 
-#ifdef OPENMP_NO_MEMBERS
-    // Local variable for older versions of OpenMP.
-    float& linesLengthSum = this->linesLengthSum;
-    uint32_t& numPolylineSegments = this->numPolylineSegments;
-    std::vector<float>& polylineLengths = this->polylineLengths;
-
-    #pragma omp parallel for reduction(+: linesLengthSum) reduction(+: numPolylineSegments) shared(polylineLengths)
-    for (size_t lineIdx = 0; lineIdx < lines.size(); lineIdx++) {
-        std::vector<glm::vec3>& line = lines.at(lineIdx);
-        const size_t n = line.size();
-        float polylineLength = 0.0f;
-        for (size_t i = 1; i < n; i++) {
-            polylineLength += glm::length(line[i] - line[i-1]);
-        }
-        polylineLengths.at(lineIdx) = polylineLength;
-        linesLengthSum += polylineLength;
-        numPolylineSegments += n - 1;
-    }
-#else
+#if _OPENMP >= 201107
     #pragma omp parallel for reduction(+: linesLengthSum) reduction(+: numPolylineSegments) shared(polylineLengths) \
     default(none)
+#endif
     for (size_t lineIdx = 0; lineIdx < lines.size(); lineIdx++) {
         std::vector<glm::vec3>& line = lines.at(lineIdx);
         const size_t n = line.size();
@@ -414,7 +397,6 @@ void OpacityOptimizationRenderer::generateBlendingWeightParametrization(bool isN
         linesLengthSum += polylineLength;
         numPolylineSegments += n - 1;
     }
-#endif
 
     if (useViewDependentParametrization) {
         recomputeViewDependentParametrization();
