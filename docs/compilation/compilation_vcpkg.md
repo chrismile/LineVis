@@ -45,4 +45,22 @@ export LD_LIBRARY_PATH=<path-to-sgl>/lib
 
 ### Compilation on Windows
 
-Still WIP
+On Windows, installing the Boost.Interprocess package is necessary.
+Please do not forget to add `--triplet=x64-windows` if the 64-bit version of the package should be installed.
+
+```
+./vcpkg install boost-interprocess
+```
+
+Then, the program can be built using the following commands. Please adapt the paths where necessary.
+
+```
+mkdir build
+cd build
+cmake -DCMAKE_TOOLCHAIN_FILE=$VCPKG_HOME/scripts/buildsystems/vcpkg.cmake -Dsgl_DIR=<path-to-sgl>lib/cmake/sgl ..
+cmake --build .
+cmake --install .
+```
+
+Hint: To change the language of warnings and error messages to English even if your system uses another language,
+consider setting the environment variable `set VSLANG=1033`.
