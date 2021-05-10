@@ -199,8 +199,9 @@ void StressLineHierarchyMappingWidget::renderGraphArea(int psIdx) {
     std::string histogramId = std::string() + "##hmaphistogram" + std::to_string(psIdx);
     ImVec2 oldPadding = ImGui::GetStyle().FramePadding;
     ImGui::GetStyle().FramePadding = ImVec2(1, 1);
+    float* histogramData = histogram[psIdx].empty() ? nullptr : &histogram[psIdx].front();
     ImGui::PlotHistogram(
-            histogramId.c_str(), &histogram[psIdx].front(), histogram[psIdx].size(),
+            histogramId.c_str(), histogramData, histogram[psIdx].size(),
             0, NULL, 0.0f, 1.0f, ImVec2(regionWidth, graphHeight));
     ImGui::GetStyle().FramePadding = oldPadding;
 

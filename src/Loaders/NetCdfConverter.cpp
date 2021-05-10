@@ -27,6 +27,7 @@
  */
 
 #include <iostream>
+#include <algorithm>
 #include <vector>
 #include <memory>
 #include <fstream>

@@ -474,8 +474,9 @@ void GuiVarData::renderOpacityGraph() {
 
     ImVec2 oldPadding = ImGui::GetStyle().FramePadding;
     ImGui::GetStyle().FramePadding = ImVec2(1, 1);
+    float* histogramData = histogram.empty() ? nullptr : &histogram.front();
     ImGui::PlotHistogram(
-            "##histogram", &histogram.front(), histogram.size(), 0, NULL,
+            "##histogram", histogramData, histogram.size(), 0, NULL,
             0.0f, 1.0f, ImVec2(regionWidth, graphHeight));
     ImGui::GetStyle().FramePadding = oldPadding;
 
