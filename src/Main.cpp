@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
     builder.BuildRanges(&fontRanges);
     sgl::AppSettings::get()->setLoadGUI(fontRanges.Data);
 
-    sgl::Window *window = sgl::AppSettings::get()->createWindow();
+    sgl::AppSettings::get()->createWindow();
     sgl::AppSettings::get()->initializeSubsystems();
 
 #ifdef USE_PYTHON
@@ -70,10 +70,9 @@ int main(int argc, char *argv[]) {
 
     sgl::AppLogic *app = new MainApp();
     app->run();
-
     delete app;
+
     sgl::AppSettings::get()->release();
-    delete window;
 
 #ifdef USE_PYTHON
     Py_Finalize();
