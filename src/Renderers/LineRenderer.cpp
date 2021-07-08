@@ -259,14 +259,14 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewData) {
         updateDepthCueGeometryData();
     }
 
-    if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
+    if (lineData && lineData->hasSimulationMeshOutline()) {
         shaderAttributesHull = sgl::ShaderAttributesPtr();
         shaderAttributesHull = lineData->getGatherShaderAttributesHull(gatherShaderHull);
     }
 }
 
 void LineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
-    if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
+    if (lineData && lineData->hasSimulationMeshOutline()) {
         gatherShaderHull = lineData->reloadGatherShaderHull();
         if (canCopyShaderAttributes && shaderAttributesHull) {
             shaderAttributesHull = shaderAttributesHull->copy(gatherShaderHull);
