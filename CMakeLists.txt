@@ -27,6 +27,7 @@ if (${CMAKE_VERSION} VERSION_GREATER "3.11")
 endif()
 
 option(USE_PYTHON "Build with Python 3 support for replay scripts" ON)
+option(ENABLE_AMBIENT_OCCLUSION "Build with Vulkan ambient occlusion prebaking support." ON)
 
 set(DATA_PATH "${CMAKE_SOURCE_DIR}/Data" CACHE PATH "Location of folder 'Data'")
 add_definitions(-DDATA_PATH=\"${DATA_PATH}\")
@@ -144,6 +145,11 @@ if (Python3_FOUND AND USE_PYTHON)
 		target_link_libraries(LineVis PUBLIC ${Python3_LIBRARIES})
 	endif()
 	target_include_directories(LineVis PUBLIC ${Python3_INCLUDE_DIRS})
+endif()
+
+if (ENABLE_AMBIENT_OCCLUSION)
+	add_definitions(-DUSE_VULKAN_INTEROP)
+	add_definitions(-DENABLE_AMBIENT_OCCLUSION)
 endif()
 
 find_package(OpenMP REQUIRED)

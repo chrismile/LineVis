@@ -115,8 +115,6 @@ void WBOITRenderer::onResolutionChanged() {
     textureSettingsColor.internalFormat = GL_RGBA32F; // GL_RGBA16F?
     TextureSettings textureSettingsDepth;
     textureSettingsDepth.internalFormat = GL_DEPTH_COMPONENT;
-    textureSettingsDepth.pixelFormat = GL_DEPTH_COMPONENT;
-    textureSettingsDepth.pixelType = GL_FLOAT;
 
     gatherPassFBO = sgl::Renderer->createFBO();
     accumulationRenderTexture = TextureManager->createEmptyTexture(width, height, textureSettingsColor);

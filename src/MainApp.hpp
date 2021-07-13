@@ -54,7 +54,10 @@ typedef std::shared_ptr<LineData> LineDataPtr;
 
 class MainApp : public sgl::SciVisApp {
 public:
-    MainApp();
+    /**
+     * @param supportsRaytracing Whether raytracing via OpenGL-Vulkan interoperability is supported.
+     */
+    MainApp(bool supportsRaytracing);
     ~MainApp();
     void render();
     void update(float dt);
@@ -119,13 +122,11 @@ private:
     /// Checks if an asynchronous loading request was finished.
     void checkLoadingRequestFinished();
     /// Reload the currently loaded data set.
-    virtual void reloadDataSet() override;
+    void reloadDataSet() override;
     /// Prepares the visualization pipeline for rendering.
     void prepareVisualizationPipeline();
     /// Returns the filtered mesh that is passed to the renderers.
     void filterData(bool& isDirty);
-    /// Change the importance criterion used for coloring.
-    void changeQualityMeasureType();
     /// Sets the used renderers.
     void setRenderer();
 
@@ -137,9 +138,10 @@ private:
     LineDataRequester lineDataRequester;
     bool newMeshLoaded = true;
     sgl::AABB3 modelBoundingBox;
-    void* zeromqContext;
+    void* zeromqContext = nullptr;
     StressLineTracingRequester* stressLineTracingRequester;
     DataSetInformation stressLineTracerDataSetInformation;
+    bool supportsRaytracing = false;
 };
 
 #endif // MAINAPP_HPP

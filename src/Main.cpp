@@ -31,9 +31,14 @@
 #endif
 
 #include <Utils/File/FileUtils.hpp>
+#include <Utils/File/Logfile.hpp>
 #include <Utils/AppSettings.hpp>
 #include <Utils/AppLogic.hpp>
 #include <Graphics/Window.hpp>
+
+#ifdef USE_VULKAN_INTEROP
+#include <Graphics/Vulkan/Utils/Device.hpp>
+#endif
 
 #include "MainApp.hpp"
 
@@ -62,13 +67,38 @@ int main(int argc, char *argv[]) {
     sgl::AppSettings::get()->setLoadGUI(fontRanges.Data);
 
     sgl::AppSettings::get()->createWindow();
+
+#if defined(USE_VULKAN_INTEROP)
+    bool supportsRaytracing = true;
+    std::vector<const char*> raytracingDeviceExtensions = {
+            VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+            VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+            VK_KHR_MAINTENANCE3_EXTENSION_NAME,
+            VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
+            VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+            VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+    };
+    sgl::AppSettings::get()->initializeVulkanInteropSupport({}, raytracingDeviceExtensions);
+    for (const char* deviceExtension : raytracingDeviceExtensions) {
+        if (!sgl::AppSettings::get()->getPrimaryDevice()->isDeviceExtensionSupported(deviceExtension)) {
+            sgl::Logfile::get()->writeInfo(
+                    std::string() + "Warning: Ambient occlusion support was enabled, but the Vulkan device "
+                    "extension " + deviceExtension + " is not supported on this system.");
+            supportsRaytracing = false;
+            break;
+        }
+    }
+#else
+    bool supportsRaytracing = false;
+#endif
+
     sgl::AppSettings::get()->initializeSubsystems();
 
 #ifdef USE_PYTHON
     Py_Initialize();
 #endif
 
-    sgl::AppLogic *app = new MainApp();
+    auto app = new MainApp(supportsRaytracing);
     app->run();
     delete app;
 

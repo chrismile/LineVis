@@ -75,7 +75,7 @@ void openglErrorCallback() {
     std::cerr << "Application callback" << std::endl;
 }
 
-MainApp::MainApp()
+MainApp::MainApp(bool supportsRaytracing)
         : sceneData(
                 sceneFramebuffer, sceneTexture, sceneDepthRBO, camera,
                 clearColor, screenshotTransparentBackground,
@@ -89,7 +89,8 @@ MainApp::MainApp()
 #else
           zeromqContext(nullptr),
 #endif
-          stressLineTracingRequester(new StressLineTracingRequester(zeromqContext)) {
+          stressLineTracingRequester(new StressLineTracingRequester(zeromqContext)),
+          supportsRaytracing(supportsRaytracing) {
 #ifdef USE_PYTHON
     sgl::ColorLegendWidget::setFontScaleStandard(1.0f);
 
@@ -310,8 +311,8 @@ void MainApp::setNewState(const InternalState &newState) {
     int currentWindowWidth = window->getWidth();
     int currentWindowHeight = window->getHeight();
     glm::ivec2 newResolution = newState.windowResolution;
-    if (newResolution.x > 0 && newResolution.x > 0 && currentWindowWidth != newResolution.x
-        && currentWindowHeight != newResolution.y) {
+    if (newResolution.x > 0 && newResolution.y > 0 && currentWindowWidth != newResolution.x
+            && currentWindowHeight != newResolution.y) {
         window->setWindowSize(newResolution.x, newResolution.y);
     }
 

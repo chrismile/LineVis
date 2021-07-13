@@ -56,8 +56,6 @@ StressLineHierarchyMappingWidget::StressLineHierarchyMappingWidget() {
 
     hierarchyMappingTextureSettings.type = sgl::TEXTURE_1D_ARRAY;
     hierarchyMappingTextureSettings.internalFormat = GL_R16;
-    hierarchyMappingTextureSettings.pixelFormat = GL_RED;
-    hierarchyMappingTextureSettings.pixelType = GL_FLOAT;
     hierarchyMappingTexture = sgl::TextureManager->createEmptyTexture(
             STANDARD_MAP_RESOLUTION, 3, hierarchyMappingTextureSettings);
 
