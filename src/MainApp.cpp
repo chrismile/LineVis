@@ -69,11 +69,21 @@
 #include "Renderers/OIT/MLABBucketRenderer.hpp"
 #include "Renderers/OIT/WBOITRenderer.hpp"
 #include "Renderers/OIT/DepthPeelingRenderer.hpp"
+#ifdef USE_VULKAN_INTEROP
+#include "Renderers/OIT/VulkanTestRenderer.hpp"
+#include <Graphics/Vulkan/Utils/Instance.hpp>
+#endif
 #include "MainApp.hpp"
 
 void openglErrorCallback() {
     std::cerr << "Application callback" << std::endl;
 }
+
+#ifdef USE_VULKAN_INTEROP
+void vulkanErrorCallback() {
+    std::cerr << "Application callback" << std::endl;
+}
+#endif
 
 MainApp::MainApp(bool supportsRaytracing)
         : sceneData(
@@ -91,6 +101,10 @@ MainApp::MainApp(bool supportsRaytracing)
 #endif
           stressLineTracingRequester(new StressLineTracingRequester(zeromqContext)),
           supportsRaytracing(supportsRaytracing) {
+#ifdef USE_VULKAN_INTEROP
+    sgl::AppSettings::get()->getVulkanInstance()->setDebugCallback(&vulkanErrorCallback);
+#endif
+
 #ifdef USE_PYTHON
     sgl::ColorLegendWidget::setFontScaleStandard(1.0f);
 
@@ -426,6 +440,11 @@ void MainApp::setRenderer() {
     } else if (renderingMode == RENDERING_MODE_DEPTH_PEELING) {
         lineRenderer = new DepthPeelingRenderer(sceneData, transferFunctionWindow);
     }
+#ifdef USE_VULKAN_INTEROP
+    else if (renderingMode == RENDERING_MODE_VULKAN_TEST) {
+        lineRenderer = new VulkanTestRenderer(sceneData, transferFunctionWindow, rendererVk);
+    }
+#endif
     lineRenderer->initialize();
 
     if (lineData) {

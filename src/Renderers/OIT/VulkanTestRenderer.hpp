@@ -26,24 +26,34 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEVIS_WBOITRENDERER_HPP
-#define LINEVIS_WBOITRENDERER_HPP
+#ifndef LINEVIS_VULKANTESTRENDERER_HPP
+#define LINEVIS_VULKANTESTRENDERER_HPP
 
 #include "Renderers/LineRenderer.hpp"
 
+namespace sgl {
+class Texture;
+typedef std::shared_ptr<Texture> TexturePtr;
+class SemaphoreVkGlInterop;
+typedef std::shared_ptr<SemaphoreVkGlInterop> SemaphoreVkGlInteropPtr;
+}
+
+namespace sgl { namespace vk {
+class Texture;
+typedef std::shared_ptr<Texture> TexturePtr;
+class RasterData;
+typedef std::shared_ptr<RasterData> RasterDataPtr;
+class Renderer;
+}}
+
 /**
- * Renders all lines with transparency values determined by the transfer function set by the user.
- * For this, the order-independent transparency (OIT) technique Weighted Blended Order-Independent Transparency (WBOIT)
- * is used. For more details see: Morgan McGuire and Louis Bavoil. 2013. Weighted Blended Order-Independent
- * Transparency. Journal of Computer Graphics Techniques (JCGT), vol. 2, no. 2, 122-141, 2013.
- *
- * For more details regarding the implementation see:
- * http://casual-effects.blogspot.com/2015/03/implemented-weighted-blended-order.html
+ * A dummy renderer for testing OpenGL-Vulkan interoperability.
  */
-class WBOITRenderer : public LineRenderer {
+class VulkanTestRenderer : public LineRenderer {
 public:
-    WBOITRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
-    ~WBOITRenderer() override {}
+    VulkanTestRenderer(
+            SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
+    ~VulkanTestRenderer();
 
     /**
      * Re-generates the visualization mapping.
@@ -60,24 +70,19 @@ public:
     void renderGui() override;
 
 private:
-    void setUniformData();
-    void reloadShaders();
-    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
-    void reloadResolveShader();
+    // OpenGL-Vulkan interoperability data.
+    sgl::vk::TexturePtr renderTextureVk;
+    sgl::TexturePtr renderTextureGl;
+    sgl::SemaphoreVkGlInteropPtr renderReadySemaphore, renderFinishedSemaphore;
 
-    // Shaders.
-    sgl::ShaderProgramPtr gatherShader;
-    sgl::ShaderProgramPtr resolveShader;
+    // Vulkan render data.
+    sgl::vk::Renderer* rendererVk = nullptr;
+    sgl::vk::RasterDataPtr renderData;
 
-    // Render data.
-    sgl::ShaderAttributesPtr shaderAttributes;
-    // Blit data (ignores model-view-projection matrix and uses normalized device coordinates).
+    // OpenGL blit data (ignores model-view-projection matrix and uses normalized device coordinates).
     sgl::ShaderAttributesPtr blitRenderData;
-
-    // Render data of depth peeling
-    sgl::FramebufferObjectPtr gatherPassFBO;
-    sgl::TexturePtr accumulationRenderTexture;
-    sgl::TexturePtr revealageRenderTexture;
+    sgl::ShaderProgramPtr blitShader;
 };
 
-#endif //LINEVIS_WBOITRENDERER_HPP
+
+#endif //LINEVIS_VULKANTESTRENDERER_HPP
