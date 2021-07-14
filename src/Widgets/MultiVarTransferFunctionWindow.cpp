@@ -470,14 +470,15 @@ void GuiVarData::renderOpacityGraph() {
         onOpacityGraphClick();
     }
     //ImGui::SetItemAllowOverlap();
-    ImGui::SetCursorPos(cursorPosHistogram);
+    ImGui::SetCursorPos(cursorPosHistogram + ImVec2(border, border));
 
     ImVec2 oldPadding = ImGui::GetStyle().FramePadding;
     ImGui::GetStyle().FramePadding = ImVec2(1, 1);
     float* histogramData = histogram.empty() ? nullptr : &histogram.front();
     ImGui::PlotHistogram(
             "##histogram", histogramData, histogram.size(), 0, NULL,
-            0.0f, 1.0f, ImVec2(regionWidth, graphHeight));
+            0.0f, 1.0f,
+            ImVec2(regionWidth - border * 2, graphHeight - border * 2));
     ImGui::GetStyle().FramePadding = oldPadding;
 
     // Then render the graph itself
