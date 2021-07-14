@@ -441,11 +441,11 @@ void GuiVarData::renderFileDialog() {
 void GuiVarData::renderOpacityGraph() {
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     float scaleFactor = sgl::ImGuiWrapper::get()->getScaleFactor();
-    int regionWidth = ImGui::GetContentRegionAvailWidth();
-    int graphHeight = 300;
-    int border = 2*scaleFactor;
-    int areaWidth = regionWidth - 2.0f*border;
-    int areaHeight = graphHeight - 2.0f*border;
+    float regionWidth = ImGui::GetContentRegionAvailWidth();
+    float graphHeight = 300 * scaleFactor / 1.875f;
+    float border = 2*scaleFactor;
+    float areaWidth = regionWidth - 2.0f*border;
+    float areaHeight = graphHeight - 2.0f*border;
     opacityGraphBox.min = glm::vec2(ImGui::GetCursorScreenPos().x + border, ImGui::GetCursorScreenPos().y + border);
     opacityGraphBox.max = opacityGraphBox.min + glm::vec2(areaWidth, areaHeight);
 
@@ -510,7 +510,7 @@ void GuiVarData::renderColorBar() {
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     float scaleFactor = sgl::ImGuiWrapper::get()->getScaleFactor();
     int regionWidth = ImGui::GetContentRegionAvailWidth() - 2;
-    int barHeight = 30;
+    int barHeight = 30 * scaleFactor / 1.875f;
     colorBarBox.min = glm::vec2(ImGui::GetCursorScreenPos().x + 1, ImGui::GetCursorScreenPos().y + 1);
     colorBarBox.max = colorBarBox.min + glm::vec2(regionWidth - 2, barHeight - 2);
 
