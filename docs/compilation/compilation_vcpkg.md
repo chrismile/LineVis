@@ -11,7 +11,7 @@ All other necessary dependencies besides sgl can be installed using the followin
 On Windows `--triplet=x64-windows` needs to be added if the 64-bit version of the packages should be installed.
 
 ```
-./vcpkg install boost-core boost-algorithm boost-filesystem sdl2[vulkan] glew glm python3 cppzmq netcdf-c
+./vcpkg install boost-core boost-algorithm boost-filesystem sdl2[vulkan] glew glm jsoncpp python3 cppzmq netcdf-c
 ```
 
 
