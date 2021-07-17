@@ -29,6 +29,8 @@
 #ifndef STRESSLINEVIS_LINEDATASTRESS_HPP
 #define STRESSLINEVIS_LINEDATASTRESS_HPP
 
+#include <array>
+
 #include "LineData.hpp"
 #include "Widgets/StressLineHierarchyMappingWidget.hpp"
 #include "Widgets/MultiVarTransferFunctionWindow.hpp"
