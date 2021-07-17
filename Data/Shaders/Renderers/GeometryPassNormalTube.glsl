@@ -491,14 +491,16 @@ void main() {
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
     const float WHITE_THRESHOLD = 0.7;
 #ifdef USE_BANDS
-    float EPSILON_OUTLINE = clamp(fragmentDepth * 0.001 / (useBand != 0 ? bandWidth : lineWidth), 0.0, 0.49);
+    float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / (useBand != 0 ? bandWidth : lineWidth), 0.0, 0.49);
+    float EPSILON_WHITE = fwidth(ribbonPosition);
 #else
-    float EPSILON_OUTLINE = clamp(fragmentDepth * 0.001 / lineWidth, 0.0, 0.49);
+    float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / lineWidth, 0.0, 0.49);
+    float EPSILON_WHITE = fwidth(ribbonPosition);
 #endif
-    float coverage = 1.0 - smoothstep(1.0 - 2.0*EPSILON_OUTLINE, 1.0, absCoords);
+    float coverage = 1.0 - smoothstep(1.0 - EPSILON_OUTLINE, 1.0, absCoords);
     //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(ribbonPosition));
     vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor,
-            smoothstep(WHITE_THRESHOLD - EPSILON_OUTLINE, WHITE_THRESHOLD + EPSILON_OUTLINE, absCoords)),
+            smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),
             fragmentColor.a * coverage);
 
     //colorOut = vec4(vec3(absCoords), 1.0);
@@ -506,7 +508,7 @@ void main() {
 #if defined(DIRECT_BLIT_GATHER)
     // To counteract depth fighting with overlay wireframe.
     float depthOffset = -0.00001;
-    if (absCoords >= WHITE_THRESHOLD - EPSILON_OUTLINE) {
+    if (absCoords >= WHITE_THRESHOLD - EPSILON_WHITE) {
         depthOffset = 0.002;
     }
     //gl_FragDepth = clamp(gl_FragCoord.z + depthOffset, 0.0, 0.999);

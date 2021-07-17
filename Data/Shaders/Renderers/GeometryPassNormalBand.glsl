@@ -345,17 +345,18 @@ void main() {
     float absCoords = abs(fragmentNormalFloat);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
     const float WHITE_THRESHOLD = 0.7;
-    float EPSILON = clamp(fragmentDepth * 0.001 / (useBand != 0 ? bandWidth : lineWidth), 0.0, 0.49);
-    float coverage = 1.0 - smoothstep(1.0 - 2.0*EPSILON, 1.0, absCoords);
+    float EPSILON = clamp(fragmentDepth * 0.0005 / (useBand != 0 ? bandWidth : lineWidth), 0.0, 0.49);
+    float EPSILON_WHITE = fwidth(absCoords);
+    float coverage = 1.0 - smoothstep(1.0 - EPSILON, 1.0, absCoords);
     //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(fragmentNormalFloat));
     vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor,
-            smoothstep(WHITE_THRESHOLD - EPSILON, WHITE_THRESHOLD + EPSILON, absCoords)),
+            smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),
             fragmentColor.a * coverage);
 
 #if defined(DIRECT_BLIT_GATHER)
     // To counteract depth fighting with overlay wireframe.
     float depthOffset = -0.00001;
-    if (absCoords >= WHITE_THRESHOLD - EPSILON) {
+    if (absCoords >= WHITE_THRESHOLD - EPSILON_WHITE) {
         depthOffset = 0.002;
     }
     //gl_FragDepth = clamp(gl_FragCoord.z + depthOffset, 0.0, 0.999);
