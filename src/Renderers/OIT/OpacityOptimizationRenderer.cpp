@@ -85,7 +85,7 @@ OpacityOptimizationRenderer::OpacityOptimizationRenderer(SceneData& sceneData, s
             glm::vec3(1,1,0), glm::vec3(-1,-1,0), glm::vec3(1,-1,0),
             glm::vec3(-1,-1,0), glm::vec3(1,1,0), glm::vec3(-1,1,0)};
     sgl::GeometryBufferPtr geomBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(glm::vec3)*fullscreenQuad.size(), (void*)&fullscreenQuad.front());
+            sizeof(glm::vec3)*fullscreenQuad.size(), fullscreenQuad.data());
 
     resolvePpllOpacitiesRenderData = sgl::ShaderManager->createShaderAttributes(resolvePpllOpacitiesShader);
     resolvePpllOpacitiesRenderData->addGeometryBuffer(

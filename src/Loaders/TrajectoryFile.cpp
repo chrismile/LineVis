@@ -34,10 +34,11 @@
 #include <Utils/File/Logfile.hpp>
 #include <Math/Geometry/AABB3.hpp>
 #include <Utils/Events/Stream/Stream.hpp>
+#include <Utils/File/FileLoader.hpp>
+
 #include "NetCdfConverter.hpp"
 #include "StressTrajectoriesDatLoader.hpp"
 #include "TrajectoryFile.hpp"
-#include <iostream>
 
 sgl::AABB3 computeTrajectoriesAABB3(const Trajectories& trajectories) {
     sgl::AABB3 aabb;
@@ -512,43 +513,13 @@ Trajectories loadTrajectoriesFromObj(const std::string& filename,  std::vector<s
     std::vector<float> globalLineVertexAttributes;
     size_t numVertexAttributesGlobal = 0;
 
-#ifdef _MSC_VER
-    FILE* file = fopen(filename.c_str(), "r");
-#else
-    FILE* file = fopen64(filename.c_str(), "r");
-#endif
-    if (!file) {
-        sgl::Logfile::get()->writeError(
-                std::string() + "Error in loadTrajectoriesFromObj: File \""
-                + filename + "\" does not exist.");
+    uint8_t* buffer = nullptr;
+    size_t length = 0;
+    bool loaded = sgl::loadFileFromSource(filename, buffer, length, false);
+    if (!loaded) {
         return trajectories;
     }
-#if defined(_WIN32) && !defined(__MINGW32__)
-    _fseeki64(file, 0, SEEK_END);
-    size_t length = _ftelli64(file);
-    _fseeki64(file, 0, SEEK_SET);
-#else
-    fseeko(file, 0, SEEK_END);
-    size_t length = ftello(file);
-    fseeko(file, 0, SEEK_SET);
-#endif
-
-    char* fileBuffer = new char[length];
-    if (fileBuffer == nullptr) {
-        sgl::Logfile::get()->writeError(
-                std::string() + "Error in loadTrajectoriesFromObj: Couldn't reserve sufficient "
-                + "memory for reading the file \"" + filename + "\".");
-        return trajectories;
-    }
-    size_t result = fread(fileBuffer, 1, length, file);
-    fclose(file);
-    if (result != length) {
-        sgl::Logfile::get()->writeError(
-                std::string() + "Error in loadTrajectoriesFromObj: Invalid return value when "
-                + "reading the file \"" + filename + "\".");
-        delete[] fileBuffer;
-        return trajectories;
-    }
+    char* fileBuffer = reinterpret_cast<char*>(buffer);
 
     std::string lineBuffer;
     std::string stringBuffer;
@@ -742,12 +713,12 @@ Trajectories loadTrajectoriesFromBinLines(const std::string& filename) {
         Trajectory &currentTrajectory = trajectories.at(trajectoryIndex);
         stream.read(trajectoryNumPoints);
         currentTrajectory.positions.resize(trajectoryNumPoints);
-        stream.read((void*)&currentTrajectory.positions.front(), sizeof(glm::vec3)*trajectoryNumPoints);
+        stream.read(currentTrajectory.positions.data(), sizeof(glm::vec3) * trajectoryNumPoints);
         currentTrajectory.attributes.resize(numAttributes);
         for (uint32_t attributeIndex = 0; attributeIndex < numAttributes; attributeIndex++) {
             std::vector<float> &currentAttribute = currentTrajectory.attributes.at(attributeIndex);
             currentAttribute.resize(trajectoryNumPoints);
-            stream.read((void*)&currentAttribute.front(), sizeof(float)*trajectoryNumPoints);
+            stream.read(currentAttribute.data(), sizeof(float) * trajectoryNumPoints);
         }
     }
 

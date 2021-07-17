@@ -256,7 +256,7 @@ bool LineDataMultiVar::renderGuiTechniqueSettings() {
         // Update SSBO
         if (itemHasChanged) {
             varSelectedArrayBuffer = sgl::Renderer->createGeometryBuffer(
-                    varSelected.size() * sizeof(uint32_t), (void*)&varSelected.front(),
+                    varSelected.size() * sizeof(uint32_t), varSelected.data(),
                     sgl::SHADER_STORAGE_BUFFER);
             shallReloadGatherShader = true;
             recomputeWidgetPositions();
@@ -284,7 +284,7 @@ bool LineDataMultiVar::renderGuiTechniqueSettings() {
 
     if (colorHasChanged) {
         varColorArrayBuffer = sgl::Renderer->createGeometryBuffer(
-                varColors.size() * sizeof(glm::vec4), (void*)&varColors.front(),
+                varColors.size() * sizeof(glm::vec4), varColors.data(),
                 sgl::SHADER_STORAGE_BUFFER);
         recomputeColorLegend();
         reRender = true;

@@ -320,17 +320,17 @@ SimulationMeshOutlineRenderData LineData::getSimulationMeshOutlineRenderData() {
     // Add the index buffer.
     renderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
             sizeof(uint32_t)*simulationMeshOutlineTriangleIndices.size(),
-            (void*)&simulationMeshOutlineTriangleIndices.front(), sgl::INDEX_BUFFER);
+            simulationMeshOutlineTriangleIndices.data(), sgl::INDEX_BUFFER);
 
     // Add the position buffer.
     renderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
             simulationMeshOutlineVertexPositions.size()*sizeof(glm::vec3),
-            (void*)&simulationMeshOutlineVertexPositions.front(), sgl::VERTEX_BUFFER);
+            simulationMeshOutlineVertexPositions.data(), sgl::VERTEX_BUFFER);
 
     // Add the normal buffer.
     renderData.vertexNormalBuffer = sgl::Renderer->createGeometryBuffer(
             simulationMeshOutlineVertexNormals.size()*sizeof(glm::vec3),
-            (void*)&simulationMeshOutlineVertexNormals.front(), sgl::VERTEX_BUFFER);
+            simulationMeshOutlineVertexNormals.data(), sgl::VERTEX_BUFFER);
 
     return renderData;
 }

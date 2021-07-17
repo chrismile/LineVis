@@ -60,12 +60,12 @@ WBOITRenderer::WBOITRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& 
             glm::vec3(1,1,0), glm::vec3(-1,-1,0), glm::vec3(1,-1,0),
             glm::vec3(-1,-1,0), glm::vec3(1,1,0), glm::vec3(-1,1,0)};
     GeometryBufferPtr geomBufferPos = sgl::Renderer->createGeometryBuffer(
-            sizeof(glm::vec3)*fullscreenQuadPos.size(), (void*)&fullscreenQuadPos.front());
+            sizeof(glm::vec3)*fullscreenQuadPos.size(), fullscreenQuadPos.data());
     std::vector<glm::vec2> fullscreenQuadTex{
             glm::vec2(1,1), glm::vec2(0,0), glm::vec2(1,0),
             glm::vec2(0,0), glm::vec2(1,1), glm::vec2(0,1)};
     GeometryBufferPtr geomBufferTex = sgl::Renderer->createGeometryBuffer(
-            sizeof(glm::vec2)*fullscreenQuadTex.size(), (void*)&fullscreenQuadTex.front());
+            sizeof(glm::vec2)*fullscreenQuadTex.size(), fullscreenQuadTex.data());
     blitRenderData->addGeometryBuffer(geomBufferPos, "vertexPosition", ATTRIB_FLOAT, 3);
     blitRenderData->addGeometryBuffer(geomBufferTex, "vertexTexCoord", ATTRIB_FLOAT, 2);
 }

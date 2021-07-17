@@ -1188,40 +1188,40 @@ TubeRenderData LineDataStress::getTubeRenderData() {
 
     // Add the index buffer.
     tubeRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
-            lineIndices.size()*sizeof(uint32_t), (void*)&lineIndices.front(), sgl::INDEX_BUFFER);
+            lineIndices.size()*sizeof(uint32_t), lineIndices.data(), sgl::INDEX_BUFFER);
 
     // Add the position buffer.
     tubeRenderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexPositions.size()*sizeof(glm::vec3), (void*)&vertexPositions.front(), sgl::VERTEX_BUFFER);
+            vertexPositions.size()*sizeof(glm::vec3), vertexPositions.data(), sgl::VERTEX_BUFFER);
 
     // Add the attribute buffer.
     tubeRenderData.vertexAttributeBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexAttributes.size()*sizeof(float), (void*)&vertexAttributes.front(), sgl::VERTEX_BUFFER);
+            vertexAttributes.size()*sizeof(float), vertexAttributes.data(), sgl::VERTEX_BUFFER);
 
     // Add the normal buffer.
     tubeRenderData.vertexNormalBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexNormals.size()*sizeof(glm::vec3), (void*)&vertexNormals.front(), sgl::VERTEX_BUFFER);
+            vertexNormals.size()*sizeof(glm::vec3), vertexNormals.data(), sgl::VERTEX_BUFFER);
 
     // Add the tangent buffer.
     tubeRenderData.vertexTangentBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexTangents.size()*sizeof(glm::vec3), (void*)&vertexTangents.front(), sgl::VERTEX_BUFFER);
+            vertexTangents.size()*sizeof(glm::vec3), vertexTangents.data(), sgl::VERTEX_BUFFER);
 
     // Add the principal stress index buffer.
     tubeRenderData.vertexPrincipalStressIndexBuffer = sgl::Renderer->createGeometryBuffer(
             vertexPrincipalStressIndices.size()*sizeof(uint32_t),
-            (void*)&vertexPrincipalStressIndices.front(), sgl::VERTEX_BUFFER);
+            vertexPrincipalStressIndices.data(), sgl::VERTEX_BUFFER);
 
     if (hasLineHierarchy) {
         // Add the line hierarchy level buffer.
         tubeRenderData.vertexLineHierarchyLevelBuffer = sgl::Renderer->createGeometryBuffer(
                 vertexLineHierarchyLevels.size()*sizeof(float),
-                (void*)&vertexLineHierarchyLevels.front(), sgl::VERTEX_BUFFER);
+                vertexLineHierarchyLevels.data(), sgl::VERTEX_BUFFER);
     }
 
     // Add the line appearance order buffer.
     tubeRenderData.vertexLineAppearanceOrderBuffer = sgl::Renderer->createGeometryBuffer(
             vertexLineAppearanceOrders.size()*sizeof(uint32_t),
-            (void*)&vertexLineAppearanceOrders.front(), sgl::VERTEX_BUFFER);
+            vertexLineAppearanceOrders.data(), sgl::VERTEX_BUFFER);
 
     return tubeRenderData;
 }
@@ -1312,7 +1312,7 @@ TubeRenderDataProgrammableFetch LineDataStress::getTubeRenderDataProgrammableFet
         fetchIndices.push_back(base0+1);
     }
     tubeRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t) * fetchIndices.size(), (void*)&fetchIndices.front(), sgl::INDEX_BUFFER);
+            sizeof(uint32_t) * fetchIndices.size(), fetchIndices.data(), sgl::INDEX_BUFFER);
 
     // 3. Add the point data for all line points.
     std::vector<LinePointDataProgrammableFetch> linePointData;
@@ -1325,14 +1325,14 @@ TubeRenderDataProgrammableFetch LineDataStress::getTubeRenderDataProgrammableFet
     }
 
     tubeRenderData.linePointsBuffer = sgl::Renderer->createGeometryBuffer(
-            linePointData.size() * sizeof(LinePointDataProgrammableFetch), (void*)&linePointData.front(),
+            linePointData.size() * sizeof(LinePointDataProgrammableFetch), linePointData.data(),
             sgl::SHADER_STORAGE_BUFFER);
 
     if (hasLineHierarchy) {
         // Add the line hierarchy level buffer.
         tubeRenderData.lineHierarchyLevelsBuffer = sgl::Renderer->createGeometryBuffer(
                 vertexLineHierarchyLevels.size()*sizeof(float),
-                (void*)&vertexLineHierarchyLevels.front(), sgl::SHADER_STORAGE_BUFFER);
+                vertexLineHierarchyLevels.data(), sgl::SHADER_STORAGE_BUFFER);
     }
 
     return tubeRenderData;
@@ -1409,30 +1409,30 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
 
     // Add the index buffer.
     tubeRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
-            lineIndices.size()*sizeof(uint32_t), (void*)&lineIndices.front(), sgl::INDEX_BUFFER);
+            lineIndices.size()*sizeof(uint32_t), lineIndices.data(), sgl::INDEX_BUFFER);
 
     // Add the position buffer.
     tubeRenderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexPositions.size()*sizeof(glm::vec3), (void*)&vertexPositions.front(), sgl::VERTEX_BUFFER);
+            vertexPositions.size()*sizeof(glm::vec3), vertexPositions.data(), sgl::VERTEX_BUFFER);
 
     // Add the attribute buffer.
     tubeRenderData.vertexAttributeBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexAttributes.size()*sizeof(float), (void*)&vertexAttributes.front(), sgl::VERTEX_BUFFER);
+            vertexAttributes.size()*sizeof(float), vertexAttributes.data(), sgl::VERTEX_BUFFER);
 
     // Add the tangent buffer.
     tubeRenderData.vertexTangentBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexTangents.size()*sizeof(glm::vec3), (void*)&vertexTangents.front(), sgl::VERTEX_BUFFER);
+            vertexTangents.size()*sizeof(glm::vec3), vertexTangents.data(), sgl::VERTEX_BUFFER);
 
     // Add the principal stress index buffer.
     tubeRenderData.vertexPrincipalStressIndexBuffer = sgl::Renderer->createGeometryBuffer(
             vertexPrincipalStressIndices.size()*sizeof(uint32_t),
-            (void*)&vertexPrincipalStressIndices.front(), sgl::VERTEX_BUFFER);
+            vertexPrincipalStressIndices.data(), sgl::VERTEX_BUFFER);
 
     if (hasLineHierarchy) {
         // Add the line hierarchy level buffer.
         tubeRenderData.vertexLineHierarchyLevelBuffer = sgl::Renderer->createGeometryBuffer(
                 vertexLineHierarchyLevels.size()*sizeof(float),
-                (void*)&vertexLineHierarchyLevels.front(), sgl::VERTEX_BUFFER);
+                vertexLineHierarchyLevels.data(), sgl::VERTEX_BUFFER);
     }
 
     return tubeRenderData;
@@ -1441,7 +1441,7 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
 PointRenderData LineDataStress::getDegeneratePointsRenderData() {
     PointRenderData renderData;
     renderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
-            degeneratePoints.size()*sizeof(glm::vec3), (void*)&degeneratePoints.front(),
+            degeneratePoints.size()*sizeof(glm::vec3), degeneratePoints.data(),
             sgl::VERTEX_BUFFER);
     return renderData;
 }
@@ -1608,48 +1608,48 @@ BandRenderData LineDataStress::getBandRenderData() {
 
     // Add the index buffer.
     bandRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
-            lineIndices.size()*sizeof(uint32_t), (void*)&lineIndices.front(), sgl::INDEX_BUFFER);
+            lineIndices.size()*sizeof(uint32_t), lineIndices.data(), sgl::INDEX_BUFFER);
 
     // Add the position buffer.
     bandRenderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexPositions.size()*sizeof(glm::vec3), (void*)&vertexPositions.front(), sgl::VERTEX_BUFFER);
+            vertexPositions.size()*sizeof(glm::vec3), vertexPositions.data(), sgl::VERTEX_BUFFER);
 
     // Add the attribute buffer.
     bandRenderData.vertexAttributeBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexAttributes.size()*sizeof(float), (void*)&vertexAttributes.front(), sgl::VERTEX_BUFFER);
+            vertexAttributes.size()*sizeof(float), vertexAttributes.data(), sgl::VERTEX_BUFFER);
 
     // Add the normal buffer.
     bandRenderData.vertexNormalBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexNormals.size()*sizeof(glm::vec3), (void*)&vertexNormals.front(), sgl::VERTEX_BUFFER);
+            vertexNormals.size()*sizeof(glm::vec3), vertexNormals.data(), sgl::VERTEX_BUFFER);
 
     // Add the tangent buffer.
     bandRenderData.vertexTangentBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexTangents.size()*sizeof(glm::vec3), (void*)&vertexTangents.front(), sgl::VERTEX_BUFFER);
+            vertexTangents.size()*sizeof(glm::vec3), vertexTangents.data(), sgl::VERTEX_BUFFER);
 
     // Add the left vertex offset buffer.
     bandRenderData.vertexOffsetLeftBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexOffsetsLeft.size()*sizeof(glm::vec3), (void*)&vertexOffsetsLeft.front(), sgl::VERTEX_BUFFER);
+            vertexOffsetsLeft.size()*sizeof(glm::vec3), vertexOffsetsLeft.data(), sgl::VERTEX_BUFFER);
 
     // Add the right vertex offset buffer.
     bandRenderData.vertexOffsetRightBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexOffsetsRight.size()*sizeof(glm::vec3), (void*)&vertexOffsetsRight.front(), sgl::VERTEX_BUFFER);
+            vertexOffsetsRight.size()*sizeof(glm::vec3), vertexOffsetsRight.data(), sgl::VERTEX_BUFFER);
 
     // Add the principal stress index buffer.
     bandRenderData.vertexPrincipalStressIndexBuffer = sgl::Renderer->createGeometryBuffer(
             vertexPrincipalStressIndices.size()*sizeof(uint32_t),
-            (void*)&vertexPrincipalStressIndices.front(), sgl::VERTEX_BUFFER);
+            vertexPrincipalStressIndices.data(), sgl::VERTEX_BUFFER);
 
     if (hasLineHierarchy) {
         // Add the line hierarchy level buffer.
         bandRenderData.vertexLineHierarchyLevelBuffer = sgl::Renderer->createGeometryBuffer(
                 vertexLineHierarchyLevels.size()*sizeof(float),
-                (void*)&vertexLineHierarchyLevels.front(), sgl::VERTEX_BUFFER);
+                vertexLineHierarchyLevels.data(), sgl::VERTEX_BUFFER);
     }
 
     // Add the line appearance order buffer.
     bandRenderData.vertexLineAppearanceOrderBuffer = sgl::Renderer->createGeometryBuffer(
             vertexLineAppearanceOrders.size()*sizeof(uint32_t),
-            (void*)&vertexLineAppearanceOrders.front(), sgl::VERTEX_BUFFER);
+            vertexLineAppearanceOrders.data(), sgl::VERTEX_BUFFER);
 
     return bandRenderData;
 }

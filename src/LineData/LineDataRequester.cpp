@@ -124,6 +124,7 @@ void LineDataRequester::mainLoop() {
 
             bool dataLoaded = lineData->loadFromFile(fileNames, dataSetInformation, transformationMatrixPtr);
             if (!dataLoaded) {
+                isProcessingRequest = false;
                 continue;
             }
 

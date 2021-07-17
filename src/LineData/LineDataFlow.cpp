@@ -309,23 +309,23 @@ TubeRenderData LineDataFlow::getTubeRenderData() {
 
     // Add the index buffer.
     tubeRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t)*lineIndices.size(), (void*)&lineIndices.front(), sgl::INDEX_BUFFER);
+            sizeof(uint32_t)*lineIndices.size(), lineIndices.data(), sgl::INDEX_BUFFER);
 
     // Add the position buffer.
     tubeRenderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexPositions.size()*sizeof(glm::vec3), (void*)&vertexPositions.front(), sgl::VERTEX_BUFFER);
+            vertexPositions.size()*sizeof(glm::vec3), vertexPositions.data(), sgl::VERTEX_BUFFER);
 
     // Add the attribute buffer.
     tubeRenderData.vertexAttributeBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexAttributes.size()*sizeof(float), (void*)&vertexAttributes.front(), sgl::VERTEX_BUFFER);
+            vertexAttributes.size()*sizeof(float), vertexAttributes.data(), sgl::VERTEX_BUFFER);
 
     // Add the normal buffer.
     tubeRenderData.vertexNormalBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexNormals.size()*sizeof(glm::vec3), (void*)&vertexNormals.front(), sgl::VERTEX_BUFFER);
+            vertexNormals.size()*sizeof(glm::vec3), vertexNormals.data(), sgl::VERTEX_BUFFER);
 
     // Add the tangent buffer.
     tubeRenderData.vertexTangentBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexTangents.size()*sizeof(glm::vec3), (void*)&vertexTangents.front(), sgl::VERTEX_BUFFER);
+            vertexTangents.size()*sizeof(glm::vec3), vertexTangents.data(), sgl::VERTEX_BUFFER);
 
     return tubeRenderData;
 }
@@ -381,7 +381,7 @@ TubeRenderDataProgrammableFetch LineDataFlow::getTubeRenderDataProgrammableFetch
         fetchIndices.push_back(base0+1);
     }
     tubeRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t) * fetchIndices.size(), (void*)&fetchIndices.front(), sgl::INDEX_BUFFER);
+            sizeof(uint32_t) * fetchIndices.size(), fetchIndices.data(), sgl::INDEX_BUFFER);
 
     // 3. Add the point data for all line points.
     std::vector<LinePointDataProgrammableFetch> linePointData;
@@ -394,7 +394,7 @@ TubeRenderDataProgrammableFetch LineDataFlow::getTubeRenderDataProgrammableFetch
     }
 
     tubeRenderData.linePointsBuffer = sgl::Renderer->createGeometryBuffer(
-            linePointData.size() * sizeof(LinePointDataProgrammableFetch), (void*)&linePointData.front(),
+            linePointData.size() * sizeof(LinePointDataProgrammableFetch), linePointData.data(),
             sgl::SHADER_STORAGE_BUFFER);
 
     return tubeRenderData;
@@ -437,19 +437,19 @@ TubeRenderDataOpacityOptimization LineDataFlow::getTubeRenderDataOpacityOptimiza
 
     // Add the index buffer.
     tubeRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t)*lineIndices.size(), (void*)&lineIndices.front(), sgl::INDEX_BUFFER);
+            sizeof(uint32_t)*lineIndices.size(), lineIndices.data(), sgl::INDEX_BUFFER);
 
     // Add the position buffer.
     tubeRenderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexPositions.size()*sizeof(glm::vec3), (void*)&vertexPositions.front(), sgl::VERTEX_BUFFER);
+            vertexPositions.size()*sizeof(glm::vec3), vertexPositions.data(), sgl::VERTEX_BUFFER);
 
     // Add the attribute buffer.
     tubeRenderData.vertexAttributeBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexAttributes.size()*sizeof(float), (void*)&vertexAttributes.front(), sgl::VERTEX_BUFFER);
+            vertexAttributes.size()*sizeof(float), vertexAttributes.data(), sgl::VERTEX_BUFFER);
 
     // Add the tangent buffer.
     tubeRenderData.vertexTangentBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexTangents.size()*sizeof(glm::vec3), (void*)&vertexTangents.front(), sgl::VERTEX_BUFFER);
+            vertexTangents.size()*sizeof(glm::vec3), vertexTangents.data(), sgl::VERTEX_BUFFER);
 
     return tubeRenderData;
 }

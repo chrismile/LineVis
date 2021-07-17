@@ -139,7 +139,7 @@ void MultiVarWindow::renderVarChart() {
     ImVec2 oldPadding = ImGui::GetStyle().FramePadding;
     ImGui::GetStyle().FramePadding = ImVec2(1, 1);
     ImGui::PlotHistogram(
-            "##histogram", &histogram.front(), histogram.size(), 0, NULL,
+            "##histogram", histogram.data(), histogram.size(), 0, NULL,
             0.0f, 1.0f, ImVec2(regionWidth, graphHeight));
     ImGui::GetStyle().FramePadding = oldPadding;
 }

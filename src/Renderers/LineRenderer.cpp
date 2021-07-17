@@ -82,7 +82,7 @@ void LineRenderer::updateDepthCueGeometryData() {
         }
     }
     filteredLinesVerticesBuffer = sgl::Renderer->createGeometryBuffer(
-            filteredLinesVertices.size() * sizeof(glm::vec4), (void*)&filteredLinesVertices.front(),
+            filteredLinesVertices.size() * sizeof(glm::vec4), filteredLinesVertices.data(),
             sgl::SHADER_STORAGE_BUFFER);
 
     depthMinMaxBuffers[0] = sgl::Renderer->createGeometryBuffer(

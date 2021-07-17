@@ -474,10 +474,9 @@ void GuiVarData::renderOpacityGraph() {
 
     ImVec2 oldPadding = ImGui::GetStyle().FramePadding;
     ImGui::GetStyle().FramePadding = ImVec2(1, 1);
-    float* histogramData = histogram.empty() ? nullptr : &histogram.front();
     ImGui::PlotHistogram(
-            "##histogram", histogramData, histogram.size(), 0, NULL,
-            0.0f, 1.0f,
+            "##histogram", histogram.data(), histogram.size(), 0,
+            nullptr, 0.0f, 1.0f,
             ImVec2(regionWidth - border * 2, graphHeight - border * 2));
     ImGui::GetStyle().FramePadding = oldPadding;
 
@@ -918,11 +917,11 @@ void MultiVarTransferFunctionWindow::rebuildTransferFunctionMap() {
     pixelFormat.pixelType = GL_UNSIGNED_SHORT;
     if (useLinearRGB) {
         tfMapTexture->uploadPixelData(
-                TRANSFER_FUNCTION_TEXTURE_SIZE, varNames.size(), &transferFunctionMap_linearRGB.front(),
+                TRANSFER_FUNCTION_TEXTURE_SIZE, varNames.size(), transferFunctionMap_linearRGB.data(),
                 pixelFormat);
     } else {
         tfMapTexture->uploadPixelData(
-                TRANSFER_FUNCTION_TEXTURE_SIZE, varNames.size(), &transferFunctionMap_sRGB.front(),
+                TRANSFER_FUNCTION_TEXTURE_SIZE, varNames.size(), transferFunctionMap_sRGB.data(),
                 pixelFormat);
     }
 

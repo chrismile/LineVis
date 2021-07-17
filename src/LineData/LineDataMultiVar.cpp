@@ -403,26 +403,26 @@ TubeRenderDataMultiVar LineDataMultiVar::getTubeRenderDataMultiVar() {
 
     // Add the index buffer.
     tubeRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t)*lineIndices.size(), (void*)&lineIndices.front(), sgl::INDEX_BUFFER);
+            sizeof(uint32_t)*lineIndices.size(), lineIndices.data(), sgl::INDEX_BUFFER);
 
     // Add the position buffer.
     tubeRenderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexPositions.size()*sizeof(glm::vec3), (void*)&vertexPositions.front(), sgl::VERTEX_BUFFER);
+            vertexPositions.size()*sizeof(glm::vec3), vertexPositions.data(), sgl::VERTEX_BUFFER);
 
     // Add the normal buffer.
     tubeRenderData.vertexNormalBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexNormals.size()*sizeof(glm::vec3), (void*)&vertexNormals.front(), sgl::VERTEX_BUFFER);
+            vertexNormals.size()*sizeof(glm::vec3), vertexNormals.data(), sgl::VERTEX_BUFFER);
 
     // Add the tangent buffer.
     tubeRenderData.vertexTangentBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexTangents.size()*sizeof(glm::vec3), (void*)&vertexTangents.front(), sgl::VERTEX_BUFFER);
+            vertexTangents.size()*sizeof(glm::vec3), vertexTangents.data(), sgl::VERTEX_BUFFER);
 
     // Add the attribute buffers.
     tubeRenderData.vertexMultiVariableBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexMultiVariableArray.size()*sizeof(glm::vec4), (void*)&vertexMultiVariableArray.front(),
+            vertexMultiVariableArray.size()*sizeof(glm::vec4), vertexMultiVariableArray.data(),
             sgl::VERTEX_BUFFER);
     tubeRenderData.vertexVariableDescBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexVariableDescArray.size()*sizeof(glm::vec4), (void*)&vertexVariableDescArray.front(),
+            vertexVariableDescArray.size()*sizeof(glm::vec4), vertexVariableDescArray.data(),
             sgl::VERTEX_BUFFER);
 
 
@@ -482,22 +482,22 @@ TubeRenderDataMultiVar LineDataMultiVar::getTubeRenderDataMultiVar() {
     }
 
     tubeRenderData.variableArrayBuffer = sgl::Renderer->createGeometryBuffer(
-            varData.size()*sizeof(float), (void*)&varData.front(),
+            varData.size()*sizeof(float), varData.data(),
             sgl::SHADER_STORAGE_BUFFER);
     tubeRenderData.lineDescArrayBuffer = sgl::Renderer->createGeometryBuffer(
-            lineDescData.size()*sizeof(LineDescData), (void*)&lineDescData.front(),
+            lineDescData.size()*sizeof(LineDescData), lineDescData.data(),
             sgl::SHADER_STORAGE_BUFFER);
     tubeRenderData.varDescArrayBuffer = sgl::Renderer->createGeometryBuffer(
-            varDescData.size()*sizeof(VarDescData), (void*)&varDescData.front(),
+            varDescData.size()*sizeof(VarDescData), varDescData.data(),
             sgl::SHADER_STORAGE_BUFFER);
     tubeRenderData.lineVarDescArrayBuffer = sgl::Renderer->createGeometryBuffer(
-            lineVarDescData.size()*sizeof(LineVarDescData), (void*)&lineVarDescData.front(),
+            lineVarDescData.size()*sizeof(LineVarDescData), lineVarDescData.data(),
             sgl::SHADER_STORAGE_BUFFER);
     tubeRenderData.varSelectedArrayBuffer = sgl::Renderer->createGeometryBuffer(
-            varSelected.size()*sizeof(uint32_t), (void*)&varSelected.front(),
+            varSelected.size()*sizeof(uint32_t), varSelected.data(),
             sgl::SHADER_STORAGE_BUFFER);
     /*tubeRenderData.varColorArrayBuffer = sgl::Renderer->createGeometryBuffer(
-            varColors.size()*sizeof(glm::vec4), (void*)&varColors.front(),
+            varColors.size()*sizeof(glm::vec4), varColors.data(),
             sgl::SHADER_STORAGE_BUFFER);*/
 
     return tubeRenderData;
