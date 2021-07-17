@@ -28,6 +28,7 @@
 
 #define _FILE_OFFSET_BITS 64
 
+#include <iostream>
 #include <cstdio>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
