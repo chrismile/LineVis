@@ -217,7 +217,7 @@ void OpaqueLineRenderer::render() {
             int currentSeedIdx = lineDataStress->getCurrentSeedIdx();
             if (currentSeedIdx >= 0) {
                 renderSphere(
-                        lineDataStress->getCurrentSeedPosition(), 0.008f, sgl::Color(255, 40, 0));
+                        lineDataStress->getCurrentSeedPosition(), 0.006f, sgl::Color(255, 40, 0));
             }
         }
     }

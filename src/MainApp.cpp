@@ -238,6 +238,12 @@ MainApp::MainApp(bool supportsRaytracing)
                 sgl::AppSettings::get()->getDataDirectory()
                 + "LineDataSets/stress/PSLs-Vis2021")) {
             pulseFactor = 0.0f;
+            standardZoom = 2.0f;
+        } else if (boost::starts_with(
+                modelFilename,
+                sgl::AppSettings::get()->getDataDirectory()
+                + "LineDataSets/stress/PSLs-TVCG01/psl/arched_bridge3D_PSLs")) {
+            pulseFactor = 0.0f;
             standardZoom = 1.9f;
         }
     });
