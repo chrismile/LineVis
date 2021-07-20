@@ -176,6 +176,9 @@ private:
     static std::array<bool, 3> psUseBands;
     static bool renderThickBands;
     static bool useSmoothedBands;
+#ifdef USE_EIGEN
+    static bool useEigenvalueRatio;
+#endif
 
     // Rendering mode settings.
     bool rendererSupportsTransparency = false;

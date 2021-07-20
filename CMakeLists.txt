@@ -124,6 +124,17 @@ else()
 	#endif()
 endif()
 
+# Eigen is an optional dependency for eigenvalue solving.
+find_package(Eigen3 QUIET)
+if (Eigen3_FOUND)
+	if(NOT (EIGEN3_VERSION_STRING LESS 3.3))
+		target_link_libraries(LineVis PUBLIC Eigen3::Eigen)
+	else()
+		include_directories(${EIGEN3_INCLUDE_DIR})
+	endif()
+	add_definitions(-DUSE_EIGEN)
+endif()
+
 if (TARGET jsoncpp_lib)
 	get_target_property(jsoncpp_INCLUDES jsoncpp_lib INTERFACE_INCLUDE_DIRECTORIES)
 	target_link_libraries(LineVis PUBLIC jsoncpp_lib)

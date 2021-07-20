@@ -15,6 +15,11 @@ layout(location = 5) in float vertexLineHierarchyLevel;
 #ifdef VISUALIZE_SEEDING_PROCESS
 layout(location = 6) in uint vertexLineAppearanceOrder;
 #endif
+#ifdef NORMAL_STRESS_RATIO_TUBES
+layout(location = 7) in float vertexMajorStress;
+layout(location = 8) in float vertexMediumStress;
+layout(location = 9) in float vertexMinorStress;
+#endif
 
 out VertexData {
     vec3 linePosition;
@@ -29,6 +34,11 @@ out VertexData {
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
     uint lineLineAppearanceOrder;
+#endif
+#ifdef NORMAL_STRESS_RATIO_TUBES
+    float lineMajorStress;
+    float lineMediumStress;
+    float lineMinorStress;
 #endif
 };
 
@@ -47,6 +57,11 @@ void main() {
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
     lineLineAppearanceOrder = vertexLineAppearanceOrder;
+#endif
+#ifdef NORMAL_STRESS_RATIO_TUBES
+    lineMajorStress = vertexMajorStress;
+    lineMediumStress = vertexMediumStress;
+    lineMinorStress = vertexMinorStress;
 #endif
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
 }
@@ -102,6 +117,11 @@ in VertexData {
 #ifdef VISUALIZE_SEEDING_PROCESS
     uint lineLineAppearanceOrder;
 #endif
+#ifdef NORMAL_STRESS_RATIO_TUBES
+    float lineMajorStress;
+    float lineMediumStress;
+    float lineMinorStress;
+#endif
 } v_in[];
 
 # define M_PI 3.14159265358979323846
@@ -112,7 +132,8 @@ void main() {
 
 #ifdef USE_BANDS
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL) || defined(IS_PSL_DATA)
-    useBand = psUseBands[v_in[0].linePrincipalStressIndex];
+    uint principalStressIndex = v_in[0].linePrincipalStressIndex;
+    useBand = psUseBands[principalStressIndex];
 #else
     useBand = 1;
 #endif
@@ -155,12 +176,47 @@ void main() {
         float t = float(i) / float(NUM_TUBE_SUBDIVISIONS) * 2.0 * M_PI;
         float cosAngle = cos(t);
         float sinAngle = sin(t);
+#ifdef NORMAL_STRESS_RATIO_TUBES
+        float stressXCurrent;
+        float stressZCurrent;
+        float stressXNext;
+        float stressZNext;
+        if (principalStressIndex == 0) {
+            stressXCurrent = v_in[0].lineMediumStress;
+            stressZCurrent = v_in[0].lineMinorStress;
+            stressXNext = v_in[1].lineMediumStress;
+            stressZNext = v_in[1].lineMinorStress;
+        } else if (principalStressIndex == 1) {
+            stressXCurrent = v_in[0].lineMinorStress;
+            stressZCurrent = v_in[0].lineMajorStress;
+            stressXNext = v_in[1].lineMinorStress;
+            stressZNext = v_in[1].lineMajorStress;
+        } else {
+            stressXCurrent = v_in[0].lineMediumStress;
+            stressZCurrent = v_in[0].lineMajorStress;
+            stressXNext = v_in[1].lineMediumStress;
+            stressZNext = v_in[1].lineMajorStress;
+        }
+        float factorXCurrent = clamp(abs(stressXCurrent / stressZCurrent), 0.0, 1.0f);
+        float factorZCurrent = clamp(abs(stressZCurrent / stressXCurrent), 0.0, 1.0f);
+        float factorXNext = clamp(abs(stressXNext / stressZNext), 0.0, 1.0f);
+        float factorZNext = clamp(abs(stressZNext / stressXNext), 0.0, 1.0f);
+        vec3 localPositionCurrent = vec3(cosAngle * factorXCurrent, sinAngle * factorZCurrent, 0.0f);
+        vec3 localNormalCurrent = vec3(cosAngle * factorZCurrent, sinAngle * factorXCurrent, 0.0f);
+        vec3 localPositionNext = vec3(cosAngle * factorXNext, sinAngle * factorZNext, 0.0f);
+        vec3 localNormalNext = vec3(cosAngle * factorZNext, sinAngle * factorXNext, 0.0f);
+        circlePointsCurrent[i] = lineRadius * (tangentFrameMatrixCurrent * localPositionCurrent) + linePosition0;
+        circlePointsNext[i] = lineRadius * (tangentFrameMatrixNext * localPositionNext) + linePosition1;
+        vertexNormalsCurrent[i] = normalize(tangentFrameMatrixCurrent * localNormalCurrent);
+        vertexNormalsNext[i] = normalize(tangentFrameMatrixNext * localNormalNext);
+#else
         vec3 localPosition = vec3(thickness * cosAngle, sinAngle, 0.0f);
         vec3 localNormal = vec3(cosAngle, thickness * sinAngle, 0.0f);
         circlePointsCurrent[i] = lineRadius * (tangentFrameMatrixCurrent * localPosition) + linePosition0;
         circlePointsNext[i] = lineRadius * (tangentFrameMatrixNext * localPosition) + linePosition1;
         vertexNormalsCurrent[i] = normalize(tangentFrameMatrixCurrent * localNormal);
         vertexNormalsNext[i] = normalize(tangentFrameMatrixNext * localNormal);
+#endif
     }
 #else
     const float theta = 2.0 * M_PI / float(NUM_TUBE_SUBDIVISIONS);
@@ -197,7 +253,7 @@ void main() {
 #endif
 
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
-        fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+        fragmentPrincipalStressIndex = principalStressIndex;
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
         fragmentLineHierarchyLevel = v_in[0].lineLineHierarchyLevel;
@@ -499,7 +555,7 @@ void main() {
 #endif
     float coverage = 1.0 - smoothstep(1.0 - EPSILON_OUTLINE, 1.0, absCoords);
     //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(ribbonPosition));
-    vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor,
+    vec4 colorOut = vec4(mix(fragmentColor.rgb, fragmentColor.rgb,
             smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),
             fragmentColor.a * coverage);
 

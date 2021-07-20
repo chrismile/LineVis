@@ -57,6 +57,9 @@ struct TubeRenderData {
     sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
     sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
     sgl::GeometryBufferPtr vertexLineAppearanceOrderBuffer; ///< Empty for flow lines.
+    sgl::GeometryBufferPtr vertexMajorStressBuffer; ///< Empty for flow lines.
+    sgl::GeometryBufferPtr vertexMediumStressBuffer; ///< Empty for flow lines.
+    sgl::GeometryBufferPtr vertexMinorStressBuffer; ///< Empty for flow lines.
 };
 
 struct BandRenderData {
@@ -251,6 +254,7 @@ protected:
             const std::string& simulationMeshFilename, const sgl::AABB3& oldAABB, glm::mat4* transformationMatrixPtr);
     void rebuildInternalRepresentationIfNecessary();
     virtual void recomputeColorLegend();
+    int getAttributeNameIndex(const std::string& attributeName);
 
     DataSetType dataSetType;
     sgl::AABB3 modelBoundingBox;

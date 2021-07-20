@@ -26,6 +26,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef USE_EIGEN
+#include <Eigen/Eigenvalues>
+#endif
+
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
 
@@ -49,6 +53,9 @@ bool LineDataStress::usePrincipalStressDirectionIndex = true;
 std::array<bool, 3> LineDataStress::psUseBands = {true, true, false};
 bool LineDataStress::renderThickBands = true;
 bool LineDataStress::useSmoothedBands = true;
+#ifdef USE_EIGEN
+bool LineDataStress::useEigenvalueRatio = true;
+#endif
 LineDataStress::LineHierarchyType LineDataStress::lineHierarchyType = LineDataStress::LineHierarchyType::GEO;
 glm::vec3 LineDataStress::lineHierarchySliderValues = glm::vec3(1.0f);
 
@@ -234,6 +241,14 @@ bool LineDataStress::renderGuiLineData(bool isRasterizer) {
             shallReloadGatherShader = true;
             recomputeColorLegend();
         }
+
+#ifdef USE_EIGEN
+        if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && fileFormatVersion >= 3
+                && ImGui::Checkbox("Use Eigenvalue Ratio", &useEigenvalueRatio)) {
+            dirty = true;
+            shallReloadGatherShader = true;
+        }
+#endif
     }
 
     if (lineRenderer && renderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION && recomputeOpacityOptimization) {
@@ -373,6 +388,12 @@ bool LineDataStress::loadFromFile(
         } else if (useBands()) {
             linePrimitiveMode = LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
         }
+
+#ifdef USE_EIGEN
+        if (linePrimitiveMode != LINE_PRIMITIVES_TUBE_BAND || fileFormatVersion < 3) {
+            useEigenvalueRatio = false;
+        }
+#endif
 
         //recomputeHistogram(); ///< Called after data is loaded using LineDataRequester.
     }
@@ -964,9 +985,19 @@ sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
     if (useBands() && renderThickBands) {
         sgl::ShaderManager->addPreprocessorDefine("BAND_RENDERING_THICK", "");
     }
+#ifdef USE_EIGEN
+    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useEigenvalueRatio) {
+        sgl::ShaderManager->addPreprocessorDefine("NORMAL_STRESS_RATIO_TUBES", "");
+    }
+#endif
 
     sgl::ShaderProgramPtr gatherShader = LineData::reloadGatherShader();
 
+#ifdef USE_EIGEN
+    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useEigenvalueRatio) {
+        sgl::ShaderManager->removePreprocessorDefine("NORMAL_STRESS_RATIO_TUBES");
+    }
+#endif
     if (useBands() && renderThickBands) {
         sgl::ShaderManager->removePreprocessorDefine("BAND_RENDERING_THICK");
     }
@@ -982,6 +1013,25 @@ sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
     }
     return gatherShader;
 }
+
+#ifdef USE_EIGEN
+void computePrincipalStresses(
+        float xx, float yy, float zz, float xy, float yz, float zx,
+        float& majorStress, float& mediumStress, float& minorStress) {
+    Eigen::Matrix3f stressTensor;
+    stressTensor.row(0) << xx, xy, zx;
+    stressTensor.row(1) << xy, yy, yz;
+    stressTensor.row(2) << zx, yz, zz;
+
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> selfAdjointEigenSolver;
+    selfAdjointEigenSolver.compute(stressTensor);
+    Eigen::Vector3f eigenvalues = selfAdjointEigenSolver.eigenvalues();
+
+    minorStress = eigenvalues(0);
+    mediumStress = eigenvalues(1);
+    majorStress = eigenvalues(2);
+}
+#endif
 
 TubeRenderData LineDataStress::getTubeRenderData() {
     rebuildInternalRepresentationIfNecessary();
@@ -1005,6 +1055,28 @@ TubeRenderData LineDataStress::getTubeRenderData() {
         }
     }
 
+#ifdef USE_EIGEN
+    std::vector<float> vertexMajorStresses;
+    std::vector<float> vertexMediumStresses;
+    std::vector<float> vertexMinorStresses;
+
+    int xxIdx = -1;
+    int yyIdx = -1;
+    int zzIdx = -1;
+    int xyIdx = -1;
+    int yzIdx = -1;
+    int zxIdx = -1;
+
+    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useEigenvalueRatio) {
+        xxIdx = getAttributeNameIndex("Normal Stress (xx)");
+        yyIdx = getAttributeNameIndex("Normal Stress (xx)");
+        zzIdx = getAttributeNameIndex("Normal Stress (yy)");
+        xyIdx = getAttributeNameIndex("Shear Stress (xy)");
+        yzIdx = getAttributeNameIndex("Shear Stress (yz)");
+        zxIdx = getAttributeNameIndex("Shear Stress (zx)");
+    }
+#endif
+
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
         int psIdx = loadedPsIndices.at(i);
         if (!usedPsDirections.at(psIdx)) {
@@ -1017,9 +1089,21 @@ TubeRenderData LineDataStress::getTubeRenderData() {
         std::vector<std::vector<glm::vec3>> lineCentersList;
         std::vector<std::vector<float>> lineAttributesList;
 
+#ifdef USE_EIGEN
+        std::vector<std::vector<float>> lineMajorStressesList;
+        std::vector<std::vector<float>> lineMediumStressesList;
+        std::vector<std::vector<float>> lineMinorStressesList;
+#endif
+
         if (useBands() && psUseBands.at(psIdx)) {
             std::vector<std::vector<glm::vec3>> bandRightVectorList;
             std::vector<std::vector<glm::vec3>>& bandPointsListRight = bandPointsListRightPs->at(i);
+
+#ifdef USE_EIGEN
+            lineMajorStressesList.resize(trajectories.size());
+            lineMediumStressesList.resize(trajectories.size());
+            lineMinorStressesList.resize(trajectories.size());
+#endif
 
             lineCentersList.resize(trajectories.size());
             lineAttributesList.resize(trajectories.size());
@@ -1038,10 +1122,31 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                 std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
                 std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
                 std::vector<glm::vec3>& bandRightVectors = bandRightVectorList.at(trajectoryIdx);
+
+#ifdef USE_EIGEN
+                std::vector<float>& lineMajorStresses = lineMajorStressesList.at(trajectoryIdx);
+                std::vector<float>& lineMediumStresses = lineMediumStressesList.at(trajectoryIdx);
+                std::vector<float>& lineMinorStresses = lineMinorStressesList.at(trajectoryIdx);
+#endif
+
                 for (size_t i = 0; i < trajectory.positions.size(); i++) {
                     lineCenters.push_back(trajectory.positions.at(i));
                     lineAttributes.push_back(attributes.at(i));
                     bandRightVectors.push_back(bandPointsRight.at(i));
+
+#ifdef USE_EIGEN
+                    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useEigenvalueRatio) {
+                        float majorStress, mediumStress, minorStress;
+                        computePrincipalStresses(
+                                trajectory.attributes.at(xxIdx).at(i), trajectory.attributes.at(yyIdx).at(i),
+                                trajectory.attributes.at(zzIdx).at(i), trajectory.attributes.at(xyIdx).at(i),
+                                trajectory.attributes.at(yzIdx).at(i), trajectory.attributes.at(zxIdx).at(i),
+                                majorStress, mediumStress, minorStress);
+                        lineMajorStresses.push_back(majorStress);
+                        lineMediumStresses.push_back(mediumStress);
+                        lineMinorStresses.push_back(minorStress);
+                    }
+#endif
                 }
             }
 
@@ -1090,6 +1195,13 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                                 stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType)));
                     }
                     vertexLineAppearanceOrders.push_back(stressTrajectoryData.appearanceOrder);
+#ifdef USE_EIGEN
+                    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useEigenvalueRatio) {
+                        vertexMajorStresses.push_back(lineMajorStressesList.at(lineId).at(i));
+                        vertexMediumStresses.push_back(lineMediumStressesList.at(lineId).at(i));
+                        vertexMinorStresses.push_back(lineMinorStressesList.at(lineId).at(i));
+                    }
+#endif
                     numValidLinePoints++;
                 }
 
@@ -1101,6 +1213,13 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                     vertexAttributes.pop_back();
                     vertexLineHierarchyLevels.pop_back();
                     vertexLineAppearanceOrders.pop_back();
+#ifdef USE_EIGEN
+                    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useEigenvalueRatio) {
+                        vertexMajorStresses.pop_back();
+                        vertexMediumStresses.pop_back();
+                        vertexMinorStresses.pop_back();
+                    }
+#endif
                     continue;
                 }
 
@@ -1162,6 +1281,16 @@ TubeRenderData LineDataStress::getTubeRenderData() {
             for (size_t i = 0; i < numVerticesAdded; i++) {
                 vertexPrincipalStressIndices.push_back(psIdx);
             }
+
+#ifdef USE_EIGEN
+            if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useEigenvalueRatio) {
+                for (size_t i = 0; i < numVerticesAdded; i++) {
+                    vertexMajorStresses.push_back(1.0f);
+                    vertexMediumStresses.push_back(1.0f);
+                    vertexMinorStresses.push_back(1.0f);
+                }
+            }
+#endif
         }
     }
 
@@ -1222,6 +1351,17 @@ TubeRenderData LineDataStress::getTubeRenderData() {
     tubeRenderData.vertexLineAppearanceOrderBuffer = sgl::Renderer->createGeometryBuffer(
             vertexLineAppearanceOrders.size()*sizeof(uint32_t),
             vertexLineAppearanceOrders.data(), sgl::VERTEX_BUFFER);
+
+#ifdef USE_EIGEN
+    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useEigenvalueRatio) {
+        tubeRenderData.vertexMajorStressBuffer = sgl::Renderer->createGeometryBuffer(
+                vertexMajorStresses.size()*sizeof(float), vertexMajorStresses.data(), sgl::VERTEX_BUFFER);
+        tubeRenderData.vertexMediumStressBuffer = sgl::Renderer->createGeometryBuffer(
+                vertexMediumStresses.size()*sizeof(float), vertexMediumStresses.data(), sgl::VERTEX_BUFFER);
+        tubeRenderData.vertexMinorStressBuffer = sgl::Renderer->createGeometryBuffer(
+                vertexMinorStresses.size()*sizeof(float), vertexMinorStresses.data(), sgl::VERTEX_BUFFER);
+    }
+#endif
 
     return tubeRenderData;
 }
@@ -1745,6 +1885,21 @@ sgl::ShaderAttributesPtr LineDataStress::getGatherShaderAttributes(sgl::ShaderPr
                     tubeRenderData.vertexLineAppearanceOrderBuffer, "vertexLineAppearanceOrder",
                     sgl::ATTRIB_UNSIGNED_INT,
                     1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
+        }
+        if (tubeRenderData.vertexMajorStressBuffer) {
+            shaderAttributes->addGeometryBufferOptional(
+                    tubeRenderData.vertexMajorStressBuffer, "vertexMajorStress",
+                    sgl::ATTRIB_FLOAT, 1);
+        }
+        if (tubeRenderData.vertexMediumStressBuffer) {
+            shaderAttributes->addGeometryBufferOptional(
+                    tubeRenderData.vertexMediumStressBuffer, "vertexMediumStress",
+                    sgl::ATTRIB_FLOAT, 1);
+        }
+        if (tubeRenderData.vertexMinorStressBuffer) {
+            shaderAttributes->addGeometryBufferOptional(
+                    tubeRenderData.vertexMinorStressBuffer, "vertexMinorStress",
+                    sgl::ATTRIB_FLOAT, 1);
         }
     }
 

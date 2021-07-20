@@ -207,6 +207,16 @@ void LineData::rebuildInternalRepresentationIfNecessary() {
     }
 }
 
+int LineData::getAttributeNameIndex(const std::string& attributeName) {
+    auto it = std::find(attributeNames.begin(), attributeNames.end(), attributeName);
+    if (it != attributeNames.end()) {
+        return int(it - attributeNames.begin());
+    } else {
+        sgl::Logfile::get()->throwError("Error in LineData::getAttributeNameIndex: ");
+        return -1;
+    }
+}
+
 sgl::ShaderProgramPtr LineData::reloadGatherShader() {
     sgl::ShaderManager->invalidateShaderCache();
     sgl::ShaderProgramPtr shaderProgramPtr;
