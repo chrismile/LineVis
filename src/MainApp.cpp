@@ -563,7 +563,8 @@ void MainApp::renderGui() {
     }
     if (replayWidgetUpdateType == ReplayWidget::REPLAY_WIDGET_UPDATE_START_RECORDING) {
         sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-        if (useRecordingResolution && window->getWindowResolution() != recordingResolution) {
+        if (useRecordingResolution && window->getWindowResolution() != recordingResolution
+                && !window->isFullscreen()) {
             window->setWindowSize(recordingResolution.x, recordingResolution.y);
         }
 
