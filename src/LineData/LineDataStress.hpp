@@ -177,7 +177,7 @@ private:
     static bool renderThickBands;
     static bool useSmoothedBands;
 #ifdef USE_EIGEN
-    static bool useEigenvalueRatio;
+    static bool useThinRibbonsAtDegeneratePoints;
 #endif
 
     // Rendering mode settings.

@@ -54,7 +54,7 @@ std::array<bool, 3> LineDataStress::psUseBands = {true, true, false};
 bool LineDataStress::renderThickBands = true;
 bool LineDataStress::useSmoothedBands = true;
 #ifdef USE_EIGEN
-bool LineDataStress::useEigenvalueRatio = true;
+bool LineDataStress::useThinRibbonsAtDegeneratePoints = true;
 #endif
 LineDataStress::LineHierarchyType LineDataStress::lineHierarchyType = LineDataStress::LineHierarchyType::GEO;
 glm::vec3 LineDataStress::lineHierarchySliderValues = glm::vec3(1.0f);
@@ -244,7 +244,7 @@ bool LineDataStress::renderGuiLineData(bool isRasterizer) {
 
 #ifdef USE_EIGEN
         if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && fileFormatVersion >= 3
-                && ImGui::Checkbox("Use Eigenvalue Ratio", &useEigenvalueRatio)) {
+                && ImGui::Checkbox("Use Thin Ribbons at Degenerate Points", &useThinRibbonsAtDegeneratePoints)) {
             dirty = true;
             shallReloadGatherShader = true;
         }
@@ -391,7 +391,7 @@ bool LineDataStress::loadFromFile(
 
 #ifdef USE_EIGEN
         if (linePrimitiveMode != LINE_PRIMITIVES_TUBE_BAND || fileFormatVersion < 3) {
-            useEigenvalueRatio = false;
+            useThinRibbonsAtDegeneratePoints = false;
         }
 #endif
 
@@ -986,16 +986,16 @@ sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
         sgl::ShaderManager->addPreprocessorDefine("BAND_RENDERING_THICK", "");
     }
 #ifdef USE_EIGEN
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useEigenvalueRatio) {
-        sgl::ShaderManager->addPreprocessorDefine("NORMAL_STRESS_RATIO_TUBES", "");
+    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useThinRibbonsAtDegeneratePoints) {
+        sgl::ShaderManager->addPreprocessorDefine("USE_THIN_RIBBONS_AT_DEGENERATE_POINTS", "");
     }
 #endif
 
     sgl::ShaderProgramPtr gatherShader = LineData::reloadGatherShader();
 
 #ifdef USE_EIGEN
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useEigenvalueRatio) {
-        sgl::ShaderManager->removePreprocessorDefine("NORMAL_STRESS_RATIO_TUBES");
+    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useThinRibbonsAtDegeneratePoints) {
+        sgl::ShaderManager->removePreprocessorDefine("USE_THIN_RIBBONS_AT_DEGENERATE_POINTS");
     }
 #endif
     if (useBands() && renderThickBands) {
@@ -1067,7 +1067,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
     int yzIdx = -1;
     int zxIdx = -1;
 
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useEigenvalueRatio) {
+    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useThinRibbonsAtDegeneratePoints) {
         xxIdx = getAttributeNameIndex("Normal Stress (xx)");
         yyIdx = getAttributeNameIndex("Normal Stress (xx)");
         zzIdx = getAttributeNameIndex("Normal Stress (yy)");
@@ -1135,7 +1135,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                     bandRightVectors.push_back(bandPointsRight.at(i));
 
 #ifdef USE_EIGEN
-                    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useEigenvalueRatio) {
+                    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useThinRibbonsAtDegeneratePoints) {
                         float majorStress, mediumStress, minorStress;
                         computePrincipalStresses(
                                 trajectory.attributes.at(xxIdx).at(i), trajectory.attributes.at(yyIdx).at(i),
@@ -1196,7 +1196,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                     }
                     vertexLineAppearanceOrders.push_back(stressTrajectoryData.appearanceOrder);
 #ifdef USE_EIGEN
-                    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useEigenvalueRatio) {
+                    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useThinRibbonsAtDegeneratePoints) {
                         vertexMajorStresses.push_back(lineMajorStressesList.at(lineId).at(i));
                         vertexMediumStresses.push_back(lineMediumStressesList.at(lineId).at(i));
                         vertexMinorStresses.push_back(lineMinorStressesList.at(lineId).at(i));
@@ -1214,7 +1214,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                     vertexLineHierarchyLevels.pop_back();
                     vertexLineAppearanceOrders.pop_back();
 #ifdef USE_EIGEN
-                    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useEigenvalueRatio) {
+                    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useThinRibbonsAtDegeneratePoints) {
                         vertexMajorStresses.pop_back();
                         vertexMediumStresses.pop_back();
                         vertexMinorStresses.pop_back();
@@ -1283,7 +1283,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
             }
 
 #ifdef USE_EIGEN
-            if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useEigenvalueRatio) {
+            if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useThinRibbonsAtDegeneratePoints) {
                 for (size_t i = 0; i < numVerticesAdded; i++) {
                     vertexMajorStresses.push_back(1.0f);
                     vertexMediumStresses.push_back(1.0f);
@@ -1353,7 +1353,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
             vertexLineAppearanceOrders.data(), sgl::VERTEX_BUFFER);
 
 #ifdef USE_EIGEN
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useEigenvalueRatio) {
+    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && useThinRibbonsAtDegeneratePoints) {
         tubeRenderData.vertexMajorStressBuffer = sgl::Renderer->createGeometryBuffer(
                 vertexMajorStresses.size()*sizeof(float), vertexMajorStresses.data(), sgl::VERTEX_BUFFER);
         tubeRenderData.vertexMediumStressBuffer = sgl::Renderer->createGeometryBuffer(

@@ -15,7 +15,7 @@ layout(location = 5) in float vertexLineHierarchyLevel;
 #ifdef VISUALIZE_SEEDING_PROCESS
 layout(location = 6) in uint vertexLineAppearanceOrder;
 #endif
-#ifdef NORMAL_STRESS_RATIO_TUBES
+#ifdef USE_THIN_RIBBONS_AT_DEGENERATE_POINTS
 layout(location = 7) in float vertexMajorStress;
 layout(location = 8) in float vertexMediumStress;
 layout(location = 9) in float vertexMinorStress;
@@ -35,7 +35,7 @@ out VertexData {
 #ifdef VISUALIZE_SEEDING_PROCESS
     uint lineLineAppearanceOrder;
 #endif
-#ifdef NORMAL_STRESS_RATIO_TUBES
+#ifdef USE_THIN_RIBBONS_AT_DEGENERATE_POINTS
     float lineMajorStress;
     float lineMediumStress;
     float lineMinorStress;
@@ -58,7 +58,7 @@ void main() {
 #ifdef VISUALIZE_SEEDING_PROCESS
     lineLineAppearanceOrder = vertexLineAppearanceOrder;
 #endif
-#ifdef NORMAL_STRESS_RATIO_TUBES
+#ifdef USE_THIN_RIBBONS_AT_DEGENERATE_POINTS
     lineMajorStress = vertexMajorStress;
     lineMediumStress = vertexMediumStress;
     lineMinorStress = vertexMinorStress;
@@ -117,7 +117,7 @@ in VertexData {
 #ifdef VISUALIZE_SEEDING_PROCESS
     uint lineLineAppearanceOrder;
 #endif
-#ifdef NORMAL_STRESS_RATIO_TUBES
+#ifdef USE_THIN_RIBBONS_AT_DEGENERATE_POINTS
     float lineMajorStress;
     float lineMediumStress;
     float lineMinorStress;
@@ -125,6 +125,17 @@ in VertexData {
 } v_in[];
 
 # define M_PI 3.14159265358979323846
+
+bool isDegenerate(float sigma1, float sigma2, float sigma3) {
+    const float EPSILON = 1e-6;
+    if (0.5 * abs((sigma1 - sigma2) / (sigma1 + sigma2)) < EPSILON) {
+        return true;
+    }
+    if (0.5 * abs((sigma3 - sigma2) / (sigma3 + sigma2)) < EPSILON) {
+        return true;
+    }
+    return false;
+}
 
 void main() {
     vec3 linePosition0 = (mMatrix * vec4(v_in[0].linePosition, 1.0)).xyz;
@@ -176,35 +187,13 @@ void main() {
         float t = float(i) / float(NUM_TUBE_SUBDIVISIONS) * 2.0 * M_PI;
         float cosAngle = cos(t);
         float sinAngle = sin(t);
-#ifdef NORMAL_STRESS_RATIO_TUBES
-        float stressXCurrent;
-        float stressZCurrent;
-        float stressXNext;
-        float stressZNext;
-        if (principalStressIndex == 0) {
-            stressXCurrent = v_in[0].lineMediumStress;
-            stressZCurrent = v_in[0].lineMinorStress;
-            stressXNext = v_in[1].lineMediumStress;
-            stressZNext = v_in[1].lineMinorStress;
-        } else if (principalStressIndex == 1) {
-            stressXCurrent = v_in[0].lineMinorStress;
-            stressZCurrent = v_in[0].lineMajorStress;
-            stressXNext = v_in[1].lineMinorStress;
-            stressZNext = v_in[1].lineMajorStress;
-        } else {
-            stressXCurrent = v_in[0].lineMediumStress;
-            stressZCurrent = v_in[0].lineMajorStress;
-            stressXNext = v_in[1].lineMediumStress;
-            stressZNext = v_in[1].lineMajorStress;
-        }
-        float factorXCurrent = clamp(abs(stressXCurrent / stressZCurrent), 0.0, 1.0f);
-        float factorZCurrent = clamp(abs(stressZCurrent / stressXCurrent), 0.0, 1.0f);
-        float factorXNext = clamp(abs(stressXNext / stressZNext), 0.0, 1.0f);
-        float factorZNext = clamp(abs(stressZNext / stressXNext), 0.0, 1.0f);
-        vec3 localPositionCurrent = vec3(cosAngle * factorXCurrent, sinAngle * factorZCurrent, 0.0f);
-        vec3 localNormalCurrent = vec3(cosAngle * factorZCurrent, sinAngle * factorXCurrent, 0.0f);
-        vec3 localPositionNext = vec3(cosAngle * factorXNext, sinAngle * factorZNext, 0.0f);
-        vec3 localNormalNext = vec3(cosAngle * factorZNext, sinAngle * factorXNext, 0.0f);
+#ifdef USE_THIN_RIBBONS_AT_DEGENERATE_POINTS
+        float factorCurrent = isDegenerate(v_in[0].lineMinorStress, v_in[0].lineMediumStress, v_in[0].lineMajorStress) ? thickness : 1.0;
+        float factorNext = isDegenerate(v_in[1].lineMinorStress, v_in[1].lineMediumStress, v_in[1].lineMajorStress) ? thickness : 1.0;
+        vec3 localPositionCurrent = vec3(cosAngle * thickness, sinAngle * factorCurrent, 0.0f);
+        vec3 localNormalCurrent = vec3(cosAngle * factorCurrent, sinAngle * thickness, 0.0f);
+        vec3 localPositionNext = vec3(cosAngle * thickness, sinAngle * factorNext, 0.0f);
+        vec3 localNormalNext = vec3(cosAngle * factorNext, sinAngle * thickness, 0.0f);
         circlePointsCurrent[i] = lineRadius * (tangentFrameMatrixCurrent * localPositionCurrent) + linePosition0;
         circlePointsNext[i] = lineRadius * (tangentFrameMatrixNext * localPositionNext) + linePosition1;
         vertexNormalsCurrent[i] = normalize(tangentFrameMatrixCurrent * localNormalCurrent);
