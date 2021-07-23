@@ -74,6 +74,7 @@ out vec3 fragmentPositionWorld;
 out vec3 screenSpacePosition;
 #endif
 out float fragmentAttribute;
+out vec3 fragmentTangent;
 out float fragmentNormalFloat; // Between -1 and 1
 out vec3 normal0;
 out vec3 normal1;
@@ -169,6 +170,7 @@ void main() {
 
     // Vertex 0
     fragmentAttribute = v_in[0].lineAttribute;
+    fragmentTangent = tangent0;
     if (useBand != 0) {
         normal0 = v_in[0].lineNormal;
         normal1 = v_in[0].lineNormal;
@@ -206,6 +208,7 @@ void main() {
 
     // Vertex 1
     fragmentAttribute = v_in[1].lineAttribute;
+    fragmentTangent = tangent1;
     if (useBand != 0) {
         normal0 = v_in[1].lineNormal;
         normal1 = v_in[1].lineNormal;
@@ -253,6 +256,7 @@ in vec3 fragmentPositionWorld;
 in vec3 screenSpacePosition;
 #endif
 in float fragmentAttribute;
+in vec3 fragmentTangent;
 in float fragmentNormalFloat;
 in vec3 normal0;
 in vec3 normal1;
@@ -340,7 +344,7 @@ void main() {
             lineHierarchyImportanceMap, vec2(fragmentLineHierarchyLevel, float(fragmentPrincipalStressIndex))).r;
 #endif
 
-    fragmentColor = blinnPhongShading(fragmentColor, fragmentNormal);
+    fragmentColor = blinnPhongShadingTube(fragmentColor, fragmentNormal, fragmentTangent);
 
     float absCoords = abs(fragmentNormalFloat);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);

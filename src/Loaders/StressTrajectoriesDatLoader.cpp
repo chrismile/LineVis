@@ -38,6 +38,33 @@
 #include "Utils/TriangleNormals.hpp"
 #include "StressTrajectoriesDatLoader.hpp"
 
+#ifdef USE_EIGEN
+#include <Eigen/Eigenvalues>
+
+void computePrincipalStresses(
+        float xx, float yy, float zz, float xy, float yz, float zx,
+        float& majorStress, float& mediumStress, float& minorStress) {
+    Eigen::Matrix3f stressTensor;
+    stressTensor.row(0) << xx, xy, zx;
+    stressTensor.row(1) << xy, yy, yz;
+    stressTensor.row(2) << zx, yz, zz;
+
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> selfAdjointEigenSolver;
+    selfAdjointEigenSolver.compute(stressTensor);
+    Eigen::Vector3f eigenvalues = selfAdjointEigenSolver.eigenvalues();
+
+    minorStress = eigenvalues(0);
+    mediumStress = eigenvalues(1);
+    majorStress = eigenvalues(2);
+}
+
+float computeDegeneracyMeasure(float sigma1, float sigma2, float sigma3) {
+    float degeneracyMeasure = 0.5f * std::abs((sigma1 - sigma2) / (sigma1 + sigma2));
+    degeneracyMeasure = std::min(degeneracyMeasure, 0.5f * std::abs((sigma3 - sigma2) / (sigma3 + sigma2)));
+    return degeneracyMeasure;
+}
+#endif
+
 void loadStressLineHierarchyFromDat(
         const std::vector<std::string>& filenamesHierarchy,
         std::vector<StressTrajectoriesData>& stressTrajectoriesDataPs) {
@@ -484,29 +511,33 @@ void loadStressTrajectoriesFromDat_v3(
                         lineLength * 6);
 
                 for (uint32_t pointIdx = 0; pointIdx < lineLength; pointIdx++) {
-                    trajectory.positions.push_back(glm::vec3(
+                    trajectory.positions.emplace_back(
                             positionData.at(pointIdx * 3),
                             positionData.at(pointIdx * 3 + 1),
-                            positionData.at(pointIdx * 3 + 2)));
-                    bandPointsUnsmoothedLeft.push_back(glm::vec3(
+                            positionData.at(pointIdx * 3 + 2));
+                    bandPointsUnsmoothedLeft.emplace_back(
                             bandVertexDataUnsmoothed.at(pointIdx * 6 + 0),
                             bandVertexDataUnsmoothed.at(pointIdx * 6 + 1),
-                            bandVertexDataUnsmoothed.at(pointIdx * 6 + 2)));
-                    bandPointsUnsmoothedRight.push_back(glm::vec3(
+                            bandVertexDataUnsmoothed.at(pointIdx * 6 + 2));
+                    bandPointsUnsmoothedRight.emplace_back(
                             bandVertexDataUnsmoothed.at(pointIdx * 6 + 3),
                             bandVertexDataUnsmoothed.at(pointIdx * 6 + 4),
-                            bandVertexDataUnsmoothed.at(pointIdx * 6 + 5)));
-                    bandPointsSmoothedLeft.push_back(glm::vec3(
+                            bandVertexDataUnsmoothed.at(pointIdx * 6 + 5));
+                    bandPointsSmoothedLeft.emplace_back(
                             bandVertexDataSmoothed.at(pointIdx * 6 + 0),
                             bandVertexDataSmoothed.at(pointIdx * 6 + 1),
-                            bandVertexDataSmoothed.at(pointIdx * 6 + 2)));
-                    bandPointsSmoothedRight.push_back(glm::vec3(
+                            bandVertexDataSmoothed.at(pointIdx * 6 + 2));
+                    bandPointsSmoothedRight.emplace_back(
                             bandVertexDataSmoothed.at(pointIdx * 6 + 3),
                             bandVertexDataSmoothed.at(pointIdx * 6 + 4),
-                            bandVertexDataSmoothed.at(pointIdx * 6 + 5)));
+                            bandVertexDataSmoothed.at(pointIdx * 6 + 5));
                 }
 
+#ifdef USE_EIGEN
+                trajectory.attributes.resize(13);
+#else
                 trajectory.attributes.resize(9);
+#endif
 
                 // Principal stress.
                 trajectory.attributes.at(0).reserve(lineLength);
@@ -529,6 +560,29 @@ void loadStressTrajectoriesFromDat_v3(
                         trajectory.attributes.at(varIdx).push_back(scalarFieldData.at(pointIdx));
                     }
                 }
+
+#ifdef USE_EIGEN
+                int xxIdx = 3;
+                int yyIdx = 4;
+                int zzIdx = 5;
+                int xyIdx = 8;
+                int yzIdx = 6;
+                int zxIdx = 7;
+
+                float majorStress, mediumStress, minorStress;
+                for (uint32_t pointIdx = 0; pointIdx < lineLength; pointIdx++) {
+                    computePrincipalStresses(
+                            trajectory.attributes.at(xxIdx).at(pointIdx), trajectory.attributes.at(yyIdx).at(pointIdx),
+                            trajectory.attributes.at(zzIdx).at(pointIdx), trajectory.attributes.at(xyIdx).at(pointIdx),
+                            trajectory.attributes.at(yzIdx).at(pointIdx), trajectory.attributes.at(zxIdx).at(pointIdx),
+                            majorStress, mediumStress, minorStress);
+                    float degeneracyMeasure = computeDegeneracyMeasure(minorStress, mediumStress, majorStress);
+                    trajectory.attributes.at(9).push_back(majorStress);
+                    trajectory.attributes.at(10).push_back(mediumStress);
+                    trajectory.attributes.at(11).push_back(minorStress);
+                    trajectory.attributes.at(12).push_back(degeneracyMeasure);
+                }
+#endif
             }
 
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {

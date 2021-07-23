@@ -307,6 +307,15 @@ bool LineDataStress::loadFromFile(
     }
     attributeNames = dataSetInformation.attributeNames;
 
+#ifdef USE_EIGEN
+    if (dataSetInformation.version >= 3) {
+        attributeNames.push_back("Major Stress");
+        attributeNames.push_back("Medium Stress");
+        attributeNames.push_back("Minor Stress");
+        attributeNames.push_back("Degeneracy Measure");
+    }
+#endif
+
     std::vector<Trajectories> trajectoriesPs;
     std::vector<StressTrajectoriesData> stressTrajectoriesDataPs;
     sgl::AABB3 oldAABB;

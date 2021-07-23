@@ -23,6 +23,7 @@ out vec3 fragmentPositionWorld;
 out vec3 screenSpacePosition;
 #endif
 out float fragmentAttribute;
+out vec3 fragmentTangent;
 out float fragmentNormalFloat; // Between -1 and 1
 out vec3 normal0;
 out vec3 normal1;
@@ -74,6 +75,7 @@ void main() {
     screenSpacePosition = (vMatrix * vec4(vertexPosition, 1.0)).xyz;
 #endif
     fragmentAttribute = linePointData.vertexAttribute;
+    fragmentTangent = linePointData.vertexTangent;
     gl_Position = pMatrix * vMatrix * vec4(vertexPosition, 1.0);
 }
 
@@ -142,6 +144,7 @@ out vec3 fragmentPositionWorld;
 out vec3 screenSpacePosition;
 #endif
 out float fragmentAttribute;
+out vec3 fragmentTangent;
 out float fragmentNormalFloat; // Between -1 and 1
 out vec3 normal0;
 out vec3 normal1;
@@ -187,6 +190,7 @@ void main() {
 
     // Vertex 0
     fragmentAttribute = v_in[0].lineAttribute;
+    fragmentTangent = tangent0;
     normal0 = normalize(cross(tangent0, offsetDirection0));
     normal1 = offsetDirection0;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
@@ -219,6 +223,7 @@ void main() {
 
     // Vertex 1
     fragmentAttribute = v_in[1].lineAttribute;
+    fragmentTangent = tangent1;
     normal0 = normalize(cross(tangent1, offsetDirection1));
     normal1 = offsetDirection1;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
@@ -261,6 +266,7 @@ in vec3 fragmentPositionWorld;
 in vec3 screenSpacePosition;
 #endif
 in float fragmentAttribute;
+in vec3 fragmentTangent;
 in float fragmentNormalFloat;
 in vec3 normal0;
 in vec3 normal1;
@@ -342,7 +348,7 @@ void main() {
             lineHierarchyImportanceMap, vec2(fragmentLineHierarchyLevel, float(fragmentPrincipalStressIndex))).r;
 #endif
 
-    fragmentColor = blinnPhongShading(fragmentColor, fragmentNormal);
+    fragmentColor = blinnPhongShadingTube(fragmentColor, fragmentNormal, fragmentTangent);
 
     float absCoords = abs(fragmentNormalFloat);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);

@@ -57,6 +57,57 @@ vec4 blinnPhongShading(in vec4 baseColor, in vec3 fragmentNormal) {
     return color;
 }
 
+/**
+ * Simplified Blinn-Phong shading assuming the ambient and diffuse color are equal and the specular color is white.
+ * Assumes the following global variables are given: cameraPosition, fragmentPositionWorld, fragmentNormal.
+ * The camera position is assumed to be the source of a point light.
+*/
+vec4 blinnPhongShadingTube(in vec4 baseColor, in vec3 fragmentNormal, in vec3 fragmentTangent) {
+    // Blinn-Phong Shading
+    const vec3 lightColor = vec3(1,1,1);
+    const vec3 ambientColor = baseColor.rgb;
+    const vec3 diffuseColor = ambientColor;
+    vec3 phongColor = vec3(0);
+
+    const float kA = 0.1;
+    const vec3 Ia = kA * ambientColor;
+    const float kD = 0.9;
+    const float kS = 0.3;
+    const float s = 30;
+
+    const vec3 n = normalize(fragmentNormal);
+    const vec3 t = normalize(fragmentTangent);
+    const vec3 v = normalize(cameraPosition - fragmentPositionWorld);
+    const vec3 l = v;//normalize(lightDirection);
+    const vec3 h = normalize(v + l);
+
+    vec3 helperVec = normalize(cross(t, l));
+    vec3 newL = normalize(cross(helperVec, t));
+
+#ifdef USE_BANDS
+    const float exponent = useBand == 0 ? 1.7 : 1.0;
+#else
+    const float exponent = 1.7;
+#endif
+    float cosNormal1 = pow(clamp(abs(dot(n, l)), 0.0, 1.0), exponent);
+    float cosNormal2 = pow(clamp(abs(dot(n, newL)), 0.0, 1.0), exponent);
+    float cosNormalCombined = 0.3 * cosNormal1 + 0.7 * cosNormal2;
+
+    vec3 Id = kD * cosNormalCombined * diffuseColor;
+    vec3 Is = kS * pow(clamp(abs(dot(n, h)), 0.0, 1.0), s) * lightColor;
+
+    phongColor = Ia + Id + Is;
+
+#ifdef USE_DEPTH_CUES
+    float depthCueFactor = (-screenSpacePosition.z - minDepth) / (maxDepth - minDepth);
+    depthCueFactor = depthCueFactor * depthCueFactor * depthCueStrength;
+    phongColor = mix(phongColor, vec3(0.5, 0.5, 0.5), depthCueFactor);
+#endif
+
+    vec4 color = vec4(phongColor, baseColor.a);
+    return color;
+}
+
 #ifdef TUBE_HALO_LIGHTING
 /**
  * Simplified Blinn-Phong shading for tubes assuming the ambient and diffuse color are equal and the specular color is

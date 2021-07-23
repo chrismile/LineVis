@@ -485,7 +485,7 @@ void main() {
             lineHierarchyImportanceMap, vec2(fragmentLineHierarchyLevel, float(fragmentPrincipalStressIndex))).r;
 #endif
 
-    fragmentColor = blinnPhongShading(fragmentColor, fragmentNormal);
+    fragmentColor = blinnPhongShadingTube(fragmentColor, n, t);
 
     float absCoords = abs(ribbonPosition);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
