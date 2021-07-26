@@ -309,10 +309,10 @@ bool LineDataStress::loadFromFile(
 
 #ifdef USE_EIGEN
     if (dataSetInformation.version >= 3) {
-        attributeNames.push_back("Major Stress");
-        attributeNames.push_back("Medium Stress");
-        attributeNames.push_back("Minor Stress");
-        attributeNames.push_back("Degeneracy Measure");
+        attributeNames.emplace_back("Major Stress");
+        attributeNames.emplace_back("Medium Stress");
+        attributeNames.emplace_back("Minor Stress");
+        attributeNames.emplace_back("Degeneracy Measure");
     }
 #endif
 
@@ -515,15 +515,15 @@ void LineDataStress::setDegeneratePoints(
             trajectory.attributes.push_back(distanceMeasuresExponentialKernel);
             trajectory.attributes.push_back(distanceMeasuresSquaredExponentialKernel);
         }
-        minMaxAttributeValuesPs[psIdx].push_back(glm::vec2(0.0f, 1.0f));
-        minMaxAttributeValuesPs[psIdx].push_back(glm::vec2(0.0f, 1.0f));
+        minMaxAttributeValuesPs[psIdx].emplace_back(0.0f, 1.0f);
+        minMaxAttributeValuesPs[psIdx].emplace_back(0.0f, 1.0f);
         psIdx++;
     }
 
-    minMaxAttributeValues.push_back(glm::vec2(0.0f, 1.0f));
-    minMaxAttributeValues.push_back(glm::vec2(0.0f, 1.0f));
-    attributeNames.push_back("Distance Exponential Kernel");
-    attributeNames.push_back("Distance Squared Exponential Kernel");
+    minMaxAttributeValues.emplace_back(0.0f, 1.0f);
+    minMaxAttributeValues.emplace_back(0.0f, 1.0f);
+    attributeNames.emplace_back("Distance Exponential Kernel");
+    attributeNames.emplace_back("Distance Squared Exponential Kernel");
 }
 
 void LineDataStress::setUsedPsDirections(const std::vector<bool>& usedPsDirections) {
