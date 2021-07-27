@@ -233,12 +233,19 @@ MainApp::MainApp(bool supportsRaytracing)
             pulseFactor = 0.0f;
             standardZoom = 2.9f;
             centerOffset.y = 0.001f;
+            this->camera->setFOVy(36.0f / 180.0f * sgl::PI);
         } else if (boost::starts_with(
                 modelFilename,
                 sgl::AppSettings::get()->getDataDirectory()
                 + "LineDataSets/stress/PSLs-Vis2021")) {
             pulseFactor = 0.0f;
             standardZoom = 2.0f;
+        } else if (boost::starts_with(
+                modelFilename,
+                sgl::AppSettings::get()->getDataDirectory()
+                + "LineDataSets/stress/PSLs-TVCG01/psl/arched_bridge3D_PSLs")) {
+            pulseFactor = 0.0f;
+            standardZoom = 1.9f;
         } else if (boost::starts_with(
                 modelFilename,
                 sgl::AppSettings::get()->getDataDirectory()
@@ -377,7 +384,7 @@ void MainApp::setNewState(const InternalState &newState) {
         std::string nameLower = boost::algorithm::to_lower_copy(newState.dataSetDescriptor.name);
         for (size_t i = 0; i < dataSetInformation.size(); i++) {
             if (boost::algorithm::to_lower_copy(dataSetInformation.at(i).name) == nameLower) {
-                selectedDataSetIndex = i + 1;
+                selectedDataSetIndex = int(i) + 2;
                 break;
             }
         }

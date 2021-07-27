@@ -29,6 +29,12 @@
 #include "Renderers/OIT/SyncMode.hpp"
 #include "InternalState.hpp"
 
+void getTestModesOpaque(std::vector<InternalState> &states, InternalState state) {
+    state.renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+    state.name = "Opaque";
+    states.push_back(state);
+}
+
 void getTestModesDepthComplexity(std::vector<InternalState> &states, InternalState state) {
     state.renderingMode = RENDERING_MODE_DEPTH_COMPLEXITY;
     state.name = "Depth Complexity";
@@ -83,6 +89,8 @@ void getTestModesPaperForMesh(std::vector<InternalState> &states, InternalState 
     //getTestModesDepthComplexity(states, state);
     //getTestModesPerPixelLinkedLists(states, state);
     //getTestModesOpacityOptimization(states, state);
+    //getTestModesOpacityOptimization(states, state);
+    getTestModesOpaque(states, state);
     getTestModesDepthComplexity(states, state);
     getTestModesPerPixelLinkedLists(states, state);
     getTestModesMlab(states, state);
@@ -97,11 +105,12 @@ std::vector<InternalState> getTestModesPaper()
     //std::vector<glm::ivec2> windowResolutions = { glm::ivec2(2560, 1440) };
     //std::vector<glm::ivec2> windowResolutions = { glm::ivec2(2186, 1358) };
     std::vector<DataSetDescriptor> dataSetDescriptors = {
-            DataSetDescriptor("Aneurysm"),
+            //DataSetDescriptor("Aneurysm"),
+            DataSetDescriptor("Femur (Vis2021)"),
     };
     std::vector<std::string> transferFunctionNames = {
-            //"Standard.xml",
-            "Transparent_Aneurysm.xml",
+            //"Transparent_Aneurysm.xml",
+            "Standard.xml",
     };
     InternalState state;
 

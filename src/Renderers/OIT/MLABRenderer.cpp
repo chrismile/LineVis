@@ -172,7 +172,7 @@ void MLABRenderer::setNewState(const InternalState& newState) {
         updateSyncMode();
         recompileGatherShader = true;
     }
-    if (recompileGatherShader) {
+    if (recompileGatherShader && lineData) {
         reloadGatherShader();
     }
 
