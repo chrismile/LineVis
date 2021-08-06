@@ -512,8 +512,6 @@ void MainApp::render() {
 }
 
 void MainApp::renderGui() {
-    sgl::ImGuiWrapper::get()->renderStart();
-
     if (showSettingsWindow) {
         sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(3090, 56, 735, 1085);
         if (ImGui::Begin("Settings", &showSettingsWindow)) {
@@ -585,6 +583,7 @@ void MainApp::renderGui() {
         recordingTimeStampStart = sgl::Timer->getTicksMicroseconds();
 
         recording = true;
+        isFirstRecordingFrame = true;
         sgl::ColorLegendWidget::setFontScale(1.0f);
         videoWriter = new sgl::VideoWriter(
                 saveDirectoryVideos + saveFilenameVideos
@@ -621,8 +620,6 @@ void MainApp::renderGui() {
         dataFilter->renderGui();
     }
     lineRenderer->renderGuiWindow();
-
-    sgl::ImGuiWrapper::get()->renderEnd();
 }
 
 void MainApp::loadAvailableDataSetInformation() {
