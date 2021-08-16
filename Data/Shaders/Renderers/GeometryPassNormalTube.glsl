@@ -104,7 +104,7 @@ in VertexData {
 #endif
 } v_in[];
 
-# define M_PI 3.14159265358979323846
+#define M_PI 3.14159265358979323846
 
 void main() {
     vec3 linePosition0 = (mMatrix * vec4(v_in[0].linePosition, 1.0)).xyz;
