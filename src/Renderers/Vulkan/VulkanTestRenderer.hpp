@@ -53,7 +53,7 @@ class VulkanTestRenderer : public LineRenderer {
 public:
     VulkanTestRenderer(
             SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
-    ~VulkanTestRenderer();
+    ~VulkanTestRenderer() override;
 
     /**
      * Re-generates the visualization mapping.
@@ -83,6 +83,5 @@ private:
     sgl::ShaderAttributesPtr blitRenderData;
     sgl::ShaderProgramPtr blitShader;
 };
-
 
 #endif //LINEVIS_VULKANTESTRENDERER_HPP

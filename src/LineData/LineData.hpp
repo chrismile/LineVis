@@ -39,6 +39,7 @@
 #include "Utils/InternalState.hpp"
 #include "Loaders/DataSetList.hpp"
 #include "Loaders/TrajectoryFile.hpp"
+#include "LineRenderData.hpp"
 
 struct Trajectory;
 typedef std::vector<Trajectory> Trajectories;
@@ -47,63 +48,6 @@ class LineData;
 typedef std::shared_ptr<LineData> LineDataPtr;
 
 class LineRenderer;
-
-struct TubeRenderData {
-    sgl::GeometryBufferPtr indexBuffer;
-    sgl::GeometryBufferPtr vertexPositionBuffer;
-    sgl::GeometryBufferPtr vertexAttributeBuffer;
-    sgl::GeometryBufferPtr vertexNormalBuffer;
-    sgl::GeometryBufferPtr vertexTangentBuffer;
-    sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
-    sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
-    sgl::GeometryBufferPtr vertexLineAppearanceOrderBuffer; ///< Empty for flow lines.
-};
-
-struct BandRenderData {
-    sgl::GeometryBufferPtr indexBuffer;
-    sgl::GeometryBufferPtr vertexPositionBuffer;
-    sgl::GeometryBufferPtr vertexAttributeBuffer;
-    sgl::GeometryBufferPtr vertexNormalBuffer;
-    sgl::GeometryBufferPtr vertexTangentBuffer;
-    sgl::GeometryBufferPtr vertexOffsetLeftBuffer;
-    sgl::GeometryBufferPtr vertexOffsetRightBuffer;
-    sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
-    sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
-    sgl::GeometryBufferPtr vertexLineAppearanceOrderBuffer; ///< Empty for flow lines.
-};
-
-/// For internal use of subclasses.
-struct LinePointDataProgrammableFetch {
-    glm::vec3 vertexPosition;
-    float vertexAttribute;
-    glm::vec3 vertexTangent;
-    uint32_t principalStressIndex; ///< Padding in case of flow lines.
-};
-
-struct TubeRenderDataProgrammableFetch {
-    sgl::GeometryBufferPtr indexBuffer;
-    sgl::GeometryBufferPtr linePointsBuffer;
-    sgl::GeometryBufferPtr lineHierarchyLevelsBuffer; ///< Empty for flow lines.
-};
-
-struct TubeRenderDataOpacityOptimization {
-    sgl::GeometryBufferPtr indexBuffer;
-    sgl::GeometryBufferPtr vertexPositionBuffer;
-    sgl::GeometryBufferPtr vertexAttributeBuffer;
-    sgl::GeometryBufferPtr vertexTangentBuffer;
-    sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
-    sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
-};
-
-struct PointRenderData {
-    sgl::GeometryBufferPtr vertexPositionBuffer;
-};
-
-struct SimulationMeshOutlineRenderData {
-    sgl::GeometryBufferPtr indexBuffer;
-    sgl::GeometryBufferPtr vertexPositionBuffer;
-    sgl::GeometryBufferPtr vertexNormalBuffer;
-};
 
 enum LineRasterizationRenderingTechnique {
     // Render screen-oriented bands, based on programmable vertex fetching or a geometry shader.
@@ -191,6 +135,11 @@ public:
     virtual TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization()=0;
     virtual BandRenderData getBandRenderData() { return BandRenderData(); }
     virtual BandRenderData getTubeBandRenderData() { return BandRenderData(); }
+
+#ifdef USE_VULKAN_INTEROP
+    // --- Retrieve data for rendering for Vulkan. ---
+    virtual VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(bool raytracing)=0;
+#endif
 
     // Retrieve simulation mesh outline (optional).
     inline bool hasSimulationMeshOutline() { return !simulationMeshOutlineVertexPositions.empty(); }

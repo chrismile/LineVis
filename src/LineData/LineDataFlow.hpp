@@ -33,8 +33,8 @@
 
 class LineDataFlow : public LineData {
 public:
-    LineDataFlow(sgl::TransferFunctionWindow &transferFunctionWindow);
-    ~LineDataFlow();
+    explicit LineDataFlow(sgl::TransferFunctionWindow &transferFunctionWindow);
+    ~LineDataFlow() override;
     virtual void setTrajectoryData(const Trajectories& trajectories);
 
     /**
@@ -45,32 +45,37 @@ public:
      * @param transformationMatrixPtr A transformation to apply to the loaded data (if any; can be nullptr).
      * @return Whether loading was successful.
      */
-    virtual bool loadFromFile(
+    bool loadFromFile(
             const std::vector<std::string>& fileNames, DataSetInformation dataSetInformation,
             glm::mat4* transformationMatrixPtr) override;
 
     // Statistics.
-    virtual size_t getNumAttributes() override;
-    virtual size_t getNumLines() override;
-    virtual size_t getNumLinePoints() override;
-    virtual size_t getNumLineSegments() override;
+    size_t getNumAttributes() override;
+    size_t getNumLines() override;
+    size_t getNumLinePoints() override;
+    size_t getNumLineSegments() override;
 
     // Public interface for filtering trajectories.
-    virtual void iterateOverTrajectories(std::function<void(const Trajectory&)> callback) override;
-    virtual void filterTrajectories(std::function<bool(const Trajectory&)> callback) override;
-    virtual void resetTrajectoryFilter() override;
+    void iterateOverTrajectories(std::function<void(const Trajectory&)> callback) override;
+    void filterTrajectories(std::function<bool(const Trajectory&)> callback) override;
+    void resetTrajectoryFilter() override;
 
     // Get filtered line data (only containing points also shown when rendering).
-    virtual Trajectories filterTrajectoryData() override;
-    virtual std::vector<std::vector<glm::vec3>> getFilteredLines() override;
+    Trajectories filterTrajectoryData() override;
+    std::vector<std::vector<glm::vec3>> getFilteredLines() override;
 
     // --- Retrieve data for rendering. ---
-    TubeRenderData getTubeRenderData();
-    TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch();
-    TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization();
+    TubeRenderData getTubeRenderData() override;
+    TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch() override;
+    TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization() override;
+
+#ifdef USE_VULKAN_INTEROP
+    // --- Retrieve data for rendering for Vulkan. ---
+    VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(bool raytracing) override;
+#endif
 
 protected:
-    virtual void recomputeHistogram() override;
+    void recomputeHistogram() override;
 
     Trajectories trajectories;
     std::vector<bool> filteredTrajectories;

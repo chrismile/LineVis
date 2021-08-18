@@ -26,12 +26,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <Utils/File/Logfile.hpp>
 #include <Graphics/Renderer.hpp>
 
-#include "Loaders/TrajectoryFile.hpp"
-#include "Renderers/Tubes/Tubes.hpp"
+#ifdef USE_VULKAN_INTEROP
+#include <Graphics/Vulkan/Buffers/Buffer.hpp>
+#endif
 
-#include <Utils/File/Logfile.hpp>
+#include "Loaders/TrajectoryFile.hpp"
+#include "Renderers/LineRenderer.hpp"
+#include "Renderers/Tubes/Tubes.hpp"
 
 #include "LineDataFlow.hpp"
 
@@ -453,3 +457,78 @@ TubeRenderDataOpacityOptimization LineDataFlow::getTubeRenderDataOpacityOptimiza
 
     return tubeRenderData;
 }
+
+
+#ifdef USE_VULKAN_INTEROP
+VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(bool raytracing) {
+    rebuildInternalRepresentationIfNecessary();
+
+    std::vector<std::vector<glm::vec3>> lineCentersList;
+
+    std::vector<uint32_t> tubeTriangleIndices;
+    std::vector<glm::vec3> lineTangents;
+    std::vector<TubeTriangleVertexData> tubeTriangleVertexDataList;
+    std::vector<LinePointReference> linePointReferences;
+    std::vector<TubeTriangleLinePointData> tubeTriangleLinePointDataList;
+
+    lineCentersList.resize(trajectories.size());
+    for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+        if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+            continue;
+        }
+
+        Trajectory& trajectory = trajectories.at(trajectoryIdx);
+        std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
+        for (size_t i = 0; i < trajectory.positions.size(); i++) {
+            lineCenters.push_back(trajectory.positions.at(i));
+        }
+    }
+
+    createTriangleTubesRenderDataCPU(
+            lineCentersList, LineRenderer::getLineWidth() / 2.0f, tubeNumSubdivisions,
+            tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences, lineTangents);
+
+    tubeTriangleLinePointDataList.resize(linePointReferences.size());
+    for (size_t i = 0; i < linePointReferences.size(); i++) {
+        LinePointReference& linePointReference = linePointReferences.at(i);
+        TubeTriangleLinePointData& tubeTriangleLinePointData = tubeTriangleLinePointDataList.at(i);
+        Trajectory& trajectory = trajectories.at(linePointReference.trajectoryIndex);
+        std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
+
+        tubeTriangleLinePointData.lineAttribute = attributes.at(linePointReference.linePointIndex);
+        tubeTriangleLinePointData.lineTangent = lineTangents.at(i);
+    }
+
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    VulkanTubeTriangleRenderData tubeTriangleRenderData;
+
+    uint32_t indexBufferFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    uint32_t vertexBufferFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    if (raytracing) {
+        indexBufferFlags |=
+                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+        vertexBufferFlags |=
+                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    }
+
+    tubeTriangleRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, tubeTriangleIndices.size() * sizeof(uint32_t), tubeTriangleIndices.data(),
+            indexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    tubeTriangleRenderData.vertexBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, tubeTriangleVertexDataList.size() * sizeof(TubeTriangleVertexData),
+            tubeTriangleVertexDataList.data(),
+            vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    tubeTriangleRenderData.linePointBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, tubeTriangleLinePointDataList.size() * sizeof(TubeTriangleLinePointData),
+            tubeTriangleLinePointDataList.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+    return tubeTriangleRenderData;
+}
+#endif

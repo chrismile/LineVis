@@ -26,14 +26,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <Utils/File/Logfile.hpp>
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
+
+#ifdef USE_VULKAN_INTEROP
+#include <Graphics/Vulkan/Buffers/Buffer.hpp>
+#endif
 
 #include "Loaders/TrajectoryFile.hpp"
 #include "Renderers/Tubes/Tubes.hpp"
 #include "Renderers/OIT/OpacityOptimizationRenderer.hpp"
-
-#include <Utils/File/Logfile.hpp>
 
 #include "Utils/TriangleNormals.hpp"
 #include "Utils/MeshSmoothing.hpp"
@@ -1797,3 +1800,102 @@ void LineDataStress::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gath
                 "psUseBands", glm::ivec3(psUseBands[0], psUseBands[1], psUseBands[2]));
     }
 }
+
+
+#ifdef USE_VULKAN_INTEROP
+VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(bool raytracing) {
+    rebuildInternalRepresentationIfNecessary();
+
+    std::vector<std::vector<glm::vec3>> lineCentersList;
+
+    std::vector<uint32_t> tubeTriangleIndices;
+    std::vector<TubeTriangleVertexData> tubeTriangleVertexDataList;
+    std::vector<TubeTriangleLinePointData> tubeTriangleLinePointDataList;
+
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        int psIdx = loadedPsIndices.at(i);
+        if (!usedPsDirections.at(psIdx)) {
+            continue;
+        }
+
+        Trajectories& trajectories = trajectoriesPs.at(i);
+        StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
+
+        // TODO
+        //if (psUseBands.at(psIdx)) {
+        //} else {
+        //}
+
+        lineCentersList.resize(trajectories.size());
+        std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
+        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+
+            Trajectory& trajectory = trajectories.at(trajectoryIdx);
+            std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
+            for (size_t i = 0; i < trajectory.positions.size(); i++) {
+                lineCenters.push_back(trajectory.positions.at(i));
+            }
+        }
+
+        std::vector<LinePointReference> linePointReferences;
+        std::vector<glm::vec3> lineTangents;
+        createTriangleTubesRenderDataCPU(
+                lineCentersList, globalTubeRadius, tubeNumSubdivisions,
+                tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences, lineTangents);
+
+        size_t offset = tubeTriangleLinePointDataList.size();
+        tubeTriangleLinePointDataList.resize(offset + linePointReferences.size());
+        for (size_t i = offset; i < linePointReferences.size(); i++) {
+            LinePointReference& linePointReference = linePointReferences.at(i);
+            TubeTriangleLinePointData& tubeTriangleLinePointData = tubeTriangleLinePointDataList.at(offset + i);
+            Trajectory& trajectory = trajectories.at(linePointReference.trajectoryIndex);
+            StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(linePointReference.trajectoryIndex);
+            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
+
+            tubeTriangleLinePointData.lineAttribute = attributes.at(linePointReference.linePointIndex);
+            tubeTriangleLinePointData.lineTangent = lineTangents.at(i);
+            tubeTriangleLinePointData.principalStressIndex = psIdx;
+            tubeTriangleLinePointData.lineHierarchyLevel =
+                    stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType));
+            tubeTriangleLinePointData.lineAppearanceOrder = stressTrajectoryData.appearanceOrder;
+        }
+
+        lineCentersList.clear();
+    }
+
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    VulkanTubeTriangleRenderData tubeTriangleRenderData;
+
+    uint32_t indexBufferFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    uint32_t vertexBufferFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    if (raytracing) {
+        indexBufferFlags |=
+                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+        vertexBufferFlags |=
+                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    }
+
+    tubeTriangleRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, tubeTriangleIndices.size() * sizeof(uint32_t), tubeTriangleIndices.data(),
+            indexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    tubeTriangleRenderData.vertexBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, tubeTriangleVertexDataList.size() * sizeof(TubeTriangleVertexData),
+            tubeTriangleVertexDataList.data(),
+            vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    tubeTriangleRenderData.linePointBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, tubeTriangleLinePointDataList.size() * sizeof(TubeTriangleLinePointData),
+            tubeTriangleLinePointDataList.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+    return tubeTriangleRenderData;
+}
+#endif

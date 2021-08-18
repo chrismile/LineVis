@@ -52,8 +52,8 @@ void initGlobalCircleVertexPositions(int numCircleSubdivisions, float tubeRadius
 }
 
 void insertOrientedCirclePoints(
-        const glm::vec3& center, const glm::vec3& normal, glm::vec3& lastTangent,
-        std::vector<glm::vec3>& vertexPositions, std::vector<glm::vec3>& vertexNormals) {
+        const glm::vec3& center, const glm::vec3& normal, glm::vec3& lastTangent, uint32_t vertexLinePointIndex,
+        std::vector<TubeTriangleVertexData>& vertexDataList) {
     glm::vec3 helperAxis = lastTangent;
     if (glm::length(glm::cross(helperAxis, normal)) < 0.01f) {
         // If normal == lastTangent
@@ -74,10 +74,13 @@ void insertOrientedCirclePoints(
                 pt.x * tangent.y + pt.y * binormal.y + pt.z * normal.y + center.y,
                 pt.x * tangent.z + pt.y * binormal.z + pt.z * normal.z + center.z
         );
-        vertexPositions.push_back(transformedPoint);
-
         glm::vec3 vertexNormal = glm::normalize(transformedPoint - center);
-        vertexNormals.push_back(vertexNormal);
+
+        TubeTriangleVertexData tubeTriangleVertexData{};
+        tubeTriangleVertexData.vertexPosition = transformedPoint;
+        tubeTriangleVertexData.vertexLinePointIndex = vertexLinePointIndex;
+        tubeTriangleVertexData.vertexNormal = vertexNormal;
+        vertexDataList.push_back(tubeTriangleVertexData);
     }
 }
 

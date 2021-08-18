@@ -29,6 +29,7 @@
 #ifndef RENDERERS_HEXAHEDRALMESHRENDERER_HPP
 #define RENDERERS_HEXAHEDRALMESHRENDERER_HPP
 
+#include <Renderers/AmbientOcclusion/AmbientOcclusionBaker.hpp>
 #include "LineData/LineData.hpp"
 #include "SceneData.hpp"
 
@@ -53,9 +54,9 @@ public:
     virtual void initialize();
     virtual ~LineRenderer();
 
-    // Returns if the visualization mapping needs to be re-generated.
+    /// Returns if the visualization mapping needs to be re-generated.
     inline bool isDirty() { return dirty; }
-    // Returns if the data needs to be re-rendered, but the visualization mapping is valid.
+    /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
     virtual bool needsReRender() { bool tmp = reRender; reRender = false; return tmp; }
 
     /**
@@ -64,29 +65,33 @@ public:
      */
     virtual void setLineData(LineDataPtr& lineData, bool isNewData)=0;
 
-    // Renders the object to the scene framebuffer.
+    /// Sets the ambient occlusion baker that can be used for computing the ambient occlusion of the line data.
+    virtual void setAmbientOcclusionBaker(AmbientOcclusionBakerPtr& aoBaker);
+
+    /// Renders the object to the scene framebuffer.
     virtual void render()=0;
-    // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
+    /// Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
     virtual void renderGuiWindow();
-    // Updates the internal logic (called once per frame).
+    /// Updates the internal logic (called once per frame).
     virtual void update(float dt);
 
-    // Called when the resolution of the application window has changed.
+    /// Called when the resolution of the application window has changed.
     virtual void onResolutionChanged() {}
 
-    // Called when the transfer function was changed.
+    /// Called when the transfer function was changed.
     virtual void onTransferFunctionMapRebuilt() {}
 
-    // Called when the camera has moved.
+    /// Called when the camera has moved.
     virtual void onHasMoved() {}
 
-    /// For changing performance measurement modes.
+    // For changing performance measurement modes.
     virtual void setNewState(const InternalState& newState) { }
     virtual bool setNewSettings(const SettingsMap& settings);
     void reloadGatherShaderExternal();
 
     /// Sets the global line width.
     static void setLineWidth(float lineWidth) { LineRenderer::lineWidth = lineWidth; }
+    static inline float getLineWidth() { return LineRenderer::lineWidth; }
 
 protected:
     // Reload the gather shader.
@@ -126,6 +131,7 @@ protected:
     sgl::GeometryBufferPtr depthMinMaxBuffers[2];
     sgl::ShaderProgramPtr computeDepthValuesShaderProgram;
     sgl::ShaderProgramPtr minMaxReduceDepthShaderProgram;
+    AmbientOcclusionBakerPtr ambientOcclusionBaker;
 
     // Minimum and maximum values in the UI.
     static constexpr float MIN_LINE_WIDTH = 0.001f;

@@ -107,6 +107,11 @@ public:
     PointRenderData getDegeneratePointsRenderData();
     virtual BandRenderData getBandRenderData() override;
 
+#ifdef USE_VULKAN_INTEROP
+    // --- Retrieve data for rendering for Vulkan. ---
+    VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(bool raytracing) override;
+#endif
+
     /**
      * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
      * @return true if the gather shader needs to be reloaded.

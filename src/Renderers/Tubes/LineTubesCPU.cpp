@@ -47,8 +47,6 @@ void createLineTubesRenderDataCPU(
         size_t indexOffset = vertexPositions.size();
 
         if (n < 2) {
-            //sgl::Logfile::get()->writeError(
-            //        "ERROR in createLineTubesRenderDataCPU: Line must consist of at least two points.");
             continue;
         }
 

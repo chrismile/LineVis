@@ -32,21 +32,19 @@
 #include <vector>
 #include <memory>
 #include <glm/glm.hpp>
+#include "../../LineData/LineRenderData.hpp"
 
 class HexMesh;
 typedef std::shared_ptr<HexMesh> HexMeshPtr;
 
-template<typename T>
 void createTriangleTubesRenderDataCPU(
         const std::vector<std::vector<glm::vec3>>& lineCentersList,
-        const std::vector<std::vector<T>>& lineAttributesList,
         float tubeRadius,
         int numCircleSubdivisions,
         std::vector<uint32_t>& triangleIndices,
-        std::vector<glm::vec3>& vertexPositions,
-        std::vector<glm::vec3>& vertexNormals,
-        std::vector<glm::vec3>& vertexTangents,
-        std::vector<T>& vertexAttributes);
+        std::vector<TubeTriangleVertexData>& vertexDataList,
+        std::vector<LinePointReference>& linePointReferenceList,
+        std::vector<glm::vec3>& lineTangents);
 
 void createTriangleTubesRenderDataGPU(
         const std::vector<std::vector<glm::vec3>>& lineCentersList,
@@ -118,15 +116,15 @@ extern std::vector<glm::vec3> globalCircleVertexPositions;
 extern void initGlobalCircleVertexPositions(int numCircleSubdivisions, float tubeRadius);
 /**
  * Appends the vertex points of an oriented and shifted copy of a 2D circle in 3D space.
- * @param vertices The list to append the circle points to.
- * @param normals The list to append the normal vectors circles to.
  * @param center The center of the circle in 3D space.
  * @param normal The normal orthogonal to the circle plane.
  * @param lastTangent The tangent of the last circle.
+ * @param vertexLinePointIndex The line point index corresponding to this tube circle.
+ * @param vertexDataList The list to append the circle points and normals to.
  */
 extern void insertOrientedCirclePoints(
-        const glm::vec3& center, const glm::vec3& normal, glm::vec3& lastTangent,
-        std::vector<glm::vec3>& vertexPositions, std::vector<glm::vec3>& vertexNormals);
+        const glm::vec3& center, const glm::vec3& normal, glm::vec3& lastTangent, uint32_t vertexLinePointIndex,
+        std::vector<TubeTriangleVertexData>& vertexDataList);
 extern void insertOrientedCirclePoints(
         const glm::vec3& center, const glm::vec3& normal, glm::vec3& lastTangent,
         std::vector<glm::vec3>& vertexPositions);
@@ -135,18 +133,6 @@ extern void insertOrientedCirclePoints(
 /*
  * Template forward declarations, as code is in .cpp file.
  */
-
-extern template
-void createTriangleTubesRenderDataCPU<float>(
-        const std::vector<std::vector<glm::vec3>>& lineCentersList,
-        const std::vector<std::vector<float>>& lineAttributesList,
-        float tubeRadius,
-        int numCircleSubdivisions,
-        std::vector<uint32_t>& triangleIndices,
-        std::vector<glm::vec3>& vertexPositions,
-        std::vector<glm::vec3>& vertexNormals,
-        std::vector<glm::vec3>& vertexTangents,
-        std::vector<float>& vertexAttributes);
 
 extern template
 void createCappedTriangleTubesRenderDataCPU<float>(

@@ -44,7 +44,7 @@
  */
 class LineDataRequester {
 public:
-    LineDataRequester(sgl::TransferFunctionWindow& transferFunctionWindow);
+    explicit LineDataRequester(sgl::TransferFunctionWindow& transferFunctionWindow);
     ~LineDataRequester();
 
     /**

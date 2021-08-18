@@ -29,33 +29,25 @@
 #include <Utils/File/Logfile.hpp>
 #include "Tubes.hpp"
 
-template<typename T>
 void createTriangleTubesRenderDataCPU(
         const std::vector<std::vector<glm::vec3>>& lineCentersList,
-        const std::vector<std::vector<T>>& lineAttributesList,
         float tubeRadius,
         int numCircleSubdivisions,
         std::vector<uint32_t>& triangleIndices,
-        std::vector<glm::vec3>& vertexPositions,
-        std::vector<glm::vec3>& vertexNormals,
-        std::vector<glm::vec3>& vertexTangents,
-        std::vector<T>& vertexAttributes) {
+        std::vector<TubeTriangleVertexData>& vertexDataList,
+        std::vector<LinePointReference>& linePointReferenceList,
+        std::vector<glm::vec3>& lineTangents) {
     if (numCircleSubdivisions != globalCircleVertexPositions.size() || tubeRadius != globalTubeRadius) {
         initGlobalCircleVertexPositions(numCircleSubdivisions, tubeRadius);
     }
 
-    assert(lineCentersList.size() == lineAttributesList.size());
     for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
         const std::vector<glm::vec3> &lineCenters = lineCentersList.at(lineId);
-        const std::vector<T> &lineAttributes = lineAttributesList.at(lineId);
-        assert(lineCenters.size() == lineAttributes.size());
         size_t n = lineCenters.size();
-        size_t indexOffset = vertexPositions.size();
+        size_t indexOffset = vertexDataList.size();
 
         if (n < 2) {
-            sgl::Logfile::get()->writeError(
-                    "ERROR in createTriangleTubesRenderDataCPU: Line must consist of at least two points.");
-            return;
+            continue;
         }
 
         glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
@@ -72,54 +64,48 @@ void createTriangleTubesRenderDataCPU(
             float lineSegmentLength = glm::length(tangent);
 
             if (lineSegmentLength < 0.0001f) {
-                // In case the two vertices are almost identical, just skip this path line segment
+                // In case the two vertices are almost identical, just skip this path line segment.
                 continue;
             }
             tangent = glm::normalize(tangent);
 
             insertOrientedCirclePoints(
-                    lineCenters.at(i), tangent, lastLineNormal, vertexPositions, vertexNormals);
-            for (int j = 0; j < numCircleSubdivisions; j++) {
-                vertexTangents.push_back(tangent);
-                vertexAttributes.push_back(lineAttributes.at(i));
-            }
+                    lineCenters.at(i), tangent, lastLineNormal, uint32_t(linePointReferenceList.size()),
+                    vertexDataList);
+            lineTangents.push_back(tangent);
+            linePointReferenceList.emplace_back(lineId, i);
             numValidLinePoints++;
         }
 
         if (numValidLinePoints == 1) {
             // Only one vertex left -> Output nothing (tube consisting only of one point).
-            vertexPositions.pop_back();
-            vertexNormals.pop_back();
-            vertexTangents.pop_back();
-            vertexAttributes.pop_back();
+            for (int subdivIdx = 0; subdivIdx < numCircleSubdivisions; subdivIdx++) {
+                vertexDataList.pop_back();
+            }
+            linePointReferenceList.pop_back();
+            lineTangents.pop_back();
             continue;
         }
 
         for (int i = 0; i < numValidLinePoints-1; i++) {
             for (int j = 0; j < numCircleSubdivisions; j++) {
-                // Build two CCW triangles (one quad) for each side
+                // Build two CCW triangles (one quad) for each side.
                 // Triangle 1
-                triangleIndices.push_back(indexOffset + i*numCircleSubdivisions+j);
-                triangleIndices.push_back(indexOffset + i*numCircleSubdivisions+(j+1)%numCircleSubdivisions);
-                triangleIndices.push_back(indexOffset + ((i+1)%numValidLinePoints)*numCircleSubdivisions+(j+1)%numCircleSubdivisions);
+                triangleIndices.push_back(
+                        indexOffset + i*numCircleSubdivisions+j);
+                triangleIndices.push_back(
+                        indexOffset + i*numCircleSubdivisions+(j+1)%numCircleSubdivisions);
+                triangleIndices.push_back(
+                        indexOffset + ((i+1)%numValidLinePoints)*numCircleSubdivisions+(j+1)%numCircleSubdivisions);
 
                 // Triangle 2
-                triangleIndices.push_back(indexOffset + i*numCircleSubdivisions+j);
-                triangleIndices.push_back(indexOffset + ((i+1)%numValidLinePoints)*numCircleSubdivisions+(j+1)%numCircleSubdivisions);
-                triangleIndices.push_back(indexOffset + ((i+1)%numValidLinePoints)*numCircleSubdivisions+j);
+                triangleIndices.push_back(
+                        indexOffset + i*numCircleSubdivisions+j);
+                triangleIndices.push_back(
+                        indexOffset + ((i+1)%numValidLinePoints)*numCircleSubdivisions+(j+1)%numCircleSubdivisions);
+                triangleIndices.push_back(
+                        indexOffset + ((i+1)%numValidLinePoints)*numCircleSubdivisions+j);
             }
         }
     }
 }
-
-template
-void createTriangleTubesRenderDataCPU<float>(
-        const std::vector<std::vector<glm::vec3>>& lineCentersList,
-        const std::vector<std::vector<float>>& lineAttributesList,
-        float tubeRadius,
-        int numCircleSubdivisions,
-        std::vector<uint32_t>& triangleIndices,
-        std::vector<glm::vec3>& vertexPositions,
-        std::vector<glm::vec3>& vertexNormals,
-        std::vector<glm::vec3>& vertexTangents,
-        std::vector<float>& vertexAttributes);

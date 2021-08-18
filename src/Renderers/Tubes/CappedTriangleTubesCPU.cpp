@@ -196,8 +196,8 @@ void createCappedTriangleTubesRenderDataCPU(
             }
             tangent = glm::normalize(tangent);
 
-            insertOrientedCirclePoints(
-                    lineCenters.at(i), tangent, lastLineNormal, vertexPositions, vertexNormals);
+            //insertOrientedCirclePoints(
+            //        lineCenters.at(i), tangent, lastLineNormal, vertexPositions, vertexNormals);
             lineNormals.push_back(glm::vec3(lastLineNormal.x, lastLineNormal.y, lastLineNormal.z));
             for (int j = 0; j < numCircleSubdivisions; j++) {
                 vertexTangents.push_back(tangent);
@@ -244,7 +244,7 @@ void createCappedTriangleTubesRenderDataCPU(
             float normalAngleDifference = std::atan2(
                     glm::length(glm::cross(normalA, normalB)), glm::dot(normalA, normalB));
             normalAngleDifference = std::fmod(normalAngleDifference + sgl::TWO_PI, sgl::TWO_PI);
-            int jOffset = std::round(normalAngleDifference / (sgl::TWO_PI) * numCircleSubdivisions);
+            int jOffset = int(std::round(normalAngleDifference / (sgl::TWO_PI) * float(numCircleSubdivisions)));
             for (int j = 0; j < numCircleSubdivisions; j++) {
                 // Build two CCW triangles (one quad) for each side
                 // Triangle 1

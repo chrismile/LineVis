@@ -70,7 +70,9 @@
 #include "Renderers/OIT/WBOITRenderer.hpp"
 #include "Renderers/OIT/DepthPeelingRenderer.hpp"
 #ifdef USE_VULKAN_INTEROP
-#include "Renderers/OIT/VulkanTestRenderer.hpp"
+#include "Renderers/Vulkan/VulkanRayTracer.hpp"
+#include "Renderers/Vulkan/VulkanTestRenderer.hpp"
+#include "Renderers/Vulkan/VulkanAmbientOcclusionBaker.hpp"
 #include <Graphics/Vulkan/Utils/Instance.hpp>
 #endif
 #include "MainApp.hpp"
@@ -291,6 +293,11 @@ MainApp::MainApp(bool supportsRaytracing)
         }
     }
 
+#ifdef USE_VULKAN_INTEROP
+    ambientOcclusionBaker = AmbientOcclusionBakerPtr(
+            new VulkanAmbientOcclusionBaker(transferFunctionWindow, rendererVk));
+#endif
+
     setRenderer();
 
     customDataSetFileName = sgl::FileUtils::get()->getUserDirectory();
@@ -454,10 +461,15 @@ void MainApp::setRenderer() {
         lineRenderer = new DepthPeelingRenderer(sceneData, transferFunctionWindow);
     }
 #ifdef USE_VULKAN_INTEROP
-    else if (renderingMode == RENDERING_MODE_VULKAN_TEST) {
+    else if (renderingMode == RENDERING_MODE_VULKAN_RAY_TRACER) {
+        lineRenderer = new VulkanRayTracer(sceneData, transferFunctionWindow, rendererVk);
+    } else if (renderingMode == RENDERING_MODE_VULKAN_TEST) {
         lineRenderer = new VulkanTestRenderer(sceneData, transferFunctionWindow, rendererVk);
     }
 #endif
+    if (ambientOcclusionBaker) {
+        lineRenderer->setAmbientOcclusionBaker(ambientOcclusionBaker);
+    }
     lineRenderer->initialize();
 
     if (lineData) {

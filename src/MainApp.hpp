@@ -43,6 +43,7 @@
 #include "LineData/Filters/LineFilter.hpp"
 #include "LineData/Stress/StressLineTracingRequester.hpp"
 #include "Renderers/SceneData.hpp"
+#include "Renderers/AmbientOcclusion/AmbientOcclusionBaker.hpp"
 
 #ifdef USE_PYTHON
 #include "Widgets/ReplayWidget.hpp"
@@ -141,7 +142,9 @@ private:
     void* zeromqContext = nullptr;
     StressLineTracingRequester* stressLineTracingRequester;
     DataSetInformation stressLineTracerDataSetInformation;
+
     bool supportsRaytracing = false;
+    AmbientOcclusionBakerPtr ambientOcclusionBaker;
 };
 
 #endif // MAINAPP_HPP

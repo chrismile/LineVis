@@ -169,6 +169,15 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
     }
 
     shaderProgram->setUniformOptional("depthCueStrength", depthCueStrength);
+
+    if (ambientOcclusionBaker && ambientOcclusionBaker->getHasComputationFinished()) {
+        //sgl::GeometryBufferPtr aoBuffer = ambientOcclusionBaker->getAmbientOcclusionBuffer();
+        //sgl::ShaderManager->bindShaderStorageBuffer(13, aoBuffer);
+    }
+}
+
+void LineRenderer::setAmbientOcclusionBaker(AmbientOcclusionBakerPtr& aoBaker) {
+    ambientOcclusionBaker = aoBaker;
 }
 
 bool LineRenderer::setNewSettings(const SettingsMap& settings) {
@@ -247,6 +256,7 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewData) {
     if (!this->lineData || lineData->getType() != this->lineData->getType()
             || lineData->settingsDiffer(this->lineData.get())) {
         this->lineData = lineData;
+        //ambientOcclusionBaker->startAmbientOcclusionBaking(lineData);
         reloadGatherShader(false);
     }
     this->lineData = lineData;

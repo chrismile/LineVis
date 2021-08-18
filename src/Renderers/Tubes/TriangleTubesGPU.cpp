@@ -37,6 +37,7 @@
 
 #include "Tubes.hpp"
 
+/*
 struct InputLinePoint {
     glm::vec3 linePoint;
     float lineAttribute;
@@ -217,7 +218,7 @@ void createTriangleTubesRenderDataGPU(
     if (numWorkGroups > maxNumWorkGroupsSupported) {
         sgl::Logfile::get()->writeInfo(
                 "Info: numWorkGroups > MAX_COMPUTE_WORK_GROUP_COUNT. Switching to CPU fallback.");
-        createTriangleTubesRenderDataCPU<float>(
+        createTriangleTubesRenderDataCPU(
                 lineCentersList, lineAttributesList, tubeRadius, numCircleSubdivisions,
                 triangleIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes);
         return;
@@ -309,3 +310,5 @@ void createTriangleTubesRenderDataGPU(
     sgl::Logfile::get()->writeInfo(
             std::string() + "Computational time to create tubes on GPU: " + std::to_string(elapsed.count()));
 }
+
+*/
