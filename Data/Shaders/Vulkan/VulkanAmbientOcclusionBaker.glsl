@@ -5,6 +5,8 @@
 #extension GL_EXT_ray_tracing : enable
 #extension GL_EXT_ray_query : enable
 
+#include "RayTracingUtilities.glsl"
+
 /**
  * This shader computes ambient occlusion coefficients for points on tubes.
  * The work groups iterate over all lines and over a number of subdivisions of the tubes.
@@ -20,6 +22,8 @@ layout(binding = 0) uniform Uniforms {
     uint numLinePoints;
     // How often should the tube be subdivided in the normal plane?
     uint numTubeSubdivisions;
+    // The number of this frame (used for accumulation of samples accross frames).
+    uint frameNumber;
 
     // How many rays should the shader shoot?
     uint numAmbientOcclusionSamples;
@@ -27,12 +31,9 @@ layout(binding = 0) uniform Uniforms {
     float ambientOcclusionRadius;
     // Should the distance of the AO hits be used?
     int useDistance;
-};
 
-layout(push_constant) uniform PushConstants {
-    uint frameNumber;
+    int padding;
 };
-
 
 struct LinePoint {
     vec3 position;
@@ -55,11 +56,11 @@ layout(std430, binding = 2) readonly buffer SamplingLocations {
     float samplingLocations[];
 };
 
-layout(std430, binding = 3) writeonly buffer AmbientOcclusionFactors {
+layout(std430, binding = 3) buffer AmbientOcclusionFactors {
     float ambientOcclusionFactors[];
 };
 
-layout(binding = 3) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 4) uniform accelerationStructureEXT topLevelAS;
 
 LinePoint getInterpolatedLinePoint(uint lineSamplingIdx) {
     float samplingLocation = samplingLocations[lineSamplingIdx];
@@ -69,8 +70,8 @@ LinePoint getInterpolatedLinePoint(uint lineSamplingIdx) {
 
     LinePointInput lowerLinePoint = linePoints[lowerIdx];
     LinePointInput upperLinePoint = linePoints[upperIdx];
-    vec4 binormalLower = cross(lowerLinePoint.tangent, lowerLinePoint.normal);
-    vec4 binormalUpper = cross(upperLinePoint.tangent, upperLinePoint.normal);
+    vec3 binormalLower = cross(lowerLinePoint.tangent.xyz, lowerLinePoint.normal.xyz);
+    vec3 binormalUpper = cross(upperLinePoint.tangent.xyz, upperLinePoint.normal.xyz);
 
     LinePoint interpolatedLinePoint;
     interpolatedLinePoint.position = mix(lowerLinePoint.position.xyz, upperLinePoint.position.xyz, interpolationFactor);
@@ -104,17 +105,17 @@ float traceAoRay(rayQueryEXT rayQuery, vec3 rayOrigin, vec3 rayDirection) {
         flags = gl_RayFlagsTerminateOnFirstHitEXT;
     }
 
-    rayQueryInitializeEXT(rayQuery, topLevelAS, flags, 0xFF, rayOrigin, 0.0, rayDirection, rtao_radius);
+    rayQueryInitializeEXT(rayQuery, topLevelAS, flags, 0xFF, rayOrigin, 0.0, rayDirection, ambientOcclusionRadius);
     while(rayQueryProceedEXT(rayQuery)) {}
 
     if (rayQueryGetIntersectionTypeEXT(rayQuery, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
         if (useDistance == 0) {
-            return 1.0;
+            return 0.0;
         }
-        return 1.0 - (rayQueryGetIntersectionTEXT(rayQuery, true) / ambientOcclusionRadius);
+        return rayQueryGetIntersectionTEXT(rayQuery, true) / ambientOcclusionRadius;
     }
 
-    return 0.0;
+    return 1.0;
 }
 
 void main() {
@@ -123,15 +124,12 @@ void main() {
     }
 
     uint lineSamplingIdx = gl_GlobalInvocationID.x;
-    uint seed = seed(lineSamplingIdx);
+    uint seed = tea(lineSamplingIdx, frameNumber);
 
     LinePoint linePoint = getInterpolatedLinePoint(lineSamplingIdx);
 
     for (uint tubeSudivIdx = 0; tubeSudivIdx < numTubeSubdivisions; tubeSudivIdx++) {
         float angle = float(tubeSudivIdx) / float(numTubeSubdivisions) * 2.0 * M_PI;
-        float cosAngle = cos(t);
-        float sinAngle = sin(t);
-
         vec3 surfaceNormal = cos(angle) * linePoint.normal + sin(angle) * linePoint.binormal;
         vec3 surfaceBitangent = cross(surfaceNormal, linePoint.tangent);
         mat3 frame = mat3(linePoint.tangent, surfaceBitangent, surfaceNormal);
@@ -139,20 +137,27 @@ void main() {
         // Get the ray origin on the tube surface (pushed out by a small epsilon to avoid self intersections).
         vec3 rayOrigin = linePoint.position + (lineRadius + 1e-6) * surfaceNormal;
 
-        float occlusionFactorAccumulated = 0.0f;
+        bool didHitAny = false;
+        float occlusionFactorAccumulated = 0.0;
         for (uint rayIdx = 0; rayIdx < numAmbientOcclusionSamples; rayIdx++) {
-            vec2 xi = vec2(0.5); // TODO
+            vec2 xi = vec2(rnd(seed), rnd(seed));
             vec3 rayDirection = normalize(frame * sampleHemisphere(xi));
 
             rayQueryEXT rayQuery;
-            occlusionFactorAccumulated += traceAoRay(rayQuery, rayOrigin, rayDirection);
+            float occlusionFactor = traceAoRay(rayQuery, rayOrigin, rayDirection);
+            occlusionFactorAccumulated += occlusionFactor;
+            if (occlusionFactorAccumulated > 0.0) {
+                didHitAny = true;
+            }
         }
-        occlusionFactorAccumulated /= float(numAmbientOcclusionRays);
+        occlusionFactorAccumulated /= float(numAmbientOcclusionSamples);
 
         if (frameNumber != 0) {
             float oldAoFactor = ambientOcclusionFactors[tubeSudivIdx + numTubeSubdivisions * lineSamplingIdx];
-            occlusionFactorAccumulated = mix(oldAoFactor, occlusionFactorAccumulated, 1.0f / float(frameNumber));
+            occlusionFactorAccumulated = mix(oldAoFactor, occlusionFactorAccumulated, 1.0 / float(frameNumber + 1));
         }
+        //ambientOcclusionFactors[tubeSudivIdx + numTubeSubdivisions * lineSamplingIdx] = didHitAny ?1.0:0.0;
         ambientOcclusionFactors[tubeSudivIdx + numTubeSubdivisions * lineSamplingIdx] = occlusionFactorAccumulated;
+        //ambientOcclusionFactors[tubeSudivIdx + numTubeSubdivisions * lineSamplingIdx] = mod(lineSamplingIdx / 255.0, 1.0);
     }
 }

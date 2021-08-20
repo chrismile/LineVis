@@ -30,6 +30,9 @@ out VertexData {
 #ifdef VISUALIZE_SEEDING_PROCESS
     uint lineLineAppearanceOrder;
 #endif
+#ifdef USE_AMBIENT_OCCLUSION
+    uint lineVertexId;
+#endif
 };
 
 #include "TransferFunction.glsl"
@@ -47,6 +50,9 @@ void main() {
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
     lineLineAppearanceOrder = vertexLineAppearanceOrder;
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    lineVertexId = uint(gl_VertexID);
 #endif
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
 }
@@ -77,15 +83,20 @@ flat out float fragmentLineHierarchyLevel;
 #ifdef VISUALIZE_SEEDING_PROCESS
 flat out uint fragmentLineAppearanceOrder;
 #endif
+#ifdef USE_AMBIENT_OCCLUSION
+out float fragmentVertexId;
+#endif
 
 #ifdef USE_BANDS
 uniform float bandWidth;
 uniform ivec3 psUseBands;
 flat out int useBand;
-out float phi;
 out float thickness;
 out vec3 lineNormal;
 out vec3 linePosition;
+#endif
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
+out float phi;
 #endif
 
 in VertexData {
@@ -101,6 +112,9 @@ in VertexData {
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
     uint lineLineAppearanceOrder;
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    uint lineVertexId;
 #endif
 } v_in[];
 
@@ -184,14 +198,16 @@ void main() {
 #endif
 
 
-#ifdef USE_BANDS
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
     const float factor = 2.0 * M_PI / float(NUM_TUBE_SUBDIVISIONS);
 #endif
 
     // Emit the tube triangle vertices
     for (int i = 0; i < NUM_TUBE_SUBDIVISIONS; i++) {
-#ifdef USE_BANDS
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
         phi = float(i) * factor;
+#endif
+#ifdef USE_BANDS
         linePosition = linePosition0;
         lineNormal = normalCurrent;
 #endif
@@ -205,6 +221,10 @@ void main() {
 #ifdef VISUALIZE_SEEDING_PROCESS
         fragmentLineAppearanceOrder = v_in[0].lineLineAppearanceOrder;
 #endif
+#ifdef USE_AMBIENT_OCCLUSION
+        fragmentVertexId = float(v_in[0].lineVertexId);
+#endif
+
         fragmentAttribute = v_in[0].lineAttribute;
         fragmentTangent = tangentCurrent;
 
@@ -216,7 +236,7 @@ void main() {
 #endif
         EmitVertex();
 
-#ifdef USE_BANDS
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
         phi = float(i + 1) * factor;
 #endif
 
@@ -229,8 +249,10 @@ void main() {
         EmitVertex();
 
 
-#ifdef USE_BANDS
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
         phi = float(i) * factor;
+#endif
+#ifdef USE_BANDS
         linePosition = linePosition1;
         lineNormal = normalNext;
 #endif
@@ -244,6 +266,9 @@ void main() {
 #ifdef VISUALIZE_SEEDING_PROCESS
         fragmentLineAppearanceOrder = v_in[1].lineLineAppearanceOrder;
 #endif
+#ifdef USE_AMBIENT_OCCLUSION
+        fragmentVertexId = float(v_in[1].lineVertexId);
+#endif
         fragmentAttribute = v_in[1].lineAttribute;
         fragmentTangent = tangentNext;
 
@@ -255,7 +280,7 @@ void main() {
 #endif
         EmitVertex();
 
-#ifdef USE_BANDS
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
         phi = float(i + 1) * factor;
 #endif
 
@@ -297,6 +322,9 @@ uniform vec3 lineHierarchySlider;
 flat in uint fragmentLineAppearanceOrder;
 uniform int currentSeedIdx;
 #endif
+#ifdef USE_AMBIENT_OCCLUSION
+in float fragmentVertexId;
+#endif
 
 #if defined(DIRECT_BLIT_GATHER)
 out vec4 fragColor;
@@ -310,11 +338,13 @@ uniform vec3 foregroundColor;
 #ifdef USE_BANDS
 uniform float bandWidth;
 flat in int useBand;
-in float phi;
 in float thickness;
 //in mat3 tangentFrameMatrix;
 in vec3 lineNormal;
 in vec3 linePosition;
+#endif
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
+in float phi;
 #endif
 
 #define M_PI 3.14159265358979323846
@@ -326,6 +356,7 @@ in vec3 linePosition;
 #endif
 
 #define DEPTH_HELPER_USE_PROJECTION_MATRIX
+#define GEOMETRY_PASS_TUBE
 #include "DepthHelper.glsl"
 #include "Lighting.glsl"
 
@@ -503,7 +534,9 @@ void main() {
             smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),
             fragmentColor.a * coverage);
 
-    //colorOut = vec4(vec3(absCoords), 1.0);
+#ifdef USE_AMBIENT_OCCLUSION
+    colorOut = vec4(getAoFactor(fragmentVertexId, phi), 0.0, 0.0, 1.0);
+#endif
 
 #if defined(DIRECT_BLIT_GATHER)
     // To counteract depth fighting with overlay wireframe.

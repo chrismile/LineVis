@@ -101,10 +101,11 @@ struct TubeTriangleVertexData {
 struct TubeTriangleLinePointData {
     vec3 lineTangent;
     float lineAttribute;
-    uint principalStressIndex; ///< Zero for flow lines.
+    vec3 lineNormal;
     float lineHierarchyLevel; ///< Zero for flow lines.
     float lineAppearanceOrder; ///< Zero for flow lines.
-    float padding;
+    uint principalStressIndex; ///< Zero for flow lines.
+    float padding0, padding1;
 };
 
 layout(scalar, binding = 2) readonly buffer IndexBuffer {

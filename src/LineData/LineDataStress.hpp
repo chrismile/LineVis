@@ -43,13 +43,13 @@
 
 class LineDataStress : public LineData {
 public:
-    LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow);
-    ~LineDataStress();
-    virtual bool settingsDiffer(LineData* other) override;
-    virtual void update(float dt) override;
+    explicit LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow);
+    ~LineDataStress() override;
+    bool settingsDiffer(LineData* other) override;
+    void update(float dt) override;
 
     /// For changing internal settings programmatically and not over the GUI.
-    virtual bool setNewSettings(const SettingsMap& settings);
+    bool setNewSettings(const SettingsMap& settings) override;
 
     /**
      * Load line data from the selected file(s).
@@ -59,7 +59,7 @@ public:
      * @param transformationMatrixPtr A transformation to apply to the loaded data (if any; can be nullptr).
      * @return Whether loading was successful.
      */
-    virtual bool loadFromFile(
+    bool loadFromFile(
             const std::vector<std::string>& fileNames, DataSetInformation dataSetInformation,
             glm::mat4* transformationMatrixPtr) override;
 
@@ -70,42 +70,42 @@ public:
             const std::vector<glm::vec3>& degeneratePoints, std::vector<std::string>& attributeNames);
     /// Can be used to set what principal stress (PS) directions we want to display.
     void setUsedPsDirections(const std::vector<bool>& usedPsDirections);
-    inline bool getUsePrincipalStressDirectionIndex() { return usePrincipalStressDirectionIndex; }
-    inline bool getUseLineHierarchy() { return useLineHierarchy; }
+    static inline bool getUsePrincipalStressDirectionIndex() { return usePrincipalStressDirectionIndex; }
+    inline bool getUseLineHierarchy() const { return useLineHierarchy; }
     inline bool getHasDegeneratePoints() { return !degeneratePoints.empty(); }
     inline MultiVarTransferFunctionWindow& getMultiVarTransferFunctionWindow() { return multiVarTransferFunctionWindow; }
 
     // Statistics.
-    virtual size_t getNumStressDirections() { return trajectoriesPs.size(); }
-    virtual size_t getNumAttributes() override;
-    virtual size_t getNumLines() override;
-    virtual size_t getNumLinePoints() override;
-    virtual size_t getNumLineSegments() override;
+    size_t getNumStressDirections() const { return trajectoriesPs.size(); }
+    size_t getNumAttributes() override;
+    size_t getNumLines() override;
+    size_t getNumLinePoints() override;
+    size_t getNumLineSegments() override;
 
     // Public interface for filtering trajectories.
-    virtual void iterateOverTrajectories(std::function<void(const Trajectory&)> callback) override;
-    virtual void filterTrajectories(std::function<bool(const Trajectory&)> callback) override;
-    virtual void resetTrajectoryFilter() override;
+    void iterateOverTrajectories(std::function<void(const Trajectory&)> callback) override;
+    void filterTrajectories(std::function<bool(const Trajectory&)> callback) override;
+    void resetTrajectoryFilter() override;
 
     // Get filtered line data (only containing points also shown when rendering).
-    virtual Trajectories filterTrajectoryData() override;
-    virtual std::vector<std::vector<glm::vec3>> getFilteredLines() override;
+    Trajectories filterTrajectoryData() override;
+    std::vector<std::vector<glm::vec3>> getFilteredLines() override;
     std::vector<Trajectories> filterTrajectoryPsData();
     /// Principal stress direction -> Line set index -> Point on line index.
     std::vector<std::vector<std::vector<glm::vec3>>> getFilteredPrincipalStressLines();
 
     // --- Retrieve data for rendering. Preferred way. ---
-    virtual sgl::ShaderProgramPtr reloadGatherShader() override;
-    virtual sgl::ShaderAttributesPtr getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader);
-    virtual void setUniformGatherShaderData_AllPasses();
-    virtual void setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader);
+    sgl::ShaderProgramPtr reloadGatherShader() override;
+    sgl::ShaderAttributesPtr getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader) override;
+    void setUniformGatherShaderData_AllPasses() override;
+    void setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader) override;
 
     // --- Retrieve data for rendering. ---
-    virtual TubeRenderData getTubeRenderData() override;
-    virtual TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch() override;
-    virtual TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization() override;
+    TubeRenderData getTubeRenderData() override;
+    TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch() override;
+    TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization() override;
     PointRenderData getDegeneratePointsRenderData();
-    virtual BandRenderData getBandRenderData() override;
+    BandRenderData getBandRenderData() override;
 
 #ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---

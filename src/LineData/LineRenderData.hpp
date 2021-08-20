@@ -106,16 +106,17 @@ struct TubeTriangleVertexData {
     glm::vec3 vertexPosition;
     uint32_t vertexLinePointIndex; ///< Pointer to TubeTriangleLinePointData entry.
     glm::vec3 vertexNormal;
-    float padding;
+    float phi; ///< Angle.
 };
 
 struct TubeTriangleLinePointData {
     glm::vec3 lineTangent;
     float lineAttribute;
-    uint32_t principalStressIndex; ///< Zero for flow lines.
+    glm::vec3 lineNormal;
     float lineHierarchyLevel; ///< Zero for flow lines.
     float lineAppearanceOrder; ///< Zero for flow lines.
-    float padding;
+    uint32_t principalStressIndex; ///< Zero for flow lines.
+    float padding0, padding1;
 };
 
 struct LinePointReference {

@@ -30,32 +30,23 @@
 #include <Utils/File/Logfile.hpp>
 #include "Tubes.hpp"
 
-template<typename T>
 void addHemisphereToMesh(
-        const glm::vec3& center, glm::vec3 tangent, glm::vec3 normal, size_t indexOffset,
+        const glm::vec3& center, glm::vec3 tangent, glm::vec3 normal, size_t indexOffset, uint32_t vertexLinePointIndex,
         float tubeRadius, int numLongitudeSubdivisions, int numLatitudeSubdivisions, bool isStartHemisphere,
-        std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions,
-        std::vector<glm::vec3>& vertexNormals, std::vector<glm::vec3>& vertexTangents,
-        std::vector<T>& vertexAttributes) {
+        std::vector<uint32_t>& triangleIndices, std::vector<TubeTriangleVertexData>& vertexDataList) {
     glm::vec3 binormal = glm::cross(normal, tangent);
     glm::vec3 scaledTangent = tubeRadius * tangent;
     glm::vec3 scaledNormal = tubeRadius * normal;
     glm::vec3 scaledBinormal = tubeRadius * binormal;
-    T attributeValue;
-    if (isStartHemisphere) {
-        attributeValue = vertexAttributes.at(indexOffset);
-    } else {
-        attributeValue = vertexAttributes.back();
-    }
 
     float theta; // azimuth;
     float phi; // zenith;
 
-    size_t vertexIndexOffset = vertexPositions.size() - indexOffset - numLongitudeSubdivisions;
+    size_t vertexIndexOffset = vertexDataList.size() - indexOffset - numLongitudeSubdivisions;
     for (int lat = 1; lat <= numLatitudeSubdivisions; lat++) {
-        phi = sgl::HALF_PI * (1.0f - float(lat) / numLatitudeSubdivisions);
+        phi = sgl::HALF_PI * (1.0f - float(lat) / float(numLatitudeSubdivisions));
         for (int lon = 0; lon < numLongitudeSubdivisions; lon++) {
-            theta = -sgl::TWO_PI * float(lon) / numLongitudeSubdivisions;
+            theta = -sgl::TWO_PI * float(lon) / float(numLongitudeSubdivisions);
 
             glm::vec3 pt(
                     std::cos(theta) * std::sin(phi),
@@ -63,21 +54,23 @@ void addHemisphereToMesh(
                     std::cos(phi)
             );
 
-            glm::vec3 trafoPt(
+            glm::vec3 transformedPoint(
                     pt.x * scaledNormal.x + pt.y * scaledBinormal.x + pt.z * scaledTangent.x + center.x,
                     pt.x * scaledNormal.y + pt.y * scaledBinormal.y + pt.z * scaledTangent.y + center.y,
                     pt.x * scaledNormal.z + pt.y * scaledBinormal.z + pt.z * scaledTangent.z + center.z
             );
-            glm::vec3 normal = glm::normalize(glm::vec3(
+            glm::vec3 vertexNormal = glm::normalize(glm::vec3(
                     pt.x * scaledNormal.x + pt.y * scaledBinormal.x + pt.z * scaledTangent.x,
                     pt.x * scaledNormal.y + pt.y * scaledBinormal.y + pt.z * scaledTangent.y,
                     pt.x * scaledNormal.z + pt.y * scaledBinormal.z + pt.z * scaledTangent.z
             ));
 
-            vertexPositions.push_back(trafoPt);
-            vertexNormals.push_back(normal);
-            vertexTangents.push_back(tangent);
-            vertexAttributes.push_back(attributeValue);
+            TubeTriangleVertexData tubeTriangleVertexData{};
+            tubeTriangleVertexData.vertexPosition = transformedPoint;
+            tubeTriangleVertexData.vertexLinePointIndex = vertexLinePointIndex;
+            tubeTriangleVertexData.vertexNormal = vertexNormal;
+            tubeTriangleVertexData.phi = phi;
+            vertexDataList.push_back(tubeTriangleVertexData);
 
             if (lat == numLatitudeSubdivisions) {
                 break;
@@ -139,55 +132,43 @@ void addHemisphereToMesh(
     }
 }
 
-template<typename T>
 void createCappedTriangleTubesRenderDataCPU(
         const std::vector<std::vector<glm::vec3>>& lineCentersList,
-        const std::vector<std::vector<T>>& lineAttributesList,
-        float tubeRadius,
-        bool tubeClosed,
-        int numCircleSubdivisions,
+        float tubeRadius, int numCircleSubdivisions, bool tubeClosed,
         std::vector<uint32_t>& triangleIndices,
-        std::vector<glm::vec3>& vertexPositions,
-        std::vector<glm::vec3>& vertexNormals,
-        std::vector<glm::vec3>& vertexTangents,
-        std::vector<T>& vertexAttributes) {
+        std::vector<TubeTriangleVertexData>& vertexDataList,
+        std::vector<LinePointReference>& linePointReferenceList,
+        std::vector<glm::vec3>& lineTangents,
+        std::vector<glm::vec3>& lineNormals) {
     if (numCircleSubdivisions != globalCircleVertexPositions.size() || tubeRadius != globalTubeRadius) {
         initGlobalCircleVertexPositions(numCircleSubdivisions, tubeRadius);
     }
 
-    assert(lineCentersList.size() == lineAttributesList.size());
     for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
         const std::vector<glm::vec3>& lineCenters = lineCentersList.at(lineId);
-        const std::vector<T>& lineAttributes = lineAttributesList.at(lineId);
-        assert(lineCenters.size() == lineAttributes.size());
         size_t n = lineCenters.size();
-        size_t indexOffset = vertexPositions.size();
+        size_t indexOffset = vertexDataList.size();
+        size_t lineIndexOffset = lineTangents.size();
 
         // Assert that we have a valid input data range
         if (tubeClosed && n < 3) {
-            sgl::Logfile::get()->writeError(
-                    "ERROR in createCappedTriangleTubesRenderDataCPU: Closed tube too short.");
-            return;
+            continue;
         }
         if (!tubeClosed && n < 2) {
-            sgl::Logfile::get()->writeError(
-                    "ERROR in createCappedTriangleTubesRenderDataCPU: Open tube too short.");
-            return;
+            continue;
         }
 
         glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
-        std::vector<glm::vec3> lineNormals;
         int numValidLinePoints = 0;
         for (size_t i = 0; i < n; i++) {
             glm::vec3 tangent;
             if (!tubeClosed && i == 0) {
-                tangent = lineCenters[i+1] - lineCenters[i];
+                tangent = lineCenters[i + 1] - lineCenters[i];
             } else if (!tubeClosed && i == n - 1) {
-                tangent = lineCenters[i] - lineCenters[i-1];
+                tangent = lineCenters[i] - lineCenters[i - 1];
             } else {
-                tangent = (lineCenters[(i+1)%n] - lineCenters[(i-1+n)%n]);
+                tangent = (lineCenters[(i + 1) % n] - lineCenters[(i + n - 1) % n]);
             }
-
             float lineSegmentLength = glm::length(tangent);
 
             if (lineSegmentLength < 0.0001f) {
@@ -196,22 +177,23 @@ void createCappedTriangleTubesRenderDataCPU(
             }
             tangent = glm::normalize(tangent);
 
-            //insertOrientedCirclePoints(
-            //        lineCenters.at(i), tangent, lastLineNormal, vertexPositions, vertexNormals);
-            lineNormals.push_back(glm::vec3(lastLineNormal.x, lastLineNormal.y, lastLineNormal.z));
-            for (int j = 0; j < numCircleSubdivisions; j++) {
-                vertexTangents.push_back(tangent);
-                vertexAttributes.push_back(lineAttributes.at(i));
-            }
+            insertOrientedCirclePoints(
+                    lineCenters.at(i), tangent, lastLineNormal, uint32_t(linePointReferenceList.size()),
+                    vertexDataList);
+            lineTangents.push_back(tangent);
+            lineNormals.push_back(lastLineNormal);
+            linePointReferenceList.emplace_back(lineId, i);
             numValidLinePoints++;
         }
 
         if (numValidLinePoints == 1) {
-            // Only one vertex left -> Output nothing (tube consisting only of one point).
-            vertexPositions.pop_back();
-            vertexNormals.pop_back();
-            vertexTangents.pop_back();
-            vertexAttributes.pop_back();
+            // Only one vertex left -> output nothing (tube consisting only of one point).
+            for (int subdivIdx = 0; subdivIdx < numCircleSubdivisions; subdivIdx++) {
+                vertexDataList.pop_back();
+            }
+            linePointReferenceList.pop_back();
+            lineTangents.pop_back();
+            lineNormals.pop_back();
             continue;
         }
 
@@ -219,14 +201,20 @@ void createCappedTriangleTubesRenderDataCPU(
             for (int j = 0; j < numCircleSubdivisions; j++) {
                 // Build two CCW triangles (one quad) for each side
                 // Triangle 1
-                triangleIndices.push_back(indexOffset + i*numCircleSubdivisions+j);
-                triangleIndices.push_back(indexOffset + i*numCircleSubdivisions+(j+1)%numCircleSubdivisions);
-                triangleIndices.push_back(indexOffset + ((i+1)%numValidLinePoints)*numCircleSubdivisions+(j+1)%numCircleSubdivisions);
+                triangleIndices.push_back(
+                        indexOffset + i*numCircleSubdivisions+j);
+                triangleIndices.push_back(
+                        indexOffset + i*numCircleSubdivisions+(j+1)%numCircleSubdivisions);
+                triangleIndices.push_back(
+                        indexOffset + ((i+1)%numValidLinePoints)*numCircleSubdivisions+(j+1)%numCircleSubdivisions);
 
                 // Triangle 2
-                triangleIndices.push_back(indexOffset + i*numCircleSubdivisions+j);
-                triangleIndices.push_back(indexOffset + ((i+1)%numValidLinePoints)*numCircleSubdivisions+(j+1)%numCircleSubdivisions);
-                triangleIndices.push_back(indexOffset + ((i+1)%numValidLinePoints)*numCircleSubdivisions+j);
+                triangleIndices.push_back(
+                        indexOffset + i*numCircleSubdivisions+j);
+                triangleIndices.push_back(
+                        indexOffset + ((i+1)%numValidLinePoints)*numCircleSubdivisions+(j+1)%numCircleSubdivisions);
+                triangleIndices.push_back(
+                        indexOffset + ((i+1)%numValidLinePoints)*numCircleSubdivisions+j);
             }
         }
 
@@ -239,8 +227,8 @@ void createCappedTriangleTubesRenderDataCPU(
              * the connecting edges is minimized. This is done by computing the angle between the two line
              * normals and shifting the edge indices by a necessary offset.
              */
-            glm::vec3 normalA = lineNormals[numValidLinePoints-1];
-            glm::vec3 normalB = lineNormals[0];
+            glm::vec3 normalA = lineNormals[lineIndexOffset + numValidLinePoints - 1];
+            glm::vec3 normalB = lineNormals[lineIndexOffset];
             float normalAngleDifference = std::atan2(
                     glm::length(glm::cross(normalA, normalB)), glm::dot(normalA, normalB));
             normalAngleDifference = std::fmod(normalAngleDifference + sgl::TWO_PI, sgl::TWO_PI);
@@ -268,36 +256,22 @@ void createCappedTriangleTubesRenderDataCPU(
             glm::vec3 center0 = lineCenters[0];
             glm::vec3 tangent0 = lineCenters[0] - lineCenters[1];
             tangent0 = glm::normalize(tangent0);
-            glm::vec3 normal0 = lineNormals[0];
+            glm::vec3 normal0 = lineNormals[lineIndexOffset];
 
             // Hemisphere at the end
             glm::vec3 center1 = lineCenters[n-1];
             glm::vec3 tangent1 = lineCenters[n-1] - lineCenters[n-2];
             tangent1 = glm::normalize(tangent1);
-            glm::vec3 normal1 = lineNormals[numValidLinePoints-1];
-
+            glm::vec3 normal1 = lineNormals[lineIndexOffset + numValidLinePoints - 1];
 
             addHemisphereToMesh(
-                    center1, tangent1, normal1, indexOffset, tubeRadius,
-                    numLongitudeSubdivisions, numLatitudeSubdivisions, false,
-                    triangleIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes);
+                    center1, tangent1, normal1, indexOffset, uint32_t(lineTangents.size() - 1),
+                    tubeRadius, numLongitudeSubdivisions, numLatitudeSubdivisions, false,
+                    triangleIndices, vertexDataList);
             addHemisphereToMesh(
-                    center0, tangent0, normal0, indexOffset, tubeRadius,
-                    numLongitudeSubdivisions, numLatitudeSubdivisions, true,
-                    triangleIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes);
+                    center0, tangent0, normal0, indexOffset, uint32_t(lineIndexOffset),
+                    tubeRadius, numLongitudeSubdivisions, numLatitudeSubdivisions, true,
+                    triangleIndices, vertexDataList);
         }
     }
 }
-
-template
-void createCappedTriangleTubesRenderDataCPU<float>(
-        const std::vector<std::vector<glm::vec3>>& lineCentersList,
-        const std::vector<std::vector<float>>& lineAttributesList,
-        float tubeRadius,
-        bool tubeClosed,
-        int numCircleSubdivisions,
-        std::vector<uint32_t>& triangleIndices,
-        std::vector<glm::vec3>& vertexPositions,
-        std::vector<glm::vec3>& vertexNormals,
-        std::vector<glm::vec3>& vertexTangents,
-        std::vector<float>& vertexAttributes);

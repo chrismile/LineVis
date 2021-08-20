@@ -1805,8 +1805,9 @@ void LineDataStress::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gath
 #ifdef USE_VULKAN_INTEROP
 VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(bool raytracing) {
     rebuildInternalRepresentationIfNecessary();
-
-    std::vector<std::vector<glm::vec3>> lineCentersList;
+    if (vulkanTubeTriangleRenderData.vertexBuffer) {
+        return vulkanTubeTriangleRenderData;
+    }
 
     std::vector<uint32_t> tubeTriangleIndices;
     std::vector<TubeTriangleVertexData> tubeTriangleVertexDataList;
@@ -1821,30 +1822,46 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(boo
         Trajectories& trajectories = trajectoriesPs.at(i);
         StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
 
-        // TODO
-        //if (psUseBands.at(psIdx)) {
-        //} else {
-        //}
-
+        std::vector<std::vector<glm::vec3>> lineCentersList;
         lineCentersList.resize(trajectories.size());
         std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
             if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
                 continue;
             }
-
-            Trajectory& trajectory = trajectories.at(trajectoryIdx);
-            std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
-            for (size_t i = 0; i < trajectory.positions.size(); i++) {
-                lineCenters.push_back(trajectory.positions.at(i));
-            }
+            lineCentersList.at(trajectoryIdx) = trajectories.at(trajectoryIdx).positions;
         }
 
         std::vector<LinePointReference> linePointReferences;
         std::vector<glm::vec3> lineTangents;
-        createTriangleTubesRenderDataCPU(
-                lineCentersList, globalTubeRadius, tubeNumSubdivisions,
-                tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences, lineTangents);
+        std::vector<glm::vec3> lineNormals;
+        if (useBands() && psUseBands.at(psIdx)) {
+            std::vector<std::vector<glm::vec3>> bandPointsListRight;
+            bandPointsListRight.resize(trajectories.size());
+            for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+                if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                    continue;
+                }
+                lineCentersList.at(trajectoryIdx) = trajectories.at(trajectoryIdx).positions;
+                if (useSmoothedBands) {
+                    bandPointsListRight.at(trajectoryIdx) = bandPointsSmoothedListRightPs.at(i).at(trajectoryIdx);
+                } else {
+                    bandPointsListRight.at(trajectoryIdx) = bandPointsUnsmoothedListRightPs.at(i).at(trajectoryIdx);
+                }
+            }
+
+            float normalRadius = LineRenderer::getBandWidth() * 0.5f;
+            float binormalRadius = normalRadius * 0.15f;
+            createTriangleEllipticTubesRenderDataCPU(
+                    lineCentersList, bandPointsListRight, normalRadius, binormalRadius, tubeNumSubdivisions,
+                    tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                    lineTangents, lineNormals);
+        } else {
+            createTriangleTubesRenderDataCPU(
+                    lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions,
+                    tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                    lineTangents, lineNormals);
+        }
 
         size_t offset = tubeTriangleLinePointDataList.size();
         tubeTriangleLinePointDataList.resize(offset + linePointReferences.size());
@@ -1857,10 +1874,11 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(boo
 
             tubeTriangleLinePointData.lineAttribute = attributes.at(linePointReference.linePointIndex);
             tubeTriangleLinePointData.lineTangent = lineTangents.at(i);
+            tubeTriangleLinePointData.lineNormal = lineNormals.at(i);
             tubeTriangleLinePointData.principalStressIndex = psIdx;
             tubeTriangleLinePointData.lineHierarchyLevel =
                     stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType));
-            tubeTriangleLinePointData.lineAppearanceOrder = stressTrajectoryData.appearanceOrder;
+            tubeTriangleLinePointData.lineAppearanceOrder = float(stressTrajectoryData.appearanceOrder);
         }
 
         lineCentersList.clear();
@@ -1868,7 +1886,7 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(boo
 
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    VulkanTubeTriangleRenderData tubeTriangleRenderData;
+    vulkanTubeTriangleRenderData = {};
 
     uint32_t indexBufferFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
     uint32_t vertexBufferFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
@@ -1881,21 +1899,21 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(boo
                 | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
     }
 
-    tubeTriangleRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
+    vulkanTubeTriangleRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
             device, tubeTriangleIndices.size() * sizeof(uint32_t), tubeTriangleIndices.data(),
             indexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    tubeTriangleRenderData.vertexBuffer = std::make_shared<sgl::vk::Buffer>(
+    vulkanTubeTriangleRenderData.vertexBuffer = std::make_shared<sgl::vk::Buffer>(
             device, tubeTriangleVertexDataList.size() * sizeof(TubeTriangleVertexData),
             tubeTriangleVertexDataList.data(),
             vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    tubeTriangleRenderData.linePointBuffer = std::make_shared<sgl::vk::Buffer>(
+    vulkanTubeTriangleRenderData.linePointBuffer = std::make_shared<sgl::vk::Buffer>(
             device, tubeTriangleLinePointDataList.size() * sizeof(TubeTriangleLinePointData),
             tubeTriangleLinePointDataList.data(),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
 
-    return tubeTriangleRenderData;
+    return vulkanTubeTriangleRenderData;
 }
 #endif

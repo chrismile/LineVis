@@ -415,7 +415,7 @@ void OpacityOptimizationRenderer::recomputeStaticParametrization() {
     std::vector<glm::uvec2> lineSegmentConnectivityData;
 
     const float EPSILON = 1e-5f;
-    const int approximateLineSegmentsTotal = lines.size() * 32; // Avg. discretization of 8 segments per line.
+    const int approximateLineSegmentsTotal = int(lines.size()) * 32; // Avg. discretization of 32 segments per line.
     lineSegmentConnectivityData.reserve(approximateLineSegmentsTotal);
 
     size_t segmentIdOffset = 0;
@@ -426,13 +426,13 @@ void OpacityOptimizationRenderer::recomputeStaticParametrization() {
         float polylineLength = polylineLengths.at(lineIdx);
 
         uint32_t numLineSubdivs =
-                std::max(1u, uint32_t(std::ceil(approximateLineSegmentsTotal / linesLengthSum * polylineLength)));
-        float lineSubdivLength = polylineLength / numLineSubdivs;
+                std::max(1u, uint32_t(std::ceil(float(approximateLineSegmentsTotal) / linesLengthSum * polylineLength)));
+        float lineSubdivLength = polylineLength / float(numLineSubdivs);
 
         // Set the first vertex manually (we can guarantee there is no segment before it).
         assert(line.size() >= 2);
         lineSegmentIdData.at(vertexIdx) = segmentIdOffset;
-        blendingWeightParametrizationData.at(vertexIdx) = segmentIdOffset;
+        blendingWeightParametrizationData.at(vertexIdx) = float(segmentIdOffset);
         vertexIdx++;
 
         // Compute
@@ -441,23 +441,22 @@ void OpacityOptimizationRenderer::recomputeStaticParametrization() {
             currentLength += glm::length(line[i] - line[i-1]);
             lineSegmentIdData.at(vertexIdx) =
                     segmentIdOffset + std::min(numLineSubdivs - 1u, uint32_t(
-                            std::floor(numLineSubdivs * currentLength / polylineLength)));
-            float w = (numLineSubdivs - 1u) * (currentLength - lineSubdivLength / 2.0f) / (polylineLength - lineSubdivLength);
+                            std::floor(float(numLineSubdivs) * currentLength / polylineLength)));
+            float w = float(numLineSubdivs - 1u) * (currentLength - lineSubdivLength / 2.0f) / (polylineLength - lineSubdivLength);
             blendingWeightParametrizationData.at(vertexIdx) =
-                    segmentIdOffset + glm::clamp(w, 0.0f, float(numLineSubdivs - 1u) - EPSILON);
+                    float(segmentIdOffset) + glm::clamp(w, 0.0f, float(numLineSubdivs - 1u) - EPSILON);
             vertexIdx++;
         }
 
         if (numLineSubdivs == 1) {
-            lineSegmentConnectivityData.push_back(glm::uvec2(segmentIdOffset, segmentIdOffset));
+            lineSegmentConnectivityData.emplace_back(segmentIdOffset, segmentIdOffset);
         } else {
-            lineSegmentConnectivityData.push_back(glm::uvec2(segmentIdOffset, segmentIdOffset + 1));
+            lineSegmentConnectivityData.emplace_back(segmentIdOffset, segmentIdOffset + 1);
             for (size_t i = 1; i < numLineSubdivs - 1; i++) {
-                lineSegmentConnectivityData.push_back(
-                        glm::uvec2(segmentIdOffset + i - 1u, segmentIdOffset + i + 1u));
+                lineSegmentConnectivityData.emplace_back(segmentIdOffset + i - 1u, segmentIdOffset + i + 1u);
             }
-            lineSegmentConnectivityData.push_back(
-                    glm::uvec2(segmentIdOffset + numLineSubdivs - 2u, segmentIdOffset + numLineSubdivs - 1u));
+            lineSegmentConnectivityData.emplace_back(
+                    segmentIdOffset + numLineSubdivs - 2u, segmentIdOffset + numLineSubdivs - 1u);
         }
 
         segmentIdOffset += numLineSubdivs;

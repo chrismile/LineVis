@@ -43,6 +43,7 @@ constexpr size_t BLOCK_SIZE = 256;
 
 void LineRenderer::initialize() {
     updateDepthCueMode();
+    updateAmbientOcclusionMode();
     sgl::ShaderManager->addPreprocessorDefine("COMPUTE_DEPTH_CUES_GPU", "");
     computeDepthValuesShaderProgram = sgl::ShaderManager->getShaderProgram({"ComputeDepthValues.Compute"});
     minMaxReduceDepthShaderProgram = sgl::ShaderManager->getShaderProgram({"MinMaxReduceDepth.Compute"});
@@ -52,6 +53,9 @@ LineRenderer::~LineRenderer() {
     if (useDepthCues) {
         sgl::ShaderManager->removePreprocessorDefine("USE_SCREEN_SPACE_POSITION");
         sgl::ShaderManager->removePreprocessorDefine("USE_DEPTH_CUES");
+    }
+    if (useAmbientOcclusion) {
+        sgl::ShaderManager->removePreprocessorDefine("USE_AMBIENT_OCCLUSION");
     }
     sgl::ShaderManager->removePreprocessorDefine("COMPUTE_DEPTH_CUES_GPU");
 }
@@ -73,12 +77,20 @@ void LineRenderer::updateDepthCueMode() {
     }
 }
 
+void LineRenderer::updateAmbientOcclusionMode() {
+    if (useAmbientOcclusion && ambientOcclusionBaker.get() != nullptr) {
+        sgl::ShaderManager->addPreprocessorDefine("USE_AMBIENT_OCCLUSION", "");
+    } else {
+        sgl::ShaderManager->removePreprocessorDefine("USE_AMBIENT_OCCLUSION");
+    }
+}
+
 void LineRenderer::updateDepthCueGeometryData() {
     filteredLines = lineData->getFilteredLines();
     std::vector<glm::vec4> filteredLinesVertices;
     for (std::vector<glm::vec3>& line : filteredLines) {
         for (const glm::vec3& point : line) {
-            filteredLinesVertices.push_back(glm::vec4(point.x, point.y, point.z, 1.0f));
+            filteredLinesVertices.emplace_back(point.x, point.y, point.z, 1.0f);
         }
     }
     filteredLinesVerticesBuffer = sgl::Renderer->createGeometryBuffer(
@@ -170,14 +182,23 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
 
     shaderProgram->setUniformOptional("depthCueStrength", depthCueStrength);
 
-    if (ambientOcclusionBaker && ambientOcclusionBaker->getHasComputationFinished()) {
-        //sgl::GeometryBufferPtr aoBuffer = ambientOcclusionBaker->getAmbientOcclusionBuffer();
-        //sgl::ShaderManager->bindShaderStorageBuffer(13, aoBuffer);
-    }
+    if (useAmbientOcclusion && ambientOcclusionBaker && ambientOcclusionBaker->getHasComputationFinished()) {
+        sgl::GeometryBufferPtr aoBuffer = ambientOcclusionBaker->getAmbientOcclusionBuffer();
+        sgl::GeometryBufferPtr blendingWeightsBuffer = ambientOcclusionBaker->getBlendingWeightsBuffer();
+        sgl::ShaderManager->bindShaderStorageBuffer(13, aoBuffer);
+        sgl::ShaderManager->bindShaderStorageBuffer(14, blendingWeightsBuffer);
+        shaderProgram->setUniformOptional(
+                "ambientOcclusionStrength", ambientOcclusionStrength);
+        shaderProgram->setUniformOptional(
+                "numAoTubeSubdivisions", ambientOcclusionBaker->getNumTubeSubdivisions());
+        shaderProgram->setUniformOptional(
+                "numLineVertices", ambientOcclusionBaker->getNumLineVertices());
+   }
 }
 
 void LineRenderer::setAmbientOcclusionBaker(AmbientOcclusionBakerPtr& aoBaker) {
     ambientOcclusionBaker = aoBaker;
+    updateAmbientOcclusionMode();
 }
 
 bool LineRenderer::setNewSettings(const SettingsMap& settings) {
@@ -195,6 +216,19 @@ bool LineRenderer::setNewSettings(const SettingsMap& settings) {
         if (depthCueStrength > 0.0f && !useDepthCues) {
             useDepthCues = true;
             updateDepthCueMode();
+            shallReloadGatherShader = true;
+        }
+    }
+
+    if (settings.getValueOpt("ambient_occlusion_strength", ambientOcclusionStrength)) {
+        if (ambientOcclusionStrength <= 0.0f && useAmbientOcclusion) {
+            useAmbientOcclusion = false;
+            updateAmbientOcclusionMode();
+            shallReloadGatherShader = true;
+        }
+        if (ambientOcclusionStrength > 0.0f && !useAmbientOcclusion) {
+            useAmbientOcclusion = true;
+            updateAmbientOcclusionMode();
             shallReloadGatherShader = true;
         }
     }
@@ -236,6 +270,23 @@ void LineRenderer::renderGuiWindow() {
                 }
                 reRender = true;
             }
+            if (ambientOcclusionBaker.get() != nullptr && ImGui::SliderFloat(
+                    "Ambient Occlusion Strength", &ambientOcclusionStrength, 0.0f, 1.0f)) {
+                if (ambientOcclusionStrength <= 0.0f && useAmbientOcclusion) {
+                    useAmbientOcclusion = false;
+                    updateAmbientOcclusionMode();
+                    shallReloadGatherShader = true;
+                }
+                if (ambientOcclusionStrength > 0.0f && !useAmbientOcclusion) {
+                    useAmbientOcclusion = true;
+                    updateAmbientOcclusionMode();
+                    shallReloadGatherShader = true;
+                }
+                reRender = true;
+            }
+            if (ambientOcclusionBaker.get() != nullptr) {
+                ambientOcclusionBaker->renderGui();
+            }
         }
     }
     ImGui::End();
@@ -256,10 +307,13 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewData) {
     if (!this->lineData || lineData->getType() != this->lineData->getType()
             || lineData->settingsDiffer(this->lineData.get())) {
         this->lineData = lineData;
-        //ambientOcclusionBaker->startAmbientOcclusionBaking(lineData);
         reloadGatherShader(false);
     }
     this->lineData = lineData;
+
+    if (isNewData) {
+        ambientOcclusionBaker->startAmbientOcclusionBaking(lineData);
+    }
 
     filteredLines.clear();
     filteredLinesVerticesBuffer = sgl::GeometryBufferPtr();

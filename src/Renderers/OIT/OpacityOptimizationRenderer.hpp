@@ -52,30 +52,30 @@ const int MESH_MODE_DEPTH_COMPLEXITIES_OPOPT[2][2] = {
 class OpacityOptimizationRenderer : public LineRenderer {
 public:
     OpacityOptimizationRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
-    virtual ~OpacityOptimizationRenderer() {}
+    ~OpacityOptimizationRenderer() override {}
 
     /**
      * Re-generates the visualization mapping.
      * @param lineData The render data.
      */
-    virtual void setLineData(LineDataPtr& lineData, bool isNewData);
+    void setLineData(LineDataPtr& lineData, bool isNewData) override;
 
     /// Called when the resolution of the application window has changed.
-    virtual void onResolutionChanged();
+    void onResolutionChanged() override;
 
     // Renders the object to the scene framebuffer.
-    virtual void render();
+    void render() override;
     // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
-    virtual void renderGui();
+    void renderGui() override;
     // Updates the internal logic (called once per frame).
-    virtual void update(float dt);
+    void update(float dt) override;
     // Returns if the data needs to be re-rendered, but the visualization mapping is valid.
-    virtual bool needsReRender();
+    bool needsReRender() override;
     // Called when the camera has moved.
-    virtual void onHasMoved();
+    void onHasMoved() override;
 
     /// For changing performance measurement modes.
-    virtual void setNewState(const InternalState& newState);
+    void setNewState(const InternalState& newState) override;
 
 protected:
     void setSortingAlgorithmDefine();

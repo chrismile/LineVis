@@ -41,6 +41,11 @@
 #include "Loaders/TrajectoryFile.hpp"
 #include "LineRenderData.hpp"
 
+namespace sgl { namespace vk {
+class TopLevelAccelerationStructure;
+typedef std::shared_ptr<TopLevelAccelerationStructure> TopLevelAccelerationStructurePtr;
+}}
+
 struct Trajectory;
 typedef std::vector<Trajectory> Trajectories;
 
@@ -139,6 +144,7 @@ public:
 #ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---
     virtual VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(bool raytracing)=0;
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTriangleTopLevelAS();
 #endif
 
     // Retrieve simulation mesh outline (optional).
@@ -227,6 +233,14 @@ protected:
 
     /// Stores line point data if linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH.
     sgl::GeometryBufferPtr linePointDataSSBO;
+
+#ifdef USE_VULKAN_INTEROP
+    // Caches the rendering data when using Vulkan (as, e.g., the Vulkan ray tracer and AO baking could be used at the
+    // same time).
+    VulkanTubeTriangleRenderData vulkanTubeTriangleRenderData;
+    sgl::vk::TopLevelAccelerationStructurePtr triangleTopLevelAS;
+#endif
+
 
     // Optional.
     bool shallRenderSimulationMeshBoundary = false;

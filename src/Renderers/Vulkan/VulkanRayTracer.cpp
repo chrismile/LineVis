@@ -41,6 +41,7 @@
 #include <Graphics/Vulkan/Render/RayTracingPipeline.hpp>
 
 #include <ImGui/ImGuiWrapper.hpp>
+#include <utility>
 
 #include "VulkanRayTracer.hpp"
 
@@ -64,6 +65,9 @@ VulkanRayTracer::~VulkanRayTracer() {
     sgl::AppSettings::get()->getPrimaryDevice()->waitIdle();
 }
 
+void VulkanRayTracer::reloadGatherShader(bool canCopyShaderAttributes) {
+}
+
 void VulkanRayTracer::setLineData(LineDataPtr& lineData, bool isNewData) {
     if (!this->lineData || lineData->getType() != this->lineData->getType()
             || lineData->settingsDiffer(this->lineData.get())) {
@@ -71,9 +75,7 @@ void VulkanRayTracer::setLineData(LineDataPtr& lineData, bool isNewData) {
         //reloadGatherShader(false);
     }
     this->lineData = lineData;
-
-    rayTracingRenderPass->setTubeTriangleRenderData(
-            lineData->getVulkanTubeTriangleRenderData(true));
+    rayTracingRenderPass->setLineData(lineData, isNewData);
 
     dirty = false;
     reRender = true;
@@ -139,8 +141,8 @@ void VulkanRayTracer::renderGui() {
 }
 
 
-RayTracingRenderPass::RayTracingRenderPass(sgl::vk::Renderer* renderer, const sgl::CameraPtr& camera)
-        : RayTracingPass(renderer), camera(camera) {
+RayTracingRenderPass::RayTracingRenderPass(sgl::vk::Renderer* renderer, sgl::CameraPtr camera)
+        : RayTracingPass(renderer), camera(std::move(camera)) {
     cameraSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(CameraSettings),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -163,20 +165,10 @@ void RayTracingRenderPass::setBackgroundColor(const glm::vec4& color) {
     lineRenderSettings.backgroundColor = color;
 }
 
-void RayTracingRenderPass::setTubeTriangleRenderData(const VulkanTubeTriangleRenderData& triangleRenderData) {
-    tubeTriangleRenderData = triangleRenderData;
-
-    auto asInput = new sgl::vk::TrianglesAccelerationStructureInput(device);
-    asInput->setIndexBuffer(tubeTriangleRenderData.indexBuffer);
-    asInput->setVertexBuffer(
-            tubeTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
-            sizeof(TubeTriangleVertexData));
-    auto asInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asInput);
-
-    sgl::vk::BottomLevelAccelerationStructurePtr blas = buildBottomLevelAccelerationStructureFromInput(asInputPtr);
-
-    topLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
-    topLevelAS->build({ blas }, { sgl::vk::BlasInstance() });
+void RayTracingRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
+    tubeTriangleRenderData = lineData->getVulkanTubeTriangleRenderData(true);
+    topLevelAS = lineData->getRayTracingTriangleTopLevelAS();
+    dataDirty = true;
 }
 
 void RayTracingRenderPass::loadShader() {

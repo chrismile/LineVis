@@ -34,6 +34,9 @@ out VertexData {
 #ifdef VISUALIZE_SEEDING_PROCESS
     uint lineLineAppearanceOrder;
 #endif
+#ifdef USE_AMBIENT_OCCLUSION
+    uint lineVertexId;
+#endif
 };
 
 #include "TransferFunction.glsl"
@@ -53,6 +56,9 @@ void main() {
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
     lineLineAppearanceOrder = vertexLineAppearanceOrder;
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    lineVertexId = uint(gl_VertexID);
 #endif
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
 }
@@ -88,6 +94,9 @@ flat out float fragmentLineHierarchyLevel;
 #ifdef VISUALIZE_SEEDING_PROCESS
 flat out uint fragmentLineAppearanceOrder;
 #endif
+#ifdef USE_AMBIENT_OCCLUSION
+out float fragmentVertexId;
+#endif
 
 in VertexData {
     vec3 linePosition;
@@ -104,6 +113,9 @@ in VertexData {
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
     uint lineLineAppearanceOrder;
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    uint lineVertexId;
 #endif
 } v_in[];
 
@@ -187,6 +199,9 @@ void main() {
 #ifdef VISUALIZE_SEEDING_PROCESS
     fragmentLineAppearanceOrder = v_in[0].lineLineAppearanceOrder;
 #endif
+#ifdef USE_AMBIENT_OCCLUSION
+    fragmentVertexId = float(v_in[0].lineVertexId);
+#endif
 
     vertexPosition = linePosition0 + lineRadius * offsetDirectionLeft0;
     fragmentPositionWorld = vertexPosition;
@@ -224,6 +239,9 @@ void main() {
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
     fragmentLineAppearanceOrder = v_in[1].lineLineAppearanceOrder;
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    fragmentVertexId = float(v_in[1].lineVertexId);
 #endif
 
     vertexPosition = linePosition1 + lineRadius * offsetDirectionLeft1;
@@ -278,6 +296,10 @@ uniform vec3 lineHierarchySlider;
 flat in uint fragmentLineAppearanceOrder;
 uniform int currentSeedIdx;
 #endif
+#ifdef USE_AMBIENT_OCCLUSION
+in float fragmentVertexId;
+float phi;
+#endif
 
 #if defined(DIRECT_BLIT_GATHER)
 out vec4 fragColor;
@@ -317,6 +339,13 @@ void main() {
     vec3 fragmentNormal;
     if (useBand != 0) {
         fragmentNormal = normal0;
+#ifdef USE_AMBIENT_OCCLUSION
+        float interpolationFactor = fragmentNormalFloat;
+        if (interpolationFactor < 0.0) {
+            interpolationFactor = -interpolationFactor;
+        }
+        phi = interpolationFactor * M_PI * 0.5;
+#endif
     } else {
         // Compute the normal of the billboard tube for shading.
         float interpolationFactor = fragmentNormalFloat;
@@ -328,7 +357,11 @@ void main() {
         }
         float angle = interpolationFactor * M_PI * 0.5;
         fragmentNormal = cos(angle) * normalCos + sin(angle) * normalSin;
+#ifdef USE_AMBIENT_OCCLUSION
+        phi = angle;
+#endif
     }
+
 
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
     vec4 fragmentColor = transferFunction(fragmentAttribute, fragmentPrincipalStressIndex);

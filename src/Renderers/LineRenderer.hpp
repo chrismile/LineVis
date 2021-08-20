@@ -90,8 +90,10 @@ public:
     void reloadGatherShaderExternal();
 
     /// Sets the global line width.
-    static void setLineWidth(float lineWidth) { LineRenderer::lineWidth = lineWidth; }
+    static void setLineWidth(float width) { LineRenderer::lineWidth = width; }
+    static void setBandWidth(float width) { LineRenderer::bandWidth = width; }
     static inline float getLineWidth() { return LineRenderer::lineWidth; }
+    static inline float getBandWidth() { return LineRenderer::bandWidth; }
 
 protected:
     // Reload the gather shader.
@@ -131,7 +133,12 @@ protected:
     sgl::GeometryBufferPtr depthMinMaxBuffers[2];
     sgl::ShaderProgramPtr computeDepthValuesShaderProgram;
     sgl::ShaderProgramPtr minMaxReduceDepthShaderProgram;
+
+    // Whether to use baked ambient occlusion buffers.
+    void updateAmbientOcclusionMode();
     AmbientOcclusionBakerPtr ambientOcclusionBaker;
+    bool useAmbientOcclusion = true;
+    float ambientOcclusionStrength = 1.0f;
 
     // Minimum and maximum values in the UI.
     static constexpr float MIN_LINE_WIDTH = 0.001f;

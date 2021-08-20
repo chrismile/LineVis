@@ -11,6 +11,10 @@ uniform float maxDepth = 1.0f;
 uniform float depthCueStrength = 0.8f;
 #endif
 
+#if defined(USE_AMBIENT_OCCLUSION) && defined(GEOMETRY_PASS_TUBE)
+#include "AmbientOcclusion.glsl"
+#endif
+
 /**
  * Simplified Blinn-Phong shading assuming the ambient and diffuse color are equal and the specular color is white.
  * Assumes the following global variables are given: cameraPosition, fragmentPositionWorld, fragmentNormal.
@@ -98,6 +102,10 @@ vec4 blinnPhongShadingTube(in vec4 baseColor, in vec3 fragmentNormal, in vec3 fr
 
     phongColor = Ia + Id + Is;
 
+#if defined(USE_AMBIENT_OCCLUSION) && defined(GEOMETRY_PASS_TUBE)
+    phongColor *= getAoFactor(fragmentVertexId, phi);
+#endif
+
 #ifdef USE_DEPTH_CUES
     float depthCueFactor = (-screenSpacePosition.z - minDepth) / (maxDepth - minDepth);
     depthCueFactor = depthCueFactor * depthCueFactor * depthCueStrength;
@@ -144,6 +152,10 @@ vec4 blinnPhongShadingTubeHalo(in vec4 baseColor) {
 
     phongColor = Ia + Id + Is;
     phongColor *= halo;
+
+#if defined(USE_AMBIENT_OCCLUSION) && defined(GEOMETRY_PASS_TUBE)
+    phongColor *= getAoFactor(fragmentVertexId, phi);
+#endif
 
     vec4 color = vec4(phongColor, baseColor.a);
     return color;

@@ -36,6 +36,9 @@ flat out float fragmentLineHierarchyLevel;
 #ifdef VISUALIZE_SEEDING_PROCESS
 flat out uint fragmentLineAppearanceOrder;
 #endif
+#ifdef USE_AMBIENT_OCCLUSION
+out float fragmentVertexId;
+#endif
 
 uniform vec3 cameraPosition;
 uniform float lineWidth;
@@ -68,6 +71,9 @@ void main() {
 #ifdef VISUALIZE_SEEDING_PROCESS
     // Unsupported for now.
     fragmentLineAppearanceOrder = 0;
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    fragmentVertexId = float(pointIndex);
 #endif
 
     fragmentPositionWorld = vertexPosition;
@@ -109,6 +115,9 @@ out VertexData {
 #ifdef VISUALIZE_SEEDING_PROCESS
     uint lineLineAppearanceOrder;
 #endif
+#ifdef USE_AMBIENT_OCCLUSION
+    uint lineVertexId;
+#endif
 };
 
 #include "TransferFunction.glsl"
@@ -125,6 +134,9 @@ void main() {
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
     lineLineAppearanceOrder = vertexLineAppearanceOrder;
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    lineVertexId = uint(gl_VertexID);
 #endif
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
 }
@@ -157,6 +169,10 @@ flat out float fragmentLineHierarchyLevel;
 #ifdef VISUALIZE_SEEDING_PROCESS
 flat out uint fragmentLineAppearanceOrder;
 #endif
+#ifdef USE_AMBIENT_OCCLUSION
+out float fragmentVertexId;
+out vec3 fragmentLineNormal;
+#endif
 
 in VertexData {
     vec3 linePosition;
@@ -170,6 +186,9 @@ in VertexData {
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
     uint lineLineAppearanceOrder;
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    uint lineVertexId;
 #endif
 } v_in[];
 
@@ -201,6 +220,9 @@ void main() {
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
     fragmentLineAppearanceOrder = v_in[0].lineLineAppearanceOrder;
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    fragmentVertexId = float(v_in[0].lineVertexId);
 #endif
 
     vertexPosition = linePosition0 - lineRadius * offsetDirection0;
@@ -234,6 +256,9 @@ void main() {
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
     fragmentLineAppearanceOrder = v_in[1].lineLineAppearanceOrder;
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    fragmentVertexId = float(v_in[1].lineVertexId);
 #endif
 
     vertexPosition = linePosition1 - lineRadius * offsetDirection1;
@@ -287,6 +312,10 @@ uniform vec3 lineHierarchySlider;
 flat in uint fragmentLineAppearanceOrder;
 uniform int currentSeedIdx;
 #endif
+#ifdef USE_AMBIENT_OCCLUSION
+in float fragmentVertexId;
+float phi;
+#endif
 
 #if defined(DIRECT_BLIT_GATHER)
 out vec4 fragColor;
@@ -333,6 +362,9 @@ void main() {
     }
     float angle = interpolationFactor * M_PI * 0.5;
     fragmentNormal = cos(angle) * normalCos + sin(angle) * normalSin;
+#ifdef USE_AMBIENT_OCCLUSION
+    phi = angle;
+#endif
 
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
     vec4 fragmentColor = transferFunction(fragmentAttribute, fragmentPrincipalStressIndex);

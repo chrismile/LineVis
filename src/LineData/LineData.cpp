@@ -31,6 +31,10 @@
 #include <Graphics/Shader/ShaderAttributes.hpp>
 #include <Graphics/Renderer.hpp>
 
+#ifdef USE_VULKAN_INTEROP
+#include <Graphics/Vulkan/Render/AccelerationStructure.hpp>
+#endif
+
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_custom.h>
 
@@ -40,7 +44,7 @@
 #include "Mesh/MeshBoundarySurface.hpp"
 #include "LineData.hpp"
 
-LineData::LinePrimitiveMode LineData::linePrimitiveMode = LineData::LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
+LineData::LinePrimitiveMode LineData::linePrimitiveMode = LineData::LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER;
 int LineData::tubeNumSubdivisions = 6;
 
 const char *const LINE_PRIMITIVE_MODE_DISPLAYNAMES[] = {
@@ -203,6 +207,8 @@ void LineData::recomputeColorLegend() {
 void LineData::rebuildInternalRepresentationIfNecessary() {
     if (dirty) {
         //updateMeshTriangleIntersectionDataStructure();
+        vulkanTubeTriangleRenderData = {};
+        triangleTopLevelAS = {};
         dirty = false;
     }
 }
@@ -369,3 +375,30 @@ void LineData::setUniformGatherShaderDataHull_Pass(sgl::ShaderProgramPtr& gather
     gatherShader->setUniformOptional("color", glm::vec4(hullColor.r, hullColor.g, hullColor.b, hullOpacity));
     gatherShader->setUniformOptional("useShading", int(hullUseShading));
 }
+
+
+#ifdef USE_VULKAN_INTEROP
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTriangleTopLevelAS() {
+    rebuildInternalRepresentationIfNecessary();
+    if (triangleTopLevelAS) {
+        return triangleTopLevelAS;
+    }
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    VulkanTubeTriangleRenderData tubeTriangleRenderData = getVulkanTubeTriangleRenderData(true);
+
+    auto asInput = new sgl::vk::TrianglesAccelerationStructureInput(device);
+    asInput->setIndexBuffer(tubeTriangleRenderData.indexBuffer);
+    asInput->setVertexBuffer(
+            tubeTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
+            sizeof(TubeTriangleVertexData));
+    auto asInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asInput);
+
+    sgl::vk::BottomLevelAccelerationStructurePtr blas = buildBottomLevelAccelerationStructureFromInput(asInputPtr);
+
+    triangleTopLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
+    triangleTopLevelAS->build({blas }, {sgl::vk::BlasInstance() });
+
+    return triangleTopLevelAS;
+}
+#endif

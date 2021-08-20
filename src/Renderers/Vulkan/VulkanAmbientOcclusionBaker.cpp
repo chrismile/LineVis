@@ -34,6 +34,7 @@
 #include <ImGui/ImGuiWrapper.hpp>
 
 #include "LineData/LineData.hpp"
+#include "Renderers/LineRenderer.hpp"
 #include "VulkanAmbientOcclusionBaker.hpp"
 
 VulkanAmbientOcclusionBaker::VulkanAmbientOcclusionBaker(
@@ -47,26 +48,52 @@ VulkanAmbientOcclusionBaker::VulkanAmbientOcclusionBaker(
 }
 
 void VulkanAmbientOcclusionBaker::startAmbientOcclusionBaking(LineDataPtr& lineData) {
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+
     aoComputeRenderPass->setLineData(lineData);
 
-    for (numIterations = 0; numIterations < maxNumIterations; numIterations++) {
-        renderReadySemaphore->signalSemaphoreGl(aoBufferGl);
+    VkCommandPool commandPool;
+    sgl::vk::CommandPoolType commandPoolType;
+    commandPoolType.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    commandPoolType.queueFamilyIndex = device->getComputeQueueIndex();
+    commandBuffers = device->allocateCommandBuffers(commandPoolType, &commandPool, maxNumIterations);
 
+    waitSemaphores.resize(maxNumIterations);
+    signalSemaphores.resize(maxNumIterations);
+
+    for (size_t i = 1; i < maxNumIterations; i++) {
+        waitSemaphores.at(i) = std::make_shared<sgl::vk::Semaphore>(device);
+        signalSemaphores.at(i - 1) = waitSemaphores.at(i);
+    }
+    waitSemaphores.front() = renderReadySemaphore;
+    signalSemaphores.back() = renderFinishedSemaphore;
+
+    renderReadySemaphore->signalSemaphoreGl(aoBufferGl);
+
+    for (numIterations = 0; numIterations < maxNumIterations; numIterations++) {
+        aoComputeRenderPass->setFrameNumber(numIterations);
+        rendererVk->setCustomCommandBuffer(commandBuffers.at(numIterations), false);
         rendererVk->beginCommandBuffer();
         aoComputeRenderPass->render();
+        rendererVk->insertMemoryBarrier(
+                VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
         rendererVk->endCommandBuffer();
 
         // Submit the rendering operation in Vulkan.
         sgl::vk::FencePtr fence;
-        sgl::vk::SemaphorePtr renderReadySemaphoreVk =
-                std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderReadySemaphore);
-        sgl::vk::SemaphorePtr renderFinishedSemaphoreVk =
-                std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderFinishedSemaphore);
-        rendererVk->submitToQueue(renderReadySemaphoreVk, renderFinishedSemaphoreVk, fence);
-
-        // Wait for the rendering to finish on the Vulkan side.
-        renderFinishedSemaphore->waitSemaphoreGl(aoBufferGl);
+        //sgl::vk::SemaphorePtr renderReadySemaphoreVk =
+        //        std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderReadySemaphore);
+        //sgl::vk::SemaphorePtr renderFinishedSemaphoreVk =
+        //        std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderFinishedSemaphore);
+        rendererVk->submitToQueue(
+                waitSemaphores.at(numIterations), signalSemaphores.at(numIterations), fence,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
     }
+    rendererVk->resetCustomCommandBuffer();
+
+    // Wait for the rendering to finish on the Vulkan side.
+    renderFinishedSemaphore->waitSemaphoreGl(aoBufferGl);
 }
 
 bool VulkanAmbientOcclusionBaker::getHasComputationFinished() {
@@ -74,55 +101,251 @@ bool VulkanAmbientOcclusionBaker::getHasComputationFinished() {
 }
 
 sgl::GeometryBufferPtr VulkanAmbientOcclusionBaker::getAmbientOcclusionBuffer() {
-    return aoBufferGl;
+    return aoComputeRenderPass->getAmbientOcclusionBuffer();
+}
+
+sgl::GeometryBufferPtr VulkanAmbientOcclusionBaker::getBlendingWeightsBuffer() {
+    return aoComputeRenderPass->getBlendingWeightsBuffer();
 }
 
 sgl::vk::BufferPtr VulkanAmbientOcclusionBaker::getAmbientOcclusionBufferVulkan() {
-    return aoBufferVk;
+    return aoComputeRenderPass->getAmbientOcclusionBufferVulkan();
+}
+
+sgl::vk::BufferPtr VulkanAmbientOcclusionBaker::getBlendingWeightsBufferVulkan() {
+    return aoComputeRenderPass->getBlendingWeightsBufferVulkan();
+}
+
+uint32_t VulkanAmbientOcclusionBaker::getNumTubeSubdivisions() {
+    return aoComputeRenderPass->getNumTubeSubdivisions();
+}
+
+uint32_t VulkanAmbientOcclusionBaker::getNumLineVertices() {
+    return aoComputeRenderPass->getNumLineVertices();
 }
 
 void VulkanAmbientOcclusionBaker::renderGui() {
-    ImGui::SliderInt("#Iterations", &maxNumIterations, 0, 4096);
-    ImGui::SameLine();
     ImGui::Checkbox("Use Main Thread", &useMainThread);
+    ImGui::SliderInt("#Iterations", &maxNumIterations, 1, 4096);
+
+    ImGui::SliderFloat(
+            "Tube AO Resolution", &aoComputeRenderPass->expectedParamSegmentLength, 0.001f, 0.01f);
+    ImGui::SliderInt(
+            "#Tube Subdivisions",
+            reinterpret_cast<int*>(&aoComputeRenderPass->numTubeSubdivisions), 3, 16);
+    ImGui::SliderInt(
+            "#AO Samples per Frame",
+            reinterpret_cast<int*>(&aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame), 1, 4096);
+    ImGui::SliderFloat(
+            "AO Radius", &aoComputeRenderPass->ambientOcclusionRadius, 0.01f, 0.1f);
+    ImGui::Checkbox("Use Distance-based AO", &aoComputeRenderPass->useDistance);
 }
 
 
 AmbientOcclusionComputeRenderPass::AmbientOcclusionComputeRenderPass(
         sgl::vk::Renderer* renderer, sgl::vk::BufferPtr& aoBufferVk, sgl::GeometryBufferPtr& aoBufferGl)
         : ComputePass(renderer), aoBufferVk(aoBufferVk), aoBufferGl(aoBufferGl) {
+    lineRenderSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(LineRenderSettings),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 }
 
 void AmbientOcclusionComputeRenderPass::setLineData(LineDataPtr& lineData) {
-    setTubeTriangleRenderData(lineData->getVulkanTubeTriangleRenderData(true));
+    topLevelAS = lineData->getRayTracingTriangleTopLevelAS();
+    lines = lineData->getFilteredLines();
 
-    lineData->getFilteredLines();
+    std::vector<LinePoint> linePoints;
+    for (size_t lineId = 0; lineId < lines.size(); lineId++) {
+        const std::vector<glm::vec3> &lineCenters = lines.at(lineId);
+        size_t n = lineCenters.size();
 
-    size_t sizeInBytes = 10;
+        if (n < 2) {
+            continue;
+        }
+
+        glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
+        int numValidLinePoints = 0;
+        for (size_t i = 0; i < n; i++) {
+            glm::vec3 tangent, normal;
+            if (i == 0) {
+                tangent = lineCenters[i+1] - lineCenters[i];
+            } else if (i == n - 1) {
+                tangent = lineCenters[i] - lineCenters[i-1];
+            } else {
+                tangent = (lineCenters[i+1] - lineCenters[i-1]);
+            }
+
+            tangent = glm::normalize(tangent);
+
+            glm::vec3 helperAxis = lastLineNormal;
+            if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
+                // If tangent == lastNormal
+                helperAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+                if (glm::length(glm::cross(helperAxis, normal)) < 0.01f) {
+                    // If tangent == helperAxis
+                    helperAxis = glm::vec3(0.0f, 0.0f, 1.0f);
+                }
+            }
+            normal = glm::normalize(helperAxis - tangent * glm::dot(helperAxis, tangent)); // Gram-Schmidt
+            lastLineNormal = normal;
+
+            LinePoint linePoint;
+            linePoint.position = glm::vec4(lineCenters.at(i).x, lineCenters.at(i).y, lineCenters.at(i).z, 1.0f);
+            linePoint.tangent = glm::vec4(tangent.x, tangent.y, tangent.z, 0.0f);
+            linePoint.normal = glm::vec4(normal.x, normal.y, normal.z, 0.0f);
+            linePoints.push_back(linePoint);
+            numValidLinePoints++;
+        }
+
+        if (numValidLinePoints == 1) {
+            // Only one vertex left -> Output nothing (tube consisting only of one point).
+            linePoints.pop_back();
+            sgl::Logfile::get()->throwError(
+                    "Error in AmbientOcclusionComputeRenderPass::setLineData: numValidLinePoints == 1");
+            continue;
+        }
+    }
+    linePointsBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, linePoints.size() * sizeof(LinePoint), linePoints.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+    numLineVertices = uint32_t(linePoints.size());
+    generateBlendingWeightParametrization();
+}
+
+void AmbientOcclusionComputeRenderPass::generateBlendingWeightParametrization() {
+    // First, compute data necessary for parametrizing the polylines (number of segments, segment lengths).
+    linesLengthSum = 0.0f;
+    numPolylineSegments = 0;
+    polylineLengths.clear();
+    polylineLengths.shrink_to_fit();
+    polylineLengths.resize(lines.size());
+
+#if _OPENMP >= 201107
+    #pragma omp parallel for reduction(+: linesLengthSum) reduction(+: numPolylineSegments) shared(polylineLengths) \
+    default(none)
+#endif
+    for (size_t lineIdx = 0; lineIdx < lines.size(); lineIdx++) {
+        std::vector<glm::vec3>& line = lines.at(lineIdx);
+        const size_t n = line.size();
+        float polylineLength = 0.0f;
+        for (size_t i = 1; i < n; i++) {
+            polylineLength += glm::length(line[i] - line[i-1]);
+        }
+        polylineLengths.at(lineIdx) = polylineLength;
+        linesLengthSum += polylineLength;
+        numPolylineSegments += n - 1;
+    }
+
+    recomputeStaticParametrization();
+}
+
+void AmbientOcclusionComputeRenderPass::recomputeStaticParametrization() {
+    std::vector<float> blendingWeightParametrizationData(numLineVertices, 0);
+    std::vector<glm::uvec2> lineSegmentVertexConnectivityData;
+    std::vector<float> samplingLocations;
+
+    const float EPSILON = 1e-5f;
+    const int approximateLineSegmentsTotal = int(std::ceil(linesLengthSum / expectedParamSegmentLength));
+    lineSegmentVertexConnectivityData.reserve(approximateLineSegmentsTotal);
+    samplingLocations.reserve(approximateLineSegmentsTotal);
+
+    size_t segmentVertexIdOffset = 0;
+    size_t vertexIdx = 0;
+    for (size_t lineIdx = 0; lineIdx < lines.size(); lineIdx++) {
+        std::vector<glm::vec3>& line = lines.at(lineIdx);
+        const size_t n = line.size();
+        float polylineLength = polylineLengths.at(lineIdx);
+
+        uint32_t numLineSubdivs = std::max(1u, uint32_t(std::ceil(polylineLength / expectedParamSegmentLength)));
+        float lineSubdivLength = polylineLength / float(numLineSubdivs);
+
+        // Set the first vertex manually (we can guarantee there is no segment before it).
+        assert(line.size() >= 2);
+        auto startVertexIdx = uint32_t(vertexIdx);
+        blendingWeightParametrizationData.at(vertexIdx) = float(segmentVertexIdOffset);
+        vertexIdx++;
+
+        // Compute the per-vertex blending weight parametrization.
+        float currentLength = 0.0f;
+        for (size_t i = 1; i < n; i++) {
+            currentLength += glm::length(line[i] - line[i-1]);
+            float w =
+                    float(numLineSubdivs - 1u)
+                    * (currentLength - lineSubdivLength / 2.0f)
+                    / (polylineLength - lineSubdivLength);
+            blendingWeightParametrizationData.at(vertexIdx) =
+                    float(segmentVertexIdOffset)
+                    + glm::clamp(w, 0.0f, float(numLineSubdivs - 1u) - EPSILON);
+            vertexIdx++;
+        }
+
+        float lastLength = 0.0f;
+        currentLength = glm::length(line[1] - line[0]);
+        size_t currVertexIdx = 1;
+        samplingLocations.push_back(float(startVertexIdx));
+        for (uint32_t i = 1; i < numLineSubdivs; i++) {
+            auto parametrizationIdx = uint32_t(currentLength / lineSubdivLength);
+            while (i > parametrizationIdx && currVertexIdx < n) {
+                float segLength = glm::length(line[currVertexIdx] - line[currVertexIdx-1]);
+                lastLength = currentLength;
+                currentLength += segLength;
+                parametrizationIdx = uint32_t(currentLength / lineSubdivLength);
+                currVertexIdx++;
+            }
+
+            float samplingLocation =
+                    float(currVertexIdx - 1)
+                    + (float(i) * lineSubdivLength - lastLength) / (currentLength - lastLength);
+            samplingLocation = float(startVertexIdx) + std::min(samplingLocation, float(uint32_t(n) - 1u) - EPSILON);
+            samplingLocations.push_back(samplingLocation);
+        }
+
+        if (numLineSubdivs == 1) {
+            lineSegmentVertexConnectivityData.emplace_back(segmentVertexIdOffset, segmentVertexIdOffset);
+        } else {
+            lineSegmentVertexConnectivityData.emplace_back(segmentVertexIdOffset, segmentVertexIdOffset + 1);
+            for (size_t i = 1; i < numLineSubdivs - 1; i++) {
+                lineSegmentVertexConnectivityData.emplace_back(
+                        segmentVertexIdOffset + i - 1u, segmentVertexIdOffset + i + 1u);
+            }
+            lineSegmentVertexConnectivityData.emplace_back(
+                    segmentVertexIdOffset + numLineSubdivs - 2u, segmentVertexIdOffset + numLineSubdivs - 1u);
+        }
+
+        segmentVertexIdOffset += numLineSubdivs;
+    }
+    numLineSegments = lineSegmentVertexConnectivityData.size();
+
+    blendingWeightParametrizationBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, numLineVertices * sizeof(float), blendingWeightParametrizationData.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY, true, true);
+    blendingWeightParametrizationBufferGl = sgl::GeometryBufferPtr(new sgl::GeometryBufferGLExternalMemoryVk(
+            blendingWeightParametrizationBuffer, sgl::SHADER_STORAGE_BUFFER));
+
+    lineSegmentVertexConnectivityBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, numLineSegments * sizeof(glm::uvec2), lineSegmentVertexConnectivityData.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+    samplingLocationsBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, samplingLocations.size() * sizeof(float), samplingLocations.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
     aoBufferVk = std::make_shared<sgl::vk::Buffer>(
-            device, sizeInBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY,
+            device, samplingLocations.size() * numTubeSubdivisions * sizeof(float),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY,
             true, true);
     aoBufferGl = sgl::GeometryBufferPtr(new sgl::GeometryBufferGLExternalMemoryVk(
             aoBufferVk, sgl::SHADER_STORAGE_BUFFER));
+
+    dataDirty = true;
+    shaderDirty = true; // TODO
 }
-
-void AmbientOcclusionComputeRenderPass::setTubeTriangleRenderData(
-        const VulkanTubeTriangleRenderData& triangleRenderData) {
-    tubeTriangleRenderData = triangleRenderData;
-
-    auto asInput = new sgl::vk::TrianglesAccelerationStructureInput(device);
-    asInput->setIndexBuffer(tubeTriangleRenderData.indexBuffer);
-    asInput->setVertexBuffer(
-            tubeTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
-            sizeof(TubeTriangleVertexData));
-    auto asInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asInput);
-
-    sgl::vk::BottomLevelAccelerationStructurePtr blas = buildBottomLevelAccelerationStructureFromInput(asInputPtr);
-
-    topLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
-    topLevelAS->build({ blas }, { sgl::vk::BlasInstance() });
-}
-
 
 void AmbientOcclusionComputeRenderPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
@@ -136,17 +359,23 @@ void AmbientOcclusionComputeRenderPass::createComputeData(
         sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
     computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
     computeData->setStaticBuffer(lineRenderSettingsBuffer, 0);
-    computeData->setStaticBuffer(tubeTriangleRenderData.indexBuffer, 1);
-    computeData->setStaticBuffer(tubeTriangleRenderData.vertexBuffer, 2);
-    computeData->setStaticBuffer(tubeTriangleRenderData.linePointBuffer, 3);
-    computeData->setStaticBuffer(aoBufferVk, 4);
-    computeData->setTopLevelAccelerationStructure(topLevelAS, 5);
+    computeData->setStaticBuffer(linePointsBuffer, 1);
+    computeData->setStaticBuffer(samplingLocationsBuffer, 2);
+    computeData->setStaticBuffer(aoBufferVk, 3);
+    computeData->setTopLevelAccelerationStructure(topLevelAS, 4);
 }
 
 void AmbientOcclusionComputeRenderPass::_render() {
-    lineRenderSettings.dummyData = 0.0f;
+    lineRenderSettings.lineRadius = LineRenderer::getLineWidth();
+    lineRenderSettings.numLinePoints = numLineVertices;
+    lineRenderSettings.numTubeSubdivisions = numTubeSubdivisions;
+    lineRenderSettings.numAmbientOcclusionSamples = numAmbientOcclusionSamplesPerFrame;
+    lineRenderSettings.ambientOcclusionRadius = ambientOcclusionRadius;
+    lineRenderSettings.useDistance = int(useDistance);
     lineRenderSettingsBuffer->updateData(
             sizeof(LineRenderSettings), &lineRenderSettings, renderer->getVkCommandBuffer());
 
-    renderer->dispatch(computeData, 1024, 1, 1);
+    renderer->dispatch(
+            computeData, samplingLocationsBuffer->getSizeInBytes() / sizeof(float),
+            1, 1);
 }

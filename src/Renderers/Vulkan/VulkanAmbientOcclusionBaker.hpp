@@ -52,6 +52,8 @@ namespace vk {
 class Renderer;
 class Buffer;
 typedef std::shared_ptr<Buffer> BufferPtr;
+class Semaphore;
+typedef std::shared_ptr<Semaphore> SemaphorePtr;
 
 }
 
@@ -68,7 +70,11 @@ public:
     void startAmbientOcclusionBaking(LineDataPtr& lineData) override;
     bool getHasComputationFinished() override;
     sgl::GeometryBufferPtr getAmbientOcclusionBuffer() override;
+    sgl::GeometryBufferPtr getBlendingWeightsBuffer() override;
     sgl::vk::BufferPtr getAmbientOcclusionBufferVulkan() override;
+    sgl::vk::BufferPtr getBlendingWeightsBufferVulkan() override;
+    uint32_t getNumTubeSubdivisions() override;
+    uint32_t getNumLineVertices() override;
 
     void renderGui() override;
 
@@ -77,6 +83,9 @@ private:
     sgl::vk::BufferPtr aoBufferVk;
     sgl::GeometryBufferPtr aoBufferGl;
     sgl::SemaphoreVkGlInteropPtr renderReadySemaphore, renderFinishedSemaphore;
+    std::vector<sgl::vk::SemaphorePtr> waitSemaphores;
+    std::vector<sgl::vk::SemaphorePtr> signalSemaphores;
+    std::vector<VkCommandBuffer> commandBuffers;
 
     // Vulkan render data.
     std::shared_ptr<AmbientOcclusionComputeRenderPass> aoComputeRenderPass;
@@ -90,12 +99,20 @@ private:
 };
 
 class AmbientOcclusionComputeRenderPass : public sgl::vk::ComputePass {
+    friend class VulkanAmbientOcclusionBaker;
 public:
     explicit AmbientOcclusionComputeRenderPass(
             sgl::vk::Renderer* renderer, sgl::vk::BufferPtr& aoBufferVk, sgl::GeometryBufferPtr& aoBufferGl);
 
     // Public interface.
     void setLineData(LineDataPtr& lineData);
+    inline void setFrameNumber(uint32_t frame) { lineRenderSettings.frameNumber = frame; }
+    inline sgl::GeometryBufferPtr getAmbientOcclusionBuffer() { return aoBufferGl; }
+    inline sgl::GeometryBufferPtr getBlendingWeightsBuffer() { return blendingWeightParametrizationBufferGl; }
+    inline sgl::vk::BufferPtr getAmbientOcclusionBufferVulkan() { return aoBufferVk; }
+    inline sgl::vk::BufferPtr getBlendingWeightsBufferVulkan() { return blendingWeightParametrizationBuffer; }
+    inline uint32_t getNumTubeSubdivisions() const { return numTubeSubdivisions; }
+    inline uint32_t getNumLineVertices() const { return numLineVertices; }
 
 private:
     void loadShader() override;
@@ -105,16 +122,64 @@ private:
 
     std::thread computeThread;
 
+    // Line data.
+    std::vector<std::vector<glm::vec3>> lines;
+
+    // Blending weight parametrization for the line segments.
+    void generateBlendingWeightParametrization();
+    void recomputeStaticParametrization();
+    float linesLengthSum = 0.0f; ///< Length sum of all polylineLengths.
+    std::vector<float> polylineLengths; ///< Lengths of all polylines.
+
+    // Resolution of the ambient occlusion data.
+    float expectedParamSegmentLength = 0.001f;
+    uint32_t numTubeSubdivisions = 8;
+    uint32_t numAmbientOcclusionSamplesPerFrame = 64;
+    float ambientOcclusionRadius = 0.05f;
+    bool useDistance = true;
+
+    // Information about geometry data.
+    uint32_t numPolylineSegments = 0;
+    uint32_t numLineSegments = 0;
+    uint32_t numLineVertices = 0;
+
     sgl::vk::BufferPtr& aoBufferVk;
     sgl::GeometryBufferPtr& aoBufferGl;
 
-    void setTubeTriangleRenderData(const VulkanTubeTriangleRenderData& triangleRenderData);
-    VulkanTubeTriangleRenderData tubeTriangleRenderData;
+    struct LinePoint {
+        glm::vec4 position;
+        glm::vec4 tangent;
+        glm::vec4 normal;
+    };
+    sgl::vk::BufferPtr linePointsBuffer;
+
+    sgl::vk::BufferPtr blendingWeightParametrizationBuffer;
+    sgl::GeometryBufferPtr blendingWeightParametrizationBufferGl;
+    sgl::vk::BufferPtr lineSegmentVertexConnectivityBuffer;
+    sgl::vk::BufferPtr samplingLocationsBuffer;
+
     sgl::vk::TopLevelAccelerationStructurePtr topLevelAS;
 
     // Uniform buffer object storing the line rendering settings.
     struct LineRenderSettings {
-        float dummyData = 0.0f;
+        // The radius of the lines.
+        float lineRadius;
+
+        // How many line points exist in total (i.e., the number of entries in the buffer "LineGeometry").
+        uint32_t numLinePoints;
+        // How often should the tube be subdivided in the normal plane?
+        uint32_t numTubeSubdivisions;
+        // The number of this frame (used for accumulation of samples accross frames).
+        uint32_t frameNumber;
+
+        // How many rays should the shader shoot?
+        uint32_t numAmbientOcclusionSamples;
+        // What is the radius to take into account for ambient occlusion?
+        float ambientOcclusionRadius;
+        // Should the distance of the AO hits be used?
+        int useDistance;
+
+        int padding = 0;
     };
     LineRenderSettings lineRenderSettings{};
     sgl::vk::BufferPtr lineRenderSettingsBuffer;

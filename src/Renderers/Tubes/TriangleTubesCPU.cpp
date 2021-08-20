@@ -36,7 +36,8 @@ void createTriangleTubesRenderDataCPU(
         std::vector<uint32_t>& triangleIndices,
         std::vector<TubeTriangleVertexData>& vertexDataList,
         std::vector<LinePointReference>& linePointReferenceList,
-        std::vector<glm::vec3>& lineTangents) {
+        std::vector<glm::vec3>& lineTangents,
+        std::vector<glm::vec3>& lineNormals) {
     if (numCircleSubdivisions != globalCircleVertexPositions.size() || tubeRadius != globalTubeRadius) {
         initGlobalCircleVertexPositions(numCircleSubdivisions, tubeRadius);
     }
@@ -55,11 +56,11 @@ void createTriangleTubesRenderDataCPU(
         for (size_t i = 0; i < n; i++) {
             glm::vec3 tangent;
             if (i == 0) {
-                tangent = lineCenters[i+1] - lineCenters[i];
+                tangent = lineCenters[i + 1] - lineCenters[i];
             } else if (i == n - 1) {
-                tangent = lineCenters[i] - lineCenters[i-1];
+                tangent = lineCenters[i] - lineCenters[i - 1];
             } else {
-                tangent = (lineCenters[i+1] - lineCenters[i-1]);
+                tangent = lineCenters[i + 1] - lineCenters[i - 1];
             }
             float lineSegmentLength = glm::length(tangent);
 
@@ -73,6 +74,95 @@ void createTriangleTubesRenderDataCPU(
                     lineCenters.at(i), tangent, lastLineNormal, uint32_t(linePointReferenceList.size()),
                     vertexDataList);
             lineTangents.push_back(tangent);
+            lineNormals.push_back(lastLineNormal);
+            linePointReferenceList.emplace_back(lineId, i);
+            numValidLinePoints++;
+        }
+
+        if (numValidLinePoints == 1) {
+            // Only one vertex left -> output nothing (tube consisting only of one point).
+            for (int subdivIdx = 0; subdivIdx < numCircleSubdivisions; subdivIdx++) {
+                vertexDataList.pop_back();
+            }
+            linePointReferenceList.pop_back();
+            lineTangents.pop_back();
+            lineNormals.pop_back();
+            continue;
+        }
+
+        for (int i = 0; i < numValidLinePoints-1; i++) {
+            for (int j = 0; j < numCircleSubdivisions; j++) {
+                // Build two CCW triangles (one quad) for each side.
+                // Triangle 1
+                triangleIndices.push_back(
+                        indexOffset + i*numCircleSubdivisions+j);
+                triangleIndices.push_back(
+                        indexOffset + i*numCircleSubdivisions+(j+1)%numCircleSubdivisions);
+                triangleIndices.push_back(
+                        indexOffset + ((i+1)%numValidLinePoints)*numCircleSubdivisions+(j+1)%numCircleSubdivisions);
+
+                // Triangle 2
+                triangleIndices.push_back(
+                        indexOffset + i*numCircleSubdivisions+j);
+                triangleIndices.push_back(
+                        indexOffset + ((i+1)%numValidLinePoints)*numCircleSubdivisions+(j+1)%numCircleSubdivisions);
+                triangleIndices.push_back(
+                        indexOffset + ((i+1)%numValidLinePoints)*numCircleSubdivisions+j);
+            }
+        }
+    }
+}
+
+void createTriangleEllipticTubesRenderDataCPU(
+        const std::vector<std::vector<glm::vec3>>& lineCentersList,
+        const std::vector<std::vector<glm::vec3>>& lineNormalsList,
+        float tubeNormalRadius,
+        float tubeBinormalRadius,
+        int numCircleSubdivisions,
+        std::vector<uint32_t>& triangleIndices,
+        std::vector<TubeTriangleVertexData>& vertexDataList,
+        std::vector<LinePointReference>& linePointReferenceList,
+        std::vector<glm::vec3>& lineTangents,
+        std::vector<glm::vec3>& lineNormals) {
+    if (numCircleSubdivisions != globalEllipseVertexPositions.size() || tubeNormalRadius != globalTubeNormalRadius
+            || tubeBinormalRadius != globalTubeBinormalRadius) {
+        initGlobalEllipseVertexPositions(numCircleSubdivisions, tubeNormalRadius, tubeBinormalRadius);
+    }
+
+    for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
+        const std::vector<glm::vec3> &lineCenters = lineCentersList.at(lineId);
+        const std::vector<glm::vec3> &lineNormalsIn = lineNormalsList.at(lineId);
+        size_t n = lineCenters.size();
+        size_t indexOffset = vertexDataList.size();
+
+        if (n < 2) {
+            continue;
+        }
+
+        int numValidLinePoints = 0;
+        for (size_t i = 0; i < n; i++) {
+            glm::vec3 tangent;
+            if (i == 0) {
+                tangent = lineCenters[i+1] - lineCenters[i];
+            } else if (i == n - 1) {
+                tangent = lineCenters[i] - lineCenters[i-1];
+            } else {
+                tangent = (lineCenters[i+1] - lineCenters[i-1]);
+            }
+            float lineSegmentLength = glm::length(tangent);
+
+            if (lineSegmentLength < 0.0001f) {
+                // In case the two vertices are almost identical, just skip this path line segment.
+                continue;
+            }
+            tangent = glm::normalize(tangent);
+            glm::vec3 normal = lineNormalsIn.at(i);
+
+            insertOrientedEllipsePoints(
+                    lineCenters.at(i), tangent, normal, uint32_t(linePointReferenceList.size()),
+                    vertexDataList);
+            lineTangents.push_back(tangent);
+            lineNormals.push_back(normal);
             linePointReferenceList.emplace_back(lineId, i);
             numValidLinePoints++;
         }
@@ -84,6 +174,7 @@ void createTriangleTubesRenderDataCPU(
             }
             linePointReferenceList.pop_back();
             lineTangents.pop_back();
+            lineNormals.pop_back();
             continue;
         }
 

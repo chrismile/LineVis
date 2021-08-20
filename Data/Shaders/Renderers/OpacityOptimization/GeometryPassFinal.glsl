@@ -18,6 +18,9 @@ out VertexData {
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
     uint linePrincipalStressIndex;
 #endif
+#ifdef USE_AMBIENT_OCCLUSION
+    uint lineVertexId;
+#endif
 };
 
 void main() {
@@ -27,6 +30,9 @@ void main() {
     lineOpacity = vertexOpacity;
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
     linePrincipalStressIndex = vertexPrincipalStressIndex;
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    lineVertexId = uint(gl_VertexID);
 #endif
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
 }
@@ -53,6 +59,9 @@ out vec3 normal1;
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
 flat out uint fragmentPrincipalStressIndex;
 #endif
+#ifdef USE_AMBIENT_OCCLUSION
+out float fragmentVertexId;
+#endif
 
 in VertexData {
     vec3 linePosition;
@@ -61,6 +70,9 @@ in VertexData {
     float lineOpacity;
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
     uint linePrincipalStressIndex;
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    uint lineVertexId;
 #endif
 } v_in[];
 
@@ -86,6 +98,9 @@ void main() {
     normal1 = offsetDirection0;
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
     fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    fragmentVertexId = float(v_in[0].lineVertexId);
 #endif
 
     vertexPosition = linePosition0 - lineRadius * offsetDirection0;
@@ -113,6 +128,9 @@ void main() {
     normal1 = offsetDirection1;
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
     fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    fragmentVertexId = float(v_in[1].lineVertexId);
 #endif
 
     vertexPosition = linePosition1 - lineRadius * offsetDirection1;
@@ -151,6 +169,10 @@ in vec3 normal0;
 in vec3 normal1;
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
 flat in uint fragmentPrincipalStressIndex;
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+in float fragmentVertexId;
+float phi;
 #endif
 
 #ifdef USE_COVERAGE_MASK
@@ -222,6 +244,9 @@ void main() {
     }
     float angle = interpolationFactor * M_PI * 0.5;
     fragmentNormal = cos(angle) * normalCos + sin(angle) * normalSin;
+#ifdef USE_AMBIENT_OCCLUSION
+    phi = angle;
+#endif
 
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
     vec4 fragmentColor = transferFunction(fragmentAttribute, fragmentPrincipalStressIndex);

@@ -77,6 +77,9 @@ public:
     // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
     void renderGui() override;
 
+protected:
+    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
+
 private:
     // OpenGL-Vulkan interoperability data.
     sgl::vk::TexturePtr renderTextureVk;
@@ -94,12 +97,12 @@ private:
 
 class RayTracingRenderPass : public sgl::vk::RayTracingPass {
 public:
-    explicit RayTracingRenderPass(sgl::vk::Renderer* renderer, const sgl::CameraPtr& camera);
+    explicit RayTracingRenderPass(sgl::vk::Renderer* renderer, sgl::CameraPtr camera);
 
     // Public interface.
     void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
     void setBackgroundColor(const glm::vec4& color);
-    void setTubeTriangleRenderData(const VulkanTubeTriangleRenderData& triangleRenderData);
+    void setLineData(LineDataPtr& lineData, bool isNewData);
 
 private:
     void loadShader() override;
