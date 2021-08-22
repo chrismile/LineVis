@@ -107,6 +107,7 @@ protected:
 
     // Metadata about renderer.
     bool isRasterizer = true;
+    bool isVulkanRenderer = false;
     std::string windowName;
 
     // For rendering the simulation mesh hull.

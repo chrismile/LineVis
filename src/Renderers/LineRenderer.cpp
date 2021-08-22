@@ -323,7 +323,7 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewData) {
         updateDepthCueGeometryData();
     }
 
-    if (lineData && lineData->hasSimulationMeshOutline()) {
+    if (!isVulkanRenderer && lineData && lineData->hasSimulationMeshOutline()) {
         shaderAttributesHull = sgl::ShaderAttributesPtr();
         shaderAttributesHull = lineData->getGatherShaderAttributesHull(gatherShaderHull);
     }

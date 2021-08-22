@@ -32,6 +32,8 @@
 #include <Graphics/Renderer.hpp>
 
 #ifdef USE_VULKAN_INTEROP
+#include <Graphics/Vulkan/Render/Data.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <Graphics/Vulkan/Render/AccelerationStructure.hpp>
 #endif
 
@@ -208,7 +210,11 @@ void LineData::rebuildInternalRepresentationIfNecessary() {
     if (dirty) {
         //updateMeshTriangleIntersectionDataStructure();
         vulkanTubeTriangleRenderData = {};
-        triangleTopLevelAS = {};
+        vulkanHullTriangleRenderData = {};
+        tubeBottomLevelAS = {};
+        hullBottomLevelAS = {};
+        tubeTopLevelAS = {};
+        tubeAndHullTopLevelAS = {};
         dirty = false;
     }
 }
@@ -378,27 +384,165 @@ void LineData::setUniformGatherShaderDataHull_Pass(sgl::ShaderProgramPtr& gather
 
 
 #ifdef USE_VULKAN_INTEROP
-sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTriangleTopLevelAS() {
+sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeBottomLevelAS() {
     rebuildInternalRepresentationIfNecessary();
-    if (triangleTopLevelAS) {
-        return triangleTopLevelAS;
+    if (tubeBottomLevelAS) {
+        return tubeBottomLevelAS;
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     VulkanTubeTriangleRenderData tubeTriangleRenderData = getVulkanTubeTriangleRenderData(true);
 
-    auto asInput = new sgl::vk::TrianglesAccelerationStructureInput(device);
-    asInput->setIndexBuffer(tubeTriangleRenderData.indexBuffer);
-    asInput->setVertexBuffer(
+    auto asTubeInput = new sgl::vk::TrianglesAccelerationStructureInput(device);
+    asTubeInput->setIndexBuffer(tubeTriangleRenderData.indexBuffer);
+    asTubeInput->setVertexBuffer(
             tubeTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
             sizeof(TubeTriangleVertexData));
-    auto asInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asInput);
+    auto asTubeInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asTubeInput);
+    tubeBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(asTubeInputPtr);
 
-    sgl::vk::BottomLevelAccelerationStructurePtr blas = buildBottomLevelAccelerationStructureFromInput(asInputPtr);
+    return tubeBottomLevelAS;
+}
 
-    triangleTopLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
-    triangleTopLevelAS->build({blas }, {sgl::vk::BlasInstance() });
+sgl::vk::BottomLevelAccelerationStructurePtr LineData::getHullBottomLevelAS() {
+    rebuildInternalRepresentationIfNecessary();
+    if (hullBottomLevelAS) {
+        return hullBottomLevelAS;
+    }
 
-    return triangleTopLevelAS;
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    VulkanHullTriangleRenderData hullTriangleRenderData = getVulkanHullTriangleRenderData(true);
+
+    auto asHullInput = new sgl::vk::TrianglesAccelerationStructureInput(device); // , VkGeometryFlagBitsKHR(0)
+    asHullInput->setIndexBuffer(hullTriangleRenderData.indexBuffer);
+    asHullInput->setVertexBuffer(
+            hullTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
+            sizeof(HullTriangleVertexData));
+    auto asHullInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asHullInput);
+
+    hullBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(asHullInputPtr);
+
+    return hullBottomLevelAS;
+}
+
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleTopLevelAS() {
+    rebuildInternalRepresentationIfNecessary();
+    if (tubeTopLevelAS) {
+        return tubeTopLevelAS;
+    }
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    tubeBottomLevelAS = getTubeBottomLevelAS();
+
+    tubeTopLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
+    tubeTopLevelAS->build({ tubeBottomLevelAS }, { sgl::vk::BlasInstance() });
+
+    return tubeTopLevelAS;
+}
+
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAndHullTriangleTopLevelAS() {
+    rebuildInternalRepresentationIfNecessary();
+    if (tubeAndHullTopLevelAS) {
+        return tubeAndHullTopLevelAS;
+    }
+    if (simulationMeshOutlineTriangleIndices.empty()) {
+        return getRayTracingTubeTriangleTopLevelAS();
+    }
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    tubeBottomLevelAS = getTubeBottomLevelAS();
+    hullBottomLevelAS = getHullBottomLevelAS();
+
+    sgl::vk::BlasInstance tubeBlasInstance, hullBlasInstance;
+    hullBlasInstance.blasIdx = 1;
+    hullBlasInstance.shaderBindingTableRecordOffset = 1;
+
+    tubeAndHullTopLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
+    tubeAndHullTopLevelAS->build(
+            { tubeBottomLevelAS, hullBottomLevelAS }, { tubeBlasInstance, hullBlasInstance });
+
+    return tubeAndHullTopLevelAS;
+}
+
+VulkanHullTriangleRenderData LineData::getVulkanHullTriangleRenderData(bool raytracing) {
+    rebuildInternalRepresentationIfNecessary();
+    if (vulkanHullTriangleRenderData.vertexBuffer) {
+        return vulkanHullTriangleRenderData;
+    }
+    if (simulationMeshOutlineTriangleIndices.empty()) {
+        return {};
+    }
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    vulkanHullTriangleRenderData = {};
+
+    std::vector<HullTriangleVertexData> vertexDataList;
+    vertexDataList.reserve(simulationMeshOutlineVertexPositions.size());
+    for (size_t i = 0; i < simulationMeshOutlineVertexPositions.size(); i++) {
+        HullTriangleVertexData vertex{};
+        vertex.vertexPosition = simulationMeshOutlineVertexPositions.at(i);
+        vertex.vertexNormal = simulationMeshOutlineVertexNormals.at(i);
+        vertexDataList.push_back(vertex);
+    }
+
+    uint32_t indexBufferFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    uint32_t vertexBufferFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    if (raytracing) {
+        indexBufferFlags |=
+                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+        vertexBufferFlags |=
+                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    }
+
+    vulkanHullTriangleRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, simulationMeshOutlineTriangleIndices.size() * sizeof(uint32_t),
+            simulationMeshOutlineTriangleIndices.data(),
+            indexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    vulkanHullTriangleRenderData.vertexBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexDataList.size() * sizeof(HullTriangleVertexData), vertexDataList.data(),
+            vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    return vulkanHullTriangleRenderData;
+}
+
+void LineData::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData) {
+    if (!lineRenderSettingsBuffer) {
+        sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+        lineRenderSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, sizeof(LineRenderSettings),
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VMA_MEMORY_USAGE_GPU_ONLY);
+        hullRenderSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, sizeof(HullRenderSettings),
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VMA_MEMORY_USAGE_GPU_ONLY);
+
+    }
+
+    renderData->setStaticBufferOptional(lineRenderSettingsBuffer, "LineRenderSettingsBuffer");
+    renderData->setStaticBufferOptional(hullRenderSettingsBuffer, "HullRenderSettingsBuffer");
+
+    const sgl::vk::DescriptorInfo& descriptorInfo = renderData->getShaderStages()->getDescriptorInfoByName(
+            0, "transferFunctionTexture");
+    if (descriptorInfo.dim == SpvDim1D) {
+        renderData->setStaticTexture(
+                transferFunctionWindow.getTransferFunctionMapTextureVulkan(), "transferFunctionTexture");
+        renderData->setStaticBufferOptional(transferFunctionWindow.getMinMaxUboVulkan(), "MinMaxUniformBuffer");
+    }
+}
+
+void LineData::updateVulkanUniformBuffers(sgl::vk::Renderer* renderer) {
+    lineRenderSettings.lineWidth = LineRenderer::getLineWidth();
+    lineRenderSettings.hasHullMesh = simulationMeshOutlineTriangleIndices.empty() ? 0 : 1;
+    hullRenderSettings.color = glm::vec4(hullColor.r, hullColor.g, hullColor.b, hullOpacity);
+    hullRenderSettings.useShading = int(hullUseShading);
+
+    lineRenderSettingsBuffer->updateData(
+            sizeof(LineRenderSettings), &lineRenderSettings, renderer->getVkCommandBuffer());
+    hullRenderSettingsBuffer->updateData(
+            sizeof(HullRenderSettings), &hullRenderSettings, renderer->getVkCommandBuffer());
 }
 #endif

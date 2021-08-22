@@ -42,6 +42,10 @@
 #include "LineRenderData.hpp"
 
 namespace sgl { namespace vk {
+class RenderData;
+typedef std::shared_ptr<RenderData> RenderDataPtr;
+class BottomLevelAccelerationStructure;
+typedef std::shared_ptr<BottomLevelAccelerationStructure> BottomLevelAccelerationStructurePtr;
 class TopLevelAccelerationStructure;
 typedef std::shared_ptr<TopLevelAccelerationStructure> TopLevelAccelerationStructurePtr;
 }}
@@ -73,12 +77,12 @@ public:
     LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType);
     virtual ~LineData();
     virtual void update(float dt) {}
-    inline int getSelectedAttributeIndex() { return selectedAttributeIndex; }
+    inline int getSelectedAttributeIndex() const { return selectedAttributeIndex; }
     void setSelectedAttributeIndex(int attributeIndex);
     void onTransferFunctionMapRebuilt();
     inline DataSetType getType() { return dataSetType; }
     // Returns if the visualization mapping needs to be re-generated.
-    inline bool isDirty() { return dirty; }
+    inline bool isDirty() const { return dirty; }
     // Returns if the data needs to be re-rendered, but the visualization mapping is valid.
     virtual bool needsReRender() { bool tmp = reRender; reRender = false; return tmp; }
     // Do non-static settings that lead to a gather shader reload differ?
@@ -144,7 +148,12 @@ public:
 #ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---
     virtual VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(bool raytracing)=0;
-    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTriangleTopLevelAS();
+    virtual VulkanHullTriangleRenderData getVulkanHullTriangleRenderData(bool raytracing);
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleTopLevelAS();
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAndHullTriangleTopLevelAS();
+    virtual std::map<std::string, std::string> getVulkanShaderPreprocessorDefines() { return {}; }
+    virtual void setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData);
+    virtual void updateVulkanUniformBuffers(sgl::vk::Renderer* renderer);
 #endif
 
     // Retrieve simulation mesh outline (optional).
@@ -237,10 +246,31 @@ protected:
 #ifdef USE_VULKAN_INTEROP
     // Caches the rendering data when using Vulkan (as, e.g., the Vulkan ray tracer and AO baking could be used at the
     // same time).
+    sgl::vk::BottomLevelAccelerationStructurePtr getTubeBottomLevelAS();
+    sgl::vk::BottomLevelAccelerationStructurePtr getHullBottomLevelAS();
     VulkanTubeTriangleRenderData vulkanTubeTriangleRenderData;
-    sgl::vk::TopLevelAccelerationStructurePtr triangleTopLevelAS;
-#endif
+    VulkanHullTriangleRenderData vulkanHullTriangleRenderData;
+    sgl::vk::BottomLevelAccelerationStructurePtr tubeBottomLevelAS;
+    sgl::vk::BottomLevelAccelerationStructurePtr hullBottomLevelAS;
+    sgl::vk::TopLevelAccelerationStructurePtr tubeTopLevelAS;
+    sgl::vk::TopLevelAccelerationStructurePtr tubeAndHullTopLevelAS;
 
+    struct LineRenderSettings {
+        float lineWidth;
+        int32_t hasHullMesh;
+    };
+    struct HullRenderSettings {
+        glm::vec4 color;
+        glm::ivec3 padding;
+        int32_t useShading;
+    };
+
+    // Uniform buffers with settings for rendering.
+    LineRenderSettings lineRenderSettings;
+    HullRenderSettings hullRenderSettings;
+    sgl::vk::BufferPtr lineRenderSettingsBuffer;
+    sgl::vk::BufferPtr hullRenderSettingsBuffer;
+#endif
 
     // Optional.
     bool shallRenderSimulationMeshBoundary = false;

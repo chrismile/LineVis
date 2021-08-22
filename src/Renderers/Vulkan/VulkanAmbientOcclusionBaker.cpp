@@ -152,7 +152,7 @@ AmbientOcclusionComputeRenderPass::AmbientOcclusionComputeRenderPass(
 }
 
 void AmbientOcclusionComputeRenderPass::setLineData(LineDataPtr& lineData) {
-    topLevelAS = lineData->getRayTracingTriangleTopLevelAS();
+    topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS();
     lines = lineData->getFilteredLines();
 
     std::vector<LinePoint> linePoints;

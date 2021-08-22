@@ -138,6 +138,7 @@ void createCappedTriangleTubesRenderDataCPU(
         std::vector<uint32_t>& triangleIndices,
         std::vector<TubeTriangleVertexData>& vertexDataList,
         std::vector<LinePointReference>& linePointReferenceList,
+        uint32_t linePointOffset,
         std::vector<glm::vec3>& lineTangents,
         std::vector<glm::vec3>& lineNormals) {
     if (numCircleSubdivisions != globalCircleVertexPositions.size() || tubeRadius != globalTubeRadius) {
@@ -178,7 +179,8 @@ void createCappedTriangleTubesRenderDataCPU(
             tangent = glm::normalize(tangent);
 
             insertOrientedCirclePoints(
-                    lineCenters.at(i), tangent, lastLineNormal, uint32_t(linePointReferenceList.size()),
+                    lineCenters.at(i), tangent, lastLineNormal,
+                    linePointOffset + uint32_t(linePointReferenceList.size()),
                     vertexDataList);
             lineTangents.push_back(tangent);
             lineNormals.push_back(lastLineNormal);
@@ -265,11 +267,13 @@ void createCappedTriangleTubesRenderDataCPU(
             glm::vec3 normal1 = lineNormals[lineIndexOffset + numValidLinePoints - 1];
 
             addHemisphereToMesh(
-                    center1, tangent1, normal1, indexOffset, uint32_t(lineTangents.size() - 1),
+                    center1, tangent1, normal1, indexOffset,
+                    linePointOffset + uint32_t(lineTangents.size() - 1),
                     tubeRadius, numLongitudeSubdivisions, numLatitudeSubdivisions, false,
                     triangleIndices, vertexDataList);
             addHemisphereToMesh(
-                    center0, tangent0, normal0, indexOffset, uint32_t(lineIndexOffset),
+                    center0, tangent0, normal0, indexOffset,
+                    linePointOffset + uint32_t(lineIndexOffset),
                     tubeRadius, numLongitudeSubdivisions, numLatitudeSubdivisions, true,
                     triangleIndices, vertexDataList);
         }

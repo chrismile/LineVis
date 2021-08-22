@@ -488,12 +488,12 @@ VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(bool 
         createCappedTriangleTubesRenderDataCPU(
                 lineCentersList, LineRenderer::getLineWidth() / 2.0f, tubeNumSubdivisions, false,
                 tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
-                lineTangents, lineNormals);
+                0, lineTangents, lineNormals);
     } else {
         createTriangleTubesRenderDataCPU(
                 lineCentersList, LineRenderer::getLineWidth() / 2.0f, tubeNumSubdivisions,
                 tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
-                lineTangents, lineNormals);
+                0, lineTangents, lineNormals);
     }
 
     tubeTriangleLinePointDataList.resize(linePointReferences.size());
@@ -503,6 +503,7 @@ VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(bool 
         Trajectory& trajectory = trajectories.at(linePointReference.trajectoryIndex);
         std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
 
+        tubeTriangleLinePointData.linePosition = trajectory.positions.at(linePointReference.linePointIndex);
         tubeTriangleLinePointData.lineAttribute = attributes.at(linePointReference.linePointIndex);
         tubeTriangleLinePointData.lineTangent = lineTangents.at(i);
         tubeTriangleLinePointData.lineNormal = lineNormals.at(i);

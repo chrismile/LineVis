@@ -110,6 +110,9 @@ public:
 #ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---
     VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(bool raytracing) override;
+    std::map<std::string, std::string> getVulkanShaderPreprocessorDefines() override;
+    void setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData) override;
+    void updateVulkanUniformBuffers(sgl::vk::Renderer* renderer) override;
 #endif
 
     /**
@@ -206,6 +209,19 @@ private:
     // Color legend widgets for different principal stress directions.
     StressLineHierarchyMappingWidget stressLineHierarchyMappingWidget;
     MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
+
+#ifdef USE_VULKAN_INTEROP
+    struct StressLineRenderSettings {
+        glm::vec3 lineHierarchySlider;
+        float bandWidth;
+        glm::ivec3 psUseBands;
+        int currentSeedIdx;
+    };
+
+    // Uniform buffers with settings for rendering.
+    StressLineRenderSettings stressLineRenderSettings;
+    sgl::vk::BufferPtr stressLineRenderSettingsBuffer;
+#endif
 
     // For computing distance do degenerate regions.
     /*const size_t NUM_DISTANCE_MEASURES = 2;

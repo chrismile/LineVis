@@ -44,6 +44,7 @@ void createTriangleTubesRenderDataCPU(
         std::vector<uint32_t>& triangleIndices,
         std::vector<TubeTriangleVertexData>& vertexDataList,
         std::vector<LinePointReference>& linePointReferenceList,
+        uint32_t linePointOffset,
         std::vector<glm::vec3>& lineTangents,
         std::vector<glm::vec3>& lineNormals);
 
@@ -56,6 +57,7 @@ void createTriangleEllipticTubesRenderDataCPU(
         std::vector<uint32_t>& triangleIndices,
         std::vector<TubeTriangleVertexData>& vertexDataList,
         std::vector<LinePointReference>& linePointReferenceList,
+        uint32_t linePointOffset,
         std::vector<glm::vec3>& lineTangents,
         std::vector<glm::vec3>& lineNormals);
 
@@ -76,6 +78,7 @@ void createCappedTriangleTubesRenderDataCPU(
         std::vector<uint32_t>& triangleIndices,
         std::vector<TubeTriangleVertexData>& vertexDataList,
         std::vector<LinePointReference>& linePointReferenceList,
+        uint32_t linePointOffset,
         std::vector<glm::vec3>& lineTangents,
         std::vector<glm::vec3>& lineNormals);
 

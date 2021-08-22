@@ -3,25 +3,76 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
 
-#include "LineRenderSettings.glsl"
-
-layout (binding = 0) uniform CameraSettings {
+layout (binding = 0) uniform CameraSettingsBuffer {
     mat4 inverseViewMatrix;
     mat4 inverseProjectionMatrix;
 } camera;
 
-layout(binding = 5, rgba8) uniform image2D outputImage;
+layout(binding = 1, rgba8) uniform image2D outputImage;
 
-layout(binding = 6) uniform accelerationStructureEXT topLevelAS;
+layout(binding = 2) uniform accelerationStructureEXT topLevelAS;
 
-layout(location = 0) rayPayloadEXT vec4 hitColor;
-#ifdef USE_TRANSPARENCY
-layout(location = 1) rayPayloadEXT float hitT;
-layout(location = 2) rayPayloadEXT bool hasHit;
-#endif
+layout (binding = 3) uniform RayTracerSettingsBuffer {
+    vec3 cameraPosition;
+    uint maxDepthComplexity;
+    vec4 backgroundColor;
+    vec4 foregroundColor;
+};
+
+layout (binding = 4) uniform LineRenderSettingsBuffer {
+    float lineWidth;
+    int hasHullMesh;
+};
+
+layout (binding = 9) uniform HullRenderSettingsBuffer {
+    vec4 color;
+    ivec3 padding;
+    int useShading;
+} hullRenderSettings;
+
+struct RayPayload {
+    vec4 hitColor;
+    float hitT;
+    bool hasHit;
+};
+layout(location = 0) rayPayloadEXT RayPayload payload;
 
 // Minimum distance between two consecutive hits.
-const float HIT_DISTANCE_EPSILON = 1e-6;
+const float HIT_DISTANCE_EPSILON = 1e-5;
+
+#define USE_TRANSPARENCY
+
+vec4 traceRayOpaque(vec3 rayOrigin, vec3 rayDirection) {
+    float tMin = 0.0001f;
+    float tMax = 1000.0f;
+
+    traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, rayOrigin, tMin, rayDirection, tMax, 0);
+
+    return payload.hitColor;
+}
+
+vec4 traceRayTransparent(vec3 rayOrigin, vec3 rayDirection) {
+    vec4 fragmentColor = vec4(0.0);
+
+    float tMin = 0.0001f;
+    float tMax = 1000.0f;
+
+    for (uint hitIdx = 0; hitIdx < maxDepthComplexity; hitIdx++) {
+        traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, rayOrigin, tMin, rayDirection, tMax, 0); // gl_RayFlagsNoneEXT
+
+        tMin = payload.hitT + HIT_DISTANCE_EPSILON;
+
+        // Front-to-back blending (hitColor uses post-multiplied, fragmentColor uses pre-multiplied alpha).
+        fragmentColor.rgb = fragmentColor.rgb + (1.0 - fragmentColor.a) * payload.hitColor.a * payload.hitColor.rgb;
+        fragmentColor.a = fragmentColor.a + (1.0 - fragmentColor.a) * payload.hitColor.a;
+
+        if (!payload.hasHit || fragmentColor.a > 0.99) {
+            break;
+        }
+    }
+
+    return fragmentColor;
+}
 
 void main() {
     vec2 fragNdc = 2.0 * ((vec2(gl_LaunchIDEXT.xy) + vec2(0.5)) / vec2(gl_LaunchSizeEXT.xy)) - 1.0;
@@ -30,29 +81,16 @@ void main() {
     vec3 rayTarget = (camera.inverseProjectionMatrix * vec4(fragNdc.xy, 1.0, 1.0)).xyz;
     vec3 rayDirection = (camera.inverseViewMatrix * vec4(normalize(rayTarget.xyz), 0.0)).xyz;
 
-    float tMin = 0.0001f;
-    float tMax = 1000.0f;
-
-    vec4 fragmentColor = vec4(0.0);
+    vec4 fragmentColor;
 
 #ifdef USE_TRANSPARENCY
-    for (uint hitIdx = 0; hitIdx < maxDepthComplexity; hitIdx++) {
-        traceRayEXT(
-                topLevelAS, 0, 0xFF, 0, 0, 0, rayOrigin, tMin, rayDirection, tMax, 0);
-
-        if (!hasHit) {
-            break;
-        }
-        tMin = hitT + HIT_DISTANCE_EPSILON;
-
-        // Front-to-back blending (hitColor uses post-multiplied, fragmentColor uses pre-multiplied alpha).
-        fragmentColor.rgb = fragmentColor.rgb + (1.0 - fragmentColor.a) * hitColor.a * hitColor.rgb;
-        fragmentColor.a = fragmentColor.a + (1.0 - fragmentColor.a) * hitColor.a;
-    }
+    fragmentColor = traceRayTransparent(rayOrigin, rayDirection);
 #else
-    traceRayEXT(
-            topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, rayOrigin, tMin, rayDirection, tMax, 0);
-    fragmentColor = hitColor;
+    if (hasHullMesh == 1) {
+        fragmentColor = traceRayTransparent(rayOrigin, rayDirection);
+    } else {
+        fragmentColor = traceRayOpaque(rayOrigin, rayDirection);
+    }
 #endif
 
     ivec2 writePos = ivec2(gl_LaunchIDEXT.xy);
@@ -66,20 +104,24 @@ void main() {
 #version 460
 #extension GL_EXT_ray_tracing : require
 
-#include "LineRenderSettings.glsl"
+layout (binding = 3) uniform RayTracerSettingsBuffer {
+    vec3 cameraPosition;
+    uint maxDepthComplexity;
+    vec4 backgroundColor;
+    vec4 foregroundColor;
+};
 
-layout(location = 0) rayPayloadInEXT vec4 hitColor;
-#ifdef USE_TRANSPARENCY
-layout(location = 1) rayPayloadInEXT float hitT;
-layout(location = 2) rayPayloadInEXT bool hasHit;
-#endif
+struct RayPayload {
+    vec4 hitColor;
+    float hitT;
+    bool hasHit;
+};
+layout(location = 0) rayPayloadInEXT RayPayload payload;
 
 void main() {
-    hitColor = backgroundColor;
-#ifdef USE_TRANSPARENCY
-    hitT = 0.0f;
-    hasHit = false;
-#endif
+    payload.hitColor = backgroundColor;
+    payload.hitT = 0.0f;
+    payload.hasHit = false;
 }
 
 
@@ -89,51 +131,77 @@ void main() {
 #extension GL_EXT_ray_tracing : require
 #extension GL_EXT_scalar_block_layout : require
 
-#include "LineRenderSettings.glsl"
+#include "BarycentricInterpolation.glsl"
+#include "TransferFunction.glsl"
+
+layout (binding = 3) uniform RayTracerSettingsBuffer {
+    vec3 cameraPosition;
+    uint maxDepthComplexity;
+    vec4 backgroundColor;
+    vec4 foregroundColor;
+};
+
+layout (binding = 4) uniform LineRenderSettingsBuffer {
+    float lineWidth;
+    int hasHullMesh;
+};
+
+#ifdef STRESS_LINE_DATA
+layout (binding = 5) uniform StressLineRenderSettingsBuffer {
+    vec3 lineHierarchySlider;
+    float bandWidth;
+    ivec3 psUseBands;
+    int currentSeedIdx;
+};
+#endif
 
 struct TubeTriangleVertexData {
     vec3 vertexPosition;
     uint vertexLinePointIndex; ///< Pointer to TubeTriangleLinePointData entry.
     vec3 vertexNormal;
-    float padding;
+    float phi; ///< Angle.
 };
 
 struct TubeTriangleLinePointData {
-    vec3 lineTangent;
+    vec3 linePosition;
     float lineAttribute;
-    vec3 lineNormal;
+    vec3 lineTangent;
     float lineHierarchyLevel; ///< Zero for flow lines.
+    vec3 lineNormal;
     float lineAppearanceOrder; ///< Zero for flow lines.
+    uvec3 padding;
     uint principalStressIndex; ///< Zero for flow lines.
-    float padding0, padding1;
 };
 
-layout(scalar, binding = 2) readonly buffer IndexBuffer {
+layout(scalar, binding = 6) readonly buffer TubeIndexBuffer {
     uvec3 indexBuffer[];
 };
 
-layout(std430, binding = 3) readonly buffer TubeTriangleVertexDataBuffer {
+layout(std430, binding = 7) readonly buffer TubeTriangleVertexDataBuffer {
     TubeTriangleVertexData tubeTriangleVertexDataBuffer[];
 };
 
-layout(std430, binding = 4) readonly buffer TubeTriangleLinePointDataBuffer {
+layout(std430, binding = 8) readonly buffer TubeTriangleLinePointDataBuffer {
     TubeTriangleLinePointData tubeTriangleLinePointDataBuffer[];
 };
 
-layout(location = 0) rayPayloadInEXT vec4 hitColor;
-#ifdef USE_TRANSPARENCY
-layout(location = 1) rayPayloadInEXT float hitT;
-layout(location = 2) rayPayloadInEXT bool hasHit;
+struct RayPayload {
+    vec4 hitColor;
+    float hitT;
+    bool hasHit;
+};
+layout(location = 0) rayPayloadInEXT RayPayload payload;
+
+#define RAYTRACING
+#include "Lighting.glsl"
+
+//#define USE_ORTHOGRAPHIC_TUBE_PROJECTION
+
+#ifndef USE_ORTHOGRAPHIC_TUBE_PROJECTION
+mat3 shearSymmetricMatrix(vec3 p) {
+    return mat3(vec3(0.0, -p.z, p.y), vec3(p.z, 0.0, -p.x), vec3(-p.y, p.x, 0.0));
+}
 #endif
-
-hitAttributeEXT vec2 attribs;
-
-float interpolateFloat(float v0, float v1, float v2, vec3 barycentricCoordinates) {
-    return v0 * barycentricCoordinates.x + v1 * barycentricCoordinates.y + v2 * barycentricCoordinates.z;
-}
-vec3 interpolateVec3(vec3 v0, vec3 v1, vec3 v2, vec3 barycentricCoordinates) {
-    return v0 * barycentricCoordinates.x + v1 * barycentricCoordinates.y + v2 * barycentricCoordinates.z;
-}
 
 void main() {
     uvec3 triangleIndices = indexBuffer[gl_PrimitiveID];
@@ -147,7 +215,7 @@ void main() {
     TubeTriangleLinePointData linePointData1 =  tubeTriangleLinePointDataBuffer[vertexData1.vertexLinePointIndex];
     TubeTriangleLinePointData linePointData2 =  tubeTriangleLinePointDataBuffer[vertexData2.vertexLinePointIndex];
 
-    vec3 fragmentWorldPos = interpolateVec3(
+    vec3 fragmentPositionWorld = interpolateVec3(
             vertexData0.vertexPosition, vertexData1.vertexPosition, vertexData2.vertexPosition, barycentricCoordinates);
     vec3 fragmentNormal = interpolateVec3(
             vertexData0.vertexNormal, vertexData1.vertexNormal, vertexData2.vertexNormal, barycentricCoordinates);
@@ -158,13 +226,252 @@ void main() {
     float fragmentAttribute = interpolateFloat(
             linePointData0.lineAttribute, linePointData1.lineAttribute, linePointData2.lineAttribute, barycentricCoordinates);
 
-    // TODO: Stress lines.
+    const vec3 n = normalize(fragmentNormal);
+    const vec3 v = normalize(cameraPosition - fragmentPositionWorld);
+    const vec3 t = normalize(fragmentTangent);
 
-    //hitColor = vec4(vec3(1.0) - backgroundColor.xyz, 1.0);
-    float val = clamp(fragmentAttribute, 0.0, 1.0);
-    hitColor = vec4(val, 0.0, 0.0, 1.0);
-#ifdef USE_TRANSPARENCY
-    hitT = length(fragmentWorldPos - cameraPosition);
-    hasHit = true;
+#ifdef STRESS_LINE_DATA
+    const float thickness = 0.15f; // hard-coded
+    bool useBand = psUseBands[linePointData0.principalStressIndex] > 0;
+
+    float phi = interpolateFloat(
+            vertexData0.phi, vertexData1.phi, vertexData2.phi, barycentricCoordinates);
+
+    vec3 linePosition = interpolateVec3(
+            linePointData0.linePosition, linePointData1.linePosition, linePointData2.linePosition, barycentricCoordinates);
+    vec3 lineNormal = interpolateVec3(
+            linePointData0.lineNormal, linePointData1.lineNormal, linePointData2.lineNormal, barycentricCoordinates);
+
+    vec3 lineN = normalize(lineNormal);
+    vec3 lineB = cross(t, lineN);
+    mat3 tangentFrameMatrix = mat3(lineN, lineB, t);
+
+#ifdef USE_ORTHOGRAPHIC_TUBE_PROJECTION
+    vec2 localV = normalize((transpose(tangentFrameMatrix) * newV).xy);
+    vec2 p = vec2(thickness * cos(phi), sin(phi));
+    float d = length(p);
+    p = normalize(p);
+    float alpha = acos(dot(localV, p));
+
+    float phiMax = atan(localV.x, -thickness * localV.y);
+
+    vec2 pointMax0 = vec2(thickness * cos(phiMax), sin(phiMax));
+    vec2 pointMax1 = vec2(thickness * cos(phiMax + M_PI), sin(phiMax + M_PI));
+    vec2 planeDir = pointMax1 - pointMax0;
+    float totalDist = length(planeDir);
+    planeDir = normalize(planeDir);
+
+    float beta = acos(dot(planeDir, localV));
+
+    float x = d / sin(beta) * sin(alpha);
+    float ribbonPosition = x / totalDist * 2.0;
+#else
+    // Project onto the tangent plane.
+    const vec3 cNorm = cameraPosition - linePosition;
+    const float dist = dot(cNorm, fragmentTangent);
+    const vec3 cHat = transpose(tangentFrameMatrix) * (cNorm - dist * fragmentTangent);
+    const float lineRadius = (useBand ? bandWidth : lineWidth) * 0.5;
+
+    // Homogeneous, normalized coordinates of the camera position in the tangent plane.
+    const vec3 c = vec3(cHat.xy / lineRadius, 1.0);
+
+    // Primal conic section matrix.
+    //const mat3 A = mat3(
+    //        1.0 / (thickness*thickness), 0.0, 0.0,
+    //        0.0, 1.0, 0.0,
+    //        0.0, 0.0, -1.0
+    //);
+
+    // Polar of c.
+    //const vec3 l = A * c;
+
+    // Polar of c.
+    const float a = 1.0 / (thickness*thickness);
+    const vec3 l = vec3(a * c.x, c.y, -1.0);
+
+    const mat3 M_l = shearSymmetricMatrix(l);
+    //const mat3 B = transpose(M_l) * A * M_l;
+
+    const mat3 B = mat3(
+            l.z*l.z - l.y*l.y, l.x*l.y, -l.x*l.z,
+            l.x*l.y, a*l.z*l.z - l.x*l.x, -a*l.y*l.z,
+            -l.x*l.z, -a*l.y*l.z, a*l.y*l.y + l.x*l.x
+    );
+
+    const float EPSILON = 1e-4;
+    float alpha = 0.0;
+    float discr = 0.0;
+    if (abs(l.z) > EPSILON) {
+        discr = -B[0][0] * B[1][1] + B[0][1] * B[1][0];
+        alpha = sqrt(discr) / l.z;
+    } else if (abs(l.y) > EPSILON) {
+        discr = -B[0][0] * B[2][2] + B[0][2] * B[2][0];
+        alpha = sqrt(discr) / l.y;
+    } else if (abs(l.x) > EPSILON) {
+        discr = -B[1][1] * B[2][2] + B[1][2] * B[2][1];
+        alpha = sqrt(discr) / l.x;
+    }
+
+    mat3 C = B + alpha * M_l;
+
+    vec2 pointMax0 = vec2(0.0);
+    vec2 pointMax1 = vec2(0.0);
+    for (int i = 0; i < 2; ++i) {
+        if (abs(C[i][i]) > EPSILON) {
+            pointMax0 = C[i].xy / C[i].z; // column vector
+            pointMax1 = vec2(C[0][i], C[1][i]) / C[2][i]; // row vector
+        }
+    }
+
+    vec2 p = vec2(thickness * cos(phi), sin(phi));
+
+    vec3 pLineHomogeneous = cross(l, cross(c, vec3(p, 1.0)));
+    vec2 pLine = pLineHomogeneous.xy / pLineHomogeneous.z;
+
+    float ribbonPosition = length(pLine - pointMax0) / length(pointMax1 - pointMax0) * 2.0 - 1.0;
 #endif
+
+#else
+    // Project v into plane perpendicular to t to get newV.
+    vec3 helperVec = normalize(cross(t, v));
+    vec3 newV = normalize(cross(helperVec, t));
+
+    // Get the symmetric ribbon position (ribbon direction is perpendicular to line direction) between 0 and 1.
+    // NOTE: len(cross(a, b)) == area of parallelogram spanned by a and b.
+    vec3 crossProdVn = cross(newV, n);
+    float ribbonPosition = length(crossProdVn);
+
+    // Side note: We can also use the code below, as for a, b with length 1:
+    // sqrt(1 - dot^2(a,b)) = len(cross(a,b))
+    // Due to:
+    // - dot(a,b) = ||a|| ||b|| cos(phi)
+    // - len(cross(a,b)) = ||a|| ||b|| |sin(phi)|
+    // - sin^2(phi) + cos^2(phi) = 1
+    //ribbonPosition = dot(newV, n);
+    //ribbonPosition = sqrt(1 - ribbonPosition * ribbonPosition);
+
+    // Get the winding of newV relative to n, taking into account that t is the normal of the plane both vectors lie in.
+    // NOTE: dot(a, cross(b, c)) = det(a, b, c), which is the signed volume of the parallelepiped spanned by a, b, c.
+    if (dot(t, crossProdVn) < 0.0) {
+        ribbonPosition = -ribbonPosition;
+    }
+    // Normalize the ribbon position: [-1, 1] -> [0, 1].
+    //ribbonPosition = ribbonPosition / 2.0 + 0.5;
+    ribbonPosition = clamp(ribbonPosition, -1.0, 1.0);
+#endif
+
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    vec4 fragmentColor = transferFunction(fragmentAttribute, linePointData0.principalStressIndex);
+#else
+    vec4 fragmentColor = transferFunction(fragmentAttribute);
+#endif
+
+#ifdef STRESS_LINE_DATA
+    fragmentColor = blinnPhongShadingTube(fragmentColor, fragmentPositionWorld, useBand ? 1 : 0, n, t);
+#else
+    fragmentColor = blinnPhongShadingTube(fragmentColor, fragmentPositionWorld, n, t);
+#endif
+
+    float absCoords = abs(ribbonPosition);
+    float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
+    const float WHITE_THRESHOLD = 0.7;
+#ifdef STRESS_LINE_DATA
+    float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / (useBand ? bandWidth : lineWidth), 0.0, 0.49);
+    float EPSILON_WHITE = 1e-5; // TODO
+#else
+    float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / lineWidth, 0.0, 0.49);
+    float EPSILON_WHITE = 1e-5; // TODO
+#endif
+    float coverage = 1.0 - smoothstep(1.0 - EPSILON_OUTLINE, 1.0, absCoords);
+    vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor.rgb,
+            smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),
+            fragmentColor.a * coverage);
+
+#ifdef USE_AMBIENT_OCCLUSION
+    colorOut = vec4(getAoFactor(fragmentVertexId, phi), 0.0, 0.0, 1.0);
+#endif
+
+    payload.hitColor = colorOut;
+    payload.hitT = length(fragmentPositionWorld - cameraPosition);
+    payload.hasHit = true;
+}
+
+
+-- ClosestHitHull
+
+#version 460
+#extension GL_EXT_ray_tracing : require
+#extension GL_EXT_scalar_block_layout : require
+
+#include "BarycentricInterpolation.glsl"
+
+struct HullVertex {
+    vec3 vertexPosition;
+    float padding0;
+    vec3 vertexNormal;
+    float padding1;
+};
+
+layout (binding = 3) uniform RayTracerSettingsBuffer {
+    vec3 cameraPosition;
+    uint maxDepthComplexity;
+    vec4 backgroundColor;
+    vec4 foregroundColor;
+};
+
+layout (binding = 9) uniform HullRenderSettingsBuffer {
+    vec4 color;
+    ivec3 padding;
+    int useShading;
+};
+
+layout(scalar, binding = 10) readonly buffer HullIndexBuffer {
+    uvec3 hullIndexBuffer[];
+};
+
+layout(std430, binding = 11) readonly buffer HullTriangleVertexDataBuffer {
+    HullVertex hullVertices[];
+};
+
+struct RayPayload {
+    vec4 hitColor;
+    float hitT;
+    bool hasHit;
+};
+layout(location = 0) rayPayloadInEXT RayPayload payload;
+
+#define RAYTRACING
+#include "Lighting.glsl"
+
+void main() {
+    uvec3 triangleIndices = hullIndexBuffer[gl_PrimitiveID];
+    const vec3 barycentricCoordinates = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
+
+    HullVertex vertex0 = hullVertices[triangleIndices.x];
+    HullVertex vertex1 = hullVertices[triangleIndices.y];
+    HullVertex vertex2 = hullVertices[triangleIndices.z];
+
+    vec3 fragmentPositionWorld = interpolateVec3(
+            vertex0.vertexPosition, vertex1.vertexPosition, vertex2.vertexPosition, barycentricCoordinates);
+    vec3 fragmentNormal = interpolateVec3(
+            vertex0.vertexNormal, vertex1.vertexNormal, vertex2.vertexNormal, barycentricCoordinates);
+    fragmentNormal = normalize(fragmentNormal);
+
+    vec4 phongColor;
+    if (useShading == 1) {
+        phongColor = blinnPhongShading(color, fragmentPositionWorld, fragmentNormal);
+    } else {
+        phongColor = color;
+    }
+
+    vec3 viewDir = normalize(cameraPosition - fragmentPositionWorld);
+    float cosAngle = dot(fragmentNormal, viewDir);
+    if (cosAngle < 0.0f) {
+        cosAngle *= -1.0f;
+    }
+    phongColor.a *= 1.0f - cosAngle;
+
+    payload.hitColor = phongColor;
+    payload.hitT = length(fragmentPositionWorld - cameraPosition);
+    payload.hasHit = true;
 }

@@ -36,6 +36,7 @@ void createTriangleTubesRenderDataCPU(
         std::vector<uint32_t>& triangleIndices,
         std::vector<TubeTriangleVertexData>& vertexDataList,
         std::vector<LinePointReference>& linePointReferenceList,
+        uint32_t linePointOffset,
         std::vector<glm::vec3>& lineTangents,
         std::vector<glm::vec3>& lineNormals) {
     if (numCircleSubdivisions != globalCircleVertexPositions.size() || tubeRadius != globalTubeRadius) {
@@ -71,7 +72,8 @@ void createTriangleTubesRenderDataCPU(
             tangent = glm::normalize(tangent);
 
             insertOrientedCirclePoints(
-                    lineCenters.at(i), tangent, lastLineNormal, uint32_t(linePointReferenceList.size()),
+                    lineCenters.at(i), tangent, lastLineNormal,
+                    linePointOffset + uint32_t(linePointReferenceList.size()),
                     vertexDataList);
             lineTangents.push_back(tangent);
             lineNormals.push_back(lastLineNormal);
@@ -122,6 +124,7 @@ void createTriangleEllipticTubesRenderDataCPU(
         std::vector<uint32_t>& triangleIndices,
         std::vector<TubeTriangleVertexData>& vertexDataList,
         std::vector<LinePointReference>& linePointReferenceList,
+        uint32_t linePointOffset,
         std::vector<glm::vec3>& lineTangents,
         std::vector<glm::vec3>& lineNormals) {
     if (numCircleSubdivisions != globalEllipseVertexPositions.size() || tubeNormalRadius != globalTubeNormalRadius
@@ -159,7 +162,8 @@ void createTriangleEllipticTubesRenderDataCPU(
             glm::vec3 normal = lineNormalsIn.at(i);
 
             insertOrientedEllipsePoints(
-                    lineCenters.at(i), tangent, normal, uint32_t(linePointReferenceList.size()),
+                    lineCenters.at(i), tangent, normal,
+                    linePointOffset + uint32_t(linePointReferenceList.size()),
                     vertexDataList);
             lineTangents.push_back(tangent);
             lineNormals.push_back(normal);

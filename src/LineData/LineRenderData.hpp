@@ -110,13 +110,14 @@ struct TubeTriangleVertexData {
 };
 
 struct TubeTriangleLinePointData {
-    glm::vec3 lineTangent;
+    glm::vec3 linePosition;
     float lineAttribute;
-    glm::vec3 lineNormal;
+    glm::vec3 lineTangent;
     float lineHierarchyLevel; ///< Zero for flow lines.
+    glm::vec3 lineNormal;
     float lineAppearanceOrder; ///< Zero for flow lines.
-    uint32_t principalStressIndex; ///< Zero for flow lines.
-    float padding0, padding1;
+    glm::uvec3 padding;
+    uint principalStressIndex; ///< Zero for flow lines.
 };
 
 struct LinePointReference {
@@ -127,11 +128,22 @@ struct LinePointReference {
     uint32_t linePointIndex = 0; ///< Index of the line point within the trajectory.
 };
 
+struct HullTriangleVertexData {
+    glm::vec3 vertexPosition;
+    float padding0;
+    glm::vec3 vertexNormal;
+    float padding1;
+};
+
 #ifdef USE_VULKAN_INTEROP
 struct VulkanTubeTriangleRenderData {
     sgl::vk::BufferPtr indexBuffer;
     sgl::vk::BufferPtr vertexBuffer; // TubeTriangleVertexData objects.
     sgl::vk::BufferPtr linePointBuffer; // TubeTriangleLinePointData objects.
+};
+struct VulkanHullTriangleRenderData {
+    sgl::vk::BufferPtr indexBuffer;
+    sgl::vk::BufferPtr vertexBuffer; // HullTriangleVertexData objects.
 };
 #endif
 

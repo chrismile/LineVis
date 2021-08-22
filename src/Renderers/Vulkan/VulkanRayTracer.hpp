@@ -111,9 +111,11 @@ private:
     void _render() override;
 
     sgl::CameraPtr camera;
+    LineDataPtr lineData;
     sgl::vk::ImageViewPtr sceneImageView;
 
     VulkanTubeTriangleRenderData tubeTriangleRenderData;
+    VulkanHullTriangleRenderData hullTriangleRenderData;
     sgl::vk::TopLevelAccelerationStructurePtr topLevelAS;
 
     // Uniform buffer object storing the camera settings.
@@ -126,13 +128,14 @@ private:
 
     // Uniform buffer object storing the line rendering settings.
     void updateLineRenderSettings();
-    struct LineRenderSettings {
-        glm::vec3 cameraPosition;
+    struct RayTracerSettings {
+        glm::vec3 cameraPosition{};
         uint32_t maxDepthComplexity = 1024; // TODO
-        glm::vec4 backgroundColor;
+        glm::vec4 backgroundColor{};
+        glm::vec4 foregroundColor{};
     };
-    LineRenderSettings lineRenderSettings{};
-    sgl::vk::BufferPtr lineRenderSettingsBuffer;
+    RayTracerSettings rayTracerSettings{};
+    sgl::vk::BufferPtr rayTracerSettingsBuffer;
 };
 
 #endif //LINEVIS_VULKANRAYTRACER_HPP

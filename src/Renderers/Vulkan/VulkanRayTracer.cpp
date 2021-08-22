@@ -58,6 +58,8 @@ VulkanRayTracer::VulkanRayTracer(
     rayTracingRenderPass = std::make_shared<RayTracingRenderPass>(rendererVk, sceneData.camera);
     rayTracingRenderPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
 
+    isVulkanRenderer = true;
+
     onResolutionChanged();
 }
 
@@ -66,15 +68,12 @@ VulkanRayTracer::~VulkanRayTracer() {
 }
 
 void VulkanRayTracer::reloadGatherShader(bool canCopyShaderAttributes) {
+    rayTracingRenderPass->setShaderDirty();
 }
 
 void VulkanRayTracer::setLineData(LineDataPtr& lineData, bool isNewData) {
-    if (!this->lineData || lineData->getType() != this->lineData->getType()
-            || lineData->settingsDiffer(this->lineData.get())) {
-        this->lineData = lineData;
-        //reloadGatherShader(false);
-    }
-    this->lineData = lineData;
+    updateNewLineData(lineData, isNewData);
+
     rayTracingRenderPass->setLineData(lineData, isNewData);
 
     dirty = false;
@@ -147,8 +146,8 @@ RayTracingRenderPass::RayTracingRenderPass(sgl::vk::Renderer* renderer, sgl::Cam
             device, sizeof(CameraSettings),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
-    lineRenderSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, sizeof(LineRenderSettings),
+    rayTracerSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(RayTracerSettings),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
 }
@@ -162,39 +161,60 @@ void RayTracingRenderPass::setOutputImage(sgl::vk::ImageViewPtr& imageView) {
 }
 
 void RayTracingRenderPass::setBackgroundColor(const glm::vec4& color) {
-    lineRenderSettings.backgroundColor = color;
+    rayTracerSettings.backgroundColor = color;
+    rayTracerSettings.foregroundColor.x = 1.0f - color.x;
+    rayTracerSettings.foregroundColor.y = 1.0f - color.y;
+    rayTracerSettings.foregroundColor.z = 1.0f - color.z;
+    rayTracerSettings.foregroundColor.w = color.w;
 }
 
 void RayTracingRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
+    this->lineData = lineData;
     tubeTriangleRenderData = lineData->getVulkanTubeTriangleRenderData(true);
-    topLevelAS = lineData->getRayTracingTriangleTopLevelAS();
+    hullTriangleRenderData = lineData->getVulkanHullTriangleRenderData(true);
+    topLevelAS = lineData->getRayTracingTubeAndHullTriangleTopLevelAS();
     dataDirty = true;
 }
 
 void RayTracingRenderPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
+    std::map<std::string, std::string> preprocessorDefines = lineData->getVulkanShaderPreprocessorDefines();
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
-            {"TubeRayTracing.RayGen", "TubeRayTracing.ClosestHit", "TubeRayTracing.Miss"});
+            {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
+             "TubeRayTracing.ClosestHit", "TubeRayTracing.ClosestHitHull"},
+             preprocessorDefines);
 }
 
 void RayTracingRenderPass::createRayTracingData(
         sgl::vk::Renderer* renderer, sgl::vk::RayTracingPipelinePtr& rayTracingPipeline) {
     rayTracingData = std::make_shared<sgl::vk::RayTracingData>(renderer, rayTracingPipeline);
-    rayTracingData->setStaticBuffer(cameraSettingsBuffer, 0);
-    rayTracingData->setStaticBuffer(lineRenderSettingsBuffer, 1);
-    rayTracingData->setStaticBuffer(tubeTriangleRenderData.indexBuffer, 2);
-    rayTracingData->setStaticBuffer(tubeTriangleRenderData.vertexBuffer, 3);
-    rayTracingData->setStaticBuffer(tubeTriangleRenderData.linePointBuffer, 4);
-    rayTracingData->setStaticImageView(sceneImageView, 5);
-    rayTracingData->setTopLevelAccelerationStructure(topLevelAS, 6);
+    rayTracingData->setStaticBuffer(cameraSettingsBuffer, "CameraSettingsBuffer");
+    rayTracingData->setStaticImageView(sceneImageView, "outputImage");
+    rayTracingData->setTopLevelAccelerationStructure(topLevelAS, "topLevelAS");
+    rayTracingData->setStaticBuffer(rayTracerSettingsBuffer, "RayTracerSettingsBuffer");
+    rayTracingData->setStaticBuffer(tubeTriangleRenderData.indexBuffer, "TubeIndexBuffer");
+    rayTracingData->setStaticBuffer(tubeTriangleRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
+    rayTracingData->setStaticBuffer(
+            tubeTriangleRenderData.linePointBuffer, "TubeTriangleLinePointDataBuffer");
+    if (hullTriangleRenderData.indexBuffer) {
+        rayTracingData->setStaticBuffer(hullTriangleRenderData.indexBuffer, "HullIndexBuffer");
+        rayTracingData->setStaticBuffer(
+                hullTriangleRenderData.vertexBuffer, "HullTriangleVertexDataBuffer");
+    } else {
+        // Just bind anything in order for sgl to not complain...
+        rayTracingData->setStaticBuffer(tubeTriangleRenderData.indexBuffer, "HullIndexBuffer");
+        rayTracingData->setStaticBuffer(
+                tubeTriangleRenderData.vertexBuffer, "HullTriangleVertexDataBuffer");
+    }
+    lineData->setVulkanRenderDataDescriptors(std::static_pointer_cast<vk::RenderData>(rayTracingData));
 }
 
 void RayTracingRenderPass::updateLineRenderSettings() {
-    glm::vec3 cameraPosition = glm::vec3(camera->getViewMatrix()[3]);
-    lineRenderSettings.cameraPosition = cameraPosition;
+    glm::vec3 cameraPosition = camera->getPosition();
+    rayTracerSettings.cameraPosition = cameraPosition;
 
-    lineRenderSettingsBuffer->updateData(
-            sizeof(LineRenderSettings), &lineRenderSettings, renderer->getVkCommandBuffer());
+    rayTracerSettingsBuffer->updateData(
+            sizeof(RayTracerSettings), &rayTracerSettings, renderer->getVkCommandBuffer());
 }
 
 void RayTracingRenderPass::_render() {
@@ -205,13 +225,27 @@ void RayTracingRenderPass::_render() {
     cameraSettingsBuffer->updateData(
             sizeof(CameraSettings), &cameraSettings, renderer->getVkCommandBuffer());
 
+    vk::ShaderGroupSettings shaderGroupSettings{};
+    shaderGroupSettings.hitShaderGroupSize = lineData->getShallRenderSimulationMeshBoundary() ? 2 : 1;
+    rayTracingData->setShaderGroupSettings(shaderGroupSettings);
+
+    lineData->updateVulkanUniformBuffers(renderer);
+
     renderer->transitionImageLayout(sceneImageView->getImage(), VK_IMAGE_LAYOUT_GENERAL);
     renderer->traceRays(rayTracingData, launchSizeX, launchSizeY, launchSizeZ);
     renderer->transitionImageLayout(sceneImageView->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 sgl::vk::RayTracingPipelinePtr RayTracingRenderPass::createRayTracingPipeline() {
-    sgl::vk::ShaderBindingTable sbt = sgl::vk::ShaderBindingTable::generateSimpleShaderBindingTable(shaderStages);
+    //sgl::vk::ShaderBindingTable sbt = sgl::vk::ShaderBindingTable::generateSimpleShaderBindingTable(shaderStages);
+    sgl::vk::ShaderBindingTable sbt(shaderStages);
+    sbt.addRayGenShaderGroup()->setRayGenShader(0);
+    sbt.addMissShaderGroup()->setMissShader(1);
+    sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setClosestHitShader(
+            2);
+    sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setClosestHitShader(
+            3);
+
     sgl::vk::RayTracingPipelineInfo rayTracingPipelineInfo(sbt);
     return std::make_shared<sgl::vk::RayTracingPipeline>(device, rayTracingPipelineInfo);
 }

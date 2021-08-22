@@ -32,6 +32,8 @@
 
 #ifdef USE_VULKAN_INTEROP
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
+#include <Graphics/Vulkan/Render/Data.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 #endif
 
 #include "Loaders/TrajectoryFile.hpp"
@@ -370,7 +372,7 @@ bool LineDataStress::loadFromFile(
         fileFormatVersion = dataSetInformation.version;
         modelBoundingBox = computeTrajectoriesPsAABB3(trajectoriesPs);
 
-        std::vector<bool> usedPsDirections = {false, false, false};
+        std::vector<bool> usedPsDirections = { false, false, false };
         for (size_t i = 0; i < loadedPsIndices.size(); i++) {
             int psIdx = loadedPsIndices.at(i);
             colorLegendWidgets[psIdx].setPositionIndex(int(i), int(loadedPsIndices.size()));
@@ -1855,27 +1857,28 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(boo
             createTriangleEllipticTubesRenderDataCPU(
                     lineCentersList, bandPointsListRight, normalRadius, binormalRadius, tubeNumSubdivisions,
                     tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
-                    lineTangents, lineNormals);
+                    uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
         } else {
             createTriangleTubesRenderDataCPU(
                     lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions,
                     tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
-                    lineTangents, lineNormals);
+                    uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
         }
 
         size_t offset = tubeTriangleLinePointDataList.size();
         tubeTriangleLinePointDataList.resize(offset + linePointReferences.size());
-        for (size_t i = offset; i < linePointReferences.size(); i++) {
-            LinePointReference& linePointReference = linePointReferences.at(i);
-            TubeTriangleLinePointData& tubeTriangleLinePointData = tubeTriangleLinePointDataList.at(offset + i);
+        for (size_t ptIdx = 0; ptIdx < linePointReferences.size(); ptIdx++) {
+            LinePointReference& linePointReference = linePointReferences.at(ptIdx);
+            TubeTriangleLinePointData& tubeTriangleLinePointData = tubeTriangleLinePointDataList.at(offset + ptIdx);
             Trajectory& trajectory = trajectories.at(linePointReference.trajectoryIndex);
             StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(linePointReference.trajectoryIndex);
             std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
 
+            tubeTriangleLinePointData.linePosition = trajectory.positions.at(linePointReference.linePointIndex);
             tubeTriangleLinePointData.lineAttribute = attributes.at(linePointReference.linePointIndex);
-            tubeTriangleLinePointData.lineTangent = lineTangents.at(i);
-            tubeTriangleLinePointData.lineNormal = lineNormals.at(i);
-            tubeTriangleLinePointData.principalStressIndex = psIdx;
+            tubeTriangleLinePointData.lineTangent = lineTangents.at(ptIdx);
+            tubeTriangleLinePointData.lineNormal = lineNormals.at(ptIdx);
+            tubeTriangleLinePointData.principalStressIndex = uint32_t(psIdx);
             tubeTriangleLinePointData.lineHierarchyLevel =
                     stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType));
             tubeTriangleLinePointData.lineAppearanceOrder = float(stressTrajectoryData.appearanceOrder);
@@ -1915,5 +1918,49 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(boo
             VMA_MEMORY_USAGE_GPU_ONLY);
 
     return vulkanTubeTriangleRenderData;
+}
+
+std::map<std::string, std::string> LineDataStress::getVulkanShaderPreprocessorDefines() {
+    std::map<std::string, std::string> preprocessorDefines;
+    preprocessorDefines.insert(std::make_pair("STRESS_LINE_DATA", ""));
+    if (usePrincipalStressDirectionIndex) {
+        preprocessorDefines.insert(std::make_pair("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", ""));
+    }
+    return preprocessorDefines;
+}
+
+void LineDataStress::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData) {
+    LineData::setVulkanRenderDataDescriptors(renderData);
+
+    if (!stressLineRenderSettingsBuffer) {
+        sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+        stressLineRenderSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, sizeof(StressLineRenderSettings),
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VMA_MEMORY_USAGE_GPU_ONLY);
+
+    }
+
+    renderData->setStaticBufferOptional(stressLineRenderSettingsBuffer, "StressLineRenderSettingsBuffer");
+
+    if (usePrincipalStressDirectionIndex) {
+        renderData->setStaticTexture(
+                multiVarTransferFunctionWindow.getTransferFunctionMapTextureVulkan(),
+                "transferFunctionTexture");
+        renderData->setStaticBuffer(
+                multiVarTransferFunctionWindow.getMinMaxSsboVulkan(), "MinMaxBuffer");
+    }
+}
+
+void LineDataStress::updateVulkanUniformBuffers(sgl::vk::Renderer* renderer) {
+    LineData::updateVulkanUniformBuffers(renderer);
+
+    stressLineRenderSettings.lineHierarchySlider = glm::vec3(1.0f) - lineHierarchySliderValues;
+    stressLineRenderSettings.bandWidth = LineRenderer::getBandWidth();
+    stressLineRenderSettings.psUseBands = glm::ivec3(psUseBands[0], psUseBands[1], psUseBands[2]);
+    stressLineRenderSettings.currentSeedIdx = int32_t(currentSeedIdx);
+
+    stressLineRenderSettingsBuffer->updateData(
+            sizeof(StressLineRenderSettings), &stressLineRenderSettings, renderer->getVkCommandBuffer());
 }
 #endif
