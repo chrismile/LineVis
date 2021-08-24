@@ -486,15 +486,19 @@ void loadStressTrajectoriesFromFile(
                         glm::vec3& bandPointUnsmoothedRight = bandPointsUnsmoothedRight.at(linePos);
                         bandPointUnsmoothedLeft = bandPointUnsmoothedLeft - trajectoryPoint;
                         bandPointUnsmoothedRight = bandPointUnsmoothedRight - trajectoryPoint;
-                        bandPointUnsmoothedLeft /= 0.005f;
-                        bandPointUnsmoothedRight /= 0.005f;
+                        //bandPointUnsmoothedLeft /= 0.005f;
+                        //bandPointUnsmoothedRight /= 0.005f;
+                        bandPointUnsmoothedLeft = glm::normalize(bandPointUnsmoothedLeft);
+                        bandPointUnsmoothedRight = glm::normalize(bandPointUnsmoothedRight);
 
                         glm::vec3& bandPointSmoothedLeft = bandPointsSmoothedLeft.at(linePos);
                         glm::vec3& bandPointSmoothedRight = bandPointsSmoothedRight.at(linePos);
                         bandPointSmoothedLeft = bandPointSmoothedLeft - trajectoryPoint;
                         bandPointSmoothedRight = bandPointSmoothedRight - trajectoryPoint;
-                        bandPointSmoothedLeft /= 0.005f;
-                        bandPointSmoothedRight /= 0.005f;
+                        //bandPointSmoothedLeft /= 0.005f;
+                        //bandPointSmoothedRight /= 0.005f;
+                        bandPointSmoothedLeft = glm::normalize(bandPointSmoothedLeft);
+                        bandPointSmoothedRight = glm::normalize(bandPointSmoothedRight);
                     }
                 }
             }

@@ -7,7 +7,7 @@ def init_scene():
     g.set_dataset('Arched Bridge 3D (TVCG01, Fig 6, Fig 9)')
     g.set_camera_checkpoint('Closeup')
     g.set_rendering_algorithm_settings({
-        'band_width': 0.003,
+        'band_width': 0.005,
         'depth_cue_strength': 0.8
     })
     g.set_dataset_settings({

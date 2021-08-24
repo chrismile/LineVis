@@ -195,7 +195,7 @@ void RayTracingRenderPass::createRayTracingData(
     rayTracingData->setStaticBuffer(tubeTriangleRenderData.indexBuffer, "TubeIndexBuffer");
     rayTracingData->setStaticBuffer(tubeTriangleRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
     rayTracingData->setStaticBuffer(
-            tubeTriangleRenderData.linePointBuffer, "TubeTriangleLinePointDataBuffer");
+            tubeTriangleRenderData.linePointBuffer, "TubeLinePointDataBuffer");
     if (hullTriangleRenderData.indexBuffer) {
         rayTracingData->setStaticBuffer(hullTriangleRenderData.indexBuffer, "HullIndexBuffer");
         rayTracingData->setStaticBuffer(

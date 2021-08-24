@@ -123,6 +123,7 @@ private:
     std::thread computeThread;
 
     // Line data.
+    LineDataPtr lineData;
     std::vector<std::vector<glm::vec3>> lines;
 
     // Blending weight parametrization for the line segments.
@@ -152,6 +153,7 @@ private:
         glm::vec4 normal;
     };
     sgl::vk::BufferPtr linePointsBuffer;
+    sgl::vk::BufferPtr stressLineDataBuffer;
 
     sgl::vk::BufferPtr blendingWeightParametrizationBuffer;
     sgl::GeometryBufferPtr blendingWeightParametrizationBufferGl;

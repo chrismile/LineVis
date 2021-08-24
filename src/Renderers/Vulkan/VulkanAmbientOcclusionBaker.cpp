@@ -155,63 +155,14 @@ void AmbientOcclusionComputeRenderPass::setLineData(LineDataPtr& lineData) {
     topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS();
     lines = lineData->getFilteredLines();
 
-    std::vector<LinePoint> linePoints;
-    for (size_t lineId = 0; lineId < lines.size(); lineId++) {
-        const std::vector<glm::vec3> &lineCenters = lines.at(lineId);
-        size_t n = lineCenters.size();
-
-        if (n < 2) {
-            continue;
-        }
-
-        glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
-        int numValidLinePoints = 0;
-        for (size_t i = 0; i < n; i++) {
-            glm::vec3 tangent, normal;
-            if (i == 0) {
-                tangent = lineCenters[i+1] - lineCenters[i];
-            } else if (i == n - 1) {
-                tangent = lineCenters[i] - lineCenters[i-1];
-            } else {
-                tangent = (lineCenters[i+1] - lineCenters[i-1]);
-            }
-
-            tangent = glm::normalize(tangent);
-
-            glm::vec3 helperAxis = lastLineNormal;
-            if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
-                // If tangent == lastNormal
-                helperAxis = glm::vec3(0.0f, 1.0f, 0.0f);
-                if (glm::length(glm::cross(helperAxis, normal)) < 0.01f) {
-                    // If tangent == helperAxis
-                    helperAxis = glm::vec3(0.0f, 0.0f, 1.0f);
-                }
-            }
-            normal = glm::normalize(helperAxis - tangent * glm::dot(helperAxis, tangent)); // Gram-Schmidt
-            lastLineNormal = normal;
-
-            LinePoint linePoint;
-            linePoint.position = glm::vec4(lineCenters.at(i).x, lineCenters.at(i).y, lineCenters.at(i).z, 1.0f);
-            linePoint.tangent = glm::vec4(tangent.x, tangent.y, tangent.z, 0.0f);
-            linePoint.normal = glm::vec4(normal.x, normal.y, normal.z, 0.0f);
-            linePoints.push_back(linePoint);
-            numValidLinePoints++;
-        }
-
-        if (numValidLinePoints == 1) {
-            // Only one vertex left -> Output nothing (tube consisting only of one point).
-            linePoints.pop_back();
-            sgl::Logfile::get()->throwError(
-                    "Error in AmbientOcclusionComputeRenderPass::setLineData: numValidLinePoints == 1");
-            continue;
-        }
+    if (this->lineData && this->lineData->getType() != lineData->getType()) {
+        setShaderDirty();
     }
-    linePointsBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, linePoints.size() * sizeof(LinePoint), linePoints.data(),
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY);
+    this->lineData = lineData;
 
-    numLineVertices = uint32_t(linePoints.size());
+    linePointsBuffer = lineData->getVulkanTubeTriangleRenderData(true).linePointBuffer;
+
+    numLineVertices = uint32_t(linePointsBuffer->getSizeInBytes() / sizeof(TubeLinePointData));
     generateBlendingWeightParametrization();
 }
 
@@ -349,7 +300,9 @@ void AmbientOcclusionComputeRenderPass::recomputeStaticParametrization() {
 
 void AmbientOcclusionComputeRenderPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
-    shaderStages = sgl::vk::ShaderManager->getShaderStages({"VulkanAmbientOcclusionBaker.Compute"});
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            {"VulkanAmbientOcclusionBaker.Compute"},
+            lineData->getVulkanShaderPreprocessorDefines());
 }
 
 void AmbientOcclusionComputeRenderPass::setComputePipelineInfo(sgl::vk::ComputePipelineInfo& pipelineInfo) {
@@ -358,15 +311,18 @@ void AmbientOcclusionComputeRenderPass::setComputePipelineInfo(sgl::vk::ComputeP
 void AmbientOcclusionComputeRenderPass::createComputeData(
         sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
     computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
-    computeData->setStaticBuffer(lineRenderSettingsBuffer, 0);
-    computeData->setStaticBuffer(linePointsBuffer, 1);
-    computeData->setStaticBuffer(samplingLocationsBuffer, 2);
-    computeData->setStaticBuffer(aoBufferVk, 3);
-    computeData->setTopLevelAccelerationStructure(topLevelAS, 4);
+    computeData->setStaticBuffer(lineRenderSettingsBuffer, "UniformsBuffer");
+    computeData->setStaticBuffer(linePointsBuffer, "TubeLinePointDataBuffer");
+    computeData->setStaticBuffer(samplingLocationsBuffer, "SamplingLocationsBuffer");
+    computeData->setStaticBuffer(aoBufferVk, "AmbientOcclusionFactorsBuffer");
+    computeData->setTopLevelAccelerationStructure(topLevelAS, "topLevelAS");
+    lineData->setVulkanRenderDataDescriptors(computeData);
 }
 
 void AmbientOcclusionComputeRenderPass::_render() {
-    lineRenderSettings.lineRadius = LineRenderer::getLineWidth();
+    lineData->updateVulkanUniformBuffers(renderer);
+
+    lineRenderSettings.lineRadius = LineRenderer::getLineWidth() * 0.5f;
     lineRenderSettings.numLinePoints = numLineVertices;
     lineRenderSettings.numTubeSubdivisions = numTubeSubdivisions;
     lineRenderSettings.numAmbientOcclusionSamples = numAmbientOcclusionSamplesPerFrame;

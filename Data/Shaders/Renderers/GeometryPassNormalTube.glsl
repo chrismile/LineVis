@@ -535,7 +535,7 @@ void main() {
             fragmentColor.a * coverage);
 
 #ifdef USE_AMBIENT_OCCLUSION
-    colorOut = vec4(getAoFactor(fragmentVertexId, phi), 0.0, 0.0, 1.0);
+    //colorOut = vec4(getAoFactor(fragmentVertexId, phi), 0.0, 0.0, 1.0);
 #endif
 
 #if defined(DIRECT_BLIT_GATHER)

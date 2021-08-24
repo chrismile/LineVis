@@ -50,7 +50,7 @@ void createTriangleTubesRenderDataCPU(
 
 void createTriangleEllipticTubesRenderDataCPU(
         const std::vector<std::vector<glm::vec3>>& lineCentersList,
-        const std::vector<std::vector<glm::vec3>>& lineNormalsList,
+        const std::vector<std::vector<glm::vec3>>& lineRightVectorsList,
         float tubeNormalRadius,
         float tubeBinormalRadius,
         int numEllipseSubdivisions,
@@ -75,6 +75,17 @@ void createTriangleTubesRenderDataGPU(
 void createCappedTriangleTubesRenderDataCPU(
         const std::vector<std::vector<glm::vec3>>& lineCentersList,
         float tubeRadius, int numCircleSubdivisions, bool tubeClosed,
+        std::vector<uint32_t>& triangleIndices,
+        std::vector<TubeTriangleVertexData>& vertexDataList,
+        std::vector<LinePointReference>& linePointReferenceList,
+        uint32_t linePointOffset,
+        std::vector<glm::vec3>& lineTangents,
+        std::vector<glm::vec3>& lineNormals);
+
+void createCappedTriangleEllipticTubesRenderDataCPU(
+        const std::vector<std::vector<glm::vec3>>& lineCentersList,
+        const std::vector<std::vector<glm::vec3>>& lineRightVectorsList,
+        float tubeNormalRadius, float tubeBinormalRadius, int numCircleSubdivisions, bool tubeClosed,
         std::vector<uint32_t>& triangleIndices,
         std::vector<TubeTriangleVertexData>& vertexDataList,
         std::vector<LinePointReference>& linePointReferenceList,

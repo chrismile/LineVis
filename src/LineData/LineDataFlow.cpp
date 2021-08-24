@@ -473,7 +473,7 @@ VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(bool 
     std::vector<glm::vec3> lineNormals;
     std::vector<TubeTriangleVertexData> tubeTriangleVertexDataList;
     std::vector<LinePointReference> linePointReferences;
-    std::vector<TubeTriangleLinePointData> tubeTriangleLinePointDataList;
+    std::vector<TubeLinePointData> tubeTriangleLinePointDataList;
 
     lineCentersList.resize(trajectories.size());
     for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
@@ -483,15 +483,14 @@ VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(bool 
         lineCentersList.at(trajectoryIdx) = trajectories.at(trajectoryIdx).positions;
     }
 
-    bool useCappedTubes = true;
     if (useCappedTubes) {
         createCappedTriangleTubesRenderDataCPU(
-                lineCentersList, LineRenderer::getLineWidth() / 2.0f, tubeNumSubdivisions, false,
+                lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions, false,
                 tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
                 0, lineTangents, lineNormals);
     } else {
         createTriangleTubesRenderDataCPU(
-                lineCentersList, LineRenderer::getLineWidth() / 2.0f, tubeNumSubdivisions,
+                lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions,
                 tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
                 0, lineTangents, lineNormals);
     }
@@ -499,7 +498,7 @@ VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(bool 
     tubeTriangleLinePointDataList.resize(linePointReferences.size());
     for (size_t i = 0; i < linePointReferences.size(); i++) {
         LinePointReference& linePointReference = linePointReferences.at(i);
-        TubeTriangleLinePointData& tubeTriangleLinePointData = tubeTriangleLinePointDataList.at(i);
+        TubeLinePointData& tubeTriangleLinePointData = tubeTriangleLinePointDataList.at(i);
         Trajectory& trajectory = trajectories.at(linePointReference.trajectoryIndex);
         std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
 
@@ -534,7 +533,7 @@ VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(bool 
             vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
 
     vulkanTubeTriangleRenderData.linePointBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, tubeTriangleLinePointDataList.size() * sizeof(TubeTriangleLinePointData),
+            device, tubeTriangleLinePointDataList.size() * sizeof(TubeLinePointData),
             tubeTriangleLinePointDataList.data(),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);

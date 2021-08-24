@@ -117,7 +117,7 @@ void createTriangleTubesRenderDataCPU(
 
 void createTriangleEllipticTubesRenderDataCPU(
         const std::vector<std::vector<glm::vec3>>& lineCentersList,
-        const std::vector<std::vector<glm::vec3>>& lineNormalsList,
+        const std::vector<std::vector<glm::vec3>>& lineRightVectorsList,
         float tubeNormalRadius,
         float tubeBinormalRadius,
         int numCircleSubdivisions,
@@ -134,7 +134,7 @@ void createTriangleEllipticTubesRenderDataCPU(
 
     for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
         const std::vector<glm::vec3> &lineCenters = lineCentersList.at(lineId);
-        const std::vector<glm::vec3> &lineNormalsIn = lineNormalsList.at(lineId);
+        const std::vector<glm::vec3> &lineRightVectors = lineRightVectorsList.at(lineId);
         size_t n = lineCenters.size();
         size_t indexOffset = vertexDataList.size();
 
@@ -159,7 +159,7 @@ void createTriangleEllipticTubesRenderDataCPU(
                 continue;
             }
             tangent = glm::normalize(tangent);
-            glm::vec3 normal = lineNormalsIn.at(i);
+            glm::vec3 normal = glm::cross(lineRightVectors.at(i), tangent);
 
             insertOrientedEllipsePoints(
                     lineCenters.at(i), tangent, normal,

@@ -525,12 +525,17 @@ void LineData::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& rend
     renderData->setStaticBufferOptional(lineRenderSettingsBuffer, "LineRenderSettingsBuffer");
     renderData->setStaticBufferOptional(hullRenderSettingsBuffer, "HullRenderSettingsBuffer");
 
-    const sgl::vk::DescriptorInfo& descriptorInfo = renderData->getShaderStages()->getDescriptorInfoByName(
-            0, "transferFunctionTexture");
-    if (descriptorInfo.dim == SpvDim1D) {
-        renderData->setStaticTexture(
-                transferFunctionWindow.getTransferFunctionMapTextureVulkan(), "transferFunctionTexture");
-        renderData->setStaticBufferOptional(transferFunctionWindow.getMinMaxUboVulkan(), "MinMaxUniformBuffer");
+    if (renderData->getShaderStages()->hasDescriptorBinding(0, "transferFunctionTexture")) {
+        const sgl::vk::DescriptorInfo& descriptorInfo = renderData->getShaderStages()->getDescriptorInfoByName(
+                0, "transferFunctionTexture");
+        if (descriptorInfo.image.arrayed == 0) {
+            renderData->setStaticTexture(
+                    transferFunctionWindow.getTransferFunctionMapTextureVulkan(),
+                    "transferFunctionTexture");
+            renderData->setStaticBuffer(
+                    transferFunctionWindow.getMinMaxUboVulkan(),
+                    "MinMaxUniformBuffer");
+        }
     }
 }
 

@@ -250,7 +250,7 @@ bool LineDataStress::renderGuiLineData(bool isRasterizer) {
 
 bool LineDataStress::renderGuiRenderingSettings() {
     if (useBands() && ImGui::SliderFloat(
-            "Band Width", &LineRenderer::bandWidth, LineRenderer::MIN_LINE_WIDTH, LineRenderer::MAX_LINE_WIDTH,
+            "Band Width", &LineRenderer::bandWidth, LineRenderer::MIN_BAND_WIDTH, LineRenderer::MAX_BAND_WIDTH,
             "%.4f")) {
         reRender = true;
     }
@@ -1813,7 +1813,7 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(boo
 
     std::vector<uint32_t> tubeTriangleIndices;
     std::vector<TubeTriangleVertexData> tubeTriangleVertexDataList;
-    std::vector<TubeTriangleLinePointData> tubeTriangleLinePointDataList;
+    std::vector<TubeLinePointData> tubeTriangleLinePointDataList;
 
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
         int psIdx = loadedPsIndices.at(i);
@@ -1852,24 +1852,38 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(boo
                 }
             }
 
-            float normalRadius = LineRenderer::getBandWidth() * 0.5f;
-            float binormalRadius = normalRadius * 0.15f;
-            createTriangleEllipticTubesRenderDataCPU(
-                    lineCentersList, bandPointsListRight, normalRadius, binormalRadius, tubeNumSubdivisions,
-                    tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
-                    uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
+            float binormalRadius = LineRenderer::getBandWidth() * 0.5f;
+            float normalRadius = binormalRadius * 0.15f;
+            if (useCappedTubes) {
+                createCappedTriangleEllipticTubesRenderDataCPU(
+                        lineCentersList, bandPointsListRight, normalRadius, binormalRadius, tubeNumSubdivisions,
+                        false, tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                        uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
+            } else {
+                createTriangleEllipticTubesRenderDataCPU(
+                        lineCentersList, bandPointsListRight, normalRadius, binormalRadius, tubeNumSubdivisions,
+                        tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                        uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
+            }
         } else {
-            createTriangleTubesRenderDataCPU(
-                    lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions,
-                    tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
-                    uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
+            if (useCappedTubes) {
+                createCappedTriangleTubesRenderDataCPU(
+                        lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions,
+                        false, tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                        uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
+            } else {
+                createTriangleTubesRenderDataCPU(
+                        lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions,
+                        tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                        uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
+            }
         }
 
         size_t offset = tubeTriangleLinePointDataList.size();
         tubeTriangleLinePointDataList.resize(offset + linePointReferences.size());
         for (size_t ptIdx = 0; ptIdx < linePointReferences.size(); ptIdx++) {
             LinePointReference& linePointReference = linePointReferences.at(ptIdx);
-            TubeTriangleLinePointData& tubeTriangleLinePointData = tubeTriangleLinePointDataList.at(offset + ptIdx);
+            TubeLinePointData& tubeTriangleLinePointData = tubeTriangleLinePointDataList.at(offset + ptIdx);
             Trajectory& trajectory = trajectories.at(linePointReference.trajectoryIndex);
             StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(linePointReference.trajectoryIndex);
             std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
@@ -1912,7 +1926,7 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(boo
             vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
 
     vulkanTubeTriangleRenderData.linePointBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, tubeTriangleLinePointDataList.size() * sizeof(TubeTriangleLinePointData),
+            device, tubeTriangleLinePointDataList.size() * sizeof(TubeLinePointData),
             tubeTriangleLinePointDataList.data(),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
@@ -1943,7 +1957,8 @@ void LineDataStress::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr
 
     renderData->setStaticBufferOptional(stressLineRenderSettingsBuffer, "StressLineRenderSettingsBuffer");
 
-    if (usePrincipalStressDirectionIndex) {
+    if (usePrincipalStressDirectionIndex
+            && renderData->getShaderStages()->hasDescriptorBinding(0, "transferFunctionTexture")) {
         renderData->setStaticTexture(
                 multiVarTransferFunctionWindow.getTransferFunctionMapTextureVulkan(),
                 "transferFunctionTexture");

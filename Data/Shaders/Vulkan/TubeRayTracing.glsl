@@ -157,12 +157,12 @@ layout (binding = 5) uniform StressLineRenderSettingsBuffer {
 
 struct TubeTriangleVertexData {
     vec3 vertexPosition;
-    uint vertexLinePointIndex; ///< Pointer to TubeTriangleLinePointData entry.
+    uint vertexLinePointIndex; ///< Pointer to TubeLinePointData entry.
     vec3 vertexNormal;
     float phi; ///< Angle.
 };
 
-struct TubeTriangleLinePointData {
+struct TubeLinePointData {
     vec3 linePosition;
     float lineAttribute;
     vec3 lineTangent;
@@ -181,8 +181,8 @@ layout(std430, binding = 7) readonly buffer TubeTriangleVertexDataBuffer {
     TubeTriangleVertexData tubeTriangleVertexDataBuffer[];
 };
 
-layout(std430, binding = 8) readonly buffer TubeTriangleLinePointDataBuffer {
-    TubeTriangleLinePointData tubeTriangleLinePointDataBuffer[];
+layout(std430, binding = 8) readonly buffer TubeLinePointDataBuffer {
+    TubeLinePointData tubeLinePointDataBuffer[];
 };
 
 struct RayPayload {
@@ -211,9 +211,9 @@ void main() {
     TubeTriangleVertexData vertexData1 = tubeTriangleVertexDataBuffer[triangleIndices.y];
     TubeTriangleVertexData vertexData2 = tubeTriangleVertexDataBuffer[triangleIndices.z];
 
-    TubeTriangleLinePointData linePointData0 =  tubeTriangleLinePointDataBuffer[vertexData0.vertexLinePointIndex];
-    TubeTriangleLinePointData linePointData1 =  tubeTriangleLinePointDataBuffer[vertexData1.vertexLinePointIndex];
-    TubeTriangleLinePointData linePointData2 =  tubeTriangleLinePointDataBuffer[vertexData2.vertexLinePointIndex];
+    TubeLinePointData linePointData0 =  tubeLinePointDataBuffer[vertexData0.vertexLinePointIndex];
+    TubeLinePointData linePointData1 =  tubeLinePointDataBuffer[vertexData1.vertexLinePointIndex];
+    TubeLinePointData linePointData2 =  tubeLinePointDataBuffer[vertexData2.vertexLinePointIndex];
 
     vec3 fragmentPositionWorld = interpolateVec3(
             vertexData0.vertexPosition, vertexData1.vertexPosition, vertexData2.vertexPosition, barycentricCoordinates);
@@ -231,10 +231,10 @@ void main() {
     const vec3 t = normalize(fragmentTangent);
 
 #ifdef STRESS_LINE_DATA
-    const float thickness = 0.15f; // hard-coded
     bool useBand = psUseBands[linePointData0.principalStressIndex] > 0;
+    const float thickness = useBand ? 0.15 : 1.0; // hard-coded
 
-    float phi = interpolateFloat(
+    float phi = interpolateAngle(
             vertexData0.phi, vertexData1.phi, vertexData2.phi, barycentricCoordinates);
 
     vec3 linePosition = interpolateVec3(

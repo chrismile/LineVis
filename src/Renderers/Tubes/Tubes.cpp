@@ -120,11 +120,12 @@ std::vector<glm::vec3> globalEllipseVertexNormals;
 
 void initGlobalEllipseVertexPositions(int numCircleSubdivisions, float tubeNormalRadius, float tubeBinormalRadius) {
     globalEllipseVertexPositions.clear();
+    globalEllipseVertexNormals.clear();
     globalTubeNormalRadius = tubeNormalRadius;
     globalTubeBinormalRadius = tubeBinormalRadius;
 
     for (int i = 0; i < numCircleSubdivisions; i++) {
-        float t = float(i) / float(numCircleSubdivisions) * 2.0f * float(M_PI);
+        float t = float(i) / float(numCircleSubdivisions) * sgl::TWO_PI;
         float cosAngle = std::cos(t);
         float sinAngle = std::sin(t);
         glm::vec3 localPosition = glm::vec3(tubeNormalRadius * cosAngle, tubeBinormalRadius * sinAngle, 0.0f);
@@ -159,7 +160,7 @@ void insertOrientedEllipsePoints(
         tubeTriangleVertexData.vertexPosition = transformedPoint;
         tubeTriangleVertexData.vertexLinePointIndex = vertexLinePointIndex;
         tubeTriangleVertexData.vertexNormal = transformedNormal;
-        tubeTriangleVertexData.phi = float(i) / float(globalCircleVertexPositions.size()) * sgl::TWO_PI;
+        tubeTriangleVertexData.phi = float(i) / float(globalEllipseVertexPositions.size()) * sgl::TWO_PI;
         vertexDataList.push_back(tubeTriangleVertexData);
     }
 }

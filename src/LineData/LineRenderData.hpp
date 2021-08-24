@@ -104,12 +104,12 @@ struct SimulationMeshOutlineRenderData {
 
 struct TubeTriangleVertexData {
     glm::vec3 vertexPosition;
-    uint32_t vertexLinePointIndex; ///< Pointer to TubeTriangleLinePointData entry.
+    uint32_t vertexLinePointIndex; ///< Pointer to TubeLinePointData entry.
     glm::vec3 vertexNormal;
     float phi; ///< Angle.
 };
 
-struct TubeTriangleLinePointData {
+struct TubeLinePointData {
     glm::vec3 linePosition;
     float lineAttribute;
     glm::vec3 lineTangent;
@@ -139,7 +139,7 @@ struct HullTriangleVertexData {
 struct VulkanTubeTriangleRenderData {
     sgl::vk::BufferPtr indexBuffer;
     sgl::vk::BufferPtr vertexBuffer; // TubeTriangleVertexData objects.
-    sgl::vk::BufferPtr linePointBuffer; // TubeTriangleLinePointData objects.
+    sgl::vk::BufferPtr linePointBuffer; // TubeLinePointData objects.
 };
 struct VulkanHullTriangleRenderData {
     sgl::vk::BufferPtr indexBuffer;

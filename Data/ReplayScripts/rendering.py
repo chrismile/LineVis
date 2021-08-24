@@ -6,7 +6,7 @@ def init_scene():
     g.set_camera_checkpoint('Overview')
     g.set_rendering_algorithm_settings({
         'line_width': 0.007,
-        'band_width': 0.005,
+        'band_width': 0.020,
         'depth_cue_strength': 0.0
     })
     g.set_dataset_settings({

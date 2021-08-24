@@ -143,7 +143,9 @@ protected:
 
     // Minimum and maximum values in the UI.
     static constexpr float MIN_LINE_WIDTH = 0.001f;
-    static constexpr float MAX_LINE_WIDTH = 0.008f;
+    static constexpr float MAX_LINE_WIDTH = 0.020f;
+    static constexpr float MIN_BAND_WIDTH = 0.001f;
+    static constexpr float MAX_BAND_WIDTH = 0.020f;
     static float lineWidth;
     static float bandWidth;
 };
