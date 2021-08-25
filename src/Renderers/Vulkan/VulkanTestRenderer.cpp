@@ -144,12 +144,3 @@ void VulkanTestRenderer::render() {
     sgl::Renderer->blitTexture(
             renderTextureGl, sgl::AABB2(glm::vec2(-1, -1), glm::vec2(1, 1)));
 }
-
-void VulkanTestRenderer::renderGui() {
-    if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
-        reRender = true;
-    }
-    if (lineData) {
-        lineData->renderGuiRenderingSettings();
-    }
-}

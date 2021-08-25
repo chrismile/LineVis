@@ -512,6 +512,10 @@ VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(bool 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     vulkanTubeTriangleRenderData = {};
 
+    if (tubeTriangleIndices.empty()) {
+        return vulkanTubeTriangleRenderData;
+    }
+
     uint32_t indexBufferFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
     uint32_t vertexBufferFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     if (raytracing) {

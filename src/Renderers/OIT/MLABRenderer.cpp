@@ -347,12 +347,8 @@ void MLABRenderer::resolve() {
 }
 
 void MLABRenderer::renderGui() {
-    if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
-        reRender = true;
-    }
-    if (lineData) {
-        lineData->renderGuiRenderingSettings();
-    }
+    LineRenderer::renderGui();
+
     if (ImGui::SliderInt("Num Layers", &numLayers, 1, 64)) {
         updateLayerMode();
         reloadShaders();

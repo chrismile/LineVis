@@ -75,8 +75,10 @@ public:
     sgl::vk::BufferPtr getBlendingWeightsBufferVulkan() override;
     uint32_t getNumTubeSubdivisions() override;
     uint32_t getNumLineVertices() override;
+    uint32_t getNumParametrizationVertices() override;
 
-    void renderGui() override;
+    /// Returns whether the baking process was re-run.
+    bool renderGui() override;
 
 private:
     // OpenGL-Vulkan interoperability data.
@@ -91,7 +93,7 @@ private:
     std::shared_ptr<AmbientOcclusionComputeRenderPass> aoComputeRenderPass;
 
     // How many iterations do we want to use for the ray tracer until we assume the result has converged?
-    int maxNumIterations = 1;
+    int maxNumIterations = 128;
     int numIterations = 0;
 
     bool useMainThread = false;
@@ -113,6 +115,7 @@ public:
     inline sgl::vk::BufferPtr getBlendingWeightsBufferVulkan() { return blendingWeightParametrizationBuffer; }
     inline uint32_t getNumTubeSubdivisions() const { return numTubeSubdivisions; }
     inline uint32_t getNumLineVertices() const { return numLineVertices; }
+    inline uint32_t getNumParametrizationVertices() const { return numParametrizationVertices; }
 
 private:
     void loadShader() override;
@@ -135,13 +138,13 @@ private:
     // Resolution of the ambient occlusion data.
     float expectedParamSegmentLength = 0.001f;
     uint32_t numTubeSubdivisions = 8;
-    uint32_t numAmbientOcclusionSamplesPerFrame = 64;
-    float ambientOcclusionRadius = 0.05f;
+    uint32_t numAmbientOcclusionSamplesPerFrame = 16;
+    float ambientOcclusionRadius = 0.1f;
     bool useDistance = true;
 
     // Information about geometry data.
     uint32_t numPolylineSegments = 0;
-    uint32_t numLineSegments = 0;
+    uint32_t numParametrizationVertices = 0;
     uint32_t numLineVertices = 0;
 
     sgl::vk::BufferPtr& aoBufferVk;
@@ -153,7 +156,6 @@ private:
         glm::vec4 normal;
     };
     sgl::vk::BufferPtr linePointsBuffer;
-    sgl::vk::BufferPtr stressLineDataBuffer;
 
     sgl::vk::BufferPtr blendingWeightParametrizationBuffer;
     sgl::GeometryBufferPtr blendingWeightParametrizationBufferGl;
@@ -166,22 +168,22 @@ private:
     struct LineRenderSettings {
         // The radius of the lines.
         float lineRadius;
+        // What is the radius to take into account for ambient occlusion?
+        float ambientOcclusionRadius;
 
         // How many line points exist in total (i.e., the number of entries in the buffer "LineGeometry").
         uint32_t numLinePoints;
+        // How many line points exist in total (i.e., the number of entries in the buffer "LineGeometry").
+        uint32_t numParametrizationVertices;
         // How often should the tube be subdivided in the normal plane?
         uint32_t numTubeSubdivisions;
-        // The number of this frame (used for accumulation of samples accross frames).
+        // The number of this frame (used for accumulation of samples across frames).
         uint32_t frameNumber;
 
         // How many rays should the shader shoot?
         uint32_t numAmbientOcclusionSamples;
-        // What is the radius to take into account for ambient occlusion?
-        float ambientOcclusionRadius;
         // Should the distance of the AO hits be used?
         int useDistance;
-
-        int padding = 0;
     };
     LineRenderSettings lineRenderSettings{};
     sgl::vk::BufferPtr lineRenderSettingsBuffer;

@@ -17,22 +17,22 @@ layout(local_size_x = 256) in;
 layout(binding = 0) uniform UniformsBuffer {
     // The radius of the lines.
     float lineRadius;
+    // What is the radius to take into account for ambient occlusion?
+    float ambientOcclusionRadius;
 
     // How many line points exist in total (i.e., the number of entries in the buffer "LineGeometry").
     uint numLinePoints;
+    // How many line points exist in total (i.e., the number of entries in the buffer "LineGeometry").
+    uint numParametrizationVertices;
     // How often should the tube be subdivided in the normal plane?
     uint numTubeSubdivisions;
-    // The number of this frame (used for accumulation of samples accross frames).
+    // The number of this frame (used for accumulation of samples across frames).
     uint frameNumber;
 
     // How many rays should the shader shoot?
     uint numAmbientOcclusionSamples;
-    // What is the radius to take into account for ambient occlusion?
-    float ambientOcclusionRadius;
     // Should the distance of the AO hits be used?
     int useDistance;
-
-    int padding;
 };
 
 #ifdef STRESS_LINE_DATA
@@ -81,7 +81,7 @@ layout(binding = 5) uniform accelerationStructureEXT topLevelAS;
 
 LinePoint getInterpolatedLinePoint(uint lineSamplingIdx) {
     float samplingLocation = samplingLocations[lineSamplingIdx];
-    uint lowerIdx = uint(floor(lineSamplingIdx));
+    uint lowerIdx = uint(samplingLocation);
     uint upperIdx = min(lowerIdx + 1u, numLinePoints - 1u);
     float interpolationFactor = fract(samplingLocation);
 
@@ -140,7 +140,7 @@ float traceAoRay(rayQueryEXT rayQuery, vec3 rayOrigin, vec3 rayDirection) {
 }
 
 void main() {
-    if (gl_GlobalInvocationID.x >= numLinePoints) {
+    if (gl_GlobalInvocationID.x >= numParametrizationVertices) {
         return;
     }
 

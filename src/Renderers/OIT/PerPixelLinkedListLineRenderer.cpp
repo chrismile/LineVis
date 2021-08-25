@@ -341,12 +341,8 @@ void PerPixelLinkedListLineRenderer::resolve() {
 }
 
 void PerPixelLinkedListLineRenderer::renderGui() {
-    if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
-        reRender = true;
-    }
-    if (lineData) {
-        lineData->renderGuiRenderingSettings();
-    }
+    LineRenderer::renderGui();
+
     if (ImGui::Combo(
             "Sorting Mode", (int*)&sortingAlgorithmMode, SORTING_MODE_NAMES, NUM_SORTING_MODES)) {
         setSortingAlgorithmDefine();

@@ -103,13 +103,18 @@ bool LineData::renderGuiRenderer(bool isRasterizer) {
             dirty = true;
             shallReloadGatherShader = true;
         }
+    }
 
-        if (renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION
-            && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
-                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND)) {
-            if (ImGui::SliderInt("Tube Subdivisions", &tubeNumSubdivisions, 3, 8)) {
+    bool isTriangleRepresentationUsed = lineRenderer && lineRenderer->getIsTriangleRepresentationUsed();
+    if (isTriangleRepresentationUsed
+            || (isRasterizer && renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION
+                                && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
+                                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND))) {
+        if (ImGui::SliderInt("Tube Subdivisions", &tubeNumSubdivisions, 3, 8)) {
+            if (isRasterizer) {
                 shallReloadGatherShader = true;
             }
+            setTriangleRepresentationDirty();
         }
     }
 
@@ -141,6 +146,10 @@ bool LineData::renderGuiLineData(bool isRasterizer) {
             attributeNames.data(), attributeNames.size())) {
         setSelectedAttributeIndex(selectedAttributeIndexUi);
     }
+    return false;
+}
+
+bool LineData::renderGuiRenderingSettings() {
     return false;
 }
 
@@ -207,7 +216,7 @@ void LineData::recomputeColorLegend() {
 }
 
 void LineData::rebuildInternalRepresentationIfNecessary() {
-    if (dirty) {
+    if (dirty || triangleRepresentationDirty) {
         //updateMeshTriangleIntersectionDataStructure();
         vulkanTubeTriangleRenderData = {};
         vulkanHullTriangleRenderData = {};
@@ -216,6 +225,7 @@ void LineData::rebuildInternalRepresentationIfNecessary() {
         tubeTopLevelAS = {};
         tubeAndHullTopLevelAS = {};
         dirty = false;
+        triangleRepresentationDirty = false;
     }
 }
 
@@ -393,6 +403,10 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeBottomLevelAS() {
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     VulkanTubeTriangleRenderData tubeTriangleRenderData = getVulkanTubeTriangleRenderData(true);
 
+    if (!tubeTriangleRenderData.indexBuffer) {
+        return tubeBottomLevelAS;
+    }
+
     auto asTubeInput = new sgl::vk::TrianglesAccelerationStructureInput(device);
     asTubeInput->setIndexBuffer(tubeTriangleRenderData.indexBuffer);
     asTubeInput->setVertexBuffer(
@@ -412,6 +426,10 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getHullBottomLevelAS() {
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     VulkanHullTriangleRenderData hullTriangleRenderData = getVulkanHullTriangleRenderData(true);
+
+    if (!hullTriangleRenderData.indexBuffer) {
+        return hullBottomLevelAS;
+    }
 
     auto asHullInput = new sgl::vk::TrianglesAccelerationStructureInput(device); // , VkGeometryFlagBitsKHR(0)
     asHullInput->setIndexBuffer(hullTriangleRenderData.indexBuffer);
@@ -434,6 +452,10 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleTop
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     tubeBottomLevelAS = getTubeBottomLevelAS();
 
+    if (!tubeBottomLevelAS) {
+        return tubeTopLevelAS;
+    }
+
     tubeTopLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
     tubeTopLevelAS->build({ tubeBottomLevelAS }, { sgl::vk::BlasInstance() });
 
@@ -453,6 +475,10 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAndHullTria
     tubeBottomLevelAS = getTubeBottomLevelAS();
     hullBottomLevelAS = getHullBottomLevelAS();
 
+    if (!tubeBottomLevelAS || !hullBottomLevelAS) {
+        return tubeAndHullTopLevelAS;
+    }
+
     sgl::vk::BlasInstance tubeBlasInstance, hullBlasInstance;
     hullBlasInstance.blasIdx = 1;
     hullBlasInstance.shaderBindingTableRecordOffset = 1;
@@ -462,6 +488,14 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAndHullTria
             { tubeBottomLevelAS, hullBottomLevelAS }, { tubeBlasInstance, hullBlasInstance });
 
     return tubeAndHullTopLevelAS;
+}
+
+std::map<std::string, std::string> LineData::getVulkanShaderPreprocessorDefines() {
+    std::map<std::string, std::string> preprocessorDefines;
+    if (useCappedTubes) {
+        preprocessorDefines.insert(std::make_pair("USE_CAPPED_TUBES", ""));
+    }
+    return preprocessorDefines;
 }
 
 VulkanHullTriangleRenderData LineData::getVulkanHullTriangleRenderData(bool raytracing) {

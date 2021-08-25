@@ -65,12 +65,15 @@ public:
 #endif
     virtual uint32_t getNumTubeSubdivisions()=0;
     virtual uint32_t getNumLineVertices()=0;
+    virtual uint32_t getNumParametrizationVertices()=0;
 
-    virtual void renderGui() {}
+    /// Returns whether the baking process was re-run.
+    virtual bool renderGui() { return false; }
 
 protected:
     sgl::TransferFunctionWindow& transferFunctionWindow;
     sgl::vk::Renderer* rendererVk;
+    bool showWindow = true;
 };
 
 typedef std::shared_ptr<AmbientOcclusionBaker> AmbientOcclusionBakerPtr;

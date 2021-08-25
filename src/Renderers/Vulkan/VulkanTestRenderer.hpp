@@ -66,8 +66,6 @@ public:
 
     // Renders the object to the scene framebuffer.
     void render() override;
-    // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
-    void renderGui() override;
 
 private:
     // OpenGL-Vulkan interoperability data.

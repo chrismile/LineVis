@@ -67,7 +67,7 @@ void addHemisphereToMesh(
 
             TubeTriangleVertexData tubeTriangleVertexData{};
             tubeTriangleVertexData.vertexPosition = transformedPoint;
-            tubeTriangleVertexData.vertexLinePointIndex = vertexLinePointIndex;
+            tubeTriangleVertexData.vertexLinePointIndex = vertexLinePointIndex | 0x80000000u;
             tubeTriangleVertexData.vertexNormal = vertexNormal;
             tubeTriangleVertexData.phi = phi;
             vertexDataList.push_back(tubeTriangleVertexData);
@@ -320,7 +320,7 @@ void addEllipticHemisphereToMesh(
 
             TubeTriangleVertexData tubeTriangleVertexData{};
             tubeTriangleVertexData.vertexPosition = transformedPoint;
-            tubeTriangleVertexData.vertexLinePointIndex = vertexLinePointIndex;
+            tubeTriangleVertexData.vertexLinePointIndex = vertexLinePointIndex | 0x80000000u;
             tubeTriangleVertexData.vertexNormal = vertexNormal;
             tubeTriangleVertexData.phi = phi;
             vertexDataList.push_back(tubeTriangleVertexData);

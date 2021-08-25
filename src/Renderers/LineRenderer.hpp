@@ -55,9 +55,11 @@ public:
     virtual ~LineRenderer();
 
     /// Returns if the visualization mapping needs to be re-generated.
-    inline bool isDirty() { return dirty; }
+    inline bool isDirty() const { return dirty; }
     /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
     virtual bool needsReRender() { bool tmp = reRender; reRender = false; return tmp; }
+    /// Returns whether the triangle representation is used by the renderer.
+    virtual bool getIsTriangleRepresentationUsed() const;
 
     /**
      * Re-generates the visualization mapping.
@@ -83,6 +85,8 @@ public:
 
     /// Called when the camera has moved.
     virtual void onHasMoved() {}
+    // If the re-rendering was triggered from an outside source, frame accumulation cannot be used.
+    virtual void notifyReRenderTriggeredExternally() {}
 
     // For changing performance measurement modes.
     virtual void setNewState(const InternalState& newState) { }
@@ -100,7 +104,8 @@ protected:
     virtual void reloadGatherShader(bool canCopyShaderAttributes = true);
     void updateNewLineData(LineDataPtr& lineData, bool isNewData);
     // GUI rendering code to be implemented by sub-classes.
-    virtual void renderGui()=0;
+    virtual void renderGui();
+    void renderLineWidthSlider();
     bool showRendererWindow = true;
     // Rendering helpers for sub-classes.
     void renderHull();

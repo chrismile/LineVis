@@ -514,12 +514,7 @@ void MBOITRenderer::resolve() {
 }
 
 void MBOITRenderer::renderGui() {
-    if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
-        reRender = true;
-    }
-    if (lineData) {
-        lineData->renderGuiRenderingSettings();
-    }
+    LineRenderer::renderGui();
 
     // USE_R_RG_RGBA_FOR_MBOIT6
     const char *const momentModes[] = {

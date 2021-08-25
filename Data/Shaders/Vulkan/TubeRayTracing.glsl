@@ -3,6 +3,10 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
 
+#ifdef USE_JITTERED_RAYS
+#include "RayTracingUtilities.glsl"
+#endif
+
 layout (binding = 0) uniform CameraSettingsBuffer {
     mat4 inverseViewMatrix;
     mat4 inverseProjectionMatrix;
@@ -17,6 +21,11 @@ layout (binding = 3) uniform RayTracerSettingsBuffer {
     uint maxDepthComplexity;
     vec4 backgroundColor;
     vec4 foregroundColor;
+
+    uvec3 paddingVec;
+
+    // The number of this frame (used for accumulation of samples across frames).
+    uint frameNumber;
 };
 
 layout (binding = 4) uniform LineRenderSettingsBuffer {
@@ -75,11 +84,20 @@ vec4 traceRayTransparent(vec3 rayOrigin, vec3 rayDirection) {
 }
 
 void main() {
+    ivec2 outputImageSize = imageSize(outputImage);
+
+#ifdef USE_JITTERED_RAYS
+    uint seed = tea(gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * outputImageSize.x, frameNumber);
+    vec2 xi = vec2(rnd(seed), rnd(seed));
+    vec2 fragNdc = 2.0 * ((vec2(gl_LaunchIDEXT.xy) + xi) / vec2(gl_LaunchSizeEXT.xy)) - 1.0;
+#else
     vec2 fragNdc = 2.0 * ((vec2(gl_LaunchIDEXT.xy) + vec2(0.5)) / vec2(gl_LaunchSizeEXT.xy)) - 1.0;
+#endif
 
     vec3 rayOrigin = (camera.inverseViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
     vec3 rayTarget = (camera.inverseProjectionMatrix * vec4(fragNdc.xy, 1.0, 1.0)).xyz;
     vec3 rayDirection = (camera.inverseViewMatrix * vec4(normalize(rayTarget.xyz), 0.0)).xyz;
+
 
     vec4 fragmentColor;
 
@@ -94,7 +112,11 @@ void main() {
 #endif
 
     ivec2 writePos = ivec2(gl_LaunchIDEXT.xy);
-    writePos.y = imageSize(outputImage).y - writePos.y - 1;
+    writePos.y = outputImageSize.y - writePos.y - 1;
+    if (frameNumber != 0) {
+        vec4 fragmentColorPrev = imageLoad(outputImage, writePos);
+        fragmentColor = mix(fragmentColorPrev, fragmentColor, 1.0 / float(frameNumber + 1));
+    }
     imageStore(outputImage, writePos, fragmentColor);
 }
 
@@ -109,6 +131,11 @@ layout (binding = 3) uniform RayTracerSettingsBuffer {
     uint maxDepthComplexity;
     vec4 backgroundColor;
     vec4 foregroundColor;
+
+    uvec3 paddingVec;
+
+    // The number of this frame (used for accumulation of samples across frames).
+    uint frameNumber;
 };
 
 struct RayPayload {
@@ -139,6 +166,11 @@ layout (binding = 3) uniform RayTracerSettingsBuffer {
     uint maxDepthComplexity;
     vec4 backgroundColor;
     vec4 foregroundColor;
+
+    uvec3 paddingVec;
+
+    // The number of this frame (used for accumulation of samples across frames).
+    uint frameNumber;
 };
 
 layout (binding = 4) uniform LineRenderSettingsBuffer {
@@ -211,9 +243,20 @@ void main() {
     TubeTriangleVertexData vertexData1 = tubeTriangleVertexDataBuffer[triangleIndices.y];
     TubeTriangleVertexData vertexData2 = tubeTriangleVertexDataBuffer[triangleIndices.z];
 
+#ifdef USE_CAPPED_TUBES
+    TubeLinePointData linePointData0 =  tubeLinePointDataBuffer[vertexData0.vertexLinePointIndex & 0x7FFFFFFFu];
+    TubeLinePointData linePointData1 =  tubeLinePointDataBuffer[vertexData1.vertexLinePointIndex & 0x7FFFFFFFu];
+    TubeLinePointData linePointData2 =  tubeLinePointDataBuffer[vertexData2.vertexLinePointIndex & 0x7FFFFFFFu];
+    bool isCap =
+            bitfieldExtract(vertexData0.vertexLinePointIndex, 31, 1) > 0u
+            || bitfieldExtract(vertexData1.vertexLinePointIndex, 31, 1) > 0u
+            || bitfieldExtract(vertexData2.vertexLinePointIndex, 31, 1) > 0u;
+    //isCap = false;
+#else
     TubeLinePointData linePointData0 =  tubeLinePointDataBuffer[vertexData0.vertexLinePointIndex];
     TubeLinePointData linePointData1 =  tubeLinePointDataBuffer[vertexData1.vertexLinePointIndex];
     TubeLinePointData linePointData2 =  tubeLinePointDataBuffer[vertexData2.vertexLinePointIndex];
+#endif
 
     vec3 fragmentPositionWorld = interpolateVec3(
             vertexData0.vertexPosition, vertexData1.vertexPosition, vertexData2.vertexPosition, barycentricCoordinates);
@@ -235,13 +278,54 @@ void main() {
     const float thickness = useBand ? 0.15 : 1.0; // hard-coded
 
     float phi = interpolateAngle(
-            vertexData0.phi, vertexData1.phi, vertexData2.phi, barycentricCoordinates);
+    vertexData0.phi, vertexData1.phi, vertexData2.phi, barycentricCoordinates);
 
     vec3 linePosition = interpolateVec3(
-            linePointData0.linePosition, linePointData1.linePosition, linePointData2.linePosition, barycentricCoordinates);
+    linePointData0.linePosition, linePointData1.linePosition, linePointData2.linePosition, barycentricCoordinates);
     vec3 lineNormal = interpolateVec3(
-            linePointData0.lineNormal, linePointData1.lineNormal, linePointData2.lineNormal, barycentricCoordinates);
+    linePointData0.lineNormal, linePointData1.lineNormal, linePointData2.lineNormal, barycentricCoordinates);
+#endif
 
+    float ribbonPosition;
+
+#ifdef USE_CAPPED_TUBES
+    if (isCap) {
+        vec3 crossProdVn = cross(v, n);
+        ribbonPosition = length(crossProdVn);
+
+
+        // Project v into plane perpendicular to t to get newV.
+        vec3 helperVec = normalize(cross(t, v));
+        vec3 newV = normalize(cross(helperVec, t));
+
+        // Get the symmetric ribbon position (ribbon direction is perpendicular to line direction) between 0 and 1.
+        // NOTE: len(cross(a, b)) == area of parallelogram spanned by a and b.
+        vec3 crossProdVn2 = cross(newV, n);
+        float ribbonPosition2 = length(crossProdVn2);
+
+        // Side note: We can also use the code below, as for a, b with length 1:
+        // sqrt(1 - dot^2(a,b)) = len(cross(a,b))
+        // Due to:
+        // - dot(a,b) = ||a|| ||b|| cos(phi)
+        // - len(cross(a,b)) = ||a|| ||b|| |sin(phi)|
+        // - sin^2(phi) + cos^2(phi) = 1
+        //ribbonPosition = dot(newV, n);
+        //ribbonPosition = sqrt(1 - ribbonPosition * ribbonPosition);
+
+        // Get the winding of newV relative to n, taking into account that t is the normal of the plane both vectors lie in.
+        // NOTE: dot(a, cross(b, c)) = det(a, b, c), which is the signed volume of the parallelepiped spanned by a, b, c.
+        if (dot(t, crossProdVn) < 0.0) {
+            ribbonPosition2 = -ribbonPosition2;
+        }
+        // Normalize the ribbon position: [-1, 1] -> [0, 1].
+        //ribbonPosition = ribbonPosition / 2.0 + 0.5;
+        ribbonPosition2 = clamp(ribbonPosition2, -1.0, 1.0);
+
+        ribbonPosition = min(ribbonPosition, abs(ribbonPosition2));
+    } else {
+#endif
+
+#ifdef STRESS_LINE_DATA
     vec3 lineN = normalize(lineNormal);
     vec3 lineB = cross(t, lineN);
     mat3 tangentFrameMatrix = mat3(lineN, lineB, t);
@@ -264,7 +348,7 @@ void main() {
     float beta = acos(dot(planeDir, localV));
 
     float x = d / sin(beta) * sin(alpha);
-    float ribbonPosition = x / totalDist * 2.0;
+    ribbonPosition = x / totalDist * 2.0;
 #else
     // Project onto the tangent plane.
     const vec3 cNorm = cameraPosition - linePosition;
@@ -328,7 +412,7 @@ void main() {
     vec3 pLineHomogeneous = cross(l, cross(c, vec3(p, 1.0)));
     vec2 pLine = pLineHomogeneous.xy / pLineHomogeneous.z;
 
-    float ribbonPosition = length(pLine - pointMax0) / length(pointMax1 - pointMax0) * 2.0 - 1.0;
+    ribbonPosition = length(pLine - pointMax0) / length(pointMax1 - pointMax0) * 2.0 - 1.0;
 #endif
 
 #else
@@ -339,7 +423,7 @@ void main() {
     // Get the symmetric ribbon position (ribbon direction is perpendicular to line direction) between 0 and 1.
     // NOTE: len(cross(a, b)) == area of parallelogram spanned by a and b.
     vec3 crossProdVn = cross(newV, n);
-    float ribbonPosition = length(crossProdVn);
+    ribbonPosition = length(crossProdVn);
 
     // Side note: We can also use the code below, as for a, b with length 1:
     // sqrt(1 - dot^2(a,b)) = len(cross(a,b))
@@ -360,7 +444,11 @@ void main() {
     ribbonPosition = clamp(ribbonPosition, -1.0, 1.0);
 #endif
 
-#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+#ifdef USE_CAPPED_TUBES
+    }
+#endif
+
+    #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
     vec4 fragmentColor = transferFunction(fragmentAttribute, linePointData0.principalStressIndex);
 #else
     vec4 fragmentColor = transferFunction(fragmentAttribute);
@@ -417,6 +505,11 @@ layout (binding = 3) uniform RayTracerSettingsBuffer {
     uint maxDepthComplexity;
     vec4 backgroundColor;
     vec4 foregroundColor;
+
+    uvec3 paddingVec;
+
+    // The number of this frame (used for accumulation of samples across frames).
+    uint frameNumber;
 };
 
 layout (binding = 9) uniform HullRenderSettingsBuffer {

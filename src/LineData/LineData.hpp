@@ -83,6 +83,10 @@ public:
     inline DataSetType getType() { return dataSetType; }
     // Returns if the visualization mapping needs to be re-generated.
     inline bool isDirty() const { return dirty; }
+    // Returns if the triangle mesh visualization mapping needs to be re-generated.
+    inline bool isTriangleRepresentationDirty() const { return triangleRepresentationDirty; }
+    // A renderer can signal that the triangle representation has changed.
+    inline void setTriangleRepresentationDirty() { triangleRepresentationDirty = true; }
     // Returns if the data needs to be re-rendered, but the visualization mapping is valid.
     virtual bool needsReRender() { bool tmp = reRender; reRender = false; return tmp; }
     // Do non-static settings that lead to a gather shader reload differ?
@@ -142,8 +146,8 @@ public:
     virtual TubeRenderData getTubeRenderData()=0;
     virtual TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch()=0;
     virtual TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization()=0;
-    virtual BandRenderData getBandRenderData() { return BandRenderData(); }
-    virtual BandRenderData getTubeBandRenderData() { return BandRenderData(); }
+    virtual BandRenderData getBandRenderData() { return {}; }
+    virtual BandRenderData getTubeBandRenderData() { return {}; }
 
 #ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---
@@ -151,7 +155,7 @@ public:
     virtual VulkanHullTriangleRenderData getVulkanHullTriangleRenderData(bool raytracing);
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleTopLevelAS();
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAndHullTriangleTopLevelAS();
-    virtual std::map<std::string, std::string> getVulkanShaderPreprocessorDefines() { return {}; }
+    virtual std::map<std::string, std::string> getVulkanShaderPreprocessorDefines();
     virtual void setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData);
     virtual void updateVulkanUniformBuffers(sgl::vk::Renderer* renderer);
 #endif
@@ -177,7 +181,7 @@ public:
     /**
      * For changing other line rendering settings.
      */
-    virtual bool renderGuiRenderingSettings() { return false; }
+    virtual bool renderGuiRenderingSettings();
     /**
      * For rendering a separate ImGui window.
      * @return true if the gather shader needs to be reloaded.
@@ -204,16 +208,19 @@ public:
         LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER,
         LINE_PRIMITIVES_BAND, //< Only for stress lines for now.
         LINE_PRIMITIVES_TUBE_BAND, //< Only for stress lines for now.
+        LINE_PRIMITIVES_TRIANGLE_MESH //< Not supported so far.
     };
     inline LinePrimitiveMode getLinePrimitiveMode() { return linePrimitiveMode; }
     inline bool useBands() {
         return linePrimitiveMode == LINE_PRIMITIVES_BAND || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND;
     }
 
+    /// This function should be called by sub-classes before accessing internal rendering data.
+    void rebuildInternalRepresentationIfNecessary();
+
 protected:
     void loadSimulationMeshOutlineFromFile(
             const std::string& simulationMeshFilename, const sgl::AABB3& oldAABB, glm::mat4* transformationMatrixPtr);
-    void rebuildInternalRepresentationIfNecessary();
     virtual void recomputeColorLegend();
 
     DataSetType dataSetType;
@@ -224,6 +231,7 @@ protected:
     int selectedAttributeIndex = 0; ///< Selected attribute/importance criterion index.
     int selectedAttributeIndexUi = 0;
     bool dirty = false; ///< Should be set to true if the representation changed.
+    bool triangleRepresentationDirty = false; ///< Should be set to true if the triangle mesh representation changed.
     bool reRender = false;
     sgl::TransferFunctionWindow& transferFunctionWindow;
 

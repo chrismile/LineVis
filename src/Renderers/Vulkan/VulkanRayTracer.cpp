@@ -57,8 +57,10 @@ VulkanRayTracer::VulkanRayTracer(
 
     rayTracingRenderPass = std::make_shared<RayTracingRenderPass>(rendererVk, sceneData.camera);
     rayTracingRenderPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
+    rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
 
     isVulkanRenderer = true;
+    isRasterizer = false;
 
     onResolutionChanged();
 }
@@ -69,6 +71,12 @@ VulkanRayTracer::~VulkanRayTracer() {
 
 void VulkanRayTracer::reloadGatherShader(bool canCopyShaderAttributes) {
     rayTracingRenderPass->setShaderDirty();
+    accumulatedFramesCounter = 0;
+}
+
+bool VulkanRayTracer::getIsTriangleRepresentationUsed() const {
+    // TODO: Adapt if using AABB representation?
+    return LineRenderer::getIsTriangleRepresentationUsed() || true;
 }
 
 void VulkanRayTracer::setLineData(LineDataPtr& lineData, bool isNewData) {
@@ -76,6 +84,7 @@ void VulkanRayTracer::setLineData(LineDataPtr& lineData, bool isNewData) {
 
     rayTracingRenderPass->setLineData(lineData, isNewData);
 
+    accumulatedFramesCounter = 0;
     dirty = false;
     reRender = true;
 }
@@ -97,13 +106,23 @@ void VulkanRayTracer::onResolutionChanged() {
 
     rayTracingRenderPass->setOutputImage(renderTextureVk->getImageView());
     rayTracingRenderPass->recreateSwapchain(width, height);
+
+    accumulatedFramesCounter = 0;
 }
 
 void VulkanRayTracer::render() {
     renderReadySemaphore->signalSemaphoreGl(renderTextureGl, GL_NONE);
 
+    if (accumulatedFramesCounter >= maxNumAccumulatedFrames) {
+        Logfile::get()->throwError(
+                "Error in VulkanRayTracer::render: accumulatedFramesCounter >= maxNumAccumulatedFrames. "
+                "This should never happen!");
+        accumulatedFramesCounter = 0;
+    }
+
     rendererVk->beginCommandBuffer();
     rayTracingRenderPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
+    rayTracingRenderPass->setFrameNumber(accumulatedFramesCounter);
     rayTracingRenderPass->render();
     rendererVk->endCommandBuffer();
 
@@ -128,16 +147,39 @@ void VulkanRayTracer::render() {
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
     sgl::Renderer->blitTexture(
             renderTextureGl, sgl::AABB2(glm::vec2(-1, -1), glm::vec2(1, 1)));
+
+    if (accumulatedFramesCounter < maxNumAccumulatedFrames) {
+        accumulatedFramesCounter++;
+    }
 }
 
 void VulkanRayTracer::renderGui() {
-    if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
-        reRender = true;
-    }
-    if (lineData) {
-        lineData->renderGuiRenderingSettings();
+    LineRenderer::renderGui();
+
+    if (ImGui::SliderInt("#Accum. Frames", reinterpret_cast<int*>(&maxNumAccumulatedFrames), 1, 32)) {
+        rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
+        accumulatedFramesCounter = 0;
     }
 }
+
+bool VulkanRayTracer::needsReRender() {
+    if (accumulatedFramesCounter < maxNumAccumulatedFrames) {
+        return true;
+    }
+    return false;
+}
+
+void VulkanRayTracer::notifyReRenderTriggeredExternally() {
+    accumulatedFramesCounter = 0;
+}
+
+void VulkanRayTracer::onHasMoved() {
+    accumulatedFramesCounter = 0;
+}
+
+void VulkanRayTracer::update(float dt) {
+}
+
 
 
 RayTracingRenderPass::RayTracingRenderPass(sgl::vk::Renderer* renderer, sgl::CameraPtr camera)
@@ -179,6 +221,9 @@ void RayTracingRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
 void RayTracingRenderPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines = lineData->getVulkanShaderPreprocessorDefines();
+    if (maxNumFrames > 1) {
+        preprocessorDefines.insert(std::make_pair("USE_JITTERED_RAYS", ""));
+    }
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
             {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
              "TubeRayTracing.ClosestHit", "TubeRayTracing.ClosestHitHull"},

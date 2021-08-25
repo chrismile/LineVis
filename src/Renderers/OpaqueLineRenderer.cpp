@@ -247,12 +247,8 @@ void OpaqueLineRenderer::render() {
 }
 
 void OpaqueLineRenderer::renderGui() {
-    if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
-        reRender = true;
-    }
-    if (lineData) {
-        lineData->renderGuiRenderingSettings();
-    }
+    LineRenderer::renderGui();
+
     if (shaderAttributesDegeneratePoints && hasDegeneratePoints
             && ImGui::Checkbox("Show Degenerate Points", &showDegeneratePoints)) {
         reRender = true;

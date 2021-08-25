@@ -50,7 +50,13 @@ VulkanAmbientOcclusionBaker::VulkanAmbientOcclusionBaker(
 void VulkanAmbientOcclusionBaker::startAmbientOcclusionBaking(LineDataPtr& lineData) {
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
 
-    aoComputeRenderPass->setLineData(lineData);
+    if (lineData) {
+        aoComputeRenderPass->setLineData(lineData);
+    }
+
+    if (aoComputeRenderPass->getNumLineVertices() == 0) {
+        return;
+    }
 
     VkCommandPool commandPool;
     sgl::vk::CommandPoolType commandPoolType;
@@ -124,21 +130,53 @@ uint32_t VulkanAmbientOcclusionBaker::getNumLineVertices() {
     return aoComputeRenderPass->getNumLineVertices();
 }
 
-void VulkanAmbientOcclusionBaker::renderGui() {
-    ImGui::Checkbox("Use Main Thread", &useMainThread);
-    ImGui::SliderInt("#Iterations", &maxNumIterations, 1, 4096);
+uint32_t VulkanAmbientOcclusionBaker::getNumParametrizationVertices() {
+    return aoComputeRenderPass->getNumParametrizationVertices();
+}
 
-    ImGui::SliderFloat(
-            "Tube AO Resolution", &aoComputeRenderPass->expectedParamSegmentLength, 0.001f, 0.01f);
-    ImGui::SliderInt(
-            "#Tube Subdivisions",
-            reinterpret_cast<int*>(&aoComputeRenderPass->numTubeSubdivisions), 3, 16);
-    ImGui::SliderInt(
-            "#AO Samples per Frame",
-            reinterpret_cast<int*>(&aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame), 1, 4096);
-    ImGui::SliderFloat(
-            "AO Radius", &aoComputeRenderPass->ambientOcclusionRadius, 0.01f, 0.1f);
-    ImGui::Checkbox("Use Distance-based AO", &aoComputeRenderPass->useDistance);
+bool VulkanAmbientOcclusionBaker::renderGui() {
+    bool dirty = false;
+
+    if (ImGui::Begin("RTAO Baking", &showWindow)) {
+        ImGui::Checkbox("Use Main Thread", &useMainThread);
+
+        if (ImGui::SliderInt("#Iterations", &maxNumIterations, 1, 4096)) {
+            dirty = true;
+        }
+        if (ImGui::SliderFloat(
+                "Line Resolution", &aoComputeRenderPass->expectedParamSegmentLength,
+                0.0001f, 0.01f, "%.4f")) {
+            dirty = true;
+        }
+        if (ImGui::SliderInt(
+                "#Subdivisions",
+                reinterpret_cast<int*>(&aoComputeRenderPass->numTubeSubdivisions), 3, 16)) {
+            dirty = true;
+        }
+        if (ImGui::SliderInt(
+                "#Samples/Frame",
+                reinterpret_cast<int*>(&aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame),
+                1, 4096)) {
+            dirty = true;
+        }
+        if (ImGui::SliderFloat(
+                "AO Radius", &aoComputeRenderPass->ambientOcclusionRadius, 0.01f, 0.2f)) {
+            dirty = true;
+        }
+        if (ImGui::Checkbox("Use Distance-based AO", &aoComputeRenderPass->useDistance)) {
+            dirty = true;
+        }
+
+        ImGui::End();
+    }
+
+    if (dirty) {
+        aoComputeRenderPass->generateBlendingWeightParametrization();
+        LineDataPtr lineData;
+        startAmbientOcclusionBaking(lineData);
+    }
+
+    return dirty;
 }
 
 
@@ -162,8 +200,26 @@ void AmbientOcclusionComputeRenderPass::setLineData(LineDataPtr& lineData) {
 
     linePointsBuffer = lineData->getVulkanTubeTriangleRenderData(true).linePointBuffer;
 
-    numLineVertices = uint32_t(linePointsBuffer->getSizeInBytes() / sizeof(TubeLinePointData));
-    generateBlendingWeightParametrization();
+    numLineVertices = linePointsBuffer ? uint32_t(linePointsBuffer->getSizeInBytes() / sizeof(TubeLinePointData)) : 0;
+    if (numLineVertices != 0) {
+        generateBlendingWeightParametrization();
+    } else {
+        linesLengthSum = 0.0f;
+        numPolylineSegments = 0;
+        polylineLengths.clear();
+
+        numParametrizationVertices = 0;
+
+        blendingWeightParametrizationBuffer = sgl::vk::BufferPtr();
+        blendingWeightParametrizationBufferGl = sgl::GeometryBufferPtr();
+
+        lineSegmentVertexConnectivityBuffer = sgl::vk::BufferPtr();
+
+        samplingLocationsBuffer = sgl::vk::BufferPtr();
+
+        aoBufferVk = sgl::vk::BufferPtr();
+        aoBufferGl = sgl::GeometryBufferPtr();
+    }
 }
 
 void AmbientOcclusionComputeRenderPass::generateBlendingWeightParametrization() {
@@ -212,6 +268,7 @@ void AmbientOcclusionComputeRenderPass::recomputeStaticParametrization() {
 
         uint32_t numLineSubdivs = std::max(1u, uint32_t(std::ceil(polylineLength / expectedParamSegmentLength)));
         float lineSubdivLength = polylineLength / float(numLineSubdivs);
+        uint32_t numSubdivVertices = numLineSubdivs + 1;
 
         // Set the first vertex manually (we can guarantee there is no segment before it).
         assert(line.size() >= 2);
@@ -223,13 +280,9 @@ void AmbientOcclusionComputeRenderPass::recomputeStaticParametrization() {
         float currentLength = 0.0f;
         for (size_t i = 1; i < n; i++) {
             currentLength += glm::length(line[i] - line[i-1]);
-            float w =
-                    float(numLineSubdivs - 1u)
-                    * (currentLength - lineSubdivLength / 2.0f)
-                    / (polylineLength - lineSubdivLength);
+            float w = currentLength / lineSubdivLength;
             blendingWeightParametrizationData.at(vertexIdx) =
-                    float(segmentVertexIdOffset)
-                    + glm::clamp(w, 0.0f, float(numLineSubdivs - 1u) - EPSILON);
+                    float(segmentVertexIdOffset) + glm::clamp(w, 0.0f, float(numLineSubdivs) - EPSILON);
             vertexIdx++;
         }
 
@@ -237,10 +290,10 @@ void AmbientOcclusionComputeRenderPass::recomputeStaticParametrization() {
         currentLength = glm::length(line[1] - line[0]);
         size_t currVertexIdx = 1;
         samplingLocations.push_back(float(startVertexIdx));
-        for (uint32_t i = 1; i < numLineSubdivs; i++) {
+        for (uint32_t i = 1; i < numSubdivVertices; i++) {
             auto parametrizationIdx = uint32_t(currentLength / lineSubdivLength);
-            while (i > parametrizationIdx && currVertexIdx < n) {
-                float segLength = glm::length(line[currVertexIdx] - line[currVertexIdx-1]);
+            while (i > parametrizationIdx && currVertexIdx < n - 1) {
+                float segLength = glm::length(line[currVertexIdx + 1] - line[currVertexIdx]);
                 lastLength = currentLength;
                 currentLength += segLength;
                 parametrizationIdx = uint32_t(currentLength / lineSubdivLength);
@@ -254,21 +307,21 @@ void AmbientOcclusionComputeRenderPass::recomputeStaticParametrization() {
             samplingLocations.push_back(samplingLocation);
         }
 
-        if (numLineSubdivs == 1) {
+        if (numSubdivVertices == 1) {
             lineSegmentVertexConnectivityData.emplace_back(segmentVertexIdOffset, segmentVertexIdOffset);
         } else {
             lineSegmentVertexConnectivityData.emplace_back(segmentVertexIdOffset, segmentVertexIdOffset + 1);
-            for (size_t i = 1; i < numLineSubdivs - 1; i++) {
+            for (size_t i = 1; i < numSubdivVertices - 1; i++) {
                 lineSegmentVertexConnectivityData.emplace_back(
                         segmentVertexIdOffset + i - 1u, segmentVertexIdOffset + i + 1u);
             }
             lineSegmentVertexConnectivityData.emplace_back(
-                    segmentVertexIdOffset + numLineSubdivs - 2u, segmentVertexIdOffset + numLineSubdivs - 1u);
+                    segmentVertexIdOffset + numSubdivVertices - 2u, segmentVertexIdOffset + numSubdivVertices - 1u);
         }
 
-        segmentVertexIdOffset += numLineSubdivs;
+        segmentVertexIdOffset += numSubdivVertices;
     }
-    numLineSegments = lineSegmentVertexConnectivityData.size();
+    numParametrizationVertices = samplingLocations.size();
 
     blendingWeightParametrizationBuffer = std::make_shared<sgl::vk::Buffer>(
             device, numLineVertices * sizeof(float), blendingWeightParametrizationData.data(),
@@ -278,7 +331,8 @@ void AmbientOcclusionComputeRenderPass::recomputeStaticParametrization() {
             blendingWeightParametrizationBuffer, sgl::SHADER_STORAGE_BUFFER));
 
     lineSegmentVertexConnectivityBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, numLineSegments * sizeof(glm::uvec2), lineSegmentVertexConnectivityData.data(),
+            device, lineSegmentVertexConnectivityData.size() * sizeof(glm::uvec2),
+            lineSegmentVertexConnectivityData.data(),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
 
@@ -323,10 +377,11 @@ void AmbientOcclusionComputeRenderPass::_render() {
     lineData->updateVulkanUniformBuffers(renderer);
 
     lineRenderSettings.lineRadius = LineRenderer::getLineWidth() * 0.5f;
+    lineRenderSettings.ambientOcclusionRadius = ambientOcclusionRadius;
     lineRenderSettings.numLinePoints = numLineVertices;
+    lineRenderSettings.numParametrizationVertices = numParametrizationVertices;
     lineRenderSettings.numTubeSubdivisions = numTubeSubdivisions;
     lineRenderSettings.numAmbientOcclusionSamples = numAmbientOcclusionSamplesPerFrame;
-    lineRenderSettings.ambientOcclusionRadius = ambientOcclusionRadius;
     lineRenderSettings.useDistance = int(useDistance);
     lineRenderSettingsBuffer->updateData(
             sizeof(LineRenderSettings), &lineRenderSettings, renderer->getVkCommandBuffer());

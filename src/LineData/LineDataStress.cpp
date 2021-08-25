@@ -92,7 +92,10 @@ void LineDataStress::update(float dt) {
 
 void LineDataStress::setRenderingMode(RenderingMode renderingMode) {
     LineData::setRenderingMode(renderingMode);
-    rendererSupportsTransparency = renderingMode != RENDERING_MODE_ALL_LINES_OPAQUE;
+    rendererSupportsTransparency =
+            renderingMode != RENDERING_MODE_ALL_LINES_OPAQUE
+            && renderingMode != RENDERING_MODE_VULKAN_RAY_TRACER
+            && renderingMode != RENDERING_MODE_VOXEL_RAY_CASTING;
 }
 
 bool LineDataStress::setNewSettings(const SettingsMap& settings) {
@@ -123,9 +126,9 @@ bool LineDataStress::setNewSettings(const SettingsMap& settings) {
             bool useLineHierarchyNew = glm::any(
                     glm::lessThan(lineHierarchySliderValues, glm::vec3(1.0f)));
             if (useLineHierarchy != useLineHierarchyNew) {
-                dirty = true;
                 shallReloadGatherShader = true;
             }
+            triangleRepresentationDirty = true;
         }
     }
 
@@ -202,10 +205,12 @@ bool LineDataStress::renderGuiLineData(bool isRasterizer) {
             if (sliderChanged) {
                 bool useLineHierarchyNew = glm::any(
                         glm::lessThan(lineHierarchySliderValues, glm::vec3(1.0f)));
-                if (useLineHierarchy != useLineHierarchyNew) {
-                    dirty = true;
-                    shallReloadGatherShader = true;
+                if (isRasterizer) {
+                    if (useLineHierarchy != useLineHierarchyNew) {
+                        shallReloadGatherShader = true;
+                    }
                 }
+                triangleRepresentationDirty = true;
             }
         }
     }
@@ -253,6 +258,7 @@ bool LineDataStress::renderGuiRenderingSettings() {
             "Band Width", &LineRenderer::bandWidth, LineRenderer::MIN_BAND_WIDTH, LineRenderer::MAX_BAND_WIDTH,
             "%.4f")) {
         reRender = true;
+        setTriangleRepresentationDirty();
     }
     return false;
 }
@@ -798,6 +804,7 @@ std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines() {
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
         int psIdx = loadedPsIndices.at(i);
         const Trajectories& trajectories = trajectoriesPs.at(i);
+        const StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
         if (!usedPsDirections.at(psIdx)) {
             continue;
         }
@@ -806,6 +813,11 @@ std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines() {
         size_t trajectoryIdx = 0;
         for (const Trajectory &trajectory : trajectories) {
             if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                trajectoryIdx++;
+                continue;
+            }
+            if (lineRenderer && !lineRenderer->isRasterizer && lineHierarchySliderValues[psIdx]
+                    < 1.0 - stressTrajectoriesData.at(trajectoryIdx).hierarchyLevels.at(int(lineHierarchyType))) {
                 trajectoryIdx++;
                 continue;
             }
@@ -1831,6 +1843,10 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(boo
             if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
                 continue;
             }
+            if (lineRenderer && !lineRenderer->isRasterizer && lineHierarchySliderValues[psIdx]
+                    < 1.0 - stressTrajectoriesData.at(trajectoryIdx).hierarchyLevels.at(int(lineHierarchyType))) {
+                continue;
+            }
             lineCentersList.at(trajectoryIdx) = trajectories.at(trajectoryIdx).positions;
         }
 
@@ -1844,7 +1860,6 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(boo
                 if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
                     continue;
                 }
-                lineCentersList.at(trajectoryIdx) = trajectories.at(trajectoryIdx).positions;
                 if (useSmoothedBands) {
                     bandPointsListRight.at(trajectoryIdx) = bandPointsSmoothedListRightPs.at(i).at(trajectoryIdx);
                 } else {
@@ -1905,6 +1920,10 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(boo
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     vulkanTubeTriangleRenderData = {};
 
+    if (tubeTriangleIndices.empty()) {
+        return vulkanTubeTriangleRenderData;
+    }
+
     uint32_t indexBufferFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
     uint32_t vertexBufferFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     if (raytracing) {
@@ -1935,10 +1954,13 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(boo
 }
 
 std::map<std::string, std::string> LineDataStress::getVulkanShaderPreprocessorDefines() {
-    std::map<std::string, std::string> preprocessorDefines;
+    std::map<std::string, std::string> preprocessorDefines = LineData::getVulkanShaderPreprocessorDefines();
     preprocessorDefines.insert(std::make_pair("STRESS_LINE_DATA", ""));
     if (usePrincipalStressDirectionIndex) {
         preprocessorDefines.insert(std::make_pair("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", ""));
+    }
+    if (useLineHierarchy) {
+        preprocessorDefines.insert(std::make_pair("USE_LINE_HIERARCHY_LEVEL", ""));
     }
     return preprocessorDefines;
 }

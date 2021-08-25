@@ -8,13 +8,21 @@ layout (std430, binding = 14) readonly buffer AmbientOcclusionBlendingWeights {
 uniform float ambientOcclusionStrength;
 uniform uint numAoTubeSubdivisions;
 uniform uint numLineVertices;
+uniform uint numParametrizationVertices;
 
 #define M_PI 3.14159265358979323846
 
 float getAoFactor(float interpolatedVertexId, float phi) {
-    uint lastVertexIdx = uint(interpolatedVertexId);
-    uint nextVertexIdx = min(uint(interpolatedVertexId) + 1, numLineVertices - 1);
-    float interpolationFactorLine = fract(interpolatedVertexId);
+    uint lastLinePointIdx = uint(interpolatedVertexId);
+    uint nextLinePointIdx = min(lastLinePointIdx + 1, numLineVertices - 1);
+    float interpolationFactor = fract(interpolatedVertexId);
+
+    float blendingWeightLast = ambientOcclusionBlendingWeights[lastLinePointIdx];
+    float blendingWeightNext = ambientOcclusionBlendingWeights[nextLinePointIdx];
+    float blendingWeight = mix(blendingWeightLast, blendingWeightNext, interpolationFactor);
+    uint lastVertexIdx = uint(blendingWeight);
+    uint nextVertexIdx = min(lastVertexIdx + 1, numParametrizationVertices - 1);
+    float interpolationFactorLine = fract(blendingWeight);
 
     float circleIdxFlt = phi / (2.0 * M_PI) * float(numAoTubeSubdivisions);
     uint circleIdxLast = uint(circleIdxFlt) % numAoTubeSubdivisions;

@@ -76,6 +76,17 @@ public:
     void render() override;
     // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
     void renderGui() override;
+    // Updates the internal logic (called once per frame).
+    void update(float dt) override;
+    // Returns if the data needs to be re-rendered, but the visualization mapping is valid.
+    bool needsReRender() override;
+    // If the re-rendering was triggered from an outside source, frame accumulation cannot be used.
+    void notifyReRenderTriggeredExternally() override;
+    // Called when the camera has moved.
+    void onHasMoved() override;
+
+    /// Returns whether the triangle representation is used by the renderer.
+    bool getIsTriangleRepresentationUsed() const override;
 
 protected:
     void reloadGatherShader(bool canCopyShaderAttributes = true) override;
@@ -93,6 +104,10 @@ private:
     // Vulkan render data.
     sgl::vk::Renderer* rendererVk = nullptr;
     std::shared_ptr<RayTracingRenderPass> rayTracingRenderPass;
+
+    // Multiple frames can be accumulated to achieve a multisampling effect.
+    uint32_t maxNumAccumulatedFrames = 32;
+    uint32_t accumulatedFramesCounter = 0;
 };
 
 class RayTracingRenderPass : public sgl::vk::RayTracingPass {
@@ -103,6 +118,8 @@ public:
     void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
     void setBackgroundColor(const glm::vec4& color);
     void setLineData(LineDataPtr& lineData, bool isNewData);
+    inline void setFrameNumber(uint32_t frameNumber) { rayTracerSettings.frameNumber = frameNumber; }
+    inline void setMaxNumFrames(uint32_t numFrames) { maxNumFrames = numFrames; }
 
 private:
     void loadShader() override;
@@ -133,9 +150,15 @@ private:
         uint32_t maxDepthComplexity = 1024; // TODO
         glm::vec4 backgroundColor{};
         glm::vec4 foregroundColor{};
+
+        glm::uvec3 paddingVec{};
+
+        // The number of this frame (used for accumulation of samples across frames).
+        uint32_t frameNumber = 0;
     };
     RayTracerSettings rayTracerSettings{};
     sgl::vk::BufferPtr rayTracerSettingsBuffer;
+    uint32_t maxNumFrames = 1;
 };
 
 #endif //LINEVIS_VULKANRAYTRACER_HPP

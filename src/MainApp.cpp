@@ -495,11 +495,18 @@ void MainApp::render() {
     SciVisApp::preRender();
     prepareVisualizationPipeline();
 
+    bool componentOtherThanRendererNeedsReRender = reRender;
     if (lineRenderer != nullptr) {
         reRender = reRender || lineRenderer->needsReRender();
     }
     if (lineData != nullptr) {
-        reRender = reRender || lineData->needsReRender();
+        bool lineDataNeedsReRender = lineData->needsReRender();
+        reRender = reRender || lineDataNeedsReRender;
+        componentOtherThanRendererNeedsReRender = componentOtherThanRendererNeedsReRender || lineDataNeedsReRender;
+    }
+    if (lineRenderer && componentOtherThanRendererNeedsReRender) {
+        // If the re-rendering was triggered from an outside source, frame accumulation cannot be used!
+        lineRenderer->notifyReRenderTriggeredExternally();
     }
 
     if (reRender || continuousRendering) {
@@ -1008,8 +1015,13 @@ void MainApp::reloadDataSet() {
 void MainApp::prepareVisualizationPipeline() {
     if (lineData && lineRenderer) {
         bool isPreviousNodeDirty = lineData->isDirty();
+        bool isTriangleRepresentationDirty =
+                lineData->isTriangleRepresentationDirty() && lineRenderer->getIsTriangleRepresentationUsed();
         filterData(isPreviousNodeDirty);
-        if (lineRenderer->isDirty() || isPreviousNodeDirty) {
+        if (isPreviousNodeDirty) {
+            lineData->setTriangleRepresentationDirty();
+        }
+        if (lineRenderer->isDirty() || isPreviousNodeDirty || isTriangleRepresentationDirty) {
             lineRenderer->setLineData(lineData, newMeshLoaded);
         }
     }

@@ -866,13 +866,8 @@ void OpacityOptimizationRenderer::resolvePpllFinal() {
 
 
 void OpacityOptimizationRenderer::renderGui() {
-    if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
-        reRender = true;
-        onHasMoved();
-    }
-    if (lineData) {
-        lineData->renderGuiRenderingSettings();
-    }
+    LineRenderer::renderGui();
+
     if (ImGui::SliderFloat("q", &q, 0.0f, 5000.0f, "%.1f")) {
         reRender = true;
         onHasMoved();
@@ -922,7 +917,6 @@ void OpacityOptimizationRenderer::renderGui() {
     }
 }
 
-// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
 bool OpacityOptimizationRenderer::needsReRender() {
     if (smoothingFramesCounter) {
         reRender = true;
@@ -931,11 +925,11 @@ bool OpacityOptimizationRenderer::needsReRender() {
     reRender = false;
     return tmp;
 }
-// Called when the camera has moved.
+
 void OpacityOptimizationRenderer::onHasMoved() {
     smoothingFramesCounter = NUM_SMOOTHING_FRAMES;
 }
-// Updates the internal logic (called once per frame).
+
 void OpacityOptimizationRenderer::update(float dt) {
     if (smoothingFramesCounter > 0) {
         --smoothingFramesCounter;

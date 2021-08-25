@@ -217,12 +217,8 @@ void DepthComplexityRenderer::renderGui() {
     ImGui::Text("avg used: %.2f, avg all: %.2f, max: %lu", ((float) totalNumFragments / usedLocations),
                 ((float) totalNumFragments / bufferSize), maxComplexity);
 
-    if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
-        reRender = true;
-    }
-    if (lineData) {
-        lineData->renderGuiRenderingSettings();
-    }
+    LineRenderer::renderGui();
+
     if (ImGui::ColorEdit4("Coloring", (float*)&colorSelection, 0)) {
         sgl::Color newColor = sgl::colorFromFloat(colorSelection.x, colorSelection.y, colorSelection.z, 1.0f);
         renderColor = newColor;
