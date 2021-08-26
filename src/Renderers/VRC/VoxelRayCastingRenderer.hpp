@@ -31,8 +31,17 @@
 
 #include "Renderers/LineRenderer.hpp"
 
-class VoxelRayCastingRenderer {
-
+/**
+ * A voxel ray caster (VRC) for line rendering based on the work by:
+ *
+ * M. Kanzler, M. Rautenhaus, R. Westermann. A Voxel-based Rendering Pipeline for Large 3D Line Sets.
+ * IEEE Transactions on Visualization and Computer Graphics 2018.
+ * https://www.in.tum.de/cg/research/publications/2018/a-voxel-based-rendering-pipeline-for-large-3d-line-sets/
+ */
+class VoxelRayCastingRenderer : public LineRenderer {
+public:
+    VoxelRayCastingRenderer(
+            SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
 };
 
 #endif //LINEVIS_VOXELRAYCASTINGRENDERER_HPP

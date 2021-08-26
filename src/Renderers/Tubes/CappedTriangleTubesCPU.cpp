@@ -69,7 +69,7 @@ void addHemisphereToMesh(
             tubeTriangleVertexData.vertexPosition = transformedPoint;
             tubeTriangleVertexData.vertexLinePointIndex = vertexLinePointIndex | 0x80000000u;
             tubeTriangleVertexData.vertexNormal = vertexNormal;
-            tubeTriangleVertexData.phi = phi;
+            tubeTriangleVertexData.phi = theta;
             vertexDataList.push_back(tubeTriangleVertexData);
 
             if (lat == numLatitudeSubdivisions) {

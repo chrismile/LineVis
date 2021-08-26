@@ -27,3 +27,12 @@
  */
 
 #include "VoxelRayCastingRenderer.hpp"
+
+VoxelRayCastingRenderer::VoxelRayCastingRenderer(
+        SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
+        : LineRenderer("Voxel Ray Casting Renderer", sceneData, transferFunctionWindow) {
+    isVulkanRenderer = false;
+    isRasterizer = false;
+
+    onResolutionChanged();
+}

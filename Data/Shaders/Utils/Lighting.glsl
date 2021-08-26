@@ -1,4 +1,5 @@
 #ifdef USE_DEPTH_CUES
+
 #ifdef COMPUTE_DEPTH_CUES_GPU
 layout (std430, binding = 12) readonly buffer DepthMinMaxBuffer {
     float minDepth;
@@ -8,7 +9,11 @@ layout (std430, binding = 12) readonly buffer DepthMinMaxBuffer {
 uniform float minDepth = 0.0f;
 uniform float maxDepth = 1.0f;
 #endif
+
+#ifndef VULKAN
 uniform float depthCueStrength = 0.8f;
+#endif
+
 #endif
 
 #if defined(USE_AMBIENT_OCCLUSION) && defined(GEOMETRY_PASS_TUBE)
@@ -75,6 +80,13 @@ vec4 blinnPhongShadingTube(
         in vec4 baseColor,
 #ifdef VULKAN
         in vec3 fragmentPositionWorld,
+#ifdef USE_DEPTH_CUES
+        in vec3 screenSpacePosition,
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+        in float fragmentVertexId,
+        in float phi,
+#endif
 #ifdef STRESS_LINE_DATA
         in int useBand,
 #endif

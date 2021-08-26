@@ -34,7 +34,12 @@
 #include "SceneData.hpp"
 
 namespace sgl {
-    class TransferFunctionWindow;
+class TransferFunctionWindow;
+
+namespace vk {
+class Buffer;
+typedef std::shared_ptr<Buffer> BufferPtr;
+}
 }
 struct InternalState;
 class SettingsMap;
@@ -58,6 +63,8 @@ public:
     inline bool isDirty() const { return dirty; }
     /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
     virtual bool needsReRender() { bool tmp = reRender; reRender = false; return tmp; }
+    /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
+    virtual bool needsInternalReRender() { bool tmp = internalReRender; internalReRender = false; return tmp; }
     /// Returns whether the triangle representation is used by the renderer.
     virtual bool getIsTriangleRepresentationUsed() const;
 
@@ -86,7 +93,7 @@ public:
     /// Called when the camera has moved.
     virtual void onHasMoved() {}
     // If the re-rendering was triggered from an outside source, frame accumulation cannot be used.
-    virtual void notifyReRenderTriggeredExternally() {}
+    virtual void notifyReRenderTriggeredExternally() { internalReRender = false; }
 
     // For changing performance measurement modes.
     virtual void setNewState(const InternalState& newState) { }
@@ -124,10 +131,12 @@ protected:
     sgl::TransferFunctionWindow& transferFunctionWindow;
     bool dirty = true;
     bool reRender = true;
+    bool internalReRender = true; ///< For use in renderers with frame data accumulation.
 
     // Whether to use depth cues (optionally selected in the UI).
     void updateDepthCueMode();
     void updateDepthCueGeometryData();
+    void computeDepthRange();
     void setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram);
     bool useDepthCues = true;
     float depthCueStrength = 0.8f;
@@ -135,8 +144,12 @@ protected:
     float minDepth = 0.0f;
     float maxDepth = 1.0f;
     std::vector<std::vector<glm::vec3>> filteredLines;
+#ifdef USE_VULKAN_INTEROP
+    sgl::vk::BufferPtr depthMinMaxBuffersVk[2];
+#endif
     sgl::GeometryBufferPtr filteredLinesVerticesBuffer;
     sgl::GeometryBufferPtr depthMinMaxBuffers[2];
+    size_t outputDepthMinMaxBufferIndex = 0;
     sgl::ShaderProgramPtr computeDepthValuesShaderProgram;
     sgl::ShaderProgramPtr minMaxReduceDepthShaderProgram;
 
@@ -145,6 +158,7 @@ protected:
     AmbientOcclusionBakerPtr ambientOcclusionBaker;
     bool useAmbientOcclusion = true;
     float ambientOcclusionStrength = 1.0f;
+    bool ambientOcclusionBuffersDirty = false;
 
     // Minimum and maximum values in the UI.
     static constexpr float MIN_LINE_WIDTH = 0.001f;

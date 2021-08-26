@@ -120,6 +120,10 @@ public:
     void setLineData(LineDataPtr& lineData, bool isNewData);
     inline void setFrameNumber(uint32_t frameNumber) { rayTracerSettings.frameNumber = frameNumber; }
     inline void setMaxNumFrames(uint32_t numFrames) { maxNumFrames = numFrames; }
+    inline void setUseDepthCues(bool depthCuesOn) { useDepthCues = depthCuesOn; }
+    inline void setDepthMinMaxBuffer(const sgl::vk::BufferPtr& buffer) { depthMinMaxBuffer = buffer; }
+    inline void setUseAmbientOcclusion(bool ambientOcclusionOn) { useAmbientOcclusion = ambientOcclusionOn; }
+    inline void setAmbientOcclusionBaker(const AmbientOcclusionBakerPtr& baker) { ambientOcclusionBaker = baker; }
 
 private:
     void loadShader() override;
@@ -131,12 +135,19 @@ private:
     LineDataPtr lineData;
     sgl::vk::ImageViewPtr sceneImageView;
 
+    bool useDepthCues = false;
+    sgl::vk::BufferPtr depthMinMaxBuffer;
+    bool useAmbientOcclusion = false;
+    AmbientOcclusionBakerPtr ambientOcclusionBaker;
+
     VulkanTubeTriangleRenderData tubeTriangleRenderData;
     VulkanHullTriangleRenderData hullTriangleRenderData;
     sgl::vk::TopLevelAccelerationStructurePtr topLevelAS;
 
     // Uniform buffer object storing the camera settings.
     struct CameraSettings {
+        glm::mat4 viewMatrix;
+        glm::mat4 projectionMatrix;
         glm::mat4 inverseViewMatrix;
         glm::mat4 inverseProjectionMatrix;
     };

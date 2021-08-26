@@ -8,6 +8,8 @@
 #endif
 
 layout (binding = 0) uniform CameraSettingsBuffer {
+    mat4 viewMatrix;
+    mat4 projectionMatrix;
     mat4 inverseViewMatrix;
     mat4 inverseProjectionMatrix;
 } camera;
@@ -31,6 +33,14 @@ layout (binding = 3) uniform RayTracerSettingsBuffer {
 layout (binding = 4) uniform LineRenderSettingsBuffer {
     float lineWidth;
     int hasHullMesh;
+    float depthCueStrength;
+    float ambientOcclusionStrength;
+
+    // Ambient occlusion settings.
+    uint numAoTubeSubdivisions;
+    uint numLineVertices;
+    uint numParametrizationVertices;
+    uint paddingLineSettings;
 };
 
 layout (binding = 9) uniform HullRenderSettingsBuffer {
@@ -161,6 +171,13 @@ void main() {
 #include "BarycentricInterpolation.glsl"
 #include "TransferFunction.glsl"
 
+layout (binding = 0) uniform CameraSettingsBuffer {
+    mat4 viewMatrix;
+    mat4 projectionMatrix;
+    mat4 inverseViewMatrix;
+    mat4 inverseProjectionMatrix;
+} camera;
+
 layout (binding = 3) uniform RayTracerSettingsBuffer {
     vec3 cameraPosition;
     uint maxDepthComplexity;
@@ -176,6 +193,14 @@ layout (binding = 3) uniform RayTracerSettingsBuffer {
 layout (binding = 4) uniform LineRenderSettingsBuffer {
     float lineWidth;
     int hasHullMesh;
+    float depthCueStrength;
+    float ambientOcclusionStrength;
+
+    // Ambient occlusion settings.
+    uint numAoTubeSubdivisions;
+    uint numLineVertices;
+    uint numParametrizationVertices;
+    uint paddingLineSettings;
 };
 
 #ifdef STRESS_LINE_DATA
@@ -244,18 +269,23 @@ void main() {
     TubeTriangleVertexData vertexData2 = tubeTriangleVertexDataBuffer[triangleIndices.z];
 
 #ifdef USE_CAPPED_TUBES
-    TubeLinePointData linePointData0 =  tubeLinePointDataBuffer[vertexData0.vertexLinePointIndex & 0x7FFFFFFFu];
-    TubeLinePointData linePointData1 =  tubeLinePointDataBuffer[vertexData1.vertexLinePointIndex & 0x7FFFFFFFu];
-    TubeLinePointData linePointData2 =  tubeLinePointDataBuffer[vertexData2.vertexLinePointIndex & 0x7FFFFFFFu];
+    uint vertexLinePointIndex0 = vertexData0.vertexLinePointIndex & 0x7FFFFFFFu;
+    uint vertexLinePointIndex1 = vertexData1.vertexLinePointIndex & 0x7FFFFFFFu;
+    uint vertexLinePointIndex2 = vertexData2.vertexLinePointIndex & 0x7FFFFFFFu;
+    TubeLinePointData linePointData0 =  tubeLinePointDataBuffer[vertexLinePointIndex0];
+    TubeLinePointData linePointData1 =  tubeLinePointDataBuffer[vertexLinePointIndex1];
+    TubeLinePointData linePointData2 =  tubeLinePointDataBuffer[vertexLinePointIndex2];
     bool isCap =
             bitfieldExtract(vertexData0.vertexLinePointIndex, 31, 1) > 0u
             || bitfieldExtract(vertexData1.vertexLinePointIndex, 31, 1) > 0u
             || bitfieldExtract(vertexData2.vertexLinePointIndex, 31, 1) > 0u;
-    //isCap = false;
 #else
-    TubeLinePointData linePointData0 =  tubeLinePointDataBuffer[vertexData0.vertexLinePointIndex];
-    TubeLinePointData linePointData1 =  tubeLinePointDataBuffer[vertexData1.vertexLinePointIndex];
-    TubeLinePointData linePointData2 =  tubeLinePointDataBuffer[vertexData2.vertexLinePointIndex];
+    uint vertexLinePointIndex0 = vertexData0.vertexLinePointIndex;
+    uint vertexLinePointIndex1 = vertexData1.vertexLinePointIndex;
+    uint vertexLinePointIndex2 = vertexData2.vertexLinePointIndex;
+    TubeLinePointData linePointData0 =  tubeLinePointDataBuffer[vertexLinePointIndex0];
+    TubeLinePointData linePointData1 =  tubeLinePointDataBuffer[vertexLinePointIndex1];
+    TubeLinePointData linePointData2 =  tubeLinePointDataBuffer[vertexLinePointIndex2];
 #endif
 
     vec3 fragmentPositionWorld = interpolateVec3(
@@ -267,18 +297,26 @@ void main() {
             linePointData0.lineTangent, linePointData1.lineTangent, linePointData2.lineTangent, barycentricCoordinates);
     fragmentTangent = normalize(fragmentTangent);
     float fragmentAttribute = interpolateFloat(
-            linePointData0.lineAttribute, linePointData1.lineAttribute, linePointData2.lineAttribute, barycentricCoordinates);
+            linePointData0.lineAttribute, linePointData1.lineAttribute, linePointData2.lineAttribute,
+            barycentricCoordinates);
 
     const vec3 n = normalize(fragmentNormal);
     const vec3 v = normalize(cameraPosition - fragmentPositionWorld);
     const vec3 t = normalize(fragmentTangent);
 
+#if defined (STRESS_LINE_DATA) || defined(USE_AMBIENT_OCCLUSION)
+    float phi = interpolateAngle(
+            vertexData0.phi, vertexData1.phi, vertexData2.phi, barycentricCoordinates);
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+     float fragmentVertexId = interpolateFloat(
+            float(vertexLinePointIndex0), float(vertexLinePointIndex1), float(vertexLinePointIndex2),
+            barycentricCoordinates);
+#endif
+
 #ifdef STRESS_LINE_DATA
     bool useBand = psUseBands[linePointData0.principalStressIndex] > 0;
     const float thickness = useBand ? 0.15 : 1.0; // hard-coded
-
-    float phi = interpolateAngle(
-    vertexData0.phi, vertexData1.phi, vertexData2.phi, barycentricCoordinates);
 
     vec3 linePosition = interpolateVec3(
     linePointData0.linePosition, linePointData1.linePosition, linePointData2.linePosition, barycentricCoordinates);
@@ -448,17 +486,28 @@ void main() {
     }
 #endif
 
-    #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
     vec4 fragmentColor = transferFunction(fragmentAttribute, linePointData0.principalStressIndex);
 #else
     vec4 fragmentColor = transferFunction(fragmentAttribute);
 #endif
 
-#ifdef STRESS_LINE_DATA
-    fragmentColor = blinnPhongShadingTube(fragmentColor, fragmentPositionWorld, useBand ? 1 : 0, n, t);
-#else
-    fragmentColor = blinnPhongShadingTube(fragmentColor, fragmentPositionWorld, n, t);
+#ifdef USE_DEPTH_CUES
+    vec3 screenSpacePosition = (camera.viewMatrix * vec4(fragmentPositionWorld, 1.0)).xyz;
 #endif
+
+    fragmentColor = blinnPhongShadingTube(
+            fragmentColor, fragmentPositionWorld,
+#ifdef USE_DEPTH_CUES
+            screenSpacePosition,
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+            fragmentVertexId, phi,
+#endif
+#ifdef STRESS_LINE_DATA
+            useBand ? 1 : 0,
+#endif
+            n, t);
 
     float absCoords = abs(ribbonPosition);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
@@ -476,8 +525,10 @@ void main() {
             fragmentColor.a * coverage);
 
 #ifdef USE_AMBIENT_OCCLUSION
-    colorOut = vec4(getAoFactor(fragmentVertexId, phi), 0.0, 0.0, 1.0);
+    //colorOut = vec4(getAoFactor(fragmentVertexId, phi), 0.0, 0.0, 1.0);
 #endif
+
+    colorOut.a = 1.0;
 
     payload.hitColor = colorOut;
     payload.hitT = length(fragmentPositionWorld - cameraPosition);
@@ -534,6 +585,12 @@ struct RayPayload {
 layout(location = 0) rayPayloadInEXT RayPayload payload;
 
 #define RAYTRACING
+#ifdef USE_DEPTH_CUES
+#undef USE_DEPTH_CUES
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+#undef USE_AMBIENT_OCCLUSION
+#endif
 #include "Lighting.glsl"
 
 void main() {

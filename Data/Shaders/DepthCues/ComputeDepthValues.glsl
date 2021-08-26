@@ -24,6 +24,8 @@ uniform mat4 cameraProjectionMatrix;
 
 shared vec2 sharedMemoryMinMaxDepth[BLOCK_SIZE];
 
+const float EPSILON = 1e-2;
+
 void main() {
     uint localIdx = gl_LocalInvocationID.x;
     uint localDim = gl_WorkGroupSize.x; // == BLOCK_SIZE
@@ -38,7 +40,7 @@ void main() {
         // View frustum culling.
         if (all(greaterThanEqual(ndcPosition.xyz, vec3(-1.0))) && all(lessThanEqual(ndcPosition.xyz, vec3(1.0)))) {
             float depth = clamp(-screenSpacePosition.z, nearDist, farDist);
-            depthMinMax = vec2(depth, depth);
+            depthMinMax = vec2(depth - EPSILON, depth + EPSILON);
         }
     }
 

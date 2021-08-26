@@ -118,6 +118,13 @@ bool LineData::renderGuiRenderer(bool isRasterizer) {
         }
     }
 
+    if (lineRenderer && (linePrimitiveMode == LINE_PRIMITIVES_TRIANGLE_MESH || lineRenderer->isVulkanRenderer)) {
+        if (ImGui::Checkbox("Capped Tubes", &useCappedTubes)) {
+            triangleRepresentationDirty = true;
+        }
+        ImGui::SameLine();
+    }
+
     ImGui::Checkbox("Render Color Legend", &shallRenderColorLegendWidgets);
 
     if (!simulationMeshOutlineTriangleIndices.empty()) {
@@ -475,17 +482,21 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAndHullTria
     tubeBottomLevelAS = getTubeBottomLevelAS();
     hullBottomLevelAS = getHullBottomLevelAS();
 
-    if (!tubeBottomLevelAS || !hullBottomLevelAS) {
+    if (!tubeBottomLevelAS && !hullBottomLevelAS) {
         return tubeAndHullTopLevelAS;
     }
 
     sgl::vk::BlasInstance tubeBlasInstance, hullBlasInstance;
-    hullBlasInstance.blasIdx = 1;
     hullBlasInstance.shaderBindingTableRecordOffset = 1;
-
     tubeAndHullTopLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
-    tubeAndHullTopLevelAS->build(
-            { tubeBottomLevelAS, hullBottomLevelAS }, { tubeBlasInstance, hullBlasInstance });
+    if (tubeBottomLevelAS) {
+        hullBlasInstance.blasIdx = 1;
+        tubeAndHullTopLevelAS->build(
+                { tubeBottomLevelAS, hullBottomLevelAS }, { tubeBlasInstance, hullBlasInstance });
+    } else {
+        hullBlasInstance.blasIdx = 0;
+        tubeAndHullTopLevelAS->build({ hullBottomLevelAS }, { hullBlasInstance });
+    }
 
     return tubeAndHullTopLevelAS;
 }
@@ -576,6 +587,15 @@ void LineData::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& rend
 void LineData::updateVulkanUniformBuffers(sgl::vk::Renderer* renderer) {
     lineRenderSettings.lineWidth = LineRenderer::getLineWidth();
     lineRenderSettings.hasHullMesh = simulationMeshOutlineTriangleIndices.empty() ? 0 : 1;
+    lineRenderSettings.depthCueStrength = lineRenderer->depthCueStrength;
+    lineRenderSettings.ambientOcclusionStrength = lineRenderer->ambientOcclusionStrength;
+    if (lineRenderer->useAmbientOcclusion && lineRenderer->ambientOcclusionBaker) {
+        lineRenderSettings.numAoTubeSubdivisions = lineRenderer->ambientOcclusionBaker->getNumTubeSubdivisions();
+        lineRenderSettings.numLineVertices = lineRenderer->ambientOcclusionBaker->getNumLineVertices();
+        lineRenderSettings.numParametrizationVertices =
+                lineRenderer->ambientOcclusionBaker->getNumParametrizationVertices();
+    }
+
     hullRenderSettings.color = glm::vec4(hullColor.r, hullColor.g, hullColor.b, hullOpacity);
     hullRenderSettings.useShading = int(hullUseShading);
 

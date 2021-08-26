@@ -69,10 +69,10 @@ public:
     VulkanAmbientOcclusionBaker(sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
     void startAmbientOcclusionBaking(LineDataPtr& lineData) override;
     bool getHasComputationFinished() override;
-    sgl::GeometryBufferPtr getAmbientOcclusionBuffer() override;
-    sgl::GeometryBufferPtr getBlendingWeightsBuffer() override;
-    sgl::vk::BufferPtr getAmbientOcclusionBufferVulkan() override;
-    sgl::vk::BufferPtr getBlendingWeightsBufferVulkan() override;
+    sgl::GeometryBufferPtr& getAmbientOcclusionBuffer() override;
+    sgl::GeometryBufferPtr& getBlendingWeightsBuffer() override;
+    sgl::vk::BufferPtr& getAmbientOcclusionBufferVulkan() override;
+    sgl::vk::BufferPtr& getBlendingWeightsBufferVulkan() override;
     uint32_t getNumTubeSubdivisions() override;
     uint32_t getNumLineVertices() override;
     uint32_t getNumParametrizationVertices() override;
@@ -109,10 +109,10 @@ public:
     // Public interface.
     void setLineData(LineDataPtr& lineData);
     inline void setFrameNumber(uint32_t frame) { lineRenderSettings.frameNumber = frame; }
-    inline sgl::GeometryBufferPtr getAmbientOcclusionBuffer() { return aoBufferGl; }
-    inline sgl::GeometryBufferPtr getBlendingWeightsBuffer() { return blendingWeightParametrizationBufferGl; }
-    inline sgl::vk::BufferPtr getAmbientOcclusionBufferVulkan() { return aoBufferVk; }
-    inline sgl::vk::BufferPtr getBlendingWeightsBufferVulkan() { return blendingWeightParametrizationBuffer; }
+    inline sgl::GeometryBufferPtr& getAmbientOcclusionBuffer() { return aoBufferGl; }
+    inline sgl::GeometryBufferPtr& getBlendingWeightsBuffer() { return blendingWeightParametrizationBufferGl; }
+    inline sgl::vk::BufferPtr& getAmbientOcclusionBufferVulkan() { return aoBufferVk; }
+    inline sgl::vk::BufferPtr& getBlendingWeightsBufferVulkan() { return blendingWeightParametrizationBuffer; }
     inline uint32_t getNumTubeSubdivisions() const { return numTubeSubdivisions; }
     inline uint32_t getNumLineVertices() const { return numLineVertices; }
     inline uint32_t getNumParametrizationVertices() const { return numParametrizationVertices; }

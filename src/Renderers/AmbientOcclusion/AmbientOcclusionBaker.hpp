@@ -57,11 +57,11 @@ public:
 
     virtual void startAmbientOcclusionBaking(LineDataPtr& lineData)=0;
     virtual bool getHasComputationFinished()=0;
-    virtual sgl::GeometryBufferPtr getAmbientOcclusionBuffer()=0;
-    virtual sgl::GeometryBufferPtr getBlendingWeightsBuffer()=0;
+    virtual sgl::GeometryBufferPtr& getAmbientOcclusionBuffer()=0;
+    virtual sgl::GeometryBufferPtr& getBlendingWeightsBuffer()=0;
 #ifdef USE_VULKAN_INTEROP
-    virtual sgl::vk::BufferPtr getAmbientOcclusionBufferVulkan()=0;
-    virtual sgl::vk::BufferPtr getBlendingWeightsBufferVulkan()=0;
+    virtual sgl::vk::BufferPtr& getAmbientOcclusionBufferVulkan()=0;
+    virtual sgl::vk::BufferPtr& getBlendingWeightsBufferVulkan()=0;
 #endif
     virtual uint32_t getNumTubeSubdivisions()=0;
     virtual uint32_t getNumLineVertices()=0;

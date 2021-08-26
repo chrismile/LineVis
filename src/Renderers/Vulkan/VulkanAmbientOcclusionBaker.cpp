@@ -106,19 +106,19 @@ bool VulkanAmbientOcclusionBaker::getHasComputationFinished() {
     return aoBufferGl.get() != nullptr;
 }
 
-sgl::GeometryBufferPtr VulkanAmbientOcclusionBaker::getAmbientOcclusionBuffer() {
+sgl::GeometryBufferPtr& VulkanAmbientOcclusionBaker::getAmbientOcclusionBuffer() {
     return aoComputeRenderPass->getAmbientOcclusionBuffer();
 }
 
-sgl::GeometryBufferPtr VulkanAmbientOcclusionBaker::getBlendingWeightsBuffer() {
+sgl::GeometryBufferPtr& VulkanAmbientOcclusionBaker::getBlendingWeightsBuffer() {
     return aoComputeRenderPass->getBlendingWeightsBuffer();
 }
 
-sgl::vk::BufferPtr VulkanAmbientOcclusionBaker::getAmbientOcclusionBufferVulkan() {
+sgl::vk::BufferPtr& VulkanAmbientOcclusionBaker::getAmbientOcclusionBufferVulkan() {
     return aoComputeRenderPass->getAmbientOcclusionBufferVulkan();
 }
 
-sgl::vk::BufferPtr VulkanAmbientOcclusionBaker::getBlendingWeightsBufferVulkan() {
+sgl::vk::BufferPtr& VulkanAmbientOcclusionBaker::getBlendingWeightsBufferVulkan() {
     return aoComputeRenderPass->getBlendingWeightsBufferVulkan();
 }
 
@@ -349,7 +349,6 @@ void AmbientOcclusionComputeRenderPass::recomputeStaticParametrization() {
             aoBufferVk, sgl::SHADER_STORAGE_BUFFER));
 
     dataDirty = true;
-    shaderDirty = true; // TODO
 }
 
 void AmbientOcclusionComputeRenderPass::loadShader() {

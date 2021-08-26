@@ -161,7 +161,7 @@ void main() {
         const float tubeRadius = (useBand ? bandWidth * 0.5 : lineRadius);
         vec3 surfaceNormal = normalize(cosAngle * linePoint.normal + thickness * sinAngle * linePoint.binormal);
         vec3 rayOrigin = linePoint.position
-                + (tubeRadius + 1e-6) * (thickness * cosAngle * linePoint.normal + sinAngle * linePoint.binormal);
+                + (tubeRadius + 1e-3) * (thickness * cosAngle * linePoint.normal + sinAngle * linePoint.binormal);
 #else
         vec3 surfaceNormal = cosAngle * linePoint.normal + sinAngle * linePoint.binormal;
         vec3 rayOrigin = linePoint.position + (lineRadius + 1e-6) * surfaceNormal;

@@ -5,10 +5,12 @@ layout (std430, binding = 14) readonly buffer AmbientOcclusionBlendingWeights {
     float ambientOcclusionBlendingWeights[];
 };
 
+#ifndef VULKAN
 uniform float ambientOcclusionStrength;
 uniform uint numAoTubeSubdivisions;
 uniform uint numLineVertices;
 uniform uint numParametrizationVertices;
+#endif
 
 #define M_PI 3.14159265358979323846
 

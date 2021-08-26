@@ -71,6 +71,9 @@ VulkanRayTracer::~VulkanRayTracer() {
 
 void VulkanRayTracer::reloadGatherShader(bool canCopyShaderAttributes) {
     rayTracingRenderPass->setShaderDirty();
+    rayTracingRenderPass->setUseDepthCues(useDepthCues);
+    rayTracingRenderPass->setUseAmbientOcclusion(useAmbientOcclusion);
+    rayTracingRenderPass->setAmbientOcclusionBaker(ambientOcclusionBaker);
     accumulatedFramesCounter = 0;
 }
 
@@ -111,7 +114,14 @@ void VulkanRayTracer::onResolutionChanged() {
 }
 
 void VulkanRayTracer::render() {
-    renderReadySemaphore->signalSemaphoreGl(renderTextureGl, GL_NONE);
+    if (useDepthCues && lineData) {
+        computeDepthRange();
+        renderReadySemaphore->signalSemaphoreGl(
+                { depthMinMaxBuffers[outputDepthMinMaxBufferIndex] },
+                { renderTextureGl }, { GL_NONE });
+    } else {
+        renderReadySemaphore->signalSemaphoreGl(renderTextureGl, GL_NONE);
+    }
 
     if (accumulatedFramesCounter >= maxNumAccumulatedFrames) {
         Logfile::get()->throwError(
@@ -120,9 +130,15 @@ void VulkanRayTracer::render() {
         accumulatedFramesCounter = 0;
     }
 
+    if (ambientOcclusionBuffersDirty) {
+        rayTracingRenderPass->setDataDirty();
+        ambientOcclusionBuffersDirty = false;
+    }
+
     rendererVk->beginCommandBuffer();
     rayTracingRenderPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
     rayTracingRenderPass->setFrameNumber(accumulatedFramesCounter);
+    rayTracingRenderPass->setDepthMinMaxBuffer(depthMinMaxBuffersVk[outputDepthMinMaxBufferIndex]);
     rayTracingRenderPass->render();
     rendererVk->endCommandBuffer();
 
@@ -135,7 +151,13 @@ void VulkanRayTracer::render() {
     rendererVk->submitToQueue(renderReadySemaphoreVk, renderFinishedSemaphoreVk, fence);
 
     // Wait for the rendering to finish on the Vulkan side.
-    renderFinishedSemaphore->waitSemaphoreGl(renderTextureGl, GL_LAYOUT_SHADER_READ_ONLY_EXT);
+    if (useDepthCues && lineData) {
+        renderFinishedSemaphore->waitSemaphoreGl(
+                { depthMinMaxBuffers[outputDepthMinMaxBufferIndex] },
+                { renderTextureGl }, { GL_LAYOUT_SHADER_READ_ONLY_EXT });
+    } else {
+        renderFinishedSemaphore->waitSemaphoreGl(renderTextureGl, GL_LAYOUT_SHADER_READ_ONLY_EXT);
+    }
 
     // Now, blit the data using OpenGL to the scene texture.
     glDisable(GL_DEPTH_TEST);
@@ -170,6 +192,7 @@ bool VulkanRayTracer::needsReRender() {
 }
 
 void VulkanRayTracer::notifyReRenderTriggeredExternally() {
+    internalReRender = false;
     accumulatedFramesCounter = 0;
 }
 
@@ -224,6 +247,15 @@ void RayTracingRenderPass::loadShader() {
     if (maxNumFrames > 1) {
         preprocessorDefines.insert(std::make_pair("USE_JITTERED_RAYS", ""));
     }
+    if (useDepthCues) {
+        preprocessorDefines.insert(std::make_pair("USE_DEPTH_CUES", ""));
+        preprocessorDefines.insert(std::make_pair("COMPUTE_DEPTH_CUES_GPU", ""));
+        preprocessorDefines.insert(std::make_pair("USE_SCREEN_SPACE_POSITION", ""));
+    }
+    if (useAmbientOcclusion) {
+        preprocessorDefines.insert(std::make_pair("USE_AMBIENT_OCCLUSION", ""));
+        preprocessorDefines.insert(std::make_pair("GEOMETRY_PASS_TUBE", ""));
+    }
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
             {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
              "TubeRayTracing.ClosestHit", "TubeRayTracing.ClosestHitHull"},
@@ -237,10 +269,18 @@ void RayTracingRenderPass::createRayTracingData(
     rayTracingData->setStaticImageView(sceneImageView, "outputImage");
     rayTracingData->setTopLevelAccelerationStructure(topLevelAS, "topLevelAS");
     rayTracingData->setStaticBuffer(rayTracerSettingsBuffer, "RayTracerSettingsBuffer");
-    rayTracingData->setStaticBuffer(tubeTriangleRenderData.indexBuffer, "TubeIndexBuffer");
-    rayTracingData->setStaticBuffer(tubeTriangleRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
-    rayTracingData->setStaticBuffer(
-            tubeTriangleRenderData.linePointBuffer, "TubeLinePointDataBuffer");
+    if (tubeTriangleRenderData.indexBuffer) {
+        rayTracingData->setStaticBuffer(tubeTriangleRenderData.indexBuffer, "TubeIndexBuffer");
+        rayTracingData->setStaticBuffer(tubeTriangleRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
+        rayTracingData->setStaticBuffer(
+                tubeTriangleRenderData.linePointBuffer, "TubeLinePointDataBuffer");
+    } else {
+        // Just bind anything in order for sgl to not complain...
+        rayTracingData->setStaticBuffer(hullTriangleRenderData.indexBuffer, "TubeIndexBuffer");
+        rayTracingData->setStaticBuffer(hullTriangleRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
+        rayTracingData->setStaticBuffer(
+                hullTriangleRenderData.vertexBuffer, "TubeLinePointDataBuffer");
+    }
     if (hullTriangleRenderData.indexBuffer) {
         rayTracingData->setStaticBuffer(hullTriangleRenderData.indexBuffer, "HullIndexBuffer");
         rayTracingData->setStaticBuffer(
@@ -250,6 +290,25 @@ void RayTracingRenderPass::createRayTracingData(
         rayTracingData->setStaticBuffer(tubeTriangleRenderData.indexBuffer, "HullIndexBuffer");
         rayTracingData->setStaticBuffer(
                 tubeTriangleRenderData.vertexBuffer, "HullTriangleVertexDataBuffer");
+    }
+    if (useDepthCues) {
+        rayTracingData->setStaticBuffer(depthMinMaxBuffer, "DepthMinMaxBuffer");
+    }
+    if (useAmbientOcclusion && ambientOcclusionBaker) {
+        auto ambientOcclusionBuffer = ambientOcclusionBaker->getAmbientOcclusionBufferVulkan();
+        auto blendingWeightsBuffer = ambientOcclusionBaker->getBlendingWeightsBufferVulkan();
+        if (ambientOcclusionBuffer && blendingWeightsBuffer) {
+            rayTracingData->setStaticBuffer(ambientOcclusionBuffer, "AmbientOcclusionFactors");
+            rayTracingData->setStaticBuffer(blendingWeightsBuffer, "AmbientOcclusionBlendingWeights");
+        } else {
+            // Just bind anything in order for sgl to not complain...
+            sgl::vk::BufferPtr buffer =
+                    tubeTriangleRenderData.vertexBuffer
+                    ? tubeTriangleRenderData.vertexBuffer
+                    : hullTriangleRenderData.vertexBuffer;
+            rayTracingData->setStaticBuffer(buffer, "AmbientOcclusionFactors");
+            rayTracingData->setStaticBuffer(buffer, "AmbientOcclusionBlendingWeights");
+        }
     }
     lineData->setVulkanRenderDataDescriptors(std::static_pointer_cast<vk::RenderData>(rayTracingData));
 }
@@ -265,6 +324,8 @@ void RayTracingRenderPass::updateLineRenderSettings() {
 void RayTracingRenderPass::_render() {
     updateLineRenderSettings();
 
+    cameraSettings.viewMatrix = camera->getViewMatrix();
+    cameraSettings.projectionMatrix = camera->getProjectionMatrixVulkan();
     cameraSettings.inverseViewMatrix = glm::inverse(camera->getViewMatrix());
     cameraSettings.inverseProjectionMatrix = glm::inverse(camera->getProjectionMatrixVulkan());
     cameraSettingsBuffer->updateData(

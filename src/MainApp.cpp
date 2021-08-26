@@ -498,6 +498,7 @@ void MainApp::render() {
     bool componentOtherThanRendererNeedsReRender = reRender;
     if (lineRenderer != nullptr) {
         reRender = reRender || lineRenderer->needsReRender();
+        componentOtherThanRendererNeedsReRender |= lineRenderer->needsInternalReRender();
     }
     if (lineData != nullptr) {
         bool lineDataNeedsReRender = lineData->needsReRender();

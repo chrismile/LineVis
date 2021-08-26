@@ -32,6 +32,7 @@
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/OpenGL/RendererGL.hpp>
+#include <Graphics/OpenGL/GeometryBuffer.hpp>
 
 #include "LineRenderer.hpp"
 
@@ -89,7 +90,7 @@ void LineRenderer::updateAmbientOcclusionMode() {
         sgl::ShaderManager->removePreprocessorDefine("USE_AMBIENT_OCCLUSION");
     }
 
-    if (ambientOcclusionBaker && lineData && lineData->isTriangleRepresentationDirty()) {
+    if (useAmbientOcclusion && ambientOcclusionBaker && lineData && lineData->isTriangleRepresentationDirty()) {
         ambientOcclusionBaker->startAmbientOcclusionBaking(lineData);
     }
 }
@@ -102,31 +103,53 @@ void LineRenderer::updateDepthCueGeometryData() {
             filteredLinesVertices.emplace_back(point.x, point.y, point.z, 1.0f);
         }
     }
+
+#ifdef USE_VULKAN_INTEROP
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    if (device) {
+        depthMinMaxBuffersVk[0] = std::make_shared<sgl::vk::Buffer>(
+                device, sgl::iceil(int(filteredLinesVertices.size()), BLOCK_SIZE) * sizeof(glm::vec2),
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY,
+                true, true);
+        depthMinMaxBuffers[0] = sgl::GeometryBufferPtr(new sgl::GeometryBufferGLExternalMemoryVk(
+                depthMinMaxBuffersVk[0], sgl::SHADER_STORAGE_BUFFER));
+        depthMinMaxBuffersVk[1] = std::make_shared<sgl::vk::Buffer>(
+                device, sgl::iceil(int(filteredLinesVertices.size()), BLOCK_SIZE * BLOCK_SIZE * 2)
+                * sizeof(glm::vec2),
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY,
+                true, true);
+        depthMinMaxBuffers[1] = sgl::GeometryBufferPtr(new sgl::GeometryBufferGLExternalMemoryVk(
+                depthMinMaxBuffersVk[1], sgl::SHADER_STORAGE_BUFFER));
+    } else {
+#endif
+    depthMinMaxBuffers[0] = sgl::Renderer->createGeometryBuffer(
+            sgl::iceil(int(filteredLinesVertices.size()), BLOCK_SIZE) * sizeof(glm::vec2),
+            sgl::SHADER_STORAGE_BUFFER);
+    depthMinMaxBuffers[1] = sgl::Renderer->createGeometryBuffer(
+            sgl::iceil(int(filteredLinesVertices.size()), BLOCK_SIZE * BLOCK_SIZE * 2) * sizeof(glm::vec2),
+            sgl::SHADER_STORAGE_BUFFER);
+#ifdef USE_VULKAN_INTEROP
+    }
+#endif
+
     filteredLinesVerticesBuffer = sgl::Renderer->createGeometryBuffer(
             filteredLinesVertices.size() * sizeof(glm::vec4), filteredLinesVertices.data(),
             sgl::SHADER_STORAGE_BUFFER);
-
-    depthMinMaxBuffers[0] = sgl::Renderer->createGeometryBuffer(
-            sgl::iceil(filteredLinesVertices.size(), BLOCK_SIZE) * sizeof(glm::vec2),
-            sgl::SHADER_STORAGE_BUFFER);
-    depthMinMaxBuffers[1] = sgl::Renderer->createGeometryBuffer(
-            sgl::iceil(filteredLinesVertices.size(), BLOCK_SIZE * BLOCK_SIZE * 2) * sizeof(glm::vec2),
-            sgl::SHADER_STORAGE_BUFFER);
 }
 
-void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
-    if (useDepthCues && lineData && computeDepthCuesOnGpu) {
+void LineRenderer::computeDepthRange() {
+    if (computeDepthCuesOnGpu) {
         sgl::ShaderManager->bindShaderStorageBuffer(12, filteredLinesVerticesBuffer);
         sgl::ShaderManager->bindShaderStorageBuffer(11, depthMinMaxBuffers[0]);
         uint32_t numVertices = filteredLinesVerticesBuffer->getSize() / sizeof(glm::vec4);
-        uint32_t numBlocks = sgl::iceil(numVertices, BLOCK_SIZE);
+        uint32_t numBlocks = sgl::iceil(int(numVertices), BLOCK_SIZE);
         computeDepthValuesShaderProgram->setUniform("numVertices", numVertices);
         computeDepthValuesShaderProgram->setUniform("nearDist", sceneData.camera->getNearClipDistance());
         computeDepthValuesShaderProgram->setUniform("farDist", sceneData.camera->getFarClipDistance());
         computeDepthValuesShaderProgram->setUniform("cameraViewMatrix", sceneData.camera->getViewMatrix());
         computeDepthValuesShaderProgram->setUniform(
                 "cameraProjectionMatrix", sceneData.camera->getProjectionMatrix());
-        computeDepthValuesShaderProgram->dispatchCompute(numBlocks);
+        computeDepthValuesShaderProgram->dispatchCompute(int(numBlocks));
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
         minMaxReduceDepthShaderProgram->setUniform("nearDist", sceneData.camera->getNearClipDistance());
@@ -141,9 +164,9 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
             sgl::ShaderManager->bindShaderStorageBuffer(12, depthMinMaxBuffers[(iteration + 1) % 2]);
 
             inputSize = numBlocks;
-            numBlocks = sgl::iceil(numBlocks, BLOCK_SIZE*2);
+            numBlocks = sgl::iceil(int(numBlocks), BLOCK_SIZE*2);
             minMaxReduceDepthShaderProgram->setUniform("sizeOfInput", inputSize);
-            minMaxReduceDepthShaderProgram->dispatchCompute(numBlocks);
+            minMaxReduceDepthShaderProgram->dispatchCompute(int(numBlocks));
             glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
             iteration++;
@@ -153,9 +176,11 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
         if (iteration == 0) {
             sgl::ShaderManager->bindShaderStorageBuffer(12, depthMinMaxBuffers[0]);
         }
+
+        outputDepthMinMaxBufferIndex = iteration % 2;
     }
 
-    if (useDepthCues && lineData && !computeDepthCuesOnGpu) {
+    if (!computeDepthCuesOnGpu) {
         bool useBoundingBox = lineData->getNumLines() > 1000;
         if (useBoundingBox) {
             const sgl::AABB3& boundingBox = lineData->getModelBoundingBox();
@@ -167,7 +192,7 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
             minDepth = std::numeric_limits<float>::max();
             maxDepth = std::numeric_limits<float>::lowest();
 #if _OPENMP >= 201107
-            #pragma omp parallel for default(none) shared(viewMatrix, filteredLines) \
+#pragma omp parallel for default(none) shared(viewMatrix, filteredLines) \
             reduction(min: minDepth) reduction(max: maxDepth)
 #endif
             for (size_t lineIdx = 0; lineIdx < filteredLines.size(); lineIdx++) {
@@ -184,9 +209,17 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
                 minDepth, sceneData.camera->getFarClipDistance(), sceneData.camera->getNearClipDistance());
         maxDepth = glm::clamp(
                 maxDepth, sceneData.camera->getFarClipDistance(), sceneData.camera->getNearClipDistance());
+    }
+}
 
-        shaderProgram->setUniformOptional("minDepth", minDepth);
-        shaderProgram->setUniformOptional("maxDepth", maxDepth);
+void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
+    if (useDepthCues && lineData) {
+        computeDepthRange();
+
+        if (!computeDepthCuesOnGpu) {
+            shaderProgram->setUniformOptional("minDepth", minDepth);
+            shaderProgram->setUniformOptional("maxDepth", maxDepth);
+        }
     }
 
     shaderProgram->setUniformOptional("depthCueStrength", depthCueStrength);
@@ -284,9 +317,10 @@ void LineRenderer::renderGuiWindow() {
                     shallReloadGatherShader = true;
                 }
                 reRender = true;
+                internalReRender = true;
             }
             if (ambientOcclusionBaker.get() != nullptr && ImGui::SliderFloat(
-                    "Ambient Occlusion Strength", &ambientOcclusionStrength, 0.0f, 1.0f)) {
+                    "AO Strength", &ambientOcclusionStrength, 0.0f, 1.0f)) {
                 if (ambientOcclusionStrength <= 0.0f && useAmbientOcclusion) {
                     useAmbientOcclusion = false;
                     updateAmbientOcclusionMode();
@@ -298,6 +332,7 @@ void LineRenderer::renderGuiWindow() {
                     shallReloadGatherShader = true;
                 }
                 reRender = true;
+                internalReRender = true;
             }
         }
     }
@@ -306,8 +341,9 @@ void LineRenderer::renderGuiWindow() {
     if (useAmbientOcclusion && ambientOcclusionBaker) {
         if (ambientOcclusionBaker->renderGui()) {
             reRender = true;
+            internalReRender = true;
             if (isVulkanRenderer) {
-                // TODO
+                ambientOcclusionBuffersDirty = true;
             }
         }
     }
@@ -337,6 +373,7 @@ void LineRenderer::renderLineWidthSlider() {
             lineData->setTriangleRepresentationDirty();
         }
         reRender = true;
+        internalReRender = true;
     }
 }
 
@@ -348,7 +385,9 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewData) {
     }
     this->lineData = lineData;
 
-    ambientOcclusionBaker->startAmbientOcclusionBaking(lineData);
+    if (useAmbientOcclusion && ambientOcclusionBaker) {
+        ambientOcclusionBaker->startAmbientOcclusionBaking(lineData);
+    }
 
     filteredLines.clear();
     filteredLinesVerticesBuffer = sgl::GeometryBufferPtr();
