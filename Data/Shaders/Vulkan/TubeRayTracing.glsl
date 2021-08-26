@@ -528,8 +528,6 @@ void main() {
     //colorOut = vec4(getAoFactor(fragmentVertexId, phi), 0.0, 0.0, 1.0);
 #endif
 
-    colorOut.a = 1.0;
-
     payload.hitColor = colorOut;
     payload.hitT = length(fragmentPositionWorld - cameraPosition);
     payload.hasHit = true;

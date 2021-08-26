@@ -295,6 +295,9 @@ void addEllipticHemisphereToMesh(
     float theta; // azimuth;
     float phi; // zenith;
 
+    glm::mat3 frameMatrix(scaledNormal, scaledBinormal, scaledTangent);
+    glm::mat3 normalFrameMatrix = glm::transpose(glm::inverse(frameMatrix));
+
     size_t vertexIndexOffset = vertexDataList.size() - indexOffset - numLongitudeSubdivisions;
     for (int lat = 1; lat <= numLatitudeSubdivisions; lat++) {
         phi = sgl::HALF_PI * (1.0f - float(lat) / float(numLatitudeSubdivisions));
@@ -312,11 +315,7 @@ void addEllipticHemisphereToMesh(
                     pt.x * scaledNormal.y + pt.y * scaledBinormal.y + pt.z * scaledTangent.y + center.y,
                     pt.x * scaledNormal.z + pt.y * scaledBinormal.z + pt.z * scaledTangent.z + center.z
             );
-            glm::vec3 vertexNormal = glm::normalize(glm::vec3(
-                    pt.x * scaledNormal.x + pt.y * scaledBinormal.x + pt.z * scaledTangent.x,
-                    pt.x * scaledNormal.y + pt.y * scaledBinormal.y + pt.z * scaledTangent.y,
-                    pt.x * scaledNormal.z + pt.y * scaledBinormal.z + pt.z * scaledTangent.z
-            ));
+            glm::vec3 vertexNormal = glm::normalize(normalFrameMatrix * pt);
 
             TubeTriangleVertexData tubeTriangleVertexData{};
             tubeTriangleVertexData.vertexPosition = transformedPoint;
