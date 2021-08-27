@@ -36,6 +36,7 @@ public:
     explicit LineDataFlow(sgl::TransferFunctionWindow &transferFunctionWindow);
     ~LineDataFlow() override;
     virtual void setTrajectoryData(const Trajectories& trajectories);
+    bool getIsSmallDataSet() const override;
 
     /**
      * Load line data from the selected file(s).
@@ -78,6 +79,7 @@ protected:
     void recomputeHistogram() override;
 
     Trajectories trajectories;
+    size_t numTotalTrajectoryPoints = 0;
     std::vector<bool> filteredTrajectories;
 };
 

@@ -26,7 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <limits>
+#include <ImGui/imgui_custom.h>
+
 #include "LineData/LineData.hpp"
 #include "LineLengthFilter.hpp"
 
@@ -46,6 +47,8 @@ void LineLengthFilter::onDataLoaded(LineDataPtr lineDataIn) {
         trajectoryLengths.push_back(trajectoryLength);
         maxTrajectoryLength = std::max(maxTrajectoryLength, trajectoryLength);
     });
+
+    canUseLiveUpdate = lineDataIn->getCanUseLiveUpdate(LineDataAccessType::FILTERED_LINES);
 }
 
 void LineLengthFilter::filterData(LineDataPtr lineDataIn) {
@@ -63,7 +66,10 @@ void LineLengthFilter::filterData(LineDataPtr lineDataIn) {
 void LineLengthFilter::renderGui() {
     sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(3220, 1792, 612, 120);
     if (ImGui::Begin("Line Length Filter", &showFilterWindow)) {
-        if (ImGui::SliderFloat("Min. Length", &trajectoryFilteringThreshold, 0.0f, maxTrajectoryLength)) {
+        EditMode editMode = ImGui::SliderFloatEdit(
+                "Min. Length", &trajectoryFilteringThreshold, 0.0f, maxTrajectoryLength);
+        if ((canUseLiveUpdate && editMode != EditMode::NO_CHANGE)
+                || (!canUseLiveUpdate && editMode == EditMode::INPUT_FINISHED)) {
             dirty = true;
         }
     }

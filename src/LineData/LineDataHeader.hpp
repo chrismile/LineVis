@@ -26,42 +26,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEVIS_LINEFILTER_HPP
-#define LINEVIS_LINEFILTER_HPP
+#ifndef LINEVIS_LINEDATAHEADER_HPP
+#define LINEVIS_LINEDATAHEADER_HPP
 
-#include <memory>
-
-class LineData;
-typedef std::shared_ptr<LineData> LineDataPtr;
-
-struct InternalState;
-class SettingsMap;
-
-class LineFilter {
-public:
-    virtual ~LineFilter() {}
-
-    // Returns if the filter is active and should be applied on the input data.
-    inline bool isEnabled() { return enabled; }
-    // Returns if the visualization mapping needs to be re-generated.
-    inline bool isDirty() { return dirty; }
-
-    // Called when a new data set is loaded from a file.
-    virtual void onDataLoaded(LineDataPtr lineDataIn) {}
-    virtual void filterData(LineDataPtr lineDataIn)=0;
-
-    // Renders the GUI. The "dirty" flag might be set depending on the user's actions.
-    virtual void renderGui()=0;
-
-    /// For changing performance measurement modes.
-    virtual void setNewState(const InternalState& newState) {}
-    virtual void setNewSettings(const SettingsMap& settings) {}
-
-protected:
-    bool enabled = true;
-    bool dirty = true;
-    bool showFilterWindow = true;
-    bool canUseLiveUpdate = true;
+enum class LineDataAccessType {
+    FILTERED_LINES, TRIANGLE_MESH
 };
 
-#endif //LINEVIS_LINEFILTER_HPP
+#endif //LINEVIS_LINEDATAHEADER_HPP

@@ -39,6 +39,7 @@
 #include "Utils/InternalState.hpp"
 #include "Loaders/DataSetList.hpp"
 #include "Loaders/TrajectoryFile.hpp"
+#include "LineDataHeader.hpp"
 #include "LineRenderData.hpp"
 
 namespace sgl { namespace vk {
@@ -81,16 +82,24 @@ public:
     void setSelectedAttributeIndex(int attributeIndex);
     void onTransferFunctionMapRebuilt();
     inline DataSetType getType() { return dataSetType; }
-    // Returns if the visualization mapping needs to be re-generated.
+    /// Returns if the visualization mapping needs to be re-generated.
     inline bool isDirty() const { return dirty; }
-    // Returns if the triangle mesh visualization mapping needs to be re-generated.
+    /// Returns if the triangle mesh visualization mapping needs to be re-generated.
     inline bool isTriangleRepresentationDirty() const { return triangleRepresentationDirty; }
-    // A renderer can signal that the triangle representation has changed.
+    /// A renderer can signal that the triangle representation has changed.
     inline void setTriangleRepresentationDirty() { triangleRepresentationDirty = true; }
-    // Returns if the data needs to be re-rendered, but the visualization mapping is valid.
+    /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
     virtual bool needsReRender() { bool tmp = reRender; reRender = false; return tmp; }
-    // Do non-static settings that lead to a gather shader reload differ?
+    /// Do non-static settings that lead to a gather shader reload differ?
     virtual bool settingsDiffer(LineData* other) { return false; }
+    /// Returns whether live visualization mapping updates can be used or whether the data set is too large.
+    virtual bool getCanUseLiveUpdate(LineDataAccessType accessType) const;
+    /**
+     * A small data set has only a little amount of geometric data.
+     * For large data sets, changing visualization mapping parameters triggering a rebuild of the internal
+     * representation are not feasible to do in real-time and would result in considerable lag.
+     */
+    virtual bool getIsSmallDataSet() const=0;
 
     /// For changing performance measurement modes.
     virtual bool setNewState(const InternalState& newState) { return false; }
@@ -222,6 +231,9 @@ protected:
     void loadSimulationMeshOutlineFromFile(
             const std::string& simulationMeshFilename, const sgl::AABB3& oldAABB, glm::mat4* transformationMatrixPtr);
     virtual void recomputeColorLegend();
+
+    ///< The maximum number of line points to be considered a small data set (important, e.g., for live UI updates).
+    const size_t SMALL_DATASET_LINE_POINTS_MAX = 10000;
 
     DataSetType dataSetType;
     sgl::AABB3 modelBoundingBox;

@@ -33,6 +33,7 @@
 #include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/OpenGL/RendererGL.hpp>
 #include <Graphics/OpenGL/GeometryBuffer.hpp>
+#include <ImGui/imgui_custom.h>
 
 #include "LineRenderer.hpp"
 
@@ -88,10 +89,6 @@ void LineRenderer::updateAmbientOcclusionMode() {
         sgl::ShaderManager->addPreprocessorDefine("USE_AMBIENT_OCCLUSION", "");
     } else {
         sgl::ShaderManager->removePreprocessorDefine("USE_AMBIENT_OCCLUSION");
-    }
-
-    if (useAmbientOcclusion && ambientOcclusionBaker && lineData && lineData->isTriangleRepresentationDirty()) {
-        ambientOcclusionBaker->startAmbientOcclusionBaking(lineData);
     }
 }
 
@@ -242,7 +239,12 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
 
 void LineRenderer::setAmbientOcclusionBaker(AmbientOcclusionBakerPtr& aoBaker) {
     ambientOcclusionBaker = aoBaker;
+    useAmbientOcclusion = ambientOcclusionStrength > 0.0f;
     updateAmbientOcclusionMode();
+
+    if (useAmbientOcclusion && ambientOcclusionBaker && lineData && lineData->isTriangleRepresentationDirty()) {
+        ambientOcclusionBaker->startAmbientOcclusionBaking(lineData);
+    }
 }
 
 bool LineRenderer::setNewSettings(const SettingsMap& settings) {
@@ -291,6 +293,17 @@ void LineRenderer::reloadGatherShaderExternal() {
     }
 }
 
+bool LineRenderer::getCanUseLiveUpdate(LineDataAccessType accessType) const {
+    if (lineData) {
+        if (accessType == LineDataAccessType::TRIANGLE_MESH) {
+            return !getIsTriangleRepresentationUsed() || lineData->getIsSmallDataSet();
+        } else if (accessType == LineDataAccessType::FILTERED_LINES) {
+            return lineData->getIsSmallDataSet();
+        }
+    }
+    return true;
+}
+
 void LineRenderer::renderGuiWindow() {
     bool shallReloadGatherShader = false;
 
@@ -299,40 +312,51 @@ void LineRenderer::renderGuiWindow() {
     }
     if (ImGui::Begin(windowName.c_str(), &showRendererWindow)) {
         this->renderGui();
+
         if (lineData) {
             ImGui::Separator();
             if (lineData->renderGuiRenderer(isRasterizer)) {
                 shallReloadGatherShader = true;
             }
-            if (ImGui::SliderFloat(
-                    "Depth Cue Strength", &depthCueStrength, 0.0f, 1.0f)) {
-                if (depthCueStrength <= 0.0f && useDepthCues) {
-                    useDepthCues = false;
-                    updateDepthCueMode();
-                    shallReloadGatherShader = true;
-                }
+
+            EditMode editModeDepthCue = ImGui::SliderFloatEdit(
+                    "Depth Cue Strength", &depthCueStrength, 0.0f, 1.0f);
+            if (editModeDepthCue != EditMode::NO_CHANGE) {
+                reRender = true;
+                internalReRender = true;
                 if (depthCueStrength > 0.0f && !useDepthCues) {
                     useDepthCues = true;
                     updateDepthCueMode();
                     shallReloadGatherShader = true;
                 }
-                reRender = true;
-                internalReRender = true;
             }
-            if (ambientOcclusionBaker.get() != nullptr && ImGui::SliderFloat(
-                    "AO Strength", &ambientOcclusionStrength, 0.0f, 1.0f)) {
-                if (ambientOcclusionStrength <= 0.0f && useAmbientOcclusion) {
-                    useAmbientOcclusion = false;
-                    updateAmbientOcclusionMode();
+            if (editModeDepthCue == EditMode::INPUT_FINISHED) {
+                if (depthCueStrength <= 0.0f && useDepthCues) {
+                    useDepthCues = false;
+                    updateDepthCueMode();
                     shallReloadGatherShader = true;
                 }
-                if (ambientOcclusionStrength > 0.0f && !useAmbientOcclusion) {
-                    useAmbientOcclusion = true;
-                    updateAmbientOcclusionMode();
-                    shallReloadGatherShader = true;
+            }
+
+            if (ambientOcclusionBaker.get() != nullptr) {
+                EditMode editModeAo = ImGui::SliderFloatEdit(
+                        "AO Strength", &ambientOcclusionStrength, 0.0f, 1.0f);
+                if (editModeAo != EditMode::NO_CHANGE) {
+                    reRender = true;
+                    internalReRender = true;
+                    if (ambientOcclusionStrength > 0.0f && !useAmbientOcclusion) {
+                        useAmbientOcclusion = true;
+                        updateAmbientOcclusionMode();
+                        shallReloadGatherShader = true;
+                    }
                 }
-                reRender = true;
-                internalReRender = true;
+                if (editModeAo == EditMode::INPUT_FINISHED) {
+                    if (ambientOcclusionStrength <= 0.0f && useAmbientOcclusion) {
+                        useAmbientOcclusion = false;
+                        updateAmbientOcclusionMode();
+                        shallReloadGatherShader = true;
+                    }
+                }
             }
         }
     }
@@ -368,7 +392,11 @@ void LineRenderer::renderGui() {
 }
 
 void LineRenderer::renderLineWidthSlider() {
-    if (ImGui::SliderFloat("Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f")) {
+    bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
+    EditMode editMode = ImGui::SliderFloatEdit(
+            "Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f");
+    if ((canUseLiveUpdate && editMode != EditMode::NO_CHANGE)
+            || (!canUseLiveUpdate && editMode == EditMode::INPUT_FINISHED)) {
         if (lineData) {
             lineData->setTriangleRepresentationDirty();
         }

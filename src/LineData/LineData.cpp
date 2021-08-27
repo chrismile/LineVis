@@ -82,6 +82,13 @@ bool LineData::setNewSettings(const SettingsMap& settings) {
     return false;
 }
 
+bool LineData::getCanUseLiveUpdate(LineDataAccessType accessType) const {
+    if (accessType == LineDataAccessType::FILTERED_LINES) {
+        return getIsSmallDataSet();
+    }
+    return !lineRenderer || lineRenderer->getCanUseLiveUpdate(accessType);
+}
+
 bool LineData::renderGuiRenderer(bool isRasterizer) {
     bool shallReloadGatherShader = false;
 

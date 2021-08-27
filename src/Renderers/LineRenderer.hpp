@@ -67,6 +67,8 @@ public:
     virtual bool needsInternalReRender() { bool tmp = internalReRender; internalReRender = false; return tmp; }
     /// Returns whether the triangle representation is used by the renderer.
     virtual bool getIsTriangleRepresentationUsed() const;
+    /// Returns whether live visualization mapping updates can be used or whether the data set is too large.
+    virtual bool getCanUseLiveUpdate(LineDataAccessType accessType) const;
 
     /**
      * Re-generates the visualization mapping.
@@ -156,8 +158,8 @@ protected:
     // Whether to use baked ambient occlusion buffers.
     void updateAmbientOcclusionMode();
     AmbientOcclusionBakerPtr ambientOcclusionBaker;
-    bool useAmbientOcclusion = true;
-    float ambientOcclusionStrength = 1.0f;
+    bool useAmbientOcclusion = false;
+    float ambientOcclusionStrength = 0.0f;
     bool ambientOcclusionBuffersDirty = false;
 
     // Minimum and maximum values in the UI.

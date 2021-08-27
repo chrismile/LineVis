@@ -46,6 +46,7 @@ public:
     explicit LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow);
     ~LineDataStress() override;
     bool settingsDiffer(LineData* other) override;
+    bool getIsSmallDataSet() const override;
     void update(float dt) override;
 
     /// For changing internal settings programmatically and not over the GUI.
@@ -176,6 +177,7 @@ private:
     std::vector<bool> usedPsDirections; ///< What principal stress (PS) directions do we want to display?
     std::vector<std::vector<bool>> filteredTrajectoriesPs;
     std::vector<glm::vec2> minMaxAttributeValuesPs[3];
+    size_t numTotalTrajectoryPoints = 0;
     int fileFormatVersion = 0;
     // If optional band data is provided:
     bool hasBandsData = false;

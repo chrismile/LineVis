@@ -27,6 +27,9 @@
  */
 
 #include <limits>
+
+#include <ImGui/imgui_custom.h>
+
 #include "LineData/LineData.hpp"
 #include "MaxLineAttributeFilter.hpp"
 
@@ -55,6 +58,8 @@ void MaxLineAttributeFilter::onDataLoaded(LineDataPtr lineDataIn) {
         maxGlobalAttribute = std::max(maxGlobalAttribute, maxTrajectoryAttribute);
     });
     trajectoryFilteringThreshold = minGlobalAttribute;
+
+    canUseLiveUpdate = lineDataIn->getCanUseLiveUpdate(LineDataAccessType::FILTERED_LINES);
 }
 
 void MaxLineAttributeFilter::filterData(LineDataPtr lineDataIn) {
@@ -72,8 +77,10 @@ void MaxLineAttributeFilter::filterData(LineDataPtr lineDataIn) {
 void MaxLineAttributeFilter::renderGui() {
     sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(3220, 1932, 612, 120);
     if (ImGui::Begin("Line Attribute Filter", &showFilterWindow)) {
-        if (ImGui::SliderFloat(
-                "Min. Attribute", &trajectoryFilteringThreshold, minGlobalAttribute, maxGlobalAttribute)) {
+        EditMode editMode = ImGui::SliderFloatEdit(
+                "Min. Attribute", &trajectoryFilteringThreshold, minGlobalAttribute, maxGlobalAttribute);
+        if ((canUseLiveUpdate && editMode != EditMode::NO_CHANGE)
+                || (!canUseLiveUpdate && editMode == EditMode::INPUT_FINISHED)) {
             dirty = true;
         }
     }

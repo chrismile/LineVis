@@ -32,6 +32,7 @@
 #include <Graphics/Vulkan/Utils/Interop.hpp>
 #include <Graphics/OpenGL/GeometryBuffer.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
+#include <ImGui/imgui_custom.h>
 
 #include "LineData/LineData.hpp"
 #include "Renderers/LineRenderer.hpp"
@@ -140,27 +141,29 @@ bool VulkanAmbientOcclusionBaker::renderGui() {
     if (ImGui::Begin("RTAO Baking", &showWindow)) {
         ImGui::Checkbox("Use Main Thread", &useMainThread);
 
-        if (ImGui::SliderInt("#Iterations", &maxNumIterations, 1, 4096)) {
+        if (ImGui::SliderIntEdit(
+                "#Iterations", &maxNumIterations, 1, 4096) == EditMode::INPUT_FINISHED) {
             dirty = true;
         }
-        if (ImGui::SliderFloat(
+        if (ImGui::SliderFloatEdit(
                 "Line Resolution", &aoComputeRenderPass->expectedParamSegmentLength,
-                0.0001f, 0.01f, "%.4f")) {
+                0.0001f, 0.01f, "%.4f") == EditMode::INPUT_FINISHED) {
             dirty = true;
         }
-        if (ImGui::SliderInt(
-                "#Subdivisions",
-                reinterpret_cast<int*>(&aoComputeRenderPass->numTubeSubdivisions), 3, 16)) {
+        if (ImGui::SliderIntEdit(
+                "#Subdivisions", reinterpret_cast<int*>(&aoComputeRenderPass->numTubeSubdivisions),
+                3, 16) == EditMode::INPUT_FINISHED) {
             dirty = true;
         }
-        if (ImGui::SliderInt(
+        if (ImGui::SliderIntEdit(
                 "#Samples/Frame",
                 reinterpret_cast<int*>(&aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame),
-                1, 4096)) {
+                1, 4096) == EditMode::INPUT_FINISHED) {
             dirty = true;
         }
-        if (ImGui::SliderFloat(
-                "AO Radius", &aoComputeRenderPass->ambientOcclusionRadius, 0.01f, 0.2f)) {
+        if (ImGui::SliderFloatEdit(
+                "AO Radius", &aoComputeRenderPass->ambientOcclusionRadius,
+                0.01f, 0.2f) == EditMode::INPUT_FINISHED) {
             dirty = true;
         }
         if (ImGui::Checkbox("Use Distance-based AO", &aoComputeRenderPass->useDistance)) {

@@ -29,6 +29,7 @@
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
+#include <ImGui/imgui_custom.h>
 
 #ifdef USE_VULKAN_INTEROP
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
@@ -79,6 +80,10 @@ LineDataStress::~LineDataStress() {
 
 bool LineDataStress::settingsDiffer(LineData* other) {
     return useLineHierarchy != static_cast<LineDataStress*>(other)->useLineHierarchy || (hasBandsData != hasBandsData);
+}
+
+bool LineDataStress::getIsSmallDataSet() const {
+    return numTotalTrajectoryPoints <= SMALL_DATASET_LINE_POINTS_MAX;
 }
 
 void LineDataStress::update(float dt) {
@@ -193,10 +198,13 @@ bool LineDataStress::renderGuiLineData(bool isRasterizer) {
             }
         }
         if (!rendererSupportsTransparency && useLineHierarchy) {
+            bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
             bool sliderChanged = false;
             for (int psIdx : loadedPsIndices) {
-                if (ImGui::SliderFloat(
-                        stressDirectionNames[psIdx], &lineHierarchySliderValues[psIdx], 0.0f, 1.0f)) {
+                EditMode editMode = ImGui::SliderFloatEdit(
+                        stressDirectionNames[psIdx], &lineHierarchySliderValues[psIdx], 0.0f, 1.0f);
+                if ((canUseLiveUpdate && editMode != EditMode::NO_CHANGE)
+                        || (!canUseLiveUpdate && editMode == EditMode::INPUT_FINISHED)) {
                     reRender = true;
                     recomputeOpacityOptimization = true;
                     sliderChanged = true;
@@ -254,11 +262,16 @@ bool LineDataStress::renderGuiLineData(bool isRasterizer) {
 }
 
 bool LineDataStress::renderGuiRenderingSettings() {
-    if (useBands() && ImGui::SliderFloat(
-            "Band Width", &LineRenderer::bandWidth, LineRenderer::MIN_BAND_WIDTH, LineRenderer::MAX_BAND_WIDTH,
-            "%.4f")) {
-        reRender = true;
-        setTriangleRepresentationDirty();
+    bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
+    if (useBands()) {
+        EditMode editMode = ImGui::SliderFloatEdit(
+                "Band Width", &LineRenderer::bandWidth, LineRenderer::MIN_BAND_WIDTH, LineRenderer::MAX_BAND_WIDTH,
+                "%.4f");
+        if ((canUseLiveUpdate && editMode != EditMode::NO_CHANGE)
+                || (!canUseLiveUpdate && editMode == EditMode::INPUT_FINISHED)) {
+            reRender = true;
+            setTriangleRepresentationDirty();
+        }
     }
     return false;
 }
@@ -443,6 +456,17 @@ void LineDataStress::setStressTrajectoryData(
     }
 
     updateLineHierarchyHistogram();
+
+    numTotalTrajectoryPoints = 0;
+    for (const Trajectories& trajectories : trajectoriesPs) {
+#if _OPENMP >= 201107
+        #pragma omp parallel for reduction(+: numTotalTrajectoryPoints) shared(trajectories) default(none)
+#endif
+        for (size_t i = 0; i < trajectories.size(); i++) {
+            const Trajectory& trajectory = trajectories.at(i);
+            numTotalTrajectoryPoints += trajectory.positions.size();
+        }
+    }
 
     dirty = true;
 }

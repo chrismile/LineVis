@@ -100,7 +100,7 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
                 maxAttr = std::max(maxAttr, val);
             }
         }
-        minMaxAttributeValues.push_back(glm::vec2(minAttr, maxAttr));
+        minMaxAttributeValues.emplace_back(minAttr, maxAttr);
         colorLegendWidgets[i].setAttributeMinValue(minAttr);
         colorLegendWidgets[i].setAttributeMaxValue(maxAttr);
         colorLegendWidgets[i].setAttributeDisplayName(
@@ -108,7 +108,20 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
     }
     //normalizeTrajectoriesVertexAttributes(this->trajectories);
 
+    numTotalTrajectoryPoints = 0;
+#if _OPENMP >= 201107
+    #pragma omp parallel for reduction(+: numTotalTrajectoryPoints) shared(trajectories) default(none)
+#endif
+    for (size_t i = 0; i < trajectories.size(); i++) {
+        const Trajectory& trajectory = trajectories.at(i);
+        numTotalTrajectoryPoints += trajectory.positions.size();
+    }
+
     dirty = true;
+}
+
+bool LineDataFlow::getIsSmallDataSet() const {
+    return numTotalTrajectoryPoints <= SMALL_DATASET_LINE_POINTS_MAX;
 }
 
 void LineDataFlow::recomputeHistogram() {

@@ -123,12 +123,12 @@ void VulkanRayTracer::render() {
         renderReadySemaphore->signalSemaphoreGl(renderTextureGl, GL_NONE);
     }
 
-    if (accumulatedFramesCounter >= maxNumAccumulatedFrames) {
-        Logfile::get()->throwError(
-                "Error in VulkanRayTracer::render: accumulatedFramesCounter >= maxNumAccumulatedFrames. "
-                "This should never happen!");
-        accumulatedFramesCounter = 0;
-    }
+    //if (accumulatedFramesCounter >= maxNumAccumulatedFrames) {
+    //    Logfile::get()->throwError(
+    //            "Error in VulkanRayTracer::render: accumulatedFramesCounter >= maxNumAccumulatedFrames. "
+    //            "This should never happen!");
+    //    accumulatedFramesCounter = 0;
+    //}
 
     if (ambientOcclusionBuffersDirty) {
         rayTracingRenderPass->setDataDirty();
@@ -170,9 +170,7 @@ void VulkanRayTracer::render() {
     sgl::Renderer->blitTexture(
             renderTextureGl, sgl::AABB2(glm::vec2(-1, -1), glm::vec2(1, 1)));
 
-    if (accumulatedFramesCounter < maxNumAccumulatedFrames) {
-        accumulatedFramesCounter++;
-    }
+    accumulatedFramesCounter++;
 }
 
 void VulkanRayTracer::renderGui() {
