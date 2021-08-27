@@ -69,6 +69,7 @@
 #include "Renderers/OIT/MLABBucketRenderer.hpp"
 #include "Renderers/OIT/WBOITRenderer.hpp"
 #include "Renderers/OIT/DepthPeelingRenderer.hpp"
+#include "Renderers/VRC/VoxelRayCastingRenderer.hpp"
 #ifdef USE_VULKAN_INTEROP
 #include "Renderers/Vulkan/VulkanRayTracer.hpp"
 #include "Renderers/Vulkan/VulkanTestRenderer.hpp"
@@ -294,8 +295,9 @@ MainApp::MainApp(bool supportsRaytracing)
     }
 
 #ifdef USE_VULKAN_INTEROP
-    ambientOcclusionBaker = AmbientOcclusionBakerPtr(
-            new VulkanAmbientOcclusionBaker(transferFunctionWindow, rendererVk));
+    // TODO
+    //ambientOcclusionBaker = AmbientOcclusionBakerPtr(
+    //        new VulkanAmbientOcclusionBaker(transferFunctionWindow, rendererVk));
 #endif
 
     setRenderer();
@@ -465,6 +467,8 @@ void MainApp::setRenderer() {
         lineRenderer = new VulkanRayTracer(sceneData, transferFunctionWindow, rendererVk);
     } else if (renderingMode == RENDERING_MODE_VULKAN_TEST) {
         lineRenderer = new VulkanTestRenderer(sceneData, transferFunctionWindow, rendererVk);
+    } else if (renderingMode == RENDERING_MODE_VOXEL_RAY_CASTING) {
+        lineRenderer = new VoxelRayCastingRenderer(sceneData, transferFunctionWindow);
     }
 #endif
     if (ambientOcclusionBaker) {

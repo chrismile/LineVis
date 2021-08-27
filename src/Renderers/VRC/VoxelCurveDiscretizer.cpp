@@ -1,0 +1,82 @@
+/*
+ * BSD 2-Clause License
+ *
+ * Copyright (c) 2021, Christoph Neuhauser
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include <chrono>
+
+#include <Math/Math.hpp>
+#include <Utils/File/Logfile.hpp>
+#include <Graphics/Renderer.hpp>
+#include <Graphics/Shader/ShaderManager.hpp>
+#include <Graphics/OpenGL/GeometryBuffer.hpp>
+
+#include "VoxelCurveDiscretizer.hpp"
+
+VoxelCurveDiscretizer::VoxelCurveDiscretizer() {
+    prefixSumBlockIncrementShader = sgl::ShaderManager->getShaderProgram(
+            {"PrefixSumBlockIncrement.Compute"});
+    prefixSumScanShader = sgl::ShaderManager->getShaderProgram(
+            { "PrefixSumScan.Compute"});
+    prefixSumWriteFinalElementShader = sgl::ShaderManager->getShaderProgram(
+            {"PrefixSumWriteFinalElement.Compute"});
+}
+
+void VoxelCurveDiscretizer::loadLineData(
+        LineDataPtr& lineData, uint32_t gridResolution1D, uint32_t quantizationResolution1D) {
+    linesBoundingBox = lineData->getModelBoundingBox();
+    gridResolution = glm::uvec3(gridResolution1D);
+    quantizationResolution = glm::uvec3(quantizationResolution1D);
+
+    glm::vec3 gridDimensions = linesBoundingBox.getDimensions();
+
+    float maxDimensionLength = 0.0f;
+    for (int i = 0; i < 3; i++) {
+        maxDimensionLength = std::max(maxDimensionLength, gridDimensions[i]);
+    }
+    for (int i = 0; i < 3; i++) {
+        float sideLengthFactor = gridDimensions[i] / maxDimensionLength;
+        gridResolution[i] = uint32_t(std::ceil(float(gridResolution[i]) * sideLengthFactor));
+    }
+
+    linesToVoxel =
+            sgl::matrixScaling(1.0f / linesBoundingBox.getDimensions() * glm::vec3(gridResolution))
+            * sgl::matrixTranslation(-linesBoundingBox.getMinimum());
+    voxelToLines = glm::inverse(linesToVoxel);
+
+    curves.clear();
+    int selectedAttributeIndex = lineData->getSelectedAttributeIndex();
+    lineData->rebuildInternalRepresentationIfNecessary();
+    lineData->iterateOverTrajectories([this, selectedAttributeIndex](const Trajectory& trajectory) {
+        Curve curve;
+        for (size_t pointIdx = 0; pointIdx < trajectory.positions.size(); pointIdx++) {
+            curve.points.push_back(sgl::transformPoint(linesToVoxel, trajectory.positions.at(pointIdx)));
+            curve.attributes.push_back(trajectory.attributes.at(selectedAttributeIndex).at(pointIdx));
+        }
+        curve.lineID = uint32_t(curves.size());
+        curves.push_back(curve);
+    });
+}

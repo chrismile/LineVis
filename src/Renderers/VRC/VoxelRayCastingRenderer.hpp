@@ -30,6 +30,7 @@
 #define LINEVIS_VOXELRAYCASTINGRENDERER_HPP
 
 #include "Renderers/LineRenderer.hpp"
+#include "VoxelCurveDiscretizer.hpp"
 
 /**
  * A voxel ray caster (VRC) for line rendering based on the work by:
@@ -42,6 +43,44 @@ class VoxelRayCastingRenderer : public LineRenderer {
 public:
     VoxelRayCastingRenderer(
             SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+
+    /**
+     * Re-generates the visualization mapping.
+     * @param lineData The render data.
+     */
+    void setLineData(LineDataPtr& lineData, bool isNewData) override;
+
+    /// Called when the resolution of the application window has changed.
+    void onResolutionChanged() override;
+
+    // Renders the object to the scene framebuffer.
+    void render() override;
+    // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
+    void renderGui() override;
+
+protected:
+    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
+    void setUniformData();
+
+private:
+    sgl::TexturePtr renderTexture;
+
+    // Blit data (ignores model-view-projection matrix and uses normalized device coordinates)
+    sgl::ShaderAttributesPtr blitRenderData;
+    sgl::ShaderProgramPtr renderShader;
+
+    VoxelCurveDiscretizer voxelCurveDiscretizer;
+    glm::mat4 worldToVoxelGridMatrix{};
+    sgl::GeometryBufferPtr voxelGridLineSegmentOffsetsBuffer;
+    sgl::GeometryBufferPtr voxelGridNumLineSegmentsBuffer;
+    sgl::GeometryBufferPtr voxelGridLineSegmentsBuffer;
+
+    // Rendering settings.
+    int gridResolution1D = 64, quantizationResolution1D = 32;
+    int maxNumLinesPerVoxel = 32;
+    int maxNumHits = 8;
+    bool useGpuForVoxelization = true;
+    glm::uvec3 gridResolution{}, quantizationResolution{};
 };
 
 #endif //LINEVIS_VOXELRAYCASTINGRENDERER_HPP

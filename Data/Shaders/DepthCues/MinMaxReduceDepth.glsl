@@ -4,7 +4,7 @@
 
 #define BLOCK_SIZE 256
 
-layout (local_size_x = BLOCK_SIZE, local_size_y = 1, local_size_z = 1) in;
+layout (local_size_x = BLOCK_SIZE) in;
 
 // Size: sizeOfInput
 layout (std430, binding = 11) readonly buffer DepthMinMaxInBuffer {
