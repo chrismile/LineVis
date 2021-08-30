@@ -27,8 +27,11 @@ uniform float depthCueStrength = 0.8f;
 */
 vec4 blinnPhongShading(
         in vec4 baseColor,
-#ifdef VULKAN
+#if defined(VULKAN) || defined(VOXEL_RAY_CASTING)
         in vec3 fragmentPositionWorld,
+#ifdef USE_DEPTH_CUES
+        in vec3 screenSpacePosition,
+#endif
 #endif
         in vec3 fragmentNormal) {
     // Blinn-Phong Shading
@@ -78,7 +81,7 @@ vec4 blinnPhongShading(
 */
 vec4 blinnPhongShadingTube(
         in vec4 baseColor,
-#ifdef VULKAN
+#if defined(VULKAN) || defined(VOXEL_RAY_CASTING)
         in vec3 fragmentPositionWorld,
 #ifdef USE_DEPTH_CUES
         in vec3 screenSpacePosition,

@@ -299,10 +299,10 @@ std::vector<VoxelDiscretizer*> VoxelCurveDiscretizer::getVoxelsInAABB(const sgl:
     glm::vec3 minimum = aabb.getMinimum();
     glm::vec3 maximum = aabb.getMaximum();
 
-    glm::uvec3 lower = glm::uvec3(minimum); // Round down
-    glm::uvec3 upper = glm::uvec3(ceil(maximum.x), ceil(maximum.y), ceil(maximum.z)); // Round up
-    lower = glm::max(lower, glm::uvec3(0));
-    upper = glm::min(upper, gridResolution - glm::uvec3(1));
+    glm::ivec3 lower = glm::ivec3(minimum); // Round down
+    glm::ivec3 upper = glm::ivec3(ceil(maximum.x), ceil(maximum.y), ceil(maximum.z)); // Round up
+    lower = glm::max(lower, glm::ivec3(0));
+    upper = glm::min(upper, gridResolution - glm::ivec3(1));
 
     for (uint32_t z = lower.z; z <= upper.z; z++) {
         for (uint32_t y = lower.y; y <= upper.y; y++) {
@@ -472,4 +472,120 @@ bool VoxelCurveDiscretizer::checkLinesEqual(const LineSegment& originalLine, con
     }
 
     return linesEqual;
+}
+
+
+
+bool VoxelCurveDiscretizer::isVoxelFilled(
+        const uint32_t* voxelGridNumLineSegmentsArray, int x, int y, int z) const {
+    if (x < 0 || y < 0 || z < 0 || x >= gridResolution.x || y >= gridResolution.y || z >= gridResolution.z) {
+        return false;
+    }
+    return voxelGridNumLineSegmentsArray[x + y * gridResolution.x + z * gridResolution.x * gridResolution.y] > 0;
+}
+
+bool VoxelCurveDiscretizer::isVoxelFilledDilated(
+        const uint32_t* voxelGridNumLineSegmentsArray, int x, int y, int z) const {
+    if (x < -1 || y < -1 || z < -1 || x > gridResolution.x || y > gridResolution.y || z > gridResolution.z) {
+        return false;
+    }
+    return voxelGridNumLineSegmentsArray[
+            (x + 1)
+            + (y + 1) * (gridResolution.x + 2)
+            + (z + 1) * (gridResolution.x + 2) * (gridResolution.y + 2)] > 0;
+}
+
+void VoxelCurveDiscretizer::createLineHullMesh() {
+    std::vector<uint32_t> lineHullIndices;
+    std::vector<glm::vec3> lineHullVertices;
+
+    uint32_t* voxelGridNumLineSegmentsArray = new uint32_t[gridResolution.x * gridResolution.y * gridResolution.z];
+    uint32_t* voxelGridDilatedNumSegmentsArray = new uint32_t[
+            (gridResolution.x + 2) * (gridResolution.y + 2) * (gridResolution.z + 2)];
+    void* buffer = voxelGridNumLineSegmentsBuffer->mapBuffer(sgl::BUFFER_MAP_READ_ONLY);
+    memcpy(voxelGridNumLineSegmentsArray, buffer, voxelGridNumLineSegmentsBuffer->getSize());
+    voxelGridNumLineSegmentsBuffer->unmapBuffer();
+
+    // Dilate the grid.
+    for (int z = -1; z <= gridResolution.z; z++) {
+        for (int y = -1; y <= gridResolution.y; y++) {
+            for (int x = -1; x <= gridResolution.x; x++) {
+                uint32_t isFilled = 0;
+                for (int dz = -1; dz <= 1; dz++) {
+                    for (int dy = -1; dy <= 1; dy++) {
+                        for (int dx = -1; dx <= 1; dx++) {
+                            if (isVoxelFilled(voxelGridNumLineSegmentsArray, x + dx, y + dy, z + dz)) {
+                                isFilled = 1;
+                            }
+                        }
+                    }
+                }
+                voxelGridDilatedNumSegmentsArray[
+                        (x + 1)
+                        + (y + 1) * (gridResolution.x + 2)
+                        + (z + 1) * (gridResolution.x + 2) * (gridResolution.y + 2)] = isFilled;
+            }
+        }
+    }
+
+    uint32_t indexOffset = 0;
+
+    for (int z = -1; z <= gridResolution.z + 1; z++) {
+        for (int y = -1; y <= gridResolution.y + 1; y++) {
+            for (int x = -1; x <= gridResolution.x + 1; x++) {
+                bool linesSetThis = isVoxelFilledDilated(voxelGridDilatedNumSegmentsArray, x, y, z);
+                bool linesSetLeft = isVoxelFilledDilated(voxelGridDilatedNumSegmentsArray, x - 1, y, z);
+                bool linesSetBottom = isVoxelFilledDilated(voxelGridDilatedNumSegmentsArray, x, y - 1, z);
+                bool linesSetBehind = isVoxelFilledDilated(voxelGridDilatedNumSegmentsArray, x, y, z - 1);
+
+                if (linesSetThis != linesSetLeft) {
+                    lineHullVertices.emplace_back(x, y, z);
+                    lineHullVertices.emplace_back(x, y + 1, z);
+                    lineHullVertices.emplace_back(x, y + 1, z + 1);
+                    lineHullVertices.emplace_back(x, y, z + 1);
+                    lineHullIndices.push_back(indexOffset + 0);
+                    lineHullIndices.push_back(indexOffset + 1);
+                    lineHullIndices.push_back(indexOffset + 2);
+                    lineHullIndices.push_back(indexOffset + 0);
+                    lineHullIndices.push_back(indexOffset + 2);
+                    lineHullIndices.push_back(indexOffset + 3);
+                    indexOffset += 4;
+                }
+                if (linesSetThis != linesSetBottom) {
+                    lineHullVertices.emplace_back(x, y, z);
+                    lineHullVertices.emplace_back(x + 1, y, z);
+                    lineHullVertices.emplace_back(x + 1, y, z + 1);
+                    lineHullVertices.emplace_back(x, y, z + 1);
+                    lineHullIndices.push_back(indexOffset + 0);
+                    lineHullIndices.push_back(indexOffset + 1);
+                    lineHullIndices.push_back(indexOffset + 2);
+                    lineHullIndices.push_back(indexOffset + 0);
+                    lineHullIndices.push_back(indexOffset + 2);
+                    lineHullIndices.push_back(indexOffset + 3);
+                    indexOffset += 4;
+                }
+                if (linesSetThis != linesSetBehind) {
+                    lineHullVertices.emplace_back(x, y, z);
+                    lineHullVertices.emplace_back(x, y + 1, z);
+                    lineHullVertices.emplace_back(x + 1, y + 1, z);
+                    lineHullVertices.emplace_back(x + 1, y, z);
+                    lineHullIndices.push_back(indexOffset + 0);
+                    lineHullIndices.push_back(indexOffset + 1);
+                    lineHullIndices.push_back(indexOffset + 2);
+                    lineHullIndices.push_back(indexOffset + 0);
+                    lineHullIndices.push_back(indexOffset + 2);
+                    lineHullIndices.push_back(indexOffset + 3);
+                    indexOffset += 4;
+                }
+            }
+        }
+    }
+
+    delete[] voxelGridNumLineSegmentsArray;
+    delete[] voxelGridDilatedNumSegmentsArray;
+
+    lineHullIndexBuffer = sgl::Renderer->createGeometryBuffer(
+            sizeof(uint32_t) * lineHullIndices.size(), lineHullIndices.data(), sgl::INDEX_BUFFER);
+    lineHullVertexBuffer = sgl::Renderer->createGeometryBuffer(
+            sizeof(glm::vec3) * lineHullVertices.size(), lineHullVertices.data());
 }

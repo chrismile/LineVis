@@ -33,14 +33,9 @@
 #include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/Texture/TextureManager.hpp>
 #include <Graphics/OpenGL/GeometryBuffer.hpp>
-#include <Graphics/OpenGL/SystemGL.hpp>
-#include <Graphics/OpenGL/Shader.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 
 #include "WBOITRenderer.hpp"
-#include "WBOITRenderer.hpp"
-
-using namespace sgl;
 
 // Use stencil buffer to mask unused pixels
 const bool useStencilBuffer = true;
@@ -59,15 +54,17 @@ WBOITRenderer::WBOITRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& 
     std::vector<glm::vec3> fullscreenQuadPos{
             glm::vec3(1,1,0), glm::vec3(-1,-1,0), glm::vec3(1,-1,0),
             glm::vec3(-1,-1,0), glm::vec3(1,1,0), glm::vec3(-1,1,0)};
-    GeometryBufferPtr geomBufferPos = sgl::Renderer->createGeometryBuffer(
+    sgl::GeometryBufferPtr geomBufferPos = sgl::Renderer->createGeometryBuffer(
             sizeof(glm::vec3)*fullscreenQuadPos.size(), fullscreenQuadPos.data());
     std::vector<glm::vec2> fullscreenQuadTex{
             glm::vec2(1,1), glm::vec2(0,0), glm::vec2(1,0),
             glm::vec2(0,0), glm::vec2(1,1), glm::vec2(0,1)};
-    GeometryBufferPtr geomBufferTex = sgl::Renderer->createGeometryBuffer(
+    sgl::GeometryBufferPtr geomBufferTex = sgl::Renderer->createGeometryBuffer(
             sizeof(glm::vec2)*fullscreenQuadTex.size(), fullscreenQuadTex.data());
-    blitRenderData->addGeometryBuffer(geomBufferPos, "vertexPosition", ATTRIB_FLOAT, 3);
-    blitRenderData->addGeometryBuffer(geomBufferTex, "vertexTexCoord", ATTRIB_FLOAT, 2);
+    blitRenderData->addGeometryBuffer(
+            geomBufferPos, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
+    blitRenderData->addGeometryBuffer(
+            geomBufferTex, "vertexTexCoord", sgl::ATTRIB_FLOAT, 2);
 }
 
 void WBOITRenderer::reloadShaders() {
@@ -111,18 +108,18 @@ void WBOITRenderer::onResolutionChanged() {
     int width = window->getWidth();
     int height = window->getHeight();
 
-    TextureSettings textureSettingsColor;
+    sgl::TextureSettings textureSettingsColor;
     textureSettingsColor.internalFormat = GL_RGBA32F; // GL_RGBA16F?
-    TextureSettings textureSettingsDepth;
+    sgl::TextureSettings textureSettingsDepth;
     textureSettingsDepth.internalFormat = GL_DEPTH_COMPONENT;
 
     gatherPassFBO = sgl::Renderer->createFBO();
-    accumulationRenderTexture = TextureManager->createEmptyTexture(width, height, textureSettingsColor);
+    accumulationRenderTexture = sgl::TextureManager->createEmptyTexture(width, height, textureSettingsColor);
     textureSettingsColor.internalFormat = GL_R32F; // GL_R16F?
-    revealageRenderTexture = TextureManager->createEmptyTexture(width, height, textureSettingsColor);
-    gatherPassFBO->bindTexture(accumulationRenderTexture, COLOR_ATTACHMENT0);
-    gatherPassFBO->bindTexture(revealageRenderTexture, COLOR_ATTACHMENT1);
-    gatherPassFBO->bindRenderbuffer(sceneData.sceneDepthRBO, DEPTH_ATTACHMENT);
+    revealageRenderTexture = sgl::TextureManager->createEmptyTexture(width, height, textureSettingsColor);
+    gatherPassFBO->bindTexture(accumulationRenderTexture, sgl::COLOR_ATTACHMENT0);
+    gatherPassFBO->bindTexture(revealageRenderTexture, sgl::COLOR_ATTACHMENT1);
+    gatherPassFBO->bindRenderbuffer(sceneData.sceneDepthRBO, sgl::DEPTH_ATTACHMENT);
 }
 
 void WBOITRenderer::setUniformData() {
@@ -176,9 +173,9 @@ void WBOITRenderer::render() {
     }
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-    sgl::Renderer->setProjectionMatrix(matrixIdentity());
-    sgl::Renderer->setViewMatrix(matrixIdentity());
-    sgl::Renderer->setModelMatrix(matrixIdentity());
+    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
+    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
+    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     sgl::Renderer->bindFBO(sceneData.framebuffer);
     // Normal alpha blending

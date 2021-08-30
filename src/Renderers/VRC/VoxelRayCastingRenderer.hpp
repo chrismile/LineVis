@@ -69,8 +69,16 @@ private:
     sgl::ShaderAttributesPtr blitRenderData;
     sgl::ShaderProgramPtr renderShader;
 
+    //
+    sgl::ShaderProgramPtr lineHullShader;
+    sgl::ShaderAttributesPtr lineHullRenderData;
+    sgl::FramebufferObjectPtr nearestLineHullHitFbo;
+    sgl::FramebufferObjectPtr furthestLineHullHitFbo;
+    sgl::TexturePtr nearestLineHullHitDepthTexture;
+    sgl::TexturePtr furthestLineHullHitDepthTexture;
+
     VoxelCurveDiscretizer voxelCurveDiscretizer;
-    glm::mat4 worldToVoxelGridMatrix{};
+    glm::mat4 worldToVoxelGridMatrix{}, voxelGridToWorldMatrix{};
     sgl::GeometryBufferPtr voxelGridLineSegmentOffsetsBuffer;
     sgl::GeometryBufferPtr voxelGridNumLineSegmentsBuffer;
     sgl::GeometryBufferPtr voxelGridLineSegmentsBuffer;
@@ -80,7 +88,9 @@ private:
     int maxNumLinesPerVoxel = 32;
     int maxNumHits = 8;
     bool useGpuForVoxelization = true;
-    glm::uvec3 gridResolution{}, quantizationResolution{};
+    glm::ivec3 gridResolution{};
+    glm::uvec3 quantizationResolution{};
+    bool computeNearestFurthestHitsUsingHull = true;
 };
 
 #endif //LINEVIS_VOXELRAYCASTINGRENDERER_HPP

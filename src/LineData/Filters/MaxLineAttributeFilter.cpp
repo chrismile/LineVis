@@ -69,7 +69,7 @@ void MaxLineAttributeFilter::filterData(LineDataPtr lineDataIn) {
 
     size_t trajectoryIdx = 0;
     lineDataIn->filterTrajectories([this, &trajectoryIdx, lineDataIn](const Trajectory& trajectory) -> bool {
-        return maxTrajectoryAttributes.at(trajectoryIdx++) <= trajectoryFilteringThreshold;
+        return maxTrajectoryAttributes.at(trajectoryIdx++) < trajectoryFilteringThreshold;
     });
     dirty = false;
 }

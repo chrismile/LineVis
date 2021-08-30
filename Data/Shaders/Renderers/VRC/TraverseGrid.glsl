@@ -48,8 +48,8 @@ ivec3 getNextVoxelIndex(ivec3 voxelIndex, float tMaxX, float tMaxY, float tMaxZ,
  * Calls "nextVoxel" each time a voxel is entered.
  * Returns the accumulated color using voxel raytracing.
  */
-vec4 traverseVoxelGrid(vec3 rayOrigin, vec3 rayDirection, vec3 startPoint, vec3 endPoint)
-{
+vec4 traverseVoxelGrid(vec3 rayOrigin, vec3 rayDirection, vec3 startPoint, vec3 endPoint) {
+    float maxDist = length(endPoint - startPoint);
     vec4 color = vec4(0.0);
 
     // Bit-mask for already blended lines
@@ -64,36 +64,36 @@ vec4 traverseVoxelGrid(vec3 rayOrigin, vec3 rayDirection, vec3 startPoint, vec3 
 
     int stepX = int(sign(endPoint.x - startPoint.x));
     if (stepX != 0)
-    tDeltaX = min(stepX / (endPoint.x - startPoint.x), 1e7);
+        tDeltaX = min(stepX / (endPoint.x - startPoint.x), 1e7);
     else
-    tDeltaX = 1e7; // inf
+        tDeltaX = 1e7; // inf
     if (stepX > 0)
-    tMaxX = tDeltaX * (1.0 - fract(startPoint.x));
+        tMaxX = tDeltaX * (1.0 - fract(startPoint.x));
     else
-    tMaxX = tDeltaX * fract(startPoint.x);
-    voxelIndex.x = int(startPoint.x);
+        tMaxX = tDeltaX * fract(startPoint.x);
+    voxelIndex.x = int(floor(startPoint.x));
 
     int stepY = int(sign(endPoint.y - startPoint.y));
     if (stepY != 0)
-    tDeltaY = min(stepY / (endPoint.y - startPoint.y), 1e7);
+        tDeltaY = min(stepY / (endPoint.y - startPoint.y), 1e7);
     else
-    tDeltaY = 1e7; // inf
+        tDeltaY = 1e7; // inf
     if (stepY > 0)
-    tMaxY = tDeltaY * (1.0 - fract(startPoint.y));
+        tMaxY = tDeltaY * (1.0 - fract(startPoint.y));
     else
-    tMaxY = tDeltaY * fract(startPoint.y);
-    voxelIndex.y = int(startPoint.y);
+        tMaxY = tDeltaY * fract(startPoint.y);
+    voxelIndex.y = int(floor(startPoint.y));
 
     int stepZ = int(sign(endPoint.z - startPoint.z));
     if (stepZ != 0)
-    tDeltaZ = min(stepZ / (endPoint.z - startPoint.z), 1e7);
+        tDeltaZ = min(stepZ / (endPoint.z - startPoint.z), 1e7);
     else
-    tDeltaZ = 1e7; // inf
+        tDeltaZ = 1e7; // inf
     if (stepZ > 0)
-    tMaxZ = tDeltaZ * (1.0 - fract(startPoint.z));
+        tMaxZ = tDeltaZ * (1.0 - fract(startPoint.z));
     else
-    tMaxZ = tDeltaZ * fract(startPoint.z);
-    voxelIndex.z = int(startPoint.z);
+        tMaxZ = tDeltaZ * fract(startPoint.z);
+    voxelIndex.z = int(floor(startPoint.z));
 
     if (stepX == 0 && stepY == 0 && stepZ == 0) {
         return vec4(0.0);
@@ -200,30 +200,28 @@ vec4 traverseVoxelGrid(vec3 rayOrigin, vec3 rayDirection, vec3 startPoint, vec3 
     }*/
 
 
-    //if (any(lessThan(voxelIndex, ivec3(0))) || any(greaterThanEqual(voxelIndex, gridResolution)))
-    //    return color;
+    //bool test = all(greaterThanEqual(voxelIndex, ivec3(-1))) && all(lessThanEqual(voxelIndex, gridResolution));
+    //return vec4(vec3(0.0, 0.0, all(lessThanEqual(voxelIndex, gridResolution)) ? 1.0 : 0.0), 1.0);
 
     int iterationNum = 0;
-    while (all(greaterThanEqual(voxelIndex, ivec3(0))) && all(lessThan(voxelIndex, gridResolution))) {
-        uint voxelIndex1D = getVoxelIndex1D(voxelIndex);
-#if defined(VOXEL_RAY_CASTING_FAST)
-        if (getNumLinesInVoxel(voxelIndex1D) > 0) {
-#endif
-            ivec3 nextVoxelIndex = getNextVoxelIndex(voxelIndex, tMaxX, tMaxY, tMaxZ, stepX, stepY, stepZ);
-            vec4 voxelColor = nextVoxel(rayOrigin, rayDirection, voxelIndex, nextVoxelIndex,
-            blendedLineIDs, newBlendedLineIDs0);
-            iterationNum++;
-            if (blendPremul(voxelColor, color)) {
-                // Early ray termination
-                return color;
-            }
-#if defined(VOXEL_RAY_CASTING_FAST)
+    while (all(greaterThanEqual(voxelIndex, ivec3(-1))) && all(lessThanEqual(voxelIndex, gridResolution))) {
+        vec4 voxelColor = nextVoxel(
+        rayOrigin, rayDirection, voxelIndex, /*nextVoxelIndex,*/ blendedLineIDs, newBlendedLineIDs0);
+        iterationNum++;
+        if (blendPremul(voxelColor, color)) {
+            // Early ray termination
+            return color;
         }
-#endif
+
         blendedLineIDs = newBlendedLineIDs0 | newBlendedLineIDs1 | newBlendedLineIDs2;
         newBlendedLineIDs2 = newBlendedLineIDs1;
         newBlendedLineIDs1 = newBlendedLineIDs0;
         newBlendedLineIDs0 = 0;
+
+        float newDist = length(endPoint - vec3(voxelIndex)) - 1.0;
+        if (newDist > maxDist) {
+            break;
+        }
 
         if (tMaxX < tMaxY) {
             if (tMaxX < tMaxZ) {

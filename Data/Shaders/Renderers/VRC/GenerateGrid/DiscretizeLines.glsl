@@ -152,7 +152,7 @@ void quantizePoint(vec3 v, out uvec2 qv, uint faceIndex) {
     // Iterate over all dimensions
     for (int i = 0; i < 2; i++) {
         uint quantizationPos = uint(floor(v[dimensions[i]] * quantizationResolution[dimensions[i]]));
-        qv[i] = clamp(quantizationPos, 0, quantizationResolution[dimensions[i]] - 1);
+        qv[i] = clamp(quantizationPos, 0u, quantizationResolution[dimensions[i]] - 1);
     }
 }
 

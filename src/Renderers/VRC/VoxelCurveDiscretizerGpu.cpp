@@ -42,6 +42,10 @@ struct LinePoint {
     float lineAttribute;
 };
 
+std::string ivec3ToString(const glm::ivec3& v) {
+    return std::string() + "ivec3(" + sgl::toString(v.x) + ", " + sgl::toString(v.y) + ", " + sgl::toString(v.z) + ")";
+}
+
 std::string uvec3ToString(const glm::uvec3& v) {
     return std::string() + "uvec3(" + sgl::toString(v.x) + ", " + sgl::toString(v.y) + ", " + sgl::toString(v.z) + ")";
 }
@@ -51,7 +55,7 @@ void VoxelCurveDiscretizer::createVoxelGridGpu() {
 
     // Set the preprocessor defines for the shaders.
     sgl::ShaderManager->addPreprocessorDefine(
-            "gridResolution", uvec3ToString(gridResolution));
+            "gridResolution", ivec3ToString(gridResolution));
     sgl::ShaderManager->addPreprocessorDefine(
             "GRID_RESOLUTION_LOG2", sgl::toString(sgl::intlog2(int(gridResolution.x))));
     sgl::ShaderManager->addPreprocessorDefine(

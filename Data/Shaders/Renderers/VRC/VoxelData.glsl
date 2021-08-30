@@ -10,8 +10,7 @@
 
 uniform float lineRadius = 0.2;
 
-struct LineSegment
-{
+struct LineSegment {
     vec3 v1; // Vertex position
     float a1; // Vertex attribute
     vec3 v2; // Vertex position
@@ -20,8 +19,7 @@ struct LineSegment
 };
 
 // Works until quantization resolution of 64^2 (6 + 2 * 2log2(64) = 30)
-struct LineSegmentCompressed
-{
+struct LineSegmentCompressed {
     // Bit 0-2, 3-5: Face ID of start/end point.
     // For c = log2(QUANTIZATION_RESOLUTION^2) = 2*log2(QUANTIZATION_RESOLUTION):
     // Bit 6-(5+c), (6+c)-(5+2c): Quantized face position of start/end point.
@@ -60,8 +58,7 @@ uniform usampler3D octreeTexture;
 
 // --- Functions ---
 
-vec3 getQuantizedPositionOffset(uint faceIndex, uint quantizedPos1D)
-{
+vec3 getQuantizedPositionOffset(uint faceIndex, uint quantizedPos1D) {
     vec2 quantizedFacePosition = vec2(
     float(quantizedPos1D % QUANTIZATION_RESOLUTION),
     float(quantizedPos1D / QUANTIZATION_RESOLUTION))
@@ -83,8 +80,7 @@ vec3 getQuantizedPositionOffset(uint faceIndex, uint quantizedPos1D)
 
 
 #ifdef PACK_LINES
-void decompressLine(in vec3 voxelPosition, in LineSegmentCompressed compressedLine, out LineSegment decompressedLine)
-{
+void decompressLine(in vec3 voxelPosition, in LineSegmentCompressed compressedLine, out LineSegment decompressedLine) {
     const uint c = 2*QUANTIZATION_RESOLUTION_LOG2;
     const uint bitmaskQuantizedPos = QUANTIZATION_RESOLUTION*QUANTIZATION_RESOLUTION-1;
     uint faceStartIndex = compressedLine.linePosition & 0x7u;
@@ -107,8 +103,7 @@ void decompressLine(in vec3 voxelPosition, in LineSegmentCompressed compressedLi
 #endif
 
 uint getVoxelIndex1D(ivec3 voxelIndex) {
-    return uint(voxelIndex.x) + uint(voxelIndex.y) * gridResolution.x
-            + uint(voxelIndex.z)  *gridResolution.x * gridResolution.y;
+    return uint(voxelIndex.x + voxelIndex.y * gridResolution.x + voxelIndex.z *gridResolution.x * gridResolution.y);
 }
 
 uint getNumLinesInVoxel(uint voxelIndex1D) {
@@ -119,8 +114,7 @@ uint getLineListOffset(uint voxelIndex1D) {
     return voxelLineListOffsets[voxelIndex1D];
 }
 
-void loadLineInVoxel(vec3 voxelPosition, uint voxelLineListOffset, uint lineIndex, out LineSegment currVoxelLine)
-{
+void loadLineInVoxel(vec3 voxelPosition, uint voxelLineListOffset, uint lineIndex, out LineSegment currVoxelLine) {
 #ifdef PACK_LINES
     decompressLine(voxelPosition, lineSegments[voxelLineListOffset + lineIndex], currVoxelLine);
 #else
@@ -149,8 +143,7 @@ void loadLineInVoxel(vec3 voxelPosition, uint voxelLineListOffset, uint lineInde
 }*/
 
 // Get density at specified lod index
-float getVoxelDensity(vec3 coords, float lod)
-{
+float getVoxelDensity(vec3 coords, float lod) {
     return textureLod(densityTexture, coords / vec3(gridResolution), lod).r;
 }
 

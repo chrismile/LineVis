@@ -34,6 +34,17 @@ float convertLinearDepthToDepthBufferValue(float z_eye) {
     return depth;
 }
 
+#ifdef USE_INVERSE_PROJECTION_MATRIX
+
+vec3 convertDepthBufferValueToViewSpacePosition(vec2 ndcPositionXY, float depth) {
+    // The depth buffer stores values in [0,1], but OpenGL uses [-1,1] for NDC.
+    vec4 posViewSpaceHomog = inverseProjectionMatrix * vec4(ndcPositionXY.x, ndcPositionXY.y, 2.0 * depth - 1.0, 1.0);
+    vec3 posViewSpace = posViewSpaceHomog.xyz / posViewSpaceHomog.w;
+    return posViewSpace;
+}
+
+#endif
+
 #else
 
 float convertDepthBufferValueToLinearDepth(float depth) {

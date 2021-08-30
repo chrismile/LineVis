@@ -58,7 +58,7 @@ void LineLengthFilter::filterData(LineDataPtr lineDataIn) {
 
     size_t trajectoryIdx = 0;
     lineDataIn->filterTrajectories([&trajectoryIdx, this](const Trajectory& trajectory) -> bool {
-        return trajectoryLengths.at(trajectoryIdx++) <= trajectoryFilteringThreshold;
+        return trajectoryLengths.at(trajectoryIdx++) < trajectoryFilteringThreshold;
     });
     dirty = false;
 }

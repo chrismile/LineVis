@@ -63,14 +63,18 @@ public:
     void loadLineData(LineDataPtr& lineData, uint32_t gridResolution1D = 256, uint32_t quantizationResolution1D = 8);
     void createVoxelGridGpu();
     void createVoxelGridCpu();
+    void createLineHullMesh();
 
     // Get finished data.
     inline const glm::mat4& getWorldToVoxelGridMatrix() const { return linesToVoxel; }
-    inline const glm::uvec3& getGridResolution() const { return gridResolution; }
+    inline const glm::mat4& getVoxelGridToWorldMatrix() const { return voxelToLines; }
+    inline const glm::ivec3& getGridResolution() const { return gridResolution; }
     inline const glm::uvec3& getQuantizationResolution() const { return quantizationResolution; }
     inline const sgl::GeometryBufferPtr& getVoxelGridLineSegmentOffsetsBuffer() const { return voxelGridLineSegmentOffsetsBuffer; }
     inline const sgl::GeometryBufferPtr& getVoxelGridNumLineSegmentsBuffer() const { return voxelGridNumLineSegmentsBuffer; }
     inline const sgl::GeometryBufferPtr& getVoxelGridLineSegmentsBuffer() const { return voxelGridLineSegmentsBuffer; }
+    inline const sgl::GeometryBufferPtr& getLineHullIndexBuffer() const { return lineHullIndexBuffer; }
+    inline const sgl::GeometryBufferPtr& getLineHullVertexBuffer() const { return lineHullVertexBuffer; }
 
 private:
     // CPU grid generation utility functions.
@@ -100,18 +104,25 @@ private:
     sgl::ShaderProgramPtr prefixSumScanShader;
     sgl::ShaderProgramPtr prefixSumWriteFinalElementShader;
 
+    // Line hull mesh helpers.
+    bool isVoxelFilled(const uint32_t* voxelGridNumLineSegmentsArray, int x, int y, int z) const;
+    bool isVoxelFilledDilated(const uint32_t* voxelGridNumLineSegmentsArray, int x, int y, int z) const;
+
     // Line data.
     std::vector<Curve> curves;
     sgl::AABB3 linesBoundingBox{};
     glm::mat4 linesToVoxel{}, voxelToLines{};
-    glm::uvec3 gridResolution{};
+    glm::ivec3 gridResolution{};
     glm::uvec3 quantizationResolution{};
 
     sgl::GeometryBufferPtr voxelGridLineSegmentOffsetsBuffer;
     sgl::GeometryBufferPtr voxelGridNumLineSegmentsBuffer;
     sgl::GeometryBufferPtr voxelGridLineSegmentsBuffer;
+    sgl::GeometryBufferPtr lineHullIndexBuffer;
+    sgl::GeometryBufferPtr lineHullVertexBuffer;
 };
 
+std::string ivec3ToString(const glm::ivec3& v);
 std::string uvec3ToString(const glm::uvec3& v);
 
 #endif //LINEVIS_VOXELCURVEDISCRETIZER_HPP
