@@ -5,10 +5,10 @@
 layout (local_size_x = 256) in;
 
 struct LineSegment {
+    vec3 v0; // Vertex position
+    float a0; // Vertex attribute
     vec3 v1; // Vertex position
     float a1; // Vertex attribute
-    vec3 v2; // Vertex position
-    float a2; // Vertex attribute
     uint lineID;
 };
 
@@ -18,8 +18,8 @@ struct LineSegmentQuantized {
     uint facePositionQuantized1; // 2*log2(QUANTIZATION_RESOLUTION) bits
     uint facePositionQuantized2; // 2*log2(QUANTIZATION_RESOLUTION) bits
     uint lineID; // 8 bits
-    float a1; // Attribute 1
-    float a2; // Attribute 2
+    float a0; // Attribute 1
+    float a1; // Attribute 2
 };
 
 // Works until quantization resolution of 64^2 (6 + 2 * 2log2(64) = 30)
@@ -172,12 +172,12 @@ uint computeFaceIndex(vec3 v, ivec3 voxelIndex) {
 void quantizeLineSegment(
         vec3 voxelPos, LineSegment lineSegment, out LineSegmentQuantized lineQuantized,
         uint faceIndex1, uint faceIndex2) {
+    lineQuantized.a0 = lineSegment.a0;
     lineQuantized.a1 = lineSegment.a1;
-    lineQuantized.a2 = lineSegment.a2;
 
     uvec2 facePosition3D1, facePosition3D2;
-    quantizePoint(lineSegment.v1 - voxelPos, facePosition3D1, faceIndex1);
-    quantizePoint(lineSegment.v2 - voxelPos, facePosition3D2, faceIndex2);
+    quantizePoint(lineSegment.v0 - voxelPos, facePosition3D1, faceIndex1);
+    quantizePoint(lineSegment.v1 - voxelPos, facePosition3D2, faceIndex2);
     lineQuantized.lineID = lineSegment.lineID;
     lineQuantized.faceIndex1 = faceIndex1;
     lineQuantized.faceIndex2 = faceIndex2;
@@ -196,12 +196,12 @@ int intlog2(int x) {
 
 void compressLineSegment(ivec3 voxelIndex, LineSegment lineSegment, out LineSegmentCompressed lineSegmentCompressed) {
     LineSegmentQuantized lineQuantized;
-    uint faceIndex1 = computeFaceIndex(lineSegment.v1, voxelIndex);
-    uint faceIndex2 = computeFaceIndex(lineSegment.v2, voxelIndex);
+    uint faceIndex1 = computeFaceIndex(lineSegment.v0, voxelIndex);
+    uint faceIndex2 = computeFaceIndex(lineSegment.v1, voxelIndex);
     quantizeLineSegment(vec3(voxelIndex), lineSegment, lineQuantized, faceIndex1, faceIndex2);
 
-    uint attr1Unorm = uint(clamp(round(lineQuantized.a1*255.0), 0.0, 255.0));
-    uint attr2Unorm = uint(clamp(round(lineQuantized.a2*255.0), 0.0, 255.0));
+    uint attr1Unorm = uint(clamp(round(lineQuantized.a0*255.0), 0.0, 255.0));
+    uint attr2Unorm = uint(clamp(round(lineQuantized.a1*255.0), 0.0, 255.0));
 
     int c = 2 * intlog2(int(quantizationResolution.x));
     lineSegmentCompressed.linePosition = lineQuantized.faceIndex1;
@@ -240,7 +240,7 @@ void addLineSegment(ivec3 voxelIndex) {
 
 /**
  * Code inspired by "A Fast Voxel Traversal Algorithm for Ray Tracing" written by John Amanatides, Andrew Woo.
- * http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.42.3443&rep=rep1&type=pdf
+ * http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.42.3443&rep=rep0&type=pdf
  * Value initialization code adapted from: https://stackoverflow.com/questions/12367071/how-do-i-initialize-the-t-
  * variables-in-a-fast-voxel-traversal-algorithm-for-ray
  *
@@ -326,14 +326,14 @@ void traverseVoxelGrid(uint lineID, vec3 startPoint, float startAttribute, vec3 
 #ifdef WRITE_LINE_SEGMENTS_PASS
             lineSegment.lineID = lineID;
             if (numIntersectionsNew == 2) {
-                lineSegment.v1 = startPoint + tNear * (endPoint - startPoint);
-                lineSegment.a1 = startAttribute + tNear * (endAttribute - startAttribute);
+                lineSegment.v0 = startPoint + tNear * (endPoint - startPoint);
+                lineSegment.a0 = startAttribute + tNear * (endAttribute - startAttribute);
             } else {
-                lineSegment.v1 = currentVoxelIntersection;
-                lineSegment.a1 = currentVoxelIntersectionAttribute;
+                lineSegment.v0 = currentVoxelIntersection;
+                lineSegment.a0 = currentVoxelIntersectionAttribute;
             }
-            lineSegment.v2 = startPoint + tFar * (endPoint - startPoint);
-            lineSegment.a2 = startAttribute + tFar * (endAttribute - startAttribute);
+            lineSegment.v1 = startPoint + tFar * (endPoint - startPoint);
+            lineSegment.a1 = startAttribute + tFar * (endAttribute - startAttribute);
             addLineSegment(voxelIndex, lineSegment);
 #else
             addLineSegment(voxelIndex);
@@ -389,30 +389,30 @@ void main() {
 
     bool noIntersectionForLineYet = true;
     for (int i = 0; i < numLinePoints - 1; i++) {
-        LinePoint p1 = linePoints[lineOffset + i];
-        LinePoint p2 = linePoints[lineOffset + i + 1];
+        LinePoint p0 = linePoints[lineOffset + i];
+        LinePoint p1 = linePoints[lineOffset + i + 1];
 
+        //p0.linePoint += vec3(0.9);
         //p1.linePoint += vec3(0.9);
-        //p2.linePoint += vec3(0.9);
+        p0.linePoint.z += 0.01;
         p1.linePoint.z += 0.01;
-        p2.linePoint.z += 0.01;
 
         // Remove invalid line points (large values are used in some scientific datasets to indicate invalid lines).
         const float MAX_VAL = 1e10;
-        if (abs(p1.linePoint.x) > MAX_VAL || abs(p1.linePoint.y) > MAX_VAL || abs(p1.linePoint.z) > MAX_VAL
-                || abs(p2.linePoint.x) > MAX_VAL || abs(p2.linePoint.y) > MAX_VAL || abs(p2.linePoint.z) > MAX_VAL) {
+        if (abs(p0.linePoint.x) > MAX_VAL || abs(p0.linePoint.y) > MAX_VAL || abs(p0.linePoint.z) > MAX_VAL
+                || abs(p1.linePoint.x) > MAX_VAL || abs(p1.linePoint.y) > MAX_VAL || abs(p1.linePoint.z) > MAX_VAL) {
             continue;
         }
 
         if (i == 0) {
             // First node
-            tangent = p2.linePoint - p1.linePoint;
+            tangent = p1.linePoint - p0.linePoint;
         } else if (i == numLinePoints - 1) {
             // Last node
-            tangent = p1.linePoint - linePoints[lineOffset + i - 1].linePoint;
+            tangent = p0.linePoint - linePoints[lineOffset + i - 1].linePoint;
         } else {
             // Node with two neighbors - use both tangents.
-            tangent = p2.linePoint - p1.linePoint;
+            tangent = p1.linePoint - p0.linePoint;
         }
         if (length(tangent) < 0.0001) {
             // In case the two vertices are almost identical, just skip this path line segment.
@@ -422,7 +422,7 @@ void main() {
 
         // DDA algorithm
         traverseVoxelGrid(
-                lineNumber, p1.linePoint, p1.lineAttribute, p2.linePoint, p2.lineAttribute,
+                lineNumber, p0.linePoint, p0.lineAttribute, p1.linePoint, p1.lineAttribute,
                 currentVoxel, currentVoxelNumIntersections, currentVoxelIntersection, currentVoxelIntersectionAttribute,
                 noIntersectionForLineYet);
     }

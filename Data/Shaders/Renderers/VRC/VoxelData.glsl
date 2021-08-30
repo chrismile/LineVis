@@ -11,10 +11,10 @@
 uniform float lineRadius = 0.2;
 
 struct LineSegment {
+    vec3 v0; // Vertex position
+    float a0; // Vertex attribute
     vec3 v1; // Vertex position
     float a1; // Vertex attribute
-    vec3 v2; // Vertex position
-    float a2; // Vertex attribute
     uint lineID;
 };
 
@@ -94,10 +94,10 @@ void decompressLine(in vec3 voxelPosition, in LineSegmentCompressed compressedLi
     uint attr1 = (compressedLine.attributes >> 16) & 0xFFu;
     uint attr2 = (compressedLine.attributes >> 24) & 0xFFu;
 
-    decompressedLine.v1 = voxelPosition + getQuantizedPositionOffset(faceStartIndex, quantizedStartPos1D);
-    decompressedLine.v2 = voxelPosition + getQuantizedPositionOffset(faceEndIndex, quantizedEndPos1D);
-    decompressedLine.a1 = float(attr1) / 255.0;
-    decompressedLine.a2 = float(attr2) / 255.0;
+    decompressedLine.v0 = voxelPosition + getQuantizedPositionOffset(faceStartIndex, quantizedStartPos1D);
+    decompressedLine.v1 = voxelPosition + getQuantizedPositionOffset(faceEndIndex, quantizedEndPos1D);
+    decompressedLine.a0 = float(attr1) / 255.0;
+    decompressedLine.a1 = float(attr2) / 255.0;
     decompressedLine.lineID = lineID;
 }
 #endif

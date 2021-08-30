@@ -24,8 +24,8 @@ void main() {
     LineSegment lineSegment;
     for (uint i = 0; i < numLinePoints; i++) {
         decompressLine(vec3(voxelIndex), lineSegments[lineOffset+i], lineSegment);
-        float lineLength = length(lineSegment.v2 - lineSegment.v1);
-        density += lineLength * (transferFunction(lineSegment.a1).a + transferFunction(lineSegment.a2).a) / 2.0f;
+        float lineLength = length(lineSegment.v1 - lineSegment.v0);
+        density += lineLength * (transferFunction(lineSegment.a0).a + transferFunction(lineSegment.a1).a) / 2.0f;
     }
     imageStore(densityImage, voxelIndex, vec4(density));
 }

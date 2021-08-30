@@ -1,5 +1,5 @@
-#ifndef COLLISION_DETECTION_GLSL
-#define COLLISION_DETECTION_GLSL
+#ifndef RAY_INTERSECTION_TESTS_GLSL
+#define RAY_INTERSECTION_TESTS_GLSL
 
 #define SQR(x) ((x)*(x))
 #define BIAS 1e-3
@@ -90,8 +90,7 @@ bool rayBoxIntersectionRayCoords(
 /**
  * Returns whether the bounding box with bounds lower, upper contains the passed point.
  */
-bool boxContainsPoint(vec3 point, vec3 lower, vec3 upper)
-{
+bool boxContainsPoint(vec3 point, vec3 lower, vec3 upper) {
     return (point.x >= lower.x) && (point.y >= lower.y) && (point.z >= lower.z)
     && (point.x <= upper.x) && (point.y <= upper.y) && (point.z <= upper.z);
 }
@@ -103,8 +102,7 @@ bool boxContainsPoint(vec3 point, vec3 lower, vec3 upper)
  */
 bool raySphereIntersection(
         vec3 rayOrigin, vec3 rayDirection, vec3 sphereCenter, float sphereRadius,
-        out vec3 intersectionPosition, in vec3 centerVoxelPosMin, in vec3 centerVoxelPosMax)
-{
+        out vec3 intersectionPosition, in vec3 centerVoxelPosMin, in vec3 centerVoxelPosMax) {
     float A = SQR(rayDirection.x) + SQR(rayDirection.y) + SQR(rayDirection.z);
     float B = 2.0 * (
             rayDirection.x * (rayOrigin.x - sphereCenter.x)
@@ -119,7 +117,7 @@ bool raySphereIntersection(
 
     float discriminant = SQR(B) - 4.0*A*C;
     if (discriminant < 0.0) {
-        return false; // No intersection
+        return false; // No intersection.
     }
 
     float discriminantSqrt = sqrt(discriminant);
@@ -161,7 +159,7 @@ bool rayTubeIntersection(
 
     float discriminant = SQR(B) - 4.0*A*C;
     if (discriminant < 0.0) {
-        return false; // No intersection
+        return false; // No intersection.
     }
 
     float discriminantSqrt = sqrt(discriminant);
@@ -208,12 +206,12 @@ bool rayTubeInfIntersection(
     vec3 deltaP = rayOrigin - tubeStart;
     float A = squareVec(rayDirection - dot(rayDirection, tubeDirection) * tubeDirection);
     float B = 2.0 * dot(rayDirection - dot(rayDirection, tubeDirection) * tubeDirection,
-    deltaP - dot(deltaP, tubeDirection) * tubeDirection);
+            deltaP - dot(deltaP, tubeDirection) * tubeDirection);
     float C = squareVec(deltaP - dot(deltaP, tubeDirection) * tubeDirection) - SQR(tubeRadius);
 
     float discriminant = SQR(B) - 4.0*A*C;
     if (discriminant < 0.0) {
-        return false; // No intersection
+        return false; // No intersection.
     }
 
     float discriminantSqrt = sqrt(discriminant);

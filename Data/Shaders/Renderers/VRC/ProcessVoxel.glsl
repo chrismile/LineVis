@@ -10,8 +10,8 @@ uniform vec3 cameraPositionVoxelGrid;
 #include "Lighting.glsl"
 #undef cameraPosition
 
-float distanceSqr(vec3 v1, vec3 v2) {
-    return squareVec(v1 - v2);
+float distanceSqr(vec3 v0, vec3 v1) {
+    return squareVec(v0 - v1);
 }
 
 struct RayHit {
@@ -48,7 +48,7 @@ void processLineSegment(
         vec3 rayOrigin, vec3 rayDirection, ivec3 centerVoxelIndex, ivec3 voxelIndex, LineSegment currVoxelLine,
         inout RayHit hits[MAX_NUM_HITS], inout int numHits, inout uint blendedLineIDs, inout uint newBlendedLineIDs) {
     vec3 centerVoxelPosMin = vec3(centerVoxelIndex);
-    vec3 centerVoxelPosMax = vec3(centerVoxelIndex) + vec3(1);
+    vec3 centerVoxelPosMax = vec3(centerVoxelIndex) + vec3(1.0);
 
     uint lineID = currVoxelLine.lineID;
     uint lineBit = 1u << lineID;
@@ -56,67 +56,66 @@ void processLineSegment(
         return;
     }
 
-    vec3 tubePoint1 = currVoxelLine.v1, tubePoint2 = currVoxelLine.v2;
+    vec3 tubePoint0 = currVoxelLine.v0, tubePoint1 = currVoxelLine.v1;
 
     bool hasIntersection = false;
     vec3 intersectionNormal = vec3(0.0);
     float intersectionAttribute = 0.0f;
-    float intersectionDistance = 0.0f;
+    float intersectionDistance = 1e7;
     vec3 intersectionWorld = vec3(0);
 
-    vec3 tubeIntersection, sphereIntersection1, sphereIntersection2;
-    bool hasTubeIntersection, hasSphereIntersection1 = false, hasSphereIntersection2 = false;
+    vec3 tubeIntersection, sphereIntersection0, sphereIntersection1;
+    bool hasTubeIntersection, hasSphereIntersection0 = false, hasSphereIntersection1 = false;
     hasTubeIntersection = rayTubeIntersection(
-            rayOrigin, rayDirection, tubePoint1, tubePoint2, lineRadius,
+            rayOrigin, rayDirection, tubePoint0, tubePoint1, lineRadius,
             tubeIntersection, centerVoxelPosMin, centerVoxelPosMax);
     if (hasTubeIntersection) {
         // Tube
-        vec3 v = tubePoint2 - tubePoint1;
-        vec3 u = tubeIntersection - tubePoint1;
+        vec3 v = tubePoint1 - tubePoint0;
+        vec3 u = tubeIntersection - tubePoint0;
         float t = dot(v, u) / dot(v, v);
-        vec3 centerPt = tubePoint1 + t * v;
-        intersectionAttribute = (1 - t) * currVoxelLine.a1 + t * currVoxelLine.a2;
+        vec3 centerPt = tubePoint0 + t * v;
+        intersectionAttribute = (1.0 - t) * currVoxelLine.a0 + t * currVoxelLine.a1;
         intersectionNormal =  normalize(tubeIntersection - centerPt);
         intersectionDistance = distanceSqr(rayOrigin, tubeIntersection);
         intersectionWorld = tubeIntersection;
         hasIntersection = true;
     } else {
+        hasSphereIntersection0 = raySphereIntersection(
+                rayOrigin, rayDirection, tubePoint0, lineRadius,
+                sphereIntersection0, centerVoxelPosMin, centerVoxelPosMax);
         hasSphereIntersection1 = raySphereIntersection(
                 rayOrigin, rayDirection, tubePoint1, lineRadius,
                 sphereIntersection1, centerVoxelPosMin, centerVoxelPosMax);
-        hasSphereIntersection2 = raySphereIntersection(
-                rayOrigin, rayDirection, tubePoint2, lineRadius,
-                sphereIntersection2, centerVoxelPosMin, centerVoxelPosMax);
 
         int closestIntersectionIdx = 0;
         vec3 intersection = tubeIntersection;
         intersectionWorld = tubeIntersection;
+        float distSphere0 = distanceSqr(rayOrigin, sphereIntersection0);
         float distSphere1 = distanceSqr(rayOrigin, sphereIntersection1);
-        float distSphere2 = distanceSqr(rayOrigin, sphereIntersection2);
-        float dist = 1e7;
 
-        if (hasSphereIntersection1 && distSphere1 < dist) {
+        if (hasSphereIntersection0 && distSphere0 < intersectionDistance) {
             closestIntersectionIdx = 0;
+            intersection = sphereIntersection0;
+            intersectionWorld = sphereIntersection0;
+            intersectionDistance = distSphere0;
+            hasIntersection = true;
+        }
+        if (hasSphereIntersection1 && distSphere1 < intersectionDistance) {
+            closestIntersectionIdx = 1;
             intersection = sphereIntersection1;
             intersectionWorld = sphereIntersection1;
             intersectionDistance = distSphere1;
             hasIntersection = true;
         }
-        if (hasSphereIntersection2 && distSphere2 < dist) {
-            closestIntersectionIdx = 1;
-            intersection = sphereIntersection2;
-            intersectionWorld = sphereIntersection2;
-            intersectionDistance = distSphere2;
-            hasIntersection = true;
-        }
 
         vec3 sphereCenter;
         if (closestIntersectionIdx == 0) {
+            sphereCenter = tubePoint0;
+            intersectionAttribute = currVoxelLine.a0;
+        } else {
             sphereCenter = tubePoint1;
             intersectionAttribute = currVoxelLine.a1;
-        } else {
-            sphereCenter = tubePoint2;
-            intersectionAttribute = currVoxelLine.a2;
         }
         intersectionNormal = normalize(intersection - sphereCenter);
     }
@@ -131,7 +130,7 @@ void processLineSegment(
 
         const vec3 n = normalize(intersectionNormal);
         const vec3 v = normalize(cameraPositionVoxelGrid - intersectionWorld);
-        const vec3 t = normalize(tubePoint2 - tubePoint1);
+        const vec3 t = normalize(tubePoint1 - tubePoint0);
         intersectionColor = blinnPhongShadingTube(
                 intersectionColor, intersectionWorld,
 #ifdef USE_DEPTH_CUES

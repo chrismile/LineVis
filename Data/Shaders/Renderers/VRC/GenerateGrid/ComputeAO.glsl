@@ -24,9 +24,9 @@ float generateVoxelAOFactorFromDensity(ivec3 voxelIndex) {
             for (int offsetX = -FILTER_EXTENT; offsetX <= FILTER_EXTENT; offsetX++) {
                 ivec3 readIndex = voxelIndex + ivec3(offsetX, offsetY, offsetZ);
                 if (readIndex.x >= 0 && readIndex.y >= 0 && readIndex.z >= 0 && readIndex.x < gridResolution.x
-                && readIndex.y < gridResolution.y && readIndex.z < gridResolution.z) {
+                        && readIndex.y < gridResolution.y && readIndex.z < gridResolution.z) {
                     int filterIdx = (offsetZ+FILTER_EXTENT)*FILTER_SIZE*FILTER_SIZE
-                    + (offsetY+FILTER_EXTENT)*FILTER_SIZE + (offsetX+FILTER_EXTENT);
+                            + (offsetY+FILTER_EXTENT)*FILTER_SIZE + (offsetX+FILTER_EXTENT);
                     aoFactor += texelFetch(densityTexture, readIndex, 0).x * blurKernel[filterIdx];
                 }
             }

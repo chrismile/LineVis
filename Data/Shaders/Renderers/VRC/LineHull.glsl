@@ -10,6 +10,7 @@ void main() {
     gl_Position = mvpMatrix * voxelSpaceToWorldSpace * vec4(vertexPosition, 1.0);
 }
 
+
 -- Fragment
 
 #version 430 core

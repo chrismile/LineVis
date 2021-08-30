@@ -291,7 +291,7 @@ void RayTracingRenderPass::loadShader() {
     }
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
             {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
-             "TubeRayTracing.ClosestHit", "TubeRayTracing.ClosestHitHull"},
+             "TubeRayTracing.ClosestHitTubeTriangles", "TubeRayTracing.ClosestHitHull"},
              preprocessorDefines);
 }
 
