@@ -168,7 +168,7 @@ void VoxelCurveDiscretizer::createVoxelGridCpu() {
 void VoxelCurveDiscretizer::nextStreamline(const Curve& line) {
     int N = int(line.points.size());
 
-    // Add intersections to voxels
+    // Add intersections to voxels.
     std::set<VoxelDiscretizer*> usedVoxels;
     for (int i = 0; i < N - 1; i++) {
         // Get line segment
@@ -177,14 +177,14 @@ void VoxelCurveDiscretizer::nextStreamline(const Curve& line) {
         float a1 = line.attributes.at(i);
         float a2 = line.attributes.at(i+1);
 
-        // Remove invalid line points (used in many scientific datasets to indicate invalid lines).
+        // Remove invalid line points (large values are used in some scientific datasets to indicate invalid lines).
         const float MAX_VAL = 1e10;
         if (std::fabs(v1.x) > MAX_VAL || std::fabs(v1.y) > MAX_VAL || std::fabs(v1.z) > MAX_VAL
             || std::fabs(v2.x) > MAX_VAL || std::fabs(v2.y) > MAX_VAL || std::fabs(v2.z) > MAX_VAL) {
             continue;
         }
 
-        // Compute AABB of current segment
+        // Compute AABB of current segment.
         sgl::AABB3 segmentAABB = sgl::AABB3();
         segmentAABB.combine(v1);
         segmentAABB.combine(v2);
@@ -301,8 +301,10 @@ std::vector<VoxelDiscretizer*> VoxelCurveDiscretizer::getVoxelsInAABB(const sgl:
 
     glm::ivec3 lower = glm::ivec3(minimum); // Round down
     glm::ivec3 upper = glm::ivec3(ceil(maximum.x), ceil(maximum.y), ceil(maximum.z)); // Round up
-    lower = glm::max(lower, glm::ivec3(0));
-    upper = glm::min(upper, gridResolution - glm::ivec3(1));
+    //lower = glm::max(lower, glm::ivec3(0));
+    //upper = glm::min(upper, gridResolution - glm::ivec3(1));
+    lower = glm::clamp(lower, glm::ivec3(0), gridResolution - glm::ivec3(1));
+    upper = glm::clamp(upper, glm::ivec3(0), gridResolution - glm::ivec3(1));
 
     for (uint32_t z = lower.z; z <= upper.z; z++) {
         for (uint32_t y = lower.y; y <= upper.y; y++) {
@@ -347,8 +349,8 @@ void VoxelCurveDiscretizer::compressLine(
     int faceIndex2 = computeFaceIndex(line.v2, voxelIndex);
     quantizeLine(glm::vec3(voxelIndex), line, lineQuantized, faceIndex1, faceIndex2);
 
-    uint8_t attr1Unorm = std::round(lineQuantized.a1*255.0f);
-    uint8_t attr2Unorm = std::round(lineQuantized.a2*255.0f);
+    uint8_t attr1Unorm = uint8_t(glm::clamp(std::round(lineQuantized.a1*255.0f), 0.0f, 255.0f));
+    uint8_t attr2Unorm = uint8_t(glm::clamp(std::round(lineQuantized.a2*255.0f), 0.0f, 255.0f));
 
     int c = round(2*intlog2(quantizationResolution.x));
     lineCompressed.linePosition = lineQuantized.faceIndex1;

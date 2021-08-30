@@ -267,7 +267,7 @@ void traverseVoxelGrid(uint lineID, vec3 startPoint, float startAttribute, vec3 
     tMaxX = tDeltaX * (1.0 - fract(startPoint.x));
     else
     tMaxX = tDeltaX * fract(startPoint.x);
-    voxelIndex.x = int(startPoint.x);
+    voxelIndex.x = int(floor(startPoint.x));
 
     int stepY = int(sign(endPoint.y - startPoint.y));
     if (stepY != 0)
@@ -278,7 +278,7 @@ void traverseVoxelGrid(uint lineID, vec3 startPoint, float startAttribute, vec3 
     tMaxY = tDeltaY * (1.0 - fract(startPoint.y));
     else
     tMaxY = tDeltaY * fract(startPoint.y);
-    voxelIndex.y = int(startPoint.y);
+    voxelIndex.y = int(floor(startPoint.y));
 
     int stepZ = int(sign(endPoint.z - startPoint.z));
     if (stepZ != 0)
@@ -289,7 +289,10 @@ void traverseVoxelGrid(uint lineID, vec3 startPoint, float startAttribute, vec3 
     tMaxZ = tDeltaZ * (1.0 - fract(startPoint.z));
     else
     tMaxZ = tDeltaZ * fract(startPoint.z);
-    voxelIndex.z = int(startPoint.z);
+    voxelIndex.z = int(floor(startPoint.z));
+
+    // Clamp to avoid imprecisions at boundaries.
+    voxelIndex = clamp(voxelIndex, ivec3(0, 0, 0), gridResolution - ivec3(1));
 
     if (stepX == 0 && stepY == 0 && stepZ == 0) {
         return;
@@ -376,7 +379,7 @@ void main() {
     uint numLinePoints = lineOffsets[lineNumber + 1] - lineOffset;
 
     // Voxel for which we save intersetions that do not yet form a full line segment
-    ivec3 currentVoxel = ivec3(-1,-1,-1);
+    ivec3 currentVoxel = ivec3(-1, -1, -1);
     int currentVoxelNumIntersections = 0;
     vec3 currentVoxelIntersection = vec3(1e6, 1e6, 1e6); // Carry-over-field across line segments
     float currentVoxelIntersectionAttribute = 0.0; // Carry-over-field across line segments
@@ -387,7 +390,7 @@ void main() {
         LinePoint p1 = linePoints[lineOffset + i];
         LinePoint p2 = linePoints[lineOffset + i + 1];
 
-        // Remove invalid line points (used in many scientific datasets to indicate invalid lines).
+        // Remove invalid line points (large values are used in some scientific datasets to indicate invalid lines).
         const float MAX_VAL = 1e10;
         if (abs(p1.linePoint.x) > MAX_VAL || abs(p1.linePoint.y) > MAX_VAL || abs(p1.linePoint.z) > MAX_VAL
                 || abs(p2.linePoint.x) > MAX_VAL || abs(p2.linePoint.y) > MAX_VAL || abs(p2.linePoint.z) > MAX_VAL) {
