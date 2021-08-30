@@ -69,7 +69,7 @@ private:
     sgl::ShaderAttributesPtr blitRenderData;
     sgl::ShaderProgramPtr renderShader;
 
-    //
+    // Rendering data for a hull enclosing the mesh.
     sgl::ShaderProgramPtr lineHullShader;
     sgl::ShaderAttributesPtr lineHullRenderData;
     sgl::FramebufferObjectPtr nearestLineHullHitFbo;
@@ -84,7 +84,7 @@ private:
     sgl::GeometryBufferPtr voxelGridLineSegmentsBuffer;
 
     // Rendering settings.
-    int gridResolution1D = 64, quantizationResolution1D = 32;
+    int gridResolution1D = 64, quantizationResolution1D = 64;
     int maxNumLinesPerVoxel = 32;
     int maxNumHits = 8;
     bool useGpuForVoxelization = true;

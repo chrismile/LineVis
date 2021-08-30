@@ -212,22 +212,22 @@ void VoxelRayCastingRenderer::render() {
         glDepthMask(GL_TRUE);
         glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
         glDisable(GL_CULL_FACE);
-        glEnable(GL_POLYGON_OFFSET_FILL);
+        //glEnable(GL_POLYGON_OFFSET_FILL);
 
-        glPolygonOffset(-1.0f, -1.0f);
+        //glPolygonOffset(-1.0f, -1.0f);
         glDepthFunc(GL_GREATER);
         sgl::Renderer->bindFBO(furthestLineHullHitFbo);
         sgl::Renderer->clearFramebuffer(GL_DEPTH_BUFFER_BIT, sgl::Color(), 0.0f);
         sgl::Renderer->render(lineHullRenderData);
 
-        glPolygonOffset(1.0f, 1.0f);
+        //glPolygonOffset(1.0f, 1.0f);
         glDepthFunc(GL_LESS);
         sgl::Renderer->bindFBO(nearestLineHullHitFbo);
         sgl::Renderer->clearFramebuffer(GL_DEPTH_BUFFER_BIT, sgl::Color(), 1.0f);
         sgl::Renderer->render(lineHullRenderData);
 
         glEnable(GL_CULL_FACE);
-        glDisable(GL_POLYGON_OFFSET_FILL);
+        //glDisable(GL_POLYGON_OFFSET_FILL);
     }
 
     // 2. Do the VRC rendering pass.

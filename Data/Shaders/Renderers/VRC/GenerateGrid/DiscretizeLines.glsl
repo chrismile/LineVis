@@ -252,6 +252,8 @@ void traverseVoxelGrid(uint lineID, vec3 startPoint, float startAttribute, vec3 
         inout ivec3 currentVoxel, inout int currentVoxelNumIntersections, inout vec3 currentVoxelIntersection,
         inout float currentVoxelIntersectionAttribute, inout bool noIntersectionForLineYet)
 {
+    startPoint = clamp(startPoint, vec3(0, 0, 0), vec3(gridResolution) - vec3(1e-4));
+    endPoint = clamp(endPoint, vec3(0, 0, 0), vec3(gridResolution) - vec3(1e-4));
     ivec3 startVoxel = ivec3(startPoint);
     ivec3 endVoxel = ivec3(endPoint);
 
@@ -386,9 +388,14 @@ void main() {
     vec3 tangent;
 
     bool noIntersectionForLineYet = true;
-    for (int i = 0; i < numLinePoints-1; i++) {
+    for (int i = 0; i < numLinePoints - 1; i++) {
         LinePoint p1 = linePoints[lineOffset + i];
         LinePoint p2 = linePoints[lineOffset + i + 1];
+
+        //p1.linePoint += vec3(0.9);
+        //p2.linePoint += vec3(0.9);
+        p1.linePoint.z += 0.01;
+        p2.linePoint.z += 0.01;
 
         // Remove invalid line points (large values are used in some scientific datasets to indicate invalid lines).
         const float MAX_VAL = 1e10;
@@ -400,7 +407,7 @@ void main() {
         if (i == 0) {
             // First node
             tangent = p2.linePoint - p1.linePoint;
-        } else if (i == numLinePoints-1) {
+        } else if (i == numLinePoints - 1) {
             // Last node
             tangent = p1.linePoint - linePoints[lineOffset + i - 1].linePoint;
         } else {

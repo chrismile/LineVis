@@ -199,14 +199,10 @@ vec4 traverseVoxelGrid(vec3 rayOrigin, vec3 rayDirection, vec3 startPoint, vec3 
             break;
     }*/
 
-
-    //bool test = all(greaterThanEqual(voxelIndex, ivec3(-1))) && all(lessThanEqual(voxelIndex, gridResolution));
-    //return vec4(vec3(0.0, 0.0, all(lessThanEqual(voxelIndex, gridResolution)) ? 1.0 : 0.0), 1.0);
-
     int iterationNum = 0;
     while (all(greaterThanEqual(voxelIndex, ivec3(-1))) && all(lessThanEqual(voxelIndex, gridResolution))) {
         vec4 voxelColor = nextVoxel(
-        rayOrigin, rayDirection, voxelIndex, /*nextVoxelIndex,*/ blendedLineIDs, newBlendedLineIDs0);
+                rayOrigin, rayDirection, voxelIndex, /*nextVoxelIndex,*/ blendedLineIDs, newBlendedLineIDs0);
         iterationNum++;
         if (blendPremul(voxelColor, color)) {
             // Early ray termination
@@ -218,8 +214,8 @@ vec4 traverseVoxelGrid(vec3 rayOrigin, vec3 rayDirection, vec3 startPoint, vec3 
         newBlendedLineIDs1 = newBlendedLineIDs0;
         newBlendedLineIDs0 = 0;
 
-        float newDist = length(endPoint - vec3(voxelIndex)) - 1.0;
-        if (newDist > maxDist) {
+        float newDist = length(vec3(voxelIndex) + vec3(0.5) - startPoint); // diff > sqrt(3)/2 (i.e., half diagonal)?
+        if (newDist - maxDist > 0.866025404) {
             break;
         }
 

@@ -75,12 +75,16 @@ void main() {
     if (nearestLineHullHitDepth < furthestLineHullHitDepth) {
         rayBoxIntersectionRayCoords(rayOrigin, rayDirection, voxelGridLower, voxelGridUpper, tNear, tFar);
         if (tNear < 0.0) {
-            entrancePoint = rayOrigin; // TODO
+            //entrancePoint = rayOrigin; // TODO
         }
 
+        vec3 EPSILON_VEC3 = sign(rayDirection) * vec3(2e-3);
+        entrancePoint = entrancePoint + EPSILON_VEC3;
+        exitPoint = exitPoint - EPSILON_VEC3;
+
         fragColor = traverseVoxelGrid(rayOrigin, rayDirection, entrancePoint, exitPoint);
-        //blend(clearColor, fragColor);
-        blend(vec4(1.0, 0.5, 0.0, 1.0), fragColor);
+        blend(clearColor, fragColor);
+        //blend(vec4(1.0, 0.5, 0.0, 1.0), fragColor); // For debugging the hull.
         fragColor = vec4(fragColor.rgb / fragColor.a, fragColor.a);
     }
 #else
