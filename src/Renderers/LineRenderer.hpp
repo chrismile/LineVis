@@ -94,8 +94,14 @@ public:
 
     /// Called when the camera has moved.
     virtual void onHasMoved() {}
-    // If the re-rendering was triggered from an outside source, frame accumulation cannot be used.
+    /// If the re-rendering was triggered from an outside source, frame accumulation cannot be used.
     virtual void notifyReRenderTriggeredExternally() { internalReRender = false; }
+
+    /**
+     * Called when whether the simulation mesh hull should be rendered might have changed.
+     * Only used in the Vulkan ray tracer so far.
+     */
+    virtual void setRenderSimulationMeshHull(bool shallRenderSimulationMeshHull) {}
 
     // For changing performance measurement modes.
     virtual void setNewState(const InternalState& newState) { }

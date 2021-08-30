@@ -88,6 +88,12 @@ public:
     /// Returns whether the triangle representation is used by the renderer.
     bool getIsTriangleRepresentationUsed() const override;
 
+    /**
+     * Called when whether the simulation mesh hull should be rendered might have changed.
+     * Only used in the Vulkan ray tracer so far.
+     */
+    void setRenderSimulationMeshHull(bool shallRenderSimulationMeshHull) override;
+
 protected:
     void reloadGatherShader(bool canCopyShaderAttributes = true) override;
 
@@ -105,7 +111,12 @@ private:
     sgl::vk::Renderer* rendererVk = nullptr;
     std::shared_ptr<RayTracingRenderPass> rayTracingRenderPass;
 
-    // Multiple frames can be accumulated to achieve a multisampling effect.
+    // How many rays should be used per frame?
+    uint32_t numSamplesPerFrame = 1;
+    // The maximum number of transparent fragments to blend before stopping early.
+    uint32_t maxDepthComplexity = 1024;
+
+    // Multiple frames can be accumulated to achieve a multisampling effect (additionally to using numSamplesPerFrame).
     uint32_t maxNumAccumulatedFrames = 32;
     uint32_t accumulatedFramesCounter = 0;
 };
@@ -118,14 +129,21 @@ public:
     void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
     void setBackgroundColor(const glm::vec4& color);
     void setLineData(LineDataPtr& lineData, bool isNewData);
+    void setRenderSimulationMeshHull(bool shallRenderSimulationMeshHull);
+    inline void setNumSamplesPerFrame(uint32_t numSamples) {
+        rayTracerSettings.numSamplesPerFrame = numSamples;
+        updateUseJitteredSamples();
+    }
     inline void setFrameNumber(uint32_t frameNumber) { rayTracerSettings.frameNumber = frameNumber; }
-    inline void setMaxNumFrames(uint32_t numFrames) { maxNumFrames = numFrames; }
+    inline void setMaxNumFrames(uint32_t numFrames) { maxNumFrames = numFrames; updateUseJitteredSamples(); }
+    inline void setMaxDepthComplexity(uint32_t maxDepth) { rayTracerSettings.maxDepthComplexity = maxDepth; }
     inline void setUseDepthCues(bool depthCuesOn) { useDepthCues = depthCuesOn; }
     inline void setDepthMinMaxBuffer(const sgl::vk::BufferPtr& buffer) { depthMinMaxBuffer = buffer; }
     inline void setUseAmbientOcclusion(bool ambientOcclusionOn) { useAmbientOcclusion = ambientOcclusionOn; }
     inline void setAmbientOcclusionBaker(const AmbientOcclusionBakerPtr& baker) { ambientOcclusionBaker = baker; }
 
 private:
+    void updateUseJitteredSamples();
     void loadShader() override;
     sgl::vk::RayTracingPipelinePtr createRayTracingPipeline() override;
     void createRayTracingData(sgl::vk::Renderer* renderer, sgl::vk::RayTracingPipelinePtr& rayTracingPipeline) override;
@@ -158,17 +176,23 @@ private:
     void updateLineRenderSettings();
     struct RayTracerSettings {
         glm::vec3 cameraPosition{};
-        uint32_t maxDepthComplexity = 1024; // TODO
+        float paddingFlt = 0.0f;
         glm::vec4 backgroundColor{};
         glm::vec4 foregroundColor{};
 
-        glm::uvec3 paddingVec{};
+        // The maximum number of transparent fragments to blend before stopping early.
+        uint maxDepthComplexity = 1024;
+        // How many rays should be shot per frame?
+        uint numSamplesPerFrame = 1;
 
         // The number of this frame (used for accumulation of samples across frames).
-        uint32_t frameNumber = 0;
+        uint frameNumber = 0;
+
+        uint paddingUint = 0;
     };
     RayTracerSettings rayTracerSettings{};
     sgl::vk::BufferPtr rayTracerSettingsBuffer;
+    bool useJitteredSamples = true;
     uint32_t maxNumFrames = 1;
 };
 

@@ -139,9 +139,15 @@ bool LineData::renderGuiRenderer(bool isRasterizer) {
         //    reRender = true;
         //}
 
-        if (ImGui::SliderFloat("Hull Opacity", &hullOpacity, 0.0f, 1.0f, "%.4f")) {
+        EditMode editModeHullOpacity = ImGui::SliderFloatEdit(
+                "Hull Opacity", &hullOpacity, 0.0f, 1.0f, "%.4f");
+        if (editModeHullOpacity != EditMode::NO_CHANGE) {
             shallRenderSimulationMeshBoundary = hullOpacity > 0.0f;
             reRender = true;
+        }
+        if (lineRenderer && lineRenderer->isVulkanRenderer && !lineRenderer->isRasterizer
+                && editModeHullOpacity == EditMode::INPUT_FINISHED) {
+            lineRenderer->setRenderSimulationMeshHull(shallRenderSimulationMeshBoundary);
         }
         if (shallRenderSimulationMeshBoundary) {
             if (ImGui::ColorEdit3("Hull Color", &hullColor.r)) {

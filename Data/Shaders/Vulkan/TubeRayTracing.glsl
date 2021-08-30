@@ -20,14 +20,19 @@ layout(binding = 2) uniform accelerationStructureEXT topLevelAS;
 
 layout (binding = 3) uniform RayTracerSettingsBuffer {
     vec3 cameraPosition;
-    uint maxDepthComplexity;
+    float paddingFlt;
     vec4 backgroundColor;
     vec4 foregroundColor;
 
-    uvec3 paddingVec;
+    // The maximum number of transparent fragments to blend before stopping early.
+    uint maxDepthComplexity;
+    // How many rays should be shot per frame?
+    uint numSamplesPerFrame;
 
     // The number of this frame (used for accumulation of samples across frames).
     uint frameNumber;
+
+    uint paddingUint;
 };
 
 layout (binding = 4) uniform LineRenderSettingsBuffer {
@@ -57,7 +62,7 @@ struct RayPayload {
 layout(location = 0) rayPayloadEXT RayPayload payload;
 
 // Minimum distance between two consecutive hits.
-const float HIT_DISTANCE_EPSILON = 1e-5;
+const float HIT_DISTANCE_EPSILON = 1e-4;
 
 #define USE_TRANSPARENCY
 
@@ -95,30 +100,39 @@ vec4 traceRayTransparent(vec3 rayOrigin, vec3 rayDirection) {
 
 void main() {
     ivec2 outputImageSize = imageSize(outputImage);
+    vec4 fragmentColor = vec4(0.0);
+
+    vec3 rayOrigin = (camera.inverseViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 
 #ifdef USE_JITTERED_RAYS
-    uint seed = tea(gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * outputImageSize.x, frameNumber);
+    for (int sampleIdx = 0; sampleIdx < numSamplesPerFrame; sampleIdx++) {
+
+    uint seed = tea(
+            gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * outputImageSize.x,
+            frameNumber * numSamplesPerFrame + sampleIdx);
     vec2 xi = vec2(rnd(seed), rnd(seed));
     vec2 fragNdc = 2.0 * ((vec2(gl_LaunchIDEXT.xy) + xi) / vec2(gl_LaunchSizeEXT.xy)) - 1.0;
 #else
     vec2 fragNdc = 2.0 * ((vec2(gl_LaunchIDEXT.xy) + vec2(0.5)) / vec2(gl_LaunchSizeEXT.xy)) - 1.0;
 #endif
 
-    vec3 rayOrigin = (camera.inverseViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
     vec3 rayTarget = (camera.inverseProjectionMatrix * vec4(fragNdc.xy, 1.0, 1.0)).xyz;
     vec3 rayDirection = (camera.inverseViewMatrix * vec4(normalize(rayTarget.xyz), 0.0)).xyz;
 
-
-    vec4 fragmentColor;
-
 #ifdef USE_TRANSPARENCY
-    fragmentColor = traceRayTransparent(rayOrigin, rayDirection);
+    fragmentColor += traceRayTransparent(rayOrigin, rayDirection);
 #else
     if (hasHullMesh == 1) {
-        fragmentColor = traceRayTransparent(rayOrigin, rayDirection);
+        fragmentColor += traceRayTransparent(rayOrigin, rayDirection);
     } else {
-        fragmentColor = traceRayOpaque(rayOrigin, rayDirection);
+        fragmentColor += traceRayOpaque(rayOrigin, rayDirection);
     }
+#endif
+
+#ifdef USE_JITTERED_RAYS
+    }
+
+    fragmentColor /= float(numSamplesPerFrame);
 #endif
 
     ivec2 writePos = ivec2(gl_LaunchIDEXT.xy);
@@ -138,14 +152,19 @@ void main() {
 
 layout (binding = 3) uniform RayTracerSettingsBuffer {
     vec3 cameraPosition;
-    uint maxDepthComplexity;
+    float paddingFlt;
     vec4 backgroundColor;
     vec4 foregroundColor;
 
-    uvec3 paddingVec;
+    // The maximum number of transparent fragments to blend before stopping early.
+    uint maxDepthComplexity;
+    // How many rays should be shot per frame?
+    uint numSamplesPerFrame;
 
     // The number of this frame (used for accumulation of samples across frames).
     uint frameNumber;
+
+    uint paddingUint;
 };
 
 struct RayPayload {
@@ -180,14 +199,19 @@ layout (binding = 0) uniform CameraSettingsBuffer {
 
 layout (binding = 3) uniform RayTracerSettingsBuffer {
     vec3 cameraPosition;
-    uint maxDepthComplexity;
+    float paddingFlt;
     vec4 backgroundColor;
     vec4 foregroundColor;
 
-    uvec3 paddingVec;
+    // The maximum number of transparent fragments to blend before stopping early.
+    uint maxDepthComplexity;
+    // How many rays should be shot per frame?
+    uint numSamplesPerFrame;
 
     // The number of this frame (used for accumulation of samples across frames).
     uint frameNumber;
+
+    uint paddingUint;
 };
 
 layout (binding = 4) uniform LineRenderSettingsBuffer {
@@ -551,14 +575,19 @@ struct HullVertex {
 
 layout (binding = 3) uniform RayTracerSettingsBuffer {
     vec3 cameraPosition;
-    uint maxDepthComplexity;
+    float paddingFlt;
     vec4 backgroundColor;
     vec4 foregroundColor;
 
-    uvec3 paddingVec;
+    // The maximum number of transparent fragments to blend before stopping early.
+    uint maxDepthComplexity;
+    // How many rays should be shot per frame?
+    uint numSamplesPerFrame;
 
     // The number of this frame (used for accumulation of samples across frames).
     uint frameNumber;
+
+    uint paddingUint;
 };
 
 layout (binding = 9) uniform HullRenderSettingsBuffer {

@@ -57,7 +57,9 @@ VulkanRayTracer::VulkanRayTracer(
 
     rayTracingRenderPass = std::make_shared<RayTracingRenderPass>(rendererVk, sceneData.camera);
     rayTracingRenderPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
+    rayTracingRenderPass->setNumSamplesPerFrame(numSamplesPerFrame);
     rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
+    rayTracingRenderPass->setMaxDepthComplexity(maxDepthComplexity);
 
     isVulkanRenderer = true;
     isRasterizer = false;
@@ -90,6 +92,10 @@ void VulkanRayTracer::setLineData(LineDataPtr& lineData, bool isNewData) {
     accumulatedFramesCounter = 0;
     dirty = false;
     reRender = true;
+}
+
+void VulkanRayTracer::setRenderSimulationMeshHull(bool shallRenderSimulationMeshHull) {
+    rayTracingRenderPass->setRenderSimulationMeshHull(shallRenderSimulationMeshHull);
 }
 
 void VulkanRayTracer::onResolutionChanged() {
@@ -176,8 +182,21 @@ void VulkanRayTracer::render() {
 void VulkanRayTracer::renderGui() {
     LineRenderer::renderGui();
 
-    if (ImGui::SliderInt("#Accum. Frames", reinterpret_cast<int*>(&maxNumAccumulatedFrames), 1, 32)) {
+    if (ImGui::SliderInt(
+            "#Samples/Frame", reinterpret_cast<int*>(&numSamplesPerFrame), 1, 32)) {
+        rayTracingRenderPass->setNumSamplesPerFrame(numSamplesPerFrame);
+        accumulatedFramesCounter = 0;
+    }
+
+    if (ImGui::SliderInt(
+            "#Accum. Frames", reinterpret_cast<int*>(&maxNumAccumulatedFrames), 1, 32)) {
         rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
+        accumulatedFramesCounter = 0;
+    }
+
+    if (ImGui::SliderInt(
+            "Max. Depth", reinterpret_cast<int*>(&maxDepthComplexity), 1, 2048)) {
+        rayTracingRenderPass->setMaxDepthComplexity(maxDepthComplexity);
         accumulatedFramesCounter = 0;
     }
 }
@@ -234,15 +253,31 @@ void RayTracingRenderPass::setBackgroundColor(const glm::vec4& color) {
 void RayTracingRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
     this->lineData = lineData;
     tubeTriangleRenderData = lineData->getVulkanTubeTriangleRenderData(true);
-    hullTriangleRenderData = lineData->getVulkanHullTriangleRenderData(true);
-    topLevelAS = lineData->getRayTracingTubeAndHullTriangleTopLevelAS();
+    if (lineData->getShallRenderSimulationMeshBoundary()) {
+        topLevelAS = lineData->getRayTracingTubeAndHullTriangleTopLevelAS();
+        hullTriangleRenderData = lineData->getVulkanHullTriangleRenderData(true);
+    } else {
+        topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS();
+    }
     dataDirty = true;
+}
+
+void RayTracingRenderPass::setRenderSimulationMeshHull(bool shallRenderSimulationMeshHull) {
+    setLineData(lineData, false);
+}
+
+void RayTracingRenderPass::updateUseJitteredSamples() {
+    bool useJitteredSamplesNew = maxNumFrames > 1 || rayTracerSettings.numSamplesPerFrame > 1;
+    if (useJitteredSamples != useJitteredSamplesNew) {
+        setShaderDirty();
+    }
+    useJitteredSamples = useJitteredSamplesNew;
 }
 
 void RayTracingRenderPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines = lineData->getVulkanShaderPreprocessorDefines();
-    if (maxNumFrames > 1) {
+    if (useJitteredSamples) {
         preprocessorDefines.insert(std::make_pair("USE_JITTERED_RAYS", ""));
     }
     if (useDepthCues) {
