@@ -117,7 +117,7 @@ struct TubeLinePointData {
     glm::vec3 lineNormal;
     float lineAppearanceOrder; ///< Zero for flow lines.
     glm::uvec3 padding;
-    uint principalStressIndex; ///< Zero for flow lines.
+    uint32_t principalStressIndex; ///< Zero for flow lines.
 };
 
 struct LinePointReference {
@@ -139,6 +139,11 @@ struct HullTriangleVertexData {
 struct VulkanTubeTriangleRenderData {
     sgl::vk::BufferPtr indexBuffer;
     sgl::vk::BufferPtr vertexBuffer; // TubeTriangleVertexData objects.
+    sgl::vk::BufferPtr linePointBuffer; // TubeLinePointData objects.
+};
+struct VulkanTubeAabbRenderData {
+    sgl::vk::BufferPtr indexBuffer; // Two consecutive uint32_t indices map one AABB to two TubeLinePointData objects.
+    sgl::vk::BufferPtr aabbBuffer; // VkAabbPositionsKHR objects.
     sgl::vk::BufferPtr linePointBuffer; // TubeLinePointData objects.
 };
 struct VulkanHullTriangleRenderData {
