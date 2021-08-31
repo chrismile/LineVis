@@ -128,6 +128,9 @@ bool LineData::renderGuiRenderer(bool isRasterizer) {
     if (lineRenderer && (linePrimitiveMode == LINE_PRIMITIVES_TRIANGLE_MESH || lineRenderer->isVulkanRenderer)) {
         if (ImGui::Checkbox("Capped Tubes", &useCappedTubes)) {
             triangleRepresentationDirty = true;
+            if (lineRenderer->isVulkanRenderer && !lineRenderer->isRasterizer) {
+                shallReloadGatherShader = true;
+            }
         }
         ImGui::SameLine();
     }
@@ -239,11 +242,15 @@ void LineData::rebuildInternalRepresentationIfNecessary() {
     if (dirty || triangleRepresentationDirty) {
         //updateMeshTriangleIntersectionDataStructure();
         vulkanTubeTriangleRenderData = {};
+        vulkanTubeAabbRenderData = {};
         vulkanHullTriangleRenderData = {};
-        tubeBottomLevelAS = {};
-        hullBottomLevelAS = {};
-        tubeTopLevelAS = {};
-        tubeAndHullTopLevelAS = {};
+        tubeTriangleBottomLevelAS = {};
+        tubeAabbBottomLevelAS = {};
+        hullTriangleBottomLevelAS = {};
+        tubeTriangleTopLevelAS = {};
+        tubeTriangleAndHullTopLevelAS = {};
+        tubeAabbTopLevelAS = {};
+        tubeAabbAndHullTopLevelAS = {};
         dirty = false;
         triangleRepresentationDirty = false;
     }
@@ -414,17 +421,17 @@ void LineData::setUniformGatherShaderDataHull_Pass(sgl::ShaderProgramPtr& gather
 
 
 #ifdef USE_VULKAN_INTEROP
-sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeBottomLevelAS() {
+sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLevelAS() {
     rebuildInternalRepresentationIfNecessary();
-    if (tubeBottomLevelAS) {
-        return tubeBottomLevelAS;
+    if (tubeTriangleBottomLevelAS) {
+        return tubeTriangleBottomLevelAS;
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     VulkanTubeTriangleRenderData tubeTriangleRenderData = getVulkanTubeTriangleRenderData(true);
 
     if (!tubeTriangleRenderData.indexBuffer) {
-        return tubeBottomLevelAS;
+        return tubeTriangleBottomLevelAS;
     }
 
     auto asTubeInput = new sgl::vk::TrianglesAccelerationStructureInput(device);
@@ -433,22 +440,43 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeBottomLevelAS() {
             tubeTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
             sizeof(TubeTriangleVertexData));
     auto asTubeInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asTubeInput);
-    tubeBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(asTubeInputPtr);
+    tubeTriangleBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(asTubeInputPtr);
 
-    return tubeBottomLevelAS;
+    return tubeTriangleBottomLevelAS;
 }
 
-sgl::vk::BottomLevelAccelerationStructurePtr LineData::getHullBottomLevelAS() {
+sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeAabbBottomLevelAS() {
     rebuildInternalRepresentationIfNecessary();
-    if (hullBottomLevelAS) {
-        return hullBottomLevelAS;
+    if (tubeAabbBottomLevelAS) {
+        return tubeAabbBottomLevelAS;
+    }
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    VulkanTubeAabbRenderData tubeAabbRenderData = getVulkanTubeAabbRenderData();
+
+    if (!tubeAabbRenderData.indexBuffer) {
+        return tubeAabbBottomLevelAS;
+    }
+
+    auto asAabbInput = new sgl::vk::AabbsAccelerationStructureInput(device);
+    asAabbInput->setAabbsBuffer(tubeAabbRenderData.aabbBuffer);
+    auto asAabbInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asAabbInput);
+    tubeAabbBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(asAabbInputPtr);
+
+    return tubeAabbBottomLevelAS;
+}
+
+sgl::vk::BottomLevelAccelerationStructurePtr LineData::getHullTriangleBottomLevelAS() {
+    rebuildInternalRepresentationIfNecessary();
+    if (hullTriangleBottomLevelAS) {
+        return hullTriangleBottomLevelAS;
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     VulkanHullTriangleRenderData hullTriangleRenderData = getVulkanHullTriangleRenderData(true);
 
     if (!hullTriangleRenderData.indexBuffer) {
-        return hullBottomLevelAS;
+        return hullTriangleBottomLevelAS;
     }
 
     auto asHullInput = new sgl::vk::TrianglesAccelerationStructureInput(device); // , VkGeometryFlagBitsKHR(0)
@@ -458,68 +486,113 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getHullBottomLevelAS() {
             sizeof(HullTriangleVertexData));
     auto asHullInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asHullInput);
 
-    hullBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(asHullInputPtr);
+    hullTriangleBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(asHullInputPtr);
 
-    return hullBottomLevelAS;
+    return hullTriangleBottomLevelAS;
 }
 
 sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleTopLevelAS() {
     rebuildInternalRepresentationIfNecessary();
-    if (tubeTopLevelAS) {
-        return tubeTopLevelAS;
+    if (tubeTriangleTopLevelAS) {
+        return tubeTriangleTopLevelAS;
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    tubeBottomLevelAS = getTubeBottomLevelAS();
+    tubeTriangleBottomLevelAS = getTubeTriangleBottomLevelAS();
 
-    if (!tubeBottomLevelAS) {
-        return tubeTopLevelAS;
+    if (!tubeTriangleBottomLevelAS) {
+        return tubeTriangleTopLevelAS;
     }
 
-    tubeTopLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
-    tubeTopLevelAS->build({ tubeBottomLevelAS }, { sgl::vk::BlasInstance() });
+    tubeTriangleTopLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
+    tubeTriangleTopLevelAS->build({ tubeTriangleBottomLevelAS }, { sgl::vk::BlasInstance() });
 
-    return tubeTopLevelAS;
+    return tubeTriangleTopLevelAS;
 }
 
-sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAndHullTriangleTopLevelAS() {
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleAndHullTopLevelAS() {
     rebuildInternalRepresentationIfNecessary();
-    if (tubeAndHullTopLevelAS) {
-        return tubeAndHullTopLevelAS;
+    if (tubeTriangleAndHullTopLevelAS) {
+        return tubeTriangleAndHullTopLevelAS;
     }
     if (simulationMeshOutlineTriangleIndices.empty()) {
         return getRayTracingTubeTriangleTopLevelAS();
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    tubeBottomLevelAS = getTubeBottomLevelAS();
-    hullBottomLevelAS = getHullBottomLevelAS();
+    tubeTriangleBottomLevelAS = getTubeTriangleBottomLevelAS();
+    hullTriangleBottomLevelAS = getHullTriangleBottomLevelAS();
 
-    if (!tubeBottomLevelAS && !hullBottomLevelAS) {
-        return tubeAndHullTopLevelAS;
+    if (!tubeTriangleBottomLevelAS && !hullTriangleBottomLevelAS) {
+        return tubeTriangleAndHullTopLevelAS;
     }
 
     sgl::vk::BlasInstance tubeBlasInstance, hullBlasInstance;
     hullBlasInstance.shaderBindingTableRecordOffset = 1;
-    tubeAndHullTopLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
-    if (tubeBottomLevelAS) {
+    tubeTriangleAndHullTopLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
+    if (tubeTriangleBottomLevelAS) {
         hullBlasInstance.blasIdx = 1;
-        tubeAndHullTopLevelAS->build(
-                { tubeBottomLevelAS, hullBottomLevelAS }, { tubeBlasInstance, hullBlasInstance });
+        tubeTriangleAndHullTopLevelAS->build(
+                { tubeTriangleBottomLevelAS, hullTriangleBottomLevelAS },
+                { tubeBlasInstance, hullBlasInstance });
     } else {
         hullBlasInstance.blasIdx = 0;
-        tubeAndHullTopLevelAS->build({ hullBottomLevelAS }, { hullBlasInstance });
+        tubeTriangleAndHullTopLevelAS->build({ hullTriangleBottomLevelAS }, { hullBlasInstance });
     }
 
-    return tubeAndHullTopLevelAS;
+    return tubeTriangleAndHullTopLevelAS;
 }
 
-std::map<std::string, std::string> LineData::getVulkanShaderPreprocessorDefines() {
-    std::map<std::string, std::string> preprocessorDefines;
-    if (useCappedTubes) {
-        preprocessorDefines.insert(std::make_pair("USE_CAPPED_TUBES", ""));
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbTopLevelAS() {
+    rebuildInternalRepresentationIfNecessary();
+    if (tubeAabbTopLevelAS) {
+        return tubeAabbTopLevelAS;
     }
-    return preprocessorDefines;
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    tubeAabbBottomLevelAS = getTubeAabbBottomLevelAS();
+
+    if (!tubeAabbBottomLevelAS) {
+        return tubeAabbTopLevelAS;
+    }
+
+    tubeAabbTopLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
+    tubeAabbTopLevelAS->build({ tubeAabbBottomLevelAS }, { sgl::vk::BlasInstance() });
+
+    return tubeAabbTopLevelAS;
+}
+
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbAndHullTopLevelAS() {
+    rebuildInternalRepresentationIfNecessary();
+    if (tubeAabbAndHullTopLevelAS) {
+        return tubeAabbAndHullTopLevelAS;
+    }
+    if (simulationMeshOutlineTriangleIndices.empty()) {
+        return getRayTracingTubeAabbTopLevelAS();
+    }
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    tubeAabbBottomLevelAS = getTubeAabbBottomLevelAS();
+    hullTriangleBottomLevelAS = getHullTriangleBottomLevelAS();
+
+    if (!tubeAabbBottomLevelAS && !hullTriangleBottomLevelAS) {
+        return tubeAabbAndHullTopLevelAS;
+    }
+
+    sgl::vk::BlasInstance tubeBlasInstance, hullBlasInstance;
+    hullBlasInstance.shaderBindingTableRecordOffset = 1;
+    tubeAabbAndHullTopLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
+    if (tubeAabbBottomLevelAS) {
+        hullBlasInstance.blasIdx = 1;
+        tubeAabbAndHullTopLevelAS->build(
+                { tubeAabbBottomLevelAS, hullTriangleBottomLevelAS },
+                { tubeBlasInstance, hullBlasInstance });
+    } else {
+        hullBlasInstance.blasIdx = 0;
+        tubeAabbAndHullTopLevelAS->build({ hullTriangleBottomLevelAS }, { hullBlasInstance });
+    }
+
+    return tubeAabbAndHullTopLevelAS;
 }
 
 VulkanHullTriangleRenderData LineData::getVulkanHullTriangleRenderData(bool raytracing) {
@@ -564,6 +637,14 @@ VulkanHullTriangleRenderData LineData::getVulkanHullTriangleRenderData(bool rayt
             vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
 
     return vulkanHullTriangleRenderData;
+}
+
+std::map<std::string, std::string> LineData::getVulkanShaderPreprocessorDefines() {
+    std::map<std::string, std::string> preprocessorDefines;
+    if (useCappedTubes) {
+        preprocessorDefines.insert(std::make_pair("USE_CAPPED_TUBES", ""));
+    }
+    return preprocessorDefines;
 }
 
 void LineData::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData) {

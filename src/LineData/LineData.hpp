@@ -161,9 +161,12 @@ public:
 #ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---
     virtual VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(bool raytracing)=0;
+    virtual VulkanTubeAabbRenderData getVulkanTubeAabbRenderData()=0;
     virtual VulkanHullTriangleRenderData getVulkanHullTriangleRenderData(bool raytracing);
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleTopLevelAS();
-    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAndHullTriangleTopLevelAS();
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleAndHullTopLevelAS();
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbTopLevelAS();
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbAndHullTopLevelAS();
     virtual std::map<std::string, std::string> getVulkanShaderPreprocessorDefines();
     virtual void setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData);
     virtual void updateVulkanUniformBuffers(sgl::vk::Renderer* renderer);
@@ -267,14 +270,19 @@ protected:
 #ifdef USE_VULKAN_INTEROP
     // Caches the rendering data when using Vulkan (as, e.g., the Vulkan ray tracer and AO baking could be used at the
     // same time).
-    sgl::vk::BottomLevelAccelerationStructurePtr getTubeBottomLevelAS();
-    sgl::vk::BottomLevelAccelerationStructurePtr getHullBottomLevelAS();
+    sgl::vk::BottomLevelAccelerationStructurePtr getTubeTriangleBottomLevelAS();
+    sgl::vk::BottomLevelAccelerationStructurePtr getTubeAabbBottomLevelAS();
+    sgl::vk::BottomLevelAccelerationStructurePtr getHullTriangleBottomLevelAS();
     VulkanTubeTriangleRenderData vulkanTubeTriangleRenderData;
+    VulkanTubeAabbRenderData vulkanTubeAabbRenderData;
     VulkanHullTriangleRenderData vulkanHullTriangleRenderData;
-    sgl::vk::BottomLevelAccelerationStructurePtr tubeBottomLevelAS;
-    sgl::vk::BottomLevelAccelerationStructurePtr hullBottomLevelAS;
-    sgl::vk::TopLevelAccelerationStructurePtr tubeTopLevelAS;
-    sgl::vk::TopLevelAccelerationStructurePtr tubeAndHullTopLevelAS;
+    sgl::vk::BottomLevelAccelerationStructurePtr tubeTriangleBottomLevelAS;
+    sgl::vk::BottomLevelAccelerationStructurePtr tubeAabbBottomLevelAS;
+    sgl::vk::BottomLevelAccelerationStructurePtr hullTriangleBottomLevelAS;
+    sgl::vk::TopLevelAccelerationStructurePtr tubeTriangleTopLevelAS;
+    sgl::vk::TopLevelAccelerationStructurePtr tubeTriangleAndHullTopLevelAS;
+    sgl::vk::TopLevelAccelerationStructurePtr tubeAabbTopLevelAS;
+    sgl::vk::TopLevelAccelerationStructurePtr tubeAabbAndHullTopLevelAS;
 
     struct LineRenderSettings {
         float lineWidth = 0.0f;

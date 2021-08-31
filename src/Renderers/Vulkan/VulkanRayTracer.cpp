@@ -26,6 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <utility>
+
 #include <Math/Geometry/MatrixUtil.hpp>
 #include <Graphics/Window.hpp>
 #include <Graphics/Renderer.hpp>
@@ -41,7 +43,7 @@
 #include <Graphics/Vulkan/Render/RayTracingPipeline.hpp>
 
 #include <ImGui/ImGuiWrapper.hpp>
-#include <utility>
+#include <ImGui/imgui_custom.h>
 
 #include "VulkanRayTracer.hpp"
 
@@ -60,6 +62,7 @@ VulkanRayTracer::VulkanRayTracer(
     rayTracingRenderPass->setNumSamplesPerFrame(numSamplesPerFrame);
     rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
     rayTracingRenderPass->setMaxDepthComplexity(maxDepthComplexity);
+    rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
 
     isVulkanRenderer = true;
     isRasterizer = false;
@@ -80,8 +83,7 @@ void VulkanRayTracer::reloadGatherShader(bool canCopyShaderAttributes) {
 }
 
 bool VulkanRayTracer::getIsTriangleRepresentationUsed() const {
-    // TODO: Adapt if using AABB representation?
-    return LineRenderer::getIsTriangleRepresentationUsed() || true;
+    return LineRenderer::getIsTriangleRepresentationUsed() || true; // !useAnalyticIntersections
 }
 
 void VulkanRayTracer::setLineData(LineDataPtr& lineData, bool isNewData) {
@@ -199,6 +201,15 @@ void VulkanRayTracer::renderGui() {
         rayTracingRenderPass->setMaxDepthComplexity(maxDepthComplexity);
         accumulatedFramesCounter = 0;
     }
+
+    if (ImGui::Checkbox("Use Analytic Intersections", &useAnalyticIntersections)) {
+        rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
+        rayTracingRenderPass->setShaderDirty();
+        rayTracingRenderPass->setLineData(lineData, false);
+        accumulatedFramesCounter = 0;
+    }
+    ImGui::SameLine();
+    ImGui::HelpMarker("Whether to trace rays against a triangle mesh or analytic tubes using line segment AABBs.");
 }
 
 bool VulkanRayTracer::needsReRender() {
@@ -252,12 +263,26 @@ void RayTracingRenderPass::setBackgroundColor(const glm::vec4& color) {
 
 void RayTracingRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
     this->lineData = lineData;
-    tubeTriangleRenderData = lineData->getVulkanTubeTriangleRenderData(true);
-    if (lineData->getShallRenderSimulationMeshBoundary()) {
-        topLevelAS = lineData->getRayTracingTubeAndHullTriangleTopLevelAS();
-        hullTriangleRenderData = lineData->getVulkanHullTriangleRenderData(true);
+    if (useAnalyticIntersections) {
+        tubeTriangleRenderData = VulkanTubeTriangleRenderData();
+        tubeAabbRenderData = lineData->getVulkanTubeAabbRenderData();
+        if (lineData->getShallRenderSimulationMeshBoundary()) {
+            topLevelAS = lineData->getRayTracingTubeAabbAndHullTopLevelAS();
+        } else {
+            topLevelAS = lineData->getRayTracingTubeAabbTopLevelAS();
+        }
     } else {
-        topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS();
+        tubeTriangleRenderData = lineData->getVulkanTubeTriangleRenderData(true);
+        tubeAabbRenderData = VulkanTubeAabbRenderData();
+        if (lineData->getShallRenderSimulationMeshBoundary()) {
+            topLevelAS = lineData->getRayTracingTubeTriangleAndHullTopLevelAS();
+        } else {
+            topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS();
+        }
+    }
+
+    if (lineData->getShallRenderSimulationMeshBoundary()) {
+        hullTriangleRenderData = lineData->getVulkanHullTriangleRenderData(true);
     }
     dataDirty = true;
 }
@@ -289,10 +314,18 @@ void RayTracingRenderPass::loadShader() {
         preprocessorDefines.insert(std::make_pair("USE_AMBIENT_OCCLUSION", ""));
         preprocessorDefines.insert(std::make_pair("GEOMETRY_PASS_TUBE", ""));
     }
-    shaderStages = sgl::vk::ShaderManager->getShaderStages(
-            {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
-             "TubeRayTracing.ClosestHitTubeTriangles", "TubeRayTracing.ClosestHitHull"},
-             preprocessorDefines);
+    if (useAnalyticIntersections) {
+        shaderStages = sgl::vk::ShaderManager->getShaderStages(
+                {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
+                 "TubeRayTracing.IntersectionTube", "TubeRayTracing.ClosestHitTubeAnalytic",
+                 "TubeRayTracing.ClosestHitHull"},
+                preprocessorDefines);
+    } else {
+        shaderStages = sgl::vk::ShaderManager->getShaderStages(
+                {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
+                 "TubeRayTracing.ClosestHitTubeTriangles", "TubeRayTracing.ClosestHitHull"},
+                preprocessorDefines);
+    }
 }
 
 void RayTracingRenderPass::createRayTracingData(
@@ -302,17 +335,36 @@ void RayTracingRenderPass::createRayTracingData(
     rayTracingData->setStaticImageView(sceneImageView, "outputImage");
     rayTracingData->setTopLevelAccelerationStructure(topLevelAS, "topLevelAS");
     rayTracingData->setStaticBuffer(rayTracerSettingsBuffer, "RayTracerSettingsBuffer");
-    if (tubeTriangleRenderData.indexBuffer) {
-        rayTracingData->setStaticBuffer(tubeTriangleRenderData.indexBuffer, "TubeIndexBuffer");
-        rayTracingData->setStaticBuffer(tubeTriangleRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
-        rayTracingData->setStaticBuffer(
-                tubeTriangleRenderData.linePointBuffer, "TubeLinePointDataBuffer");
+    if (useAnalyticIntersections) {
+        if (tubeAabbRenderData.indexBuffer) {
+            rayTracingData->setStaticBuffer(
+                    tubeAabbRenderData.indexBuffer, "BoundingBoxLinePointIndexBuffer");
+            rayTracingData->setStaticBuffer(
+                    tubeAabbRenderData.linePointBuffer, "TubeLinePointDataBuffer");
+        } else {
+            // Just bind anything in order for sgl to not complain...
+            rayTracingData->setStaticBuffer(
+                    hullTriangleRenderData.indexBuffer, "BoundingBoxLinePointIndexBuffer");
+            rayTracingData->setStaticBuffer(
+                    hullTriangleRenderData.vertexBuffer, "TubeLinePointDataBuffer");
+        }
     } else {
-        // Just bind anything in order for sgl to not complain...
-        rayTracingData->setStaticBuffer(hullTriangleRenderData.indexBuffer, "TubeIndexBuffer");
-        rayTracingData->setStaticBuffer(hullTriangleRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
-        rayTracingData->setStaticBuffer(
-                hullTriangleRenderData.vertexBuffer, "TubeLinePointDataBuffer");
+        if (tubeTriangleRenderData.indexBuffer) {
+            rayTracingData->setStaticBuffer(
+                    tubeTriangleRenderData.indexBuffer, "TubeIndexBuffer");
+            rayTracingData->setStaticBuffer(
+                    tubeTriangleRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
+            rayTracingData->setStaticBuffer(
+                    tubeTriangleRenderData.linePointBuffer, "TubeLinePointDataBuffer");
+        } else {
+            // Just bind anything in order for sgl to not complain...
+            rayTracingData->setStaticBuffer(
+                    hullTriangleRenderData.indexBuffer, "TubeIndexBuffer");
+            rayTracingData->setStaticBuffer(
+                    hullTriangleRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
+            rayTracingData->setStaticBuffer(
+                    hullTriangleRenderData.vertexBuffer, "TubeLinePointDataBuffer");
+        }
     }
     if (hullTriangleRenderData.indexBuffer) {
         rayTracingData->setStaticBuffer(hullTriangleRenderData.indexBuffer, "HullIndexBuffer");
@@ -320,9 +372,12 @@ void RayTracingRenderPass::createRayTracingData(
                 hullTriangleRenderData.vertexBuffer, "HullTriangleVertexDataBuffer");
     } else {
         // Just bind anything in order for sgl to not complain...
-        rayTracingData->setStaticBuffer(tubeTriangleRenderData.indexBuffer, "HullIndexBuffer");
-        rayTracingData->setStaticBuffer(
-                tubeTriangleRenderData.vertexBuffer, "HullTriangleVertexDataBuffer");
+        sgl::vk::BufferPtr indexBuffer =
+                useAnalyticIntersections ? tubeAabbRenderData.indexBuffer : tubeTriangleRenderData.indexBuffer;
+        sgl::vk::BufferPtr vertexBuffer =
+                useAnalyticIntersections ? tubeAabbRenderData.linePointBuffer : tubeTriangleRenderData.vertexBuffer;
+        rayTracingData->setStaticBuffer(indexBuffer, "HullIndexBuffer");
+        rayTracingData->setStaticBuffer(vertexBuffer, "HullTriangleVertexDataBuffer");
     }
     if (useDepthCues) {
         rayTracingData->setStaticBuffer(depthMinMaxBuffer, "DepthMinMaxBuffer");
@@ -380,10 +435,16 @@ sgl::vk::RayTracingPipelinePtr RayTracingRenderPass::createRayTracingPipeline() 
     sgl::vk::ShaderBindingTable sbt(shaderStages);
     sbt.addRayGenShaderGroup()->setRayGenShader(0);
     sbt.addMissShaderGroup()->setMissShader(1);
-    sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setClosestHitShader(
-            2);
-    sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setClosestHitShader(
-            3);
+    if (useAnalyticIntersections) {
+        sgl::vk::HitShaderGroup* tubeHitShaderGroup = sbt.addHitShaderGroup(
+                VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR);
+        tubeHitShaderGroup->setIntersectionShader(2);
+        tubeHitShaderGroup->setClosestHitShader(3);
+        sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setClosestHitShader(4);
+    } else {
+        sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setClosestHitShader(2);
+        sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setClosestHitShader(3);
+    }
 
     sgl::vk::RayTracingPipelineInfo rayTracingPipelineInfo(sbt);
     return std::make_shared<sgl::vk::RayTracingPipeline>(device, rayTracingPipelineInfo);

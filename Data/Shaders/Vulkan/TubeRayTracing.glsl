@@ -245,8 +245,39 @@ void main() {
             linePointData0.lineAttribute, linePointData1.lineAttribute, linePointData2.lineAttribute,
             barycentricCoordinates);
 
+#if defined (STRESS_LINE_DATA) || defined(USE_AMBIENT_OCCLUSION)
+    float phi = interpolateAngle(
+            vertexData0.phi, vertexData1.phi, vertexData2.phi, barycentricCoordinates);
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    float fragmentVertexId = interpolateFloat(
+            float(vertexLinePointIndex0), float(vertexLinePointIndex1), float(vertexLinePointIndex2),
+            barycentricCoordinates);
+#endif
+
+#ifdef STRESS_LINE_DATA
+    vec3 linePosition = interpolateVec3(
+            linePointData0.linePosition, linePointData1.linePosition, linePointData2.linePosition, barycentricCoordinates);
+    vec3 lineNormal = interpolateVec3(
+            linePointData0.lineNormal, linePointData1.lineNormal, linePointData2.lineNormal, barycentricCoordinates);
+#endif
+
     computeFragmentColor(
-            fragmentPositionWorld, fragmentNormal, fragmentTangent, fragmentAttribute, linePointData0, linePointData1);
+            fragmentPositionWorld, fragmentNormal, fragmentTangent, fragmentAttribute,
+#ifdef USE_CAPPED_TUBES
+            isCap,
+#endif
+#if defined (STRESS_LINE_DATA) || defined(USE_AMBIENT_OCCLUSION)
+            phi,
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+            fragmentVertexId,
+#endif
+#ifdef STRESS_LINE_DATA
+            linePosition, lineNormal,
+#endif
+            linePointData0, linePointData1
+    );
 
 }
 
@@ -354,6 +385,19 @@ void main() {
 
 #include "RayIntersectionTestsVulkan.glsl"
 
+layout (binding = 4) uniform LineRenderSettingsBuffer {
+    float lineWidth;
+    int hasHullMesh;
+    float depthCueStrength;
+    float ambientOcclusionStrength;
+
+    // Ambient occlusion settings.
+    uint numAoTubeSubdivisions;
+    uint numLineVertices;
+    uint numParametrizationVertices;
+    uint paddingLineSettings;
+};
+
 struct TubeLinePointData {
     vec3 linePosition;
     float lineAttribute;
@@ -374,6 +418,8 @@ layout(std430, binding = 8) readonly buffer TubeLinePointDataBuffer {
 };
 
 void main() {
+    const float lineRadius = lineWidth / 2.0;
+
     uvec2 linePointIndices = boundingBoxLinePointIndices[gl_PrimitiveID];
     vec3 lineSegmentPoint0 = tubeLinePointDataBuffer[linePointIndices.x].linePosition;
     vec3 lineSegmentPoint1 = tubeLinePointDataBuffer[linePointIndices.y].linePosition;
@@ -385,28 +431,30 @@ void main() {
     bool hasTubeIntersection, hasSphereIntersection0 = false, hasSphereIntersection1 = false;
     float tubeT, sphere0T, sphere1T;
     hasTubeIntersection = rayTubeIntersection(
-            rayOrigin, rayDirection, lineSegmentPoint0, lineSegmentPoint1, lineRadius, tubeT);
+            gl_WorldRayOriginEXT, gl_WorldRayDirectionEXT, lineSegmentPoint0, lineSegmentPoint1, lineRadius, tubeT);
     if (hasTubeIntersection) {
         hitT = tubeT;
         hasIntersection = true;
         hitKind = 0;
-    } else {
-        hasSphereIntersection0 = raySphereIntersection(
-                rayOrigin, rayDirection, lineSegmentPoint0, lineRadius, sphere0T);
-        hasSphereIntersection1 = raySphereIntersection(
-                rayOrigin, rayDirection, lineSegmentPoint1, lineRadius, sphere1T);
-
-        if (hasSphereIntersection0 && sphere0T < hitT) {
-            hasIntersection = true;
-            hitT = sphere0T;
-            hitKind = 1;
-        }
-        if (hasSphereIntersection1 && sphere1T < hitT) {
-            hasIntersection = true;
-            hitT = sphere1T;
-            hitKind = 2;
-        }
     }
+
+#ifdef USE_CAPPED_TUBES
+    hasSphereIntersection0 = raySphereIntersection(
+            gl_WorldRayOriginEXT, gl_WorldRayDirectionEXT, lineSegmentPoint0, lineRadius, sphere0T);
+    hasSphereIntersection1 = raySphereIntersection(
+            gl_WorldRayOriginEXT, gl_WorldRayDirectionEXT, lineSegmentPoint1, lineRadius, sphere1T);
+
+    if (hasSphereIntersection0 && sphere0T < hitT) {
+        hasIntersection = true;
+        hitT = sphere0T;
+        hitKind = 1;
+    }
+    if (hasSphereIntersection1 && sphere1T < hitT) {
+        hasIntersection = true;
+        hitT = sphere1T;
+        hitKind = 2;
+    }
+#endif
 
     if (hasIntersection) {
         reportIntersectionEXT(hitT, hitKind);
@@ -418,6 +466,8 @@ void main() {
 
 #version 460
 #extension GL_EXT_ray_tracing : require
+
+#define ANALYTIC_TUBE_INTERSECTIONS
 
 #include "RayHitCommon.glsl"
 #include "RayIntersectionTestsVulkan.glsl"
@@ -436,25 +486,63 @@ void main() {
     vec3 linePointInterpolated;
     float fragmentAttribute;
 
+    float t;
     vec3 v = linePointData1.linePosition - linePointData0.linePosition;
     if (gl_HitKindEXT == 0) {
         // Tube
         vec3 u = fragmentPositionWorld - linePointData0.linePosition;
-        float t = dot(v, u) / dot(v, v);
-        linePointInterpolated = tubePoint1 + t * v;
+        t = dot(v, u) / dot(v, v);
+        linePointInterpolated = linePointData0.linePosition + t * v;
         fragmentAttribute = (1.0 - t) * linePointData0.lineAttribute + t * linePointData1.lineAttribute;
-    } else {
+    }
+#ifdef USE_CAPPED_TUBES
+    else {
         if (gl_HitKindEXT == 1) {
             linePointInterpolated = linePointData0.linePosition;
             fragmentAttribute = linePointData0.lineAttribute;
+            t = 0.0;
         } else {
             linePointInterpolated = linePointData1.linePosition;
             fragmentAttribute = linePointData1.lineAttribute;
+            t = 1.0;
         }
     }
+#endif
     vec3 fragmentTangent = normalize(v);
     vec3 fragmentNormal = normalize(fragmentPositionWorld - linePointInterpolated);
 
+#ifdef USE_CAPPED_TUBES
+    bool isCap = gl_HitKindEXT != 0;
+#endif
+
+#if defined (STRESS_LINE_DATA) || defined(USE_AMBIENT_OCCLUSION)
+    vec3 lineNormal = (1.0 - t) * linePointData0.lineNormal + t * linePointData1.lineNormal;
+
+    // Compute the angle between the fragment and line normal to get phi.
+    float phi = acos(dot(fragmentNormal, lineNormal));
+    float val = dot(lineNormal, cross(fragmentNormal, fragmentTangent));
+    if (val < 0.0f) {
+        phi = 2.0f * float(M_PI) - phi;
+    }
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    float fragmentVertexId = (1.0 - t) * linePointIndices.x + t * linePointIndices.y;
+#endif
+
     computeFragmentColor(
-            fragmentPositionWorld, fragmentNormal, fragmentTangent, fragmentAttribute, linePointData0, linePointData1);
+            fragmentPositionWorld, fragmentNormal, fragmentTangent, fragmentAttribute,
+#ifdef USE_CAPPED_TUBES
+            isCap,
+#endif
+#if defined (STRESS_LINE_DATA) || defined(USE_AMBIENT_OCCLUSION)
+            phi,
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+            fragmentVertexId,
+#endif
+#ifdef STRESS_LINE_DATA
+            linePointInterpolated, lineNormal,
+#endif
+            linePointData0, linePointData1
+    );
 }

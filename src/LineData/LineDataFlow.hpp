@@ -73,6 +73,7 @@ public:
 #ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---
     VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(bool raytracing) override;
+    VulkanTubeAabbRenderData getVulkanTubeAabbRenderData() override;
 #endif
 
 protected:

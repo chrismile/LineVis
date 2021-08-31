@@ -1,3 +1,9 @@
+#define SQR(x) ((x)*(x))
+
+float squareVec(vec3 v) {
+    return SQR(v.x) + SQR(v.y) + SQR(v.z);
+}
+
 /**
  * Implementation of ray-sphere intersection (idea from A. Glassner et al., "An Introduction to Ray Tracing").
  * For more details see: https://www.siggraph.org//education/materials/HyperGraph/raytrace/rtinter1.htm
@@ -61,7 +67,7 @@ bool rayTubeIntersection(
 
     // Intersection(s) behind the ray origin?
     if (t0 >= 0.0) {
-        intersectionPosition = rayOrigin + t0 * rayDirection;
+        vec3 intersectionPosition = rayOrigin + t0 * rayDirection;
         if (dot(tubeDirection, intersectionPosition - tubeStart) > 0
                 && dot(tubeDirection, intersectionPosition - tubeEnd) < 0) {
             // Inside of finite cylinder.
@@ -72,7 +78,7 @@ bool rayTubeIntersection(
 
     float t1 = (-B + discriminantSqrt) / (2.0 * A);
     if (t1 >= 0.0) {
-        intersectionPosition = rayOrigin + t1 * rayDirection;
+        vec3 intersectionPosition = rayOrigin + t1 * rayDirection;
         if (dot(tubeDirection, intersectionPosition - tubeStart) > 0
                 && dot(tubeDirection, intersectionPosition - tubeEnd) < 0) {
             // Inside of finite cylinder.

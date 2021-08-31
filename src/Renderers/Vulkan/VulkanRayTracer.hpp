@@ -107,8 +107,11 @@ private:
     sgl::vk::Renderer* rendererVk = nullptr;
     std::shared_ptr<RayTracingRenderPass> rayTracingRenderPass;
 
+    // Whether to trace rays against a triangle mesh or analytic tubes using line segment AABBs.
+    bool useAnalyticIntersections = true;
+
     // How many rays should be used per frame?
-    uint32_t numSamplesPerFrame = 1;
+    uint32_t numSamplesPerFrame = 2;
     // The maximum number of transparent fragments to blend before stopping early.
     uint32_t maxDepthComplexity = 1024;
 
@@ -137,6 +140,7 @@ public:
     inline void setDepthMinMaxBuffer(const sgl::vk::BufferPtr& buffer) { depthMinMaxBuffer = buffer; }
     inline void setUseAmbientOcclusion(bool ambientOcclusionOn) { useAmbientOcclusion = ambientOcclusionOn; }
     inline void setAmbientOcclusionBaker(const AmbientOcclusionBakerPtr& baker) { ambientOcclusionBaker = baker; }
+    inline void setUseAnalyticIntersections(bool analyticIntersections) { useAnalyticIntersections = analyticIntersections; }
 
 private:
     void updateUseJitteredSamples();
@@ -155,6 +159,7 @@ private:
     AmbientOcclusionBakerPtr ambientOcclusionBaker;
 
     VulkanTubeTriangleRenderData tubeTriangleRenderData;
+    VulkanTubeAabbRenderData tubeAabbRenderData;
     VulkanHullTriangleRenderData hullTriangleRenderData;
     sgl::vk::TopLevelAccelerationStructurePtr topLevelAS;
 
@@ -188,6 +193,8 @@ private:
     };
     RayTracerSettings rayTracerSettings{};
     sgl::vk::BufferPtr rayTracerSettingsBuffer;
+
+    bool useAnalyticIntersections = false;
     bool useJitteredSamples = true;
     uint32_t maxNumFrames = 1;
 };

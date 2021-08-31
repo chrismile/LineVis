@@ -71,6 +71,8 @@ layout(location = 0) rayPayloadInEXT RayPayload payload;
 #define RAYTRACING
 #include "Lighting.glsl"
 
+#define M_PI 3.14159265358979323846
+
 //#define USE_ORTHOGRAPHIC_TUBE_PROJECTION
 
 #ifndef USE_ORTHOGRAPHIC_TUBE_PROJECTION
@@ -81,29 +83,31 @@ mat3 shearSymmetricMatrix(vec3 p) {
 
 void computeFragmentColor(
         vec3 fragmentPositionWorld, vec3 fragmentNormal, vec3 fragmentTangent, float fragmentAttribute,
-        TubeLinePointData linePointData0, TubeLinePointData linePointData1) {
+#ifdef USE_CAPPED_TUBES
+        bool isCap,
+#endif
+#if defined (STRESS_LINE_DATA) || defined(USE_AMBIENT_OCCLUSION)
+        float phi,
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+        float fragmentVertexId,
+#endif
+#ifdef STRESS_LINE_DATA
+        vec3 linePosition, vec3 lineNormal,
+#endif
+        TubeLinePointData linePointData0, TubeLinePointData linePointData1
+) {
     const vec3 n = normalize(fragmentNormal);
     const vec3 v = normalize(cameraPosition - fragmentPositionWorld);
     const vec3 t = normalize(fragmentTangent);
 
-#if defined (STRESS_LINE_DATA) || defined(USE_AMBIENT_OCCLUSION)
-    float phi = interpolateAngle(
-            vertexData0.phi, vertexData1.phi, vertexData2.phi, barycentricCoordinates);
-#endif
-#ifdef USE_AMBIENT_OCCLUSION
-    float fragmentVertexId = interpolateFloat(
-            float(vertexLinePointIndex0), float(vertexLinePointIndex1), float(vertexLinePointIndex2),
-            barycentricCoordinates);
-#endif
-
 #ifdef STRESS_LINE_DATA
+#ifdef ANALYTIC_TUBE_INTERSECTIONS
+    bool useBand = false; // Bands not supported (yet) for analytic tube intersections.
+#else
     bool useBand = psUseBands[linePointData0.principalStressIndex] > 0;
+#endif
     const float thickness = useBand ? 0.15 : 1.0; // hard-coded
-
-    vec3 linePosition = interpolateVec3(
-            linePointData0.linePosition, linePointData1.linePosition, linePointData2.linePosition, barycentricCoordinates);
-    vec3 lineNormal = interpolateVec3(
-            linePointData0.lineNormal, linePointData1.lineNormal, linePointData2.lineNormal, barycentricCoordinates);
 #endif
 
     float ribbonPosition;

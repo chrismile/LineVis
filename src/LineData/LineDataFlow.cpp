@@ -557,4 +557,63 @@ VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(bool 
 
     return vulkanTubeTriangleRenderData;
 }
+
+VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData() {
+    rebuildInternalRepresentationIfNecessary();
+    if (vulkanTubeTriangleRenderData.vertexBuffer) {
+        return vulkanTubeAabbRenderData;
+    }
+
+    getVulkanTubeTriangleRenderData(true);
+    vulkanTubeAabbRenderData.linePointBuffer = vulkanTubeTriangleRenderData.linePointBuffer;
+
+    glm::vec3 lineWidthOffset(LineRenderer::getLineWidth() * 0.5f);
+
+    std::vector<uint32_t> lineSegmentPointIndices;
+    std::vector<sgl::AABB3> lineSegmentAabbs;
+    lineSegmentPointIndices.reserve(getNumLineSegments() * 2);
+    lineSegmentAabbs.reserve(getNumLineSegments());
+    uint32_t lineSegmentIndexCounter = 0;
+    for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+        if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+            continue;
+        }
+
+        Trajectory& trajectory = trajectories.at(trajectoryIdx);
+        for (size_t pointIdx = 1; pointIdx < trajectory.positions.size(); pointIdx++) {
+            lineSegmentPointIndices.push_back(lineSegmentIndexCounter + pointIdx - 1);
+            lineSegmentPointIndices.push_back(lineSegmentIndexCounter + pointIdx);
+
+            glm::vec3& pt0 = trajectory.positions.at(pointIdx - 1);
+            glm::vec3& pt1 = trajectory.positions.at(pointIdx);
+
+            sgl::AABB3 aabb;
+            aabb.min = glm::min(pt0, pt1) - lineWidthOffset;
+            aabb.max = glm::max(pt0, pt1) + lineWidthOffset;
+            lineSegmentAabbs.push_back(aabb);
+        }
+        lineSegmentIndexCounter += uint32_t(trajectory.positions.size());
+    }
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+
+    uint32_t indexBufferFlags =
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+            | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+            | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    uint32_t vertexBufferFlags =
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+            | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+            | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+
+    vulkanTubeAabbRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, lineSegmentPointIndices.size() * sizeof(uint32_t), lineSegmentPointIndices.data(),
+            indexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    vulkanTubeAabbRenderData.aabbBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, lineSegmentAabbs.size() * sizeof(VkAabbPositionsKHR), lineSegmentAabbs.data(),
+            vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    return vulkanTubeAabbRenderData;
+}
 #endif

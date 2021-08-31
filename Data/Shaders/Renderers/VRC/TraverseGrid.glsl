@@ -199,11 +199,9 @@ vec4 traverseVoxelGrid(vec3 rayOrigin, vec3 rayDirection, vec3 startPoint, vec3 
             break;
     }*/
 
-    int iterationNum = 0;
     while (all(greaterThanEqual(voxelIndex, ivec3(-1))) && all(lessThanEqual(voxelIndex, gridResolution))) {
         vec4 voxelColor = nextVoxel(
                 rayOrigin, rayDirection, voxelIndex, /*nextVoxelIndex,*/ blendedLineIDs, newBlendedLineIDs0);
-        iterationNum++;
         if (blendPremul(voxelColor, color)) {
             // Early ray termination
             return color;

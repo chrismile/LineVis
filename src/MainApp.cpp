@@ -295,8 +295,10 @@ MainApp::MainApp(bool supportsRaytracing)
     }
 
 #ifdef USE_VULKAN_INTEROP
-    ambientOcclusionBaker = AmbientOcclusionBakerPtr(
-            new VulkanAmbientOcclusionBaker(transferFunctionWindow, rendererVk));
+    if (supportsRaytracing) {
+        ambientOcclusionBaker = AmbientOcclusionBakerPtr(
+                new VulkanAmbientOcclusionBaker(transferFunctionWindow, rendererVk));
+    }
 #endif
 
     setRenderer();
