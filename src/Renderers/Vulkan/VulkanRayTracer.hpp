@@ -103,10 +103,6 @@ private:
     sgl::TexturePtr renderTextureGl;
     sgl::SemaphoreVkGlInteropPtr renderReadySemaphore, renderFinishedSemaphore;
 
-    // OpenGL blit data (ignores model-view-projection matrix and uses normalized device coordinates).
-    sgl::ShaderAttributesPtr blitRenderData;
-    sgl::ShaderProgramPtr blitShader;
-
     // Vulkan render data.
     sgl::vk::Renderer* rendererVk = nullptr;
     std::shared_ptr<RayTracingRenderPass> rayTracingRenderPass;
@@ -181,14 +177,14 @@ private:
         glm::vec4 foregroundColor{};
 
         // The maximum number of transparent fragments to blend before stopping early.
-        uint maxDepthComplexity = 1024;
+        uint32_t maxDepthComplexity = 1024;
         // How many rays should be shot per frame?
-        uint numSamplesPerFrame = 1;
+        uint32_t numSamplesPerFrame = 1;
 
         // The number of this frame (used for accumulation of samples across frames).
-        uint frameNumber = 0;
+        uint32_t frameNumber = 0;
 
-        uint paddingUint = 0;
+        uint32_t paddingUint = 0;
     };
     RayTracerSettings rayTracerSettings{};
     sgl::vk::BufferPtr rayTracerSettingsBuffer;
