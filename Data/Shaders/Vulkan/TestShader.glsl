@@ -32,16 +32,33 @@
 
 layout(location = 0) in vec3 vertexPosition;
 
+layout(location = 0) out vec3 fragmentPositionWorld;
+
 void main() {
-    gl_Position =  vec4(vertexPosition, 1.0);
+    fragmentPositionWorld = (mMatrix * vec4(vertexPosition, 1.0)).xyz;
+    gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
 }
 
 -- Fragment
 
 #version 450
 
+layout(location = 0) in vec3 fragmentPositionWorld;
+
 layout(location = 0) out vec4 outColor;
 
+layout(binding = 0) uniform RenderSettingsBuffer {
+    vec3 cameraPosition;
+};
+
+#include "Lighting.glsl"
+
 void main() {
-    outColor = vec4(1.0, 0.0, 0.0, 1.0);
+    vec3 dx = dFdx(fragmentPositionWorld);
+    vec3 dy = dFdy(fragmentPositionWorld);
+    vec3 fragmentNormal = normalize(cross(dx, dy));
+
+    vec4 fragmentColor = blinnPhongShading(vec4(0.5, 0.5, 0.5, 1.0), fragmentPositionWorld, fragmentNormal);
+
+    outColor = fragmentColor;
 }

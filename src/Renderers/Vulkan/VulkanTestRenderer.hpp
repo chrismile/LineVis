@@ -73,6 +73,8 @@ public:
 
     // Renders the object to the scene framebuffer.
     void render() override;
+    // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
+    void renderGui() override;
 
 private:
     // OpenGL-Vulkan interoperability data.
@@ -106,10 +108,17 @@ private:
     sgl::CameraPtr camera;
     LineDataPtr lineData;
     sgl::vk::ImageViewPtr sceneImageView;
-    glm::vec4 backgroundColor;
+    sgl::vk::ImageViewPtr depthImageView;
+    glm::vec4 backgroundColor{};
 
-    void setupGeometryBuffers();
+    sgl::vk::BufferPtr indexBuffer;
     sgl::vk::BufferPtr vertexBuffer;
+
+    struct RenderSettingsData {
+        glm::vec3 cameraPosition;
+    };
+    RenderSettingsData renderSettingsData{};
+    sgl::vk::BufferPtr renderSettingsBuffer;
 };
 
 #endif //LINEVIS_VULKANTESTRENDERER_HPP

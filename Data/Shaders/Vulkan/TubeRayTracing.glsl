@@ -35,7 +35,7 @@
 #include "RayTracingUtilities.glsl"
 #endif
 
-layout (binding = 0) uniform CameraSettingsBuffer {
+layout(binding = 0) uniform CameraSettingsBuffer {
     mat4 viewMatrix;
     mat4 projectionMatrix;
     mat4 inverseViewMatrix;
@@ -46,7 +46,7 @@ layout(binding = 1, rgba8) uniform image2D outputImage;
 
 layout(binding = 2) uniform accelerationStructureEXT topLevelAS;
 
-layout (binding = 3) uniform RayTracerSettingsBuffer {
+layout(binding = 3) uniform RayTracerSettingsBuffer {
     vec3 cameraPosition;
     float paddingFlt;
     vec4 backgroundColor;
@@ -63,7 +63,7 @@ layout (binding = 3) uniform RayTracerSettingsBuffer {
     uint paddingUint;
 };
 
-layout (binding = 4) uniform LineRenderSettingsBuffer {
+layout(binding = 4) uniform LineRenderSettingsBuffer {
     float lineWidth;
     int hasHullMesh;
     float depthCueStrength;
@@ -76,7 +76,7 @@ layout (binding = 4) uniform LineRenderSettingsBuffer {
     uint paddingLineSettings;
 };
 
-layout (binding = 9) uniform HullRenderSettingsBuffer {
+layout(binding = 9) uniform HullRenderSettingsBuffer {
     vec4 color;
     ivec3 padding;
     int useShading;
@@ -178,7 +178,7 @@ void main() {
 #version 460
 #extension GL_EXT_ray_tracing : require
 
-layout (binding = 3) uniform RayTracerSettingsBuffer {
+layout(binding = 3) uniform RayTracerSettingsBuffer {
     vec3 cameraPosition;
     float paddingFlt;
     vec4 backgroundColor;
@@ -325,7 +325,7 @@ struct HullVertex {
     float padding1;
 };
 
-layout (binding = 3) uniform RayTracerSettingsBuffer {
+layout(binding = 3) uniform RayTracerSettingsBuffer {
     vec3 cameraPosition;
     float paddingFlt;
     vec4 backgroundColor;
@@ -342,7 +342,7 @@ layout (binding = 3) uniform RayTracerSettingsBuffer {
     uint paddingUint;
 };
 
-layout (binding = 9) uniform HullRenderSettingsBuffer {
+layout(binding = 9) uniform HullRenderSettingsBuffer {
     vec4 color;
     ivec3 padding;
     int useShading;
@@ -413,7 +413,7 @@ void main() {
 
 #include "RayIntersectionTestsVulkan.glsl"
 
-layout (binding = 4) uniform LineRenderSettingsBuffer {
+layout(binding = 4) uniform LineRenderSettingsBuffer {
     float lineWidth;
     int hasHullMesh;
     float depthCueStrength;
