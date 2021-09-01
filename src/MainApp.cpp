@@ -466,10 +466,10 @@ void MainApp::setRenderer() {
 #ifdef USE_VULKAN_INTEROP
     else if (renderingMode == RENDERING_MODE_VULKAN_RAY_TRACER) {
         lineRenderer = new VulkanRayTracer(sceneData, transferFunctionWindow, rendererVk);
-    } else if (renderingMode == RENDERING_MODE_VULKAN_TEST) {
-        lineRenderer = new VulkanTestRenderer(sceneData, transferFunctionWindow, rendererVk);
     } else if (renderingMode == RENDERING_MODE_VOXEL_RAY_CASTING) {
         lineRenderer = new VoxelRayCastingRenderer(sceneData, transferFunctionWindow);
+    } else if (renderingMode == RENDERING_MODE_VULKAN_TEST) {
+        lineRenderer = new VulkanTestRenderer(sceneData, transferFunctionWindow, rendererVk);
     }
 #endif
     if (ambientOcclusionBaker) {

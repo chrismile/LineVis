@@ -46,8 +46,8 @@ enum RenderingMode {
 };
 const char* const RENDERING_MODE_NAMES[] = {
         "Opaque", "Per-Pixel Linked Lists", "Multi-Layer Alpha Blending", "Opacity Optimization", "Depth Complexity",
-        "Moment-Based OIT", "MLAB (Buckets)", "WBOIT", "Depth Peeling", "Vulkan Ray Tracer", "Vulkan Test",
-        "Voxel Ray Casting"
+        "Moment-Based OIT", "MLAB (Buckets)", "WBOIT", "Depth Peeling", "Vulkan Ray Tracer", "Voxel Ray Casting",
+        "Vulkan Test"
 };
 const int NUM_RENDERING_MODES = ((int)(sizeof(RENDERING_MODE_NAMES) / sizeof(*RENDERING_MODE_NAMES)));
 
