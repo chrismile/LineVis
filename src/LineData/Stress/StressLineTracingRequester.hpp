@@ -64,7 +64,7 @@ public:
     /**
      * @param context The ZeroMQ context.
      */
-    StressLineTracingRequester(void* context);
+    explicit StressLineTracingRequester(void* context);
     void renderGui();
     bool getHasNewData(DataSetInformation& dataSetInformation);
     inline bool getIsProcessingRequest() const { return worker.getIsProcessingRequest(); }

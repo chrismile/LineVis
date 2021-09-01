@@ -29,6 +29,8 @@
 #ifndef LINEVIS_VULKANTESTRENDERER_HPP
 #define LINEVIS_VULKANTESTRENDERER_HPP
 
+#include <Graphics/Vulkan/Render/Passes/Pass.hpp>
+
 #include "Renderers/LineRenderer.hpp"
 
 namespace sgl {
@@ -46,6 +48,8 @@ typedef std::shared_ptr<RasterData> RasterDataPtr;
 class Renderer;
 }}
 
+class TestRenderPass;
+
 /**
  * A dummy renderer for testing OpenGL-Vulkan interoperability.
  */
@@ -54,6 +58,9 @@ public:
     VulkanTestRenderer(
             SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
     ~VulkanTestRenderer() override;
+
+    /// Returns whether the triangle representation is used by the renderer.
+    bool getIsTriangleRepresentationUsed() const override { return false; }
 
     /**
      * Re-generates the visualization mapping.
@@ -75,11 +82,34 @@ private:
 
     // Vulkan render data.
     sgl::vk::Renderer* rendererVk = nullptr;
-    sgl::vk::RasterDataPtr renderData;
+    std::shared_ptr<TestRenderPass> testRenderPass;
+};
 
-    // OpenGL blit data (ignores model-view-projection matrix and uses normalized device coordinates).
-    sgl::ShaderAttributesPtr blitRenderData;
-    sgl::ShaderProgramPtr blitShader;
+class TestRenderPass : public sgl::vk::RasterPass {
+public:
+    explicit TestRenderPass(sgl::vk::Renderer* renderer, sgl::CameraPtr camera);
+
+    // Public interface.
+    void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
+    void setBackgroundColor(const glm::vec4& color);
+    void setLineData(LineDataPtr& lineData, bool isNewData);
+
+    void recreateSwapchain(uint32_t width, uint32_t height) override;
+
+protected:
+    void loadShader() override;
+    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
+    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
+    void _render() override;
+
+private:
+    sgl::CameraPtr camera;
+    LineDataPtr lineData;
+    sgl::vk::ImageViewPtr sceneImageView;
+    glm::vec4 backgroundColor;
+
+    void setupGeometryBuffers();
+    sgl::vk::BufferPtr vertexBuffer;
 };
 
 #endif //LINEVIS_VULKANTESTRENDERER_HPP

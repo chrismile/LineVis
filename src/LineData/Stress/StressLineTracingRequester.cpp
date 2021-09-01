@@ -216,14 +216,14 @@ bool StressLineTracingRequester::getHasNewData(DataSetInformation& dataSetInform
             //dataSetInformation.attributeNames.push_back("Sigma_zx");
             //dataSetInformation.attributeNames.push_back("Sigma_xy");
 
-            dataSetInformation.attributeNames.push_back("Principal Stress");
-            dataSetInformation.attributeNames.push_back("von Mises Stress");
-            dataSetInformation.attributeNames.push_back("Normal Stress (xx)");
-            dataSetInformation.attributeNames.push_back("Normal Stress (yy)");
-            dataSetInformation.attributeNames.push_back("Normal Stress (zz)");
-            dataSetInformation.attributeNames.push_back("Shear Stress (yz)");
-            dataSetInformation.attributeNames.push_back("Shear Stress (zx)");
-            dataSetInformation.attributeNames.push_back("Shear Stress (xy)");
+            dataSetInformation.attributeNames.emplace_back("Principal Stress");
+            dataSetInformation.attributeNames.emplace_back("von Mises Stress");
+            dataSetInformation.attributeNames.emplace_back("Normal Stress (xx)");
+            dataSetInformation.attributeNames.emplace_back("Normal Stress (yy)");
+            dataSetInformation.attributeNames.emplace_back("Normal Stress (zz)");
+            dataSetInformation.attributeNames.emplace_back("Shear Stress (yz)");
+            dataSetInformation.attributeNames.emplace_back("Shear Stress (zx)");
+            dataSetInformation.attributeNames.emplace_back("Shear Stress (xy)");
         }
 
         // Optional stress line data: Degenerate points file.
