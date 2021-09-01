@@ -6,7 +6,7 @@
  * This port is released under the terms of BSD 2-Clause License. For more details please see the LICENSE file in the
  * root directory of this project.
  *
- * Changes for the OpenGL port: Copyright 2018-2019 Christoph Neuhauser
+ * Changes for the OpenGL port: Copyright 2018 - 2019 Christoph Neuhauser
  */
 
 /*! \file
