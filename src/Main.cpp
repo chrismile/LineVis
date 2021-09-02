@@ -69,7 +69,6 @@ int main(int argc, char *argv[]) {
     sgl::AppSettings::get()->createWindow();
 
 #if defined(USE_VULKAN_INTEROP)
-    bool supportsRaytracing = true;
     std::vector<const char*> raytracingDeviceExtensions = {
             VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
             VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
@@ -86,12 +85,8 @@ int main(int argc, char *argv[]) {
             sgl::Logfile::get()->writeInfo(
                     std::string() + "Warning: Vulkan interoperability support was enabled, but the Vulkan device "
                     "extension " + deviceExtension + " is not supported on this system.");
-            supportsRaytracing = false;
-            break;
         }
     }
-#else
-    bool supportsRaytracing = false;
 #endif
 
     sgl::AppSettings::get()->initializeSubsystems();
@@ -100,7 +95,7 @@ int main(int argc, char *argv[]) {
     Py_Initialize();
 #endif
 
-    auto app = new MainApp(supportsRaytracing);
+    auto app = new MainApp();
     app->run();
     delete app;
 

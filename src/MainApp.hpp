@@ -58,7 +58,7 @@ public:
     /**
      * @param supportsRaytracing Whether raytracing via OpenGL-Vulkan interoperability is supported.
      */
-    MainApp(bool supportsRaytracing);
+    MainApp();
     ~MainApp();
     void render();
     void update(float dt);
@@ -143,7 +143,6 @@ private:
     StressLineTracingRequester* stressLineTracingRequester;
     DataSetInformation stressLineTracerDataSetInformation;
 
-    bool supportsRaytracing = false;
     AmbientOcclusionBakerPtr ambientOcclusionBaker;
 };
 

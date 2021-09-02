@@ -88,7 +88,7 @@ void vulkanErrorCallback() {
 }
 #endif
 
-MainApp::MainApp(bool supportsRaytracing)
+MainApp::MainApp()
         : sceneData(
                 sceneFramebuffer, sceneTexture, sceneDepthRBO, camera,
                 clearColor, screenshotTransparentBackground,
@@ -102,8 +102,7 @@ MainApp::MainApp(bool supportsRaytracing)
 #else
           zeromqContext(nullptr),
 #endif
-          stressLineTracingRequester(new StressLineTracingRequester(zeromqContext)),
-          supportsRaytracing(supportsRaytracing) {
+          stressLineTracingRequester(new StressLineTracingRequester(zeromqContext)) {
 #ifdef USE_VULKAN_INTEROP
     sgl::AppSettings::get()->getVulkanInstance()->setDebugCallback(&vulkanErrorCallback);
 #endif
@@ -295,7 +294,7 @@ MainApp::MainApp(bool supportsRaytracing)
     }
 
 #ifdef USE_VULKAN_INTEROP
-    if (supportsRaytracing && sgl::AppSettings::get()->getPrimaryDevice()->getRayQueriesSupported()) {
+    if (sgl::AppSettings::get()->getPrimaryDevice()->getRayQueriesSupported()) {
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(
                 new VulkanAmbientOcclusionBaker(transferFunctionWindow, rendererVk));
     }
@@ -465,7 +464,7 @@ void MainApp::setRenderer() {
     }
 #ifdef USE_VULKAN_INTEROP
     else if (renderingMode == RENDERING_MODE_VULKAN_RAY_TRACER) {
-        if (supportsRaytracing && sgl::AppSettings::get()->getPrimaryDevice()->getRayTracingPipelineSupported()) {
+        if (sgl::AppSettings::get()->getPrimaryDevice()->getRayTracingPipelineSupported()) {
             lineRenderer = new VulkanRayTracer(sceneData, transferFunctionWindow, rendererVk);
         } else {
             renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
