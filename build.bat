@@ -2,7 +2,8 @@
 pushd %~dp0
 
 set debug=true
-set destination_dir=Shipping
+set build_dir=".build"
+set destination_dir="Shipping"
 
 where cmake >NUL 2>&1 || echo cmake was not found but is required to build the program && exit /b 1
 
@@ -70,17 +71,13 @@ if %debug% == true (
    echo   building in debug
    echo ------------------------
 
-   set build_dir=".build\debug"
    set cmake_config="Debug"
-   set cmake_sgl_dir="third_party/sgl/install/debug/lib/cmake/sgl/"
 ) else (
    echo ------------------------
    echo   building in release
    echo ------------------------
 
-   set build_dir=".build\release"
    set cmake_config="Release"
-   set cmake_sgl_dir="third_party/sgl/install/release/lib/cmake/sgl/"
 )
 
 echo ------------------------
