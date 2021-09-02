@@ -13,12 +13,16 @@ include_directories(src)
 
 #make VERBOSE=1
 
+if(MSVC)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus")
+endif()
+
 #if(MSVC)
-#    set(CMAKE_CXX_FLAGS "-W3 /EHsc")
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W3 /EHsc /Zc:__cplusplus")
 #elseif(CMAKE_COMPILER_IS_GNUCXX)
-#    set(CMAKE_CXX_FLAGS "-Wall")
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 #elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-#    set(CMAKE_CXX_FLAGS "-Wall")
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 #endif()
 
 # Prefer GLVND by default when available.
