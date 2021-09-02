@@ -97,6 +97,7 @@ int main(int argc, char *argv[]) {
     sgl::AppSettings::get()->initializeSubsystems();
 
 #ifdef USE_PYTHON
+    Py_SetPythonHome(L"./python3");
     Py_Initialize();
 #endif
 
