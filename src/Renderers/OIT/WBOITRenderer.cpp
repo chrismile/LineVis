@@ -142,6 +142,8 @@ void WBOITRenderer::setUniformData() {
 }
 
 void WBOITRenderer::render() {
+    LineRenderer::render();
+
     setUniformData();
 
     glDisable(GL_DEPTH_TEST);

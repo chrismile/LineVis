@@ -186,6 +186,8 @@ void DepthComplexityRenderer::resolve() {
 }
 
 void DepthComplexityRenderer::render() {
+    LineRenderer::render();
+
     setUniformData();
     clear();
     gather();

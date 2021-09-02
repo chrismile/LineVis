@@ -67,8 +67,16 @@ class AmbientOcclusionComputeRenderPass;
 class VulkanAmbientOcclusionBaker : public AmbientOcclusionBaker {
 public:
     VulkanAmbientOcclusionBaker(sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
+    ~VulkanAmbientOcclusionBaker() override;
+
     void startAmbientOcclusionBaking(LineDataPtr& lineData) override;
+    void updateIterative() override;
+    void updateMultiThreaded() override;
+    bool getIsDataReady() override;
+    bool getIsComputationRunning() override;
     bool getHasComputationFinished() override;
+    bool getHasThreadUpdate() override { return hasThreadUpdate; }
+
     sgl::GeometryBufferPtr& getAmbientOcclusionBuffer() override;
     sgl::GeometryBufferPtr& getBlendingWeightsBuffer() override;
     sgl::vk::BufferPtr& getAmbientOcclusionBufferVulkan() override;
@@ -81,30 +89,38 @@ public:
     bool renderGui() override;
 
 private:
+    // Creates the complete AO texture.
+    void bakeAoTexture();
+
     // OpenGL-Vulkan interoperability data.
     sgl::vk::BufferPtr aoBufferVk;
     sgl::GeometryBufferPtr aoBufferGl;
     sgl::SemaphoreVkGlInteropPtr renderReadySemaphore, renderFinishedSemaphore;
-    std::vector<sgl::vk::SemaphorePtr> waitSemaphores;
-    std::vector<sgl::vk::SemaphorePtr> signalSemaphores;
-    std::vector<VkCommandBuffer> commandBuffers;
 
     // Vulkan render data.
     std::shared_ptr<AmbientOcclusionComputeRenderPass> aoComputeRenderPass;
 
     // How many iterations do we want to use for the ray tracer until we assume the result has converged?
     int maxNumIterations = 128;
-    int numIterations = 0;
+    int numIterations = std::numeric_limits<int>::max();
 
-    bool useMainThread = false;
+    bool isDataReady = false;
+    bool hasComputationFinished = true;
+
+    // Threading data for BakingMode::MULTI_THREADED.
+    void bakeAoTextureThreadFunction();
+    size_t aoBufferSizeThreaded = 0;
+    sgl::vk::BufferPtr aoBufferThreaded;
+    sgl::vk::SemaphorePtr threadFinishedSemaphore;
+    bool threadFinished = true;
+    bool hasThreadUpdate = false;
     std::thread workerThread;
 };
 
 class AmbientOcclusionComputeRenderPass : public sgl::vk::ComputePass {
     friend class VulkanAmbientOcclusionBaker;
 public:
-    explicit AmbientOcclusionComputeRenderPass(
-            sgl::vk::Renderer* renderer, sgl::vk::BufferPtr& aoBufferVk, sgl::GeometryBufferPtr& aoBufferGl);
+    explicit AmbientOcclusionComputeRenderPass(sgl::vk::Renderer* renderer);
 
     // Public interface.
     void setLineData(LineDataPtr& lineData);
@@ -116,6 +132,11 @@ public:
     inline uint32_t getNumTubeSubdivisions() const { return numTubeSubdivisions; }
     inline uint32_t getNumLineVertices() const { return numLineVertices; }
     inline uint32_t getNumParametrizationVertices() const { return numParametrizationVertices; }
+
+    // For multi-threading.
+    void setRenderer(sgl::vk::Renderer* renderer);
+    void setAoBufferTmp(const sgl::vk::BufferPtr& buffer);
+    void resetAoBufferTmp();
 
 private:
     void loadShader() override;
@@ -147,8 +168,11 @@ private:
     uint32_t numParametrizationVertices = 0;
     uint32_t numLineVertices = 0;
 
-    sgl::vk::BufferPtr& aoBufferVk;
-    sgl::GeometryBufferPtr& aoBufferGl;
+    sgl::vk::BufferPtr aoBufferVk;
+    sgl::GeometryBufferPtr aoBufferGl;
+
+    // Data for multi-threading.
+    sgl::vk::BufferPtr aoBufferVkTmp;
 
     struct LinePoint {
         glm::vec4 position;

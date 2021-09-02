@@ -220,6 +220,8 @@ void PerPixelLinkedListLineRenderer::onResolutionChanged() {
 }
 
 void PerPixelLinkedListLineRenderer::render() {
+    LineRenderer::render();
+
     setUniformData();
     if (sceneData.performanceMeasurer) {
         timer->startGPU("PPLLClear", frameCounter);

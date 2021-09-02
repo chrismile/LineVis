@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
     for (const char* deviceExtension : raytracingDeviceExtensions) {
         if (!sgl::AppSettings::get()->getPrimaryDevice()->isDeviceExtensionSupported(deviceExtension)) {
             sgl::Logfile::get()->writeInfo(
-                    std::string() + "Warning: Ambient occlusion support was enabled, but the Vulkan device "
+                    std::string() + "Warning: Vulkan interoperability support was enabled, but the Vulkan device "
                     "extension " + deviceExtension + " is not supported on this system.");
             supportsRaytracing = false;
             break;

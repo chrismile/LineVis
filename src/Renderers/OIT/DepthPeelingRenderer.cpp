@@ -145,6 +145,8 @@ void DepthPeelingRenderer::setUniformData() {
 }
 
 void DepthPeelingRenderer::render() {
+    LineRenderer::render();
+
     setUniformData();
     gather();
     resolve();

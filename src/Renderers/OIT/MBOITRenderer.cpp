@@ -335,6 +335,8 @@ void MBOITRenderer::onResolutionChanged() {
 }
 
 void MBOITRenderer::render() {
+    LineRenderer::render();
+
     setUniformData();
     computeDepthRange();
     gather();

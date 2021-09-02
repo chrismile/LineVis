@@ -122,6 +122,8 @@ void VulkanRayTracer::onResolutionChanged() {
 }
 
 void VulkanRayTracer::render() {
+    LineRenderer::render();
+
     if (useDepthCues && lineData) {
         computeDepthRange();
         renderReadySemaphore->signalSemaphoreGl(

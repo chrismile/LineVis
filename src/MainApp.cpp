@@ -295,7 +295,7 @@ MainApp::MainApp(bool supportsRaytracing)
     }
 
 #ifdef USE_VULKAN_INTEROP
-    if (supportsRaytracing) {
+    if (supportsRaytracing && sgl::AppSettings::get()->getPrimaryDevice()->getRayQueriesSupported()) {
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(
                 new VulkanAmbientOcclusionBaker(transferFunctionWindow, rendererVk));
     }
@@ -465,7 +465,14 @@ void MainApp::setRenderer() {
     }
 #ifdef USE_VULKAN_INTEROP
     else if (renderingMode == RENDERING_MODE_VULKAN_RAY_TRACER) {
-        lineRenderer = new VulkanRayTracer(sceneData, transferFunctionWindow, rendererVk);
+        if (supportsRaytracing && sgl::AppSettings::get()->getPrimaryDevice()->getRayTracingPipelineSupported()) {
+            lineRenderer = new VulkanRayTracer(sceneData, transferFunctionWindow, rendererVk);
+        } else {
+            renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+            lineRenderer = new OpaqueLineRenderer(sceneData, transferFunctionWindow);
+            sgl::Logfile::get()->writeError(
+                    "Error in MainApp::setRenderer: Vulkan ray pipelines are not supported on this hardware.");
+        }
     } else if (renderingMode == RENDERING_MODE_VOXEL_RAY_CASTING) {
         lineRenderer = new VoxelRayCastingRenderer(sceneData, transferFunctionWindow);
     } else if (renderingMode == RENDERING_MODE_VULKAN_TEST) {
@@ -689,7 +696,8 @@ void MainApp::renderFileSelectionSettingsGui() {
         }
     }
 
-    if (lineDataRequester.getIsProcessingRequest() || stressLineTracingRequester->getIsProcessingRequest()) {
+    if (lineDataRequester.getIsProcessingRequest() || stressLineTracingRequester->getIsProcessingRequest()
+            || (ambientOcclusionBaker && ambientOcclusionBaker->getIsComputationRunning())) {
         ImGui::SameLine();
         ImGui::ProgressSpinner(
                 "##progress-spinner", -1.0f, -1.0f, 4.0f,

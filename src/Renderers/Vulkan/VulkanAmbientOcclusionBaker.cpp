@@ -32,6 +32,7 @@
 #include <Graphics/Vulkan/Utils/Interop.hpp>
 #include <Graphics/OpenGL/GeometryBuffer.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
+#include <memory>
 #include <ImGui/imgui_custom.h>
 
 #include "LineData/LineData.hpp"
@@ -45,19 +46,48 @@ VulkanAmbientOcclusionBaker::VulkanAmbientOcclusionBaker(
     renderReadySemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
     renderFinishedSemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
 
-    aoComputeRenderPass = std::make_shared<AmbientOcclusionComputeRenderPass>(rendererVk, aoBufferVk, aoBufferGl);
+    aoComputeRenderPass = std::make_shared<AmbientOcclusionComputeRenderPass>(rendererVk);
+}
+
+VulkanAmbientOcclusionBaker::~VulkanAmbientOcclusionBaker() {
+    if (workerThread.joinable()) {
+        workerThread.join();
+    }
 }
 
 void VulkanAmbientOcclusionBaker::startAmbientOcclusionBaking(LineDataPtr& lineData) {
-    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-
     if (lineData) {
         aoComputeRenderPass->setLineData(lineData);
+        aoBufferVk = aoComputeRenderPass->getAmbientOcclusionBufferVulkan();
+        aoBufferGl = aoComputeRenderPass->getAmbientOcclusionBuffer();
     }
 
     if (aoComputeRenderPass->getNumLineVertices() == 0) {
         return;
     }
+
+    if (workerThread.joinable()) {
+        workerThread.join();
+    }
+
+    numIterations = 0;
+    isDataReady = false;
+    hasComputationFinished = false;
+    if (bakingMode == BakingMode::IMMEDIATE) {
+        bakeAoTexture();
+    } else if (bakingMode == BakingMode::MULTI_THREADED) {
+        threadFinished = false;
+        aoBufferSizeThreaded = aoBufferVk->getSizeInBytes();
+        workerThread = std::thread(&VulkanAmbientOcclusionBaker::bakeAoTextureThreadFunction, this);
+    }
+}
+
+void VulkanAmbientOcclusionBaker::bakeAoTexture() {
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+
+    std::vector<sgl::vk::SemaphorePtr> waitSemaphores;
+    std::vector<sgl::vk::SemaphorePtr> signalSemaphores;
+    std::vector<VkCommandBuffer> commandBuffers;
 
     VkCommandPool commandPool;
     sgl::vk::CommandPoolType commandPoolType;
@@ -77,7 +107,7 @@ void VulkanAmbientOcclusionBaker::startAmbientOcclusionBaking(LineDataPtr& lineD
 
     renderReadySemaphore->signalSemaphoreGl(aoBufferGl);
 
-    for (numIterations = 0; numIterations < maxNumIterations; numIterations++) {
+    while (numIterations < maxNumIterations) {
         aoComputeRenderPass->setFrameNumber(numIterations);
         rendererVk->setCustomCommandBuffer(commandBuffers.at(numIterations), false);
         rendererVk->beginCommandBuffer();
@@ -88,23 +118,166 @@ void VulkanAmbientOcclusionBaker::startAmbientOcclusionBaking(LineDataPtr& lineD
         rendererVk->endCommandBuffer();
 
         // Submit the rendering operation in Vulkan.
-        sgl::vk::FencePtr fence;
-        //sgl::vk::SemaphorePtr renderReadySemaphoreVk =
-        //        std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderReadySemaphore);
-        //sgl::vk::SemaphorePtr renderFinishedSemaphoreVk =
-        //        std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderFinishedSemaphore);
         rendererVk->submitToQueue(
-                waitSemaphores.at(numIterations), signalSemaphores.at(numIterations), fence,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+                waitSemaphores.at(numIterations), signalSemaphores.at(numIterations),
+                {}, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
+        numIterations++;
     }
     rendererVk->resetCustomCommandBuffer();
 
+    isDataReady = true;
+    hasComputationFinished = true;
+}
+
+void VulkanAmbientOcclusionBaker::bakeAoTextureThreadFunction() {
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+
+    std::vector<sgl::vk::SemaphorePtr> waitSemaphores;
+    std::vector<sgl::vk::SemaphorePtr> signalSemaphores;
+    std::vector<VkCommandBuffer> commandBuffers;
+
+    aoBufferThreaded = std::make_shared<sgl::vk::Buffer>(
+            device, aoBufferSizeThreaded,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY, true);
+
+    auto renderer = new sgl::vk::Renderer(device, 10);
+    aoComputeRenderPass->setAoBufferTmp(aoBufferThreaded);
+    aoComputeRenderPass->buildIfNecessary();
+    aoComputeRenderPass->setRenderer(renderer);
+
+    threadFinishedSemaphore = std::make_shared<sgl::vk::Semaphore>(device);
+
+    VkCommandPool commandPool;
+    sgl::vk::CommandPoolType commandPoolType;
+    commandPoolType.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    commandPoolType.queueFamilyIndex = device->getComputeQueueIndex();
+    commandBuffers = device->allocateCommandBuffers(commandPoolType, &commandPool, maxNumIterations);
+
+    waitSemaphores.resize(maxNumIterations);
+    signalSemaphores.resize(maxNumIterations);
+
+    for (size_t i = 1; i < maxNumIterations; i++) {
+        waitSemaphores.at(i) = std::make_shared<sgl::vk::Semaphore>(device);
+        signalSemaphores.at(i - 1) = waitSemaphores.at(i);
+    }
+    waitSemaphores.front() = nullptr;
+    signalSemaphores.back() = threadFinishedSemaphore;
+
+    uint32_t numIterations = 0;
+    while (numIterations < maxNumIterations) {
+        aoComputeRenderPass->setFrameNumber(numIterations);
+        renderer->setCustomCommandBuffer(commandBuffers.at(numIterations), false);
+        renderer->beginCommandBuffer();
+        aoComputeRenderPass->render();
+        renderer->insertMemoryBarrier(
+                VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+        if (numIterations + 1 == maxNumIterations) {
+            renderer->insertBufferMemoryBarrier(
+                    VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                    device->getComputeQueueIndex(), device->getGraphicsQueueIndex(),
+                    aoBufferThreaded);
+        }
+        renderer->endCommandBuffer();
+
+        // Submit the rendering operation in Vulkan.
+        sgl::vk::FencePtr fence;
+        if (numIterations + 1 == maxNumIterations) {
+            fence = std::make_shared<sgl::vk::Fence>(device, 0);
+        }
+        renderer->submitToQueue(
+                waitSemaphores.at(numIterations), signalSemaphores.at(numIterations), fence,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+        if (fence) {
+            fence->wait(std::numeric_limits<uint64_t>::max());
+        }
+
+        numIterations++;
+    }
+    renderer->resetCustomCommandBuffer();
+    delete renderer;
+    renderer = nullptr;
+    aoComputeRenderPass->setRenderer(rendererVk);
+    aoComputeRenderPass->resetAoBufferTmp();
+
+    hasThreadUpdate = true;
+    threadFinished = true;
+    hasComputationFinished = true;
+}
+
+void VulkanAmbientOcclusionBaker::updateIterative() {
+    renderReadySemaphore->signalSemaphoreGl(aoBufferGl);
+
+    aoComputeRenderPass->setFrameNumber(numIterations);
+    rendererVk->beginCommandBuffer();
+    aoComputeRenderPass->render();
+    rendererVk->insertMemoryBarrier(
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    rendererVk->endCommandBuffer();
+
+    // Submit the rendering operation in Vulkan.
+    sgl::vk::SemaphorePtr renderReadySemaphoreVk =
+            std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderReadySemaphore);
+    sgl::vk::SemaphorePtr renderFinishedSemaphoreVk =
+            std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderFinishedSemaphore);
+    rendererVk->submitToQueue(
+            renderReadySemaphoreVk, renderFinishedSemaphoreVk, {},
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
     // Wait for the rendering to finish on the Vulkan side.
     renderFinishedSemaphore->waitSemaphoreGl(aoBufferGl);
+
+    numIterations++;
+    isDataReady = true;
+    hasComputationFinished = numIterations >= maxNumIterations;
+}
+
+void VulkanAmbientOcclusionBaker::updateMultiThreaded() {
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+
+    renderReadySemaphore->signalSemaphoreGl(aoBufferGl);
+
+    rendererVk->beginCommandBuffer();
+    rendererVk->insertBufferMemoryBarrier(
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            device->getComputeQueueIndex(), device->getGraphicsQueueIndex(),
+            aoBufferThreaded);
+    aoBufferThreaded->copyDataTo(aoBufferVk, rendererVk->getVkCommandBuffer());
+    rendererVk->endCommandBuffer();
+
+    // Submit the rendering operation in Vulkan.
+    sgl::vk::SemaphorePtr renderReadySemaphoreVk =
+            std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderReadySemaphore);
+    sgl::vk::SemaphorePtr renderFinishedSemaphoreVk =
+            std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderFinishedSemaphore);
+    rendererVk->submitToQueue(
+            { threadFinishedSemaphore, renderReadySemaphoreVk },
+            { renderFinishedSemaphoreVk }, {},
+            { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT });
+
+    // Wait for the copy operation to finish on the Vulkan side.
+    renderFinishedSemaphore->waitSemaphoreGl(aoBufferGl);
+
+    hasThreadUpdate = false;
+    isDataReady = true;
+    this->numIterations = maxNumIterations;
+}
+
+bool VulkanAmbientOcclusionBaker::getIsDataReady() {
+    return isDataReady;
+}
+
+bool VulkanAmbientOcclusionBaker::getIsComputationRunning() {
+    return numIterations < maxNumIterations;
 }
 
 bool VulkanAmbientOcclusionBaker::getHasComputationFinished() {
-    return aoBufferGl.get() != nullptr;
+    return hasComputationFinished;
 }
 
 sgl::GeometryBufferPtr& VulkanAmbientOcclusionBaker::getAmbientOcclusionBuffer() {
@@ -139,7 +312,11 @@ bool VulkanAmbientOcclusionBaker::renderGui() {
     bool dirty = false;
 
     if (ImGui::Begin("RTAO Baking", &showWindow)) {
-        ImGui::Checkbox("Use Main Thread", &useMainThread);
+        if (ImGui::Combo(
+                "Baking Mode", (int*)&bakingMode, BAKING_MODE_NAMES,
+                IM_ARRAYSIZE(BAKING_MODE_NAMES))) {
+            dirty = true;
+        }
 
         if (ImGui::SliderIntEdit(
                 "#Iterations", &maxNumIterations, 1, 4096) == EditMode::INPUT_FINISHED) {
@@ -179,13 +356,12 @@ bool VulkanAmbientOcclusionBaker::renderGui() {
         startAmbientOcclusionBaking(lineData);
     }
 
-    return dirty;
+    return dirty || (bakingMode == BakingMode::MULTI_THREADED && threadFinished);
 }
 
 
-AmbientOcclusionComputeRenderPass::AmbientOcclusionComputeRenderPass(
-        sgl::vk::Renderer* renderer, sgl::vk::BufferPtr& aoBufferVk, sgl::GeometryBufferPtr& aoBufferGl)
-        : ComputePass(renderer), aoBufferVk(aoBufferVk), aoBufferGl(aoBufferGl) {
+AmbientOcclusionComputeRenderPass::AmbientOcclusionComputeRenderPass(sgl::vk::Renderer* renderer)
+        : ComputePass(renderer) {
     lineRenderSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(LineRenderSettings),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -346,8 +522,8 @@ void AmbientOcclusionComputeRenderPass::recomputeStaticParametrization() {
 
     aoBufferVk = std::make_shared<sgl::vk::Buffer>(
             device, samplingLocations.size() * numTubeSubdivisions * sizeof(float),
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY,
-            true, true);
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY, true, true);
     aoBufferGl = sgl::GeometryBufferPtr(new sgl::GeometryBufferGLExternalMemoryVk(
             aoBufferVk, sgl::SHADER_STORAGE_BUFFER));
 
@@ -362,6 +538,21 @@ void AmbientOcclusionComputeRenderPass::loadShader() {
 }
 
 void AmbientOcclusionComputeRenderPass::setComputePipelineInfo(sgl::vk::ComputePipelineInfo& pipelineInfo) {
+}
+
+void AmbientOcclusionComputeRenderPass::setRenderer(sgl::vk::Renderer* renderer) {
+    this->renderer = renderer;
+}
+
+void AmbientOcclusionComputeRenderPass::setAoBufferTmp(const sgl::vk::BufferPtr& buffer) {
+    aoBufferVkTmp = aoBufferVk;
+    aoBufferVkTmp = buffer;
+    dataDirty = true;
+}
+void AmbientOcclusionComputeRenderPass::resetAoBufferTmp() {
+    aoBufferVk = aoBufferVkTmp;
+    aoBufferVkTmp = sgl::vk::BufferPtr();
+    dataDirty = true;
 }
 
 void AmbientOcclusionComputeRenderPass::createComputeData(

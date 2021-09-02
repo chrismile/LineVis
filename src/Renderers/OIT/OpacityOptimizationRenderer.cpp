@@ -578,6 +578,8 @@ void OpacityOptimizationRenderer::onResolutionChanged() {
 }
 
 void OpacityOptimizationRenderer::render() {
+    LineRenderer::render();
+
     setUniformData();
     clearPpllOpacities();
     gatherPpllOpacities();

@@ -560,7 +560,7 @@ VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(bool 
 
 VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData() {
     rebuildInternalRepresentationIfNecessary();
-    if (vulkanTubeTriangleRenderData.vertexBuffer) {
+    if (vulkanTubeAabbRenderData.indexBuffer) {
         return vulkanTubeAabbRenderData;
     }
 

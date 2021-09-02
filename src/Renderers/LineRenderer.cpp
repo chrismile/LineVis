@@ -221,7 +221,7 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
 
     shaderProgram->setUniformOptional("depthCueStrength", depthCueStrength);
 
-    if (useAmbientOcclusion && ambientOcclusionBaker && ambientOcclusionBaker->getHasComputationFinished()) {
+    if (useAmbientOcclusion && ambientOcclusionBaker && ambientOcclusionBaker->getIsDataReady()) {
         sgl::GeometryBufferPtr aoBuffer = ambientOcclusionBaker->getAmbientOcclusionBuffer();
         sgl::GeometryBufferPtr blendingWeightsBuffer = ambientOcclusionBaker->getBlendingWeightsBuffer();
         sgl::ShaderManager->bindShaderStorageBuffer(13, aoBuffer);
@@ -302,6 +302,23 @@ bool LineRenderer::getCanUseLiveUpdate(LineDataAccessType accessType) const {
         }
     }
     return true;
+}
+
+void LineRenderer::render() {
+    if (useAmbientOcclusion && ambientOcclusionBaker) {
+        if (ambientOcclusionBaker->getBakingMode() == BakingMode::ITERATIVE_UPDATE
+                && ambientOcclusionBaker->getIsComputationRunning()) {
+            ambientOcclusionBaker->updateIterative();
+            reRender = true;
+            internalReRender = true;
+        }
+        if (ambientOcclusionBaker->getBakingMode() == BakingMode::MULTI_THREADED
+                && ambientOcclusionBaker->getHasThreadUpdate()) {
+            ambientOcclusionBaker->updateMultiThreaded();
+            reRender = true;
+            internalReRender = true;
+        }
+    }
 }
 
 void LineRenderer::renderGuiWindow() {
