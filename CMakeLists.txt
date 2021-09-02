@@ -2,6 +2,9 @@ cmake_minimum_required (VERSION 3.5)
 cmake_policy(VERSION 3.5...3.20)
 option(USE_GTEST "USE_GTEST" OFF)
 
+set(CMAKE_TOOLCHAIN_FILE "third_party/vcpkg/scripts/buildsystems/vcpkg.cmake")
+set(sgl_DIR "third_party/sgl/install/lib/cmake/sgl/")
+
 project (LineVis)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/CMake)
 #MESSAGE(STATUS "CMAKE_MODULE_PATH: " ${CMAKE_MODULE_PATH})
