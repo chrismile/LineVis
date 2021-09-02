@@ -27,7 +27,9 @@
  */
 
 #ifdef USE_PYTHON
+#ifdef PYTHONHOME_PATH
 #include <cstdlib>
+#endif
 #include <Python.h>
 #endif
 
