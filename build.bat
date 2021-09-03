@@ -98,7 +98,6 @@ robocopy third_party\vcpkg\installed\x64-windows\tools\python3 ^
 if %debug% == true (
    if not exist %destination_dir%\*.pdb (
       del %destination_dir%\*.dll
-      del %destination_dir%\*.pdb
    )
    robocopy %build_dir%\Debug\             %destination_dir%  >NUL
    robocopy third_party\sgl\.build\Debug   %destination_dir% *.dll *.pdb >NUL
