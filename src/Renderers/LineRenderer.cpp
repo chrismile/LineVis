@@ -221,7 +221,8 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
 
     shaderProgram->setUniformOptional("depthCueStrength", depthCueStrength);
 
-    if (useAmbientOcclusion && ambientOcclusionBaker && ambientOcclusionBaker->getIsDataReady()) {
+    if (useAmbientOcclusion && ambientOcclusionBaker && ambientOcclusionBaker->getIsDataReady()
+            && ambientOcclusionBaker->getAmbientOcclusionBuffer()) {
         sgl::GeometryBufferPtr aoBuffer = ambientOcclusionBaker->getAmbientOcclusionBuffer();
         sgl::GeometryBufferPtr blendingWeightsBuffer = ambientOcclusionBaker->getBlendingWeightsBuffer();
         sgl::ShaderManager->bindShaderStorageBuffer(13, aoBuffer);
@@ -308,13 +309,13 @@ void LineRenderer::render() {
     if (useAmbientOcclusion && ambientOcclusionBaker) {
         if (ambientOcclusionBaker->getBakingMode() == BakingMode::ITERATIVE_UPDATE
                 && ambientOcclusionBaker->getIsComputationRunning()) {
-            ambientOcclusionBaker->updateIterative();
+            ambientOcclusionBaker->updateIterative(isVulkanRenderer);
             reRender = true;
             internalReRender = true;
         }
         if (ambientOcclusionBaker->getBakingMode() == BakingMode::MULTI_THREADED
                 && ambientOcclusionBaker->getHasThreadUpdate()) {
-            ambientOcclusionBaker->updateMultiThreaded();
+            ambientOcclusionBaker->updateMultiThreaded(isVulkanRenderer);
             reRender = true;
             internalReRender = true;
         }

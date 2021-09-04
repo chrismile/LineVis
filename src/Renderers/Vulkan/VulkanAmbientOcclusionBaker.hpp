@@ -54,6 +54,8 @@ class Buffer;
 typedef std::shared_ptr<Buffer> BufferPtr;
 class Semaphore;
 typedef std::shared_ptr<Semaphore> SemaphorePtr;
+class Fence;
+typedef std::shared_ptr<Fence> FencePtr;
 
 }
 
@@ -70,8 +72,8 @@ public:
     ~VulkanAmbientOcclusionBaker() override;
 
     void startAmbientOcclusionBaking(LineDataPtr& lineData) override;
-    void updateIterative() override;
-    void updateMultiThreaded() override;
+    void updateIterative(bool isVulkanRenderer) override;
+    void updateMultiThreaded(bool isVulkanRenderer) override;
     bool getIsDataReady() override;
     bool getIsComputationRunning() override;
     bool getHasComputationFinished() override;
@@ -98,7 +100,11 @@ private:
     sgl::SemaphoreVkGlInteropPtr renderReadySemaphore, renderFinishedSemaphore;
 
     // Vulkan render data.
+    void waitCommandBuffersFinished();
     std::shared_ptr<AmbientOcclusionComputeRenderPass> aoComputeRenderPass;
+    VkCommandPool commandPool = VK_NULL_HANDLE;
+    std::vector<VkCommandBuffer> commandBuffers;
+    sgl::vk::FencePtr commandBuffersUseFence;
 
     // How many iterations do we want to use for the ray tracer until we assume the result has converged?
     int maxNumIterations = 128;
@@ -158,8 +164,9 @@ private:
 
     // Resolution of the ambient occlusion data.
     float expectedParamSegmentLength = 0.001f;
+    uint32_t numTubeSubdivisionsNew = 8;
     uint32_t numTubeSubdivisions = 8;
-    uint32_t numAmbientOcclusionSamplesPerFrame = 16;
+    uint32_t numAmbientOcclusionSamplesPerFrame = 4;
     float ambientOcclusionRadius = 0.1f;
     bool useDistance = true;
 

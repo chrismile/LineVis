@@ -112,7 +112,9 @@ flat out float fragmentLineHierarchyLevel;
 flat out uint fragmentLineAppearanceOrder;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-out float fragmentVertexId;
+out float interpolationFactorLine;
+flat out uint fragmentVertexIdUint;
+//out float fragmentVertexId;
 #endif
 
 #ifdef USE_BANDS
@@ -250,7 +252,9 @@ void main() {
         fragmentLineAppearanceOrder = v_in[0].lineLineAppearanceOrder;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-        fragmentVertexId = float(v_in[0].lineVertexId);
+        interpolationFactorLine = 0.0f;
+        fragmentVertexIdUint = v_in[0].lineVertexId;
+        //fragmentVertexId = float(v_in[0].lineVertexId);
 #endif
 
         fragmentAttribute = v_in[0].lineAttribute;
@@ -295,7 +299,8 @@ void main() {
         fragmentLineAppearanceOrder = v_in[1].lineLineAppearanceOrder;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-        fragmentVertexId = float(v_in[1].lineVertexId);
+        interpolationFactorLine = 1.0f;
+        //fragmentVertexId = float(v_in[1].lineVertexId);
 #endif
         fragmentAttribute = v_in[1].lineAttribute;
         fragmentTangent = tangentNext;
@@ -351,7 +356,10 @@ flat in uint fragmentLineAppearanceOrder;
 uniform int currentSeedIdx;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-in float fragmentVertexId;
+in float interpolationFactorLine;
+flat in uint fragmentVertexIdUint;
+float fragmentVertexId;
+//in float fragmentVertexId;
 #endif
 
 #if defined(DIRECT_BLIT_GATHER)
@@ -408,6 +416,10 @@ void main() {
     if (int(fragmentLineAppearanceOrder) > currentSeedIdx) {
         discard;
     }
+#endif
+
+#ifdef USE_AMBIENT_OCCLUSION
+    fragmentVertexId = interpolationFactorLine + float(fragmentVertexIdUint);
 #endif
 
     const vec3 n = normalize(fragmentNormal);

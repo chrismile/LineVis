@@ -2029,6 +2029,10 @@ VulkanTubeAabbRenderData LineDataStress::getVulkanTubeAabbRenderData() {
         }
     }
 
+    if (lineSegmentIndexCounter == 0) {
+        return {};
+    }
+
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
 
     uint32_t indexBufferFlags =
