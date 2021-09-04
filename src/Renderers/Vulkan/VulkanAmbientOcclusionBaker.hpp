@@ -71,7 +71,7 @@ public:
     VulkanAmbientOcclusionBaker(sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
     ~VulkanAmbientOcclusionBaker() override;
 
-    void startAmbientOcclusionBaking(LineDataPtr& lineData) override;
+    void startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData) override;
     void updateIterative(bool isVulkanRenderer) override;
     void updateMultiThreaded(bool isVulkanRenderer) override;
     bool getIsDataReady() override;
@@ -91,6 +91,9 @@ public:
     bool renderGui() override;
 
 private:
+    // Computes AO settings that cause as little stuttering in the application as possible.
+    void deriveOptimalAoSettingsFromLineData(LineDataPtr& lineData);
+
     // Creates the complete AO texture.
     void bakeAoTexture();
 
@@ -110,6 +113,7 @@ private:
     int maxNumIterations = 128;
     int numIterations = std::numeric_limits<int>::max();
 
+    LineDataPtr lineData;
     bool isDataReady = false;
     bool hasComputationFinished = true;
 

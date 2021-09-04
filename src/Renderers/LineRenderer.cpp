@@ -244,7 +244,7 @@ void LineRenderer::setAmbientOcclusionBaker(AmbientOcclusionBakerPtr& aoBaker) {
     updateAmbientOcclusionMode();
 
     if (useAmbientOcclusion && ambientOcclusionBaker && lineData && lineData->isTriangleRepresentationDirty()) {
-        ambientOcclusionBaker->startAmbientOcclusionBaking(lineData);
+        ambientOcclusionBaker->startAmbientOcclusionBaking(lineData, true);
     }
 }
 
@@ -432,7 +432,7 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewData) {
     this->lineData = lineData;
 
     if (useAmbientOcclusion && ambientOcclusionBaker) {
-        ambientOcclusionBaker->startAmbientOcclusionBaking(lineData);
+        ambientOcclusionBaker->startAmbientOcclusionBaking(lineData, isNewData);
     }
 
     filteredLines.clear();

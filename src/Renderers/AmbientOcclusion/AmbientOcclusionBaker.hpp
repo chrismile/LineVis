@@ -71,7 +71,7 @@ public:
 
     inline BakingMode getBakingMode() const { return bakingMode; }
 
-    virtual void startAmbientOcclusionBaking(LineDataPtr& lineData)=0;
+    virtual void startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData)=0;
     virtual void updateIterative(bool isVulkanRenderer)=0;
     virtual void updateMultiThreaded(bool isVulkanRenderer)=0;
     virtual bool getIsDataReady()=0;

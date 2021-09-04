@@ -69,8 +69,44 @@ void VulkanAmbientOcclusionBaker::waitCommandBuffersFinished() {
     }
 }
 
-void VulkanAmbientOcclusionBaker::startAmbientOcclusionBaking(LineDataPtr& lineData) {
+void VulkanAmbientOcclusionBaker::deriveOptimalAoSettingsFromLineData(LineDataPtr& lineData) {
+    size_t numLineSegments = lineData->getNumLineSegments();
+    if (numLineSegments <= 10000) { // Very small data set, e.g., cantilever (6302).
+        maxNumIterations = 128;
+        aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame = 16;
+        bakingMode = BakingMode::ITERATIVE_UPDATE;
+    } else if (numLineSegments <= 100000) { // Small data set, e.g., femur (77307).
+        maxNumIterations = 128;
+        aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame = 4;
+        bakingMode = BakingMode::ITERATIVE_UPDATE;
+    } else if (numLineSegments <= 1000000) { // Medium-sized data set, e.g., femur (243030).
+        maxNumIterations = 256;
+        aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame = 1;
+        bakingMode = BakingMode::ITERATIVE_UPDATE;
+    } else { // Large data set, e.g., aneurysm (2267219).
+        maxNumIterations = 128;
+        aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame = 1;
+        bakingMode = BakingMode::ITERATIVE_UPDATE;
+    }
+
+    // Stress line often intersect, which is why more subdivision might be necessary to get good-looking AO.
+    if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
+        aoComputeRenderPass->numTubeSubdivisionsNew = 16;
+    } else {
+        aoComputeRenderPass->numTubeSubdivisionsNew = 8;
+    }
+    aoComputeRenderPass->numTubeSubdivisions = aoComputeRenderPass->numTubeSubdivisionsNew;
+
+    // aoComputeRenderPass->ambientOcclusionRadius, aoComputeRenderPass->expectedParamSegmentLength
+}
+
+void VulkanAmbientOcclusionBaker::startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData) {
     if (lineData) {
+        if (this->lineData != lineData) {
+            deriveOptimalAoSettingsFromLineData(lineData);
+        }
+        this->lineData = lineData;
+
         aoComputeRenderPass->setLineData(lineData);
         aoBufferVk = aoComputeRenderPass->getAmbientOcclusionBufferVulkan();
         aoBufferGl = aoComputeRenderPass->getAmbientOcclusionBuffer();
@@ -89,7 +125,12 @@ void VulkanAmbientOcclusionBaker::startAmbientOcclusionBaking(LineDataPtr& lineD
     hasComputationFinished = false;
     hasThreadUpdate = false;
     if (bakingMode == BakingMode::IMMEDIATE) {
+        renderReadySemaphore->signalSemaphoreGl(aoBufferGl);
+
         bakeAoTexture();
+
+        // Wait for the rendering to finish on the Vulkan side.
+        renderFinishedSemaphore->waitSemaphoreGl(aoBufferGl);
     } else if (bakingMode == BakingMode::MULTI_THREADED) {
         threadFinished = false;
         aoBufferSizeThreaded = aoBufferVk->getSizeInBytes();
@@ -408,7 +449,7 @@ bool VulkanAmbientOcclusionBaker::renderGui() {
             aoBufferGl = aoComputeRenderPass->getAmbientOcclusionBuffer();
         }
         LineDataPtr lineData;
-        startAmbientOcclusionBaking(lineData);
+        startAmbientOcclusionBaking(lineData, false);
     }
 
     return dirty || (bakingMode == BakingMode::MULTI_THREADED && hasThreadUpdate);
