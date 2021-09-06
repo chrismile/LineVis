@@ -221,6 +221,11 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
 
     shaderProgram->setUniformOptional("depthCueStrength", depthCueStrength);
 
+    shaderProgram->setUniformOptional("fieldOfViewY", sceneData.camera->getFOVy());
+    shaderProgram->setUniformOptional(
+            "viewportSize",
+            glm::ivec2(sceneData.sceneTexture->getW(), sceneData.sceneTexture->getH()));
+
     if (useAmbientOcclusion && ambientOcclusionBaker && ambientOcclusionBaker->getIsDataReady()
             && ambientOcclusionBaker->getAmbientOcclusionBuffer()) {
         sgl::GeometryBufferPtr aoBuffer = ambientOcclusionBaker->getAmbientOcclusionBuffer();

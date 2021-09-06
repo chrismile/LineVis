@@ -395,6 +395,7 @@ in float phi;
 #define GEOMETRY_PASS_TUBE
 #include "DepthHelper.glsl"
 #include "Lighting.glsl"
+#include "Antialiasing.glsl"
 
 //#define USE_ORTHOGRAPHIC_TUBE_PROJECTION
 
@@ -561,16 +562,18 @@ void main() {
     float absCoords = abs(ribbonPosition);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
     const float WHITE_THRESHOLD = 0.7;
+    float EPSILON_OUTLINE = 0.0;
 #ifdef USE_BANDS
-    float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / (useBand != 0 ? bandWidth : lineWidth), 0.0, 0.49);
+    //float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDistance / (useBand != 0 ? bandWidth : lineWidth) * 4.0), 0.0, 0.49);
     float EPSILON_WHITE = fwidth(ribbonPosition);
 #else
-    float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / lineWidth, 0.0, 0.49);
+    //float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / lineWidth, 0.0, 0.49);
     float EPSILON_WHITE = fwidth(ribbonPosition);
 #endif
     float coverage = 1.0 - smoothstep(1.0 - EPSILON_OUTLINE, 1.0, absCoords);
     //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(ribbonPosition));
-    vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor,
+    vec4 colorOut = vec4(
+            mix(fragmentColor.rgb, foregroundColor,
             smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),
             fragmentColor.a * coverage);
 

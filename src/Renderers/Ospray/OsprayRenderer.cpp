@@ -101,8 +101,8 @@ OsprayRenderer::OsprayRenderer(
     ospCamera = ospNewCamera("perspective");
 
     ospMaterial = ospNewMaterial("", "obj");
-    ospSetVec3f(ospMaterial, "kd", 0.8f, 0.8f, 0.8f);
-    ospSetVec3f(ospMaterial, "ks", 0.2f, 0.2f, 0.2f);
+    ospSetVec3f(ospMaterial, "kd", 0.9f, 0.9f, 0.9f);
+    ospSetVec3f(ospMaterial, "ks", 0.1f, 0.1f, 0.1f);
     ospSetInt(ospMaterial, "ns", 50);
     ospCommit(ospMaterial);
 
@@ -208,7 +208,7 @@ void OsprayRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     ospCommit(ospWorld);
 
     if (lineData->getType() != currentDataSetType) {
-        ospSetInt(ospMaterial, "ns", lineData->getType() == DATA_SET_TYPE_STRESS_LINES ? 30 : 50);
+        //ospSetInt(ospMaterial, "ns", lineData->getType() == DATA_SET_TYPE_STRESS_LINES ? 30 : 50);
         ospCommit(ospMaterial);
         currentDataSetType = lineData->getType();
     }
@@ -365,6 +365,7 @@ void OsprayRenderer::finalizeLoadedData() {
     ospRelease(ospGroup);
 
     ospSetObjectAsData(ospWorld, "instance", OSP_INSTANCE, ospInstance);
+    ospCommit(ospWorld);
     ospRelease(ospInstance);
 }
 
@@ -380,6 +381,7 @@ void OsprayRenderer::onLineRadiusChanged() {
         for (glm::vec4& pt : curvesData.vertexPositionsAndRadii) {
             pt.w = radius;
         }
+
         OSPData vertexPositionData = ospNewSharedData1D(
                 curvesData.vertexPositionsAndRadii.data(), OSP_VEC4F,
                 curvesData.vertexPositionsAndRadii.size());
@@ -482,7 +484,7 @@ void OsprayRenderer::render() {
     int height = window->getHeight();
 
     if (currentLineWidth != LineRenderer::getLineWidth()) {
-        currentLineWidth = LineRenderer::getLineWidth() / 2.0f;
+        currentLineWidth = LineRenderer::getLineWidth();
         onLineRadiusChanged();
     }
 
