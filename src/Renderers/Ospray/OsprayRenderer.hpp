@@ -99,6 +99,7 @@ private:
     static bool isOsprayInitialized;
     static bool denoiserAvailable;
 
+    OSPFrameBufferFormat frameBufferFormat = OSP_FB_RGBA8;
     sgl::TexturePtr renderImage;
 
     // The relative change in frame variance is used for deciding whether to stop refining the current (still) frame.

@@ -86,6 +86,9 @@ OsprayRenderer::OsprayRenderer(
     if (!denoiserAvailable) {
         useDenoiser = false;
     }
+    if (useDenoiser) {
+        frameBufferFormat = OSP_FB_RGBA32F;
+    }
 
     ospRenderer = ospNewRenderer("scivis");
     backgroundColor = sceneData.clearColor.getFloatColorRGBA();
@@ -394,13 +397,18 @@ void OsprayRenderer::onResolutionChanged() {
     int height = window->getHeight();
 
     sgl::TextureSettings settings;
+    if (frameBufferFormat == OSP_FB_RGBA32F) {
+        settings.internalFormat = GL_RGBA32F;
+    } else {
+        settings.internalFormat = GL_RGBA8;
+    }
     renderImage = sgl::TextureManager->createEmptyTexture(width, height, settings);
 
     if (ospFrameBuffer) {
         ospRelease(ospFrameBuffer);
     }
     ospFrameBuffer = ospNewFrameBuffer(
-            width, height, OSP_FB_RGBA8, OSP_FB_COLOR | OSP_FB_ACCUM | OSP_FB_VARIANCE);
+            width, height, frameBufferFormat, OSP_FB_COLOR | OSP_FB_ACCUM | OSP_FB_VARIANCE);
     if (useDenoiser) {
         updateDenoiserMode();
     }
@@ -499,8 +507,15 @@ void OsprayRenderer::render() {
     //ospRelease(future);
     float frameVariance = ospRenderFrameBlocking(ospFrameBuffer, ospRenderer, ospCamera, ospWorld);
     frameVariance = std::min(frameVariance, 1e8f);
-    auto imageData = static_cast<const uint32_t*>(ospMapFrameBuffer(ospFrameBuffer, OSP_FB_COLOR));
-    renderImage->uploadPixelData(width, height, imageData);
+    if (frameBufferFormat == OSP_FB_RGBA32F) {
+        sgl::PixelFormat pixelFormat;
+        pixelFormat.pixelType = GL_FLOAT;
+        auto imageData = static_cast<const float*>(ospMapFrameBuffer(ospFrameBuffer, OSP_FB_COLOR));
+        renderImage->uploadPixelData(width, height, imageData, pixelFormat);
+    } else {
+        auto imageData = static_cast<const uint32_t*>(ospMapFrameBuffer(ospFrameBuffer, OSP_FB_COLOR));
+        renderImage->uploadPixelData(width, height, imageData);
+    }
     ospUnmapFrameBuffer(ospFrameBuffer, ospFrameBuffer);
 
     //float frameVariance = std::min(ospGetVariance(ospFrameBuffer), 1e8f);
@@ -546,6 +561,9 @@ const char* const CURVE_TYPE_NAMES[] = {
 const char* const CURVE_BASIS_NAMES[] = {
         "Linear", "Bezier", "B-Spline", "Hermite", "Catmull-Rom"
 };
+const char* const FRAME_BUFFER_FORMAT_NAMES[] = {
+        "RGBA8", "sRGBA8", "RGBA32F",
+};
 
 void OsprayRenderer::renderGui() {
     LineRenderer::renderGui();
@@ -585,6 +603,15 @@ void OsprayRenderer::renderGui() {
         }
     }
 
+    int frameBufferFormatInt = int(frameBufferFormat) - 1;
+    if (ImGui::Combo(
+            "Framebuffer Format", &frameBufferFormatInt, FRAME_BUFFER_FORMAT_NAMES,
+            IM_ARRAYSIZE(FRAME_BUFFER_FORMAT_NAMES))) {
+        frameBufferFormat = OSPFrameBufferFormat(frameBufferFormatInt + 1);
+        onResolutionChanged();
+        frameParameterChanged = true;
+    }
+
     if (ImGui::SliderInt("#AO Samples", &numAoSamples, 0, 64)) {
         ospSetInt(ospRenderer, "aoSamples", numAoSamples);
         ospCommit(ospRenderer);
@@ -592,6 +619,10 @@ void OsprayRenderer::renderGui() {
     }
     if (numAoSamples > 0 && denoiserAvailable) {
         if (ImGui::Checkbox("Use Denoiser", &useDenoiser)) {
+            if (useDenoiser && frameBufferFormat != OSP_FB_RGBA32F) {
+                frameBufferFormat = OSP_FB_RGBA32F;
+                onResolutionChanged();
+            }
             updateDenoiserMode();
             frameParameterChanged = true;
         }
