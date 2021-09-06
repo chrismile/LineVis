@@ -617,3 +617,58 @@ VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData() {
     return vulkanTubeAabbRenderData;
 }
 #endif
+
+void LineDataFlow::getTriangleMesh(
+        std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions,
+        std::vector<glm::vec3>& vertexNormals, std::vector<float>& vertexAttributes) {
+    rebuildInternalRepresentationIfNecessary();
+
+    std::vector<std::vector<glm::vec3>> lineCentersList;
+
+    std::vector<glm::vec3> lineTangents;
+    std::vector<glm::vec3> lineNormals;
+    std::vector<TubeTriangleVertexData> tubeTriangleVertexDataList;
+    std::vector<LinePointReference> linePointReferences;
+
+    lineCentersList.resize(trajectories.size());
+    for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+        if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+            continue;
+        }
+        lineCentersList.at(trajectoryIdx) = trajectories.at(trajectoryIdx).positions;
+    }
+
+    if (useCappedTubes) {
+        createCappedTriangleTubesRenderDataCPU(
+                lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions, false,
+                triangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                0, lineTangents, lineNormals);
+    } else {
+        createTriangleTubesRenderDataCPU(
+                lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions,
+                triangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                0, lineTangents, lineNormals);
+    }
+
+    vertexPositions.reserve(tubeTriangleVertexDataList.size());
+    vertexNormals.reserve(tubeTriangleVertexDataList.size());
+    vertexAttributes.reserve(tubeTriangleVertexDataList.size());
+    for (TubeTriangleVertexData& tubeTriangleVertexData : tubeTriangleVertexDataList) {
+        vertexPositions.push_back(tubeTriangleVertexData.vertexPosition);
+        vertexNormals.push_back(tubeTriangleVertexData.vertexNormal);
+
+        LinePointReference& linePointReference = linePointReferences.at(
+                tubeTriangleVertexData.vertexLinePointIndex & 0x7FFFFFFFu);
+        Trajectory& trajectory = trajectories.at(linePointReference.trajectoryIndex);
+        std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
+        float attributeValue = attributes.at(linePointReference.linePointIndex);
+        vertexAttributes.push_back(attributeValue);
+    }
+}
+
+void LineDataFlow::getTriangleMesh(
+        std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions) {
+    std::vector<glm::vec3> vertexNormals;
+    std::vector<float> vertexAttributes;
+    getTriangleMesh(triangleIndices, vertexPositions, vertexNormals, vertexAttributes);
+}

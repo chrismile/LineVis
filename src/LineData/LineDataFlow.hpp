@@ -76,6 +76,13 @@ public:
     VulkanTubeAabbRenderData getVulkanTubeAabbRenderData() override;
 #endif
 
+    // --- Retrieve triangle mesh on the CPU. ---
+    void getTriangleMesh(
+            std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions,
+            std::vector<glm::vec3>& vertexNormals, std::vector<float>& vertexAttributes) override;
+    void getTriangleMesh(
+            std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions) override;
+
 protected:
     void recomputeHistogram() override;
 

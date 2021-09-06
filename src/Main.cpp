@@ -33,6 +33,11 @@
 #include <Python.h>
 #endif
 
+#ifdef USE_OSPRAY
+#include <ospray/ospray.h>
+#include "Renderers/Ospray/OsprayRenderer.hpp"
+#endif
+
 #include <Utils/File/FileUtils.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Utils/AppSettings.hpp>
@@ -112,6 +117,12 @@ int main(int argc, char *argv[]) {
 
 #ifdef USE_PYTHON
     Py_Finalize();
+#endif
+
+#ifdef USE_OSPRAY
+    if (OsprayRenderer::getIsOsprayInitialized()) {
+        ospShutdown();
+    }
 #endif
 
     return 0;

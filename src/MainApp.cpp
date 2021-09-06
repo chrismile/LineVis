@@ -76,6 +76,9 @@
 #include "Renderers/Vulkan/VulkanAmbientOcclusionBaker.hpp"
 #include <Graphics/Vulkan/Utils/Instance.hpp>
 #endif
+#ifdef USE_VULKAN_INTEROP
+#include "Renderers/Ospray/OsprayRenderer.hpp"
+#endif
 #include "MainApp.hpp"
 
 void openglErrorCallback() {
@@ -476,6 +479,11 @@ void MainApp::setRenderer() {
         lineRenderer = new VoxelRayCastingRenderer(sceneData, transferFunctionWindow);
     } else if (renderingMode == RENDERING_MODE_VULKAN_TEST) {
         lineRenderer = new VulkanTestRenderer(sceneData, transferFunctionWindow, rendererVk);
+    }
+#endif
+#ifdef USE_OSPRAY
+    else if (renderingMode == RENDERING_MODE_OSPRAY_RAY_TRACER) {
+        lineRenderer = new OsprayRenderer(sceneData, transferFunctionWindow);
     }
 #endif
     if (ambientOcclusionBaker) {
