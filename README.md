@@ -1,11 +1,23 @@
 # Flow and Stress Line Visualization
 
-LineVis is a visualization tool for rendering dense sets of 3D lines using OpenGL.
+LineVis is a visualization tool for rendering dense sets of 3D lines using the graphics APIs OpenGL and Vulkan.
 It supports loading both traditional flow lines as well as stress lines from multiple principal stress directions.
 
 The following rendering modes are supported:
 
 - Opaque line rendering with up to 32x MSAA (multisample anti-aliasing).
+
+- Opaque and transparent line rendering using a ray tracer based on the
+  [Vulkan Ray Tracing](https://www.khronos.org/blog/ray-tracing-in-vulkan) extension.
+  Both ray-triangle and analytic ray-tube intersections can be used.
+
+- Opaque line rendering with Voxel Ray Casting (VRC).
+  For more details see: M. Kanzler, M. Rautenhaus, R. Westermann.
+  A Voxel-based Rendering Pipeline for Large 3D Line Sets.
+  IEEE Transactions on Visualization and Computer Graphics 2018.
+  https://www.in.tum.de/cg/research/publications/2018/a-voxel-based-rendering-pipeline-for-large-3d-line-sets/
+
+- Opaque and transparent line rendering using [Intel OSPRay](https://www.ospray.org/).
 
 - Transparent line rendering with per-pixel fragment lists (sometimes also called per-pixel linked lists).
   For more details see: Yang, J. C., Hensley, J., Grün, H. and Thibieroz, N., "Real-Time Concurrent Linked List
@@ -75,7 +87,7 @@ All file paths are relative to the folder `Data/LineDataSets/`.
 
 Supported formats currently are:
 - .obj, .ncf (NetCDF format), and the custom .binlines format for flow lines.
-- .dat files for stress lines.
+- .dat files for principal stress lines (PSLs).
 
 
 ## Principal Stress Line (PSL) tracing

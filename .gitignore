@@ -56,7 +56,7 @@ docs/latex/*
 
 /Debug/
 /build/*
-Data/Models/Ship*
+/build-*
 
 # CLion
 .idea/*
@@ -88,6 +88,11 @@ Data/ReplayScripts/__pycache__/*
 
 Data/ControlPoints.txt
 imgui.ini
-/Shipping/
-/third_party/
-/.build/
+
+# Build script
+Shipping/*
+.build/*
+.build_*
+third_party/*
+
+dependencies/*

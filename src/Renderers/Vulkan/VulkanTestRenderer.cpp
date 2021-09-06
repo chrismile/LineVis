@@ -97,6 +97,8 @@ void VulkanTestRenderer::onResolutionChanged() {
 }
 
 void VulkanTestRenderer::render() {
+    LineRenderer::render();
+
     renderReadySemaphore->signalSemaphoreGl(renderTextureGl, GL_NONE);
 
     rendererVk->beginCommandBuffer();

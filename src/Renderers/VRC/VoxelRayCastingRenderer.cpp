@@ -203,6 +203,8 @@ void VoxelRayCastingRenderer::setUniformData() {
 }
 
 void VoxelRayCastingRenderer::render() {
+    LineRenderer::render();
+
     setUniformData();
 
     // 1. Compute the minimum and maximum projected line hull depth at every pixel.

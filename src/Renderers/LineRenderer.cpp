@@ -221,7 +221,13 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
 
     shaderProgram->setUniformOptional("depthCueStrength", depthCueStrength);
 
-    if (useAmbientOcclusion && ambientOcclusionBaker && ambientOcclusionBaker->getHasComputationFinished()) {
+    shaderProgram->setUniformOptional("fieldOfViewY", sceneData.camera->getFOVy());
+    shaderProgram->setUniformOptional(
+            "viewportSize",
+            glm::ivec2(sceneData.sceneTexture->getW(), sceneData.sceneTexture->getH()));
+
+    if (useAmbientOcclusion && ambientOcclusionBaker && ambientOcclusionBaker->getIsDataReady()
+            && ambientOcclusionBaker->getAmbientOcclusionBuffer()) {
         sgl::GeometryBufferPtr aoBuffer = ambientOcclusionBaker->getAmbientOcclusionBuffer();
         sgl::GeometryBufferPtr blendingWeightsBuffer = ambientOcclusionBaker->getBlendingWeightsBuffer();
         sgl::ShaderManager->bindShaderStorageBuffer(13, aoBuffer);
@@ -243,7 +249,7 @@ void LineRenderer::setAmbientOcclusionBaker(AmbientOcclusionBakerPtr& aoBaker) {
     updateAmbientOcclusionMode();
 
     if (useAmbientOcclusion && ambientOcclusionBaker && lineData && lineData->isTriangleRepresentationDirty()) {
-        ambientOcclusionBaker->startAmbientOcclusionBaking(lineData);
+        ambientOcclusionBaker->startAmbientOcclusionBaking(lineData, true);
     }
 }
 
@@ -302,6 +308,23 @@ bool LineRenderer::getCanUseLiveUpdate(LineDataAccessType accessType) const {
         }
     }
     return true;
+}
+
+void LineRenderer::render() {
+    if (useAmbientOcclusion && ambientOcclusionBaker) {
+        if (ambientOcclusionBaker->getBakingMode() == BakingMode::ITERATIVE_UPDATE
+                && ambientOcclusionBaker->getIsComputationRunning()) {
+            ambientOcclusionBaker->updateIterative(isVulkanRenderer);
+            reRender = true;
+            internalReRender = true;
+        }
+        if (ambientOcclusionBaker->getBakingMode() == BakingMode::MULTI_THREADED
+                && ambientOcclusionBaker->getHasThreadUpdate()) {
+            ambientOcclusionBaker->updateMultiThreaded(isVulkanRenderer);
+            reRender = true;
+            internalReRender = true;
+        }
+    }
 }
 
 void LineRenderer::renderGuiWindow() {
@@ -414,7 +437,7 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewData) {
     this->lineData = lineData;
 
     if (useAmbientOcclusion && ambientOcclusionBaker) {
-        ambientOcclusionBaker->startAmbientOcclusionBaking(lineData);
+        ambientOcclusionBaker->startAmbientOcclusionBaking(lineData, isNewData);
     }
 
     filteredLines.clear();

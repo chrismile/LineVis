@@ -117,6 +117,13 @@ public:
     void updateVulkanUniformBuffers(sgl::vk::Renderer* renderer) override;
 #endif
 
+    // --- Retrieve triangle mesh on the CPU. ---
+    void getTriangleMesh(
+            std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions,
+            std::vector<glm::vec3>& vertexNormals, std::vector<float>& vertexAttributes) override;
+    void getTriangleMesh(
+            std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions) override;
+
     /**
      * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
      * @return true if the gather shader needs to be reloaded.

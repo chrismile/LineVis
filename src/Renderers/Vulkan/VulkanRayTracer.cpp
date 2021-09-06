@@ -138,16 +138,19 @@ void VulkanRayTracer::render() {
     //    accumulatedFramesCounter = 0;
     //}
 
+    rendererVk->beginCommandBuffer();
+
+    LineRenderer::render();
     if (ambientOcclusionBuffersDirty) {
         rayTracingRenderPass->setDataDirty();
         ambientOcclusionBuffersDirty = false;
     }
 
-    rendererVk->beginCommandBuffer();
     rayTracingRenderPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
     rayTracingRenderPass->setFrameNumber(accumulatedFramesCounter);
     rayTracingRenderPass->setDepthMinMaxBuffer(depthMinMaxBuffersVk[outputDepthMinMaxBufferIndex]);
     rayTracingRenderPass->render();
+
     rendererVk->endCommandBuffer();
 
     // Submit the rendering operation in Vulkan.

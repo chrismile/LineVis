@@ -50,13 +50,35 @@ typedef std::shared_ptr<Buffer> BufferPtr;
 class LineData;
 typedef std::shared_ptr<LineData> LineDataPtr;
 
+/**
+ * Ambient occlusion baking modes:
+ * - Immediate: Halt the program until the baking process has finished.
+ * - Iterative update: Update the AO texture once every frame until enough samples have been collected.
+ * - Multi-threaded: Let the baking process run in a separate thread. Display the AO texture once baking has finished.
+ */
+enum class BakingMode {
+    IMMEDIATE, ITERATIVE_UPDATE, MULTI_THREADED
+};
+const char* const BAKING_MODE_NAMES[] = {
+        "Immediate", "Iterative", "Multi-Threaded"
+};
+
 class AmbientOcclusionBaker {
 public:
     AmbientOcclusionBaker(sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
             : transferFunctionWindow(transferFunctionWindow), rendererVk(rendererVk) {}
+    virtual ~AmbientOcclusionBaker() = default;
 
-    virtual void startAmbientOcclusionBaking(LineDataPtr& lineData)=0;
+    inline BakingMode getBakingMode() const { return bakingMode; }
+
+    virtual void startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData)=0;
+    virtual void updateIterative(bool isVulkanRenderer)=0;
+    virtual void updateMultiThreaded(bool isVulkanRenderer)=0;
+    virtual bool getIsDataReady()=0;
+    virtual bool getIsComputationRunning()=0;
     virtual bool getHasComputationFinished()=0;
+    virtual bool getHasThreadUpdate()=0;
+
     virtual sgl::GeometryBufferPtr& getAmbientOcclusionBuffer()=0;
     virtual sgl::GeometryBufferPtr& getBlendingWeightsBuffer()=0;
 #ifdef USE_VULKAN_INTEROP
@@ -74,6 +96,7 @@ protected:
     sgl::TransferFunctionWindow& transferFunctionWindow;
     sgl::vk::Renderer* rendererVk;
     bool showWindow = true;
+    BakingMode bakingMode = BakingMode::ITERATIVE_UPDATE;
 };
 
 typedef std::shared_ptr<AmbientOcclusionBaker> AmbientOcclusionBakerPtr;

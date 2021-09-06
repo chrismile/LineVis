@@ -112,7 +112,9 @@ flat out float fragmentLineHierarchyLevel;
 flat out uint fragmentLineAppearanceOrder;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-out float fragmentVertexId;
+out float interpolationFactorLine;
+flat out uint fragmentVertexIdUint;
+//out float fragmentVertexId;
 #endif
 
 #ifdef USE_BANDS
@@ -250,7 +252,9 @@ void main() {
         fragmentLineAppearanceOrder = v_in[0].lineLineAppearanceOrder;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-        fragmentVertexId = float(v_in[0].lineVertexId);
+        interpolationFactorLine = 0.0f;
+        fragmentVertexIdUint = v_in[0].lineVertexId;
+        //fragmentVertexId = float(v_in[0].lineVertexId);
 #endif
 
         fragmentAttribute = v_in[0].lineAttribute;
@@ -295,7 +299,8 @@ void main() {
         fragmentLineAppearanceOrder = v_in[1].lineLineAppearanceOrder;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-        fragmentVertexId = float(v_in[1].lineVertexId);
+        interpolationFactorLine = 1.0f;
+        //fragmentVertexId = float(v_in[1].lineVertexId);
 #endif
         fragmentAttribute = v_in[1].lineAttribute;
         fragmentTangent = tangentNext;
@@ -351,7 +356,10 @@ flat in uint fragmentLineAppearanceOrder;
 uniform int currentSeedIdx;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-in float fragmentVertexId;
+in float interpolationFactorLine;
+flat in uint fragmentVertexIdUint;
+float fragmentVertexId;
+//in float fragmentVertexId;
 #endif
 
 #if defined(DIRECT_BLIT_GATHER)
@@ -387,6 +395,7 @@ in float phi;
 #define GEOMETRY_PASS_TUBE
 #include "DepthHelper.glsl"
 #include "Lighting.glsl"
+#include "Antialiasing.glsl"
 
 //#define USE_ORTHOGRAPHIC_TUBE_PROJECTION
 
@@ -408,6 +417,10 @@ void main() {
     if (int(fragmentLineAppearanceOrder) > currentSeedIdx) {
         discard;
     }
+#endif
+
+#ifdef USE_AMBIENT_OCCLUSION
+    fragmentVertexId = interpolationFactorLine + float(fragmentVertexIdUint);
 #endif
 
     const vec3 n = normalize(fragmentNormal);
@@ -549,16 +562,18 @@ void main() {
     float absCoords = abs(ribbonPosition);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
     const float WHITE_THRESHOLD = 0.7;
+    float EPSILON_OUTLINE = 0.0;
 #ifdef USE_BANDS
-    float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / (useBand != 0 ? bandWidth : lineWidth), 0.0, 0.49);
+    //float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDistance / (useBand != 0 ? bandWidth : lineWidth) * 4.0), 0.0, 0.49);
     float EPSILON_WHITE = fwidth(ribbonPosition);
 #else
-    float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / lineWidth, 0.0, 0.49);
+    //float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / lineWidth, 0.0, 0.49);
     float EPSILON_WHITE = fwidth(ribbonPosition);
 #endif
     float coverage = 1.0 - smoothstep(1.0 - EPSILON_OUTLINE, 1.0, absCoords);
     //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(ribbonPosition));
-    vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor,
+    vec4 colorOut = vec4(
+            mix(fragmentColor.rgb, foregroundColor,
             smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),
             fragmentColor.a * coverage);
 

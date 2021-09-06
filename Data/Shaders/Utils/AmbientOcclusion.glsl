@@ -54,8 +54,8 @@ float getAoFactor(float interpolatedVertexId, float phi) {
     uint nextVertexIdx = min(lastVertexIdx + 1, numParametrizationVertices - 1);
     float interpolationFactorLine = fract(blendingWeight);
 
-    float circleIdxFlt = phi / (2.0 * M_PI) * float(numAoTubeSubdivisions);
-    uint circleIdxLast = uint(circleIdxFlt) % numAoTubeSubdivisions;
+    float circleIdxFlt = clamp(phi / (2.0 * M_PI) * float(numAoTubeSubdivisions), 0.0, float(numAoTubeSubdivisions));
+    uint circleIdxLast = (uint(floor(circleIdxFlt)) + numAoTubeSubdivisions) % numAoTubeSubdivisions;
     uint circleIdxNext = (circleIdxLast + 1) % numAoTubeSubdivisions;
     float interpolationFactorCircle = fract(circleIdxFlt);
 

@@ -172,6 +172,13 @@ public:
     virtual void updateVulkanUniformBuffers(sgl::vk::Renderer* renderer);
 #endif
 
+    // --- Retrieve triangle mesh on the CPU. ---
+    virtual void getTriangleMesh(
+            std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions,
+            std::vector<glm::vec3>& vertexNormals, std::vector<float>& vertexAttributes)=0;
+    virtual void getTriangleMesh(
+            std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions)=0;
+
     // Retrieve simulation mesh outline (optional).
     inline bool hasSimulationMeshOutline() { return !simulationMeshOutlineVertexPositions.empty(); }
     sgl::ShaderProgramPtr reloadGatherShaderHull();

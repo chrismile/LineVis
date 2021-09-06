@@ -755,7 +755,7 @@ void LineDataStress::filterTrajectories(std::function<bool(const Trajectory&)> c
 
 void LineDataStress::resetTrajectoryFilter()  {
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
-        Trajectories & trajectories = trajectoriesPs.at(i);
+        Trajectories& trajectories = trajectoriesPs.at(i);
         std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
 
         if (filteredTrajectories.empty()) {
@@ -769,6 +769,8 @@ void LineDataStress::resetTrajectoryFilter()  {
 }
 
 Trajectories LineDataStress::filterTrajectoryData() {
+    rebuildInternalRepresentationIfNecessary();
+
     Trajectories trajectoriesFiltered;
 
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
@@ -787,6 +789,7 @@ Trajectories LineDataStress::filterTrajectoryData() {
             }
 
             Trajectory trajectoryFiltered;
+            trajectoryFiltered.attributes.resize(attributeNames.size());
             size_t n = trajectory.positions.size();
 
             int numValidLinePoints = 0;
@@ -824,6 +827,8 @@ Trajectories LineDataStress::filterTrajectoryData() {
 }
 
 std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines() {
+    rebuildInternalRepresentationIfNecessary();
+
     std::vector<std::vector<glm::vec3>> linesFiltered;
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
         int psIdx = loadedPsIndices.at(i);
@@ -882,6 +887,8 @@ std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines() {
 
 
 std::vector<Trajectories> LineDataStress::filterTrajectoryPsData() {
+    rebuildInternalRepresentationIfNecessary();
+
     std::vector<Trajectories> trajectoriesPsFiltered;
     trajectoriesPsFiltered.reserve(trajectoriesPs.size());
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
@@ -2029,6 +2036,10 @@ VulkanTubeAabbRenderData LineDataStress::getVulkanTubeAabbRenderData() {
         }
     }
 
+    if (lineSegmentIndexCounter == 0) {
+        return {};
+    }
+
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
 
     uint32_t indexBufferFlags =
@@ -2099,3 +2110,116 @@ void LineDataStress::updateVulkanUniformBuffers(sgl::vk::Renderer* renderer) {
             sizeof(StressLineRenderSettings), &stressLineRenderSettings, renderer->getVkCommandBuffer());
 }
 #endif
+
+void LineDataStress::getTriangleMesh(
+        std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions,
+        std::vector<glm::vec3>& vertexNormals, std::vector<float>& vertexAttributes) {
+    rebuildInternalRepresentationIfNecessary();
+
+    std::vector<TubeTriangleVertexData> tubeTriangleVertexDataList;
+    std::vector<TubeLinePointData> tubeTriangleLinePointDataList;
+
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        int psIdx = loadedPsIndices.at(i);
+        if (!usedPsDirections.at(psIdx)) {
+            continue;
+        }
+
+        Trajectories& trajectories = trajectoriesPs.at(i);
+        StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
+
+        size_t offsetVertices = tubeTriangleVertexDataList.size();
+
+        std::vector<std::vector<glm::vec3>> lineCentersList;
+        lineCentersList.resize(trajectories.size());
+        std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
+        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+            if (lineRenderer && !lineRenderer->isRasterizer && lineHierarchySliderValues[psIdx]
+                    < 1.0 - stressTrajectoriesData.at(trajectoryIdx).hierarchyLevels.at(int(lineHierarchyType))) {
+                continue;
+            }
+            lineCentersList.at(trajectoryIdx) = trajectories.at(trajectoryIdx).positions;
+        }
+
+        std::vector<LinePointReference> linePointReferences;
+        std::vector<glm::vec3> lineTangents;
+        std::vector<glm::vec3> lineNormals;
+        if (useBands() && psUseBands.at(psIdx)) {
+            std::vector<std::vector<glm::vec3>> bandPointsListRight;
+            bandPointsListRight.resize(trajectories.size());
+            for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+                if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                    continue;
+                }
+                if (useSmoothedBands) {
+                    bandPointsListRight.at(trajectoryIdx) = bandPointsSmoothedListRightPs.at(i).at(trajectoryIdx);
+                } else {
+                    bandPointsListRight.at(trajectoryIdx) = bandPointsUnsmoothedListRightPs.at(i).at(trajectoryIdx);
+                }
+            }
+
+            float binormalRadius = LineRenderer::getBandWidth() * 0.5f;
+            float normalRadius = binormalRadius * 0.15f;
+            if (useCappedTubes) {
+                createCappedTriangleEllipticTubesRenderDataCPU(
+                        lineCentersList, bandPointsListRight, normalRadius, binormalRadius, tubeNumSubdivisions,
+                        false, triangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                        uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
+            } else {
+                createTriangleEllipticTubesRenderDataCPU(
+                        lineCentersList, bandPointsListRight, normalRadius, binormalRadius, tubeNumSubdivisions,
+                        triangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                        uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
+            }
+        } else {
+            if (useCappedTubes) {
+                createCappedTriangleTubesRenderDataCPU(
+                        lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions,
+                        false, triangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                        uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
+            } else {
+                createTriangleTubesRenderDataCPU(
+                        lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions,
+                        triangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                        uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
+            }
+        }
+
+        size_t offset = tubeTriangleLinePointDataList.size();
+        tubeTriangleLinePointDataList.resize(offset + linePointReferences.size());
+        for (size_t ptIdx = 0; ptIdx < linePointReferences.size(); ptIdx++) {
+            LinePointReference& linePointReference = linePointReferences.at(ptIdx);
+            Trajectory& trajectory = trajectories.at(linePointReference.trajectoryIndex);
+            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
+            float attributeValue = attributes.at(linePointReference.linePointIndex);
+            for (size_t subdivIdx = 0; subdivIdx < tubeNumSubdivisions; subdivIdx++) {
+                vertexAttributes.push_back(attributeValue);
+            }
+        }
+
+        for (size_t vertexIdx = offsetVertices; vertexIdx < tubeTriangleVertexDataList.size(); vertexIdx++) {
+            TubeTriangleVertexData& tubeTriangleVertexData = tubeTriangleVertexDataList.at(vertexIdx);
+            vertexPositions.push_back(tubeTriangleVertexData.vertexPosition);
+            vertexNormals.push_back(tubeTriangleVertexData.vertexNormal);
+
+            LinePointReference& linePointReference = linePointReferences.at(
+                    tubeTriangleVertexData.vertexLinePointIndex & 0x7FFFFFFFu);
+            Trajectory& trajectory = trajectories.at(linePointReference.trajectoryIndex);
+            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
+            float attributeValue = attributes.at(linePointReference.linePointIndex);
+            vertexAttributes.push_back(attributeValue);
+        }
+
+        lineCentersList.clear();
+    }
+}
+
+void LineDataStress::getTriangleMesh(
+        std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions) {
+    std::vector<glm::vec3> vertexNormals;
+    std::vector<float> vertexAttributes;
+    getTriangleMesh(triangleIndices, vertexPositions, vertexNormals, vertexAttributes);
+}

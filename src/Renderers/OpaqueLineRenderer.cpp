@@ -184,6 +184,8 @@ void OpaqueLineRenderer::onResolutionChanged() {
 }
 
 void OpaqueLineRenderer::render() {
+    LineRenderer::render();
+
     gatherShader->setUniform("cameraPosition", sceneData.camera->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
     if (gatherShader->hasUniform("backgroundColor")) {

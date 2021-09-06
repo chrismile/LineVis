@@ -27,7 +27,15 @@
  */
 
 #ifdef USE_PYTHON
+#ifdef PYTHONHOME_PATH
+#include <cstdlib>
+#endif
 #include <Python.h>
+#endif
+
+#ifdef USE_OSPRAY
+#include <ospray/ospray.h>
+#include "Renderers/Ospray/OsprayRenderer.hpp"
 #endif
 
 #include <Utils/File/FileUtils.hpp>
@@ -69,7 +77,6 @@ int main(int argc, char *argv[]) {
     sgl::AppSettings::get()->createWindow();
 
 #if defined(USE_VULKAN_INTEROP)
-    bool supportsRaytracing = true;
     std::vector<const char*> raytracingDeviceExtensions = {
             VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
             VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
@@ -84,24 +91,25 @@ int main(int argc, char *argv[]) {
     for (const char* deviceExtension : raytracingDeviceExtensions) {
         if (!sgl::AppSettings::get()->getPrimaryDevice()->isDeviceExtensionSupported(deviceExtension)) {
             sgl::Logfile::get()->writeInfo(
-                    std::string() + "Warning: Ambient occlusion support was enabled, but the Vulkan device "
+                    std::string() + "Warning: Vulkan interoperability support was enabled, but the Vulkan device "
                     "extension " + deviceExtension + " is not supported on this system.");
-            supportsRaytracing = false;
-            break;
         }
     }
-#else
-    bool supportsRaytracing = false;
 #endif
 
     sgl::AppSettings::get()->initializeSubsystems();
 
 #ifdef USE_PYTHON
-    Py_SetPythonHome(L"./python3");
+#ifdef PYTHONHOME_PATH
+    const char* pythonhomeEnvVar = getenv("PYTHONHOME");
+    if (!pythonhomeEnvVar || strlen(pythonhomeEnvVar) == 0) {
+        Py_SetPythonHome(PYTHONHOME_PATH);
+    }
+#endif
     Py_Initialize();
 #endif
 
-    auto app = new MainApp(supportsRaytracing);
+    auto app = new MainApp();
     app->run();
     delete app;
 
@@ -109,6 +117,12 @@ int main(int argc, char *argv[]) {
 
 #ifdef USE_PYTHON
     Py_Finalize();
+#endif
+
+#ifdef USE_OSPRAY
+    if (OsprayRenderer::getIsOsprayInitialized()) {
+        ospShutdown();
+    }
 #endif
 
     return 0;

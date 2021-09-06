@@ -150,6 +150,8 @@ void MLABBucketRenderer::reallocateFragmentBuffer() {
 }
 
 void MLABBucketRenderer::render() {
+    LineRenderer::render();
+
     setUniformData();
     computeDepthRange();
     clear();

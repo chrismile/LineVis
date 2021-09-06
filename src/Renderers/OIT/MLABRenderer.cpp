@@ -242,6 +242,8 @@ void MLABRenderer::onResolutionChanged() {
 }
 
 void MLABRenderer::render() {
+    LineRenderer::render();
+
     setUniformData();
     clear();
     gather();
