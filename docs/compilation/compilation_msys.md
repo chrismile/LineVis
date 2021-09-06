@@ -10,7 +10,7 @@ After that, all obligatory dependencies can be installed using the following com
 
 ```
 pacman -S mingw64/mingw-w64-x86_64-jsoncpp mingw64/mingw-w64-x86_64-netcdf mingw64/mingw-w64-x86_64-zeromq \
-mingw64/mingw-w64-x86_64-python
+mingw64/mingw-w64-x86_64-eigen3 mingw64/mingw-w64-x86_64-python
 ```
 
 After all dependencies have been set up, the following commands can be used to build the program.

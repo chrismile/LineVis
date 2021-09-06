@@ -56,6 +56,7 @@ docs/latex/*
 
 /Debug/
 /build/*
+/build*
 
 # CLion
 .idea/*
@@ -92,3 +93,5 @@ imgui.ini
 Shipping/*
 .build/*
 third_party/*
+
+dependencies/*
