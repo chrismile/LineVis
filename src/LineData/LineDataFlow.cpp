@@ -197,6 +197,8 @@ void LineDataFlow::resetTrajectoryFilter()  {
 }
 
 Trajectories LineDataFlow::filterTrajectoryData() {
+    rebuildInternalRepresentationIfNecessary();
+
     Trajectories trajectoriesFiltered;
     trajectoriesFiltered.reserve(trajectories.size());
     size_t trajectoryIndex = 0;
@@ -244,6 +246,8 @@ Trajectories LineDataFlow::filterTrajectoryData() {
 }
 
 std::vector<std::vector<glm::vec3>> LineDataFlow::getFilteredLines() {
+    rebuildInternalRepresentationIfNecessary();
+
     std::vector<std::vector<glm::vec3>> linesFiltered;
     linesFiltered.reserve(trajectories.size());
     size_t trajectoryIndex = 0;

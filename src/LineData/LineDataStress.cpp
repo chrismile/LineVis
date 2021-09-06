@@ -769,6 +769,8 @@ void LineDataStress::resetTrajectoryFilter()  {
 }
 
 Trajectories LineDataStress::filterTrajectoryData() {
+    rebuildInternalRepresentationIfNecessary();
+
     Trajectories trajectoriesFiltered;
 
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
@@ -787,6 +789,7 @@ Trajectories LineDataStress::filterTrajectoryData() {
             }
 
             Trajectory trajectoryFiltered;
+            trajectoryFiltered.attributes.resize(attributeNames.size());
             size_t n = trajectory.positions.size();
 
             int numValidLinePoints = 0;
@@ -824,6 +827,8 @@ Trajectories LineDataStress::filterTrajectoryData() {
 }
 
 std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines() {
+    rebuildInternalRepresentationIfNecessary();
+
     std::vector<std::vector<glm::vec3>> linesFiltered;
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
         int psIdx = loadedPsIndices.at(i);
@@ -882,6 +887,8 @@ std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines() {
 
 
 std::vector<Trajectories> LineDataStress::filterTrajectoryPsData() {
+    rebuildInternalRepresentationIfNecessary();
+
     std::vector<Trajectories> trajectoriesPsFiltered;
     trajectoriesPsFiltered.reserve(trajectoriesPs.size());
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
