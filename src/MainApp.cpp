@@ -76,7 +76,7 @@
 #include "Renderers/Vulkan/VulkanAmbientOcclusionBaker.hpp"
 #include <Graphics/Vulkan/Utils/Instance.hpp>
 #endif
-#ifdef USE_VULKAN_INTEROP
+#ifdef USE_OSPRAY
 #include "Renderers/Ospray/OsprayRenderer.hpp"
 #endif
 #include "MainApp.hpp"
@@ -486,6 +486,12 @@ void MainApp::setRenderer() {
         lineRenderer = new OsprayRenderer(sceneData, transferFunctionWindow);
     }
 #endif
+    else {
+        renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+        lineRenderer = new OpaqueLineRenderer(sceneData, transferFunctionWindow);
+        sgl::Logfile::get()->writeError(
+                "Error in MainApp::setRenderer: A renderer unsupported in this build configuration was selected.");
+    }
     if (ambientOcclusionBaker) {
         lineRenderer->setAmbientOcclusionBaker(ambientOcclusionBaker);
     }
