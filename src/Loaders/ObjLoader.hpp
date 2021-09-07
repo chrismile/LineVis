@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2021, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,40 +26,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEDENSITYCONTROL_DATASETLIST_HPP
-#define LINEDENSITYCONTROL_DATASETLIST_HPP
+#ifndef LINEVIS_OBJLOADER_HPP
+#define LINEVIS_OBJLOADER_HPP
 
-#include <vector>
+#include <string>
+#include "TrajectoryFile.hpp"
 
-#include <Math/Geometry/MatrixUtil.hpp>
+Trajectories loadTrajectoriesFromObj(const std::string& filename, std::vector<std::string>& attributeNames);
 
-enum DataSetType {
-    DATA_SET_TYPE_NONE, DATA_SET_TYPE_FLOW_LINES, DATA_SET_TYPE_STRESS_LINES, DATA_SET_TYPE_FLOW_LINES_MULTIVAR
-};
-
-const float STANDARD_LINE_WIDTH = 0.002f;
-const float STANDARD_BAND_WIDTH = 0.005f;
-
-struct DataSetInformation {
-    DataSetType type = DATA_SET_TYPE_FLOW_LINES;
-    std::string name;
-    std::vector<std::string> filenames;
-
-    // Optional attributes.
-    bool hasCustomLineWidth = false;
-    float lineWidth = STANDARD_LINE_WIDTH;
-    bool hasCustomTransform = false;
-    glm::mat4 transformMatrix = sgl::matrixIdentity();
-    std::vector<std::string> attributeNames; ///< Names of the associated importance criteria.
-    int version = 1;
-    float heightScale = 1.0f;
-
-    // Stress lines: Additional information (optional).
-    std::string meshFilename;
-    std::string degeneratePointsFilename;
-    std::vector<std::string> filenamesStressLineHierarchy;
-};
-
-std::vector<DataSetInformation> loadDataSetList(const std::string& filename);
-
-#endif //LINEDENSITYCONTROL_DATASETLIST_HPP
+#endif //LINEVIS_OBJLOADER_HPP

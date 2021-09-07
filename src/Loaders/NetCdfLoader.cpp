@@ -28,6 +28,7 @@
 
 #include <iostream>
 #include <algorithm>
+#include <cstring>
 #include <vector>
 #include <memory>
 #include <fstream>
@@ -37,7 +38,7 @@
 #include <glm/glm.hpp>
 #include <netcdf.h>
 
-#include "NetCdfConverter.hpp"
+#include "NetCdfLoader.hpp"
 
 #if defined(DEBUG) || !defined(NDEBUG)
 #define myassert assert
@@ -83,8 +84,8 @@ std::string getGlobalStringAttribute(int ncid, const char* varname) {
 size_t getDim(int ncid, const char* dimname) {
     int dimid;
     size_t dimlen;
-    myassert(nc_inq_dimid(ncid, dimname, &dimid) == 0);
-    myassert(nc_inq_dimlen(ncid, dimid, &dimlen) == 0);
+    myassert(nc_inq_dimid(ncid, dimname, &dimid) == NC_NOERR);
+    myassert(nc_inq_dimlen(ncid, dimid, &dimlen) == NC_NOERR);
     return dimlen;
 }
 
@@ -99,11 +100,11 @@ size_t getDim(int ncid, const char* dimname) {
  */
 void loadFloatArray1D(int ncid, const char* varname, size_t len, float** array) {
     int varid;
-    myassert(nc_inq_varid(ncid, varname, &varid) == 0);
+    myassert(nc_inq_varid(ncid, varname, &varid) == NC_NOERR);
     *array = new float[len];
     size_t startp[] = {0};
     size_t countp[] = {len};
-    myassert(nc_get_vara_float(ncid, varid, startp, countp, *array) == 0);
+    myassert(nc_get_vara_float(ncid, varid, startp, countp, *array) == NC_NOERR);
 }
 
 /**
@@ -118,11 +119,11 @@ void loadFloatArray1D(int ncid, const char* varname, size_t len, float** array) 
  */
 void loadFloatArray1D(int ncid, const char* varname, size_t start, size_t len, float **array) {
     int varid;
-    myassert(nc_inq_varid(ncid, varname, &varid) == 0);
+    myassert(nc_inq_varid(ncid, varname, &varid) == NC_NOERR);
     *array = new float[len];
     size_t startp[] = {start};
     size_t countp[] = {len};
-    myassert(nc_get_vara_float(ncid, varid, startp, countp, *array) == 0);
+    myassert(nc_get_vara_float(ncid, varid, startp, countp, *array) == NC_NOERR);
 }
 
 /**
@@ -136,11 +137,11 @@ void loadFloatArray1D(int ncid, const char* varname, size_t start, size_t len, f
  */
 void loadDoubleArray1D(int ncid, const char* varname, size_t len, double** array) {
     int varid;
-    myassert(nc_inq_varid(ncid, varname, &varid) == 0);
+    myassert(nc_inq_varid(ncid, varname, &varid) == NC_NOERR);
     *array = new double[len];
     size_t startp[] = {0};
     size_t countp[] = {len};
-    myassert(nc_get_vara_double(ncid, varid, startp, countp, *array) == 0);
+    myassert(nc_get_vara_double(ncid, varid, startp, countp, *array) == NC_NOERR);
 }
 
 /**
@@ -155,11 +156,11 @@ void loadDoubleArray1D(int ncid, const char* varname, size_t len, double** array
  */
 void loadDoubleArray2D(int ncid, const char* varname, size_t ylen, size_t xlen, double** array) {
     int varid;
-    myassert(nc_inq_varid(ncid, varname, &varid) == 0);
+    myassert(nc_inq_varid(ncid, varname, &varid) == NC_NOERR);
     *array = new double[ylen * xlen];
     size_t startp[] = {0, 0};
     size_t countp[] = {ylen, xlen};
-    myassert(nc_get_vara_double(ncid, varid, startp, countp, *array) == 0);
+    myassert(nc_get_vara_double(ncid, varid, startp, countp, *array) == NC_NOERR);
 }
 
 /**
@@ -174,11 +175,11 @@ void loadDoubleArray2D(int ncid, const char* varname, size_t ylen, size_t xlen, 
  */
 void loadFloatArray2D(int ncid, const char* varname, size_t ylen, size_t xlen, float** array) {
     int varid;
-    myassert(nc_inq_varid(ncid, varname, &varid) == 0);
+    myassert(nc_inq_varid(ncid, varname, &varid) == NC_NOERR);
     *array = new float[ylen * xlen];
     size_t startp[] = {0, 0};
     size_t countp[] = {ylen, xlen};
-    myassert(nc_get_vara_float(ncid, varid, startp, countp, *array) == 0);
+    myassert(nc_get_vara_float(ncid, varid, startp, countp, *array) == NC_NOERR);
 }
 
 /**
@@ -194,11 +195,11 @@ void loadFloatArray2D(int ncid, const char* varname, size_t ylen, size_t xlen, f
  */
 void loadFloatArray3D(int ncid, const char* varname, size_t zlen, size_t ylen, size_t xlen, float** array) {
     int varid;
-    myassert(nc_inq_varid(ncid, varname, &varid) == 0);
+    myassert(nc_inq_varid(ncid, varname, &varid) == NC_NOERR);
     *array = new float[zlen * ylen * xlen];
     size_t startp[] = {0, 0, 0};
     size_t countp[] = {zlen, ylen, xlen};
-    myassert(nc_get_vara_float(ncid, varid, startp, countp, *array) == 0);
+    myassert(nc_get_vara_float(ncid, varid, startp, countp, *array) == NC_NOERR);
 }
 
 /**
@@ -219,26 +220,36 @@ void loadFloatArray3D(
         int ncid, const char* varname, size_t zstart, size_t ystart, size_t xstart,
         size_t zlen, size_t ylen, size_t xlen, float** array) {
     int varid;
-    myassert(nc_inq_varid(ncid, varname, &varid) == 0);
+    myassert(nc_inq_varid(ncid, varname, &varid) == NC_NOERR);
     *array = new float[zlen * ylen * xlen];
     size_t startp[] = {zstart, ystart, xstart};
     size_t countp[] = {zlen, ylen, xlen};
-    myassert(nc_get_vara_float(ncid, varid, startp, countp, *array) == 0);
+    myassert(nc_get_vara_float(ncid, varid, startp, countp, *array) == NC_NOERR);
+}
+
+std::string getStringAttribute(int ncid, int varid, const char* attname) {
+    nc_type type;
+    size_t length = 0;
+    myassert(nc_inq_att(ncid, varid, attname, &type, &length) == NC_NOERR);
+    myassert(type == NC_CHAR);
+    char* charArray = new char[length];
+    nc_get_att_text(ncid, varid, attname, charArray);
+    std::string attText = std::string(charArray, length);
+    delete[] charArray;
+    return attText;
 }
 
 
-
-Trajectories convertLatLonToCartesian(float* lat, float* lon, float* pressure, size_t trajectoryDim,
-                                      size_t timeDim) {
+Trajectories convertLatLonToCartesian(
+        const float* lat, const float* lon, float* pressure, size_t trajectoryDim, size_t timeDim) {
     Trajectories trajectories;
     trajectories.reserve(timeDim);
 
-    float minPressure = FLT_MAX;
-    float maxPressure = -FLT_MAX;
-    //float minPressure = 1200.0f;
-    //float maxPressure = 0.0001f;
+    float minPressure = std::numeric_limits<float>::max();
+    float maxPressure = std::numeric_limits<float>::lowest();
 #if _OPENMP >= 201107
-	#pragma omp parallel for reduction(min:minPressure) reduction(max:maxPressure)
+	#pragma omp parallel for shared(trajectoryDim, timeDim, pressure) \
+    reduction(min:minPressure) reduction(max:maxPressure) default(none)
 #endif
 	for (size_t idx = 0; idx < trajectoryDim*timeDim; idx++) {
 	    if (pressure[idx] > 0.0f) {
@@ -246,37 +257,36 @@ Trajectories convertLatLonToCartesian(float* lat, float* lon, float* pressure, s
 	    }
 		maxPressure = std::max(maxPressure, pressure[idx]);
 	}
-	float logMinPressure = log(minPressure);
-	float logMaxPressure = log(maxPressure);
+	float logMinPressure = std::log(minPressure);
+	float logMaxPressure = std::log(maxPressure);
 
     for (int trajectoryIndex = 0; trajectoryIndex < trajectoryDim; trajectoryIndex++) {
         Trajectory trajectory;
-        trajectory.attributes.resize(1);
+        //trajectory.attributes.resize(1);
         std::vector<glm::vec3> &cartesianCoords = trajectory.positions;
-        std::vector<float> &pressureAttr = trajectory.attributes.at(0);
+        //std::vector<float> &pressureAttr = trajectory.attributes.at(0);
         cartesianCoords.reserve(trajectoryDim);
-        pressureAttr.reserve(trajectoryDim);
-        for (int i = 0; i < timeDim; i++) {
-            int index = i + trajectoryIndex*timeDim;
+        //pressureAttr.reserve(trajectoryDim);
+        for (size_t i = 0; i < timeDim; i++) {
+            size_t index = i + trajectoryIndex * timeDim;
             float pressureAtIdx = pressure[index];
             if (pressureAtIdx <= 0.0f) {
                 continue;
             }
-            //float normalizedPressure = (pressureAtIdx - minPressure) / (maxPressure - minPressure);
-            float normalizedLogPressure = (log(pressureAtIdx) - logMaxPressure) / (logMinPressure - logMaxPressure);
-            float x = lat[index]/100.0f;
+            float normalizedLogPressure = (std::log(pressureAtIdx) - logMaxPressure) / (logMinPressure - logMaxPressure);
+            float x = lat[index];
             float y = normalizedLogPressure;
-            float z = lon[index]/100.0f;
+            float z = lon[index];
 
             glm::vec3 cartesianCoord = glm::vec3(x, y, z);
 
             cartesianCoords.push_back(cartesianCoord);
-            pressureAttr.push_back(pressureAtIdx);
+            //pressureAttr.push_back(pressureAtIdx);
         }
 
-        if (!trajectory.positions.empty()) {
-            trajectories.push_back(trajectory);
-        }
+        //if (!trajectory.positions.empty()) {
+        trajectories.push_back(trajectory);
+        //}
     }
     return trajectories;
 }
@@ -290,7 +300,7 @@ void exportObjFile(Trajectories& trajectories, const std::string& filename) {
     std::ofstream outfile;
     outfile.open(filename.c_str());
     if (!outfile.is_open()) {
-        std::cerr << "ERROR in exportObjFile: File \"" << filename << "\" couldn't be opened for writing!" << std::endl;
+        std::cerr << "Error in exportObjFile: File \"" << filename << "\" couldn't be opened for writing!" << std::endl;
         exit(1);
         return;
     }
@@ -327,7 +337,7 @@ void exportObjFile(Trajectories& trajectories, const std::string& filename) {
     outfile.close();
 }
 
-Trajectories loadNetCdfFile(const std::string& filename) {
+Trajectories loadTrajectoriesFromNetCdf(const std::string& filename, std::vector<std::string>& attributeNames) {
     Trajectories trajectories;
 
     // File handle
@@ -336,7 +346,7 @@ Trajectories loadNetCdfFile(const std::string& filename) {
     // Open the NetCDF file for reading
     int status = nc_open(filename.c_str(), NC_NOWRITE, &ncid);
     if (status != 0) {
-        std::cerr << "ERROR in loadNetCdfFile: File \"" << filename << "\" couldn't be opened!" << std::endl;
+        std::cerr << "Error in loadNetCdfFile: File \"" << filename << "\" couldn't be opened!" << std::endl;
         return trajectories;
     }
 
@@ -344,26 +354,68 @@ Trajectories loadNetCdfFile(const std::string& filename) {
     size_t timeDim = getDim(ncid, "time");
     size_t trajectoryDim = getDim(ncid, "trajectory");
     size_t ensembleDim = getDim(ncid, "ensemble");
-    size_t startLonDim = getDim(ncid, "start_lon");
-    size_t startLatDim = getDim(ncid, "start_lat");
-    size_t timeIntervalDim = getDim(ncid, "time_interval");
 
     // Load data arrays
-    double *time = NULL;
-    float *lon = NULL, *lat = NULL, *pressure = NULL, *startLon = NULL, *startLat = NULL, *timeInterval = NULL;
+    double* time = nullptr;
+    float* lon = nullptr, *lat = nullptr, *pressure = nullptr;
     loadDoubleArray1D(ncid, "time", timeDim, &time);
     loadFloatArray3D(ncid, "lon", 1, trajectoryDim, timeDim, &lon);
     loadFloatArray3D(ncid, "lat", 1, trajectoryDim, timeDim, &lat);
     loadFloatArray3D(ncid, "pressure", 1, trajectoryDim, timeDim, &pressure);
-    loadFloatArray1D(ncid, "start_lon", startLonDim, &startLon);
-    loadFloatArray1D(ncid, "start_lat", startLatDim, &startLat);
-    loadFloatArray1D(ncid, "time_interval", timeIntervalDim, &timeInterval);
-
 
     trajectories = convertLatLonToCartesian(lat, lon, pressure, trajectoryDim, timeDim);
-    std::string outputFilename = filename.substr(0, filename.find_last_of(".")) + ".obj";
-    //exportObjFile(trajectories, outputFilename);
 
+    // DIM: ensemble, trajectory, time
+    std::vector<std::string> blacklistNames = {
+            "time", "lon", "lat", "ensemble", "trajectory"
+    };
+    int nvarsp = 0;
+    int dimids[NC_MAX_VAR_DIMS];
+    char varname[NC_MAX_NAME];
+    char attname[NC_MAX_NAME];
+    myassert(nc_inq(ncid, nullptr, &nvarsp, nullptr, nullptr) == NC_NOERR);
+    for (int varid = 0; varid < nvarsp; varid++) {
+        nc_type type = NC_FLOAT;
+        int ndims = 0;
+        int natts = 0;
+        nc_inq_var(ncid, varid, varname, &type, &ndims, dimids, &natts);
+        if (type != NC_FLOAT || ndims != 3) {
+            continue;
+        }
+
+        bool isAuxiliaryData = strcmp(varname, "pressure") == 0;
+        std::string variableDisplayName = varname;
+        for (int attnum = 0; attnum < natts; attnum++) {
+            nc_inq_attname(ncid, varid, attnum, attname);
+            if (strcmp(attname, "standard_name") == 0) {
+                variableDisplayName = getStringAttribute(ncid, varid, "standard_name");
+            }
+        }
+        attributeNames.push_back(variableDisplayName);
+
+        float *varData = nullptr;
+        loadFloatArray3D(ncid, varname, 1, trajectoryDim, timeDim, &varData);
+
+        for (int trajectoryIndex = 0; trajectoryIndex < trajectoryDim; trajectoryIndex++) {
+            Trajectory& trajectory = trajectories.at(trajectoryIndex);
+            std::vector<float> attributeValues;
+            attributeValues.reserve(timeDim);
+            for (size_t i = 0; i < timeDim; i++) {
+                size_t index = i + trajectoryIndex * timeDim;
+                float pressureAtIdx = pressure[index];
+                if (pressureAtIdx <= 0.0f) {
+                    continue;
+                }
+                attributeValues.push_back(varData[index]);
+            }
+            trajectory.attributes.push_back(attributeValues);
+        }
+
+        SAFE_DELETE_ARRAY(varData);
+    }
+
+    //std::string outputFilename = filename.substr(0, filename.find_last_of(".")) + ".obj";
+    //exportObjFile(trajectories, outputFilename);
 
     // Close the file
     myassert(nc_close(ncid) == NC_NOERR);
@@ -372,9 +424,6 @@ Trajectories loadNetCdfFile(const std::string& filename) {
     SAFE_DELETE_ARRAY(lon);
     SAFE_DELETE_ARRAY(lat);
     SAFE_DELETE_ARRAY(pressure);
-    SAFE_DELETE_ARRAY(startLon);
-    SAFE_DELETE_ARRAY(startLat);
-    SAFE_DELETE_ARRAY(timeInterval);
 
     return trajectories;
 }

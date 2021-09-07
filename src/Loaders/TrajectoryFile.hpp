@@ -139,10 +139,4 @@ void loadStressTrajectoriesFromFile(
         bool normalizeVertexPositions = true, bool normalizeAttributes = false,
         sgl::AABB3* oldAABB = nullptr, const glm::mat4* vertexTransformationMatrixPtr = nullptr);
 
-Trajectories loadTrajectoriesFromObj(const std::string& filename, std::vector<std::string>& attributeNames);
-
-Trajectories loadTrajectoriesFromNetCdf(const std::string& filename);
-
-Trajectories loadTrajectoriesFromBinLines(const std::string& filename);
-
 #endif // TRAJECTORYFILE_HPP

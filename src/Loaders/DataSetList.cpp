@@ -108,6 +108,11 @@ std::vector<DataSetInformation> loadDataSetList(const std::string& filename) {
             }
         }
 
+        // Optional data: The scaling in y direction.
+        if (source.isMember("heightscale")) {
+            dataSetInformation.heightScale = source["heightscale"].asFloat();
+        }
+
         // Optional data: The version of the file format.
         if (source.isMember("version")) {
             dataSetInformation.version = source["version"].asInt();

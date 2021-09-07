@@ -922,6 +922,10 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames, bool bl
         transformationMatrix *= glm::rotate(rotateModelBy90DegreeTurns * sgl::HALF_PI, modelRotationAxis);
         transformationMatrixPtr = &transformationMatrix;
     }
+    if (selectedDataSetInformation.heightScale != 1.0f) {
+        transformationMatrix *= glm::scale(glm::vec3(1.0f, selectedDataSetInformation.heightScale, 1.0f));
+        transformationMatrixPtr = &transformationMatrix;
+    }
 
     LineDataPtr lineData;
 

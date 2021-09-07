@@ -69,6 +69,8 @@ public:
     virtual bool getIsTriangleRepresentationUsed() const;
     /// Returns whether live visualization mapping updates can be used or whether the data set is too large.
     virtual bool getCanUseLiveUpdate(LineDataAccessType accessType) const;
+    inline bool getIsRasterizer() const { return isRasterizer; }
+    inline bool getIsVulkanRenderer() const { return isVulkanRenderer; }
 
     /**
      * Re-generates the visualization mapping.

@@ -568,35 +568,81 @@ VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData() {
         return vulkanTubeAabbRenderData;
     }
 
-    getVulkanTubeTriangleRenderData(true);
-    vulkanTubeAabbRenderData.linePointBuffer = vulkanTubeTriangleRenderData.linePointBuffer;
-
     glm::vec3 lineWidthOffset(LineRenderer::getLineWidth() * 0.5f);
 
     std::vector<uint32_t> lineSegmentPointIndices;
     std::vector<sgl::AABB3> lineSegmentAabbs;
+    std::vector<TubeLinePointData> tubeLinePointDataList;
     lineSegmentPointIndices.reserve(getNumLineSegments() * 2);
     lineSegmentAabbs.reserve(getNumLineSegments());
+    tubeLinePointDataList.reserve(getNumLinePoints());
     uint32_t lineSegmentIndexCounter = 0;
     for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
         if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
             continue;
         }
-
         Trajectory& trajectory = trajectories.at(trajectoryIdx);
-        for (size_t pointIdx = 1; pointIdx < trajectory.positions.size(); pointIdx++) {
+
+        glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
+        size_t numValidLinePoints = 0;
+        for (size_t i = 0; i < trajectory.positions.size(); i++) {
+            glm::vec3 tangent;
+            if (i == 0) {
+                tangent = trajectory.positions[i + 1] - trajectory.positions[i];
+            } else if (i + 1 == trajectory.positions.size()) {
+                tangent = trajectory.positions[i] - trajectory.positions[i - 1];
+            } else {
+                tangent = trajectory.positions[i + 1] - trajectory.positions[i - 1];
+            }
+            float lineSegmentLength = glm::length(tangent);
+
+            if (lineSegmentLength < 0.0001f) {
+                // In case the two vertices are almost identical, just skip this path line segment.
+                continue;
+            }
+            tangent = glm::normalize(tangent);
+
+            glm::vec3 helperAxis = lastLineNormal;
+            if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
+                // If tangent == lastNormal
+                helperAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+                if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
+                    // If tangent == helperAxis
+                    helperAxis = glm::vec3(0.0f, 0.0f, 1.0f);
+                }
+            }
+            glm::vec3 normal = glm::normalize(helperAxis - glm::dot(helperAxis, tangent) * tangent); // Gram-Schmidt
+            lastLineNormal = normal;
+
+            TubeLinePointData linePointData{};
+            linePointData.linePosition = trajectory.positions.at(i);
+            linePointData.lineAttribute = trajectory.attributes.at(selectedAttributeIndex).at(i);
+            linePointData.lineTangent = tangent;
+            linePointData.lineNormal = lastLineNormal;
+            tubeLinePointDataList.push_back(linePointData);
+
+            numValidLinePoints++;
+        }
+
+        if (numValidLinePoints == 1) {
+            // Only one vertex left -> output nothing (tube consisting only of one point).
+            tubeLinePointDataList.pop_back();
+            continue;
+        }
+
+        for (size_t pointIdx = 1; pointIdx < numValidLinePoints; pointIdx++) {
             lineSegmentPointIndices.push_back(lineSegmentIndexCounter + pointIdx - 1);
             lineSegmentPointIndices.push_back(lineSegmentIndexCounter + pointIdx);
 
-            glm::vec3& pt0 = trajectory.positions.at(pointIdx - 1);
-            glm::vec3& pt1 = trajectory.positions.at(pointIdx);
+            const glm::vec3& pt0 = tubeLinePointDataList.at(lineSegmentIndexCounter + pointIdx - 1).linePosition;
+            const glm::vec3& pt1 = tubeLinePointDataList.at(lineSegmentIndexCounter + pointIdx).linePosition;
 
             sgl::AABB3 aabb;
             aabb.min = glm::min(pt0, pt1) - lineWidthOffset;
             aabb.max = glm::max(pt0, pt1) + lineWidthOffset;
             lineSegmentAabbs.push_back(aabb);
         }
-        lineSegmentIndexCounter += uint32_t(trajectory.positions.size());
+        lineSegmentIndexCounter += uint32_t(numValidLinePoints);
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
@@ -617,6 +663,13 @@ VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData() {
     vulkanTubeAabbRenderData.aabbBuffer = std::make_shared<sgl::vk::Buffer>(
             device, lineSegmentAabbs.size() * sizeof(VkAabbPositionsKHR), lineSegmentAabbs.data(),
             vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    vulkanTubeAabbRenderData.linePointBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, tubeLinePointDataList.size() * sizeof(TubeLinePointData),
+            tubeLinePointDataList.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+            | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     return vulkanTubeAabbRenderData;
 }

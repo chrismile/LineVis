@@ -30,6 +30,7 @@
 #include <Graphics/Shader/ShaderManager.hpp>
 
 #include "Loaders/TrajectoryFile.hpp"
+#include "Renderers/LineRenderer.hpp"
 #include "Renderers/Tubes/Tubes.hpp"
 
 #include <Utils/File/Logfile.hpp>
@@ -118,6 +119,9 @@ bool LineDataMultiVar::settingsDiffer(LineData* other) {
 }
 
 void LineDataMultiVar::update(float dt) {
+    if (lineRenderer && (lineRenderer->getIsVulkanRenderer() || !lineRenderer->getIsRasterizer())) {
+        ;
+    }
     multiVarTransferFunctionWindow.update(dt);
 }
 

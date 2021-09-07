@@ -89,6 +89,16 @@ Supported formats currently are:
 - .obj, .ncf (NetCDF format), and the custom .binlines format for flow lines.
 - .dat files for principal stress lines (PSLs).
 
+The format of the .obj files is expected to be as follows.
+
+```
+v <x> <y> <z> # vertex at index 1
+vt <attribute>
+...
+g line0
+l <v_idx_1> <v_idx_2> ... <v_idx_n>
+```
+
 
 ## Principal Stress Line (PSL) tracing
 
