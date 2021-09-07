@@ -101,7 +101,7 @@ bool LineDataMultiVar::renderGuiWindowSecondary(bool isRasterizer)  {
         shallReloadGatherShader = LineData::renderGuiWindowSecondary(isRasterizer) || shallReloadGatherShader;
     }
 
-    if (multiVarTransferFunctionWindow.renderGui()) {
+    if (useMultiVarRendering && multiVarTransferFunctionWindow.renderGui()) {
         reRender = true;
         if (multiVarTransferFunctionWindow.getTransferFunctionMapRebuilt()) {
             onTransferFunctionMapRebuilt();
@@ -124,7 +124,7 @@ bool LineDataMultiVar::renderGuiRenderer(bool isRasterizer) {
 
 bool LineDataMultiVar::renderGuiLineData(bool isRasterizer) {
     bool shallReloadGatherShader = false;
-    if (ImGui::Checkbox("Multivariate Rendering", &useMultiVarRendering)) {
+    if (rendererSupportsMultiVarRendering && ImGui::Checkbox("Multivariate Rendering", &useMultiVarRendering)) {
         dirty = true;
         shallReloadGatherShader = true;
         recomputeColorLegend();

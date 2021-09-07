@@ -49,6 +49,8 @@ bool LineDataMultiVar::mapColorToSaturation = true; ///< !mapColorToSaturation -
 
 ///< Use multivariate or single attribute rendering? If true, falls back to code from @see LineDataFlow.
 bool LineDataMultiVar::useMultiVarRendering = true;
+bool LineDataMultiVar::rendererSupportsMultiVarRendering = true;
+bool LineDataMultiVar::disabledMultiVarRenderingDueToLineRenderer = false;
 
 // Rendering modes.
 LineDataMultiVar::MultiVarRenderMode LineDataMultiVar::multiVarRenderMode =
@@ -112,6 +114,25 @@ LineDataMultiVar::LineDataMultiVar(sgl::TransferFunctionWindow &transferFunction
               "dark-blues.xml" }) {
     dataSetType = DATA_SET_TYPE_FLOW_LINES_MULTIVAR;
     lineDataWindowName = "Line Data (MultiVar)";
+}
+
+void LineDataMultiVar::setLineRenderer(LineRenderer* lineRenderer) {
+    LineData::setLineRenderer(lineRenderer);
+
+    if (lineRenderer->getIsVulkanRenderer() || !lineRenderer->getIsRasterizer()
+            || lineRenderer->getRenderingMode() == RENDERING_MODE_OPACITY_OPTIMIZATION) {
+        rendererSupportsMultiVarRendering = false;
+        if (useMultiVarRendering) {
+            useMultiVarRendering = false;
+            disabledMultiVarRenderingDueToLineRenderer = true;
+        }
+    } else {
+        rendererSupportsMultiVarRendering = true;
+        if (disabledMultiVarRenderingDueToLineRenderer) {
+            useMultiVarRendering = true;
+            disabledMultiVarRenderingDueToLineRenderer = false;
+        }
+    }
 }
 
 bool LineDataMultiVar::settingsDiffer(LineData* other) {
@@ -306,6 +327,8 @@ void LineDataMultiVar::setTrajectoryData(const Trajectories& trajectories) {
     for (auto c = 0; c < varColors.size(); ++c) {
         varColors[c] = defaultColors[c % defaultColors.size()];
     }*/
+
+    dirty = true;
 }
 
 void LineDataMultiVar::recomputeColorLegend() {

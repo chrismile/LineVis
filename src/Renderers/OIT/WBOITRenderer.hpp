@@ -44,6 +44,7 @@ class WBOITRenderer : public LineRenderer {
 public:
     WBOITRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~WBOITRenderer() override {}
+    RenderingMode getRenderingMode() override { return RENDERING_MODE_WBOIT; }
 
     /**
      * Re-generates the visualization mapping.

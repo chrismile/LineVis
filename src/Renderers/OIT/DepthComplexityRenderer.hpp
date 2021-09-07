@@ -41,6 +41,7 @@ class DepthComplexityRenderer : public LineRenderer {
 public:
     DepthComplexityRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     virtual ~DepthComplexityRenderer() {}
+    RenderingMode getRenderingMode() override { return RENDERING_MODE_DEPTH_COMPLEXITY; }
 
     /**
      * Re-generates the visualization mapping.

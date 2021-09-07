@@ -40,6 +40,7 @@ class DepthPeelingRenderer : public LineRenderer {
 public:
     DepthPeelingRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     virtual ~DepthPeelingRenderer() {}
+    RenderingMode getRenderingMode() override { return RENDERING_MODE_DEPTH_PEELING; }
 
     /**
      * Re-generates the visualization mapping.

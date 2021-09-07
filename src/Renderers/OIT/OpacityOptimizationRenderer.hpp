@@ -53,6 +53,7 @@ class OpacityOptimizationRenderer : public LineRenderer {
 public:
     OpacityOptimizationRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~OpacityOptimizationRenderer() override {}
+    RenderingMode getRenderingMode() override { return RENDERING_MODE_OPACITY_OPTIMIZATION; }
 
     /**
      * Re-generates the visualization mapping.

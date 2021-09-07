@@ -36,6 +36,7 @@ class OpaqueLineRenderer : public LineRenderer {
 public:
     OpaqueLineRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     virtual ~OpaqueLineRenderer() {}
+    RenderingMode getRenderingMode() override { return RENDERING_MODE_ALL_LINES_OPAQUE; }
 
     /**
      * Re-generates the visualization mapping.

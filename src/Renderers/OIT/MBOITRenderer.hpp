@@ -48,6 +48,7 @@ class MBOITRenderer : public LineRenderer {
 public:
     MBOITRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     virtual ~MBOITRenderer() {}
+    RenderingMode getRenderingMode() override { return RENDERING_MODE_MBOIT; }
 
     /**
      * Re-generates the visualization mapping.

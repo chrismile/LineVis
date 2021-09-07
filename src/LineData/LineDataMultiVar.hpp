@@ -87,6 +87,8 @@ public:
      * @return true if the gather shader needs to be reloaded.
      */
     virtual bool renderGuiWindowSecondary(bool isRasterizer) override;
+    /// Set current rendering mode (e.g. for making visible certain UI options only for certain renderers).
+    virtual void setLineRenderer(LineRenderer* lineRenderer) override;
     /// Certain GUI widgets might need the clear color.
     virtual void setClearColor(const sgl::Color& clearColor) override;
     /// Whether to use linear RGB when rendering.
@@ -126,6 +128,8 @@ private:
 
     ///< Use multivariate or single attribute rendering? If true, falls back to code from @see LineDataFlow.
     static bool useMultiVarRendering;
+    static bool rendererSupportsMultiVarRendering;
+    static bool disabledMultiVarRenderingDueToLineRenderer;
 
     // Line SSBO data.
     sgl::GeometryBufferPtr variableArrayBuffer;

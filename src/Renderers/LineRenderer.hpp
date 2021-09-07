@@ -31,6 +31,7 @@
 
 #include <Renderers/AmbientOcclusion/AmbientOcclusionBaker.hpp>
 #include "LineData/LineData.hpp"
+#include "RenderingModes.hpp"
 #include "SceneData.hpp"
 
 namespace sgl {
@@ -58,6 +59,7 @@ public:
         : windowName(windowName), sceneData(sceneData), transferFunctionWindow(transferFunctionWindow) {}
     virtual void initialize();
     virtual ~LineRenderer();
+    virtual RenderingMode getRenderingMode()=0;
 
     /// Returns if the visualization mapping needs to be re-generated.
     inline bool isDirty() const { return dirty; }

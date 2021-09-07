@@ -62,6 +62,7 @@ public:
     VulkanRayTracer(
             SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
     ~VulkanRayTracer() override;
+    RenderingMode getRenderingMode() override { return RENDERING_MODE_VULKAN_RAY_TRACER; }
 
     /**
      * Re-generates the visualization mapping.
