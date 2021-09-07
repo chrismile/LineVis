@@ -390,6 +390,9 @@ Trajectories loadTrajectoriesFromNetCdf(const std::string& filename, std::vector
             if (strcmp(attname, "standard_name") == 0) {
                 variableDisplayName = getStringAttribute(ncid, varid, "standard_name");
             }
+            if (strcmp(attname, "auxiliary_data") == 0) {
+                isAuxiliaryData = getStringAttribute(ncid, varid, "auxiliary_data") == "yes";
+            }
         }
         attributeNames.push_back(variableDisplayName);
 
