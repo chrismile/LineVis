@@ -28,6 +28,8 @@
 
 #include <iostream>
 
+#include <boost/filesystem.hpp>
+
 #include <Utils/AppSettings.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/FileUtils.hpp>
@@ -35,7 +37,6 @@
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
 #include <ImGui/imgui_stdlib.h>
-#include <boost/filesystem.hpp>
 
 #include "Loaders/DataSetList.hpp"
 #include "StressLineTracingRequester.hpp"
@@ -47,7 +48,7 @@ StressLineTracingRequester::StressLineTracingRequester(void* context) : context(
 void StressLineTracingRequester::loadMeshList() {
     meshNames.clear();
     meshFilenames.clear();
-    meshNames.push_back("Local file...");
+    meshNames.emplace_back("Local file...");
 
     const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
     std::string filename = lineDataSetsDirectory + "meshes.json";
@@ -78,7 +79,8 @@ void StressLineTracingRequester::renderGui() {
     sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(3072, 1146, 760, 628);
     if (ImGui::Begin("Stress Line Tracing", &showWindow)) {
         bool changed = false;
-        if (ImGui::Combo("Data Set", &selectedMeshIndex, meshNames.data(), meshNames.size())) {
+        if (ImGui::Combo(
+                "Data Set", &selectedMeshIndex, meshNames.data(), int(meshNames.size()))) {
             if (selectedMeshIndex >= 1) {
                 meshFilename = meshFilenames.at(selectedMeshIndex - 1);
                 changed = true;

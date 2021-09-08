@@ -67,6 +67,10 @@ public:
     explicit StressLineTracingRequester(void* context);
     void renderGui();
     bool getHasNewData(DataSetInformation& dataSetInformation);
+
+    /**
+     * @return Whether a request is currently processed (for UI progress spinner).
+     */
     inline bool getIsProcessingRequest() const { return worker.getIsProcessingRequest(); }
 
 private:

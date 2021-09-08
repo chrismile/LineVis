@@ -33,7 +33,7 @@
 
 class LineDataFlow : public LineData {
 public:
-    explicit LineDataFlow(sgl::TransferFunctionWindow &transferFunctionWindow);
+    explicit LineDataFlow(sgl::TransferFunctionWindow& transferFunctionWindow);
     ~LineDataFlow() override;
     virtual void setTrajectoryData(const Trajectories& trajectories);
     bool getIsSmallDataSet() const override;

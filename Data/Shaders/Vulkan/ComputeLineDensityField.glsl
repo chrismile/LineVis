@@ -40,64 +40,29 @@ struct LineSegment {
     uint lineID;
 };
 
-struct LineSegmentQuantized {
-    uint faceIndex1; // 3 bits
-    uint faceIndex2; // 3 bits
-    uint facePositionQuantized1; // 2*log2(QUANTIZATION_RESOLUTION) bits
-    uint facePositionQuantized2; // 2*log2(QUANTIZATION_RESOLUTION) bits
-    uint lineID; // 8 bits
-    float a0; // Attribute 1
-    float a1; // Attribute 2
+layout (std430, binding = 0) readonly buffer UniformData {
+    ivec3 gridResolution;
+    int numLines;
 };
-
-// Works until quantization resolution of 64^2 (6 + 2 * 2log2(64) = 30)
-struct LineSegmentCompressed {
-    // Bit 0-2, 3-5: Face ID of start/end point.
-    // For c = log2(QUANTIZATION_RESOLUTION^2) = 2*log2(QUANTIZATION_RESOLUTION):
-    // Bit 6-(5+c), (6+c)-(5+2c): Quantized face position of start/end point.
-    uint linePosition;
-    // Bit 11-15: Line ID (5 bits for bitmask of 2^5 bits = 32 bits).
-    // Bit 16-23, 24-31: Attribute of start/end point (normalized to [0,1]).
-    uint attributes;
-};
-
 
 struct LinePoint {
     vec3 linePoint;
     float lineAttribute;
 };
 
-#ifdef VULKAN
-layout (std430, binding = 1) uniform UniformBuffer {
-    uint numLinesInVoxel[];
-};
-#else
-uniform uint numLines;
-#endif
-
-layout (std430, binding = 2) readonly buffer LinePointBuffer {
+layout (std430, binding = 1) readonly buffer LinePointBuffer {
     LinePoint linePoints[];
 };
 
-layout (std430, binding = 3) readonly buffer LineOffsetBuffer {
+layout (std430, binding = 2) readonly buffer LineOffsetBuffer {
     uint lineOffsets[];
 };
 
-// Number of line segments in each voxel.
-layout (std430, binding = 4) buffer NumLinesBuffer {
-    uint numLinesInVoxel[];
+layout (std430, binding = 3) coherent buffer SpinlockBuffer {
+    uint spinlockViewportBuffer[];
 };
 
-#ifdef WRITE_LINE_SEGMENTS_PASS
-// Offset in the line segments buffer for each voxel.
-layout (std430, binding = 5) readonly buffer VoxelLineListOffsetBuffer {
-    uint voxelLineListOffsets[];
-};
-
-layout (std430, binding = 6) buffer LineSegmentsBuffer {
-    LineSegmentCompressed lineSegments[];
-};
-#endif
+layout (binding = 4) coherent image3D lineDensityFieldImage;
 
 uint getVoxelIndex1D(ivec3 voxelIndex) {
     return voxelIndex.x + voxelIndex.y*gridResolution.x + voxelIndex.z*gridResolution.x*gridResolution.y;
@@ -162,113 +127,26 @@ int rayBoxIntersection(
         }
     }
 
-    //entrancePoint = rayOrigin + tNear * rayDirection;
-    //exitPoint = rayOrigin + tFar * rayDirection;
     return (tNear >= 0.0f && tNear <= 1.0f ? 1 : 0) + (tFar >= 0.0f && tFar <= 1.0f ? 1 : 0);
 }
 
-void quantizePoint(vec3 v, out uvec2 qv, uint faceIndex) {
-    uint dimensions[2];
-    if (faceIndex == 0 || faceIndex == 1) {
-        // x face
-        dimensions[0] = 1;
-        dimensions[1] = 2;
-    } else if (faceIndex == 2 || faceIndex == 3) {
-        // y face
-        dimensions[0] = 0;
-        dimensions[1] = 2;
-    } else {
-        // z face
-        dimensions[0] = 0;
-        dimensions[1] = 1;
-    }
 
-    // Iterate over all dimensions
-    for (int i = 0; i < 2; i++) {
-        uint quantizationPos = uint(floor(v[dimensions[i]] * quantizationResolution[dimensions[i]]));
-        qv[i] = clamp(quantizationPos, 0u, quantizationResolution[dimensions[i]] - 1);
-    }
-}
-
-uint computeFaceIndex(vec3 v, ivec3 voxelIndex) {
-    ivec3 lower = voxelIndex, upper = voxelIndex + ivec3(1);
-    for (int i = 0; i < 3; i++) {
-        if (abs(v[i] - lower[i]) < 0.00001) {
-            return uint(2 * i);
-        }
-        if (abs(v[i] - upper[i]) < 0.00001) {
-            return uint(2 * i + 1);
-        }
-    }
-    return 0;
-}
-
-void quantizeLineSegment(
-        vec3 voxelPos, LineSegment lineSegment, out LineSegmentQuantized lineQuantized,
-        uint faceIndex1, uint faceIndex2) {
-    lineQuantized.a0 = lineSegment.a0;
-    lineQuantized.a1 = lineSegment.a1;
-
-    uvec2 facePosition3D1, facePosition3D2;
-    quantizePoint(lineSegment.v0 - voxelPos, facePosition3D1, faceIndex1);
-    quantizePoint(lineSegment.v1 - voxelPos, facePosition3D2, faceIndex2);
-    lineQuantized.lineID = lineSegment.lineID;
-    lineQuantized.faceIndex1 = faceIndex1;
-    lineQuantized.faceIndex2 = faceIndex2;
-    lineQuantized.facePositionQuantized1 = facePosition3D1.x + facePosition3D1.y * quantizationResolution.x;
-    lineQuantized.facePositionQuantized2 = facePosition3D2.x + facePosition3D2.y * quantizationResolution.x;
-}
-
-int intlog2(int x) {
-    int exponent = 0;
-    while (x > 1) {
-        x /= 2;
-        exponent++;
-    }
-    return exponent;
-}
-
-void compressLineSegment(ivec3 voxelIndex, LineSegment lineSegment, out LineSegmentCompressed lineSegmentCompressed) {
-    LineSegmentQuantized lineQuantized;
-    uint faceIndex1 = computeFaceIndex(lineSegment.v0, voxelIndex);
-    uint faceIndex2 = computeFaceIndex(lineSegment.v1, voxelIndex);
-    quantizeLineSegment(vec3(voxelIndex), lineSegment, lineQuantized, faceIndex1, faceIndex2);
-
-    uint attr1Unorm = uint(clamp(round(lineQuantized.a0*255.0), 0.0, 255.0));
-    uint attr2Unorm = uint(clamp(round(lineQuantized.a1*255.0), 0.0, 255.0));
-
-    int c = 2 * intlog2(int(quantizationResolution.x));
-    lineSegmentCompressed.linePosition = lineQuantized.faceIndex1;
-    lineSegmentCompressed.linePosition |= lineQuantized.faceIndex2 << 3;
-    lineSegmentCompressed.linePosition |= lineQuantized.facePositionQuantized1 << 6;
-    lineSegmentCompressed.linePosition |= lineQuantized.facePositionQuantized2 << (6 + c);
-    lineSegmentCompressed.attributes = 0;
-    if (c > 12) {
-        // Quantization resolution of 128 or 256
-        lineSegmentCompressed.attributes |= lineQuantized.facePositionQuantized2 >> (c - (6 + 2*c - 32));
-    }
-    lineSegmentCompressed.attributes |= (lineQuantized.lineID & 31u) << 11;
-    lineSegmentCompressed.attributes |= attr1Unorm << 16;
-    lineSegmentCompressed.attributes |= attr2Unorm << 24;
-}
-
-
-#ifdef WRITE_LINE_SEGMENTS_PASS
 void addLineSegment(ivec3 voxelIndex, LineSegment lineSegment) {
-    LineSegmentCompressed lineSegmentCompressed;
-    compressLineSegment(voxelIndex, lineSegment, lineSegmentCompressed);
+    float lineSegmentLength = length(lineSegment.v1 - lineSegment.v0);
+    uint voxelIndex1D = getVoxelIndex1D(voxelIndex);
 
-    uint voxelIndex1D = getVoxelIndex1D(voxelIndex);
-    uint segmentPosition = atomicAdd(numLinesInVoxel[voxelIndex1D], 1u);
-    uint voxelLineListOffset = voxelLineListOffsets[voxelIndex1D];
-    lineSegments[voxelLineListOffset + segmentPosition] = lineSegmentCompressed;
+    // Use a spinlock to synchronize access to lineDensityFieldImage.
+    bool keepWaiting = true;
+    while (keepWaiting) {
+        if (atomicCompSwap(spinlockBuffer[voxelIndex1D], 0, 1) == 0) {
+            float newDensity = imageLoad(lineDensityFieldImage, voxelIndex).x + lineSegmentLength;
+            imageStore(lineDensityFieldImage, voxelIndex, vec4(newDensity));
+            memoryBarrier();
+            atomicExchange(spinlockViewportBuffer[pixelIndex], 0);
+            keepWaiting = false;
+        }
+    }
 }
-#else
-void addLineSegment(ivec3 voxelIndex) {
-    uint voxelIndex1D = getVoxelIndex1D(voxelIndex);
-    atomicAdd(numLinesInVoxel[voxelIndex1D], 1u);
-}
-#endif
 
 
 
@@ -296,35 +174,35 @@ void traverseVoxelGrid(uint lineID, vec3 startPoint, float startAttribute, vec3 
 
     int stepX = int(sign(endPoint.x - startPoint.x));
     if (stepX != 0)
-    tDeltaX = min(stepX / (endPoint.x - startPoint.x), 1e7);
+        tDeltaX = min(stepX / (endPoint.x - startPoint.x), 1e7);
     else
-    tDeltaX = 1e7; // inf
+        tDeltaX = 1e7; // inf
     if (stepX > 0)
-    tMaxX = tDeltaX * (1.0 - fract(startPoint.x));
+        tMaxX = tDeltaX * (1.0 - fract(startPoint.x));
     else
-    tMaxX = tDeltaX * fract(startPoint.x);
+        tMaxX = tDeltaX * fract(startPoint.x);
     voxelIndex.x = int(floor(startPoint.x));
 
     int stepY = int(sign(endPoint.y - startPoint.y));
     if (stepY != 0)
-    tDeltaY = min(stepY / (endPoint.y - startPoint.y), 1e7);
+        tDeltaY = min(stepY / (endPoint.y - startPoint.y), 1e7);
     else
-    tDeltaY = 1e7; // inf
+        tDeltaY = 1e7; // inf
     if (stepY > 0)
-    tMaxY = tDeltaY * (1.0 - fract(startPoint.y));
+        tMaxY = tDeltaY * (1.0 - fract(startPoint.y));
     else
-    tMaxY = tDeltaY * fract(startPoint.y);
+        tMaxY = tDeltaY * fract(startPoint.y);
     voxelIndex.y = int(floor(startPoint.y));
 
     int stepZ = int(sign(endPoint.z - startPoint.z));
     if (stepZ != 0)
-    tDeltaZ = min(stepZ / (endPoint.z - startPoint.z), 1e7);
+        tDeltaZ = min(stepZ / (endPoint.z - startPoint.z), 1e7);
     else
-    tDeltaZ = 1e7; // inf
+        tDeltaZ = 1e7; // inf
     if (stepZ > 0)
-    tMaxZ = tDeltaZ * (1.0 - fract(startPoint.z));
+        tMaxZ = tDeltaZ * (1.0 - fract(startPoint.z));
     else
-    tMaxZ = tDeltaZ * fract(startPoint.z);
+        tMaxZ = tDeltaZ * fract(startPoint.z);
     voxelIndex.z = int(floor(startPoint.z));
 
     // Clamp to avoid imprecisions at boundaries.
@@ -340,14 +218,12 @@ void traverseVoxelGrid(uint lineID, vec3 startPoint, float startAttribute, vec3 
 
     vec3 rayDirection = endPoint - startPoint; // Not normalized -> t needs to be in [0.0, 1.0].
     int numIntersectionsNew;
-#ifdef WRITE_LINE_SEGMENTS_PASS
     LineSegment lineSegment;
-#endif
 
     while (all(greaterThanEqual(voxelIndex, ivec3(0))) && all(lessThan(voxelIndex, gridResolution))) {
         float tNear = -1e9, tFar = 1e9;
         numIntersectionsNew = rayBoxIntersection(startPoint, rayDirection,
-                vec3(voxelIndex), vec3(voxelIndex) + vec3(1.0), tNear, tFar);
+        vec3(voxelIndex), vec3(voxelIndex) + vec3(1.0), tNear, tFar);
 
         if (numIntersectionsNew > 0 && noIntersectionForLineYet) {
             // Skip segment until first intersection.
@@ -357,7 +233,6 @@ void traverseVoxelGrid(uint lineID, vec3 startPoint, float startAttribute, vec3 
 
         if (numIntersectionsNew == 2 || (numIntersectionsNew == 1 && currentVoxelNumIntersections == 1
                 && currentVoxel == voxelIndex)) {
-#ifdef WRITE_LINE_SEGMENTS_PASS
             lineSegment.lineID = lineID;
             if (numIntersectionsNew == 2) {
                 lineSegment.v0 = startPoint + tNear * (endPoint - startPoint);
@@ -369,9 +244,6 @@ void traverseVoxelGrid(uint lineID, vec3 startPoint, float startAttribute, vec3 
             lineSegment.v1 = startPoint + tFar * (endPoint - startPoint);
             lineSegment.a1 = startAttribute + tFar * (endAttribute - startAttribute);
             addLineSegment(voxelIndex, lineSegment);
-#else
-            addLineSegment(voxelIndex);
-#endif
             currentVoxelNumIntersections = 0;
         } else if (numIntersectionsNew == 1) {
             currentVoxel = voxelIndex;
@@ -407,7 +279,7 @@ void traverseVoxelGrid(uint lineID, vec3 startPoint, float startAttribute, vec3 
 
 void main() {
     uint lineNumber = gl_GlobalInvocationID.x;
-    if (lineNumber >= numLines) {
+    if (lineNumber >= uint(numLines)) {
         return;
     }
 

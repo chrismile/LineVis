@@ -42,6 +42,7 @@
 #include "LineData/LineDataRequester.hpp"
 #include "LineData/Filters/LineFilter.hpp"
 #include "LineData/Stress/StressLineTracingRequester.hpp"
+#include "LineData/Scattering/ScatteringLineTracingRequester.hpp"
 #include "Renderers/SceneData.hpp"
 #include "Renderers/AmbientOcclusion/AmbientOcclusionBaker.hpp"
 
@@ -140,7 +141,9 @@ private:
     bool newMeshLoaded = true;
     sgl::AABB3 modelBoundingBox;
     void* zeromqContext = nullptr;
-    StressLineTracingRequester* stressLineTracingRequester;
+    StressLineTracingRequester* stressLineTracingRequester = nullptr;
+    ScatteringLineTracingRequester* scatteringLineTracingRequester = nullptr;
+    const int NUM_MANUAL_LOADERS = 3;
     DataSetInformation stressLineTracerDataSetInformation;
 
     AmbientOcclusionBakerPtr ambientOcclusionBaker;

@@ -235,7 +235,7 @@ public:
     }
 
     /// This function should be called by sub-classes before accessing internal rendering data.
-    void rebuildInternalRepresentationIfNecessary();
+    virtual void rebuildInternalRepresentationIfNecessary();
 
 protected:
     void loadSimulationMeshOutlineFromFile(

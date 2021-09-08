@@ -140,9 +140,6 @@ bool LineDataMultiVar::settingsDiffer(LineData* other) {
 }
 
 void LineDataMultiVar::update(float dt) {
-    if (lineRenderer && (lineRenderer->getIsVulkanRenderer() || !lineRenderer->getIsRasterizer())) {
-        ;
-    }
     multiVarTransferFunctionWindow.update(dt);
 }
 

@@ -39,7 +39,7 @@
 
 #include "LineDataFlow.hpp"
 
-LineDataFlow::LineDataFlow(sgl::TransferFunctionWindow &transferFunctionWindow)
+LineDataFlow::LineDataFlow(sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_FLOW_LINES) {
     // Bands not supported by flow lines at the moment.
     if (linePrimitiveMode == LINE_PRIMITIVES_BAND || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND) {
@@ -63,12 +63,7 @@ bool LineDataFlow::loadFromFile(
     bool dataLoaded = !trajectories.empty();
 
     if (dataLoaded) {
-        for (size_t attrIdx = attributeNames.size(); attrIdx < getNumAttributes(); attrIdx++) {
-            attributeNames.push_back(std::string() + "Attribute #" + std::to_string(attrIdx + 1));
-        }
         setTrajectoryData(trajectories);
-        modelBoundingBox = computeTrajectoriesAABB3(trajectories);
-        //recomputeHistogram(); ///< Called after data is loaded using LineDataRequester.
     }
 
     return dataLoaded;
@@ -76,6 +71,10 @@ bool LineDataFlow::loadFromFile(
 
 void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
     this->trajectories = trajectories;
+
+    for (size_t attrIdx = attributeNames.size(); attrIdx < getNumAttributes(); attrIdx++) {
+        attributeNames.push_back(std::string() + "Attribute #" + std::to_string(attrIdx + 1));
+    }
 
     sgl::Logfile::get()->writeInfo(
             std::string() + "Number of lines: " + std::to_string(getNumLines()));
@@ -116,6 +115,8 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
         const Trajectory& trajectory = trajectories.at(i);
         numTotalTrajectoryPoints += trajectory.positions.size();
     }
+
+    modelBoundingBox = computeTrajectoriesAABB3(trajectories);
 
     dirty = true;
 }

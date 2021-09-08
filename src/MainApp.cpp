@@ -105,7 +105,13 @@ MainApp::MainApp()
 #else
           zeromqContext(nullptr),
 #endif
-          stressLineTracingRequester(new StressLineTracingRequester(zeromqContext)) {
+          stressLineTracingRequester(new StressLineTracingRequester(zeromqContext)),
+          scatteringLineTracingRequester(new ScatteringLineTracingRequester(
+                  transferFunctionWindow
+#ifdef USE_VULKAN_INTEROP
+                  , rendererVk
+#endif
+          )) {
 #ifdef USE_VULKAN_INTEROP
     sgl::AppSettings::get()->getVulkanInstance()->setDebugCallback(&vulkanErrorCallback);
 #endif
@@ -322,6 +328,8 @@ MainApp::MainApp()
 MainApp::~MainApp() {
     delete stressLineTracingRequester;
     stressLineTracingRequester = nullptr;
+    delete scatteringLineTracingRequester;
+    scatteringLineTracingRequester = nullptr;
 #ifdef USE_ZEROMQ
     zmq_ctx_destroy(zeromqContext);
     zeromqContext = nullptr;
@@ -396,12 +404,12 @@ void MainApp::setNewState(const InternalState &newState) {
         std::string nameLower = boost::algorithm::to_lower_copy(newState.dataSetDescriptor.name);
         for (size_t i = 0; i < dataSetInformation.size(); i++) {
             if (boost::algorithm::to_lower_copy(dataSetInformation.at(i).name) == nameLower) {
-                selectedDataSetIndex = int(i) + 2;
+                selectedDataSetIndex = int(i) + NUM_MANUAL_LOADERS;
                 break;
             }
         }
         if (selectedDataSetIndex == 0) {
-            if (dataSetInformation.at(selectedDataSetIndex - 2).type == DATA_SET_TYPE_STRESS_LINES
+            if (dataSetInformation.at(selectedDataSetIndex - NUM_MANUAL_LOADERS).type == DATA_SET_TYPE_STRESS_LINES
                     && newState.dataSetDescriptor.enabledFileIndices.size() == 3) {
                 LineDataStress::setUseMajorPS(newState.dataSetDescriptor.enabledFileIndices.at(0));
                 LineDataStress::setUseMediumPS(newState.dataSetDescriptor.enabledFileIndices.at(1));
@@ -584,6 +592,9 @@ void MainApp::renderGui() {
     if (selectedDataSetIndex == 1) {
         stressLineTracingRequester->renderGui();
     }
+    if (selectedDataSetIndex == 2) {
+        scatteringLineTracingRequester->renderGui();
+    }
 
     if ((!lineData || lineData->shallRenderTransferFunctionWindow()) && transferFunctionWindow.renderGui()) {
         reRender = true;
@@ -669,8 +680,9 @@ void MainApp::renderGui() {
 
 void MainApp::loadAvailableDataSetInformation() {
     dataSetNames.clear();
-    dataSetNames.push_back("Local file...");
-    dataSetNames.push_back("Stress Line Tracer");
+    dataSetNames.emplace_back("Local file...");
+    dataSetNames.emplace_back("Stress Line Tracer");
+    dataSetNames.emplace_back("Scattering Line Tracer");
     selectedDataSetIndex = 0;
 
     const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
@@ -692,9 +704,13 @@ std::vector<std::string> MainApp::getSelectedMeshFilenames() {
         dataSetType = DATA_SET_TYPE_STRESS_LINES;
         filenames.push_back(customDataSetFileName);
         return filenames;
+    } else if (selectedDataSetIndex == 2) {
+        dataSetType = DATA_SET_TYPE_SCATTERING_LINES;
+        filenames.push_back(customDataSetFileName);
+        return filenames;
     }
-    dataSetType = dataSetInformation.at(selectedDataSetIndex - 2).type;
-    for (const std::string& filename : dataSetInformation.at(selectedDataSetIndex - 2).filenames) {
+    dataSetType = dataSetInformation.at(selectedDataSetIndex - NUM_MANUAL_LOADERS).type;
+    for (const std::string& filename : dataSetInformation.at(selectedDataSetIndex - NUM_MANUAL_LOADERS).filenames) {
         filenames.push_back(filename);
     }
     return filenames;
@@ -704,13 +720,14 @@ void MainApp::renderFileSelectionSettingsGui() {
     if (ImGui::Combo(
             "Data Set", &selectedDataSetIndex, dataSetNames.data(),
             dataSetNames.size())) {
-        if (selectedDataSetIndex >= 2) {
+        if (selectedDataSetIndex >= NUM_MANUAL_LOADERS) {
             loadLineDataSet(getSelectedMeshFilenames());
         }
     }
 
     if (lineDataRequester.getIsProcessingRequest() || stressLineTracingRequester->getIsProcessingRequest()
-            || (ambientOcclusionBaker && ambientOcclusionBaker->getIsComputationRunning())) {
+        || scatteringLineTracingRequester->getIsProcessingRequest()
+        || (ambientOcclusionBaker && ambientOcclusionBaker->getIsComputationRunning())) {
         ImGui::SameLine();
         ImGui::ProgressSpinner(
                 "##progress-spinner", -1.0f, -1.0f, 4.0f,
@@ -852,10 +869,6 @@ void MainApp::update(float dt) {
     }
 #endif
 
-    if (stressLineTracingRequester->getHasNewData(stressLineTracerDataSetInformation)) {
-        dataSetType = stressLineTracerDataSetInformation.type;
-        loadLineDataSet(stressLineTracerDataSetInformation.filenames);
-    }
     checkLoadingRequestFinished();
 
     transferFunctionWindow.update(dt);
@@ -903,8 +916,8 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames, bool bl
     currentlyLoadedDataSetIndex = selectedDataSetIndex;
 
     DataSetInformation selectedDataSetInformation;
-    if (selectedDataSetIndex >= 2 && dataSetInformation.size() > 0) {
-        selectedDataSetInformation = dataSetInformation.at(selectedDataSetIndex - 2);
+    if (selectedDataSetIndex >= NUM_MANUAL_LOADERS && dataSetInformation.size() > 0) {
+        selectedDataSetInformation = dataSetInformation.at(selectedDataSetIndex - NUM_MANUAL_LOADERS);
     } else if (selectedDataSetIndex == 1) {
         selectedDataSetInformation = stressLineTracerDataSetInformation;
     } else {
@@ -993,8 +1006,18 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames, bool bl
 }
 
 void MainApp::checkLoadingRequestFinished() {
+    LineDataPtr lineData;
     DataSetInformation loadedDataSetInformation;
-    LineDataPtr lineData = lineDataRequester.getLoadedData(loadedDataSetInformation);
+
+    if (stressLineTracingRequester->getHasNewData(stressLineTracerDataSetInformation)) {
+        dataSetType = stressLineTracerDataSetInformation.type;
+        loadLineDataSet(stressLineTracerDataSetInformation.filenames);
+    }
+    scatteringLineTracingRequester->getHasNewData(loadedDataSetInformation, lineData);
+
+    if (!lineData) {
+        lineData = lineDataRequester.getLoadedData(loadedDataSetInformation);
+    }
 
     if (lineData) {
         if (loadedDataSetInformation.hasCustomLineWidth) {
