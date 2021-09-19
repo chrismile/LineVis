@@ -57,6 +57,11 @@ ScatteringLineTracingRequester::ScatteringLineTracingRequester(
 
 ScatteringLineTracingRequester::~ScatteringLineTracingRequester() {
     join();
+
+    if (cachedGridData) {
+        delete[] cachedGridData;
+        cachedGridData = nullptr;
+    }
 }
 
 void ScatteringLineTracingRequester::loadGridDataSetList() {
@@ -229,28 +234,44 @@ Json::Value ScatteringLineTracingRequester::traceLines(
     std::string gridDataSetFilename = request["gridDataSetFilename"].asString();
     float extinctionCoefficient = request["extinctionCoefficient"].asFloat();
 
-    uint8_t* fileBuffer = nullptr;
-    size_t bufferSize = 0;
-    bool loaded = sgl::loadFileFromSource(gridDataSetFilename, fileBuffer, bufferSize, true);
-    if (!loaded) {
-        sgl::Logfile::get()->writeError(
-                "Error in ScatteringLineTracingRequester::traceLines: Couldn't load data from grid data set file \""
-                + gridDataSetFilename + "\".");
-        return {};
+    if (gridDataSetFilename != cachedGridDataSetFilename) {
+        if (cachedGridData) {
+            delete[] cachedGridData;
+            cachedGridData = nullptr;
+        }
+
+        cachedGridDataSetFilename = gridDataSetFilename;
+
+        uint8_t* fileBuffer = nullptr;
+        size_t bufferSize = 0;
+        bool loaded = sgl::loadFileFromSource(gridDataSetFilename, fileBuffer, bufferSize, true);
+        if (!loaded) {
+            sgl::Logfile::get()->writeError(
+                    "Error in ScatteringLineTracingRequester::traceLines: Couldn't load data from grid data set file \""
+                    + gridDataSetFilename + "\".");
+            return {};
+        }
+        sgl::BinaryReadStream binaryReadStream(fileBuffer, bufferSize);
+
+        uint32_t gridSizeX = 0, gridSizeY = 0, gridSizeZ = 0;
+        double voxelSizeX = 0.0, voxelSizeY = 0.0, voxelSizeZ = 0.0;
+        binaryReadStream.read(gridSizeX);
+        binaryReadStream.read(gridSizeY);
+        binaryReadStream.read(gridSizeZ);
+        binaryReadStream.read(voxelSizeX);
+        binaryReadStream.read(voxelSizeY);
+        binaryReadStream.read(voxelSizeZ);
+
+        cachedGridSizeX = gridSizeX;
+        cachedGridSizeY = gridSizeY;
+        cachedGridSizeZ = gridSizeZ;
+        cachedVoxelSizeX = float(voxelSizeX);
+        cachedVoxelSizeY = float(voxelSizeY);
+        cachedVoxelSizeZ = float(voxelSizeZ);
+
+        cachedGridData = new float[gridSizeX * gridSizeY * gridSizeZ];
+        binaryReadStream.read(cachedGridData, gridSizeX * gridSizeY * gridSizeZ * sizeof(float));
     }
-    sgl::BinaryReadStream binaryReadStream(fileBuffer, bufferSize);
-
-    uint32_t gridSizeX, gridSizeY, gridSizeZ;
-    double voxelSizeX, voxelSizeY, voxelSizeZ;
-    binaryReadStream.read(gridSizeX);
-    binaryReadStream.read(gridSizeY);
-    binaryReadStream.read(gridSizeZ);
-    binaryReadStream.read(voxelSizeX);
-    binaryReadStream.read(voxelSizeY);
-    binaryReadStream.read(voxelSizeZ);
-
-    float* dataArray = new float[gridSizeX * gridSizeY * gridSizeZ];
-    binaryReadStream.read(dataArray, gridSizeX * gridSizeY * gridSizeZ * sizeof(float));
 
     Trajectories trajectories;
     Trajectory trajectory;
@@ -263,8 +284,13 @@ Json::Value ScatteringLineTracingRequester::traceLines(
     // TODO: This function normalizes the vertex positions of the trajectories; should we also normalize the grid size?
     normalizeTrajectoriesVertexPositions(trajectories, nullptr);
 
+    auto dataArray = new float[cachedGridSizeX * cachedGridSizeY * cachedGridSizeZ];
+    memcpy(dataArray, cachedGridData, cachedGridSizeX * cachedGridSizeY * cachedGridSizeZ * sizeof(float));
+
     lineData->setDataSetInformation(gridDataSetFilename, { "Attribute #1" });
-    lineData->setGridData(dataArray, gridSizeX, gridSizeY, gridSizeZ, voxelSizeX, voxelSizeY, voxelSizeZ);
+    lineData->setGridData(
+            dataArray, cachedGridSizeX, cachedGridSizeY, cachedGridSizeZ,
+            cachedVoxelSizeX, cachedVoxelSizeY, cachedVoxelSizeZ);
     lineData->setTrajectoryData(trajectories);
     return {};
 }

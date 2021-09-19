@@ -107,6 +107,12 @@ private:
     int numLinesToTrace = 1000;
     float extinctionCoefficient = 10.0f;
 
+    // Cache.
+    std::string cachedGridDataSetFilename;
+    float* cachedGridData = nullptr;
+    uint32_t cachedGridSizeX = 0, cachedGridSizeY = 0, cachedGridSizeZ = 0;
+    float cachedVoxelSizeX = 0.0f, cachedVoxelSizeY = 0.0f, cachedVoxelSizeZ = 0.0f;
+
     // GUI data.
     bool showWindow = true;
     std::string gridDataSetFilename;
