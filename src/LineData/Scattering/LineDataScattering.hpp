@@ -46,6 +46,8 @@ struct VulkanLineDataScatteringRenderData {
 };
 
 class LineDensityFieldImageComputeRenderPass;
+class LineDensityFieldMinMaxReduceRenderPass;
+class LineDensityFieldNormalizeRenderPass;
 #endif
 
 /**
@@ -91,6 +93,9 @@ private:
     // Caches the rendering data when using Vulkan.
     VulkanLineDataScatteringRenderData vulkanScatteredLinesGridRenderData;
     std::shared_ptr<LineDensityFieldImageComputeRenderPass> lineDensityFieldImageComputeRenderPass;
+    std::shared_ptr<LineDensityFieldMinMaxReduceRenderPass> lineDensityFieldMinMaxReduceRenderPass;
+    std::shared_ptr<LineDensityFieldNormalizeRenderPass> lineDensityFieldNormalizeRenderPass;
+    sgl::vk::BufferPtr lineDensityFieldBuffer;
     bool isLineDensityFieldDirty = false;
 
     sgl::vk::Renderer* rendererVk = nullptr;
@@ -129,6 +134,64 @@ private:
     struct UniformData {
         glm::ivec3 gridResolution;
         int numLines;
+    };
+    UniformData uniformData{};
+    sgl::vk::BufferPtr uniformBuffer;
+};
+
+class LineDensityFieldMinMaxReduceRenderPass : public sgl::vk::ComputePass {
+public:
+    explicit LineDensityFieldMinMaxReduceRenderPass(sgl::vk::Renderer* renderer);
+
+    // Public interface.
+    void setLineDensityFieldImage(sgl::vk::ImagePtr& lineDensityFieldImage);
+    inline sgl::vk::BufferPtr& getMinMaxBuffer() { return minMaxReductionBuffers[outputDepthMinMaxIndex]; }
+
+private:
+    void loadShader() override;
+    void setComputePipelineInfo(sgl::vk::ComputePipelineInfo& pipelineInfo) override {}
+    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
+    void _render() override;
+
+    const int BLOCK_SIZE = 256;
+    sgl::vk::ImagePtr lineDensityFieldImage;
+    sgl::vk::BufferPtr minMaxReductionBuffers[2];
+    sgl::vk::ComputeDataPtr computeDataPingPong[2];
+    int outputDepthMinMaxIndex = 0;
+
+    // Uniform buffer object storing the line rendering settings.
+    struct UniformData {
+        uint32_t sizeOfInput;
+        uint32_t padding;
+        float nearDist = std::numeric_limits<float>::lowest();
+        float farDist = std::numeric_limits<float>::max();
+    };
+    UniformData uniformData{};
+    sgl::vk::BufferPtr uniformBuffer;
+};
+
+class LineDensityFieldNormalizeRenderPass : public sgl::vk::ComputePass {
+public:
+    explicit LineDensityFieldNormalizeRenderPass(sgl::vk::Renderer* renderer);
+
+    // Public interface.
+    void setLineDensityFieldImageView(sgl::vk::ImageViewPtr& lineDensityFieldImageView);
+    void setMinMaxBuffer(sgl::vk::BufferPtr& minMaxBuffer);
+
+private:
+    void loadShader() override;
+    void setComputePipelineInfo(sgl::vk::ComputePipelineInfo& pipelineInfo) override {}
+    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
+    void _render() override;
+
+    uint32_t imageSize = 0;
+    sgl::vk::ImageViewPtr lineDensityFieldImageView;
+    sgl::vk::BufferPtr minMaxBuffer;
+
+    // Uniform buffer object storing the line rendering settings.
+    struct UniformData {
+        glm::ivec3 gridResolution;
+        int padding;
     };
     UniformData uniformData{};
     sgl::vk::BufferPtr uniformBuffer;

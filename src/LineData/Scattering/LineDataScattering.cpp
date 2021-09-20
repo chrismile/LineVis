@@ -50,6 +50,8 @@ LineDataScattering::LineDataScattering(
     lineDataWindowName = "Line Data (Scattering)";
 
     lineDensityFieldImageComputeRenderPass = std::make_shared<LineDensityFieldImageComputeRenderPass>(rendererVk);
+    lineDensityFieldMinMaxReduceRenderPass = std::make_shared<LineDensityFieldMinMaxReduceRenderPass>(rendererVk);
+    lineDensityFieldNormalizeRenderPass = std::make_shared<LineDensityFieldNormalizeRenderPass>(rendererVk);
 }
 
 LineDataScattering::~LineDataScattering() {
@@ -91,7 +93,13 @@ void LineDataScattering::setGridData(
     vulkanScatteredLinesGridRenderData.lineDensityFieldTexture = std::make_shared<sgl::vk::Texture>(
             device, imageSettings, samplerSettings);
 
-    lineDensityFieldImageComputeRenderPass->setData(this, vulkanScatteredLinesGridRenderData.lineDensityFieldTexture);
+    lineDensityFieldImageComputeRenderPass->setData(
+            this, vulkanScatteredLinesGridRenderData.lineDensityFieldTexture);
+    lineDensityFieldMinMaxReduceRenderPass->setLineDensityFieldImage(
+            vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImage());
+    lineDensityFieldNormalizeRenderPass->setLineDensityFieldImageView(
+            vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImageView());
+
 }
 
 void LineDataScattering::rebuildInternalRepresentationIfNecessary() {
@@ -108,6 +116,7 @@ VulkanLineDataScatteringRenderData LineDataScattering::getVulkanLineDataScatteri
         return vulkanScatteredLinesGridRenderData;
     }
 
+    // Clear the line density field image.
     lineDensityFieldImageComputeRenderPass->setDataDirty();
     rendererVk->insertImageMemoryBarrier(
             vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImage(),
@@ -116,12 +125,26 @@ VulkanLineDataScatteringRenderData LineDataScattering::getVulkanLineDataScatteri
             VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_WRITE_BIT);
     vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImageView()->clearColor(
             glm::vec4(0.0f), rendererVk->getVkCommandBuffer());
+
+    // Compute the line densities and store them in the line density image.
     rendererVk->insertImageMemoryBarrier(
             vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImage(),
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
             VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_WRITE_BIT);
     lineDensityFieldImageComputeRenderPass->render();
+
+    // Compute the minimum/maximum line density.
+    lineDensityFieldMinMaxReduceRenderPass->render();
+    lineDensityFieldNormalizeRenderPass->setMinMaxBuffer(lineDensityFieldMinMaxReduceRenderPass->getMinMaxBuffer());
+
+    // Normalize the line density image.
+    rendererVk->insertImageMemoryBarrier(
+            vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImage(),
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT);
+    lineDensityFieldNormalizeRenderPass->render();
     rendererVk->insertImageMemoryBarrier(
             vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImage(),
             VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -165,7 +188,6 @@ void LineDensityFieldImageComputeRenderPass::setData(
 
 void LineDensityFieldImageComputeRenderPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
-    std::map<std::string, std::string> preprocessorDefines;
     shaderStages = sgl::vk::ShaderManager->getShaderStages({"ComputeLineDensityField.Compute"});
 }
 
@@ -208,5 +230,132 @@ void LineDensityFieldImageComputeRenderPass::_render() {
     uniformBuffer->updateData(sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
     uint32_t numWorkGroupsLines = sgl::iceil(uniformData.numLines, 256);
     renderer->dispatch(computeData, numWorkGroupsLines, 1, 1);
+}
+
+
+
+LineDensityFieldMinMaxReduceRenderPass::LineDensityFieldMinMaxReduceRenderPass(sgl::vk::Renderer* renderer)
+        : ComputePass(renderer) {
+    uniformBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(UniformData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+}
+
+void LineDensityFieldMinMaxReduceRenderPass::setLineDensityFieldImage(sgl::vk::ImagePtr& lineDensityFieldImage) {
+    this->lineDensityFieldImage = lineDensityFieldImage;
+}
+
+void LineDensityFieldMinMaxReduceRenderPass::loadShader() {
+    sgl::vk::ShaderManager->invalidateShaderCache();
+    shaderStages = sgl::vk::ShaderManager->getShaderStages({"MinMaxReduce.Compute"});
+}
+
+void LineDensityFieldMinMaxReduceRenderPass::createComputeData(
+        sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
+    auto& imageSettings = lineDensityFieldImage->getImageSettings();
+    size_t imageSize = imageSettings.width * imageSettings.height * imageSettings.depth;
+    minMaxReductionBuffers[0] = std::make_shared<sgl::vk::Buffer>(
+            device, imageSize * sizeof(glm::vec2),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+    minMaxReductionBuffers[1] = std::make_shared<sgl::vk::Buffer>(
+            device, sgl::iceil(int(imageSize), BLOCK_SIZE * 2) * sizeof(glm::vec2),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    for (int i = 0; i < 2; i++) {
+        computeDataPingPong[i] = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
+        computeDataPingPong[i]->setStaticBuffer(uniformBuffer, "UniformBuffer");
+        computeDataPingPong[i]->setStaticBuffer(minMaxReductionBuffers[i % 2], "MinMaxInBuffer");
+        computeDataPingPong[i]->setStaticBuffer(minMaxReductionBuffers[(i + 1) % 2], "MinMaxOutBuffer");
+    }
+}
+
+void LineDensityFieldMinMaxReduceRenderPass::_render() {
+    renderer->insertImageMemoryBarrier(
+            lineDensityFieldImage,
+            VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+    lineDensityFieldImage->copyToBuffer(
+            minMaxReductionBuffers[0], renderer->getVkCommandBuffer());
+    renderer->insertBufferMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            minMaxReductionBuffers[0]);
+
+    uint32_t numBlocks = sgl::iceil(int(minMaxReductionBuffers[0]->getSizeInBytes() / 8), BLOCK_SIZE);
+    int iteration = 0;
+    uint32_t inputSize;
+    while (numBlocks > 1) {
+        computeData = computeDataPingPong[iteration % 2];
+        sgl::vk::BufferPtr readBuffer = minMaxReductionBuffers[iteration % 2];
+        sgl::vk::BufferPtr writeBuffer = minMaxReductionBuffers[(iteration + 1) % 2];
+
+        inputSize = numBlocks;
+        numBlocks = sgl::iceil(int(numBlocks), BLOCK_SIZE*2);
+        uniformData.sizeOfInput = inputSize;
+        uniformBuffer->updateData(sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
+        renderer->dispatch(computeData, int(numBlocks), 1, 1);
+        renderer->insertBufferMemoryBarrier(
+                VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                readBuffer);
+        renderer->insertBufferMemoryBarrier(
+                VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                writeBuffer);
+        renderer->insertBufferMemoryBarrier(
+                VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                uniformBuffer);
+        iteration++;
+    }
+    outputDepthMinMaxIndex = iteration % 2;
+}
+
+
+
+LineDensityFieldNormalizeRenderPass::LineDensityFieldNormalizeRenderPass(sgl::vk::Renderer* renderer)
+        : ComputePass(renderer) {
+    uniformBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(UniformData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+}
+
+void LineDensityFieldNormalizeRenderPass::setLineDensityFieldImageView(
+        sgl::vk::ImageViewPtr& lineDensityFieldImageView) {
+    this->lineDensityFieldImageView = lineDensityFieldImageView;
+
+    auto& imageSettings = lineDensityFieldImageView->getImage()->getImageSettings();
+    uniformData.gridResolution = glm::ivec3(imageSettings.width, imageSettings.height, imageSettings.depth);
+}
+
+void LineDensityFieldNormalizeRenderPass::setMinMaxBuffer(sgl::vk::BufferPtr& minMaxBuffer) {
+    this->minMaxBuffer = minMaxBuffer;
+}
+
+void LineDensityFieldNormalizeRenderPass::loadShader() {
+    sgl::vk::ShaderManager->invalidateShaderCache();
+    shaderStages = sgl::vk::ShaderManager->getShaderStages({"NormalizeLineDensityField.Compute"});
+}
+
+void LineDensityFieldNormalizeRenderPass::createComputeData(
+        sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
+    computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
+    computeData->setStaticBuffer(uniformBuffer, "UniformBuffer");
+    computeData->setStaticBuffer(minMaxBuffer, "MinMaxBuffer");
+    computeData->setStaticImageView(lineDensityFieldImageView, "lineDensityFieldImage");
+}
+
+void LineDensityFieldNormalizeRenderPass::_render() {
+    uniformBuffer->updateData(sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
+    auto& imageSettings = lineDensityFieldImageView->getImage()->getImageSettings();
+    renderer->dispatch(
+            computeData,
+            sgl::iceil(int(imageSettings.width), 8),
+            sgl::iceil(int(imageSettings.height), 8),
+            sgl::iceil(int(imageSettings.depth), 8));
 }
 #endif

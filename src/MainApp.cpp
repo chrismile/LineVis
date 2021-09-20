@@ -73,6 +73,7 @@
 #ifdef USE_VULKAN_INTEROP
 #include "Renderers/Vulkan/VulkanRayTracer.hpp"
 #include "Renderers/Vulkan/VulkanTestRenderer.hpp"
+#include "Renderers/Vulkan/Scattering/ScatteredLinesRenderer.hpp"
 #include "Renderers/Vulkan/VulkanAmbientOcclusionBaker.hpp"
 #include <Graphics/Vulkan/Utils/Instance.hpp>
 #endif
@@ -483,15 +484,24 @@ void MainApp::setRenderer() {
             sgl::Logfile::get()->writeError(
                     "Error in MainApp::setRenderer: Vulkan ray pipelines are not supported on this hardware.");
         }
-    } else if (renderingMode == RENDERING_MODE_VOXEL_RAY_CASTING) {
+    }
+#endif
+    else if (renderingMode == RENDERING_MODE_VOXEL_RAY_CASTING) {
         lineRenderer = new VoxelRayCastingRenderer(sceneData, transferFunctionWindow);
-    } else if (renderingMode == RENDERING_MODE_VULKAN_TEST) {
+    }
+#ifdef USE_VULKAN_INTEROP
+    else if (renderingMode == RENDERING_MODE_VULKAN_TEST) {
         lineRenderer = new VulkanTestRenderer(sceneData, transferFunctionWindow, rendererVk);
     }
 #endif
 #ifdef USE_OSPRAY
     else if (renderingMode == RENDERING_MODE_OSPRAY_RAY_TRACER) {
         lineRenderer = new OsprayRenderer(sceneData, transferFunctionWindow);
+    }
+#endif
+#ifdef USE_VULKAN_INTEROP
+    else if (renderingMode == RENDERING_MODE_SCATTERED_LINES_RENDERER) {
+        lineRenderer = new ScatteredLinesRenderer(sceneData, transferFunctionWindow, rendererVk);
     }
 #endif
     else {
