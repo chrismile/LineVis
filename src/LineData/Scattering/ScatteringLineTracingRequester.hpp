@@ -31,9 +31,11 @@
 
 #include <thread>
 #include <condition_variable>
+#include <json/json.h>
 
 #include "Loaders/DataSetList.hpp"
 #include "LineDataScattering.hpp"
+#include "Texture3D.hpp"
 
 /**
  * Traces lines inside a scalar field while simulation scattering.
@@ -108,10 +110,11 @@ private:
     float extinctionCoefficient = 10.0f;
 
     // Cache.
-    std::string cachedGridDataSetFilename;
-    float* cachedGridData = nullptr;
-    uint32_t cachedGridSizeX = 0, cachedGridSizeY = 0, cachedGridSizeZ = 0;
-    float cachedVoxelSizeX = 0.0f, cachedVoxelSizeY = 0.0f, cachedVoxelSizeZ = 0.0f;
+    std::string cached_grid_file_name;
+    Texture3D   cached_grid = {};
+    // float* cachedGridData = nullptr;
+    // uint32_t cachedGridSizeX = 0, cachedGridSizeY = 0, cachedGridSizeZ = 0;
+    // float cachedVoxelSizeX = 0.0f, cachedVoxelSizeY = 0.0f, cachedVoxelSizeZ = 0.0f;
 
     // GUI data.
     bool showWindow = true;

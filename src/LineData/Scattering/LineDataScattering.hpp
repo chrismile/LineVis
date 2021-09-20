@@ -30,6 +30,7 @@
 #define LINEVIS_LINEDATASCATTERING_HPP
 
 #include "../LineDataFlow.hpp"
+#include "Texture3d.hpp"
 
 #ifdef USE_VULKAN_INTEROP
 #include <Graphics/Vulkan/Render/Passes/Pass.hpp>
@@ -77,6 +78,7 @@ public:
     void setGridData(
             float* scalarField, uint32_t gridSizeX, uint32_t gridSizeY, uint32_t gridSizeZ,
             float voxelSizeX, float voxelSizeY, float voxelSizeZ);
+    void setGridData(Texture3D grid);
 
     void rebuildInternalRepresentationIfNecessary() override;
 

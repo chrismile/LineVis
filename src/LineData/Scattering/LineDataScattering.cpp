@@ -66,6 +66,11 @@ void LineDataScattering::setDataSetInformation(
     this->attributeNames = attributeNames;
 }
 
+void LineDataScattering::setGridData(Texture3D grid) {
+    setGridData(grid.data, grid.size_x, grid.size_y, grid.size_z,
+                grid.voxel_size_x, grid.voxel_size_y, grid.voxel_size_z);
+}
+
 void LineDataScattering::setGridData(
         float* scalarField, uint32_t gridSizeX, uint32_t gridSizeY, uint32_t gridSizeZ,
         float voxelSizeX, float voxelSizeY, float voxelSizeZ) {

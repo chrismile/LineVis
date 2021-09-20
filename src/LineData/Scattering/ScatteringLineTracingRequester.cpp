@@ -27,7 +27,6 @@
  */
 
 #include <boost/filesystem.hpp>
-#include <json/json.h>
 
 #include <Utils/AppSettings.hpp>
 #include <Utils/File/Logfile.hpp>
@@ -40,6 +39,7 @@
 
 #include "LineDataScattering.hpp"
 #include "ScatteringLineTracingRequester.hpp"
+#include "Texture3d.hpp"
 
 ScatteringLineTracingRequester::ScatteringLineTracingRequester(
         sgl::TransferFunctionWindow& transferFunctionWindow
@@ -57,11 +57,7 @@ ScatteringLineTracingRequester::ScatteringLineTracingRequester(
 
 ScatteringLineTracingRequester::~ScatteringLineTracingRequester() {
     join();
-
-    if (cachedGridData) {
-        delete[] cachedGridData;
-        cachedGridData = nullptr;
-    }
+    cached_grid.delete_maybe();
 }
 
 void ScatteringLineTracingRequester::loadGridDataSetList() {
@@ -230,55 +226,23 @@ void ScatteringLineTracingRequester::mainLoop() {
 }
 
 Json::Value ScatteringLineTracingRequester::traceLines(
-        const Json::Value& request, std::shared_ptr<LineDataScattering>& lineData) {
+        const Json::Value& request, std::shared_ptr<LineDataScattering>& lineData)
+{
     std::string gridDataSetFilename = request["gridDataSetFilename"].asString();
     float extinctionCoefficient = request["extinctionCoefficient"].asFloat();
 
-    if (gridDataSetFilename != cachedGridDataSetFilename) {
-        if (cachedGridData) {
-            delete[] cachedGridData;
-            cachedGridData = nullptr;
-        }
-
-        cachedGridDataSetFilename = gridDataSetFilename;
-
-        uint8_t* fileBuffer = nullptr;
-        size_t bufferSize = 0;
-        bool loaded = sgl::loadFileFromSource(gridDataSetFilename, fileBuffer, bufferSize, true);
-        if (!loaded) {
-            sgl::Logfile::get()->writeError(
-                    "Error in ScatteringLineTracingRequester::traceLines: Couldn't load data from grid data set file \""
-                    + gridDataSetFilename + "\".");
-            return {};
-        }
-        sgl::BinaryReadStream binaryReadStream(fileBuffer, bufferSize);
-
-        uint32_t gridSizeX = 0, gridSizeY = 0, gridSizeZ = 0;
-        double voxelSizeX = 0.0, voxelSizeY = 0.0, voxelSizeZ = 0.0;
-        binaryReadStream.read(gridSizeX);
-        binaryReadStream.read(gridSizeY);
-        binaryReadStream.read(gridSizeZ);
-        binaryReadStream.read(voxelSizeX);
-        binaryReadStream.read(voxelSizeY);
-        binaryReadStream.read(voxelSizeZ);
-
-        cachedGridSizeX = gridSizeX;
-        cachedGridSizeY = gridSizeY;
-        cachedGridSizeZ = gridSizeZ;
-        cachedVoxelSizeX = float(voxelSizeX);
-        cachedVoxelSizeY = float(voxelSizeY);
-        cachedVoxelSizeZ = float(voxelSizeZ);
-
-        cachedGridData = new float[gridSizeX * gridSizeY * gridSizeZ];
-        binaryReadStream.read(cachedGridData, gridSizeX * gridSizeY * gridSizeZ * sizeof(float));
+    // if the user changed the file
+    if (gridDataSetFilename != cached_grid_file_name) {
+        cached_grid.delete_maybe();
+        cached_grid_file_name = gridDataSetFilename;
+        cached_grid = load_xyz_file(cached_grid_file_name);
     }
 
     Trajectories trajectories;
     Trajectory trajectory0;
     trajectory0.positions.emplace_back(-1.0f, 0.0f, 1.0f);
-    trajectory0.positions.emplace_back(-1.0f, 0.5f, 1.0f);
     trajectory0.positions.emplace_back(-1.0f, 1.0f, 1.0f);
-    trajectory0.attributes.push_back({ 0.0f, 0.5f, 1.0f });
+    trajectory0.attributes.push_back({ 1.0f, 0.0f });
     trajectories.push_back(trajectory0);
     Trajectory trajectory1;
     trajectory1.positions.emplace_back(1.0f, 0.0f, 1.0f);
@@ -293,16 +257,13 @@ Json::Value ScatteringLineTracingRequester::traceLines(
     trajectory2.attributes.push_back({ 0.0f, 0.5f, 1.0f });
     trajectories.push_back(trajectory2);
 
-    // TODO: This function normalizes the vertex positions of the trajectories; should we also normalize the grid size?
+    // TODO: This function normalizes the vertex positions of the trajectories;
+    //   should we also normalize the grid size?
     normalizeTrajectoriesVertexPositions(trajectories, nullptr);
 
-    auto dataArray = new float[cachedGridSizeX * cachedGridSizeY * cachedGridSizeZ];
-    memcpy(dataArray, cachedGridData, cachedGridSizeX * cachedGridSizeY * cachedGridSizeZ * sizeof(float));
-
     lineData->setDataSetInformation(gridDataSetFilename, { "Attribute #1" });
-    lineData->setGridData(
-            dataArray, cachedGridSizeX, cachedGridSizeY, cachedGridSizeZ,
-            cachedVoxelSizeX, cachedVoxelSizeY, cachedVoxelSizeZ);
+    lineData->setGridData(cached_grid);
     lineData->setTrajectoryData(trajectories);
+
     return {};
 }
