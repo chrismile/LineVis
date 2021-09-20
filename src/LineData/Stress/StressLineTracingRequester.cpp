@@ -132,7 +132,7 @@ void StressLineTracingRequester::requestNewData() {
 
     Json::Value request;
     const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
-    request["fileName"] = boost::filesystem::absolute(lineDataSetsDirectory + meshFilename).c_str();
+    request["fileName"] = boost::filesystem::absolute(lineDataSetsDirectory + meshFilename).generic_string();
     if (lineDensCtrl > 0 && useCustomLineDensity) {
         request["lineDensCtrl"] = lineDensCtrl;
     } else {
