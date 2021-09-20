@@ -271,7 +271,44 @@ Json::Value ScatteringLineTracingRequester::traceLines(
         cachedVoxelSizeZ = float(voxelSizeZ);
 
         cachedGridData = new float[gridSizeX * gridSizeY * gridSizeZ];
-        binaryReadStream.read(cachedGridData, gridSizeX * gridSizeY * gridSizeZ * sizeof(float));
+        float* cachedGridDataTransposed = new float[gridSizeX * gridSizeY * gridSizeZ];
+        binaryReadStream.read(cachedGridDataTransposed, gridSizeX * gridSizeY * gridSizeZ * sizeof(float));
+
+        // Transpose.
+#if _OPENMP >= 201107
+        #pragma omp parallel for shared(cachedGridData, cachedGridDataTransposed, gridSizeX, gridSizeY, gridSizeZ) \
+        default(none)
+#endif
+        for (uint32_t z = 0; z < gridSizeZ; z++) {
+            for (uint32_t y = 0; y < gridSizeY; y++) {
+                for (uint32_t x = 0; x < gridSizeX; x++) {
+                    cachedGridData[x + (y + z * gridSizeY) * gridSizeX] =
+                            cachedGridDataTransposed[z + (y + x * gridSizeY) * gridSizeZ];
+                }
+            }
+        }
+        delete[] cachedGridDataTransposed;
+
+        float minVal = std::numeric_limits<float>::max();
+        float maxVal = std::numeric_limits<float>::lowest();
+
+        size_t totalSize = gridSizeX * gridSizeY * gridSizeZ;
+#if _OPENMP >= 201107
+        #pragma omp parallel for default(none) shared(cachedGridData, totalSize) \
+        reduction(min: minVal) reduction(max: maxVal)
+#endif
+        for (int i = 0; i < totalSize; i++) {
+            float val = cachedGridData[i];
+            minVal = std::min(minVal, val);
+            maxVal = std::max(maxVal, val);
+        }
+
+#if _OPENMP >= 201107
+        #pragma omp parallel for default(none) shared(cachedGridData, totalSize, minVal, maxVal)
+#endif
+        for (int i = 0; i < totalSize; i++) {
+            cachedGridData[i] = (cachedGridData[i] - minVal) / (maxVal - minVal);
+        }
     }
 
     Trajectories trajectories;

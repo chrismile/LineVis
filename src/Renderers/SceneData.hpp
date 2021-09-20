@@ -26,8 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEDENSITYCONTROL_SCENEDATA_HPP
-#define LINEDENSITYCONTROL_SCENEDATA_HPP
+#ifndef LINEVIS_SCENEDATA_HPP
+#define LINEVIS_SCENEDATA_HPP
 
 #include <Graphics/Scene/Camera.hpp>
 #include <Graphics/Buffers/FBO.hpp>
@@ -57,4 +57,4 @@ struct SceneData {
     bool& useCameraFlight;
 };
 
-#endif //LINEDENSITYCONTROL_SCENEDATA_HPP
+#endif //LINEVIS_SCENEDATA_HPP
