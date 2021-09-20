@@ -52,14 +52,24 @@ void VoxelCurveDiscretizer::loadLineData(
     quantizationResolution = glm::uvec3(quantizationResolution1D);
 
     glm::vec3 gridDimensions = linesBoundingBox.getDimensions();
-
     float maxDimensionLength = 0.0f;
     for (int i = 0; i < 3; i++) {
         maxDimensionLength = std::max(maxDimensionLength, gridDimensions[i]);
     }
+
+    // Make sure that each dimension has a size of at least one voxel.
+    for (int i = 0; i < 3; i++) {
+        if (gridDimensions[i] < maxDimensionLength / float(gridResolution1D)) {
+            float diff = maxDimensionLength / float(gridResolution1D) - gridDimensions[i];
+            linesBoundingBox.min[i] -= diff / 2.0f;
+            linesBoundingBox.max[i] += diff / 2.0f;
+        }
+    }
+    gridDimensions = linesBoundingBox.getDimensions();
+
     for (int i = 0; i < 3; i++) {
         float sideLengthFactor = gridDimensions[i] / maxDimensionLength;
-        gridResolution[i] = uint32_t(std::ceil(float(gridResolution[i]) * sideLengthFactor));
+        gridResolution[i] = std::max(int(std::ceil(float(gridResolution[i]) * sideLengthFactor)), 1);
     }
 
     linesToVoxel =

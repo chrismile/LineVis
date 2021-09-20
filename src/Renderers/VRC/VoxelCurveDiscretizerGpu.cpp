@@ -131,10 +131,13 @@ void VoxelCurveDiscretizer::createVoxelGridGpu() {
     // PART 3: Run a parallel prefix sum scan on the number of lines.
     auto startPrefixSum = std::chrono::system_clock::now();
     voxelGridLineSegmentOffsetsBuffer = parallelPrefixSumReduce(gridSize1D, voxelGridNumLineSegmentsBuffer);
-    auto voxelGridPrefixSumArray = static_cast<uint32_t*>(
-            voxelGridLineSegmentOffsetsBuffer->mapBuffer(sgl::BUFFER_MAP_READ_ONLY));
-    uint32_t numVoxelizedLineSegments = voxelGridPrefixSumArray[gridSize1D];
-    voxelGridLineSegmentOffsetsBuffer->unmapBuffer();
+    uint32_t numVoxelizedLineSegments = 0;
+    if (voxelGridLineSegmentOffsetsBuffer) {
+        auto voxelGridPrefixSumArray = static_cast<uint32_t*>(
+                voxelGridLineSegmentOffsetsBuffer->mapBuffer(sgl::BUFFER_MAP_READ_ONLY));
+        numVoxelizedLineSegments = voxelGridPrefixSumArray[gridSize1D];
+        voxelGridLineSegmentOffsetsBuffer->unmapBuffer();
+    }
     auto endPrefixSum = std::chrono::system_clock::now();
     auto elapsedPrefixSum = std::chrono::duration_cast<std::chrono::milliseconds>(endPrefixSum - startPrefixSum);
     sgl::Logfile::get()->writeInfo(
@@ -144,21 +147,24 @@ void VoxelCurveDiscretizer::createVoxelGridGpu() {
 
     // PART 4: Discretize, quantize and voxelize the lines.
     auto startVoxelizeLines = std::chrono::system_clock::now();
-    voxelGridLineSegmentsBuffer = sgl::Renderer->createGeometryBuffer(
-            numVoxelizedLineSegments * sizeof(LineSegmentCompressed),
-            sgl::SHADER_STORAGE_BUFFER, sgl::BUFFER_STATIC);
-    sgl::ShaderManager->invalidateShaderCache();
-    sgl::ShaderManager->addPreprocessorDefine("WRITE_LINE_SEGMENTS_PASS", "");
-    discretizeLinesShader = sgl::ShaderManager->getShaderProgram({"DiscretizeLines.Compute"});
-    sgl::ShaderManager->removePreprocessorDefine("WRITE_LINE_SEGMENTS_PASS");
-    sgl::ShaderManager->bindShaderStorageBuffer(2, linePointBuffer);
-    sgl::ShaderManager->bindShaderStorageBuffer(3, lineOffsetBuffer);
-    sgl::ShaderManager->bindShaderStorageBuffer(4, voxelGridNumLineSegmentsBufferTmp);
-    sgl::ShaderManager->bindShaderStorageBuffer(5, voxelGridLineSegmentOffsetsBuffer);
-    sgl::ShaderManager->bindShaderStorageBuffer(6, voxelGridLineSegmentsBuffer);
-    discretizeLinesShader->setUniform("numLines", uint32_t(curves.size()));
-    discretizeLinesShader->dispatchCompute(int(numWorkGroupsLines));
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    voxelGridLineSegmentsBuffer = {};
+    if (numVoxelizedLineSegments > 0) {
+        voxelGridLineSegmentsBuffer = sgl::Renderer->createGeometryBuffer(
+                numVoxelizedLineSegments * sizeof(LineSegmentCompressed),
+                sgl::SHADER_STORAGE_BUFFER, sgl::BUFFER_STATIC);
+        sgl::ShaderManager->invalidateShaderCache();
+        sgl::ShaderManager->addPreprocessorDefine("WRITE_LINE_SEGMENTS_PASS", "");
+        discretizeLinesShader = sgl::ShaderManager->getShaderProgram({"DiscretizeLines.Compute"});
+        sgl::ShaderManager->removePreprocessorDefine("WRITE_LINE_SEGMENTS_PASS");
+        sgl::ShaderManager->bindShaderStorageBuffer(2, linePointBuffer);
+        sgl::ShaderManager->bindShaderStorageBuffer(3, lineOffsetBuffer);
+        sgl::ShaderManager->bindShaderStorageBuffer(4, voxelGridNumLineSegmentsBufferTmp);
+        sgl::ShaderManager->bindShaderStorageBuffer(5, voxelGridLineSegmentOffsetsBuffer);
+        sgl::ShaderManager->bindShaderStorageBuffer(6, voxelGridLineSegmentsBuffer);
+        discretizeLinesShader->setUniform("numLines", uint32_t(curves.size()));
+        discretizeLinesShader->dispatchCompute(int(numWorkGroupsLines));
+        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    }
     auto endVoxelizeLines = std::chrono::system_clock::now();
     auto elapsedVoxelizeLines = std::chrono::duration_cast<std::chrono::milliseconds>(
             endVoxelizeLines - startVoxelizeLines);

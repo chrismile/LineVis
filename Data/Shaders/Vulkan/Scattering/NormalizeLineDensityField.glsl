@@ -32,24 +32,24 @@
 
 layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
-layout (std430, binding = 0) readonly buffer UniformData {
+layout (binding = 0) uniform UniformBuffer {
     ivec3 gridResolution;
     int padding;
 };
 
-layout (std430, binding = 1) uniform MinMaxBuffer {
+layout (binding = 1) uniform MinMaxBuffer {
     float minDensity;
     float maxDensity;
 };
 
-layout (binding = 2) image3D lineDensityFieldImage;
+layout (binding = 2, r32f) uniform image3D lineDensityFieldImage;
 
 void main() {
     if (any(greaterThanEqual(gl_GlobalInvocationID, uvec3(gridResolution)))) {
         return;
     }
 
-    float density = imageLoad(lineDensityFieldImage, gl_GlobalInvocationID).x;
+    float density = imageLoad(lineDensityFieldImage, ivec3(gl_GlobalInvocationID)).x;
     density = (density - minDensity) / (maxDensity - minDensity);
-    imageStore(lineDensityFieldImage, gl_GlobalInvocationID, vec4(newDensity));
+    imageStore(lineDensityFieldImage, ivec3(gl_GlobalInvocationID), vec4(density));
 }

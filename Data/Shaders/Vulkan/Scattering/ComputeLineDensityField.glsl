@@ -40,7 +40,7 @@ struct LineSegment {
     uint lineID;
 };
 
-layout (std430, binding = 0) readonly buffer UniformData {
+layout (binding = 0) uniform UniformBuffer {
     ivec3 gridResolution;
     int numLines;
 };
@@ -62,7 +62,7 @@ layout (std430, binding = 3) coherent buffer SpinlockBuffer {
     uint spinlockViewportBuffer[];
 };
 
-layout (binding = 4) coherent image3D lineDensityFieldImage;
+layout (binding = 4, r32f) uniform coherent image3D lineDensityFieldImage;
 
 uint getVoxelIndex1D(ivec3 voxelIndex) {
     return voxelIndex.x + voxelIndex.y*gridResolution.x + voxelIndex.z*gridResolution.x*gridResolution.y;
@@ -138,11 +138,11 @@ void addLineSegment(ivec3 voxelIndex, LineSegment lineSegment) {
     // Use a spinlock to synchronize access to lineDensityFieldImage.
     bool keepWaiting = true;
     while (keepWaiting) {
-        if (atomicCompSwap(spinlockBuffer[voxelIndex1D], 0, 1) == 0) {
+        if (atomicCompSwap(spinlockViewportBuffer[voxelIndex1D], 0, 1) == 0) {
             float newDensity = imageLoad(lineDensityFieldImage, voxelIndex).x + lineSegmentLength;
             imageStore(lineDensityFieldImage, voxelIndex, vec4(newDensity));
             memoryBarrier();
-            atomicExchange(spinlockViewportBuffer[pixelIndex], 0);
+            atomicExchange(spinlockViewportBuffer[voxelIndex1D], 0);
             keepWaiting = false;
         }
     }

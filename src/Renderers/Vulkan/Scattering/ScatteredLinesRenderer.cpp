@@ -70,6 +70,11 @@ ScatteredLinesRenderer::~ScatteredLinesRenderer() {
 }
 
 void ScatteredLinesRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
+    updateNewLineData(lineData, isNewData);
+
+    dirty = false;
+    reRender = true;
+
     if (lineData->getType() != DATA_SET_TYPE_SCATTERING_LINES) {
         sgl::Logfile::get()->writeError(
                 "Error in ScatteredLinesRenderer::setLineData: Only data sets of the type "
@@ -77,12 +82,7 @@ void ScatteredLinesRenderer::setLineData(LineDataPtr& lineData, bool isNewData) 
         return;
     }
 
-    updateNewLineData(lineData, isNewData);
-
     aabbRenderPass->setLineData(lineData, isNewData);
-
-    dirty = false;
-    reRender = true;
 }
 
 void ScatteredLinesRenderer::onResolutionChanged() {
@@ -106,6 +106,10 @@ void ScatteredLinesRenderer::onResolutionChanged() {
 
 void ScatteredLinesRenderer::render() {
     LineRenderer::render();
+
+    if (lineData && lineData->getType() != DATA_SET_TYPE_SCATTERING_LINES) {
+        return;
+    }
 
     renderReadySemaphore->signalSemaphoreGl(renderTextureGl, GL_NONE);
 
@@ -169,6 +173,13 @@ void AabbRenderPass::setBackgroundColor(const glm::vec4& color) {
 
 void AabbRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
     this->lineData = lineData;
+
+    if (lineData->getType() != DATA_SET_TYPE_SCATTERING_LINES) {
+        sgl::Logfile::get()->writeError(
+                "Error in AabbRenderPass::setLineData: Only data sets of the type "
+                "DATA_SET_TYPE_SCATTERING_LINES are supported.");
+        return;
+    }
 
     std::shared_ptr<LineDataScattering> lineDataScattering = std::static_pointer_cast<LineDataScattering>(lineData);
     VulkanLineDataScatteringRenderData lineDataScatteringRenderData =

@@ -86,10 +86,14 @@ void LineDataScattering::setGridData(
 
     sgl::vk::ImageSamplerSettings samplerSettings;
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     vulkanScatteredLinesGridRenderData.scalarFieldTexture = std::make_shared<sgl::vk::Texture>(
             device, imageSettings, samplerSettings);
-    imageSettings.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    vulkanScatteredLinesGridRenderData.scalarFieldTexture->getImage()->uploadData(
+            gridSizeX * gridSizeY * gridSizeZ * sizeof(float), scalarField);
+    imageSettings.usage =
+            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT
+            | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     vulkanScatteredLinesGridRenderData.lineDensityFieldTexture = std::make_shared<sgl::vk::Texture>(
             device, imageSettings, samplerSettings);
 
@@ -115,6 +119,11 @@ VulkanLineDataScatteringRenderData LineDataScattering::getVulkanLineDataScatteri
     if (!isLineDensityFieldDirty) {
         return vulkanScatteredLinesGridRenderData;
     }
+
+    VkCommandBuffer commandBuffer = rendererVk->getDevice()->beginSingleTimeCommands(
+            0xFFFFFFFF, false);
+    rendererVk->setCustomCommandBuffer(commandBuffer);
+    rendererVk->beginCommandBuffer();
 
     // Clear the line density field image.
     lineDensityFieldImageComputeRenderPass->setDataDirty();
@@ -150,6 +159,10 @@ VulkanLineDataScatteringRenderData LineDataScattering::getVulkanLineDataScatteri
             VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
             VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+
+    rendererVk->endCommandBuffer();
+    rendererVk->resetCustomCommandBuffer();
+    rendererVk->getDevice()->endSingleTimeCommands(commandBuffer, 0xFFFFFFFF, false);
 
     isLineDensityFieldDirty = false;
     return vulkanScatteredLinesGridRenderData;
@@ -257,11 +270,13 @@ void LineDensityFieldMinMaxReduceRenderPass::createComputeData(
     size_t imageSize = imageSettings.width * imageSettings.height * imageSettings.depth;
     minMaxReductionBuffers[0] = std::make_shared<sgl::vk::Buffer>(
             device, imageSize * sizeof(glm::vec2),
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+            | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
     minMaxReductionBuffers[1] = std::make_shared<sgl::vk::Buffer>(
             device, sgl::iceil(int(imageSize), BLOCK_SIZE * 2) * sizeof(glm::vec2),
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     for (int i = 0; i < 2; i++) {
         computeDataPingPong[i] = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);

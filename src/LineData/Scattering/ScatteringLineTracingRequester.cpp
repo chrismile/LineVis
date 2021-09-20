@@ -274,12 +274,24 @@ Json::Value ScatteringLineTracingRequester::traceLines(
     }
 
     Trajectories trajectories;
-    Trajectory trajectory;
-    trajectory.positions.emplace_back(0.0f, 0.0f, 0.0f);
-    trajectory.positions.emplace_back(0.0f, 0.5f, 0.0f);
-    trajectory.positions.emplace_back(0.0f, 1.0f, 0.0f);
-    trajectory.attributes.push_back({ 0.0f, 0.5f, 1.0f });
-    trajectories.push_back(trajectory);
+    Trajectory trajectory0;
+    trajectory0.positions.emplace_back(-1.0f, 0.0f, 1.0f);
+    trajectory0.positions.emplace_back(-1.0f, 0.5f, 1.0f);
+    trajectory0.positions.emplace_back(-1.0f, 1.0f, 1.0f);
+    trajectory0.attributes.push_back({ 0.0f, 0.5f, 1.0f });
+    trajectories.push_back(trajectory0);
+    Trajectory trajectory1;
+    trajectory1.positions.emplace_back(1.0f, 0.0f, 1.0f);
+    trajectory1.positions.emplace_back(1.0f, 0.5f, 1.0f);
+    trajectory1.positions.emplace_back(1.0f, 1.0f, 1.0f);
+    trajectory1.attributes.push_back({ 0.0f, 0.5f, 1.0f });
+    trajectories.push_back(trajectory1);
+    Trajectory trajectory2;
+    trajectory2.positions.emplace_back(0.0f, 0.0f, -1.0f);
+    trajectory2.positions.emplace_back(0.0f, 0.5f, -1.0f);
+    trajectory2.positions.emplace_back(0.0f, 1.0f, -1.0f);
+    trajectory2.attributes.push_back({ 0.0f, 0.5f, 1.0f });
+    trajectories.push_back(trajectory2);
 
     // TODO: This function normalizes the vertex positions of the trajectories; should we also normalize the grid size?
     normalizeTrajectoriesVertexPositions(trajectories, nullptr);

@@ -301,8 +301,6 @@ std::vector<VoxelDiscretizer*> VoxelCurveDiscretizer::getVoxelsInAABB(const sgl:
 
     glm::ivec3 lower = glm::ivec3(minimum); // Round down
     glm::ivec3 upper = glm::ivec3(ceil(maximum.x), ceil(maximum.y), ceil(maximum.z)); // Round up
-    //lower = glm::max(lower, glm::ivec3(0));
-    //upper = glm::min(upper, gridResolution - glm::ivec3(1));
     lower = glm::clamp(lower, glm::ivec3(0), gridResolution - glm::ivec3(1));
     upper = glm::clamp(upper, glm::ivec3(0), gridResolution - glm::ivec3(1));
 

@@ -45,7 +45,7 @@ layout (std430, binding = 12) writeonly buffer MinMaxOutBuffer {
 };
 
 #ifdef VULKAN
-layout (std430, binding = 10) uniform UniformBuffer {
+layout (binding = 10) uniform UniformBuffer {
     uint sizeOfInput; ///< Number of entries in MinMaxInBuffer.
     uint padding;
     float nearDist; ///< The distance of the near plane.
