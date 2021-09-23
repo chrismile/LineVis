@@ -40,6 +40,7 @@
 #include "LineDataScattering.hpp"
 #include "ScatteringLineTracingRequester.hpp"
 #include "Texture3d.hpp"
+#include "DtPathTrace.hpp"
 
 ScatteringLineTracingRequester::ScatteringLineTracingRequester(
         sgl::TransferFunctionWindow& transferFunctionWindow
@@ -239,23 +240,43 @@ Json::Value ScatteringLineTracingRequester::traceLines(
     }
 
     Trajectories trajectories;
-    Trajectory trajectory0;
-    trajectory0.positions.emplace_back(-1.0f, 0.0f, 1.0f);
-    trajectory0.positions.emplace_back(-1.0f, 1.0f, 1.0f);
-    trajectory0.attributes.push_back({ 1.0f, 0.0f });
-    trajectories.push_back(trajectory0);
-    Trajectory trajectory1;
-    trajectory1.positions.emplace_back(1.0f, 0.0f, 1.0f);
-    trajectory1.positions.emplace_back(1.0f, 0.5f, 1.0f);
-    trajectory1.positions.emplace_back(1.0f, 1.0f, 1.0f);
-    trajectory1.attributes.push_back({ 0.0f, 0.5f, 1.0f });
-    trajectories.push_back(trajectory1);
-    Trajectory trajectory2;
-    trajectory2.positions.emplace_back(0.0f, 0.0f, -1.0f);
-    trajectory2.positions.emplace_back(0.0f, 0.5f, -1.0f);
-    trajectory2.positions.emplace_back(0.0f, 1.0f, -1.0f);
-    trajectory2.attributes.push_back({ 0.0f, 0.5f, 1.0f });
-    trajectories.push_back(trajectory2);
+
+    PathInfo pi {};
+    pi.camera_pos = {-2,-2,-2};
+    pi.ray_direction = glm::normalize(glm::vec3{1.0f,1.0f,1.0f});
+    pi.pass_number = 0;
+
+    Random::init(122);
+
+    VolumeInfo vi {};
+    vi.grid = cached_grid;
+    vi.extinction = {20,20,20};
+    vi.scattering_albedo = {1,1,1};
+    vi.g = {0.2,0.2,0.2};
+
+
+
+    for (int i = 0; i < 1000; ++i) {
+        dt_path_trace(pi, vi, &trajectories);
+    }
+
+    // Trajectory trajectory0;
+    // trajectory0.positions.emplace_back(-1.0f, 0.0f, 1.0f);
+    // trajectory0.positions.emplace_back(-1.0f, 1.0f, 1.0f);
+    // trajectory0.attributes.push_back({ 1.0f, 0.0f });
+    // trajectories.push_back(trajectory0);
+    // Trajectory trajectory1;
+    // trajectory1.positions.emplace_back(1.0f, 0.0f, 1.0f);
+    // trajectory1.positions.emplace_back(1.0f, 0.5f, 1.0f);
+    // trajectory1.positions.emplace_back(1.0f, 1.0f, 1.0f);
+    // trajectory1.attributes.push_back({ 0.0f, 0.5f, 1.0f });
+    // trajectories.push_back(trajectory1);
+    // Trajectory trajectory2;
+    // trajectory2.positions.emplace_back(0.0f, 0.0f, -1.0f);
+    // trajectory2.positions.emplace_back(0.0f, 0.5f, -1.0f);
+    // trajectory2.positions.emplace_back(0.0f, 1.0f, -1.0f);
+    // trajectory2.attributes.push_back({ 0.0f, 0.5f, 1.0f });
+    // trajectories.push_back(trajectory2);
 
     // TODO: This function normalizes the vertex positions of the trajectories;
     //   should we also normalize the grid size?

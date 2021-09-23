@@ -35,7 +35,7 @@
 
 #include "Loaders/DataSetList.hpp"
 #include "LineDataScattering.hpp"
-#include "Texture3D.hpp"
+#include "Texture3d.hpp"
 
 /**
  * Traces lines inside a scalar field while simulation scattering.

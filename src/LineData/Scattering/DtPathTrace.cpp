@@ -1,0 +1,318 @@
+#include "DtPathTrace.hpp"
+
+
+// #define INFO(...) printf("INFO: "  __VA_ARGS__);
+#define INFO(...)
+const float pi = 3.1415926535897932384626433832795;
+const float two_pi = 6.283185307179586476925286766559;
+
+namespace Random {
+    static struct {
+        uint32_t x;
+        uint32_t y;
+        uint32_t z;
+        uint32_t w;
+    } RNG_STATE;
+
+
+    uint32_t taus_step(uint32_t z, int S1, int S2, int S3, uint32_t M) {
+        uint32_t b = (((z << S1) ^ z) >> S2);
+        return ((z & M) << S3) ^ b;
+    }
+
+    uint32_t lcg_step(uint32_t z, uint32_t A, uint32_t C) {
+        return A * z + C;
+    }
+
+    float hybrid_taus() {
+        RNG_STATE.x = taus_step(RNG_STATE.x, 13, 19, 12, 4294967294);
+        RNG_STATE.y = taus_step(RNG_STATE.y, 2, 25, 4, 4294967288);
+        RNG_STATE.z = taus_step(RNG_STATE.z, 3, 11, 17, 4294967280);
+        RNG_STATE.w = lcg_step(RNG_STATE.w, 1664525, 1013904223);
+
+        return 2.3283064365387e-10 * (RNG_STATE.x ^ RNG_STATE.y ^ RNG_STATE.z ^ RNG_STATE.w);
+    }
+
+    float random() {
+        return hybrid_taus();
+    }
+
+    void init(uint32_t seed) {
+
+        RNG_STATE.x = seed;
+        RNG_STATE.y = seed;
+        RNG_STATE.z = seed;
+        RNG_STATE.w = seed;
+
+        for (int i = 0; i < 23 + seed % 13; i++)
+            random();
+    }
+
+}
+
+inline double max(double a, double b) {
+    return a > b ? a : b;
+}
+
+inline double min(double a, double b) {
+    return a < b ? a : b;
+}
+
+inline float max(float a, float b) {
+    return a > b ? a : b;
+}
+
+inline float min(float a, float b) {
+    return a < b ? a : b;
+}
+
+inline float max(float a, float b, float c) {
+    return max(a, max(b, c));
+}
+
+inline float min(float a, float b, float c) {
+    return min(a, min(b, c));
+}
+
+inline uint32_t max(uint32_t a, uint32_t b) {
+    return a > b ? a : b;
+}
+
+inline uint32_t min(uint32_t a, uint32_t b) {
+    return a < b ? a : b;
+}
+
+
+void create_orthonormal_basis(glm::vec3 D, glm::vec3& B, glm::vec3& T) {
+    glm::vec3 other =
+        fabs(D.z) >= 0.999
+        ? glm::vec3{1, 0, 0}
+        : glm::vec3{0, 0, 1};
+
+    B = glm::normalize(glm::cross(other, D));
+    T = glm::normalize(glm::cross(D, B));
+}
+
+void create_orthonormal_basis2(glm::vec3 D, glm::vec3& B, glm::vec3& T) {
+    glm::vec3 other =
+        fabs(D.z) >= 0.999
+        ? glm::vec3{1, 0, 0}
+        : glm::vec3{0, 0, 1};
+
+    B = glm::normalize(glm::cross(other, D));
+    T = glm::normalize(glm::cross(D, B));
+}
+
+glm::vec3 random_direction(glm::vec3 D) {
+    float r1 = Random::random();
+    float r2 = Random::random() * 2 - 1;
+    float sqrR2 = r2 * r2;
+    float two_pi_by_r1 = two_pi * r1;
+    float sqrt_of_one_minus_sqrR2 = sqrt(1.0 - sqrR2);
+    float x = cos(two_pi_by_r1) * sqrt_of_one_minus_sqrR2;
+    float y = sin(two_pi_by_r1) * sqrt_of_one_minus_sqrR2;
+    float z = r2;
+
+    glm::vec3 t0, t1;
+    create_orthonormal_basis2(D, t0, t1);
+
+    return t0 * x + t1 * y + D * z;
+}
+
+float invert_cdf(float g_factor, float xi) {
+#define one_minus_g2 (1.0 - (g_factor) * (g_factor))
+#define one_plus_g2  (1.0 + (g_factor) * (g_factor))
+#define one_over_2g  (0.5 / (g_factor))
+
+    float t = (one_minus_g2) / (1.0f - g_factor + 2.0f * g_factor * xi);
+    return one_over_2g * (one_plus_g2 - t * t);
+
+#undef one_minus_g2
+#undef one_plus_g2
+#undef one_over_2g
+}
+
+glm::vec3 importance_sample_phase(float g_factor, glm::vec3 D) {
+    if (fabs(g_factor) < 0.001) {
+        return random_direction(-D);
+    }
+
+    float phi = Random::random() * 2 * pi;
+    float cosTheta = invert_cdf(g_factor, Random::random());
+    float sinTheta = sqrt(max(0, 1.0f - cosTheta * cosTheta));
+
+    glm::vec3 t0, t1;
+    create_orthonormal_basis(D, t0, t1);
+
+    return sinTheta * sin(phi) * t0
+         + sinTheta * cos(phi) * t1
+         + cosTheta * D;
+}
+
+void get_grid_box(Texture3D grid, glm::vec3& minim, glm::vec3& maxim) {
+    float maxDim = max(grid.size_x, grid.size_y, grid.voxel_size_z);
+    maxim = glm::vec3{
+        (float)grid.size_x,
+        (float)grid.size_y,
+        (float)grid.size_z
+    } / maxDim * 0.5f;
+    minim = -maxim;
+}
+
+
+glm::vec3 abs(glm::vec3 v) {
+    glm::vec3 result;
+    result.x = fabs(v.x);
+    result.y = fabs(v.y);
+    result.z = fabs(v.z);
+    return result;
+}
+
+glm::mat2x3 abs(glm::mat2x3 M) {
+    glm::mat2x3 result;
+    result[0] = abs(M[0]);
+    result[1] = abs(M[1]);
+    return result;
+}
+
+bool operator<=(glm::vec3 v, float s) {
+    return
+        v.x <= s &&
+        v.y <= s &&
+        v.z <= s;
+}
+
+bool operator<=(glm::mat2x3 M, float s) {
+    return M[0] <= s && M[1] <= s;
+}
+
+glm::mat2x3 operator/(glm::mat2x3 M1, glm::mat2x3 M2) {
+    glm::mat2x3 result;
+    result[0] = M1[0] / M2[0];
+    result[1] = M1[1] / M2[1];
+    return result;
+}
+
+
+bool box_intersect(glm::vec3 b_min, glm::vec3 b_max, glm::vec3 P,
+                   glm::vec3 D, float& t_min, float& t_max)
+{
+
+    glm::mat2x3 C  = glm::mat2x3{ b_min - P, b_max - P };
+    glm::mat2x3 D2 = glm::mat2x3{ D, D };
+
+    glm::mat2x3 T =
+        abs(D2) <= 0.000001
+        ? glm::mat2x3{glm::vec3{-1000, -1000, -1000},
+                      glm::vec3{ 1000,  1000,  1000}}
+        : C / D2;
+
+    t_min = max(min(T[0][0], T[1][0]),
+                min(T[0][1], T[1][1]),
+                min(T[0][2], T[1][2]));
+
+    t_min = max(0.0f, t_min);
+
+    t_max = min(max(T[0][0], T[1][0]),
+                max(T[0][1], T[1][1]),
+                max(T[0][2], T[1][2]));
+
+    if (t_max < t_min || t_max < 0) {
+        return false;
+    }
+    return true;
+}
+
+void dt_path_trace(PathInfo path_info, VolumeInfo volume_info, Trajectories* trajis) {
+
+    int pass_number = path_info.pass_number;
+    glm::vec3 x = path_info.camera_pos;
+    glm::vec3 w = path_info.ray_direction;
+
+    float density = volume_info.extinction[pass_number % 3]; // extinction coefficient multiplier.
+    INFO("  density: %f\n", density);
+
+    glm::vec3 b_min, b_max;
+    get_grid_box(volume_info.grid, b_min, b_max);
+
+    glm::vec3 W { 0 }; // weight
+    W[pass_number % 3] = 3; // Wavelenght dependent importance multiplier
+
+    float t_min, t_max;
+    if (!box_intersect(b_min, b_max, x, w, t_min, t_max))
+        return;
+
+    Trajectory trajectory;
+    std::vector<float> attribs;
+    trajectory.positions.push_back(x);
+    attribs.push_back({1});
+
+    float d = t_max - t_min;
+    x += w * t_min;
+
+    trajectory.positions.push_back(x);
+    attribs.push_back({1});
+
+    while (true) {
+        float t = // majorant of all volume data
+            density <= 0.00001
+            ? 10000000
+            : -log(max(0.00000000001, 1.0 - Random::random())) / density;
+
+        INFO("  t: %f\n", t);
+        INFO("  d: %f\n", d);
+
+        x += w * t; // move to next event position or border
+
+        if (t >= d) {
+            INFO("->Ray left the volume\n");
+            trajectory.positions.push_back(x);
+            attribs.push_back({1});
+
+            break;
+        }
+
+        trajectory.positions.push_back(x);
+        attribs.push_back({1});
+
+        glm::vec3 tSamplePosition = (x - b_min) / (b_max - b_min);
+        float probExt = volume_info.grid.sample_at(tSamplePosition);
+        INFO("  sample pos: %f %f %f\n", tSamplePosition.x, tSamplePosition.y, tSamplePosition.z);
+        INFO("  density there: %f\n", probExt);
+
+        float m_t = probExt * density; // extinction coef
+        float m_s = m_t * volume_info.scattering_albedo[pass_number % 3]; // scattering coef
+        float m_a = m_t - m_s; // absorption coef
+        float m_n = density - m_t; // null coef
+
+        float xi = Random::random();
+
+        float Pa = m_a / density;
+        float Ps = m_s / density;
+        float Pn = m_n / density;
+
+        if (xi < Pa) { // absorption
+            INFO("->absorbtion\n");
+            break;
+        }
+
+        if (xi < 1 - Pn) { // scattering
+            INFO("->scatter\n");
+            w = importance_sample_phase(volume_info.g[pass_number % 3], w); // scattering event...
+
+            if (!box_intersect(b_min, b_max, x, w, t_min, t_max)) {
+                break;
+            }
+
+            d = t_max - t_min;
+            x += w * t_min;
+        } else {
+            INFO("->null collision\n");
+            // if no absorption and no scattering null collision occurred
+            d -= t;
+        }
+    }
+
+    trajectory.attributes.push_back(attribs);
+    trajis->push_back(trajectory);
+}
