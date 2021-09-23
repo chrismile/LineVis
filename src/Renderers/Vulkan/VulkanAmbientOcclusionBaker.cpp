@@ -506,7 +506,7 @@ void AmbientOcclusionComputeRenderPass::generateBlendingWeightParametrization() 
     polylineLengths.resize(lines.size());
 
 #if _OPENMP >= 201107
-#pragma omp parallel for reduction(+: linesLengthSum) reduction(+: numPolylineSegments) shared(polylineLengths) \
+    #pragma omp parallel for reduction(+: linesLengthSum) reduction(+: numPolylineSegments) shared(polylineLengths) \
     default(none)
 #endif
     for (size_t lineIdx = 0; lineIdx < lines.size(); lineIdx++) {

@@ -131,7 +131,7 @@ MainApp::MainApp()
         }
         if (i != int(dataSetNames.size())) {
             if (selectedDataSetIndex >= 2 && oldSelectedDataSetIndex != selectedDataSetIndex) {
-                loadLineDataSet(getSelectedMeshFilenames(), true);
+                loadLineDataSet(getSelectedLineDataSetFilenames(), true);
             }
         } else {
             sgl::Logfile::get()->writeError(
@@ -424,7 +424,7 @@ void MainApp::setNewState(const InternalState &newState) {
                 LineDataStress::setUseMediumPS(newState.dataSetDescriptor.enabledFileIndices.at(1));
                 LineDataStress::setUseMinorPS(newState.dataSetDescriptor.enabledFileIndices.at(2));
             }
-            loadLineDataSet(getSelectedMeshFilenames());
+            loadLineDataSet(getSelectedLineDataSetFilenames());
         }
     }
 
@@ -704,7 +704,7 @@ void MainApp::loadAvailableDataSetInformation() {
     }
 }
 
-std::vector<std::string> MainApp::getSelectedMeshFilenames() {
+std::vector<std::string> MainApp::getSelectedLineDataSetFilenames() {
     std::vector<std::string> filenames;
     if (selectedDataSetIndex == 0) {
         dataSetType = DATA_SET_TYPE_FLOW_LINES;
@@ -731,7 +731,7 @@ void MainApp::renderFileSelectionSettingsGui() {
             "Data Set", &selectedDataSetIndex, dataSetNames.data(),
             dataSetNames.size())) {
         if (selectedDataSetIndex >= NUM_MANUAL_LOADERS) {
-            loadLineDataSet(getSelectedMeshFilenames());
+            loadLineDataSet(getSelectedLineDataSetFilenames());
         }
     }
 
@@ -749,7 +749,7 @@ void MainApp::renderFileSelectionSettingsGui() {
         ImGui::InputText("##meshfilenamelabel", &customDataSetFileName);
         ImGui::SameLine();
         if (ImGui::Button("Load File")) {
-            loadLineDataSet(getSelectedMeshFilenames());
+            loadLineDataSet(getSelectedLineDataSetFilenames());
         }
     }
 }
@@ -759,7 +759,9 @@ void MainApp::renderSceneSettingsGui() {
         clearColor = sgl::colorFromFloat(
                 clearColorSelection.x, clearColorSelection.y, clearColorSelection.z, clearColorSelection.w);
         transferFunctionWindow.setClearColor(clearColor);
-        lineData->setClearColor(clearColor);
+        if (lineData) {
+            lineData->setClearColor(clearColor);
+        }
         reRender = true;
     }
 
@@ -1073,7 +1075,7 @@ void MainApp::checkLoadingRequestFinished() {
 }
 
 void MainApp::reloadDataSet() {
-    loadLineDataSet(getSelectedMeshFilenames());
+    loadLineDataSet(getSelectedLineDataSetFilenames());
 }
 
 void MainApp::prepareVisualizationPipeline() {

@@ -5,6 +5,7 @@
 #include <Utils/File/FileUtils.hpp>
 #include <Utils/File/FileLoader.hpp>
 #include <Utils/Events/Stream/Stream.hpp>
+#include <Utils/Defer.hpp>
 
 inline float lerp(float a, float t, float b) {
     return a * (1.0 - t) + b * t;
@@ -33,8 +34,56 @@ Texture3D load_xyz_file(std::string file_name) {
     stream.read(grid.voxel_size_z);
 
     size_t num_floats =  grid.size_x * grid.size_y * grid.size_z;
+
     grid.data = new float[num_floats];
-    stream.read(grid.data, num_floats * sizeof(float));
+    float* transposed_data = new float[num_floats];
+    defer {
+        delete[] transposed_data;
+    };
+
+    stream.read(transposed_data, num_floats * sizeof(float));
+
+    // NOTE(Felix): Since the .xyz file stores the densities in zyx order, and
+    //   we want to have them in xyz order, we are transposing them here.
+    {
+#   if _OPENMP >= 201107
+#     pragma omp parallel for shared(cachedGridData, cachedGridDataTransposed, \
+                                     gridSizeX, gridSizeY, gridSizeZ)          \
+                              default(none)
+#   endif
+        for (uint32_t z = 0; z < grid.size_z; z++) {
+            for (uint32_t y = 0; y < grid.size_y; y++) {
+                for (uint32_t x = 0; x < grid.size_x; x++) {
+                    grid.data[x + (y + z * grid.size_y) * grid.size_x] =
+                        transposed_data[z + (y + x * grid.size_y) * grid.size_z];
+                }
+            }
+        }
+    }
+
+    // Normalization
+    {
+        float min_val = std::numeric_limits<float>::max();
+        float max_val = std::numeric_limits<float>::lowest();
+
+#   if _OPENMP >= 201107
+#     pragma omp parallel for default(none) shared(cachedGridData, totalSize) \
+                            reduction(min: minVal) reduction(max: maxVal)
+#   endif
+        for (int i = 0; i < num_floats; i++) {
+            float val = grid.data[i];
+            min_val = std::min(min_val, val);
+            max_val = std::max(max_val, val);
+        }
+
+#   if _OPENMP >= 201107
+#     pragma omp parallel for shared(cachedGridData, totalSize, minVal, maxVal)\
+                              default(none)
+#   endif
+        for (int i = 0; i < num_floats; i++) {
+            grid.data[i] = (grid.data[i] - min_val) / (max_val - min_val);
+        }
+    }
 
     return grid;
 }
@@ -42,7 +91,7 @@ Texture3D load_xyz_file(std::string file_name) {
 float Texture3D::sample_at(glm::vec3 pos) {
     // cubic interpolation
 
-# define IDX(x, y, z) ((x * this->size_z * this->size_y) + (y * this->size_y) + z)
+# define IDX(x, y, z) ((x) + ((y) + (z) * size_y) * size_x)
 
     float fw =  pos.x * (this->size_x - 1); // we want indices between 0 and len -1
     float fh =  pos.y * (this->size_y - 1); // we want indices between 0 and len -1

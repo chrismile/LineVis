@@ -1,4 +1,5 @@
 #include "DtPathTrace.hpp"
+#include <Utils/Defer.hpp>
 
 
 // #define INFO(...) printf("INFO: "  __VA_ARGS__);
@@ -244,6 +245,12 @@ void dt_path_trace(PathInfo path_info, VolumeInfo volume_info, Trajectories* tra
 
     Trajectory trajectory;
     std::vector<float> attribs;
+
+    defer {
+        trajectory.attributes.push_back(attribs);
+        trajis->push_back(trajectory);
+    };
+
     trajectory.positions.push_back(x);
     attribs.push_back({1});
 
@@ -313,6 +320,4 @@ void dt_path_trace(PathInfo path_info, VolumeInfo volume_info, Trajectories* tra
         }
     }
 
-    trajectory.attributes.push_back(attribs);
-    trajis->push_back(trajectory);
 }

@@ -128,7 +128,8 @@ void ScatteringLineTracingRequester::requestNewData() {
 
     Json::Value request;
     const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
-    request["gridDataSetFilename"] = boost::filesystem::absolute(lineDataSetsDirectory + gridDataSetFilename).generic_string();
+    request["gridDataSetFilename"] = boost::filesystem::absolute(
+            lineDataSetsDirectory + gridDataSetFilename).generic_string();
     request["extinctionCoefficient"] = extinctionCoefficient;
 
     queueRequestJson(request);
@@ -256,7 +257,7 @@ Json::Value ScatteringLineTracingRequester::traceLines(
 
 
 
-    for (int i = 0; i < 1000; ++i) {
+    for (int i = 0; i < 100; ++i) {
         dt_path_trace(pi, vi, &trajectories);
     }
 
