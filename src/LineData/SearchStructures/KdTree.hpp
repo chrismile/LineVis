@@ -65,6 +65,20 @@ public:
     void build(const std::vector<IndexedPoint*>& indexedPoints) override;
 
     /**
+     * Reserves memory for use with @see addPoint.
+     * @param maxNumNodes The maximum number of nodes that can be added using @see addPoint.
+     */
+    void reserveDynamic(size_t maxNumNodes) override;
+
+    /**
+     * Adds the passed point to the k-d-tree.
+     * WARNING: This function may be less efficient than @see build if the points are added in an order suboptimal
+     * for the search structure. Furthermore, @see reserveDynamic must be called before calling this function.
+     * @param indexedPoint The point to add.
+     */
+    void addPoint(IndexedPoint* indexedPoint) override;
+
+    /**
      * Performs an area search in the k-d-tree and returns all points within a certain bounding box.
      * @param box The bounding box.
      * @return The points stored in the k-d-tree inside of the bounding box.
@@ -94,6 +108,14 @@ private:
      * @return The parent node of the current sub-tree.
      */
     KdNode* _build(std::vector<IndexedPoint*> points, int depth);
+
+    /**
+     * Adds the passed point to the k-d-tree.
+     * WARNING: This function may be less efficient than @see build if the points are added in an order suboptimal
+     * for the acceleration structure.
+     * @param points The point to add.
+     */
+    KdNode* _addPoint(KdNode* node, int depth, IndexedPoint* indexedPoint);
 
     /**
      * Performs an area search in the k-d-tree and returns all points within a certain bounding box

@@ -128,6 +128,10 @@ else()
     add_executable(LineVis ${SOURCES})
 endif()
 
+add_subdirectory(submodules/IsosurfaceCpp)
+target_link_libraries(LineVis PRIVATE IsosurfaceCpp)
+target_include_directories(LineVis PRIVATE submodules)
+
 if((${CMAKE_GENERATOR} STREQUAL "MinGW Makefiles") OR (${CMAKE_GENERATOR} STREQUAL "MSYS Makefiles"))
     SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mwindows")
     target_link_libraries(LineVis PUBLIC mingw32)

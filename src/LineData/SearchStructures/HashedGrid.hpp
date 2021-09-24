@@ -41,13 +41,27 @@ public:
      * @param numEntries The number of entries the hash array should have.
      * @param cellSize The size of a cell in x, y and z direction (uniform).
      */
-	HashedGrid(size_t numEntries = 53, float cellSize = 0.1);
+	explicit HashedGrid(size_t numEntries = 53, float cellSize = 0.1);
 
     /**
      * Builds a hashed grid from the passed point array.
      * @param points The point array.
      */
     void build(const std::vector<IndexedPoint*>& points) override;
+
+    /**
+     * Reserves memory for use with @see addPoint.
+     * @param maxNumNodes The maximum number of nodes that can be added using @see addPoint.
+     */
+    void reserveDynamic(size_t maxNumNodes) override;
+
+    /**
+     * Adds the passed point to the hashed grid.
+     * WARNING: This function may be less efficient than @see build if the points are added in an order suboptimal
+     * for the search structure.
+     * @param indexedPoint The point to add.
+     */
+    void addPoint(IndexedPoint* indexedPoint) override;
 
     /**
      * Performs an area search in the hashed grid and returns all points within a certain bounding box.

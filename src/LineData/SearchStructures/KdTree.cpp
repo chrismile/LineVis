@@ -59,13 +59,73 @@ KdNode *KdTree::_build(std::vector<IndexedPoint*> points, int depth) {
         return posA[axis] < posB[axis];
     });
     size_t medianIndex = points.size() / 2;
-    std::vector<IndexedPoint*> leftPoints = std::vector<IndexedPoint*>(points.begin(), points.begin() + medianIndex);
-    std::vector<IndexedPoint*> rightPoints = std::vector<IndexedPoint*>(points.begin() + medianIndex + 1, points.end());
+    std::vector<IndexedPoint*> leftPoints = std::vector<IndexedPoint*>(
+            points.begin(), points.begin() + medianIndex);
+    std::vector<IndexedPoint*> rightPoints = std::vector<IndexedPoint*>(
+            points.begin() + medianIndex + 1, points.end());
 
     node->axis = axis;
     node->point = points.at(medianIndex);
     node->left = _build(leftPoints, depth + 1);
     node->right = _build(rightPoints, depth + 1);
+    return node;
+}
+
+void KdTree::reserveDynamic(size_t maxNumNodes) {
+    nodes.resize(maxNumNodes);
+    nodeCounter = 0;
+}
+
+void KdTree::addPoint(IndexedPoint* indexedPoint) {
+    //root = _addPoint(root, 0, indexedPoint);
+
+    const int k = 3; // Number of dimensions
+
+    int depth = 0;
+    int axis = 0;
+    KdNode** node = &root;
+    while (*node) {
+        axis = depth % k;
+
+        if ((axis == 0 && indexedPoint->position.x < indexedPoint->position.x)
+            || (axis == 1 && indexedPoint->position.y < indexedPoint->position.y)
+            || (axis == 2 && indexedPoint->position.z < indexedPoint->position.z)) {
+            node = &(*node)->left;
+        } else {
+            node = &(*node)->right;
+        }
+
+        depth++;
+    }
+
+    assert(size_t(nodeCounter) < nodes.size());
+    KdNode *newNode = nodes.data() + nodeCounter;
+    newNode->axis = axis;
+    newNode->point = indexedPoint;
+    nodeCounter++;
+    *node = newNode;
+}
+
+KdNode* KdTree::_addPoint(KdNode* node, int depth, IndexedPoint* indexedPoint) {
+    const int k = 3; // Number of dimensions
+    int axis = depth % k;
+
+    if (node == nullptr) {
+        assert(size_t(nodeCounter) < nodes.size());
+        KdNode *newNode = nodes.data() + nodeCounter;
+        newNode->axis = axis;
+        newNode->point = indexedPoint;
+        nodeCounter++;
+        return newNode;
+    }
+
+    if ((axis == 0 && indexedPoint->position.x < indexedPoint->position.x)
+            || (axis == 1 && indexedPoint->position.y < indexedPoint->position.y)
+            || (axis == 2 && indexedPoint->position.z < indexedPoint->position.z)) {
+        node->left = _addPoint(node->left, depth + 1, indexedPoint);
+    } else {
+        node->right = _addPoint(node->right, depth + 1, indexedPoint);
+    }
     return node;
 }
 

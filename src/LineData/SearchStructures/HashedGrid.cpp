@@ -26,6 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <cmath>
 #include "HashedGrid.hpp"
 
 HashedGrid::HashedGrid(size_t numEntries, float cellSize) : cellSize(cellSize) {
@@ -33,9 +34,9 @@ HashedGrid::HashedGrid(size_t numEntries, float cellSize) : cellSize(cellSize) {
 }
 
 void HashedGrid::convertPointToGridPosition(const glm::vec3& pos, ptrdiff_t& xg, ptrdiff_t& yg, ptrdiff_t& zg) {
-	xg = static_cast<ptrdiff_t>(pos.x / cellSize);
-	yg = static_cast<ptrdiff_t>(pos.y / cellSize);
-	zg = static_cast<ptrdiff_t>(pos.z / cellSize);
+	xg = static_cast<ptrdiff_t>(std::floor(pos.x / cellSize));
+	yg = static_cast<ptrdiff_t>(std::floor(pos.y / cellSize));
+	zg = static_cast<ptrdiff_t>(std::floor(pos.z / cellSize));
 }
 
 size_t HashedGrid::convertPointPositionToTableIndex(const glm::vec3& pos) {
@@ -50,21 +51,33 @@ size_t HashedGrid::hashFunction(ptrdiff_t i, ptrdiff_t j, ptrdiff_t k) {
 	return static_cast<size_t>(((i * PRIME_NUMBERS[0]) ^ (j * PRIME_NUMBERS[1])) ^ (k * PRIME_NUMBERS[2])) % hashTableEntries.size();
 }
 
-void HashedGrid::build(const std::vector<IndexedPoint*>& particles) {
-	// Clear the table entries
+void HashedGrid::build(const std::vector<IndexedPoint*>& points) {
+	// Clear the table entries.
 	for (std::vector<IndexedPoint*>& hashTableEntry : hashTableEntries) {
 		hashTableEntry.clear();
 	}
 
-	// Build the hash map with the particles
-	for (IndexedPoint* particle : particles) {
-		size_t tableIndex = convertPointPositionToTableIndex(particle->position);
-		hashTableEntries.at(tableIndex).push_back(particle);
+	// Build the hash map with the points.
+	for (IndexedPoint* indexedPoint : points) {
+		size_t tableIndex = convertPointPositionToTableIndex(indexedPoint->position);
+		hashTableEntries.at(tableIndex).push_back(indexedPoint);
 	}
 }
 
+void HashedGrid::reserveDynamic(size_t maxNumNodes) {
+    // Clear the table entries.
+    for (std::vector<IndexedPoint*>& hashTableEntry : hashTableEntries) {
+        hashTableEntry.clear();
+    }
+}
+
+void HashedGrid::addPoint(IndexedPoint* indexedPoint) {
+    size_t tableIndex = convertPointPositionToTableIndex(indexedPoint->position);
+    hashTableEntries.at(tableIndex).push_back(indexedPoint);
+}
+
 std::vector<IndexedPoint*> HashedGrid::findPointsInAxisAlignedBox(const AxisAlignedBox& box) {
-	std::vector<IndexedPoint*> particles;
+	std::vector<IndexedPoint*> points;
 	ptrdiff_t lowerGrid[3];
 	ptrdiff_t upperGrid[3];
 	
@@ -80,32 +93,32 @@ std::vector<IndexedPoint*> HashedGrid::findPointsInAxisAlignedBox(const AxisAlig
 			for (ptrdiff_t x = lowerGrid[0]; x <= upperGrid[0]; x++) {
 				size_t tableIndex = hashFunction(x, y, z);
 				std::vector<IndexedPoint*>& hashTableEntry = hashTableEntries.at(tableIndex);
-				particles.insert(particles.end(), hashTableEntry.begin(), hashTableEntry.end());
+                points.insert(points.end(), hashTableEntry.begin(), hashTableEntry.end());
 			}
 		}
 	}
 	
-	return particles;
+	return points;
 }
 
 std::vector<IndexedPoint*> HashedGrid::findPointsInSphere(const glm::vec3& center, float radius) {
-	std::vector<IndexedPoint*> particlesWithDistance;
+	std::vector<IndexedPoint*> pointsWithDistance;
 
-    // First, find all particles within the bounding box containing the search circle.
+    // First, find all points within the bounding box containing the search circle.
 	glm::vec3 lower = center - glm::vec3(radius, radius, radius);
 	glm::vec3 upper = center + glm::vec3(radius, radius, radius);
-	std::vector<IndexedPoint*> particlesInRect = findPointsInAxisAlignedBox(AxisAlignedBox(lower, upper));
+	std::vector<IndexedPoint*> pointsInRect = findPointsInAxisAlignedBox(AxisAlignedBox(lower, upper));
 
-    // Now, filter all particles out that are not within the search radius.
-    float squaredRadius = radius*radius;
+    // Now, filter all points out that are not within the search radius.
+    float squaredRadius = radius * radius;
     glm::vec3 differenceVector;
-    for (IndexedPoint * particle : particlesInRect) {
-		differenceVector = particle->position - center;
+    for (IndexedPoint* indexedPoint : pointsInRect) {
+		differenceVector = indexedPoint->position - center;
 		if (differenceVector.x * differenceVector.x + differenceVector.y * differenceVector.y
 				+ differenceVector.z * differenceVector.z <= squaredRadius) {
-			particlesWithDistance.push_back(particle);
+            pointsWithDistance.push_back(indexedPoint);
 		}
 	}
 
-	return particlesWithDistance;
+	return pointsWithDistance;
 }

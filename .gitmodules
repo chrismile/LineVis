@@ -1,0 +1,3 @@
+[submodule "submodules/IsosurfaceCpp"]
+	path = submodules/IsosurfaceCpp
+	url = git@github.com:chrismile/IsosurfaceCpp.git

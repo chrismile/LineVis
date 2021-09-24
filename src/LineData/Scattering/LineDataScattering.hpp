@@ -48,6 +48,7 @@ struct VulkanLineDataScatteringRenderData {
 class LineDensityFieldImageComputeRenderPass;
 class LineDensityFieldMinMaxReduceRenderPass;
 class LineDensityFieldNormalizeRenderPass;
+class LineDensityFieldSmoothingPass;
 #endif
 
 /**
@@ -95,6 +96,7 @@ private:
     std::shared_ptr<LineDensityFieldImageComputeRenderPass> lineDensityFieldImageComputeRenderPass;
     std::shared_ptr<LineDensityFieldMinMaxReduceRenderPass> lineDensityFieldMinMaxReduceRenderPass;
     std::shared_ptr<LineDensityFieldNormalizeRenderPass> lineDensityFieldNormalizeRenderPass;
+    std::shared_ptr<LineDensityFieldSmoothingPass> lineDensityFieldSmoothingPass;
     sgl::vk::BufferPtr lineDensityFieldBuffer;
     bool isLineDensityFieldDirty = false;
 
@@ -195,6 +197,31 @@ private:
     };
     UniformData uniformData{};
     sgl::vk::BufferPtr uniformBuffer;
+};
+
+class LineDensityFieldSmoothingPass : public sgl::vk::ComputePass {
+public:
+    explicit LineDensityFieldSmoothingPass(sgl::vk::Renderer* renderer);
+
+    // Public interface.
+    sgl::vk::ImageViewPtr smoothScalarField(const sgl::vk::TexturePtr& densityFieldTexture);
+    float* smoothScalarFieldCpu(sgl::vk::TexturePtr& densityFieldTexture);
+
+private:
+    void loadShader() override;
+    void setComputePipelineInfo(sgl::vk::ComputePipelineInfo& pipelineInfo) override {}
+    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
+    void _render() override;
+
+    sgl::vk::TexturePtr inputTexture;
+    sgl::vk::ImageViewPtr outputImageView;
+
+    struct SmoothingUniformData {
+        glm::ivec3 gridResolution;
+    };
+    SmoothingUniformData smoothingUniformData{};
+    sgl::vk::BufferPtr smoothingUniformBuffer;
+    sgl::vk::BufferPtr smoothingKernelBuffer;
 };
 #endif
 

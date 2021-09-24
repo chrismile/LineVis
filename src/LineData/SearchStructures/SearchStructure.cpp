@@ -27,6 +27,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <glm/glm.hpp>
 #include "SearchStructure.hpp"
 
 bool AxisAlignedBox::contains(const glm::vec3 &pt) const {
@@ -34,4 +35,18 @@ bool AxisAlignedBox::contains(const glm::vec3 &pt) const {
         && pt.x <= max.x && pt.y <= max.y && pt.z <= max.z)
         return true;
     return false;
+}
+
+IndexedPoint* SearchStructure::findClosestPoint(const glm::vec3& center, float radius) {
+    std::vector<IndexedPoint*> points = findPointsInSphere(center, radius);
+    float minDistance = std::numeric_limits<float>::max();
+    IndexedPoint* closestPoint = nullptr;
+    for (IndexedPoint* indexedPoint : points) {
+        float currentDistance = glm::distance(center, indexedPoint->position);
+        if (currentDistance < minDistance) {
+            minDistance = currentDistance;
+            closestPoint = indexedPoint;
+        }
+    }
+    return closestPoint;
 }

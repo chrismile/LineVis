@@ -62,7 +62,7 @@ public:
  */
 class SearchStructure {
 public:
-    virtual ~SearchStructure() {}
+    virtual ~SearchStructure() = default;
 
     /// All types of search structures
     enum SearchStructureType {
@@ -70,10 +70,24 @@ public:
     };
 
     /**
-     * Builds a k-d-tree from the passed point array.
+     * Builds the search structure from the passed point array.
      * @param points The point array.
      */
     virtual void build(const std::vector<IndexedPoint*>& indexedPoints)=0;
+
+    /**
+     * Reserves memory for use with @see addPoint.
+     * @param maxNumNodes The maximum number of nodes that can be added using @see addPoint.
+     */
+    virtual void reserveDynamic(size_t maxNumNodes)=0;
+
+    /**
+     * Adds the passed point to the search structure.
+     * WARNING: This function may be less efficient than @see build if the points are added in an order suboptimal
+     * for the search structure.
+     * @param indexedPoint The point to add.
+     */
+    virtual void addPoint(IndexedPoint* indexedPoint)=0;
 
     /**
      * Performs an area search and returns all points within a certain bounding box.
@@ -89,6 +103,14 @@ public:
      * @return The points stored in the search structure inside of the search radius.
      */
     virtual std::vector<IndexedPoint*> findPointsInSphere(const glm::vec3& center, float radius)=0;
+
+    /**
+     * Performs an area search and returns the closest point within the specified radius.
+     * @param centerPoint The center point.
+     * @param radius The search radius.
+     * @return The points stored in the search structure inside of the search radius.
+     */
+    virtual IndexedPoint* findClosestPoint(const glm::vec3& center, float radius);
 };
 
 #endif //SEARCH_STRUCTURE_H_

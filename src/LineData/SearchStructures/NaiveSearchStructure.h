@@ -39,7 +39,7 @@ class NaiveSearchStructure : public SearchStructure
 {
 public:
     /**
-     * Builds a k-d-tree from the passed point array.
+     * Builds a search structure from the passed point array.
      * @param points The point array.
      */
     void build(const std::vector<IndexedPoint*>& points) override {
@@ -47,19 +47,39 @@ public:
     }
 
     /**
-     * Performs an area search in the k-d-tree and returns all points within a certain bounding box.
+     * Reserves memory for use with @see addPoint.
+     * @param maxNumNodes The maximum number of nodes that can be added using @see addPoint.
+     */
+    void reserveDynamic(size_t maxNumNodes) override {
+        points.clear();
+        points.reserve(maxNumNodes);
+    }
+
+    /**
+     * Adds the passed point to the search structure.
+     * WARNING: This function may be less efficient than @see build if the points are added in an order suboptimal
+     * for the search structure.
+     * @param indexedPoint The point to add.
+     */
+    void addPoint(IndexedPoint* indexedPoint) override {
+        points.push_back(indexedPoint);
+    }
+
+    /**
+     * Performs an area search in the search structure and returns all points within a certain bounding box.
      * @param box The bounding box.
-     * @return The points stored in the k-d-tree inside of the bounding box.
+     * @return The points stored in the search structure inside of the bounding box.
      */
     std::vector<IndexedPoint*> findPointsInAxisAlignedBox(const AxisAlignedBox &box) override {
         return points;
     }
 
     /**
-     * Performs an area search in the k-d-tree and returns all points within a certain distance to some center point.
+     * Performs an area search in the search structure and returns all points within a certain distance to some center
+     * point.
      * @param centerPoint The center point.
      * @param radius The search radius.
-     * @return The points stored in the k-d-tree inside of the search radius.
+     * @return The points stored in the search structure inside of the search radius.
      */
     std::vector<IndexedPoint*> findPointsInSphere(const glm::vec3& center, float radius) {
         return points;
