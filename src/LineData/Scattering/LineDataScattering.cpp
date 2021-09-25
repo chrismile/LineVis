@@ -125,25 +125,31 @@ void LineDataScattering::setGridData(
 
     const float gamma = 0.3f;
     bool shallSmoothScalarField = true;
+#ifndef USE_VULKAN_INTEROP
+    shallSmoothScalarField = false;
+#endif
     if (!shallSmoothScalarField) {
         polygonizeSnapMC(
-                scalarField, int(gridSizeX), int(gridSizeY), int(gridSizeZ), 1e-4f, gamma,
-                isoSurfaceVertexPositions, isoSurfaceVertexNormals);
+                scalarField, int(gridSizeX), int(gridSizeY), int(gridSizeZ),
+                1e-4f, gamma, isoSurfaceVertexPositions, isoSurfaceVertexNormals);
 
-    } else {
-#ifdef USE_VULKAN_INTEROP
-        float* scalarFieldSmoothed = lineDensityFieldSmoothingPass->smoothScalarFieldCpu(
-                vulkanScatteredLinesGridRenderData.scalarFieldTexture);
-        polygonizeSnapMC(
-                scalarFieldSmoothed, int(gridSizeX), int(gridSizeY), int(gridSizeZ), 1e-4f, gamma,
-                isoSurfaceVertexPositions, isoSurfaceVertexNormals);
-        delete[] scalarFieldSmoothed;
-#else
-        polygonizeMarchingCubes(
-                scalarField, int(gridSizeX), int(gridSizeY), int(gridSizeZ), 1e-4f,
-                isoSurfaceVertexPositions, isoSurfaceVertexNormals);
-#endif
     }
+#ifdef USE_VULKAN_INTEROP
+    else {
+        int padding = 3;
+        int smoothedGridSizeX = gridSizeX + 2 * padding;
+        int smoothedGridSizeY = gridSizeY + 2 * padding;
+        int smoothedGridSizeZ = gridSizeZ + 2 * padding;
+        gridAabb.min = glm::vec3(padding, padding, padding);
+        gridAabb.max = glm::vec3(gridSizeX, gridSizeY, gridSizeZ);
+        float* scalarFieldSmoothed = lineDensityFieldSmoothingPass->smoothScalarFieldCpu(
+                vulkanScatteredLinesGridRenderData.scalarFieldTexture, padding);
+        polygonizeSnapMC(
+                scalarFieldSmoothed, int(smoothedGridSizeX), int(smoothedGridSizeY), int(smoothedGridSizeZ),
+                1e-4f, gamma, isoSurfaceVertexPositions, isoSurfaceVertexNormals);
+        delete[] scalarFieldSmoothed;
+    }
+#endif
 
     if (!isoSurfaceVertexPositions.empty()) {
         computeSharedIndexRepresentation(
@@ -497,13 +503,16 @@ void LineDensityFieldSmoothingPass::_render() {
 }
 
 sgl::vk::ImageViewPtr LineDensityFieldSmoothingPass::smoothScalarField(
-        const sgl::vk::TexturePtr& densityFieldTexture) {
+        const sgl::vk::TexturePtr& densityFieldTexture, int padding) {
     VkCommandBuffer commandBuffer = renderer->getDevice()->beginSingleTimeCommands(
             0xFFFFFFFF, false);
     renderer->setCustomCommandBuffer(commandBuffer);
     renderer->beginCommandBuffer();
 
     sgl::vk::ImageSettings imageSettings = densityFieldTexture->getImage()->getImageSettings();
+    imageSettings.width += 2 * padding;
+    imageSettings.height += 2 * padding;
+    imageSettings.depth += 2 * padding;
     imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     outputImageView = std::make_shared<sgl::vk::ImageView>(
             std::make_shared<sgl::vk::Image>(device, imageSettings));
@@ -515,6 +524,7 @@ sgl::vk::ImageViewPtr LineDensityFieldSmoothingPass::smoothScalarField(
 
     inputTexture = densityFieldTexture;
     smoothingUniformData.gridResolution = glm::ivec3(imageSettings.width, imageSettings.height, imageSettings.depth);
+    smoothingUniformData.padding = padding;
     this->setDataDirty();
     this->render();
 
@@ -525,12 +535,15 @@ sgl::vk::ImageViewPtr LineDensityFieldSmoothingPass::smoothScalarField(
     return outputImageView;
 }
 
-float* LineDensityFieldSmoothingPass::smoothScalarFieldCpu(sgl::vk::TexturePtr& densityFieldTexture) {
-    sgl::vk::ImageViewPtr smoothedImageView = smoothScalarField(densityFieldTexture);
+float* LineDensityFieldSmoothingPass::smoothScalarFieldCpu(sgl::vk::TexturePtr& densityFieldTexture, int padding) {
+    sgl::vk::ImageViewPtr smoothedImageView = smoothScalarField(densityFieldTexture, padding);
     const auto& imageSettings = densityFieldTexture->getImage()->getImageSettings();
 
     VkCommandBuffer commandBuffer = renderer->getDevice()->beginSingleTimeCommands();
-    size_t bufferSize = imageSettings.width * imageSettings.height * imageSettings.depth * sizeof(float);
+    uint32_t paddedSizeX = imageSettings.width + 2 * padding;
+    uint32_t paddedSizeY = imageSettings.height + 2 * padding;
+    uint32_t paddedSizeZ = imageSettings.depth + 2 * padding;
+    size_t bufferSize = paddedSizeX * paddedSizeY * paddedSizeZ * sizeof(float);
     sgl::vk::BufferPtr stagingBuffer = std::make_shared<sgl::vk::Buffer>(
             device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
     renderer->insertImageMemoryBarrier(
@@ -541,7 +554,7 @@ float* LineDensityFieldSmoothingPass::smoothScalarFieldCpu(sgl::vk::TexturePtr& 
     smoothedImageView->getImage()->copyToBuffer(stagingBuffer, commandBuffer);
     renderer->getDevice()->endSingleTimeCommands(commandBuffer);
 
-    float* dataOutput = new float[imageSettings.width * imageSettings.height * imageSettings.depth];
+    float* dataOutput = new float[paddedSizeX * paddedSizeY * paddedSizeZ];
     float* data = static_cast<float*>(stagingBuffer->mapMemory());
     memcpy(dataOutput, data, bufferSize);
     stagingBuffer->unmapMemory();

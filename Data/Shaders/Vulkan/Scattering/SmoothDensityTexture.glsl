@@ -34,6 +34,7 @@ layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
 
 layout (binding = 0) uniform UniformBuffer {
     ivec3 gridResolution;
+    int padding;
 };
 
 layout (binding = 1, std430) readonly buffer FilterWeightBuffer {
@@ -56,7 +57,7 @@ float filterDensity(ivec3 voxelIndex) {
     for (int offsetZ = -FILTER_EXTENT; offsetZ <= FILTER_EXTENT; offsetZ++) {
         for (int offsetY = -FILTER_EXTENT; offsetY <= FILTER_EXTENT; offsetY++) {
             for (int offsetX = -FILTER_EXTENT; offsetX <= FILTER_EXTENT; offsetX++) {
-                ivec3 readIndex = voxelIndex + ivec3(offsetX, offsetY, offsetZ);
+                ivec3 readIndex = voxelIndex + ivec3(offsetX - padding, offsetY - padding, offsetZ - padding);
                 if (readIndex.x >= 0 && readIndex.y >= 0 && readIndex.z >= 0 && readIndex.x < gridResolution.x
                         && readIndex.y < gridResolution.y && readIndex.z < gridResolution.z) {
                     int filterIdx = (offsetZ+FILTER_EXTENT)*FILTER_SIZE*FILTER_SIZE

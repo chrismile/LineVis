@@ -204,8 +204,8 @@ public:
     explicit LineDensityFieldSmoothingPass(sgl::vk::Renderer* renderer);
 
     // Public interface.
-    sgl::vk::ImageViewPtr smoothScalarField(const sgl::vk::TexturePtr& densityFieldTexture);
-    float* smoothScalarFieldCpu(sgl::vk::TexturePtr& densityFieldTexture);
+    sgl::vk::ImageViewPtr smoothScalarField(const sgl::vk::TexturePtr& densityFieldTexture, int padding);
+    float* smoothScalarFieldCpu(sgl::vk::TexturePtr& densityFieldTexture, int padding);
 
 private:
     void loadShader() override;
@@ -218,6 +218,7 @@ private:
 
     struct SmoothingUniformData {
         glm::ivec3 gridResolution;
+        int padding;
     };
     SmoothingUniformData smoothingUniformData{};
     sgl::vk::BufferPtr smoothingUniformBuffer;
