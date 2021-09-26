@@ -112,6 +112,16 @@ private:
     float* cachedGridData = nullptr;
     uint32_t cachedGridSizeX = 0, cachedGridSizeY = 0, cachedGridSizeZ = 0;
     float cachedVoxelSizeX = 0.0f, cachedVoxelSizeY = 0.0f, cachedVoxelSizeZ = 0.0f;
+    std::vector<uint32_t> outlineTriangleIndices;
+    std::vector<glm::vec3> outlineVertexPositions;
+    std::vector<glm::vec3> outlineVertexNormals;
+
+#ifdef USE_VULKAN_INTEROP
+    void createScalarFieldTexture();
+    void createIsosurface();
+    std::shared_ptr<LineDensityFieldSmoothingPass> lineDensityFieldSmoothingPass;
+    sgl::vk::TexturePtr cachedScalarFieldTexture;
+#endif
 
     // GUI data.
     bool showWindow = true;

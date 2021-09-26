@@ -76,7 +76,12 @@ public:
 
     void setDataSetInformation(const std::string& dataSetName, const std::vector<std::string>& attributeNames);
     void setGridData(
-            float* scalarField, uint32_t gridSizeX, uint32_t gridSizeY, uint32_t gridSizeZ,
+#ifdef USE_VULKAN_INTEROP
+            const sgl::vk::TexturePtr& scalarFieldTexture,
+#endif
+            const std::vector<uint32_t>& outlineTriangleIndices,
+            const std::vector<glm::vec3>& outlineVertexPositions, const std::vector<glm::vec3>& outlineVertexNormals,
+            uint32_t gridSizeX, uint32_t gridSizeY, uint32_t gridSizeZ,
             float voxelSizeX, float voxelSizeY, float voxelSizeZ);
 
     void rebuildInternalRepresentationIfNecessary() override;
@@ -88,7 +93,6 @@ public:
 private:
     uint32_t gridSizeX = 0, gridSizeY = 0, gridSizeZ = 0;
     float voxelSizeX = 0.0f, voxelSizeY = 0.0f, voxelSizeZ = 0.0f;
-    float* scalarField = nullptr;
 
 #ifdef USE_VULKAN_INTEROP
     // Caches the rendering data when using Vulkan.
@@ -96,7 +100,6 @@ private:
     std::shared_ptr<LineDensityFieldImageComputeRenderPass> lineDensityFieldImageComputeRenderPass;
     std::shared_ptr<LineDensityFieldMinMaxReduceRenderPass> lineDensityFieldMinMaxReduceRenderPass;
     std::shared_ptr<LineDensityFieldNormalizeRenderPass> lineDensityFieldNormalizeRenderPass;
-    std::shared_ptr<LineDensityFieldSmoothingPass> lineDensityFieldSmoothingPass;
     sgl::vk::BufferPtr lineDensityFieldBuffer;
     bool isLineDensityFieldDirty = false;
 

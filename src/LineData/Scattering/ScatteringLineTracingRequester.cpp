@@ -38,6 +38,12 @@
 #include <ImGui/imgui_custom.h>
 #include <ImGui/imgui_stdlib.h>
 
+#include <IsosurfaceCpp/src/MarchingCubes.hpp>
+#include <IsosurfaceCpp/src/SnapMC.hpp>
+
+#include "Utils/TriangleNormals.hpp"
+#include "Utils/MeshSmoothing.hpp"
+#include "Utils/IndexMesh.hpp"
 #include "LineDataScattering.hpp"
 #include "ScatteringLineTracingRequester.hpp"
 
@@ -52,6 +58,7 @@ ScatteringLineTracingRequester::ScatteringLineTracingRequester(
 #endif
 {
     loadGridDataSetList();
+    lineDensityFieldSmoothingPass = std::make_shared<LineDensityFieldSmoothingPass>(rendererVk);
     requesterThread = std::thread(&ScatteringLineTracingRequester::mainLoop, this);
 }
 
@@ -309,6 +316,9 @@ Json::Value ScatteringLineTracingRequester::traceLines(
         for (int i = 0; i < totalSize; i++) {
             cachedGridData[i] = (cachedGridData[i] - minVal) / (maxVal - minVal);
         }
+
+        createScalarFieldTexture();
+        createIsosurface();
     }
 
     Trajectories trajectories;
@@ -334,13 +344,85 @@ Json::Value ScatteringLineTracingRequester::traceLines(
     // TODO: This function normalizes the vertex positions of the trajectories; should we also normalize the grid size?
     normalizeTrajectoriesVertexPositions(trajectories, nullptr);
 
-    auto dataArray = new float[cachedGridSizeX * cachedGridSizeY * cachedGridSizeZ];
-    memcpy(dataArray, cachedGridData, cachedGridSizeX * cachedGridSizeY * cachedGridSizeZ * sizeof(float));
-
     lineData->setDataSetInformation(gridDataSetFilename, { "Attribute #1" });
     lineData->setGridData(
-            dataArray, cachedGridSizeX, cachedGridSizeY, cachedGridSizeZ,
+#ifdef USE_VULKAN_INTEROP
+            cachedScalarFieldTexture,
+#endif
+            outlineTriangleIndices, outlineVertexPositions, outlineVertexNormals,
+            cachedGridSizeX, cachedGridSizeY, cachedGridSizeZ,
             cachedVoxelSizeX, cachedVoxelSizeY, cachedVoxelSizeZ);
     lineData->setTrajectoryData(trajectories);
     return {};
+}
+
+void ScatteringLineTracingRequester::createScalarFieldTexture() {
+    sgl::vk::ImageSettings imageSettings;
+    imageSettings.width = cachedGridSizeX;
+    imageSettings.height = cachedGridSizeY;
+    imageSettings.depth = cachedGridSizeZ;
+    imageSettings.imageType = VK_IMAGE_TYPE_3D;
+    imageSettings.format = VK_FORMAT_R32_SFLOAT;
+
+    sgl::vk::ImageSamplerSettings samplerSettings;
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    cachedScalarFieldTexture = std::make_shared<sgl::vk::Texture>(
+            device, imageSettings, samplerSettings);
+    cachedScalarFieldTexture->getImage()->uploadData(
+            cachedGridSizeX * cachedGridSizeY * cachedGridSizeZ * sizeof(float), cachedGridData);
+}
+
+void ScatteringLineTracingRequester::createIsosurface() {
+    outlineTriangleIndices.clear();
+    outlineVertexPositions.clear();
+    outlineVertexNormals.clear();
+
+    uint32_t maxDimSize = std::max(cachedGridSizeX, std::max(cachedGridSizeY, cachedGridSizeZ));
+    sgl::AABB3 gridAabb;
+    gridAabb.min = glm::vec3(0.0f, 0.0f, 0.0f);
+    gridAabb.max = glm::vec3(cachedGridSizeX, cachedGridSizeY, cachedGridSizeZ);
+    sgl::AABB3 gridAabbResized;
+    gridAabbResized.max = glm::vec3(cachedGridSizeX, cachedGridSizeY, cachedGridSizeZ) * 0.5f / float(maxDimSize);
+    gridAabbResized.min = -gridAabbResized.max;
+
+    std::vector<glm::vec3> isosurfaceVertexPositions;
+    std::vector<glm::vec3> isosurfaceVertexNormals;
+
+    const float gamma = 0.3f;
+    bool shallSmoothScalarField = true;
+#ifndef USE_VULKAN_INTEROP
+    shallSmoothScalarField = false;
+#endif
+    if (!shallSmoothScalarField) {
+        polygonizeSnapMC(
+                cachedGridData, int(cachedGridSizeX), int(cachedGridSizeY), int(cachedGridSizeZ),
+                1e-4f, gamma, isosurfaceVertexPositions, isosurfaceVertexNormals);
+
+    }
+#ifdef USE_VULKAN_INTEROP
+    else {
+        int padding = 4;
+        int smoothedGridSizeX = int(cachedGridSizeX) + 2 * padding;
+        int smoothedGridSizeY = int(cachedGridSizeY) + 2 * padding;
+        int smoothedGridSizeZ = int(cachedGridSizeZ) + 2 * padding;
+        gridAabb.min = glm::vec3(padding, padding, padding);
+        gridAabb.max = glm::vec3(cachedGridSizeX, cachedGridSizeY, cachedGridSizeZ);
+        float* scalarFieldSmoothed = lineDensityFieldSmoothingPass->smoothScalarFieldCpu(
+                cachedScalarFieldTexture, padding);
+        polygonizeSnapMC(
+                scalarFieldSmoothed, int(smoothedGridSizeX), int(smoothedGridSizeY), int(smoothedGridSizeZ),
+                1e-4f, gamma, isosurfaceVertexPositions, isosurfaceVertexNormals);
+        delete[] scalarFieldSmoothed;
+    }
+#endif
+
+    if (!isosurfaceVertexPositions.empty()) {
+        computeSharedIndexRepresentation(
+                isosurfaceVertexPositions, isosurfaceVertexNormals,
+                outlineTriangleIndices, outlineVertexPositions, outlineVertexNormals);
+        normalizeVertexPositions(outlineVertexPositions, gridAabb, nullptr);
+
+        laplacianSmoothing(outlineTriangleIndices, outlineVertexPositions);
+    }
 }

@@ -28,7 +28,6 @@
 
 #include <iostream>
 #include <Math/Math.hpp>
-#include <IsosurfaceCpp/src/SnapMC.hpp>
 
 #ifdef USE_VULKAN_INTEROP
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
@@ -36,9 +35,6 @@
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #endif
 
-#include "Utils/TriangleNormals.hpp"
-#include "Utils/MeshSmoothing.hpp"
-#include "Utils/IndexMesh.hpp"
 #include "LineDataScattering.hpp"
 
 LineDataScattering::LineDataScattering(
@@ -57,13 +53,9 @@ LineDataScattering::LineDataScattering(
     lineDensityFieldImageComputeRenderPass = std::make_shared<LineDensityFieldImageComputeRenderPass>(rendererVk);
     lineDensityFieldMinMaxReduceRenderPass = std::make_shared<LineDensityFieldMinMaxReduceRenderPass>(rendererVk);
     lineDensityFieldNormalizeRenderPass = std::make_shared<LineDensityFieldNormalizeRenderPass>(rendererVk);
-    lineDensityFieldSmoothingPass = std::make_shared<LineDensityFieldSmoothingPass>(rendererVk);
 }
 
 LineDataScattering::~LineDataScattering() {
-    if (scalarField) {
-        delete[] scalarField;
-    }
 }
 
 void LineDataScattering::setDataSetInformation(
@@ -73,9 +65,13 @@ void LineDataScattering::setDataSetInformation(
 }
 
 void LineDataScattering::setGridData(
-        float* scalarField, uint32_t gridSizeX, uint32_t gridSizeY, uint32_t gridSizeZ,
+#ifdef USE_VULKAN_INTEROP
+        const sgl::vk::TexturePtr& scalarFieldTexture,
+#endif
+        const std::vector<uint32_t>& outlineTriangleIndices,
+        const std::vector<glm::vec3>& outlineVertexPositions, const std::vector<glm::vec3>& outlineVertexNormals,
+        uint32_t gridSizeX, uint32_t gridSizeY, uint32_t gridSizeZ,
         float voxelSizeX, float voxelSizeY, float voxelSizeZ) {
-    this->scalarField = scalarField;
     this->gridSizeX = gridSizeX;
     this->gridSizeY = gridSizeY;
     this->gridSizeZ = gridSizeZ;
@@ -83,6 +79,7 @@ void LineDataScattering::setGridData(
     this->voxelSizeY = voxelSizeY;
     this->voxelSizeZ = voxelSizeZ;
 
+#ifdef USE_VULKAN_INTEROP
     sgl::vk::ImageSettings imageSettings;
     imageSettings.width = gridSizeX;
     imageSettings.height = gridSizeY;
@@ -92,11 +89,7 @@ void LineDataScattering::setGridData(
 
     sgl::vk::ImageSamplerSettings samplerSettings;
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    vulkanScatteredLinesGridRenderData.scalarFieldTexture = std::make_shared<sgl::vk::Texture>(
-            device, imageSettings, samplerSettings);
-    vulkanScatteredLinesGridRenderData.scalarFieldTexture->getImage()->uploadData(
-            gridSizeX * gridSizeY * gridSizeZ * sizeof(float), scalarField);
+    vulkanScatteredLinesGridRenderData.scalarFieldTexture = scalarFieldTexture;
     imageSettings.usage =
             VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT
             | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -111,73 +104,15 @@ void LineDataScattering::setGridData(
             vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImageView());
     lineDensityFieldNormalizeRenderPass->setLineDensityFieldImageView(
             vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImageView());
-
-    uint32_t maxDimSize = std::max(gridSizeX, std::max(gridSizeY, gridSizeZ));
-    sgl::AABB3 gridAabb;
-    gridAabb.min = glm::vec3(0.0f, 0.0f, 0.0f);
-    gridAabb.max = glm::vec3(gridSizeX, gridSizeY, gridSizeZ);
-    sgl::AABB3 gridAabbResized;
-    gridAabbResized.max = glm::vec3(gridSizeX, gridSizeY, gridSizeZ) * 0.5f / float(maxDimSize);
-    gridAabbResized.min = -gridAabbResized.max;
-
-    std::vector<glm::vec3> isoSurfaceVertexPositions;
-    std::vector<glm::vec3> isoSurfaceVertexNormals;
-
-    const float gamma = 0.3f;
-    bool shallSmoothScalarField = true;
-#ifndef USE_VULKAN_INTEROP
-    shallSmoothScalarField = false;
-#endif
-    if (!shallSmoothScalarField) {
-        polygonizeSnapMC(
-                scalarField, int(gridSizeX), int(gridSizeY), int(gridSizeZ),
-                1e-4f, gamma, isoSurfaceVertexPositions, isoSurfaceVertexNormals);
-
-    }
-#ifdef USE_VULKAN_INTEROP
-    else {
-        int padding = 3;
-        int smoothedGridSizeX = gridSizeX + 2 * padding;
-        int smoothedGridSizeY = gridSizeY + 2 * padding;
-        int smoothedGridSizeZ = gridSizeZ + 2 * padding;
-        gridAabb.min = glm::vec3(padding, padding, padding);
-        gridAabb.max = glm::vec3(gridSizeX, gridSizeY, gridSizeZ);
-        float* scalarFieldSmoothed = lineDensityFieldSmoothingPass->smoothScalarFieldCpu(
-                vulkanScatteredLinesGridRenderData.scalarFieldTexture, padding);
-        polygonizeSnapMC(
-                scalarFieldSmoothed, int(smoothedGridSizeX), int(smoothedGridSizeY), int(smoothedGridSizeZ),
-                1e-4f, gamma, isoSurfaceVertexPositions, isoSurfaceVertexNormals);
-        delete[] scalarFieldSmoothed;
-    }
 #endif
 
-    if (!isoSurfaceVertexPositions.empty()) {
-        computeSharedIndexRepresentation(
-                isoSurfaceVertexPositions, isoSurfaceVertexNormals,
-                simulationMeshOutlineTriangleIndices,
-                simulationMeshOutlineVertexPositions, simulationMeshOutlineVertexNormals);
-        normalizeVertexPositions(simulationMeshOutlineVertexPositions, gridAabb, nullptr);
-
-        std::ofstream file("isosurface.obj");
-
-        for (const glm::vec3& vertexPosition : simulationMeshOutlineVertexPositions) {
-            file << "v " << vertexPosition.x << " " << vertexPosition.y << " " << vertexPosition.z << "\n";
-        }
-        for (const glm::vec3& vertexNormal : simulationMeshOutlineVertexNormals) {
-            file << "vn " << vertexNormal.x << " " << vertexNormal.y << " " << vertexNormal.z << "\n";
-        }
-        for (size_t i = 0; i < simulationMeshOutlineTriangleIndices.size(); i += 3) {
-            uint32_t idx0 = simulationMeshOutlineTriangleIndices.at(i) + 1;
-            uint32_t idx1 = simulationMeshOutlineTriangleIndices.at(i + 1) + 1;
-            uint32_t idx2 = simulationMeshOutlineTriangleIndices.at(i + 2) + 1;
-            file << "f " << idx0 << "//" << idx0 << " " << idx1 << "//" << idx1 << " " << idx2 << "//" << idx2 << "\n";
-        }
-
-        file.close();
-
-        laplacianSmoothing(simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
+    if (!outlineTriangleIndices.empty()) {
+        simulationMeshOutlineTriangleIndices = outlineTriangleIndices;
+        simulationMeshOutlineVertexPositions = outlineVertexPositions;
+        simulationMeshOutlineVertexNormals = outlineVertexNormals;
         shallRenderSimulationMeshBoundary = true;
     }
+
 }
 
 void LineDataScattering::rebuildInternalRepresentationIfNecessary() {
