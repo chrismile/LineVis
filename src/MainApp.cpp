@@ -88,6 +88,7 @@ void openglErrorCallback() {
 
 #ifdef USE_VULKAN_INTEROP
 void vulkanErrorCallback() {
+    SDL_CaptureMouse(SDL_FALSE);
     std::cerr << "Application callback" << std::endl;
 }
 #endif

@@ -210,7 +210,7 @@ void StressLineTracingRequesterSocket::mainLoop() {
                         static_cast<const char*>(zmq_msg_data(&reply)), zmq_msg_size(&reply));
                 zmq_msg_close(&reply);
 
-                std::lock_guard<std::mutex> replyLock(requestMutex);
+                std::lock_guard<std::mutex> replyLock(replyMutex);
                 hasReply = true;
                 replyMessage = replyString;
                 isProcessingRequest = false;

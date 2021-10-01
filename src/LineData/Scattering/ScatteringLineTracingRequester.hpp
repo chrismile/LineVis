@@ -46,7 +46,7 @@ public:
     ScatteringLineTracingRequester(
             sgl::TransferFunctionWindow& transferFunctionWindow
 #ifdef USE_VULKAN_INTEROP
-            , sgl::vk::Renderer* rendererVk
+            , sgl::vk::Renderer* rendererMainThread
 #endif
     );
     ~ScatteringLineTracingRequester();
@@ -112,7 +112,7 @@ private:
         // camera:
         float focal_length        = 1;  // how far away from the camera the grid will be
         float camera_fov_deg      = 10;
-        glm::vec3 camera_position = {-2,-2,-2};
+        glm::vec3 camera_position = {-0.5f,-0.5f,-0.5f};
         glm::vec3 camera_look_at  = { 0 ,0, 0};
 
         uint32_t res_x = 10;
@@ -123,6 +123,8 @@ private:
         glm::vec3 extinction        = { 20,  20,  20};
         glm::vec3 scattering_albedo = {  1,   1,   1};
         glm::vec3 g                 = {0.2, 0.2, 0.2};
+
+        bool useIsosurface = true;
     } tracing_settings;
 
     // Cache.

@@ -70,7 +70,44 @@ void VulkanAmbientOcclusionBaker::waitCommandBuffersFinished() {
 }
 
 void VulkanAmbientOcclusionBaker::deriveOptimalAoSettingsFromLineData(LineDataPtr& lineData) {
-    size_t numLineSegments = lineData->getNumLineSegments();
+    float linesLengthSum = 0.0f;
+    std::vector<std::vector<glm::vec3>> lines = lineData->getFilteredLines();
+#if _OPENMP >= 201107
+    #pragma omp parallel for reduction(+: linesLengthSum) shared(lines) default(none)
+#endif
+    for (size_t lineIdx = 0; lineIdx < lines.size(); lineIdx++) {
+        std::vector<glm::vec3>& line = lines.at(lineIdx);
+        const size_t n = line.size();
+        float polylineLength = 0.0f;
+        for (size_t i = 1; i < n; i++) {
+            polylineLength += glm::length(line[i] - line[i-1]);
+        }
+        linesLengthSum += polylineLength;
+    }
+
+    if (linesLengthSum <= 50.0f) { // Very small data set, e.g., cantilever (31.5167).
+        maxNumIterations = 128;
+        aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame = 16;
+        aoComputeRenderPass->expectedParamSegmentLength = 0.001f;
+        bakingMode = BakingMode::ITERATIVE_UPDATE;
+    } else if (linesLengthSum <= 500.0f) { // Small data set, e.g., femur (214.138) or rings (277.836).
+        maxNumIterations = 128;
+        aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame = 4;
+        aoComputeRenderPass->expectedParamSegmentLength = 0.001f;
+        bakingMode = BakingMode::ITERATIVE_UPDATE;
+    } else if (linesLengthSum <= 5000.0f) { // Medium-sized data set.
+        maxNumIterations = 256;
+        aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame = 1;
+        aoComputeRenderPass->expectedParamSegmentLength = 0.005f;
+        bakingMode = BakingMode::ITERATIVE_UPDATE;
+    } else { // Large data set, e.g., aneurysm (8530.48).
+        maxNumIterations = 128;
+        aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame = 1;
+        aoComputeRenderPass->expectedParamSegmentLength = 0.005f;
+        bakingMode = BakingMode::ITERATIVE_UPDATE;
+    }
+
+    /*size_t numLineSegments = lineData->getNumLineSegments();
     if (numLineSegments <= 10000) { // Very small data set, e.g., cantilever (6302).
         maxNumIterations = 128;
         aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame = 16;
@@ -79,7 +116,7 @@ void VulkanAmbientOcclusionBaker::deriveOptimalAoSettingsFromLineData(LineDataPt
         maxNumIterations = 128;
         aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame = 4;
         bakingMode = BakingMode::ITERATIVE_UPDATE;
-    } else if (numLineSegments <= 1000000) { // Medium-sized data set, e.g., femur (243030).
+    } else if (numLineSegments <= 1000000) { // Medium-sized data set, e.g., rings (243030).
         maxNumIterations = 256;
         aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame = 1;
         bakingMode = BakingMode::ITERATIVE_UPDATE;
@@ -87,7 +124,7 @@ void VulkanAmbientOcclusionBaker::deriveOptimalAoSettingsFromLineData(LineDataPt
         maxNumIterations = 128;
         aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame = 1;
         bakingMode = BakingMode::ITERATIVE_UPDATE;
-    }
+    }*/
 
     // Stress line often intersect, which is why more subdivision might be necessary to get good-looking AO.
     if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {

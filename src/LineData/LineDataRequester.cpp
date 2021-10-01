@@ -128,7 +128,7 @@ void LineDataRequester::mainLoop() {
                 continue;
             }
 
-            std::lock_guard<std::mutex> replyLock(requestMutex);
+            std::lock_guard<std::mutex> replyLock(replyMutex);
             this->lineData = lineData;
             this->loadedDataSetInformation = dataSetInformation;
             isProcessingRequest = false;

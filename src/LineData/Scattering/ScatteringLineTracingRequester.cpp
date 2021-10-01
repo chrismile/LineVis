@@ -26,6 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <cstdint>
+
 #include <boost/filesystem.hpp>
 
 #include <Utils/AppSettings.hpp>
@@ -36,7 +38,9 @@
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
 #include <ImGui/imgui_stdlib.h>
-#include <stdint.h>
+#ifdef USE_VULKAN_INTEROP
+#include <Graphics/Vulkan/Render/Renderer.hpp>
+#endif
 
 #include <IsosurfaceCpp/src/MarchingCubes.hpp>
 #include <IsosurfaceCpp/src/SnapMC.hpp>
@@ -52,13 +56,15 @@
 ScatteringLineTracingRequester::ScatteringLineTracingRequester(
         sgl::TransferFunctionWindow& transferFunctionWindow
 #ifdef USE_VULKAN_INTEROP
-        , sgl::vk::Renderer* rendererVk
+        , sgl::vk::Renderer* rendererMainThread
 #endif
 ) : transferFunctionWindow(transferFunctionWindow)
-#ifdef USE_VULKAN_INTEROP
         , rendererVk(rendererVk)
-#endif
 {
+#ifdef USE_VULKAN_INTEROP
+    rendererVk = new sgl::vk::Renderer(rendererMainThread->getDevice(), 100);
+#endif
+
     loadGridDataSetList();
     lineDensityFieldSmoothingPass = std::make_shared<LineDensityFieldSmoothingPass>(rendererVk);
     requesterThread = std::thread(&ScatteringLineTracingRequester::mainLoop, this);
@@ -67,6 +73,12 @@ ScatteringLineTracingRequester::ScatteringLineTracingRequester(
 ScatteringLineTracingRequester::~ScatteringLineTracingRequester() {
     join();
     cached_grid.delete_maybe();
+
+#ifdef USE_VULKAN_INTEROP
+    lineDensityFieldSmoothingPass = {};
+    cachedScalarFieldTexture = {};
+    delete rendererVk;
+#endif
 }
 
 void ScatteringLineTracingRequester::loadGridDataSetList() {
@@ -118,17 +130,20 @@ void ScatteringLineTracingRequester::renderGui() {
                 changed = true;
             }
         }
+#ifndef NDEBUG
+        ImGui::Checkbox("Use Isosurface", &tracing_settings.useIsosurface);
+#endif
 
         changed |= ImGui::SliderFloat("Camera FOV",
                                       &tracing_settings.camera_fov_deg, 5.0f, 90.0f);
         changed |= ImGui::SliderFloat3("Camera Position",
-                                       &tracing_settings.camera_position.x, -10, 10);
+                                       &tracing_settings.camera_position.x, -1, 1);
         changed |= ImGui::SliderFloat3("Camera Look At",
-                                       &tracing_settings.camera_look_at.x, -10, 10);
+                                       &tracing_settings.camera_look_at.x, -1, 1);
 
         // TODO(Felix): What if user enters negative numbers?
         changed |= ImGui::InputInt("Res X", (int*)&tracing_settings.res_x);
-        changed |= ImGui::InputInt("Res X", (int*)&tracing_settings.res_y);
+        changed |= ImGui::InputInt("Res Y", (int*)&tracing_settings.res_y);
         changed |= ImGui::InputInt("Samples per Pixel",
                                    (int*)&tracing_settings.samples_per_pixel);
 
@@ -158,6 +173,7 @@ void ScatteringLineTracingRequester::requestNewData() {
             lineDataSetsDirectory + gridDataSetFilename).generic_string();
 
 #define add_to_request(thing) request[#thing] = tracing_settings.thing
+    add_to_request(useIsosurface);
     add_to_request(camera_fov_deg);
     add_to_request(camera_position.x);
     add_to_request(camera_position.y);
@@ -271,7 +287,7 @@ void ScatteringLineTracingRequester::mainLoop() {
 
             Json::Value reply = traceLines(request, lineData);
 
-            std::lock_guard<std::mutex> replyLock(requestMutex);
+            std::lock_guard<std::mutex> replyLock(replyMutex);
             hasReply = true;
             replyMessage = reply;
             replyLineData = lineData;
@@ -284,6 +300,7 @@ Json::Value ScatteringLineTracingRequester::traceLines(
         const Json::Value& request, std::shared_ptr<LineDataScattering>& lineData)
 {
     std::string gridDataSetFilename = request["gridDataSetFilename"].asString();
+    bool useIsosurface = request["useIsosurface"].asBool();
 
     // if the user changed the file
     if (gridDataSetFilename != cached_grid_file_name) {
@@ -291,8 +308,10 @@ Json::Value ScatteringLineTracingRequester::traceLines(
         cached_grid_file_name = gridDataSetFilename;
         cached_grid = load_xyz_file(cached_grid_file_name);
 
-        createScalarFieldTexture();
-        createIsosurface();
+        if (useIsosurface) {
+            createScalarFieldTexture();
+            createIsosurface();
+        }
     }
 
     PathInfo pi {};
