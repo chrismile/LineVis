@@ -109,14 +109,23 @@ float Texture3D::sample_at(glm::vec3 pos) {
     uint32_t idx_h_high  = ceil(fh);
     uint32_t idx_d_far   = ceil(fd);
 
-    float left_low_near   = this->data[IDX(idx_w_left,  idx_h_low,  idx_d_near)];
-    float left_low_far    = this->data[IDX(idx_w_left,  idx_h_low,  idx_d_far)];
-    float left_high_near  = this->data[IDX(idx_w_left,  idx_h_high, idx_d_near)];
-    float left_high_far   = this->data[IDX(idx_w_left,  idx_h_high, idx_d_far)];
-    float right_low_near  = this->data[IDX(idx_w_right, idx_h_low,  idx_d_near)];
-    float right_low_far   = this->data[IDX(idx_w_right, idx_h_low,  idx_d_far)];
-    float right_high_near = this->data[IDX(idx_w_right, idx_h_high, idx_d_near)];
-    float right_high_far  = this->data[IDX(idx_w_right, idx_h_high, idx_d_far)];
+    int idx_left_low_near   = IDX(idx_w_left,  idx_h_low,  idx_d_near);
+    int idx_left_low_far    = IDX(idx_w_left,  idx_h_low,  idx_d_far);
+    int idx_left_high_near  = IDX(idx_w_left,  idx_h_high, idx_d_near);
+    int idx_left_high_far   = IDX(idx_w_left,  idx_h_high, idx_d_far);
+    int idx_right_low_near  = IDX(idx_w_right, idx_h_low,  idx_d_near);
+    int idx_right_low_far   = IDX(idx_w_right, idx_h_low,  idx_d_far);
+    int idx_right_high_near = IDX(idx_w_right, idx_h_high, idx_d_near);
+    int idx_right_high_far  = IDX(idx_w_right, idx_h_high, idx_d_far);
+
+    float left_low_near   = this->data[idx_left_low_near];
+    float left_low_far    = this->data[idx_left_low_far];
+    float left_high_near  = this->data[idx_left_high_near];
+    float left_high_far   = this->data[idx_left_high_far];
+    float right_low_near  = this->data[idx_right_low_near];
+    float right_low_far   = this->data[idx_right_low_far];
+    float right_high_near = this->data[idx_right_high_near];
+    float right_high_far  = this->data[idx_right_high_far];
 
     float low_near = lerp(left_low_near, tw, right_low_near);
     float low_far  = lerp(left_low_far,  tw, right_low_far);

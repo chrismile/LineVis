@@ -106,8 +106,24 @@ private:
     LineDataPtr replyLineData;
 
     // Line tracing settings.
-    int numLinesToTrace = 1000;
-    float extinctionCoefficient = 10.0f;
+    struct {
+        uint32_t seed;
+
+        // camera:
+        float focal_length        = 1;  // how far away from the camera the grid will be
+        float camera_fov_deg      = 10;
+        glm::vec3 camera_position = {-2,-2,-2};
+        glm::vec3 camera_look_at  = { 0 ,0, 0};
+
+        uint32_t res_x = 10;
+        uint32_t res_y = 10;
+        uint32_t samples_per_pixel = 10;
+
+        // volume:
+        glm::vec3 extinction        = { 20,  20,  20};
+        glm::vec3 scattering_albedo = {  1,   1,   1};
+        glm::vec3 g                 = {0.2, 0.2, 0.2};
+    } tracing_settings;
 
     // Cache.
     std::string cached_grid_file_name;

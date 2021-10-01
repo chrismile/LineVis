@@ -36,6 +36,7 @@
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
 #include <ImGui/imgui_stdlib.h>
+#include <stdint.h>
 
 #include "LineDataScattering.hpp"
 #include "ScatteringLineTracingRequester.hpp"
@@ -111,8 +112,25 @@ void ScatteringLineTracingRequester::renderGui() {
             }
         }
 
-        changed |= ImGui::SliderInt("#Lines to Trace", &numLinesToTrace, 1, 10000);
-        changed |= ImGui::SliderFloat("Extinction", &extinctionCoefficient, 0.0f, 50.0f);
+        changed |= ImGui::SliderFloat("Camera FOV",
+                                      &tracing_settings.camera_fov_deg, 5.0f, 90.0f);
+        changed |= ImGui::SliderFloat3("Camera Position",
+                                       &tracing_settings.camera_position.x, -10, 10);
+        changed |= ImGui::SliderFloat3("Camera Look At",
+                                       &tracing_settings.camera_look_at.x, -10, 10);
+
+        // TODO(Felix): What if user enters negative numbers?
+        changed |= ImGui::InputInt("Res X", (int*)&tracing_settings.res_x);
+        changed |= ImGui::InputInt("Res X", (int*)&tracing_settings.res_y);
+        changed |= ImGui::InputInt("Samples per Pixel",
+                                   (int*)&tracing_settings.samples_per_pixel);
+
+        changed |= ImGui::SliderFloat3("Extinction",
+                                      &tracing_settings.extinction.x, 0.0f, 100.0f);
+        changed |= ImGui::SliderFloat3("Scattering Albedo",
+                                      &tracing_settings.scattering_albedo.x, 0.0f, 1.0f);
+        changed |= ImGui::SliderFloat3("G",
+                                      &tracing_settings.g.x, 0.0f, 1.0f);
 
         if (changed) {
             requestNewData();
@@ -128,9 +146,37 @@ void ScatteringLineTracingRequester::requestNewData() {
 
     Json::Value request;
     const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
+
     request["gridDataSetFilename"] = boost::filesystem::absolute(
             lineDataSetsDirectory + gridDataSetFilename).generic_string();
-    request["extinctionCoefficient"] = extinctionCoefficient;
+
+#define add_to_request(thing) request[#thing] = tracing_settings.thing
+    add_to_request(camera_fov_deg);
+    add_to_request(camera_position.x);
+    add_to_request(camera_position.y);
+    add_to_request(camera_position.z);
+
+    add_to_request(camera_look_at.x);
+    add_to_request(camera_look_at.y);
+    add_to_request(camera_look_at.z);
+
+    add_to_request(res_x);
+    add_to_request(res_y);
+
+    add_to_request(samples_per_pixel);
+
+    add_to_request(extinction.x);
+    add_to_request(extinction.y);
+    add_to_request(extinction.z);
+
+    add_to_request(scattering_albedo.x);
+    add_to_request(scattering_albedo.y);
+    add_to_request(scattering_albedo.z);
+
+    add_to_request(g.x);
+    add_to_request(g.y);
+    add_to_request(g.z);
+#undef add_to_request
 
     queueRequestJson(request);
     isProcessingRequest = true;
@@ -231,7 +277,6 @@ Json::Value ScatteringLineTracingRequester::traceLines(
         const Json::Value& request, std::shared_ptr<LineDataScattering>& lineData)
 {
     std::string gridDataSetFilename = request["gridDataSetFilename"].asString();
-    float extinctionCoefficient = request["extinctionCoefficient"].asFloat();
 
     // if the user changed the file
     if (gridDataSetFilename != cached_grid_file_name) {
@@ -240,44 +285,82 @@ Json::Value ScatteringLineTracingRequester::traceLines(
         cached_grid = load_xyz_file(cached_grid_file_name);
     }
 
-    Trajectories trajectories;
-
     PathInfo pi {};
-    pi.camera_pos = {-2,-2,-2};
+    pi.camera_pos = {
+        request["camera_position.x"].asFloat(),
+        request["camera_position.y"].asFloat(),
+        request["camera_position.z"].asFloat(),
+    };
+    // TODO(Felix): use look at here
     pi.ray_direction = glm::normalize(glm::vec3{1.0f,1.0f,1.0f});
-    pi.pass_number = 0;
-
-    Random::init(122);
 
     VolumeInfo vi {};
     vi.grid = cached_grid;
-    vi.extinction = {20,20,20};
-    vi.scattering_albedo = {1,1,1};
-    vi.g = {0.2,0.2,0.2};
+    vi.extinction = {
+        request["extinction.x"].asFloat(),
+        request["extinction.y"].asFloat(),
+        request["extinction.z"].asFloat()
+    };
+    vi.scattering_albedo = {
+        request["scattering_albedo.x"].asFloat(),
+        request["scattering_albedo.y"].asFloat(),
+        request["scattering_albedo.z"].asFloat()
+    };
+    vi.g = {
+        request["g.x"].asFloat(),
+        request["g.y"].asFloat(),
+        request["g.z"].asFloat()
+    };
 
 
+    float camera_fov_deg = request["camera_fov_deg"].asFloat();
+    uint32_t res_x = request["res_x"].asUInt();
+    uint32_t res_y = request["res_y"].asUInt();
+    uint32_t samples_per_pixel = request["samples_per_pixel"].asUInt();
 
-    for (int i = 0; i < 100; ++i) {
-        dt_path_trace(pi, vi, &trajectories);
+
+    Trajectories trajectories;
+    pi.pass_number = 0;
+    Random::init(tracing_settings.seed);
+
+    { // NEW
+
+        glm::vec3 Y = { 0, 0, -1 };
+        glm::vec3 X = glm::cross(pi.ray_direction, Y);
+        Y = glm::cross(X, pi.ray_direction);
+
+        float camera_fov_rad = glm::radians(camera_fov_deg);
+        float grid_width = tan(camera_fov_rad / 2) * 2 * tracing_settings.focal_length;
+        float grid_height = res_y * 1.0 / res_x * grid_width;
+
+        glm::vec3 P0 =
+            pi.camera_pos +
+            pi.ray_direction * tracing_settings.focal_length -
+            0.5f * Y * grid_height -
+            0.5f * X * grid_width;
+
+        // Pixel loop
+        for (int y = 0; y < res_y; ++y) {
+            for (int x = 0; x < res_x; ++x) {
+                glm::vec3 P =
+                    P0 +
+                    X * (x*1.0f/(res_x-1)) * grid_width +
+                    Y * (y*1.0f/(res_y-1)) * grid_height;
+
+                P = glm::normalize(P - pi.camera_pos);
+
+                pi.ray_direction = P;
+                // Sample loop
+
+                for (int i = 0; i < samples_per_pixel; ++i) {
+                    pi.pass_number = i;
+                    // DTPathtrace(PI, S.VolInfo, &RayPack);
+                    dt_path_trace(pi, vi, &trajectories);
+                }
+            }
+        }
+
     }
-
-    // Trajectory trajectory0;
-    // trajectory0.positions.emplace_back(-1.0f, 0.0f, 1.0f);
-    // trajectory0.positions.emplace_back(-1.0f, 1.0f, 1.0f);
-    // trajectory0.attributes.push_back({ 1.0f, 0.0f });
-    // trajectories.push_back(trajectory0);
-    // Trajectory trajectory1;
-    // trajectory1.positions.emplace_back(1.0f, 0.0f, 1.0f);
-    // trajectory1.positions.emplace_back(1.0f, 0.5f, 1.0f);
-    // trajectory1.positions.emplace_back(1.0f, 1.0f, 1.0f);
-    // trajectory1.attributes.push_back({ 0.0f, 0.5f, 1.0f });
-    // trajectories.push_back(trajectory1);
-    // Trajectory trajectory2;
-    // trajectory2.positions.emplace_back(0.0f, 0.0f, -1.0f);
-    // trajectory2.positions.emplace_back(0.0f, 0.5f, -1.0f);
-    // trajectory2.positions.emplace_back(0.0f, 1.0f, -1.0f);
-    // trajectory2.attributes.push_back({ 0.0f, 0.5f, 1.0f });
-    // trajectories.push_back(trajectory2);
 
     // TODO: This function normalizes the vertex positions of the trajectories;
     //   should we also normalize the grid size?
