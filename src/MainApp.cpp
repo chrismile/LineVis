@@ -28,6 +28,7 @@
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <algorithm>
+#include <csignal>
 
 #include <glm/gtx/color_space.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -83,6 +84,7 @@
 #include "MainApp.hpp"
 
 void openglErrorCallback() {
+    SDL_CaptureMouse(SDL_FALSE);
     std::cerr << "Application callback" << std::endl;
 }
 
@@ -90,6 +92,14 @@ void openglErrorCallback() {
 void vulkanErrorCallback() {
     SDL_CaptureMouse(SDL_FALSE);
     std::cerr << "Application callback" << std::endl;
+}
+#endif
+
+#ifdef __linux__
+void signalHandler(int signum) {
+    SDL_CaptureMouse(SDL_FALSE);
+    std::cerr << "Interrupt signal (" << signum << ") received." << std::endl;
+    exit(signum);
 }
 #endif
 
@@ -325,6 +335,10 @@ MainApp::MainApp()
                 [this](const InternalState &newState) { this->setNewState(newState); });
         performanceMeasurer->setInitialFreeMemKilobytes(gpuInitialFreeMemKilobytes);
     }
+
+#ifdef __linux__
+    signal(SIGSEGV, signalHandler);
+#endif
 }
 
 MainApp::~MainApp() {
