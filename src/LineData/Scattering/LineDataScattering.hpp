@@ -30,6 +30,7 @@
 #define LINEVIS_LINEDATASCATTERING_HPP
 
 #include "../LineDataFlow.hpp"
+#include "Texture3d.hpp"
 
 #ifdef USE_VULKAN_INTEROP
 #include <Graphics/Vulkan/Render/Passes/Pass.hpp>

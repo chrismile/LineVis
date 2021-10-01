@@ -27,7 +27,6 @@
  */
 
 #include <boost/filesystem.hpp>
-#include <json/json.h>
 
 #include <Utils/AppSettings.hpp>
 #include <Utils/File/Logfile.hpp>
@@ -37,6 +36,7 @@
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
 #include <ImGui/imgui_stdlib.h>
+#include <stdint.h>
 
 #include <IsosurfaceCpp/src/MarchingCubes.hpp>
 #include <IsosurfaceCpp/src/SnapMC.hpp>
@@ -46,6 +46,8 @@
 #include "Utils/IndexMesh.hpp"
 #include "LineDataScattering.hpp"
 #include "ScatteringLineTracingRequester.hpp"
+#include "Texture3d.hpp"
+#include "DtPathTrace.hpp"
 
 ScatteringLineTracingRequester::ScatteringLineTracingRequester(
         sgl::TransferFunctionWindow& transferFunctionWindow
@@ -64,11 +66,7 @@ ScatteringLineTracingRequester::ScatteringLineTracingRequester(
 
 ScatteringLineTracingRequester::~ScatteringLineTracingRequester() {
     join();
-
-    if (cachedGridData) {
-        delete[] cachedGridData;
-        cachedGridData = nullptr;
-    }
+    cached_grid.delete_maybe();
 }
 
 void ScatteringLineTracingRequester::loadGridDataSetList() {
@@ -121,8 +119,25 @@ void ScatteringLineTracingRequester::renderGui() {
             }
         }
 
-        changed |= ImGui::SliderInt("#Lines to Trace", &numLinesToTrace, 1, 10000);
-        changed |= ImGui::SliderFloat("Extinction", &extinctionCoefficient, 0.0f, 50.0f);
+        changed |= ImGui::SliderFloat("Camera FOV",
+                                      &tracing_settings.camera_fov_deg, 5.0f, 90.0f);
+        changed |= ImGui::SliderFloat3("Camera Position",
+                                       &tracing_settings.camera_position.x, -10, 10);
+        changed |= ImGui::SliderFloat3("Camera Look At",
+                                       &tracing_settings.camera_look_at.x, -10, 10);
+
+        // TODO(Felix): What if user enters negative numbers?
+        changed |= ImGui::InputInt("Res X", (int*)&tracing_settings.res_x);
+        changed |= ImGui::InputInt("Res X", (int*)&tracing_settings.res_y);
+        changed |= ImGui::InputInt("Samples per Pixel",
+                                   (int*)&tracing_settings.samples_per_pixel);
+
+        changed |= ImGui::SliderFloat3("Extinction",
+                                      &tracing_settings.extinction.x, 0.0f, 100.0f);
+        changed |= ImGui::SliderFloat3("Scattering Albedo",
+                                      &tracing_settings.scattering_albedo.x, 0.0f, 1.0f);
+        changed |= ImGui::SliderFloat3("G",
+                                      &tracing_settings.g.x, 0.0f, 1.0f);
 
         if (changed) {
             requestNewData();
@@ -138,9 +153,37 @@ void ScatteringLineTracingRequester::requestNewData() {
 
     Json::Value request;
     const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
+
     request["gridDataSetFilename"] = boost::filesystem::absolute(
             lineDataSetsDirectory + gridDataSetFilename).generic_string();
-    request["extinctionCoefficient"] = extinctionCoefficient;
+
+#define add_to_request(thing) request[#thing] = tracing_settings.thing
+    add_to_request(camera_fov_deg);
+    add_to_request(camera_position.x);
+    add_to_request(camera_position.y);
+    add_to_request(camera_position.z);
+
+    add_to_request(camera_look_at.x);
+    add_to_request(camera_look_at.y);
+    add_to_request(camera_look_at.z);
+
+    add_to_request(res_x);
+    add_to_request(res_y);
+
+    add_to_request(samples_per_pixel);
+
+    add_to_request(extinction.x);
+    add_to_request(extinction.y);
+    add_to_request(extinction.z);
+
+    add_to_request(scattering_albedo.x);
+    add_to_request(scattering_albedo.y);
+    add_to_request(scattering_albedo.z);
+
+    add_to_request(g.x);
+    add_to_request(g.y);
+    add_to_request(g.z);
+#undef add_to_request
 
     queueRequestJson(request);
     isProcessingRequest = true;
@@ -238,111 +281,99 @@ void ScatteringLineTracingRequester::mainLoop() {
 }
 
 Json::Value ScatteringLineTracingRequester::traceLines(
-        const Json::Value& request, std::shared_ptr<LineDataScattering>& lineData) {
+        const Json::Value& request, std::shared_ptr<LineDataScattering>& lineData)
+{
     std::string gridDataSetFilename = request["gridDataSetFilename"].asString();
-    float extinctionCoefficient = request["extinctionCoefficient"].asFloat();
 
-    if (gridDataSetFilename != cachedGridDataSetFilename) {
-        if (cachedGridData) {
-            delete[] cachedGridData;
-            cachedGridData = nullptr;
-        }
-
-        cachedGridDataSetFilename = gridDataSetFilename;
-
-        uint8_t* fileBuffer = nullptr;
-        size_t bufferSize = 0;
-        bool loaded = sgl::loadFileFromSource(gridDataSetFilename, fileBuffer, bufferSize, true);
-        if (!loaded) {
-            sgl::Logfile::get()->writeError(
-                    "Error in ScatteringLineTracingRequester::traceLines: Couldn't load data from grid data set file \""
-                    + gridDataSetFilename + "\".");
-            return {};
-        }
-        sgl::BinaryReadStream binaryReadStream(fileBuffer, bufferSize);
-
-        uint32_t gridSizeX = 0, gridSizeY = 0, gridSizeZ = 0;
-        double voxelSizeX = 0.0, voxelSizeY = 0.0, voxelSizeZ = 0.0;
-        binaryReadStream.read(gridSizeX);
-        binaryReadStream.read(gridSizeY);
-        binaryReadStream.read(gridSizeZ);
-        binaryReadStream.read(voxelSizeX);
-        binaryReadStream.read(voxelSizeY);
-        binaryReadStream.read(voxelSizeZ);
-
-        cachedGridSizeX = gridSizeX;
-        cachedGridSizeY = gridSizeY;
-        cachedGridSizeZ = gridSizeZ;
-        cachedVoxelSizeX = float(voxelSizeX);
-        cachedVoxelSizeY = float(voxelSizeY);
-        cachedVoxelSizeZ = float(voxelSizeZ);
-
-        cachedGridData = new float[gridSizeX * gridSizeY * gridSizeZ];
-        float* cachedGridDataTransposed = new float[gridSizeX * gridSizeY * gridSizeZ];
-        binaryReadStream.read(cachedGridDataTransposed, gridSizeX * gridSizeY * gridSizeZ * sizeof(float));
-
-        // Transpose.
-#if _OPENMP >= 201107
-        #pragma omp parallel for shared(cachedGridData, cachedGridDataTransposed, gridSizeX, gridSizeY, gridSizeZ) \
-        default(none)
-#endif
-        for (uint32_t z = 0; z < gridSizeZ; z++) {
-            for (uint32_t y = 0; y < gridSizeY; y++) {
-                for (uint32_t x = 0; x < gridSizeX; x++) {
-                    cachedGridData[x + (y + z * gridSizeY) * gridSizeX] =
-                            cachedGridDataTransposed[z + (y + x * gridSizeY) * gridSizeZ];
-                }
-            }
-        }
-        delete[] cachedGridDataTransposed;
-
-        float minVal = std::numeric_limits<float>::max();
-        float maxVal = std::numeric_limits<float>::lowest();
-
-        size_t totalSize = gridSizeX * gridSizeY * gridSizeZ;
-#if _OPENMP >= 201107
-        #pragma omp parallel for default(none) shared(cachedGridData, totalSize) \
-        reduction(min: minVal) reduction(max: maxVal)
-#endif
-        for (int i = 0; i < totalSize; i++) {
-            float val = cachedGridData[i];
-            minVal = std::min(minVal, val);
-            maxVal = std::max(maxVal, val);
-        }
-
-#if _OPENMP >= 201107
-        #pragma omp parallel for default(none) shared(cachedGridData, totalSize, minVal, maxVal)
-#endif
-        for (int i = 0; i < totalSize; i++) {
-            cachedGridData[i] = (cachedGridData[i] - minVal) / (maxVal - minVal);
-        }
+    // if the user changed the file
+    if (gridDataSetFilename != cached_grid_file_name) {
+        cached_grid.delete_maybe();
+        cached_grid_file_name = gridDataSetFilename;
+        cached_grid = load_xyz_file(cached_grid_file_name);
 
         createScalarFieldTexture();
         createIsosurface();
     }
 
-    Trajectories trajectories;
-    Trajectory trajectory0;
-    trajectory0.positions.emplace_back(-1.0f, 0.0f, 1.0f);
-    trajectory0.positions.emplace_back(-1.0f, 0.5f, 1.0f);
-    trajectory0.positions.emplace_back(-1.0f, 1.0f, 1.0f);
-    trajectory0.attributes.push_back({ 0.0f, 0.5f, 1.0f });
-    trajectories.push_back(trajectory0);
-    Trajectory trajectory1;
-    trajectory1.positions.emplace_back(1.0f, 0.0f, 1.0f);
-    trajectory1.positions.emplace_back(1.0f, 0.5f, 1.0f);
-    trajectory1.positions.emplace_back(1.0f, 1.0f, 1.0f);
-    trajectory1.attributes.push_back({ 0.0f, 0.5f, 1.0f });
-    trajectories.push_back(trajectory1);
-    Trajectory trajectory2;
-    trajectory2.positions.emplace_back(0.0f, 0.0f, -1.0f);
-    trajectory2.positions.emplace_back(0.0f, 0.5f, -1.0f);
-    trajectory2.positions.emplace_back(0.0f, 1.0f, -1.0f);
-    trajectory2.attributes.push_back({ 0.0f, 0.5f, 1.0f });
-    trajectories.push_back(trajectory2);
+    PathInfo pi {};
+    pi.camera_pos = {
+        request["camera_position.x"].asFloat(),
+        request["camera_position.y"].asFloat(),
+        request["camera_position.z"].asFloat(),
+    };
+    // TODO(Felix): use look at here
+    pi.ray_direction = glm::normalize(glm::vec3{1.0f,1.0f,1.0f});
 
-    // TODO: This function normalizes the vertex positions of the trajectories; should we also normalize the grid size?
-    normalizeTrajectoriesVertexPositions(trajectories, nullptr);
+    VolumeInfo vi {};
+    vi.grid = cached_grid;
+    vi.extinction = {
+        request["extinction.x"].asFloat(),
+        request["extinction.y"].asFloat(),
+        request["extinction.z"].asFloat()
+    };
+    vi.scattering_albedo = {
+        request["scattering_albedo.x"].asFloat(),
+        request["scattering_albedo.y"].asFloat(),
+        request["scattering_albedo.z"].asFloat()
+    };
+    vi.g = {
+        request["g.x"].asFloat(),
+        request["g.y"].asFloat(),
+        request["g.z"].asFloat()
+    };
+
+
+    float camera_fov_deg = request["camera_fov_deg"].asFloat();
+    uint32_t res_x = request["res_x"].asUInt();
+    uint32_t res_y = request["res_y"].asUInt();
+    uint32_t samples_per_pixel = request["samples_per_pixel"].asUInt();
+
+
+    Trajectories trajectories;
+    pi.pass_number = 0;
+    Random::init(tracing_settings.seed);
+
+    { // NEW
+
+        glm::vec3 Y = { 0, 0, -1 };
+        glm::vec3 X = glm::cross(pi.ray_direction, Y);
+        Y = glm::cross(X, pi.ray_direction);
+
+        float camera_fov_rad = glm::radians(camera_fov_deg);
+        float grid_width = tan(camera_fov_rad / 2) * 2 * tracing_settings.focal_length;
+        float grid_height = res_y * 1.0 / res_x * grid_width;
+
+        glm::vec3 P0 =
+            pi.camera_pos +
+            pi.ray_direction * tracing_settings.focal_length -
+            0.5f * Y * grid_height -
+            0.5f * X * grid_width;
+
+        // Pixel loop
+        for (int y = 0; y < res_y; ++y) {
+            for (int x = 0; x < res_x; ++x) {
+                glm::vec3 P =
+                    P0 +
+                    X * (x*1.0f/(res_x-1)) * grid_width +
+                    Y * (y*1.0f/(res_y-1)) * grid_height;
+
+                P = glm::normalize(P - pi.camera_pos);
+
+                pi.ray_direction = P;
+                // Sample loop
+
+                for (int i = 0; i < samples_per_pixel; ++i) {
+                    pi.pass_number = i;
+                    // DTPathtrace(PI, S.VolInfo, &RayPack);
+                    dt_path_trace(pi, vi, &trajectories);
+                }
+            }
+        }
+    }
+
+    // TODO: This function normalizes the vertex positions of the trajectories;
+    //   should we also normalize the grid size?
+    //normalizeTrajectoriesVertexPositions(trajectories, nullptr);
 
     lineData->setDataSetInformation(gridDataSetFilename, { "Attribute #1" });
     lineData->setGridData(
@@ -350,17 +381,18 @@ Json::Value ScatteringLineTracingRequester::traceLines(
             cachedScalarFieldTexture,
 #endif
             outlineTriangleIndices, outlineVertexPositions, outlineVertexNormals,
-            cachedGridSizeX, cachedGridSizeY, cachedGridSizeZ,
-            cachedVoxelSizeX, cachedVoxelSizeY, cachedVoxelSizeZ);
+            cached_grid.size_x, cached_grid.size_y, cached_grid.size_z,
+            cached_grid.voxel_size_x, cached_grid.voxel_size_y, cached_grid.voxel_size_z);
     lineData->setTrajectoryData(trajectories);
+
     return {};
 }
 
 void ScatteringLineTracingRequester::createScalarFieldTexture() {
     sgl::vk::ImageSettings imageSettings;
-    imageSettings.width = cachedGridSizeX;
-    imageSettings.height = cachedGridSizeY;
-    imageSettings.depth = cachedGridSizeZ;
+    imageSettings.width = cached_grid.size_x;
+    imageSettings.height = cached_grid.size_y;
+    imageSettings.depth = cached_grid.size_z;
     imageSettings.imageType = VK_IMAGE_TYPE_3D;
     imageSettings.format = VK_FORMAT_R32_SFLOAT;
 
@@ -370,7 +402,7 @@ void ScatteringLineTracingRequester::createScalarFieldTexture() {
     cachedScalarFieldTexture = std::make_shared<sgl::vk::Texture>(
             device, imageSettings, samplerSettings);
     cachedScalarFieldTexture->getImage()->uploadData(
-            cachedGridSizeX * cachedGridSizeY * cachedGridSizeZ * sizeof(float), cachedGridData);
+            cached_grid.size_x * cached_grid.size_y * cached_grid.size_z * sizeof(float), cached_grid.data);
 }
 
 void ScatteringLineTracingRequester::createIsosurface() {
@@ -378,12 +410,12 @@ void ScatteringLineTracingRequester::createIsosurface() {
     outlineVertexPositions.clear();
     outlineVertexNormals.clear();
 
-    uint32_t maxDimSize = std::max(cachedGridSizeX, std::max(cachedGridSizeY, cachedGridSizeZ));
+    uint32_t maxDimSize = std::max(cached_grid.size_x, std::max(cached_grid.size_y, cached_grid.size_z));
     sgl::AABB3 gridAabb;
     gridAabb.min = glm::vec3(0.0f, 0.0f, 0.0f);
-    gridAabb.max = glm::vec3(cachedGridSizeX, cachedGridSizeY, cachedGridSizeZ);
+    gridAabb.max = glm::vec3(cached_grid.size_x, cached_grid.size_y, cached_grid.size_z);
     sgl::AABB3 gridAabbResized;
-    gridAabbResized.max = glm::vec3(cachedGridSizeX, cachedGridSizeY, cachedGridSizeZ) * 0.5f / float(maxDimSize);
+    gridAabbResized.max = glm::vec3(cached_grid.size_x, cached_grid.size_y, cached_grid.size_z) * 0.5f / float(maxDimSize);
     gridAabbResized.min = -gridAabbResized.max;
 
     std::vector<glm::vec3> isosurfaceVertexPositions;
@@ -396,18 +428,18 @@ void ScatteringLineTracingRequester::createIsosurface() {
 #endif
     if (!shallSmoothScalarField) {
         polygonizeSnapMC(
-                cachedGridData, int(cachedGridSizeX), int(cachedGridSizeY), int(cachedGridSizeZ),
+                cached_grid.data, int(cached_grid.size_x), int(cached_grid.size_y), int(cached_grid.size_z),
                 1e-4f, gamma, isosurfaceVertexPositions, isosurfaceVertexNormals);
 
     }
 #ifdef USE_VULKAN_INTEROP
     else {
         int padding = 4;
-        int smoothedGridSizeX = int(cachedGridSizeX) + 2 * padding;
-        int smoothedGridSizeY = int(cachedGridSizeY) + 2 * padding;
-        int smoothedGridSizeZ = int(cachedGridSizeZ) + 2 * padding;
+        int smoothedGridSizeX = int(cached_grid.size_x) + 2 * padding;
+        int smoothedGridSizeY = int(cached_grid.size_y) + 2 * padding;
+        int smoothedGridSizeZ = int(cached_grid.size_z) + 2 * padding;
         gridAabb.min = glm::vec3(padding, padding, padding);
-        gridAabb.max = glm::vec3(cachedGridSizeX, cachedGridSizeY, cachedGridSizeZ);
+        gridAabb.max = glm::vec3(cached_grid.size_x, cached_grid.size_y, cached_grid.size_z);
         float* scalarFieldSmoothed = lineDensityFieldSmoothingPass->smoothScalarFieldCpu(
                 cachedScalarFieldTexture, padding);
         polygonizeSnapMC(
