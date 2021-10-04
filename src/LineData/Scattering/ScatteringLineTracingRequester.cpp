@@ -26,6 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <algorithm>
 #include <cstdint>
 
 #include <boost/filesystem.hpp>
@@ -141,11 +142,18 @@ void ScatteringLineTracingRequester::renderGui() {
         changed |= ImGui::SliderFloat3("Camera Look At",
                                        &gui_tracing_settings.camera_look_at.x, -1, 1);
 
-        // TODO(Felix): What if user enters negative numbers?
+
         changed |= ImGui::InputInt("Res X", (int*)&gui_tracing_settings.res_x);
         changed |= ImGui::InputInt("Res Y", (int*)&gui_tracing_settings.res_y);
         changed |= ImGui::InputInt("Samples per Pixel",
                                    (int*)&gui_tracing_settings.samples_per_pixel);
+
+        // NOTE(Felix): res_x, res_y and samples should not be smaller than 1
+        gui_tracing_settings.res_x = std::max(gui_tracing_settings.res_x, 1u);
+        gui_tracing_settings.res_y = std::max(gui_tracing_settings.res_y, 1u);
+        gui_tracing_settings.samples_per_pixel
+            = std::max(gui_tracing_settings.samples_per_pixel, 1u);
+
 
         changed |= ImGui::SliderFloat3("Extinction",
                                       &gui_tracing_settings.extinction.x, 0.0f, 100.0f);
@@ -306,15 +314,14 @@ void ScatteringLineTracingRequester::traceLines(
 
     { // NEW
 
-        glm::vec3 Y = { 0, 0, -1 };
+        glm::vec3 Y = { 0, -1, 0 };
         glm::vec3 X = glm::cross(pi.ray_direction, Y);
         Y = glm::cross(X, pi.ray_direction);
 
         float focal_length        = 1;  // how far away from the camera the grid will be
-                                        //
         float camera_fov_rad = glm::radians(camera_fov_deg);
-        float grid_width = tan(camera_fov_rad / 2) * 2 * focal_length;
-        float grid_height = res_y * 1.0 / res_x * grid_width;
+        float grid_width     = tan(camera_fov_rad / 2) * 2 * focal_length;
+        float grid_height    = res_y * (grid_width / res_x);
 
         glm::vec3 P0 =
             pi.camera_pos +
@@ -325,19 +332,39 @@ void ScatteringLineTracingRequester::traceLines(
         // Pixel loop
         for (int y = 0; y < res_y; ++y) {
             for (int x = 0; x < res_x; ++x) {
+
+                // NOTE(Felix): these percentage values tell us how far along
+                //   the x and y axis we are, while rendering the pixels. This
+                //   is used to find out the direction onto which we send the
+                //   ray. If the resolution in a dimension is 1, we send the ray
+                //   in the middle, the calculation would otherwise lead to a
+                //   divison-by-zero. Maybe this is too complicated. Is there a
+                //   simper way?
+                float x_percentage;
+                float y_percentage;
+                if (res_x < 2) {
+                    x_percentage = 0.5f;
+                } else {
+                    x_percentage = (x*1.0f/(res_x-1));
+                }
+
+                if (res_y < 2) {
+                    y_percentage = 0.5f;
+                } else {
+                    y_percentage = (y*1.0f/(res_y-1));
+                }
+
                 glm::vec3 P =
                     P0 +
-                    X * (x*1.0f/(res_x-1)) * grid_width +
-                    Y * (y*1.0f/(res_y-1)) * grid_height;
+                    X * x_percentage * grid_width +
+                    Y * y_percentage * grid_height;
 
                 P = glm::normalize(P - pi.camera_pos);
-
                 pi.ray_direction = P;
-                // Sample loop
 
+                // Sample loop
                 for (int i = 0; i < samples_per_pixel; ++i) {
                     pi.pass_number = i;
-                    // DTPathtrace(PI, S.VolInfo, &RayPack);
                     dt_path_trace(pi, vi, &trajectories);
                 }
             }

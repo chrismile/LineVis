@@ -47,8 +47,8 @@ struct Tracing_Settings {
     glm::vec3 camera_position = {-0.5f,-0.5f,-0.5f};
     glm::vec3 camera_look_at  = { 0 ,0, 0};
 
-    uint32_t res_x = 10;
-    uint32_t res_y = 10;
+    uint32_t res_x = 1;
+    uint32_t res_y = 1;
     uint32_t samples_per_pixel = 10;
 
     // volume:
