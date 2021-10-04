@@ -178,8 +178,7 @@ void ScatteringLineTracingRequester::requestNewData() {
 }
 
 bool ScatteringLineTracingRequester::getHasNewData(DataSetInformation& dataSetInformation, LineDataPtr& lineData) {
-    Json::Value reply;
-    if (getReplyJson(reply, lineData)) {
+    if (getReply(lineData)) {
         isProcessingRequest = false;
         return true;
     }
@@ -201,13 +200,12 @@ void ScatteringLineTracingRequester::queueRequestStruct(const Tracing_Settings r
     hasRequestConditionVariable.notify_all();
 }
 
-bool ScatteringLineTracingRequester::getReplyJson(Json::Value& reply, LineDataPtr& lineData) {
+bool ScatteringLineTracingRequester::getReply(LineDataPtr& lineData) {
     bool hasReply;
     {
         std::lock_guard<std::mutex> lock(replyMutex);
         hasReply = this->hasReply;
         if (hasReply) {
-            // reply = replyMessage;
             lineData = replyLineData;
         }
 

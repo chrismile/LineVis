@@ -94,11 +94,10 @@ private:
      */
     void queueRequestStruct(const Tracing_Settings request);
     /**
-     * Checks if a reply was received to a request. If a reply was received, it is stored in reply.
-     * @param reply Where to store the reply (if one was received).
+     * Checks if a reply was received to a request.
      * @return Whether a reply was received.
      */
-    bool getReplyJson(Json::Value& reply, LineDataPtr& lineData);
+    bool getReply(LineDataPtr& lineData);
 
     /**
      * @param request Information for the requested tracing of lines scattered in the grid.
