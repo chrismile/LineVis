@@ -131,28 +131,28 @@ void ScatteringLineTracingRequester::renderGui() {
             }
         }
 #ifndef NDEBUG
-        ImGui::Checkbox("Use Isosurface", &tracing_settings.useIsosurface);
+        ImGui::Checkbox("Use Isosurface", &gui_tracing_settings.show_iso_surface);
 #endif
 
         changed |= ImGui::SliderFloat("Camera FOV",
-                                      &tracing_settings.camera_fov_deg, 5.0f, 90.0f);
+                                      &gui_tracing_settings.camera_fov_deg, 5.0f, 90.0f);
         changed |= ImGui::SliderFloat3("Camera Position",
-                                       &tracing_settings.camera_position.x, -1, 1);
+                                       &gui_tracing_settings.camera_position.x, -1, 1);
         changed |= ImGui::SliderFloat3("Camera Look At",
-                                       &tracing_settings.camera_look_at.x, -1, 1);
+                                       &gui_tracing_settings.camera_look_at.x, -1, 1);
 
         // TODO(Felix): What if user enters negative numbers?
-        changed |= ImGui::InputInt("Res X", (int*)&tracing_settings.res_x);
-        changed |= ImGui::InputInt("Res Y", (int*)&tracing_settings.res_y);
+        changed |= ImGui::InputInt("Res X", (int*)&gui_tracing_settings.res_x);
+        changed |= ImGui::InputInt("Res Y", (int*)&gui_tracing_settings.res_y);
         changed |= ImGui::InputInt("Samples per Pixel",
-                                   (int*)&tracing_settings.samples_per_pixel);
+                                   (int*)&gui_tracing_settings.samples_per_pixel);
 
         changed |= ImGui::SliderFloat3("Extinction",
-                                      &tracing_settings.extinction.x, 0.0f, 100.0f);
+                                      &gui_tracing_settings.extinction.x, 0.0f, 100.0f);
         changed |= ImGui::SliderFloat3("Scattering Albedo",
-                                      &tracing_settings.scattering_albedo.x, 0.0f, 1.0f);
+                                      &gui_tracing_settings.scattering_albedo.x, 0.0f, 1.0f);
         changed |= ImGui::SliderFloat3("G",
-                                      &tracing_settings.g.x, 0.0f, 1.0f);
+                                      &gui_tracing_settings.g.x, 0.0f, 1.0f);
 
         if (changed) {
             requestNewData();
@@ -166,42 +166,14 @@ void ScatteringLineTracingRequester::requestNewData() {
         return;
     }
 
-    Json::Value request;
     const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
 
-    request["gridDataSetFilename"] = boost::filesystem::absolute(
-            lineDataSetsDirectory + gridDataSetFilename).generic_string();
+    Tracing_Settings request = gui_tracing_settings;
+    request.dataset_filename = boost::filesystem::absolute(
+        lineDataSetsDirectory + gridDataSetFilename).generic_string();
 
-#define add_to_request(thing) request[#thing] = tracing_settings.thing
-    add_to_request(useIsosurface);
-    add_to_request(camera_fov_deg);
-    add_to_request(camera_position.x);
-    add_to_request(camera_position.y);
-    add_to_request(camera_position.z);
 
-    add_to_request(camera_look_at.x);
-    add_to_request(camera_look_at.y);
-    add_to_request(camera_look_at.z);
-
-    add_to_request(res_x);
-    add_to_request(res_y);
-
-    add_to_request(samples_per_pixel);
-
-    add_to_request(extinction.x);
-    add_to_request(extinction.y);
-    add_to_request(extinction.z);
-
-    add_to_request(scattering_albedo.x);
-    add_to_request(scattering_albedo.y);
-    add_to_request(scattering_albedo.z);
-
-    add_to_request(g.x);
-    add_to_request(g.y);
-    add_to_request(g.z);
-#undef add_to_request
-
-    queueRequestJson(request);
+    queueRequestStruct(request);
     isProcessingRequest = true;
 }
 
@@ -214,10 +186,10 @@ bool ScatteringLineTracingRequester::getHasNewData(DataSetInformation& dataSetIn
     return false;
 }
 
-void ScatteringLineTracingRequester::queueRequestJson(const Json::Value& request) {
+void ScatteringLineTracingRequester::queueRequestStruct(const Tracing_Settings request) {
     {
         std::lock_guard<std::mutex> lock(replyMutex);
-        requestMessage = request;
+        worker_tracing_settings = request;
         requestLineData = LineDataPtr(new LineDataScattering(
                 transferFunctionWindow
 #ifdef USE_VULKAN_INTEROP
@@ -235,13 +207,13 @@ bool ScatteringLineTracingRequester::getReplyJson(Json::Value& reply, LineDataPt
         std::lock_guard<std::mutex> lock(replyMutex);
         hasReply = this->hasReply;
         if (hasReply) {
-            reply = replyMessage;
+            // reply = replyMessage;
             lineData = replyLineData;
         }
 
         // Now, new requests can be worked on.
         this->hasReply = false;
-        this->replyMessage.clear();
+        // this->replyMessage.clear();
         this->replyLineData = LineDataPtr();
     }
     hasReplyConditionVariable.notify_all();
@@ -258,7 +230,7 @@ void ScatteringLineTracingRequester::join() {
             {
                 std::lock_guard<std::mutex> lock(replyMutex);
                 this->hasReply = false;
-                this->replyMessage.clear();
+                // this->replyMessage.clear();
             }
             hasReplyConditionVariable.notify_all();
         }
@@ -279,78 +251,60 @@ void ScatteringLineTracingRequester::mainLoop() {
         }
 
         if (hasRequest) {
-            Json::Value request = requestMessage;
+            Tracing_Settings request = worker_tracing_settings;
             std::shared_ptr<LineDataScattering> lineData = std::static_pointer_cast<LineDataScattering>(requestLineData);
             hasRequest = false;
             isProcessingRequest = true;
             requestLock.unlock();
 
-            Json::Value reply = traceLines(request, lineData);
+            traceLines(request, lineData);
 
             std::lock_guard<std::mutex> replyLock(replyMutex);
             hasReply = true;
-            replyMessage = reply;
+
             replyLineData = lineData;
             isProcessingRequest = false;
         }
     }
 }
 
-Json::Value ScatteringLineTracingRequester::traceLines(
-        const Json::Value& request, std::shared_ptr<LineDataScattering>& lineData)
+void ScatteringLineTracingRequester::traceLines(
+        Tracing_Settings request, std::shared_ptr<LineDataScattering>& lineData)
 {
-    std::string gridDataSetFilename = request["gridDataSetFilename"].asString();
-    bool useIsosurface = request["useIsosurface"].asBool();
+    std::string data_set_filename = request.dataset_filename;
+    bool use_iso_surface = request.show_iso_surface;
 
     // if the user changed the file
-    if (gridDataSetFilename != cached_grid_file_name) {
+    if (data_set_filename != cached_grid_file_name) {
         cached_grid.delete_maybe();
-        cached_grid_file_name = gridDataSetFilename;
+        cached_grid_file_name = data_set_filename;
         cached_grid = load_xyz_file(cached_grid_file_name);
 
-        if (useIsosurface) {
+        if (use_iso_surface) {
             createScalarFieldTexture();
             createIsosurface();
         }
     }
 
     PathInfo pi {};
-    pi.camera_pos = {
-        request["camera_position.x"].asFloat(),
-        request["camera_position.y"].asFloat(),
-        request["camera_position.z"].asFloat(),
-    };
-    // TODO(Felix): use look at here
-    pi.ray_direction = glm::normalize(glm::vec3{1.0f,1.0f,1.0f});
+    pi.camera_pos    = request.camera_position;
+    pi.ray_direction = glm::normalize(request.camera_look_at - request.camera_position);
 
     VolumeInfo vi {};
-    vi.grid = cached_grid;
-    vi.extinction = {
-        request["extinction.x"].asFloat(),
-        request["extinction.y"].asFloat(),
-        request["extinction.z"].asFloat()
-    };
-    vi.scattering_albedo = {
-        request["scattering_albedo.x"].asFloat(),
-        request["scattering_albedo.y"].asFloat(),
-        request["scattering_albedo.z"].asFloat()
-    };
-    vi.g = {
-        request["g.x"].asFloat(),
-        request["g.y"].asFloat(),
-        request["g.z"].asFloat()
-    };
+    vi.grid              = cached_grid;
+    vi.extinction        = request.extinction;
+    vi.scattering_albedo = request.scattering_albedo;
+    vi.g                 = request.g;
 
-
-    float camera_fov_deg = request["camera_fov_deg"].asFloat();
-    uint32_t res_x = request["res_x"].asUInt();
-    uint32_t res_y = request["res_y"].asUInt();
-    uint32_t samples_per_pixel = request["samples_per_pixel"].asUInt();
+    float camera_fov_deg       = request.camera_fov_deg;
+    uint32_t res_x             = request.res_x;
+    uint32_t res_y             = request.res_y;
+    uint32_t samples_per_pixel = request.samples_per_pixel;
 
 
     Trajectories trajectories;
     pi.pass_number = 0;
-    Random::init(tracing_settings.seed);
+    Random::init(request.seed);
 
     { // NEW
 
@@ -358,13 +312,15 @@ Json::Value ScatteringLineTracingRequester::traceLines(
         glm::vec3 X = glm::cross(pi.ray_direction, Y);
         Y = glm::cross(X, pi.ray_direction);
 
+        float focal_length        = 1;  // how far away from the camera the grid will be
+                                        //
         float camera_fov_rad = glm::radians(camera_fov_deg);
-        float grid_width = tan(camera_fov_rad / 2) * 2 * tracing_settings.focal_length;
+        float grid_width = tan(camera_fov_rad / 2) * 2 * focal_length;
         float grid_height = res_y * 1.0 / res_x * grid_width;
 
         glm::vec3 P0 =
             pi.camera_pos +
-            pi.ray_direction * tracing_settings.focal_length -
+            pi.ray_direction * focal_length -
             0.5f * Y * grid_height -
             0.5f * X * grid_width;
 
@@ -404,7 +360,6 @@ Json::Value ScatteringLineTracingRequester::traceLines(
             cached_grid.voxel_size_x, cached_grid.voxel_size_y, cached_grid.voxel_size_z);
     lineData->setTrajectoryData(trajectories);
 
-    return {};
 }
 
 void ScatteringLineTracingRequester::createScalarFieldTexture() {

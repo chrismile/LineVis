@@ -37,6 +37,27 @@
 #include "LineDataScattering.hpp"
 #include "Texture3d.hpp"
 
+struct Tracing_Settings {
+    bool show_iso_surface         = true;
+    std::string dataset_filename;
+
+    uint32_t seed;
+    // camera:
+    float camera_fov_deg      = 10;
+    glm::vec3 camera_position = {-0.5f,-0.5f,-0.5f};
+    glm::vec3 camera_look_at  = { 0 ,0, 0};
+
+    uint32_t res_x = 10;
+    uint32_t res_y = 10;
+    uint32_t samples_per_pixel = 10;
+
+    // volume:
+    glm::vec3 extinction        = { 20,  20,  20};
+    glm::vec3 scattering_albedo = {  1,   1,   1};
+    glm::vec3 g                 = {0.2, 0.2, 0.2};
+
+};
+
 /**
  * Traces lines inside a scalar field while simulation scattering.
  * A LineDataVolume object is generated containing the scalar field and the lines.
@@ -71,7 +92,7 @@ private:
      * Queues the request for tracing .
      * @param request The message to queue.
      */
-    void queueRequestJson(const Json::Value& request);
+    void queueRequestStruct(const Tracing_Settings request);
     /**
      * Checks if a reply was received to a request. If a reply was received, it is stored in reply.
      * @param reply Where to store the reply (if one was received).
@@ -81,9 +102,8 @@ private:
 
     /**
      * @param request Information for the requested tracing of lines scattered in the grid.
-     * @return A reply to the request.
      */
-    Json::Value traceLines(const Json::Value& request, std::shared_ptr<LineDataScattering>& lineData);
+    void traceLines(const Tracing_Settings request, std::shared_ptr<LineDataScattering>& lineData);
 
     sgl::TransferFunctionWindow& transferFunctionWindow;
 #ifdef USE_VULKAN_INTEROP
@@ -100,39 +120,17 @@ private:
     bool hasRequest = false;
     bool hasReply = false;
     bool isProcessingRequest = false;
-    Json::Value requestMessage;
-    Json::Value replyMessage;
+
+    Tracing_Settings worker_tracing_settings;
     LineDataPtr requestLineData;
     LineDataPtr replyLineData;
 
     // Line tracing settings.
-    struct {
-        uint32_t seed;
-
-        // camera:
-        float focal_length        = 1;  // how far away from the camera the grid will be
-        float camera_fov_deg      = 10;
-        glm::vec3 camera_position = {-0.5f,-0.5f,-0.5f};
-        glm::vec3 camera_look_at  = { 0 ,0, 0};
-
-        uint32_t res_x = 10;
-        uint32_t res_y = 10;
-        uint32_t samples_per_pixel = 10;
-
-        // volume:
-        glm::vec3 extinction        = { 20,  20,  20};
-        glm::vec3 scattering_albedo = {  1,   1,   1};
-        glm::vec3 g                 = {0.2, 0.2, 0.2};
-
-        bool useIsosurface = true;
-    } tracing_settings;
+    Tracing_Settings gui_tracing_settings;
 
     // Cache.
     std::string cached_grid_file_name;
     Texture3D   cached_grid = {};
-    // float* cachedGridData = nullptr;
-    // uint32_t cachedGridSizeX = 0, cachedGridSizeY = 0, cachedGridSizeZ = 0;
-    // float cachedVoxelSizeX = 0.0f, cachedVoxelSizeY = 0.0f, cachedVoxelSizeZ = 0.0f;
 
     std::vector<uint32_t> outlineTriangleIndices;
     std::vector<glm::vec3> outlineVertexPositions;
