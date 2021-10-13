@@ -455,7 +455,7 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewData) {
 }
 
 void LineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
-    if (lineData && lineData->hasSimulationMeshOutline()) {
+    if (lineData && lineData->hasSimulationMeshOutline() && !isVulkanRenderer) {
         gatherShaderHull = lineData->reloadGatherShaderHull();
         if (canCopyShaderAttributes && shaderAttributesHull) {
             shaderAttributesHull = shaderAttributesHull->copy(gatherShaderHull);
