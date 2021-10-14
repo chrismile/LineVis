@@ -66,21 +66,21 @@ void main() {
         float density = 0;
 
         while (boxContainsPoint(iter_point, minBoundingBox, maxBoundingBox)) {
-            // vec3 tex_coods = remap(minBoundingBox, iter_point, maxBoundingBox,
-                                   // vec3(0), vec3(1));
+            vec3 tex_coods = remap(minBoundingBox, iter_point, maxBoundingBox,
+                                   vec3(0), vec3(1));
             // tex_coods = clamp(tex_coods, vec3(0), vec3(1));
 
-            vec3 tex_coods = vec3(0.5,0.5,0.5); // DEBUG
+            // vec3 tex_coods = vec3(0.5,0.5,0.5); // DEBUG
 
             float local_density = texture(lineDensityField, tex_coods).r;
-            if (isinf(local_density)){
-                imageStore(outputImage, imageCoords, vec4(1,1,0,1));
-                return;
-            }
-            if (isnan(local_density)) {
-                imageStore(outputImage, imageCoords, vec4(1,0,1,1));
-                return;
-            }
+            // if (isinf(local_density)){
+                // imageStore(outputImage, imageCoords, vec4(1,1,0,1));
+                // return;
+            // }
+            // if (isnan(local_density)) {
+                // imageStore(outputImage, imageCoords, vec4(1,0,1,1));
+                // return;
+            // }
             density += clamp(local_density, 0, 1);
             density +=  0.003; // DEBUG
             iter_point += rayDirection * step_width;
