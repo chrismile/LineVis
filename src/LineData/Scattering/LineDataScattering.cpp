@@ -80,7 +80,7 @@ void LineDataScattering::setGridData(
     this->voxelSizeZ = voxelSizeZ;
 
     uint32_t maxDimSize = std::max(gridSizeX, std::max(gridSizeY, gridSizeZ));
-    gridAabb.max = glm::vec3(gridSizeX, gridSizeY, gridSizeZ) * 0.5f / float(maxDimSize);
+    gridAabb.max = glm::vec3(gridSizeX, gridSizeY, gridSizeZ) * 0.25f / float(maxDimSize);
     gridAabb.min = -gridAabb.max;
 
 #ifdef USE_VULKAN_INTEROP
