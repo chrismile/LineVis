@@ -139,3 +139,6 @@ if %debug% == true (
 
 echo.
 echo All done!
+
+pushd %destination_dir%
+LineVis.exe

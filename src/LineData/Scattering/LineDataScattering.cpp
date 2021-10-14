@@ -162,7 +162,7 @@ VulkanLineDataScatteringRenderData LineDataScattering::getVulkanLineDataScatteri
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
             VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT);
-    lineDensityFieldNormalizeRenderPass->render();
+    // lineDensityFieldNormalizeRenderPass->render();
     rendererVk->insertImageMemoryBarrier(
             vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImage(),
             VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
