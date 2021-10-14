@@ -342,15 +342,6 @@ MainApp::MainApp()
 }
 
 MainApp::~MainApp() {
-    delete stressLineTracingRequester;
-    stressLineTracingRequester = nullptr;
-    delete scatteringLineTracingRequester;
-    scatteringLineTracingRequester = nullptr;
-#ifdef USE_ZEROMQ
-    zmq_ctx_destroy(zeromqContext);
-    zeromqContext = nullptr;
-#endif
-
     if (usePerformanceMeasurementMode) {
         delete performanceMeasurer;
         performanceMeasurer = nullptr;
@@ -362,6 +353,16 @@ MainApp::~MainApp() {
     dataFilters.clear();
 
     delete lineRenderer;
+    lineData = {};
+
+    delete stressLineTracingRequester;
+    stressLineTracingRequester = nullptr;
+    delete scatteringLineTracingRequester;
+    scatteringLineTracingRequester = nullptr;
+#ifdef USE_ZEROMQ
+    zmq_ctx_destroy(zeromqContext);
+    zeromqContext = nullptr;
+#endif
 }
 
 void MainApp::setNewState(const InternalState &newState) {
