@@ -31,6 +31,7 @@
 
 #include <Graphics/Vulkan/Render/Passes/Pass.hpp>
 
+#include "LineData/Scattering/LineDataScattering.hpp"
 #include "Renderers/LineRenderer.hpp"
 
 namespace sgl {
@@ -49,6 +50,7 @@ class Renderer;
 }}
 
 class AabbRenderPass;
+class LineDensityFieldDvrPass;
 
 /**
  * A dummy renderer for testing OpenGL-Vulkan interoperability.
@@ -85,7 +87,7 @@ private:
 
     // Vulkan render data.
     sgl::vk::Renderer* rendererVk = nullptr;
-    std::shared_ptr<AabbRenderPass> aabbRenderPass;
+    std::shared_ptr<LineDensityFieldDvrPass> lineDensityFieldDvrPass;
 };
 
 class AabbRenderPass : public sgl::vk::RasterPass {
@@ -117,6 +119,48 @@ private:
 
     struct RenderSettingsData {
         glm::vec3 cameraPosition;
+    };
+    RenderSettingsData renderSettingsData{};
+    sgl::vk::BufferPtr renderSettingsBuffer;
+};
+
+/**
+ * Direct volume rendering (DVR) pass.
+ */
+class LineDensityFieldDvrPass : public sgl::vk::ComputePass {
+public:
+    explicit LineDensityFieldDvrPass(sgl::vk::Renderer* renderer, sgl::CameraPtr camera);
+
+    // Public interface.
+    void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
+    void setBackgroundColor(const glm::vec4& color);
+    void setLineData(LineDataPtr& lineData, bool isNewData);
+
+protected:
+    void loadShader() override;
+    void setComputePipelineInfo(sgl::vk::ComputePipelineInfo& pipelineInfo) override {}
+    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
+    void _render() override;
+
+private:
+    sgl::CameraPtr camera;
+    LineDataPtr lineData;
+    sgl::vk::ImageViewPtr sceneImageView;
+    VulkanLineDataScatteringRenderData lineDataScatteringRenderData;
+
+    struct CameraSettings {
+        glm::mat4 viewMatrix;
+        glm::mat4 projectionMatrix;
+        glm::mat4 inverseViewMatrix;
+        glm::mat4 inverseProjectionMatrix;
+    };
+    CameraSettings cameraSettings{};
+    sgl::vk::BufferPtr cameraSettingsBuffer;
+
+    struct RenderSettingsData {
+        glm::vec4 backgroundColor;
+        glm::vec3 minBoundingBox; float padding0;
+        glm::vec3 maxBoundingBox; float padding1;
     };
     RenderSettingsData renderSettingsData{};
     sgl::vk::BufferPtr renderSettingsBuffer;

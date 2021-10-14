@@ -101,7 +101,6 @@ private:
     std::shared_ptr<LineDensityFieldImageComputeRenderPass> lineDensityFieldImageComputeRenderPass;
     std::shared_ptr<LineDensityFieldMinMaxReduceRenderPass> lineDensityFieldMinMaxReduceRenderPass;
     std::shared_ptr<LineDensityFieldNormalizeRenderPass> lineDensityFieldNormalizeRenderPass;
-    sgl::vk::BufferPtr lineDensityFieldBuffer;
     bool isLineDensityFieldDirty = false;
 
     sgl::vk::Renderer* rendererVk = nullptr;

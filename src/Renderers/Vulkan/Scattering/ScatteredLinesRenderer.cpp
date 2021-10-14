@@ -55,8 +55,8 @@ ScatteredLinesRenderer::ScatteredLinesRenderer(
     isVulkanRenderer = true;
     isRasterizer = true;
 
-    aabbRenderPass = std::make_shared<AabbRenderPass>(rendererVk, sceneData.camera);
-    aabbRenderPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
+    lineDensityFieldDvrPass = std::make_shared<LineDensityFieldDvrPass>(rendererVk, sceneData.camera);
+    lineDensityFieldDvrPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     renderReadySemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
@@ -82,7 +82,7 @@ void ScatteredLinesRenderer::setLineData(LineDataPtr& lineData, bool isNewData) 
         return;
     }
 
-    aabbRenderPass->setLineData(lineData, isNewData);
+    lineDensityFieldDvrPass->setLineData(lineData, isNewData);
 }
 
 void ScatteredLinesRenderer::onResolutionChanged() {
@@ -94,14 +94,14 @@ void ScatteredLinesRenderer::onResolutionChanged() {
     sgl::vk::ImageSettings imageSettings;
     imageSettings.width = window->getWidth();
     imageSettings.height = window->getHeight();
-    imageSettings.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageSettings.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     imageSettings.exportMemory = true;
     sgl::vk::ImageSamplerSettings samplerSettings;
     renderTextureVk = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
     renderTextureGl = sgl::TexturePtr(new sgl::TextureGLExternalMemoryVk(renderTextureVk));
 
-    aabbRenderPass->setOutputImage(renderTextureVk->getImageView());
-    aabbRenderPass->recreateSwapchain(width, height);
+    lineDensityFieldDvrPass->setOutputImage(renderTextureVk->getImageView());
+    lineDensityFieldDvrPass->recreateSwapchain(width, height);
 }
 
 void ScatteredLinesRenderer::render() {
@@ -116,8 +116,8 @@ void ScatteredLinesRenderer::render() {
     rendererVk->beginCommandBuffer();
     rendererVk->setViewMatrix(sceneData.camera->getViewMatrix());
     rendererVk->setProjectionMatrix(sceneData.camera->getProjectionMatrixVulkan());
-    aabbRenderPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
-    aabbRenderPass->render();
+    lineDensityFieldDvrPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
+    lineDensityFieldDvrPass->render();
     rendererVk->endCommandBuffer();
 
     // Submit the rendering operation in Vulkan.
@@ -266,6 +266,7 @@ void AabbRenderPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::Grap
     rasterData->setIndexBuffer(indexBuffer);
     rasterData->setVertexBuffer(vertexBuffer, "vertexPosition");
     rasterData->setStaticBuffer(renderSettingsBuffer, "RenderSettingsBuffer");
+    rasterData->setStaticBuffer(renderSettingsBuffer, "MatrixUniformBuffers");
 }
 
 void AabbRenderPass::_render() {
@@ -275,4 +276,97 @@ void AabbRenderPass::_render() {
             sizeof(RenderSettingsData), &renderSettingsData, renderer->getVkCommandBuffer());
 
     RasterPass::_render();
+}
+
+
+
+LineDensityFieldDvrPass::LineDensityFieldDvrPass(sgl::vk::Renderer* renderer, sgl::CameraPtr camera)
+        : ComputePass(renderer), camera(std::move(camera)) {
+    cameraSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(CameraSettings),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+    renderSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(RenderSettingsData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+}
+
+void LineDensityFieldDvrPass::setOutputImage(sgl::vk::ImageViewPtr& colorImage) {
+    sceneImageView = colorImage;
+}
+
+void LineDensityFieldDvrPass::setBackgroundColor(const glm::vec4& color) {
+    renderSettingsData.backgroundColor = color;
+}
+
+void LineDensityFieldDvrPass::setLineData(LineDataPtr& lineData, bool isNewData) {
+    this->lineData = lineData;
+
+    if (lineData->getType() != DATA_SET_TYPE_SCATTERING_LINES) {
+        sgl::Logfile::get()->writeError(
+                "Error in AabbRenderPassCompute::setLineData: Only data sets of the type "
+                "DATA_SET_TYPE_SCATTERING_LINES are supported.");
+        return;
+    }
+
+    lineDataScatteringRenderData = {};
+    std::shared_ptr<LineDataScattering> lineDataScattering = std::static_pointer_cast<LineDataScattering>(lineData);
+    lineDataScatteringRenderData = lineDataScattering->getVulkanLineDataScatteringRenderData();
+
+    std::vector<std::vector<glm::vec3>> filteredLines = lineData->getFilteredLines();
+
+    sgl::AABB3 aabb;
+    for (const std::vector<glm::vec3>& line : filteredLines) {
+        for (const glm::vec3& point : line) {
+            aabb.combine(point);
+        }
+    }
+
+    renderSettingsData.minBoundingBox = aabb.min;
+    renderSettingsData.maxBoundingBox = aabb.max;
+
+    dataDirty = true;
+}
+
+void LineDensityFieldDvrPass::loadShader() {
+    shaderStages = sgl::vk::ShaderManager->getShaderStages({"LineDensityFieldDvrShader.Compute"});
+}
+
+void LineDensityFieldDvrPass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
+    computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
+    computeData->setStaticBuffer(cameraSettingsBuffer, "CameraSettingsBuffer");
+    computeData->setStaticBuffer(renderSettingsBuffer, "RenderSettingsBuffer");
+    computeData->setStaticImageView(sceneImageView, "outputImage");
+    computeData->setStaticTexture(lineDataScatteringRenderData.lineDensityFieldTexture, "lineDensityField");
+}
+
+void LineDensityFieldDvrPass::_render() {
+    cameraSettings.viewMatrix = camera->getViewMatrix();
+    cameraSettings.projectionMatrix = camera->getProjectionMatrixVulkan();
+    cameraSettings.inverseViewMatrix = glm::inverse(camera->getViewMatrix());
+    cameraSettings.inverseProjectionMatrix = glm::inverse(camera->getProjectionMatrixVulkan());
+    cameraSettingsBuffer->updateData(
+            sizeof(CameraSettings), &cameraSettings, renderer->getVkCommandBuffer());
+
+    renderSettingsBuffer->updateData(
+            sizeof(RenderSettingsData), &renderSettingsData, renderer->getVkCommandBuffer());
+
+    renderer->insertImageMemoryBarrier(
+            sceneImageView->getImage(),
+            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT);
+
+    int width = sceneImageView->getImage()->getImageSettings().width;
+    int height = sceneImageView->getImage()->getImageSettings().height;
+    int groupCountX = sgl::iceil(width, 16);
+    int groupCountY = sgl::iceil(height, 16);
+    renderer->dispatch(computeData, groupCountX, groupCountY, 1);
+
+    renderer->insertImageMemoryBarrier(
+            sceneImageView->getImage(),
+            VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 }
