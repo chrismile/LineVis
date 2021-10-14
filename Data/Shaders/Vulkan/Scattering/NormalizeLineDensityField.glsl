@@ -50,6 +50,7 @@ void main() {
     }
 
     float density = imageLoad(lineDensityFieldImage, ivec3(gl_GlobalInvocationID)).x;
-    density = (density - minDensity) / (maxDensity - minDensity);
+    //density = (density - minDensity) / max(maxDensity - minDensity, 1e-10);
+    density = density / max(maxDensity, 1e-10);
     imageStore(lineDensityFieldImage, ivec3(gl_GlobalInvocationID), vec4(density));
 }

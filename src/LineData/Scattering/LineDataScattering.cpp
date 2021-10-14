@@ -79,6 +79,10 @@ void LineDataScattering::setGridData(
     this->voxelSizeY = voxelSizeY;
     this->voxelSizeZ = voxelSizeZ;
 
+    uint32_t maxDimSize = std::max(gridSizeX, std::max(gridSizeY, gridSizeZ));
+    gridAabb.max = glm::vec3(gridSizeX, gridSizeY, gridSizeZ) * 0.5f / float(maxDimSize);
+    gridAabb.min = -gridAabb.max;
+
 #ifdef USE_VULKAN_INTEROP
     sgl::vk::ImageSettings imageSettings;
     imageSettings.width = gridSizeX;
@@ -194,7 +198,13 @@ void LineDensityFieldImageComputeRenderPass::setData(
     gridSizeY = lineData->getGridSizeY();
     gridSizeZ = lineData->getGridSizeZ();
 
+    sgl::AABB3 gridBoundingBox = lineData->getGridBoundingBox();
+    worldToVoxelGridMatrix =
+            sgl::matrixScaling(1.0f / gridBoundingBox.getDimensions() * glm::vec3(gridSizeX, gridSizeY, gridSizeZ))
+            * sgl::matrixTranslation(-gridBoundingBox.getMinimum());
+
     uniformData.gridResolution = glm::ivec3(gridSizeX, gridSizeY, gridSizeZ);
+    uniformData.worldToVoxelGridMatrix = worldToVoxelGridMatrix;
 
     spinlockBuffer = std::make_shared<sgl::vk::Buffer>(
             device, gridSizeX * gridSizeY * gridSizeZ * sizeof(float),

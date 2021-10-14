@@ -313,15 +313,7 @@ void LineDensityFieldDvrPass::setLineData(LineDataPtr& lineData, bool isNewData)
     lineDataScatteringRenderData = {};
     std::shared_ptr<LineDataScattering> lineDataScattering = std::static_pointer_cast<LineDataScattering>(lineData);
     lineDataScatteringRenderData = lineDataScattering->getVulkanLineDataScatteringRenderData();
-
-    std::vector<std::vector<glm::vec3>> filteredLines = lineData->getFilteredLines();
-
-    sgl::AABB3 aabb;
-    for (const std::vector<glm::vec3>& line : filteredLines) {
-        for (const glm::vec3& point : line) {
-            aabb.combine(point);
-        }
-    }
+    AABB3 aabb = lineDataScattering->getGridBoundingBox();
 
     renderSettingsData.minBoundingBox = aabb.min;
     renderSettingsData.maxBoundingBox = aabb.max;

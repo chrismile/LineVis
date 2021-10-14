@@ -432,13 +432,9 @@ void ScatteringLineTracingRequester::createIsosurface() {
     outlineVertexPositions.clear();
     outlineVertexNormals.clear();
 
-    uint32_t maxDimSize = std::max(cached_grid.size_x, std::max(cached_grid.size_y, cached_grid.size_z));
     sgl::AABB3 gridAabb;
     gridAabb.min = glm::vec3(0.0f, 0.0f, 0.0f);
     gridAabb.max = glm::vec3(cached_grid.size_x, cached_grid.size_y, cached_grid.size_z);
-    sgl::AABB3 gridAabbResized;
-    gridAabbResized.max = glm::vec3(cached_grid.size_x, cached_grid.size_y, cached_grid.size_z) * 0.5f / float(maxDimSize);
-    gridAabbResized.min = -gridAabbResized.max;
 
     std::vector<glm::vec3> isosurfaceVertexPositions;
     std::vector<glm::vec3> isosurfaceVertexNormals;
