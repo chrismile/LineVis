@@ -43,6 +43,7 @@ struct LineSegment {
 layout (binding = 0) uniform UniformBuffer {
     ivec3 gridResolution;
     int numLines;
+    mat4 worldToVoxelGridMatrix;
 };
 
 struct LinePoint {
@@ -320,6 +321,9 @@ void main() {
             continue;
         }
         tangent = normalize(tangent);
+
+        p0.linePoint = (worldToVoxelGridMatrix * vec4(p0.linePoint, 1.0)).xyz;
+        p1.linePoint = (worldToVoxelGridMatrix * vec4(p1.linePoint, 1.0)).xyz;
 
         // DDA algorithm
         traverseVoxelGrid(

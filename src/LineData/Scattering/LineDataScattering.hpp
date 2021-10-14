@@ -74,6 +74,7 @@ public:
     inline float getVoxelSizeX() const { return voxelSizeX; }
     inline float getVoxelSizeY() const { return voxelSizeY; }
     inline float getVoxelSizeZ() const { return voxelSizeZ; }
+    inline const sgl::AABB3& getGridBoundingBox() const { return gridAabb; }
 
     void setDataSetInformation(const std::string& dataSetName, const std::vector<std::string>& attributeNames);
     void setGridData(
@@ -94,6 +95,7 @@ public:
 private:
     uint32_t gridSizeX = 0, gridSizeY = 0, gridSizeZ = 0;
     float voxelSizeX = 0.0f, voxelSizeY = 0.0f, voxelSizeZ = 0.0f;
+    sgl::AABB3 gridAabb;
 
 #ifdef USE_VULKAN_INTEROP
     // Caches the rendering data when using Vulkan.
@@ -125,6 +127,7 @@ private:
     // Line data.
     LineDataScattering* lineData;
     uint32_t gridSizeX = 0, gridSizeY = 0, gridSizeZ = 0;
+    glm::mat4 worldToVoxelGridMatrix{}, voxelGridToWorldMatrix{};
     std::vector<std::vector<glm::vec3>> lines;
     sgl::vk::TexturePtr lineDensityFieldTexture;
     sgl::vk::BufferPtr spinlockBuffer;
@@ -139,6 +142,7 @@ private:
     struct UniformData {
         glm::ivec3 gridResolution;
         int numLines;
+        glm::mat4 worldToVoxelGridMatrix;
     };
     UniformData uniformData{};
     sgl::vk::BufferPtr uniformBuffer;
