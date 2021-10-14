@@ -74,6 +74,9 @@ ScatteringLineTracingRequester::~ScatteringLineTracingRequester() {
     join();
     cached_grid.delete_maybe();
 
+    requestLineData = {};
+    replyLineData = {};
+
 #ifdef USE_VULKAN_INTEROP
     lineDensityFieldSmoothingPass = {};
     cachedScalarFieldTexture = {};

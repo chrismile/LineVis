@@ -481,8 +481,8 @@ float* LineDensityFieldSmoothingPass::smoothScalarFieldCpu(sgl::vk::TexturePtr& 
     size_t bufferSize = paddedSizeX * paddedSizeY * paddedSizeZ * sizeof(float);
     sgl::vk::BufferPtr stagingBuffer = std::make_shared<sgl::vk::Buffer>(
             device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_CPU_ONLY);
-    renderer->insertImageMemoryBarrier(
-            smoothedImageView->getImage(),
+    smoothedImageView->getImage()->insertMemoryBarrier(
+            commandBuffer,
             VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
             VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT);
