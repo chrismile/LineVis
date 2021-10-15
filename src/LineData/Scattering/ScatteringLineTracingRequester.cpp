@@ -66,10 +66,10 @@ ScatteringLineTracingRequester::ScatteringLineTracingRequester(
 {
 #ifdef USE_VULKAN_INTEROP
     rendererVk = new sgl::vk::Renderer(rendererMainThread->getDevice(), 100);
+    lineDensityFieldSmoothingPass = std::make_shared<LineDensityFieldSmoothingPass>(rendererVk);
 #endif
 
     loadGridDataSetList();
-    lineDensityFieldSmoothingPass = std::make_shared<LineDensityFieldSmoothingPass>(rendererVk);
     requesterThread = std::thread(&ScatteringLineTracingRequester::mainLoop, this);
 }
 
@@ -394,6 +394,7 @@ void ScatteringLineTracingRequester::traceLines(
 
 }
 
+#ifdef USE_VULKAN_INTEROP
 void ScatteringLineTracingRequester::createScalarFieldTexture() {
     sgl::vk::ImageSettings imageSettings;
     imageSettings.width = cached_grid.size_x;
@@ -410,6 +411,7 @@ void ScatteringLineTracingRequester::createScalarFieldTexture() {
     cachedScalarFieldTexture->getImage()->uploadData(
             cached_grid.size_x * cached_grid.size_y * cached_grid.size_z * sizeof(float), cached_grid.data);
 }
+#endif
 
 void ScatteringLineTracingRequester::createIsosurface() {
     outlineTriangleIndices.clear();
