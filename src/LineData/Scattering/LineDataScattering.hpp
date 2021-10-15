@@ -67,6 +67,7 @@ public:
 #endif
     );
     ~LineDataScattering() override;
+    sgl::ShaderProgramPtr reloadGatherShader() override;
 
     inline uint32_t getGridSizeX() const { return gridSizeX; }
     inline uint32_t getGridSizeY() const { return gridSizeY; }
@@ -75,6 +76,13 @@ public:
     inline float getVoxelSizeY() const { return voxelSizeY; }
     inline float getVoxelSizeZ() const { return voxelSizeZ; }
     inline const sgl::AABB3& getGridBoundingBox() const { return gridAabb; }
+    inline bool getUseLineSegmentLengthForDensityField() const { return useLineSegmentLengthForDensityField; }
+
+    /**
+     * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
+     * @return true if the gather shader needs to be reloaded.
+     */
+    bool renderGuiRenderer(bool isRasterizer) override;
 
     void setDataSetInformation(const std::string& dataSetName, const std::vector<std::string>& attributeNames);
     void setGridData(
@@ -109,6 +117,7 @@ private:
     std::shared_ptr<LineDensityFieldMinMaxReduceRenderPass> lineDensityFieldMinMaxReduceRenderPass;
     std::shared_ptr<LineDensityFieldNormalizeRenderPass> lineDensityFieldNormalizeRenderPass;
     bool isLineDensityFieldDirty = false;
+    bool useLineSegmentLengthForDensityField = true;
 
     sgl::vk::Renderer* rendererVk = nullptr;
 #endif
@@ -122,6 +131,7 @@ public:
 
     // Public interface.
     void setData(LineDataScattering* lineData, sgl::vk::TexturePtr& lineDensityFieldTexture);
+    void setUseLineSegmentLength(bool useLineSegmentLengthForDensityField);
 
 private:
     void loadShader() override;
@@ -133,6 +143,7 @@ private:
     LineDataScattering* lineData;
     uint32_t gridSizeX = 0, gridSizeY = 0, gridSizeZ = 0;
     glm::mat4 worldToVoxelGridMatrix{}, voxelGridToWorldMatrix{};
+    bool useLineSegmentLength = true;
     std::vector<std::vector<glm::vec3>> lines;
     sgl::vk::TexturePtr lineDensityFieldTexture;
     sgl::vk::BufferPtr spinlockBuffer;

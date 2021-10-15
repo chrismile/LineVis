@@ -59,6 +59,11 @@ LineDataScattering::LineDataScattering(
 LineDataScattering::~LineDataScattering() {
 }
 
+sgl::ShaderProgramPtr LineDataScattering::reloadGatherShader() {
+    recomputeHistogram();
+    return LineDataFlow::reloadGatherShader();
+}
+
 void LineDataScattering::setDataSetInformation(
         const std::string& dataSetName, const std::vector<std::string>& attributeNames) {
     this->fileNames = { dataSetName };
@@ -139,6 +144,18 @@ void LineDataScattering::recomputeHistogram() {
     }
 
     histogramNeverComputedBefore = false;
+}
+
+bool LineDataScattering::renderGuiRenderer(bool isRasterizer) {
+    bool shallReloadGatherShader = LineData::renderGuiRenderer(isRasterizer);
+    if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_SCATTERED_LINES_RENDERER) {
+        if (ImGui::Checkbox("Use Line Segment Length", &useLineSegmentLengthForDensityField)) {
+            dirty = true;
+            reRender = true;
+            lineDensityFieldImageComputeRenderPass->setUseLineSegmentLength(useLineSegmentLengthForDensityField);
+        }
+    }
+    return shallReloadGatherShader;
 }
 
 
@@ -240,9 +257,21 @@ void LineDensityFieldImageComputeRenderPass::setData(
     device->endSingleTimeCommands(commandBuffer);
 }
 
+void LineDensityFieldImageComputeRenderPass::setUseLineSegmentLength(bool useLineSegmentLengthForDensityField) {
+    if (useLineSegmentLength != useLineSegmentLengthForDensityField) {
+        setShaderDirty();
+        useLineSegmentLength = useLineSegmentLengthForDensityField;
+    }
+}
+
 void LineDensityFieldImageComputeRenderPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
-    shaderStages = sgl::vk::ShaderManager->getShaderStages({"ComputeLineDensityField.Compute"});
+    std::map<std::string, std::string> preprocessorDefines;
+    if (useLineSegmentLength) {
+        preprocessorDefines.insert({ "USE_LINE_SEGMENT_LENGTH", "" });
+    }
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            {"ComputeLineDensityField.Compute"}, preprocessorDefines);
 }
 
 void LineDensityFieldImageComputeRenderPass::createComputeData(

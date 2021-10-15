@@ -133,7 +133,11 @@ int rayBoxIntersection(
 
 
 void addLineSegment(ivec3 voxelIndex, LineSegment lineSegment) {
+#ifdef USE_LINE_SEGMENT_LENGTH
     float lineSegmentLength = length(lineSegment.v1 - lineSegment.v0);
+#else
+    float lineSegmentLength = 1.0;
+#endif
     uint voxelIndex1D = getVoxelIndex1D(voxelIndex);
 
     // Use a spinlock to synchronize access to lineDensityFieldImage.

@@ -58,46 +58,46 @@ struct TubeRenderDataMultiVar {
  */
 class LineDataMultiVar : public LineDataFlow {
 public:
-    LineDataMultiVar(sgl::TransferFunctionWindow &transferFunctionWindow);
-    ~LineDataMultiVar();
+    explicit LineDataMultiVar(sgl::TransferFunctionWindow &transferFunctionWindow);
+    ~LineDataMultiVar() override;
     inline MultiVarTransferFunctionWindow& getMultiVarTransferFunctionWindow() { return multiVarTransferFunctionWindow; }
-    virtual bool settingsDiffer(LineData* other) override;
-    virtual void update(float dt) override;
-    virtual void setTrajectoryData(const Trajectories& trajectories) override;
+    bool settingsDiffer(LineData* other) override;
+    void update(float dt) override;
+    void setTrajectoryData(const Trajectories& trajectories) override;
 
     // --- Retrieve data for rendering. Preferred way. ---
-    virtual sgl::ShaderProgramPtr reloadGatherShader() override;
-    virtual sgl::ShaderAttributesPtr getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader) override;
-    virtual void setUniformGatherShaderData(sgl::ShaderProgramPtr& gatherShader) override;
-    virtual void setUniformGatherShaderData_AllPasses() override;
-    virtual void setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader) override;
+    sgl::ShaderProgramPtr reloadGatherShader() override;
+    sgl::ShaderAttributesPtr getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader) override;
+    void setUniformGatherShaderData(sgl::ShaderProgramPtr& gatherShader) override;
+    void setUniformGatherShaderData_AllPasses() override;
+    void setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader) override;
 
     /**
      * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
      * @return true if the gather shader needs to be reloaded.
      */
-    virtual bool renderGuiRenderer(bool isRasterizer);
+    bool renderGuiRenderer(bool isRasterizer) override;
     /**
      * For line data settings.
      * @return true if the gather shader needs to be reloaded.
      */
-    virtual bool renderGuiLineData(bool isRasterizer);
+    bool renderGuiLineData(bool isRasterizer) override;
     /**
      * For rendering secondary ImGui windows (e.g., for transfer function widgets).
      * @return true if the gather shader needs to be reloaded.
      */
-    virtual bool renderGuiWindowSecondary(bool isRasterizer) override;
+    bool renderGuiWindowSecondary(bool isRasterizer) override;
     /// Set current rendering mode (e.g. for making visible certain UI options only for certain renderers).
-    virtual void setLineRenderer(LineRenderer* lineRenderer) override;
+    void setLineRenderer(LineRenderer* lineRenderer) override;
     /// Certain GUI widgets might need the clear color.
-    virtual void setClearColor(const sgl::Color& clearColor) override;
+    void setClearColor(const sgl::Color& clearColor) override;
     /// Whether to use linear RGB when rendering.
-    virtual void setUseLinearRGB(bool useLinearRGB) override;
-    virtual bool shallRenderTransferFunctionWindow() override { return !useMultiVarRendering; }
+    void setUseLinearRGB(bool useLinearRGB) override;
+    bool shallRenderTransferFunctionWindow() override { return !useMultiVarRendering; }
 
 private:
-    virtual void recomputeHistogram() override;
-    virtual void recomputeColorLegend() override;
+    void recomputeHistogram() override;
+    void recomputeColorLegend() override;
     void recomputeWidgetPositions();
     bool renderGuiTechniqueSettings();
     bool renderGuiLineRenderingSettings();
