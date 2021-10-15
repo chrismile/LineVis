@@ -35,6 +35,7 @@
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #endif
 
+#include "Renderers/LineRenderer.hpp"
 #include "LineDataScattering.hpp"
 
 LineDataScattering::LineDataScattering(
@@ -119,6 +120,28 @@ void LineDataScattering::setGridData(
 
 }
 
+void LineDataScattering::recomputeHistogram() {
+    if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_SCATTERED_LINES_RENDERER
+            && (histogramNeverComputedBefore || !isVolumeRenderer)) {
+        assert(colorLegendWidgets.size() == attributeNames.size());
+
+        // TODO
+        //this->vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImage()->get
+        transferFunctionWindow.computeHistogram({0.0f, 1.0f}, 0.0f, 1.0f);
+
+        recomputeColorLegend();
+        isVolumeRenderer = true;
+    }
+    if ((!lineRenderer || lineRenderer->getRenderingMode() != RENDERING_MODE_SCATTERED_LINES_RENDERER)
+            && (histogramNeverComputedBefore || isVolumeRenderer)) {
+        LineDataFlow::recomputeHistogram();
+        isVolumeRenderer = false;
+    }
+
+    histogramNeverComputedBefore = false;
+}
+
+
 void LineDataScattering::rebuildInternalRepresentationIfNecessary() {
     if (dirty || triangleRepresentationDirty) {
         isLineDensityFieldDirty = true;
@@ -129,6 +152,7 @@ void LineDataScattering::rebuildInternalRepresentationIfNecessary() {
 #ifdef USE_VULKAN_INTEROP
 VulkanLineDataScatteringRenderData LineDataScattering::getVulkanLineDataScatteringRenderData() {
     rebuildInternalRepresentationIfNecessary();
+    recomputeHistogram();
     if (!isLineDensityFieldDirty) {
         return vulkanScatteredLinesGridRenderData;
     }

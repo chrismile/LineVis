@@ -60,7 +60,7 @@ public:
     ScatteredLinesRenderer(
             SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
     ~ScatteredLinesRenderer() override;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_VULKAN_TEST; }
+    RenderingMode getRenderingMode() override { return RENDERING_MODE_SCATTERED_LINES_RENDERER; }
 
     /// Returns whether the triangle representation is used by the renderer.
     bool getIsTriangleRepresentationUsed() const override { return false; }

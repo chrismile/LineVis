@@ -92,10 +92,15 @@ public:
     VulkanLineDataScatteringRenderData getVulkanLineDataScatteringRenderData();
 #endif
 
+protected:
+    void recomputeHistogram() override;
+
 private:
     uint32_t gridSizeX = 0, gridSizeY = 0, gridSizeZ = 0;
     float voxelSizeX = 0.0f, voxelSizeY = 0.0f, voxelSizeZ = 0.0f;
     sgl::AABB3 gridAabb;
+    bool histogramNeverComputedBefore = true;
+    bool isVolumeRenderer = false;
 
 #ifdef USE_VULKAN_INTEROP
     // Caches the rendering data when using Vulkan.
