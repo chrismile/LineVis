@@ -97,7 +97,11 @@ public:
     void rebuildInternalRepresentationIfNecessary() override;
 
 #ifdef USE_VULKAN_INTEROP
+    // --- Retrieve data for rendering for Vulkan. ---
     VulkanLineDataScatteringRenderData getVulkanLineDataScatteringRenderData();
+    VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(bool raytracing) override;
+    VulkanTubeAabbRenderData getVulkanTubeAabbRenderData() override;
+    VulkanHullTriangleRenderData getVulkanHullTriangleRenderData(bool raytracing) override;
 #endif
 
 protected:
@@ -140,7 +144,7 @@ private:
     void _render() override;
 
     // Line data.
-    LineDataScattering* lineData;
+    LineDataScattering* lineData = nullptr;
     uint32_t gridSizeX = 0, gridSizeY = 0, gridSizeZ = 0;
     glm::mat4 worldToVoxelGridMatrix{}, voxelGridToWorldMatrix{};
     bool useLineSegmentLength = true;

@@ -383,6 +383,7 @@ void ScatteringLineTracingRequester::traceLines(
     //normalizeTrajectoriesVertexPositions(trajectories, nullptr);
 
     lineData->setDataSetInformation(gridDataSetFilename, { "Attribute #1" });
+    lineData->setTrajectoryData(trajectories);
     lineData->setGridData(
 #ifdef USE_VULKAN_INTEROP
             cachedScalarFieldTexture,
@@ -390,7 +391,6 @@ void ScatteringLineTracingRequester::traceLines(
             outlineTriangleIndices, outlineVertexPositions, outlineVertexNormals,
             cached_grid.size_x, cached_grid.size_y, cached_grid.size_z,
             cached_grid.voxel_size_x, cached_grid.voxel_size_y, cached_grid.voxel_size_z);
-    lineData->setTrajectoryData(trajectories);
 
 }
 

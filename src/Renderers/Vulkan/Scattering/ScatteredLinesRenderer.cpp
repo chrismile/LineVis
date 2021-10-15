@@ -145,7 +145,6 @@ void ScatteredLinesRenderer::render() {
 }
 
 void ScatteredLinesRenderer::renderGui() {
-    LineRenderer::renderGui();
     bool somethingChanged = lineDensityFieldDvrPass->renderGui();
 
     if (somethingChanged) {
