@@ -60,7 +60,9 @@ ScatteringLineTracingRequester::ScatteringLineTracingRequester(
         , sgl::vk::Renderer* rendererMainThread
 #endif
 ) : transferFunctionWindow(transferFunctionWindow)
+#ifdef USE_VULKAN_INTEROP
         , rendererVk(rendererVk)
+#endif
 {
 #ifdef USE_VULKAN_INTEROP
     rendererVk = new sgl::vk::Renderer(rendererMainThread->getDevice(), 100);
@@ -290,7 +292,9 @@ void ScatteringLineTracingRequester::traceLines(
         cached_grid = load_xyz_file(cached_grid_file_name);
 
         if (use_iso_surface) {
+#ifdef USE_VULKAN_INTEROP
             createScalarFieldTexture();
+#endif
             createIsosurface();
         }
     }

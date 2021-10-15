@@ -109,6 +109,7 @@ private:
     sgl::AABB3 gridAabb;
     bool histogramNeverComputedBefore = true;
     bool isVolumeRenderer = false;
+    bool useLineSegmentLengthForDensityField = true;
 
 #ifdef USE_VULKAN_INTEROP
     // Caches the rendering data when using Vulkan.
@@ -117,7 +118,6 @@ private:
     std::shared_ptr<LineDensityFieldMinMaxReduceRenderPass> lineDensityFieldMinMaxReduceRenderPass;
     std::shared_ptr<LineDensityFieldNormalizeRenderPass> lineDensityFieldNormalizeRenderPass;
     bool isLineDensityFieldDirty = false;
-    bool useLineSegmentLengthForDensityField = true;
 
     sgl::vk::Renderer* rendererVk = nullptr;
 #endif

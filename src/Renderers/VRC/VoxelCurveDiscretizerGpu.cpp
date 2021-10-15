@@ -27,6 +27,7 @@
  */
 
 #include <chrono>
+#include <GL/glew.h>
 
 #include <Math/Math.hpp>
 #include <Utils/File/Logfile.hpp>

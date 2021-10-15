@@ -241,6 +241,8 @@ void LineData::recomputeColorLegend() {
 void LineData::rebuildInternalRepresentationIfNecessary() {
     if (dirty || triangleRepresentationDirty) {
         //updateMeshTriangleIntersectionDataStructure();
+
+#ifdef USE_VULKAN_INTEROP
         vulkanTubeTriangleRenderData = {};
         vulkanTubeAabbRenderData = {};
         vulkanHullTriangleRenderData = {};
@@ -251,6 +253,8 @@ void LineData::rebuildInternalRepresentationIfNecessary() {
         tubeTriangleAndHullTopLevelAS = {};
         tubeAabbTopLevelAS = {};
         tubeAabbAndHullTopLevelAS = {};
+#endif
+
         dirty = false;
         triangleRepresentationDirty = false;
     }

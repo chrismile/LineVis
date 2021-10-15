@@ -51,9 +51,11 @@ LineDataScattering::LineDataScattering(
     dataSetType = DATA_SET_TYPE_SCATTERING_LINES;
     lineDataWindowName = "Line Data (Scattering)";
 
+#ifdef USE_VULKAN_INTEROP
     lineDensityFieldImageComputeRenderPass = std::make_shared<LineDensityFieldImageComputeRenderPass>(rendererVk);
     lineDensityFieldMinMaxReduceRenderPass = std::make_shared<LineDensityFieldMinMaxReduceRenderPass>(rendererVk);
     lineDensityFieldNormalizeRenderPass = std::make_shared<LineDensityFieldNormalizeRenderPass>(rendererVk);
+#endif
 }
 
 LineDataScattering::~LineDataScattering() {
@@ -148,6 +150,7 @@ void LineDataScattering::recomputeHistogram() {
 
 bool LineDataScattering::renderGuiRenderer(bool isRasterizer) {
     bool shallReloadGatherShader = LineData::renderGuiRenderer(isRasterizer);
+#ifdef USE_VULKAN_INTEROP
     if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_SCATTERED_LINES_RENDERER) {
         if (ImGui::Checkbox("Use Line Segment Length", &useLineSegmentLengthForDensityField)) {
             dirty = true;
@@ -155,14 +158,18 @@ bool LineDataScattering::renderGuiRenderer(bool isRasterizer) {
             lineDensityFieldImageComputeRenderPass->setUseLineSegmentLength(useLineSegmentLengthForDensityField);
         }
     }
+#endif
     return shallReloadGatherShader;
 }
 
 
 void LineDataScattering::rebuildInternalRepresentationIfNecessary() {
+#ifdef USE_VULKAN_INTEROP
     if (dirty || triangleRepresentationDirty) {
         isLineDensityFieldDirty = true;
     }
+#endif
+
     LineData::rebuildInternalRepresentationIfNecessary();
 }
 

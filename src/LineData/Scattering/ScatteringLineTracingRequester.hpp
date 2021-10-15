@@ -135,9 +135,9 @@ private:
     std::vector<glm::vec3> outlineVertexPositions;
     std::vector<glm::vec3> outlineVertexNormals;
 
+    void createIsosurface();
 #ifdef USE_VULKAN_INTEROP
     void createScalarFieldTexture();
-    void createIsosurface();
     std::shared_ptr<LineDensityFieldSmoothingPass> lineDensityFieldSmoothingPass;
     sgl::vk::TexturePtr cachedScalarFieldTexture;
 #endif
