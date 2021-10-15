@@ -165,8 +165,8 @@ void traverseVoxelGrid(uint lineID, vec3 startPoint, float startAttribute, vec3 
         inout ivec3 currentVoxel, inout int currentVoxelNumIntersections, inout vec3 currentVoxelIntersection,
         inout float currentVoxelIntersectionAttribute, inout bool noIntersectionForLineYet)
 {
-    startPoint = clamp(startPoint, vec3(0, 0, 0), vec3(gridResolution) - vec3(1e-4));
-    endPoint = clamp(endPoint, vec3(0, 0, 0), vec3(gridResolution) - vec3(1e-4));
+    //startPoint = clamp(startPoint, vec3(0, 0, 0), vec3(gridResolution) - vec3(1e-4));
+    //endPoint = clamp(endPoint, vec3(0, 0, 0), vec3(gridResolution) - vec3(1e-4));
     ivec3 startVoxel = ivec3(startPoint);
     ivec3 endVoxel = ivec3(endPoint);
 

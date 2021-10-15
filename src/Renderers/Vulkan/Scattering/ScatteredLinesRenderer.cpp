@@ -50,7 +50,7 @@ using namespace sgl;
 
 ScatteredLinesRenderer::ScatteredLinesRenderer(
         SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
-        : LineRenderer("Vulkan Test Renderer", sceneData, transferFunctionWindow),
+        : LineRenderer("Scattered Lines Renderer", sceneData, transferFunctionWindow),
           rendererVk(rendererVk) {
     isVulkanRenderer = true;
     isRasterizer = true;
