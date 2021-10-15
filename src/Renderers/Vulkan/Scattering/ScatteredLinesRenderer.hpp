@@ -135,6 +135,7 @@ public:
     void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
     void setBackgroundColor(const glm::vec4& color);
     void setLineData(LineDataPtr& lineData, bool isNewData);
+    bool renderGui();
 
 protected:
     void loadShader() override;
@@ -159,8 +160,10 @@ private:
 
     struct RenderSettingsData {
         glm::vec4 backgroundColor;
-        glm::vec3 minBoundingBox; float padding0;
-        glm::vec3 maxBoundingBox; float padding1;
+        glm::vec3 minBoundingBox;
+        float attenuationCoefficient;
+        glm::vec3 maxBoundingBox;
+        float voxelSize;
     };
     RenderSettingsData renderSettingsData{};
     sgl::vk::BufferPtr renderSettingsBuffer;

@@ -146,8 +146,11 @@ void ScatteredLinesRenderer::render() {
 
 void ScatteredLinesRenderer::renderGui() {
     LineRenderer::renderGui();
+    bool somethingChanged = lineDensityFieldDvrPass->renderGui();
 
-    // Add GUI code here.
+    if (somethingChanged) {
+        reRender = true;
+    }
 }
 
 
@@ -300,6 +303,15 @@ void LineDensityFieldDvrPass::setBackgroundColor(const glm::vec4& color) {
     renderSettingsData.backgroundColor = color;
 }
 
+bool LineDensityFieldDvrPass::renderGui() {
+    bool changed = false;
+    changed |= ImGui::SliderFloat("Attenuation Coefficient",
+                                  &renderSettingsData.attenuationCoefficient, 0, 500);
+
+
+    return changed;
+}
+
 void LineDensityFieldDvrPass::setLineData(LineDataPtr& lineData, bool isNewData) {
     this->lineData = lineData;
 
@@ -317,6 +329,7 @@ void LineDensityFieldDvrPass::setLineData(LineDataPtr& lineData, bool isNewData)
 
     renderSettingsData.minBoundingBox = aabb.min;
     renderSettingsData.maxBoundingBox = aabb.max;
+    renderSettingsData.voxelSize = aabb.getDimensions().x / lineDataScattering->getGridSizeX();
 
     dataDirty = true;
 }
@@ -331,6 +344,8 @@ void LineDensityFieldDvrPass::createComputeData(sgl::vk::Renderer* renderer, sgl
     computeData->setStaticBuffer(renderSettingsBuffer, "RenderSettingsBuffer");
     computeData->setStaticImageView(sceneImageView, "outputImage");
     computeData->setStaticTexture(lineDataScatteringRenderData.lineDensityFieldTexture, "lineDensityField");
+
+    lineData->setVulkanRenderDataDescriptors(std::static_pointer_cast<vk::RenderData>(computeData));
 }
 
 void LineDensityFieldDvrPass::_render() {
