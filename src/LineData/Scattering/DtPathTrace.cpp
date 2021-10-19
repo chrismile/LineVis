@@ -305,7 +305,7 @@ void dt_path_trace(PathInfo path_info, VolumeInfo volume_info, Trajectories* tra
 
         if (xi < 1 - Pn) { // scattering
             INFO("->scatter\n");
-            w = importance_sample_phase(volume_info.g[pass_number % 3], w); // scattering event...
+            w = importance_sample_phase(volume_info.g, w); // scattering event...
 
             if (!box_intersect(b_min, b_max, x, w, t_min, t_max)) {
                 break;

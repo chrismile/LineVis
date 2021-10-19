@@ -138,12 +138,12 @@ void ScatteringLineTracingRequester::renderGui() {
         ImGui::Checkbox("Use Isosurface", &gui_tracing_settings.show_iso_surface);
 #endif
 
-        changed |= ImGui::SliderFloat("Camera FOV",
-                                      &gui_tracing_settings.camera_fov_deg, 5.0f, 90.0f);
-        changed |= ImGui::SliderFloat3("Camera Position",
-                                       &gui_tracing_settings.camera_position.x, -1, 1);
-        changed |= ImGui::SliderFloat3("Camera Look At",
-                                       &gui_tracing_settings.camera_look_at.x, -1, 1);
+        changed |= ImGui::SliderFloatEdit("Camera FOV",
+                                          &gui_tracing_settings.camera_fov_deg, 5.0f, 90.0f) == EditMode::INPUT_FINISHED;
+        changed |= ImGui::SliderFloat3Edit("Camera Position",
+                                       &gui_tracing_settings.camera_position.x, -1, 1) == EditMode::INPUT_FINISHED;
+        changed |= ImGui::SliderFloat3Edit("Camera Look At",
+                                       &gui_tracing_settings.camera_look_at.x, -1, 1) == EditMode::INPUT_FINISHED;;
 
 
         changed |= ImGui::InputInt("Res X", (int*)&gui_tracing_settings.res_x);
@@ -158,12 +158,11 @@ void ScatteringLineTracingRequester::renderGui() {
             = std::max(gui_tracing_settings.samples_per_pixel, 1u);
 
 
-        changed |= ImGui::SliderFloat3("Extinction",
-                                      &gui_tracing_settings.extinction.x, 0.0f, 100.0f);
-        changed |= ImGui::SliderFloat3("Scattering Albedo",
-                                      &gui_tracing_settings.scattering_albedo.x, 0.0f, 1.0f);
-        changed |= ImGui::SliderFloat3("G",
-                                      &gui_tracing_settings.g.x, 0.0f, 1.0f);
+        changed |= ImGui::SliderFloat3Edit("Extinction",
+                                      &gui_tracing_settings.extinction.x, 0.0f, 100.0f) == EditMode::INPUT_FINISHED;;
+        changed |= ImGui::SliderFloat3Edit("Scattering Albedo",
+                                      &gui_tracing_settings.scattering_albedo.x, 0.0f, 1.0f) == EditMode::INPUT_FINISHED;;
+        changed |= ImGui::SliderFloatEdit("G", &gui_tracing_settings.g, 0.0f, 1.0f) == EditMode::INPUT_FINISHED;
 
         if (changed) {
             requestNewData();

@@ -161,7 +161,7 @@ private:
     struct RenderSettingsData {
         glm::vec4 backgroundColor;
         glm::vec3 minBoundingBox;
-        float attenuationCoefficient;
+        float attenuationCoefficient = 200;
         glm::vec3 maxBoundingBox;
         float voxelSize;
     };

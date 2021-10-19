@@ -54,7 +54,7 @@ struct Tracing_Settings {
     // volume:
     glm::vec3 extinction        = { 20,  20,  20};
     glm::vec3 scattering_albedo = {  1,   1,   1};
-    glm::vec3 g                 = {0.2, 0.2, 0.2};
+    float g                     = 0.2;
 
 };
 

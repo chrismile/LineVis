@@ -19,7 +19,7 @@ struct VolumeInfo {
     Texture3D grid;
     glm::vec3 extinction;
     glm::vec3 scattering_albedo;
-    glm::vec3 g;
+    float g;
 };
 
 
