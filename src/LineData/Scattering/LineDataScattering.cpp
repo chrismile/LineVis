@@ -51,12 +51,19 @@ LineDataScattering::LineDataScattering(
     dataSetType = DATA_SET_TYPE_SCATTERING_LINES;
     lineDataWindowName = "Line Data (Scattering)";
 
+#ifdef USE_VULKAN_INTEROP
     lineDensityFieldImageComputeRenderPass = std::make_shared<LineDensityFieldImageComputeRenderPass>(rendererVk);
     lineDensityFieldMinMaxReduceRenderPass = std::make_shared<LineDensityFieldMinMaxReduceRenderPass>(rendererVk);
     lineDensityFieldNormalizeRenderPass = std::make_shared<LineDensityFieldNormalizeRenderPass>(rendererVk);
+#endif
 }
 
 LineDataScattering::~LineDataScattering() {
+}
+
+sgl::ShaderProgramPtr LineDataScattering::reloadGatherShader() {
+    recomputeHistogram();
+    return LineDataFlow::reloadGatherShader();
 }
 
 void LineDataScattering::setDataSetInformation(
@@ -109,6 +116,12 @@ void LineDataScattering::setGridData(
             vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImageView());
     lineDensityFieldNormalizeRenderPass->setLineDensityFieldImageView(
             vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImageView());
+
+    colorLegendWidgets.resize(colorLegendWidgets.size() + 1);
+    colorLegendWidgets.back().setPositionIndex(0, 1);
+    colorLegendWidgets.back().setAttributeMinValue(0.0f);
+    colorLegendWidgets.back().setAttributeMaxValue(1.0f);
+    colorLegendWidgets.back().setAttributeDisplayName("Line Density");
 #endif
 
     if (!outlineTriangleIndices.empty()) {
@@ -123,29 +136,47 @@ void LineDataScattering::setGridData(
 void LineDataScattering::recomputeHistogram() {
     if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_SCATTERED_LINES_RENDERER
             && (histogramNeverComputedBefore || !isVolumeRenderer)) {
-        assert(colorLegendWidgets.size() == attributeNames.size());
+        selectedAttributeIndex = int(attributeNames.size());
+        isVolumeRenderer = true;
 
         // TODO
         //this->vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImage()->get
         transferFunctionWindow.computeHistogram({0.0f, 1.0f}, 0.0f, 1.0f);
 
         recomputeColorLegend();
-        isVolumeRenderer = true;
     }
     if ((!lineRenderer || lineRenderer->getRenderingMode() != RENDERING_MODE_SCATTERED_LINES_RENDERER)
             && (histogramNeverComputedBefore || isVolumeRenderer)) {
-        LineDataFlow::recomputeHistogram();
+        selectedAttributeIndex = 0;
         isVolumeRenderer = false;
+        LineDataFlow::recomputeHistogram();
     }
 
     histogramNeverComputedBefore = false;
 }
 
+bool LineDataScattering::renderGuiRenderer(bool isRasterizer) {
+    bool shallReloadGatherShader = LineData::renderGuiRenderer(isRasterizer);
+#ifdef USE_VULKAN_INTEROP
+    if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_SCATTERED_LINES_RENDERER) {
+        if (ImGui::Checkbox("Use Line Segment Length", &useLineSegmentLengthForDensityField)) {
+            dirty = true;
+            reRender = true;
+            lineDensityFieldImageComputeRenderPass->setUseLineSegmentLength(useLineSegmentLengthForDensityField);
+        }
+    }
+#endif
+    return shallReloadGatherShader;
+}
+
 
 void LineDataScattering::rebuildInternalRepresentationIfNecessary() {
+#ifdef USE_VULKAN_INTEROP
     if (dirty || triangleRepresentationDirty) {
         isLineDensityFieldDirty = true;
     }
+#endif
+
     LineData::rebuildInternalRepresentationIfNecessary();
 }
 
@@ -205,6 +236,21 @@ VulkanLineDataScatteringRenderData LineDataScattering::getVulkanLineDataScatteri
     return vulkanScatteredLinesGridRenderData;
 }
 
+VulkanTubeTriangleRenderData LineDataScattering::getVulkanTubeTriangleRenderData(bool raytracing) {
+    recomputeHistogram();
+    return LineDataFlow::getVulkanTubeTriangleRenderData(raytracing);
+}
+VulkanTubeAabbRenderData LineDataScattering::getVulkanTubeAabbRenderData() {
+    recomputeHistogram();
+    return LineDataFlow::getVulkanTubeAabbRenderData();
+}
+VulkanHullTriangleRenderData LineDataScattering::getVulkanHullTriangleRenderData(bool raytracing) {
+    recomputeHistogram();
+    return LineDataFlow::getVulkanHullTriangleRenderData(raytracing);
+}
+
+
+
 LineDensityFieldImageComputeRenderPass::LineDensityFieldImageComputeRenderPass(sgl::vk::Renderer* renderer)
         : ComputePass(renderer) {
     uniformBuffer = std::make_shared<sgl::vk::Buffer>(
@@ -240,15 +286,29 @@ void LineDensityFieldImageComputeRenderPass::setData(
     device->endSingleTimeCommands(commandBuffer);
 }
 
+void LineDensityFieldImageComputeRenderPass::setUseLineSegmentLength(bool useLineSegmentLengthForDensityField) {
+    if (useLineSegmentLength != useLineSegmentLengthForDensityField) {
+        setShaderDirty();
+        useLineSegmentLength = useLineSegmentLengthForDensityField;
+    }
+}
+
 void LineDensityFieldImageComputeRenderPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
-    shaderStages = sgl::vk::ShaderManager->getShaderStages({"ComputeLineDensityField.Compute"});
+    std::map<std::string, std::string> preprocessorDefines;
+    if (useLineSegmentLength) {
+        preprocessorDefines.insert({ "USE_LINE_SEGMENT_LENGTH", "" });
+    }
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            {"ComputeLineDensityField.Compute"}, preprocessorDefines);
 }
 
 void LineDensityFieldImageComputeRenderPass::createComputeData(
         sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
     Trajectories trajectories = lineData->filterTrajectoryData();
-    int selectedAttributeIndex = lineData->getSelectedAttributeIndex();
+    int selectedAttributeIndex = std::min(
+            lineData->getSelectedAttributeIndex(),
+            trajectories.empty() ? 0 : int(trajectories.front().attributes.size() - 1));
 
     std::vector<LinePoint> linePoints;
     std::vector<uint32_t> lineOffsets;

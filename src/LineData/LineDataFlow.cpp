@@ -126,8 +126,6 @@ bool LineDataFlow::getIsSmallDataSet() const {
 }
 
 void LineDataFlow::recomputeHistogram() {
-    assert(colorLegendWidgets.size() == attributeNames.size());
-
     std::vector<float> attributeList;
     for (const Trajectory& trajectory : trajectories) {
         for (float val : trajectory.attributes.at(selectedAttributeIndex)) {
@@ -136,7 +134,7 @@ void LineDataFlow::recomputeHistogram() {
     }
     glm::vec2 minMaxAttributes = minMaxAttributeValues.at(selectedAttributeIndex);
     transferFunctionWindow.computeHistogram(attributeList, minMaxAttributes.x, minMaxAttributes.y);
-
+    selectedAttributeIndex = attributeNames.size() - 1;
     recomputeColorLegend();
 }
 

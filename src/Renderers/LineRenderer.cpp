@@ -337,31 +337,37 @@ void LineRenderer::renderGuiWindow() {
         this->renderGui();
 
         if (lineData) {
+            RenderingMode mode = getRenderingMode();
+
             ImGui::Separator();
             if (lineData->renderGuiRenderer(isRasterizer)) {
                 shallReloadGatherShader = true;
             }
 
-            EditMode editModeDepthCue = ImGui::SliderFloatEdit(
-                    "Depth Cue Strength", &depthCueStrength, 0.0f, 1.0f);
-            if (editModeDepthCue != EditMode::NO_CHANGE) {
-                reRender = true;
-                internalReRender = true;
-                if (depthCueStrength > 0.0f && !useDepthCues) {
-                    useDepthCues = true;
-                    updateDepthCueMode();
-                    shallReloadGatherShader = true;
+            if (mode != RENDERING_MODE_SCATTERED_LINES_RENDERER) {
+                EditMode editModeDepthCue = ImGui::SliderFloatEdit(
+                        "Depth Cue Strength", &depthCueStrength, 0.0f, 1.0f);
+                if (editModeDepthCue != EditMode::NO_CHANGE) {
+                    reRender = true;
+                    internalReRender = true;
+                    if (depthCueStrength > 0.0f && !useDepthCues) {
+                        useDepthCues = true;
+                        updateDepthCueMode();
+                        shallReloadGatherShader = true;
+                    }
                 }
-            }
-            if (editModeDepthCue == EditMode::INPUT_FINISHED) {
-                if (depthCueStrength <= 0.0f && useDepthCues) {
-                    useDepthCues = false;
-                    updateDepthCueMode();
-                    shallReloadGatherShader = true;
+                if (editModeDepthCue == EditMode::INPUT_FINISHED) {
+                    if (depthCueStrength <= 0.0f && useDepthCues) {
+                        useDepthCues = false;
+                        updateDepthCueMode();
+                        shallReloadGatherShader = true;
+                    }
                 }
             }
 
-            if (ambientOcclusionBaker.get() != nullptr) {
+            if (ambientOcclusionBaker.get() != nullptr
+                    && mode != RENDERING_MODE_VOXEL_RAY_CASTING
+                    && mode != RENDERING_MODE_SCATTERED_LINES_RENDERER) {
                 EditMode editModeAo = ImGui::SliderFloatEdit(
                         "AO Strength", &ambientOcclusionStrength, 0.0f, 1.0f);
                 if (editModeAo != EditMode::NO_CHANGE) {

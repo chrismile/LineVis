@@ -60,14 +60,16 @@ ScatteringLineTracingRequester::ScatteringLineTracingRequester(
         , sgl::vk::Renderer* rendererMainThread
 #endif
 ) : transferFunctionWindow(transferFunctionWindow)
+#ifdef USE_VULKAN_INTEROP
         , rendererVk(rendererVk)
+#endif
 {
 #ifdef USE_VULKAN_INTEROP
     rendererVk = new sgl::vk::Renderer(rendererMainThread->getDevice(), 100);
+    lineDensityFieldSmoothingPass = std::make_shared<LineDensityFieldSmoothingPass>(rendererVk);
 #endif
 
     loadGridDataSetList();
-    lineDensityFieldSmoothingPass = std::make_shared<LineDensityFieldSmoothingPass>(rendererVk);
     requesterThread = std::thread(&ScatteringLineTracingRequester::mainLoop, this);
 }
 
@@ -289,7 +291,9 @@ void ScatteringLineTracingRequester::traceLines(
         cached_grid = load_xyz_file(cached_grid_file_name);
 
         if (use_iso_surface) {
+#ifdef USE_VULKAN_INTEROP
             createScalarFieldTexture();
+#endif
             createIsosurface();
         }
     }
@@ -378,6 +382,7 @@ void ScatteringLineTracingRequester::traceLines(
     //normalizeTrajectoriesVertexPositions(trajectories, nullptr);
 
     lineData->setDataSetInformation(gridDataSetFilename, { "Attribute #1" });
+    lineData->setTrajectoryData(trajectories);
     lineData->setGridData(
 #ifdef USE_VULKAN_INTEROP
             cachedScalarFieldTexture,
@@ -385,10 +390,10 @@ void ScatteringLineTracingRequester::traceLines(
             outlineTriangleIndices, outlineVertexPositions, outlineVertexNormals,
             cached_grid.size_x, cached_grid.size_y, cached_grid.size_z,
             cached_grid.voxel_size_x, cached_grid.voxel_size_y, cached_grid.voxel_size_z);
-    lineData->setTrajectoryData(trajectories);
 
 }
 
+#ifdef USE_VULKAN_INTEROP
 void ScatteringLineTracingRequester::createScalarFieldTexture() {
     sgl::vk::ImageSettings imageSettings;
     imageSettings.width = cached_grid.size_x;
@@ -405,6 +410,7 @@ void ScatteringLineTracingRequester::createScalarFieldTexture() {
     cachedScalarFieldTexture->getImage()->uploadData(
             cached_grid.size_x * cached_grid.size_y * cached_grid.size_z * sizeof(float), cached_grid.data);
 }
+#endif
 
 void ScatteringLineTracingRequester::createIsosurface() {
     outlineTriangleIndices.clear();

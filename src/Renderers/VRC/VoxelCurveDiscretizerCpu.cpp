@@ -26,6 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <unordered_set>
 #include <chrono>
 
 #include <Utils/File/Logfile.hpp>
@@ -169,7 +170,7 @@ void VoxelCurveDiscretizer::nextStreamline(const Curve& line) {
     int N = int(line.points.size());
 
     // Add intersections to voxels.
-    std::set<VoxelDiscretizer*> usedVoxels;
+    std::unordered_set<VoxelDiscretizer*> usedVoxels;
     for (int i = 0; i < N - 1; i++) {
         // Get line segment
         glm::vec3 v1 = line.points.at(i);

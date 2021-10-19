@@ -90,7 +90,10 @@ if (NOT SUPPORT_VULKAN AND USE_VULKAN_INTEROP)
 	MESSAGE(STATUS "Disabling Vulkan interoperability, as sgl was not built with Vulkan support.")
 endif()
 if (NOT SUPPORT_VULKAN OR NOT USE_VULKAN_INTEROP)
-	list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/VulkanTestRenderer.cpp)
+    list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/VulkanAmbientOcclusionBaker.cpp)
+    list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/VulkanRayTracer.cpp)
+    list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/VulkanTestRenderer.cpp)
+    list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/ScatteredLinesRenderer.cpp)
 endif()
 
 # Embree version 3.12.1-2 shipped by msys2 seems to be buggy and crashes on rtcCommitScene :(
