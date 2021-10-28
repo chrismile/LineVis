@@ -161,7 +161,7 @@ void ScatteringLineTracingRequester::renderGui() {
 
 
         changed |= ImGui::SliderFloat3Edit("Extinction",
-                                      &gui_tracing_settings.extinction.x, 0.0f, 100.0f) == EditMode::INPUT_FINISHED;;
+                                      &gui_tracing_settings.extinction.x, 0.0f, 3000.0f) == EditMode::INPUT_FINISHED;;
         changed |= ImGui::SliderFloat3Edit("Scattering Albedo",
                                       &gui_tracing_settings.scattering_albedo.x, 0.0f, 1.0f) == EditMode::INPUT_FINISHED;;
         changed |= ImGui::SliderFloatEdit("G", &gui_tracing_settings.g, 0.0f, 1.0f) == EditMode::INPUT_FINISHED;
@@ -315,6 +315,7 @@ void ScatteringLineTracingRequester::traceLines(
 
 
     Trajectories trajectories;
+    Exit_Directions exit_directions;
     pi.pass_number = 0;
     Random::init(request.seed);
 
@@ -371,11 +372,13 @@ void ScatteringLineTracingRequester::traceLines(
                 // Sample loop
                 for (int i = 0; i < samples_per_pixel; ++i) {
                     pi.pass_number = i;
-                    dt_path_trace(pi, vi, &trajectories);
+                    dt_path_trace(pi, vi, &trajectories, &exit_directions);
                 }
             }
         }
     }
+
+    write_bmp_file("distribution.bmp", &exit_directions);
 
     // TODO: This function normalizes the vertex positions of the trajectories;
     //   should we also normalize the grid size?

@@ -52,8 +52,8 @@ struct Tracing_Settings {
     uint32_t samples_per_pixel = 10;
 
     // volume:
-    glm::vec3 extinction        = { 20,  20,  20};
-    glm::vec3 scattering_albedo = {  1,   1,   1};
+    glm::vec3 extinction        = { 1024, 1024, 1024};
+    glm::vec3 scattering_albedo = {    1,    1,    1};
     float g                     = 0.2;
 
 };

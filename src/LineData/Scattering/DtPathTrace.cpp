@@ -1,11 +1,158 @@
 #include "DtPathTrace.hpp"
 #include <Utils/Defer.hpp>
+#include <corecrt_math.h>
+#include <stdint.h>
+#include <cmath>
+#include <vector>
 
+#include "../SearchStructures/KdTree.hpp"
 
-// #define INFO(...) printf("INFO: "  __VA_ARGS__);
+#define ERROR(...) printf("ERROR: "  __VA_ARGS__);
 #define INFO(...)
+// #define INFO(...) printf("INFO: "  __VA_ARGS__);
+//
 const float pi = 3.1415926535897932384626433832795;
 const float two_pi = 6.283185307179586476925286766559;
+
+
+inline int32_t max(int32_t a, int32_t b) {
+    return a > b ? a : b;
+}
+
+inline double max(double a, double b) {
+    return a > b ? a : b;
+}
+
+inline double min(double a, double b) {
+    return a < b ? a : b;
+}
+
+inline float max(float a, float b) {
+    return a > b ? a : b;
+}
+
+inline float min(float a, float b) {
+    return a < b ? a : b;
+}
+
+inline float max(float a, float b, float c) {
+    return max(a, max(b, c));
+}
+
+inline float min(float a, float b, float c) {
+    return min(a, min(b, c));
+}
+
+inline uint32_t max(uint32_t a, uint32_t b) {
+    return a > b ? a : b;
+}
+
+inline uint32_t min(uint32_t a, uint32_t b) {
+    return a < b ? a : b;
+}
+
+
+void write_bmp_file(const char *file_name, Exit_Directions* exit_dirs) {
+    Image out_image;
+    out_image.width  = 600;
+    out_image.height = 300;
+    out_image.allocate();
+
+    defer {
+        out_image.save_as_bmp(file_name);
+        out_image.free();
+    };
+
+    KdTree kd_tree;
+
+    // TODO(Felix): Why do I have to do this, this is horrible, we copy the data
+    //   and then pass it by pointer ... so bad, how to do this, Christoph?
+    IndexedPoint* indexed_exit_points_arr = (IndexedPoint*)malloc(sizeof(indexed_exit_points_arr[0])
+                                                                  * exit_dirs->size());
+
+    std::vector<IndexedPoint*> indexed_exit_points(exit_dirs->size());
+    for (int i = 0; i < exit_dirs->size(); ++i) {
+        indexed_exit_points_arr[i].position = (*exit_dirs)[i];
+        indexed_exit_points_arr[i].index = i;
+        indexed_exit_points[i] = (&indexed_exit_points_arr[i]);
+    }
+
+    kd_tree.build(indexed_exit_points);
+    // TODO(Felix): horrible ends here
+
+    {
+        const double sqrt_two     =       sqrt(2.0);
+        const double two_sqrt_two = 2.0 * sqrt_two;
+
+        assert(out_image.width > 0);
+        assert(out_image.height > 0);
+
+        int max_hits = 0;
+        for (int y = 0; y < out_image.height; ++y) {
+            for (int x = 0; x < out_image.width; ++x) {
+                float u =   -1 + (1.0*x / (out_image.width-1)) * 2; // from   -1 to 1
+                float v = -0.5 + (1.0*y / (out_image.height-1));    // from -0.5 to 0.5
+
+                Pixel* p = &out_image.pixels[y*out_image.width+x];
+
+                if (glm::length(glm::vec2(u, 2*v)) <= 1) {
+                    // we are in the ellipse
+                    float x_inner = two_sqrt_two * u;
+                    float y_inner = two_sqrt_two * v;
+
+                    float z = sqrt(1- pow(x_inner/4, 2)-pow(y_inner/2,2));
+
+                    float lambda = 2 * atan((z * x_inner) / (2*(2*pow(z,2)-1))); // from -pi to pi
+                    float phi    = asin(z * y_inner);                            // from -pi/2 to pi/2
+
+                    const glm::vec4 X = glm::vec4(1.0f,0.0f,0.0f, 0.0f);
+                    const glm::vec3 Y = glm::vec3(0.0f,1.0f,0.0f);
+                    const glm::vec3 Z = glm::vec3(0.0f,0.0f,1.0f);
+
+                    glm::vec3 point_on_sphere =
+                        glm::rotate(lambda,  Y) *
+                        glm::rotate(phi,     Z) *
+                        X;
+
+                    auto hits = kd_tree.findPointsInSphere(point_on_sphere, 0.025);
+
+                    max_hits = max(hits.size(), max_hits);
+                    p->s32 = hits.size();
+                } else {
+                    // we are outside the ellipse
+                    p->s32 = -1;
+                }
+            }
+        }
+
+        for (int y = 0; y < out_image.height; ++y) {
+            for (int x = 0; x < out_image.width; ++x) {
+                Pixel* p = &out_image.pixels[y*out_image.width+x];
+                if (p->s32 == -1) {
+                    p->r = 0;
+                    p->g = 0;
+                    p->b = 0;
+                    p->a = 0;
+                } else {
+                    auto hits = p->s32;
+                    sgl::Color result;
+                    // NOTE(Felix): poor man's transfer function
+                    if (hits < max_hits/2) {
+                        // blue to green gradient
+                        result = sgl::colorLerp({0,0,255,255}, {0,255,0,255}, 2.0f*hits/max_hits);
+                    } else {
+                        // green to red gradient
+                        result = sgl::colorLerp({0,255,0,255}, {255,0,0,255}, 2.0f*hits/max_hits-1.0f);
+                    }
+                    p->r = result.getR();
+                    p->g = result.getG();
+                    p->b = result.getB();
+                }
+            }
+        }
+    }
+}
+
 
 namespace Random {
     static struct {
@@ -50,39 +197,6 @@ namespace Random {
     }
 
 }
-
-inline double max(double a, double b) {
-    return a > b ? a : b;
-}
-
-inline double min(double a, double b) {
-    return a < b ? a : b;
-}
-
-inline float max(float a, float b) {
-    return a > b ? a : b;
-}
-
-inline float min(float a, float b) {
-    return a < b ? a : b;
-}
-
-inline float max(float a, float b, float c) {
-    return max(a, max(b, c));
-}
-
-inline float min(float a, float b, float c) {
-    return min(a, min(b, c));
-}
-
-inline uint32_t max(uint32_t a, uint32_t b) {
-    return a > b ? a : b;
-}
-
-inline uint32_t min(uint32_t a, uint32_t b) {
-    return a < b ? a : b;
-}
-
 
 void create_orthonormal_basis(glm::vec3 D, glm::vec3& B, glm::vec3& T) {
     glm::vec3 other =
@@ -140,7 +254,7 @@ glm::vec3 importance_sample_phase(float g_factor, glm::vec3 D) {
 
     float phi = Random::random() * 2 * pi;
     float cosTheta = invert_cdf(g_factor, Random::random());
-    float sinTheta = std::sqrt(max(0, 1.0f - cosTheta * cosTheta));
+    float sinTheta = std::sqrt(max(0.0f, 1.0f - cosTheta * cosTheta));
 
     glm::vec3 t0, t1;
     create_orthonormal_basis(D, t0, t1);
@@ -224,7 +338,24 @@ bool box_intersect(glm::vec3 b_min, glm::vec3 b_max, glm::vec3 P,
     return true;
 }
 
-void dt_path_trace(PathInfo path_info, VolumeInfo volume_info, Trajectories* trajis) {
+// Polar_Coordinate to_polar(glm::vec3 pos) {
+//     Polar_Coordinate result;
+//     result.theta = acos(glm::dot(glm::normalize(glm::vec2(pos.x, pos.z)), glm::vec2(1.0f,0.0f)));
+//     result.phi   = acos(glm::dot(glm::normalize(pos),
+//                                  glm::normalize(glm::vec3(pos.x, 0.0f, pos.z))));
+
+//     if (pos.z < 0)
+//         result.theta = -result.theta;
+
+//     if (pos.z < 0)
+//         result.phi = -result.phi;
+
+//     return result;
+// }
+
+void dt_path_trace(PathInfo path_info, VolumeInfo volume_info,
+                   Trajectories* trajis, Exit_Directions* exit_dirs)
+{
 
     int pass_number = path_info.pass_number;
     glm::vec3 x = path_info.camera_pos;
@@ -249,6 +380,9 @@ void dt_path_trace(PathInfo path_info, VolumeInfo volume_info, Trajectories* tra
     defer {
         trajectory.attributes.push_back(attribs);
         trajis->push_back(trajectory);
+        // TODO(Felix): probably `w' is already normalized, so we don't need to
+        //   normalize it again
+        exit_dirs->push_back(glm::normalize(w));
     };
 
     trajectory.positions.push_back(x);
@@ -259,6 +393,7 @@ void dt_path_trace(PathInfo path_info, VolumeInfo volume_info, Trajectories* tra
 
     trajectory.positions.push_back(x);
     attribs.push_back({1});
+
 
     while (true) {
         float t = // majorant of all volume data

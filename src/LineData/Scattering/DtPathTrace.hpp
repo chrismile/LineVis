@@ -5,10 +5,10 @@
 #include "Texture3d.hpp"
 #include "Loaders/DataSetList.hpp"
 #include "LineDataScattering.hpp"
+#include "Image.hpp"
+#include "../LineData.hpp"
 
 
-// pi.x = cam_pos
-// pi.w = ray_dir
 struct PathInfo {
     glm::vec3 camera_pos;
     glm::vec3 ray_direction;
@@ -23,9 +23,11 @@ struct VolumeInfo {
 };
 
 
-// void GetGridBox(texture3D grid, float3& minim, float3& maxim);
+typedef std::vector<glm::vec3> Exit_Directions;
 
-void dt_path_trace(PathInfo path_info, VolumeInfo volume_info, Trajectories* traj);
+void write_bmp_file(const char* file_name, Exit_Directions* exit_dirs);
+void dt_path_trace(PathInfo path_info, VolumeInfo volume_info,
+                   Trajectories* traj, Exit_Directions* exit_dirs);
 
 namespace Random {
     void init(uint32_t seed);
