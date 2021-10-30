@@ -66,9 +66,14 @@ public:
      * @param dataArray The data array.
      */
     void build(const std::vector<std::pair<glm::vec3, T>>& pointsAndData) override {
+        if (pointsAndData.empty()) {
+            return;
+        }
+
+        std::vector<std::pair<glm::vec3, T>> pointsAndDataCopy = pointsAndData;
         nodes.resize(pointsAndData.size());
         nodeCounter = 0;
-        root = _build(pointsAndData, 0);
+        root = _build(pointsAndDataCopy, 0, 0, pointsAndData.size());
     }
     using SearchStructure<T>::build;
 
@@ -222,10 +227,10 @@ private:
      * @param depth The current depth in the tree (starting at 0).
      * @return The parent node of the current sub-tree.
      */
-    KdNode<T>* _build(std::vector<std::pair<glm::vec3, T>> pointsAndData, int depth) {
+    KdNode<T>* _build(std::vector<std::pair<glm::vec3, T>>& pointsAndData, int depth, size_t startIdx, size_t endIdx) {
         const int k = 3; // Number of dimensions
 
-        if (pointsAndData.empty()) {
+        if (endIdx - startIdx == 0) {
             return nullptr;
         }
 
@@ -233,22 +238,18 @@ private:
         nodeCounter++;
 
         int axis = depth % k;
-        std::sort(pointsAndData.begin(), pointsAndData.end(), [axis](const std::pair<glm::vec3, T>& a, const std::pair<glm::vec3, T>& b) {
+        std::sort(
+                pointsAndData.begin() + startIdx, pointsAndData.begin() + endIdx,
+                [axis](const std::pair<glm::vec3, T>& a, const std::pair<glm::vec3, T>& b) {
             return a.first[axis] < b.first[axis];
         });
-        size_t medianIndex = pointsAndData.size() / 2;
-        std::vector<std::pair<glm::vec3, T>> leftPointsAndData = std::vector<std::pair<glm::vec3, T>>(
-                pointsAndData.begin(), pointsAndData.begin() + medianIndex);
-        std::vector<std::pair<glm::vec3, T>> rightPointsAndData = std::vector<std::pair<glm::vec3, T>>(
-                pointsAndData.begin() + medianIndex + 1, pointsAndData.end());
-
-        // TODO: Replace copy by indices
+        size_t medianIndex = startIdx + (endIdx - startIdx) / 2;
 
         node->axis = axis;
         node->point = pointsAndData.at(medianIndex).first;
         node->data = pointsAndData.at(medianIndex).second;
-        node->left = _build(leftPointsAndData, depth + 1);
-        node->right = _build(rightPointsAndData, depth + 1);
+        node->left = _build(pointsAndData, depth + 1, startIdx, medianIndex);
+        node->right = _build(pointsAndData, depth + 1, medianIndex + 1, endIdx);
         return node;
     }
 
