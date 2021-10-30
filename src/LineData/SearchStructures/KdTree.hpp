@@ -35,6 +35,16 @@
 
 #include "SearchStructure.hpp"
 
+#ifdef __has_cpp_attribute
+#if __has_cpp_attribute(no_unique_address) && !(defined(__GNUC__) && (__cplusplus < 201100))
+#define ATTRIBUTE_NO_UNIQUE_ADDRESS [[no_unique_address]]
+#endif
+#endif
+
+#ifndef ATTRIBUTE_NO_UNIQUE_ADDRESS
+#define ATTRIBUTE_NO_UNIQUE_ADDRESS
+#endif
+
 /**
  * A node in the k-d-tree. It stores in which axis the space is partitioned (x,y,z)
  * as an index, the position of the node, and its left and right children.
@@ -45,11 +55,7 @@ public:
     KdNode() : axis(0), left(nullptr), right(nullptr) {}
     int axis;
     glm::vec3 point{};
-#if __cplusplus >= 201803L
-    [[no_unique_address]] T data; // Can be empty.
-#else
-    T data;
-#endif
+    ATTRIBUTE_NO_UNIQUE_ADDRESS T data; // Use [[no_unique_address]] in case T == Empty.
     KdNode* left;
     KdNode* right;
 };
