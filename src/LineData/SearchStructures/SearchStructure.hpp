@@ -32,6 +32,10 @@
 #include <vector>
 #include <glm/glm.hpp>
 
+#if __cplusplus >= 201703L
+#include <variant>
+#endif
+
 /**
  * An axis aligned (bounding) box data structures used for search queries.
  */
@@ -56,6 +60,13 @@ public:
         return false;
     }
 };
+
+// Can be used for SearchStructure<Empty> if no additional data should be stored besides the points.
+#if __cplusplus >= 201703L
+typedef std::monostate Empty;
+#else
+typedef int Empty;
+#endif
 
 /**
  * This class is the parent class for point search structures.

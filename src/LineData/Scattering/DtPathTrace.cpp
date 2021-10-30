@@ -1,8 +1,9 @@
 #include "DtPathTrace.hpp"
 #include <Utils/Defer.hpp>
+#include <vector>
+#include <variant>
 #include <cstdint>
 #include <cmath>
-#include <vector>
 
 #ifdef _WIN32
 #include <corecrt_math.h>
@@ -66,7 +67,7 @@ void write_bmp_file(const char *file_name, Exit_Directions* exit_dirs) {
         out_image.free();
     };
 
-    KdTree<int> kd_tree;
+    KdTree<Empty> kd_tree;
     kd_tree.build(*exit_dirs);
 
     {

@@ -45,7 +45,11 @@ public:
     KdNode() : axis(0), left(nullptr), right(nullptr) {}
     int axis;
     glm::vec3 point{};
+#if __cplusplus >= 201803L
+    [[no_unique_address]] T data; // Can be empty.
+#else
     T data;
+#endif
     KdNode* left;
     KdNode* right;
 };
