@@ -210,7 +210,7 @@ bool LineData::renderGuiWindowSecondary(bool isRasterizer) {
 }
 
 void LineData::setClearColor(const sgl::Color& clearColor) {
-    for (int i = 0; i < colorLegendWidgets.size(); i++) {
+    for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
         colorLegendWidgets.at(i).setClearColor(clearColor);
     }
 }

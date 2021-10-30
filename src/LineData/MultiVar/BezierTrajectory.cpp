@@ -112,7 +112,7 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
     for (const auto& trajectory : inTrajectories) {
         uint32_t varOffsetPerLine = 0;
 
-        for (auto v = 0; v < maxNumVariables; ++v) {
+        for (uint32_t v = 0; v < maxNumVariables; ++v) {
             VarDesc varDescPerLine = {0};
             varDescPerLine.minMax = glm::vec2(
                     std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest());

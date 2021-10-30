@@ -139,9 +139,9 @@ void VoxelCurveDiscretizer::createVoxelGridCpu() {
     auto startVoxelizeLines = std::chrono::system_clock::now();
 
     voxels = new VoxelDiscretizer[gridResolution.x * gridResolution.y * gridResolution.z];
-    for (uint32_t z = 0; z < gridResolution.z; z++) {
-        for (uint32_t y = 0; y < gridResolution.y; y++) {
-            for (uint32_t x = 0; x < gridResolution.x; x++) {
+    for (uint32_t z = 0; z < uint32_t(gridResolution.z); z++) {
+        for (uint32_t y = 0; y < uint32_t(gridResolution.y); y++) {
+            for (uint32_t x = 0; x < uint32_t(gridResolution.x); x++) {
                 uint32_t index = x + y * gridResolution.x + z * gridResolution.x * gridResolution.y;
                 voxels[index].setIndex(glm::uvec3(x, y, z));
             }
@@ -305,9 +305,9 @@ std::vector<VoxelDiscretizer*> VoxelCurveDiscretizer::getVoxelsInAABB(const sgl:
     lower = glm::clamp(lower, glm::ivec3(0), gridResolution - glm::ivec3(1));
     upper = glm::clamp(upper, glm::ivec3(0), gridResolution - glm::ivec3(1));
 
-    for (uint32_t z = lower.z; z <= upper.z; z++) {
-        for (uint32_t y = lower.y; y <= upper.y; y++) {
-            for (uint32_t x = lower.x; x <= upper.x; x++) {
+    for (uint32_t z = lower.z; z <= uint32_t(upper.z); z++) {
+        for (uint32_t y = lower.y; y <= uint32_t(upper.y); y++) {
+            for (uint32_t x = lower.x; x <= uint32_t(upper.x); x++) {
                 uint32_t index = x + y*gridResolution.x + z*gridResolution.x*gridResolution.y;
                 voxelsInAABB.push_back(voxels + index);
             }

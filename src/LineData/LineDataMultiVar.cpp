@@ -479,7 +479,7 @@ TubeRenderDataMultiVar LineDataMultiVar::getTubeRenderDataMultiVar() {
     std::vector<float> attributesMaxValues(numVars, 0.0f);
     for (size_t lineIdx = 0; lineIdx < numLines; ++lineIdx) {
         BezierTrajectory& bezierTrajectory = bezierTrajectories.at(lineIdx);
-        for (auto varIdx = 0; varIdx < numVars; ++varIdx) {
+        for (size_t varIdx = 0; varIdx < numVars; ++varIdx) {
             attributesMinValues.at(varIdx) = std::min(
                     attributesMinValues.at(varIdx), bezierTrajectory.multiVarDescs.at(varIdx).minMax.x);
             attributesMaxValues.at(varIdx) = std::max(
@@ -488,7 +488,7 @@ TubeRenderDataMultiVar LineDataMultiVar::getTubeRenderDataMultiVar() {
     }
 
     for (size_t lineIdx = 0; lineIdx < numLines; ++lineIdx) {
-        for (auto varIdx = 0; varIdx < numVars; ++varIdx) {
+        for (size_t varIdx = 0; varIdx < numVars; ++varIdx) {
             BezierTrajectory& bezierTrajectory = bezierTrajectories.at(lineIdx);
 
             VarDescData descData;

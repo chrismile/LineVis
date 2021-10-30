@@ -452,7 +452,6 @@ void OsprayRenderer::notifyReRenderTriggeredExternally() {
 
 void OsprayRenderer::onHasMoved() {
     sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    glm::mat4 viewMatrix = sceneData.camera->getViewMatrix();
     glm::mat4 invViewMatrix = glm::inverse(sceneData.camera->getViewMatrix());
     glm::vec3 upDir = invViewMatrix[1];
     glm::vec3 lookDir = -invViewMatrix[2];

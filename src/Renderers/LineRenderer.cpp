@@ -63,7 +63,7 @@ LineRenderer::~LineRenderer() {
 }
 
 bool LineRenderer::getIsTriangleRepresentationUsed() const {
-    return lineData && lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TRIANGLE_MESH
+    return (lineData && lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TRIANGLE_MESH)
             || (useAmbientOcclusion && ambientOcclusionBaker);
 }
 

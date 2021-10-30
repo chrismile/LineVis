@@ -32,6 +32,8 @@
 #include <zmq.hpp>
 #endif
 
+#include <Utils/File/Logfile.hpp>
+
 #include "StressLineTracingRequesterSocket.hpp"
 
 StressLineTracingRequesterSocket::StressLineTracingRequesterSocket(void* context, const std::string& address, int port)
@@ -197,7 +199,11 @@ void StressLineTracingRequesterSocket::mainLoop() {
             if (items[0].revents & ZMQ_POLLIN) {
                 zmq_msg_t reply;
                 int rc = zmq_msg_init(&reply);
-                assert(rc == 0);
+                if (rc != 0) {
+                    sgl::Logfile::get()->throwError(
+                            "Error in StressLineTracingRequesterSocket::mainLoop: zmq_msg_init failed!");
+                }
+
                 const int receivedBytes = zmq_msg_recv(&reply, socket, 0);
                 if (receivedBytes < 0) {
                     zmq_msg_close(&reply);

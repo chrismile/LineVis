@@ -79,7 +79,8 @@ LineDataStress::~LineDataStress() {
 }
 
 bool LineDataStress::settingsDiffer(LineData* other) {
-    return useLineHierarchy != static_cast<LineDataStress*>(other)->useLineHierarchy || (hasBandsData != hasBandsData);
+    return useLineHierarchy != static_cast<LineDataStress*>(other)->useLineHierarchy
+            || (hasBandsData != static_cast<LineDataStress*>(other)->hasBandsData);
 }
 
 bool LineDataStress::getIsSmallDataSet() const {
@@ -794,7 +795,7 @@ Trajectories LineDataStress::filterTrajectoryData() {
 
             int numValidLinePoints = 0;
             for (size_t i = 0; i < n; i++) {
-                glm::vec3 tangent, normal;
+                glm::vec3 tangent;
                 if (i == 0) {
                     tangent = trajectory.positions[i + 1] - trajectory.positions[i];
                 } else if (i == n - 1) {
@@ -856,7 +857,7 @@ std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines() {
 
             int numValidLinePoints = 0;
             for (size_t i = 0; i < n; i++) {
-                glm::vec3 tangent, normal;
+                glm::vec3 tangent;
                 if (i == 0) {
                     tangent = trajectory.positions[i + 1] - trajectory.positions[i];
                 } else if (i == n - 1) {
@@ -913,7 +914,7 @@ std::vector<Trajectories> LineDataStress::filterTrajectoryPsData() {
 
             int numValidLinePoints = 0;
             for (size_t i = 0; i < n; i++) {
-                glm::vec3 tangent, normal;
+                glm::vec3 tangent;
                 if (i == 0) {
                     tangent = trajectory.positions[i+1] - trajectory.positions[i];
                 } else if (i == n - 1) {
@@ -972,7 +973,7 @@ std::vector<std::vector<std::vector<glm::vec3>>> LineDataStress::getFilteredPrin
 
             int numValidLinePoints = 0;
             for (size_t i = 0; i < n; i++) {
-                glm::vec3 tangent, normal;
+                glm::vec3 tangent;
                 if (i == 0) {
                     tangent = trajectory.positions[i+1] - trajectory.positions[i];
                 } else if (i == n - 1) {
@@ -1088,7 +1089,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                 }
 
                 Trajectory& trajectory = trajectories.at(trajectoryIdx);
-                StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
+                //StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
                 std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
                 std::vector<glm::vec3>& bandPointsRight = bandPointsListRight.at(trajectoryIdx);
                 assert(attributes.size() == trajectory.positions.size());
@@ -1183,7 +1184,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                 }
 
                 Trajectory& trajectory = trajectories.at(trajectoryIdx);
-                StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
+                //StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
                 std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
                 assert(attributes.size() == trajectory.positions.size());
                 std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
@@ -1219,26 +1220,6 @@ TubeRenderData LineDataStress::getTubeRenderData() {
             for (size_t i = 0; i < numVerticesAdded; i++) {
                 vertexPrincipalStressIndices.push_back(psIdx);
             }
-        }
-    }
-
-    if (useBands()) {
-        for (size_t i = 0; i < trajectoriesPs.size(); i++) {
-            // 1. Compute all tangents.
-            std::vector<std::vector<glm::vec3>> lineCentersList;
-            std::vector<std::vector<float>> lineAttributesList;
-
-        }
-    } else {
-        for (size_t i = 0; i < trajectoriesPs.size(); i++) {
-            int psIdx = loadedPsIndices.at(i);
-            if (!usedPsDirections.at(psIdx)) {
-                continue;
-            }
-
-            Trajectories& trajectories = trajectoriesPs.at(i);
-            StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
-
         }
     }
 
@@ -1317,7 +1298,7 @@ TubeRenderDataProgrammableFetch LineDataStress::getTubeRenderDataProgrammableFet
             }
 
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
-            StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
+            //StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
             std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
             assert(attributes.size() == trajectory.positions.size());
             std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
@@ -1429,7 +1410,7 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
             }
 
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
-            StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
+            //StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
             std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
             assert(attributes.size() == trajectory.positions.size());
             std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
@@ -1562,7 +1543,7 @@ BandRenderData LineDataStress::getBandRenderData() {
                 size_t indexStart = vertexPositions.size();
                 int n = int(trajectory.positions.size());
                 int numValidLinePoints = 0;
-                for (size_t i = 0; i < trajectory.positions.size(); i++) {
+                for (int i = 0; i < int(trajectory.positions.size()); i++) {
                     vertexPositions.push_back(trajectory.positions.at(i));
                     vertexOffsetsLeft.push_back(bandPointsLeft.at(i));
                     vertexOffsetsRight.push_back(bandPointsRight.at(i));
@@ -1622,7 +1603,7 @@ BandRenderData LineDataStress::getBandRenderData() {
                 }
 
                 Trajectory& trajectory = trajectories.at(trajectoryIdx);
-                StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
+                //StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
                 std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
                 assert(attributes.size() == trajectory.positions.size());
                 std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
@@ -2252,7 +2233,7 @@ void LineDataStress::getTriangleMesh(
             Trajectory& trajectory = trajectories.at(linePointReference.trajectoryIndex);
             std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
             float attributeValue = attributes.at(linePointReference.linePointIndex);
-            for (size_t subdivIdx = 0; subdivIdx < tubeNumSubdivisions; subdivIdx++) {
+            for (int subdivIdx = 0; subdivIdx < tubeNumSubdivisions; subdivIdx++) {
                 vertexAttributes.push_back(attributeValue);
             }
         }

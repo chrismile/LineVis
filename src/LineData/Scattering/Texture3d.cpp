@@ -67,7 +67,7 @@ Texture3D load_xyz_file(std::string file_name) {
 #   if _OPENMP >= 201107
 #     pragma omp parallel for default(none) shared(num_floats, grid) reduction(min: min_val) reduction(max: max_val)
 #   endif
-        for (int i = 0; i < num_floats; i++) {
+        for (size_t i = 0; i < num_floats; i++) {
             float val = grid.data[i];
             min_val = std::min(min_val, val);
             max_val = std::max(max_val, val);
@@ -76,7 +76,7 @@ Texture3D load_xyz_file(std::string file_name) {
 #   if _OPENMP >= 201107
 #     pragma omp parallel for shared(num_floats, grid, min_val, max_val) default(none)
 #   endif
-        for (int i = 0; i < num_floats; i++) {
+        for (size_t i = 0; i < num_floats; i++) {
             grid.data[i] = (grid.data[i] - min_val) / (max_val - min_val);
         }
     }

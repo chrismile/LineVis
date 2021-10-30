@@ -87,7 +87,7 @@ glm::vec3 BezierCurve::derivative(const float t) const {
     assert(minT <= t && t <= maxT);
 
     float tN = normalizeT(t);
-    float negT = 1.0f - tN;
+    //float negT = 1.0f - tN;
 
     // Original algebraic solution
 //    auto DP01 = controlPoints[1] - controlPoints[0];
@@ -164,7 +164,7 @@ float BezierCurve::solveTForArcLength(const float _arcLength) const {
 
     const uint32_t numIterations = 20;
     // Use Newton-Raphson algorithm to find t at arc length along each curve
-    for (auto i = 0; i < numIterations; ++i) {
+    for (uint32_t i = 0; i < numIterations; ++i) {
         float C = evalArcLength(minT, t, 20) - _arcLength;
 
         // Early termination if t was found

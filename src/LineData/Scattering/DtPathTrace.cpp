@@ -1,9 +1,12 @@
 #include "DtPathTrace.hpp"
 #include <Utils/Defer.hpp>
-#include <corecrt_math.h>
-#include <stdint.h>
+#include <cstdint>
 #include <cmath>
 #include <vector>
+
+#ifdef _WIN32
+#include <corecrt_math.h>
+#endif
 
 #include "../SearchStructures/KdTree.hpp"
 
@@ -71,7 +74,7 @@ void write_bmp_file(const char *file_name, Exit_Directions* exit_dirs) {
                                                                   * exit_dirs->size());
 
     std::vector<IndexedPoint*> indexed_exit_points(exit_dirs->size());
-    for (int i = 0; i < exit_dirs->size(); ++i) {
+    for (size_t i = 0; i < exit_dirs->size(); ++i) {
         indexed_exit_points_arr[i].position = (*exit_dirs)[i];
         indexed_exit_points_arr[i].index = i;
         indexed_exit_points[i] = (&indexed_exit_points_arr[i]);
@@ -88,8 +91,8 @@ void write_bmp_file(const char *file_name, Exit_Directions* exit_dirs) {
         assert(out_image.height > 0);
 
         int max_hits = 0;
-        for (int y = 0; y < out_image.height; ++y) {
-            for (int x = 0; x < out_image.width; ++x) {
+        for (uint32_t y = 0; y < out_image.height; ++y) {
+            for (uint32_t x = 0; x < out_image.width; ++x) {
                 float u =   -1 + (1.0*x / (out_image.width-1)) * 2; // from   -1 to 1
                 float v = -0.5 + (1.0*y / (out_image.height-1));    // from -0.5 to 0.5
 
@@ -125,8 +128,8 @@ void write_bmp_file(const char *file_name, Exit_Directions* exit_dirs) {
             }
         }
 
-        for (int y = 0; y < out_image.height; ++y) {
-            for (int x = 0; x < out_image.width; ++x) {
+        for (uint32_t y = 0; y < out_image.height; ++y) {
+            for (uint32_t x = 0; x < out_image.width; ++x) {
                 Pixel* p = &out_image.pixels[y*out_image.width+x];
                 if (p->s32 == -1) {
                     p->r = 0;
@@ -192,7 +195,7 @@ namespace Random {
         RNG_STATE.z = seed;
         RNG_STATE.w = seed;
 
-        for (int i = 0; i < 23 + seed % 13; i++)
+        for (uint32_t i = 0; i < 23 + seed % 13; i++)
             random();
     }
 
@@ -430,7 +433,7 @@ void dt_path_trace(PathInfo path_info, VolumeInfo volume_info,
         float xi = Random::random();
 
         float Pa = m_a / density;
-        float Ps = m_s / density;
+        //float Ps = m_s / density;
         float Pn = m_n / density;
 
         if (xi < Pa) { // absorption

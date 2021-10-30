@@ -810,7 +810,6 @@ void MainApp::update(float dt) {
     if (visualizeSeedingProcess) {
         const int seedPointIdx = recordingTime / TIME_PER_SEED_POINT - 1;
         LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
-        OpaqueLineRenderer* opaqueLineRenderer = static_cast<OpaqueLineRenderer*>(lineRenderer);
         if (seedPointIdx < lineDataStress->getNumSeedPoints()) {
             lineDataStress->setCurrentSeedIdx(seedPointIdx);
         } else {

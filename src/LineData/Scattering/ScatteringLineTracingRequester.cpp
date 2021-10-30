@@ -61,7 +61,7 @@ ScatteringLineTracingRequester::ScatteringLineTracingRequester(
 #endif
 ) : transferFunctionWindow(transferFunctionWindow)
 #ifdef USE_VULKAN_INTEROP
-        , rendererVk(rendererVk)
+        , rendererVk(rendererMainThread)
 #endif
 {
 #ifdef USE_VULKAN_INTEROP
@@ -337,8 +337,8 @@ void ScatteringLineTracingRequester::traceLines(
             0.5f * X * grid_width;
 
         // Pixel loop
-        for (int y = 0; y < res_y; ++y) {
-            for (int x = 0; x < res_x; ++x) {
+        for (uint32_t y = 0; y < res_y; ++y) {
+            for (uint32_t x = 0; x < res_x; ++x) {
 
                 // NOTE(Felix): these percentage values tell us how far along
                 //   the x and y axis we are, while rendering the pixels. This
@@ -370,7 +370,7 @@ void ScatteringLineTracingRequester::traceLines(
                 pi.ray_direction = P;
 
                 // Sample loop
-                for (int i = 0; i < samples_per_pixel; ++i) {
+                for (uint32_t i = 0; i < samples_per_pixel; ++i) {
                     pi.pass_number = i;
                     dt_path_trace(pi, vi, &trajectories, &exit_directions);
                 }

@@ -37,7 +37,8 @@
 
 class HexahedralMeshLoader {
 public:
-    // Reads the mesh from the specified file
+    virtual ~HexahedralMeshLoader() = default;
+
     /**
      * Reads the mesh from the specified file. The vertices and the cell indices are required.
      * All other attributes are optional.

@@ -141,7 +141,7 @@ void createCappedTriangleTubesRenderDataCPU(
         uint32_t linePointOffset,
         std::vector<glm::vec3>& lineTangents,
         std::vector<glm::vec3>& lineNormals) {
-    if (numCircleSubdivisions != globalCircleVertexPositions.size() || tubeRadius != globalTubeRadius) {
+    if (size_t(numCircleSubdivisions) != globalCircleVertexPositions.size() || tubeRadius != globalTubeRadius) {
         initGlobalCircleVertexPositions(numCircleSubdivisions, tubeRadius);
     }
 
@@ -394,7 +394,8 @@ void createCappedTriangleEllipticTubesRenderDataCPU(
         uint32_t linePointOffset,
         std::vector<glm::vec3>& lineTangents,
         std::vector<glm::vec3>& lineNormals) {
-    if (numCircleSubdivisions != globalEllipseVertexPositions.size() || tubeNormalRadius != globalTubeNormalRadius
+    if (size_t(numCircleSubdivisions) != globalEllipseVertexPositions.size()
+            || tubeNormalRadius != globalTubeNormalRadius
             || tubeBinormalRadius != globalTubeBinormalRadius) {
         initGlobalEllipseVertexPositions(numCircleSubdivisions, tubeNormalRadius, tubeBinormalRadius);
     }

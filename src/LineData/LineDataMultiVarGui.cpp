@@ -88,7 +88,7 @@ void LineDataMultiVar::recomputeWidgetPositions() {
 bool LineDataMultiVar::renderGuiWindowSecondary(bool isRasterizer)  {
     bool shallReloadGatherShader = false;
     if (useMultiVarRendering && shallRenderColorLegendWidgets) {
-        for (int i = 0; i < colorLegendWidgets.size(); i++) {
+        for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
             if (varSelected.at(i)) {
                 colorLegendWidgets.at(i).setAttributeMinValue(
                         multiVarTransferFunctionWindow.getSelectedRangeMin(i));
@@ -227,7 +227,7 @@ bool LineDataMultiVar::renderGuiTechniqueSettings() {
 
     std::vector<std::string> comboSelVec(0);
     if (ImGui::BeginCombo("Variables", comboValue.c_str(), ImGuiComboFlags_NoArrowButton)) {
-        for (auto v = 0; v < varSelected.size(); ++v) {
+        for (size_t v = 0; v < varSelected.size(); ++v) {
             std::vector<std::string> names;
             boost::split(names, varNames[v], [](char c) { return c == '#'; });
 
@@ -246,9 +246,9 @@ bool LineDataMultiVar::renderGuiTechniqueSettings() {
         numVariablesSelected = comboSelVec.size();
 
         comboValue = "";
-        for (auto v = 0; v < comboSelVec.size(); ++v) {
+        for (size_t v = 0; v < comboSelVec.size(); ++v) {
             comboValue += comboSelVec[v];
-            if (comboSelVec.size() > 1 && v != comboSelVec.size() - 1) {
+            if (comboSelVec.size() > 1 && v + 1 != comboSelVec.size()) {
                 comboValue += ",";
             }
         }

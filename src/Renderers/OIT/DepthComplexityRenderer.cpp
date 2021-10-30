@@ -260,7 +260,7 @@ void DepthComplexityRenderer::computeStatistics(bool isReRender) {
     #pragma omp parallel for reduction(+:totalNumFragments,usedLocations) reduction(max:maxComplexity) \
     reduction(min:minComplexity) schedule(static) default(none) shared(data)
 #endif
-    for (int i = 0; i < bufferSize; i++) {
+    for (uint64_t i = 0; i < bufferSize; i++) {
         totalNumFragments += data[i];
         if (data[i] > 0) {
             usedLocations++;

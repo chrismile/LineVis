@@ -213,7 +213,7 @@ Trajectories LineDataFlow::filterTrajectoryData() {
 
         int numValidLinePoints = 0;
         for (size_t i = 0; i < n; i++) {
-            glm::vec3 tangent, normal;
+            glm::vec3 tangent;
             if (i == 0) {
                 tangent = trajectory.positions[i+1] - trajectory.positions[i];
             } else if (i == n - 1) {
@@ -261,7 +261,7 @@ std::vector<std::vector<glm::vec3>> LineDataFlow::getFilteredLines() {
 
         int numValidLinePoints = 0;
         for (size_t i = 0; i < n; i++) {
-            glm::vec3 tangent, normal;
+            glm::vec3 tangent;
             if (i == 0) {
                 tangent = trajectory.positions[i+1] - trajectory.positions[i];
             } else if (i == n - 1) {

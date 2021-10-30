@@ -294,7 +294,9 @@ void MBOITRenderer::setNewState(const InternalState& newState) {
             "useOrderedFragmentShaderInterlock", useOrderedFragmentShaderInterlock)) {
         recompileGatherShader = true;
     }
-    if (newState.rendererSettings.getValueOpt("syncMode", (int&)syncMode)) {
+    int syncModeInt = int(syncMode);
+    if (newState.rendererSettings.getValueOpt("syncMode", syncModeInt)) {
+        syncMode = SyncMode(syncModeInt);
         updateSyncMode();
         recompileGatherShader = true;
     }
@@ -344,9 +346,9 @@ void MBOITRenderer::render() {
 }
 
 void MBOITRenderer::setUniformData() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    //sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
+    //int width = window->getWidth();
+    //int height = window->getHeight();
 
     if (syncMode == SYNC_SPINLOCK) {
         sgl::ShaderManager->bindShaderStorageBuffer(1, spinlockViewportBuffer);

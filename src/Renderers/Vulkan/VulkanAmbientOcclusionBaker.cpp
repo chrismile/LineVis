@@ -190,7 +190,7 @@ void VulkanAmbientOcclusionBaker::bakeAoTexture() {
     waitSemaphores.resize(maxNumIterations);
     signalSemaphores.resize(maxNumIterations);
 
-    for (size_t i = 1; i < maxNumIterations; i++) {
+    for (int i = 1; i < maxNumIterations; i++) {
         waitSemaphores.at(i) = std::make_shared<sgl::vk::Semaphore>(device);
         signalSemaphores.at(i - 1) = waitSemaphores.at(i);
     }
@@ -257,7 +257,7 @@ void VulkanAmbientOcclusionBaker::bakeAoTextureThreadFunction() {
     waitSemaphores.resize(maxNumIterations);
     signalSemaphores.resize(maxNumIterations);
 
-    for (size_t i = 1; i < maxNumIterations; i++) {
+    for (int i = 1; i < maxNumIterations; i++) {
         waitSemaphores.at(i) = std::make_shared<sgl::vk::Semaphore>(device);
         signalSemaphores.at(i - 1) = waitSemaphores.at(i);
     }
@@ -265,12 +265,12 @@ void VulkanAmbientOcclusionBaker::bakeAoTextureThreadFunction() {
     signalSemaphores.back() = threadFinishedSemaphore;
 
     uint32_t numIterations = 0;
-    while (numIterations < maxNumIterations) {
+    while (numIterations < uint32_t(maxNumIterations)) {
         aoComputeRenderPass->setFrameNumber(numIterations);
         renderer->setCustomCommandBuffer(commandBuffers.at(numIterations), false);
         renderer->beginCommandBuffer();
         aoComputeRenderPass->render();
-        if (numIterations + 1 == maxNumIterations) {
+        if (int(numIterations) + 1 == maxNumIterations) {
             renderer->insertBufferMemoryBarrier(
                     VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
                     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
@@ -285,7 +285,7 @@ void VulkanAmbientOcclusionBaker::bakeAoTextureThreadFunction() {
 
         // Submit the rendering operation in Vulkan.
         sgl::vk::FencePtr fence;
-        if (numIterations + 1 == maxNumIterations) {
+        if (int(numIterations) + 1 == maxNumIterations) {
             fence = std::make_shared<sgl::vk::Fence>(device, 0);
         }
         renderer->submitToQueue(

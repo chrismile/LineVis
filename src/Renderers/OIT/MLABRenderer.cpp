@@ -168,7 +168,9 @@ void MLABRenderer::setNewState(const InternalState& newState) {
             "useOrderedFragmentShaderInterlock", useOrderedFragmentShaderInterlock)) {
         recompileGatherShader = true;
     }
-    if (newState.rendererSettings.getValueOpt("syncMode", (int&)syncMode)) {
+    int syncModeInt = int(syncMode);
+    if (newState.rendererSettings.getValueOpt("syncMode", syncModeInt)) {
+        syncMode = SyncMode(syncModeInt);
         updateSyncMode();
         recompileGatherShader = true;
     }

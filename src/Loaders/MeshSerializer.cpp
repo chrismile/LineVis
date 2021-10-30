@@ -446,7 +446,8 @@ MeshRenderer parseMesh3d(const std::string &filename, sgl::ShaderProgramPtr shad
                 // Compute minimum and maximum value
                 float minValue = FLT_MAX, maxValue = 0.0f;
 #if _OPENMP >= 201107
-                #pragma omp parallel for reduction(min:minValue) reduction(max:maxValue)
+                #pragma omp parallel for reduction(min:minValue) reduction(max:maxValue) default(none) \
+                shared(numAttributeValues, importanceCriterionAttribute)
 #endif
                 for (size_t k = 0; k < numAttributeValues; k++) {
                     minValue = std::min(minValue, importanceCriterionAttribute.attributes[k]);
@@ -464,7 +465,7 @@ MeshRenderer parseMesh3d(const std::string &filename, sgl::ShaderProgramPtr shad
                             SHADER_STORAGE_BUFFER);
                 } else if (useProgrammableFetch) {
                     int attributeIndex = sgl::fromString<int>(meshAttribute.name.substr(15));
-                    if (attributeIndex >= vertexAttributeData.size()) {
+                    if (attributeIndex >= int(vertexAttributeData.size())) {
                         vertexAttributeData.resize(attributeIndex+1);
                     }
                     vertexAttributeData.at(attributeIndex).resize(numAttributeValues);

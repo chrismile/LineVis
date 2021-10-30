@@ -260,7 +260,7 @@ Trajectories convertLatLonToCartesian(
 	float logMinPressure = std::log(minPressure);
 	float logMaxPressure = std::log(maxPressure);
 
-    for (int trajectoryIndex = 0; trajectoryIndex < trajectoryDim; trajectoryIndex++) {
+    for (size_t trajectoryIndex = 0; trajectoryIndex < trajectoryDim; trajectoryIndex++) {
         Trajectory trajectory;
         //trajectory.attributes.resize(1);
         std::vector<glm::vec3> &cartesianCoords = trajectory.positions;
@@ -353,7 +353,7 @@ Trajectories loadTrajectoriesFromNetCdf(const std::string& filename, std::vector
     // Load dimension data
     size_t timeDim = getDim(ncid, "time");
     size_t trajectoryDim = getDim(ncid, "trajectory");
-    size_t ensembleDim = getDim(ncid, "ensemble");
+    //size_t ensembleDim = getDim(ncid, "ensemble");
 
     // Load data arrays
     double* time = nullptr;
@@ -383,23 +383,23 @@ Trajectories loadTrajectoriesFromNetCdf(const std::string& filename, std::vector
             continue;
         }
 
-        bool isAuxiliaryData = strcmp(varname, "pressure") == 0;
+        //bool isAuxiliaryData = strcmp(varname, "pressure") == 0;
         std::string variableDisplayName = varname;
         for (int attnum = 0; attnum < natts; attnum++) {
             nc_inq_attname(ncid, varid, attnum, attname);
             if (strcmp(attname, "standard_name") == 0) {
                 variableDisplayName = getStringAttribute(ncid, varid, "standard_name");
             }
-            if (strcmp(attname, "auxiliary_data") == 0) {
-                isAuxiliaryData = getStringAttribute(ncid, varid, "auxiliary_data") == "yes";
-            }
+            //if (strcmp(attname, "auxiliary_data") == 0) {
+            //    isAuxiliaryData = getStringAttribute(ncid, varid, "auxiliary_data") == "yes";
+            //}
         }
         attributeNames.push_back(variableDisplayName);
 
         float *varData = nullptr;
         loadFloatArray3D(ncid, varname, 1, trajectoryDim, timeDim, &varData);
 
-        for (int trajectoryIndex = 0; trajectoryIndex < trajectoryDim; trajectoryIndex++) {
+        for (size_t trajectoryIndex = 0; trajectoryIndex < trajectoryDim; trajectoryIndex++) {
             Trajectory& trajectory = trajectories.at(trajectoryIndex);
             std::vector<float> attributeValues;
             attributeValues.reserve(timeDim);

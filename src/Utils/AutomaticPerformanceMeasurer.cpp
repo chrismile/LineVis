@@ -229,7 +229,7 @@ float AutomaticPerformanceMeasurer::getUsedVideoMemorySizeGiB() {
     // https://www.khronos.org/registry/OpenGL/extensions/NV/NV_query_resource.txt
     /*if (sgl::SystemGL::get()->isGLExtensionAvailable("GL_NV_query_resource")) {
         // Doesn't work for whatever reason :(
-        /*GLint buffer[4096];
+        /GLint buffer[4096];
 #ifndef GL_QUERY_RESOURCE_TYPE_VIDMEM_ALLOC_NV
 #define GL_QUERY_RESOURCE_TYPE_VIDMEM_ALLOC_NV 0x9540
         typedef GLint (*PFNGLQUERYRESOURCENVPROC) (GLenum queryType, GLint tagId, GLuint bufSize, GLint *buffer);

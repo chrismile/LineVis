@@ -93,7 +93,7 @@ bool MultiVarWindow::renderGui() {
 void MultiVarWindow::computeHistograms() {
     histograms.resize(attributes.size());
 
-    for (auto v = 0; v < attributes.size(); ++v) {
+    for (size_t v = 0; v < attributes.size(); ++v) {
         float histogramsMax = 0;
 
         const auto& var = attributes[v];
@@ -146,9 +146,9 @@ void MultiVarWindow::renderVarChart() {
 
 void MultiVarWindow::renderSettings() {
     if (ImGui::ListBoxHeader("Variables", ImVec2(-1, 180))) {
-        for (auto n = 0; n < names.size(); ++n) {
-            if (ImGui::Selectable(names[n].c_str(), variableIndex == n)) {
-                variableIndex = n;
+        for (size_t n = 0; n < names.size(); ++n) {
+            if (ImGui::Selectable(names[n].c_str(), variableIndex == int32_t(n))) {
+                variableIndex = int32_t(n);
             }
         }
         ImGui::ListBoxFooter();

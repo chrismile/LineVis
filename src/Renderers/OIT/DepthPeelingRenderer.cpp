@@ -184,7 +184,7 @@ void DepthPeelingRenderer::gather() {
     }
 
     // TODO: Set layers to higher numbers for better quality.
-    for (int i = 0; i < std::min(maxDepthComplexity, uint64_t(2000ul)); i++) {
+    for (uint64_t i = 0; i < std::min(maxDepthComplexity, uint64_t(2000ul)); i++) {
         // 1. Peel one layer of the scene
         glDisable(GL_BLEND); // Replace with current surface
         glEnable(GL_DEPTH_TEST);
@@ -193,7 +193,7 @@ void DepthPeelingRenderer::gather() {
         sgl::Renderer->clearFramebuffer(
                 GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, sgl::Color(0, 0, 0, 0), 1.0f);
         gatherShader->setUniform("depthReadTexture", depthRenderTextures[(i+1)%2], 7);
-        gatherShader->setUniform("iteration", i);
+        gatherShader->setUniform("iteration", int(i));
 
         sgl::Renderer->setProjectionMatrix(sceneData.camera->getProjectionMatrix());
         sgl::Renderer->setViewMatrix(sceneData.camera->getViewMatrix());
