@@ -66,22 +66,8 @@ void write_bmp_file(const char *file_name, Exit_Directions* exit_dirs) {
         out_image.free();
     };
 
-    KdTree kd_tree;
-
-    // TODO(Felix): Why do I have to do this, this is horrible, we copy the data
-    //   and then pass it by pointer ... so bad, how to do this, Christoph?
-    IndexedPoint* indexed_exit_points_arr = (IndexedPoint*)malloc(sizeof(indexed_exit_points_arr[0])
-                                                                  * exit_dirs->size());
-
-    std::vector<IndexedPoint*> indexed_exit_points(exit_dirs->size());
-    for (size_t i = 0; i < exit_dirs->size(); ++i) {
-        indexed_exit_points_arr[i].position = (*exit_dirs)[i];
-        indexed_exit_points_arr[i].index = i;
-        indexed_exit_points[i] = (&indexed_exit_points_arr[i]);
-    }
-
-    kd_tree.build(indexed_exit_points);
-    // TODO(Felix): horrible ends here
+    KdTree<int> kd_tree;
+    kd_tree.build(*exit_dirs);
 
     {
         const double sqrt_two     =       sqrt(2.0);
@@ -117,10 +103,10 @@ void write_bmp_file(const char *file_name, Exit_Directions* exit_dirs) {
                         glm::rotate(phi,     Z) *
                         X;
 
-                    auto hits = kd_tree.findPointsInSphere(point_on_sphere, 0.025);
+                    auto num_hits = kd_tree.getNumPointsInSphere(point_on_sphere, 0.025);
 
-                    max_hits = max(hits.size(), max_hits);
-                    p->s32 = hits.size();
+                    max_hits = std::max(int(num_hits), max_hits);
+                    p->s32 = int32_t(num_hits);
                 } else {
                     // we are outside the ellipse
                     p->s32 = -1;

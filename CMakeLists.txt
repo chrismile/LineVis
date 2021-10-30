@@ -279,9 +279,7 @@ if (USE_GTEST)
     include(GoogleTest)
     enable_testing()
     add_executable(LineVis_test test/TestKdTreeNearestNeighbor.cpp
-            src/LineData/SearchStructures/NearestNeighborNaive.cpp
-            src/LineData/SearchStructures/SearchStructure.cpp
-            src/LineData/SearchStructures/KdTree.cpp)
+            src/LineData/SearchStructures/NearestNeighborNaive.cpp)
     target_link_libraries(LineVis_test gtest gtest_main)
     gtest_add_tests(TARGET LineVis_test)
 endif()

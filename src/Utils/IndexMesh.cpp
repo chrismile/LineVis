@@ -37,20 +37,8 @@ void computeSharedIndexRepresentation(
         const std::vector<glm::vec3>& vertexPositions, const std::vector<glm::vec3>& vertexNormals,
         std::vector<uint32_t>& triangleIndices,
         std::vector<glm::vec3>& vertexPositionsShared, std::vector<glm::vec3>& vertexNormalsShared) {
-    SearchStructure* searchStructure = new HashedGrid(
+    SearchStructure<ptrdiff_t>* searchStructure = new HashedGrid<ptrdiff_t>(
             std::max(vertexPositions.size() / 4, size_t(1)), 1.0f / sgl::PI);
-
-    std::vector<IndexedPoint> indexedPoints;
-    std::vector<IndexedPoint*> indexedPointsPointers;
-    indexedPoints.resize(vertexPositions.size());
-    indexedPointsPointers.reserve(vertexPositions.size());
-    for (size_t i = 0; i < vertexPositions.size(); i++) {
-        IndexedPoint* indexedPoint = &indexedPoints.at(i);
-        indexedPoint->index = ptrdiff_t(i);
-        indexedPoint->position = vertexPositions.at(i);
-        indexedPointsPointers.push_back(indexedPoint);
-    }
-    //searchStructure->build(indexedPointsPointers);
     searchStructure->reserveDynamic(vertexPositions.size());
 
     const float EPSILON = 1e-5f;
@@ -58,14 +46,11 @@ void computeSharedIndexRepresentation(
     for (size_t i = 0; i < vertexPositions.size(); i++) {
         const glm::vec3& vertexPosition = vertexPositions.at(i);
         const glm::vec3& vertexNormal = vertexNormals.at(i);
-        IndexedPoint* closestPoint = searchStructure->findClosestPoint(vertexPosition, EPSILON);
-        if (closestPoint) {
-            triangleIndices.push_back(closestPoint->index);
+        auto closestPointIndex = searchStructure->findDataClosest(vertexPosition, EPSILON);
+        if (closestPointIndex) {
+            triangleIndices.push_back(closestPointIndex.value());
         } else {
-            IndexedPoint* indexedPoint = indexedPointsPointers.at(uniqueVertexCounter);
-            indexedPoint->index = ptrdiff_t(uniqueVertexCounter);
-            indexedPoint->position = vertexPosition;
-            searchStructure->addPoint(indexedPoint);
+            searchStructure->add(vertexPositions.at(i), ptrdiff_t(uniqueVertexCounter));
             vertexPositionsShared.push_back(vertexPosition);
             vertexNormalsShared.push_back(vertexNormal);
             triangleIndices.push_back(uint32_t(uniqueVertexCounter));
@@ -80,32 +65,19 @@ void computeSharedIndexRepresentation(
         const std::vector<glm::vec3>& vertexPositions,
         std::vector<uint32_t>& triangleIndices,
         std::vector<glm::vec3>& vertexPositionsShared) {
-    SearchStructure* searchStructure = new KdTree;
-
-    std::vector<IndexedPoint> indexedPoints;
-    std::vector<IndexedPoint*> indexedPointsPointers;
-    indexedPoints.resize(vertexPositions.size());
-    indexedPointsPointers.reserve(vertexPositions.size());
-    for (size_t i = 0; i < vertexPositions.size(); i++) {
-        IndexedPoint* indexedPoint = &indexedPoints.at(i);
-        indexedPoint->index = ptrdiff_t(i);
-        indexedPoint->position = vertexPositions.at(i);
-        indexedPointsPointers.push_back(indexedPoint);
-    }
-    //searchStructure->build(indexedPointsPointers);
+    SearchStructure<ptrdiff_t>* searchStructure = new HashedGrid<ptrdiff_t>(
+            std::max(vertexPositions.size() / 4, size_t(1)), 1.0f / sgl::PI);
+    searchStructure->reserveDynamic(vertexPositions.size());
 
     const float EPSILON = 1e-5f;
     size_t uniqueVertexCounter = 0;
     for (size_t i = 0; i < vertexPositions.size(); i++) {
         const glm::vec3& vertexPosition = vertexPositions.at(i);
-        IndexedPoint* closestPoint = searchStructure->findClosestPoint(vertexPosition, EPSILON);
-        if (closestPoint) {
-            triangleIndices.push_back(closestPoint->index);
+        auto closestPointIndex = searchStructure->findDataClosest(vertexPosition, EPSILON);
+        if (closestPointIndex) {
+            triangleIndices.push_back(closestPointIndex.value());
         } else {
-            IndexedPoint* indexedPoint = indexedPointsPointers.at(uniqueVertexCounter);
-            indexedPoint->index = ptrdiff_t(uniqueVertexCounter);
-            indexedPoint->position = vertexPosition;
-            searchStructure->addPoint(indexedPoint);
+            searchStructure->add(vertexPositions.at(i), ptrdiff_t(uniqueVertexCounter));
             vertexPositionsShared.push_back(vertexPosition);
             triangleIndices.push_back(uint32_t(uniqueVertexCounter));
             uniqueVertexCounter++;

@@ -508,18 +508,12 @@ void LineDataStress::setDegeneratePoints(
     }
 
     // Build a search structure on the degenerate points.
-    KdTree kdTree;
-    std::vector<IndexedPoint> indexedPoints;
-    std::vector<IndexedPoint*> indexedPointsPointers;
-    indexedPoints.resize(degeneratePoints.size());
-    indexedPointsPointers.reserve(degeneratePoints.size());
+    KdTree<ptrdiff_t> kdTree;
+    std::vector<std::pair<glm::vec3, ptrdiff_t>> pointsAndIndices(degeneratePoints.size());
     for (size_t i = 0; i < degeneratePoints.size(); i++) {
-        IndexedPoint* indexedPoint = &indexedPoints.at(i);
-        indexedPoint->index = i;
-        indexedPoint->position = degeneratePoints.at(i);
-        indexedPointsPointers.push_back(indexedPoint);
+        pointsAndIndices.at(i) = std::make_pair(degeneratePoints.at(i), ptrdiff_t(i));
     }
-    kdTree.build(indexedPointsPointers);
+    kdTree.build(pointsAndIndices);
 
     // TODO: Dependent on AABB?
     const float lengthScale = 0.02f;
@@ -539,11 +533,11 @@ void LineDataStress::setDegeneratePoints(
             for (size_t linePointIdx = 0; linePointIdx < trajectory.positions.size(); linePointIdx++) {
                 const glm::vec3& linePoint = trajectory.positions.at(linePointIdx);
 
-                IndexedPoint* nearestNeighbor = kdTree.findNearestNeighbor(linePoint);
+                auto nearestNeighbor = kdTree.findNearestNeighbor(linePoint);
                 float distanceExponentialKernel = exponentialKernel(
-                        linePoint, nearestNeighbor->position, lengthScale);
+                        linePoint, nearestNeighbor.value().first, lengthScale);
                 float distanceSquaredExponentialKernel = squaredExponentialKernel(
-                        linePoint, nearestNeighbor->position, lengthScale);
+                        linePoint, nearestNeighbor.value().first, lengthScale);
 
                 distanceMeasuresExponentialKernel.at(linePointIdx) = distanceExponentialKernel;
                 distanceMeasuresSquaredExponentialKernel.at(linePointIdx) = distanceSquaredExponentialKernel;

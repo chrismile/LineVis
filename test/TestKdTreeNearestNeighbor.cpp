@@ -56,23 +56,18 @@ protected:
         }
 
         // Build the search structure on the points.
-        KdTree kdTree;
-        std::vector<IndexedPoint> indexedPoints;
-        std::vector<IndexedPoint*> indexedPointsPointers;
-        indexedPoints.resize(pointSetSearch.size());
-        indexedPointsPointers.reserve(pointSetSearch.size());
+        KdTree<ptrdiff_t> kdTree;
+        std::vector<ptrdiff_t> pointIndices;
+        pointIndices.reserve(pointSetSearch.size());
         for (size_t i = 0; i < pointSetSearch.size(); i++) {
-            IndexedPoint* indexedPoint = &indexedPoints.at(i);
-            indexedPoint->index = i;
-            indexedPoint->position = pointSetSearch.at(i);
-            indexedPointsPointers.push_back(indexedPoint);
+            pointIndices.push_back(ptrdiff_t(i));
         }
-        kdTree.build(indexedPointsPointers);
+        kdTree.build(pointSetSearch);
 
         // Get the k-d-tree distances.
         for (int i = 0; i < N; i++) {
-            IndexedPoint* nearestNeighbor = kdTree.findNearestNeighbor(pointSetFind.at(i));
-            distancesKdTree.at(i) = glm::distance(pointSetFind.at(i), nearestNeighbor->position);
+            auto nearestNeighbor = kdTree.findNearestNeighbor(pointSetFind.at(i));
+            distancesKdTree.at(i) = glm::distance(pointSetFind.at(i), nearestNeighbor.value().first);
         }
 
         // Get the ground-truth distances.
@@ -86,7 +81,7 @@ protected:
     }
 
     int N = 0;
-    KdTree kdTree;
+    KdTree<ptrdiff_t> kdTree;
     std::vector<glm::vec3> pointSetSearch;
     std::vector<glm::vec3> pointSetFind;
     std::vector<float> distancesSlow;

@@ -26,8 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NAIVE_SEARCH_STRUCTURE_H_
-#define NAIVE_SEARCH_STRUCTURE_H_
+#ifndef NAIVE_SEARCH_STRUCTURE_HPP_
+#define NAIVE_SEARCH_STRUCTURE_HPP_
 
 #include <vector>
 #include "SearchStructure.hpp"
@@ -35,34 +35,36 @@
 /**
  * A naive O(n^2) search structure that always returns all points.
  */
-class NaiveSearchStructure : public SearchStructure
+template<class T>
+class NaiveSearchStructure : public SearchStructure<T>
 {
 public:
     /**
-     * Builds a search structure from the passed point array.
+     * Builds a search structure from the passed point and data array.
      * @param points The point array.
      */
-    void build(const std::vector<IndexedPoint*>& points) override {
-        this->points = points;
+    void build(const std::vector<std::pair<glm::vec3, T>>& pointsAndData) override {
+        this->pointsAndData = pointsAndData;
     }
+    using SearchStructure<T>::build;
 
     /**
-     * Reserves memory for use with @see addPoint.
+     * Reserves memory for use with @see add.
      * @param maxNumNodes The maximum number of nodes that can be added using @see addPoint.
      */
     void reserveDynamic(size_t maxNumNodes) override {
-        points.clear();
-        points.reserve(maxNumNodes);
+        pointsAndData.clear();
+        pointsAndData.reserve(maxNumNodes);
     }
 
     /**
      * Adds the passed point to the search structure.
      * WARNING: This function may be less efficient than @see build if the points are added in an order suboptimal
      * for the search structure.
-     * @param indexedPoint The point to add.
+     * @param pointAndData The point and data to add.
      */
-    void addPoint(IndexedPoint* indexedPoint) override {
-        points.push_back(indexedPoint);
+    void add(const std::pair<glm::vec3, T>& pointAndData) override {
+        pointsAndData.push_back(pointAndData);
     }
 
     /**
@@ -70,23 +72,23 @@ public:
      * @param box The bounding box.
      * @return The points stored in the search structure inside of the bounding box.
      */
-    std::vector<IndexedPoint*> findPointsInAxisAlignedBox(const AxisAlignedBox &box) override {
-        return points;
+    std::vector<std::pair<glm::vec3, T>> findPointsInAxisAlignedBox(const AxisAlignedBox &box) override {
+        return pointsAndData;
     }
 
     /**
-     * Performs an area search in the search structure and returns all points within a certain distance to some center
-     * point.
+     * Performs an area search in the search structure and returns all points and data within a certain distance to
+     * some center point.
      * @param centerPoint The center point.
      * @param radius The search radius.
-     * @return The points stored in the search structure inside of the search radius.
+     * @return The points and data stored in the search structure inside of the search radius.
      */
-    std::vector<IndexedPoint*> findPointsInSphere(const glm::vec3& center, float radius) {
-        return points;
+    std::vector<std::pair<glm::vec3, T>> findPointsInSphere(const glm::vec3& center, float radius) {
+        return pointsAndData;
     }
 
 private:
-    std::vector<IndexedPoint*> points;
+    std::vector<std::pair<glm::vec3, T>> pointsAndData;
 };
 
-#endif //NAIVE_SEARCH_STRUCTURE_H_
+#endif //NAIVE_SEARCH_STRUCTURE_HPP_
