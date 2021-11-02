@@ -47,7 +47,7 @@ VoxelCurveDiscretizer::VoxelCurveDiscretizer() {
 
 void VoxelCurveDiscretizer::loadLineData(
         LineDataPtr& lineData, uint32_t gridResolution1D, uint32_t quantizationResolution1D) {
-    linesBoundingBox = lineData->getModelBoundingBox();
+    linesBoundingBox = lineData->getFocusBoundingBox();
     gridResolution = glm::uvec3(gridResolution1D);
     quantizationResolution = glm::uvec3(quantizationResolution1D);
 

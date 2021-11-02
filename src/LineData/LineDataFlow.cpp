@@ -117,6 +117,7 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
     }
 
     modelBoundingBox = computeTrajectoriesAABB3(trajectories);
+    focusBoundingBox = modelBoundingBox;
 
     dirty = true;
 }

@@ -391,6 +391,7 @@ bool LineDataStress::loadFromFile(
         }
         fileFormatVersion = dataSetInformation.version;
         modelBoundingBox = computeTrajectoriesPsAABB3(trajectoriesPs);
+        focusBoundingBox = modelBoundingBox;
 
         std::vector<bool> usedPsDirections = { false, false, false };
         for (size_t i = 0; i < loadedPsIndices.size(); i++) {

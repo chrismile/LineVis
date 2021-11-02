@@ -275,6 +275,11 @@ MainApp::MainApp()
                 + "LineDataSets/stress/PSLs-TVCG01/psl/arched_bridge3D_PSLs")) {
             pulseFactor = 0.0f;
             standardZoom = 1.9f;
+        } else if (boost::starts_with(
+                modelFilename, sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/clouds")) {
+            pulseFactor = 0.0f;
+            standardZoom = 2.9f;
+            centerOffset = glm::vec3(0.0f, -0.1f, 0.0f);
         }
     });
 
@@ -1079,7 +1084,7 @@ void MainApp::checkLoadingRequestFinished() {
                 cameraPath.fromBinaryFile(cameraPathFilename);
             } else {
                 cameraPath.fromCirclePath(
-                        modelBoundingBox, meshDescriptorName,
+                        lineData->getFocusBoundingBox(), meshDescriptorName,
                         usePerformanceMeasurementMode
                         ? CAMERA_PATH_TIME_PERFORMANCE_MEASUREMENT : CAMERA_PATH_TIME_RECORDING,
                         usePerformanceMeasurementMode);

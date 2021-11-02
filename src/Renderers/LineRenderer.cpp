@@ -471,6 +471,10 @@ void LineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
 
 void LineRenderer::renderHull() {
     if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
+        if (!gatherShaderHull) {
+            reloadGatherShader();
+            shaderAttributesHull = lineData->getGatherShaderAttributesHull(gatherShaderHull);
+        }
         lineData->setUniformGatherShaderDataHull_Pass(gatherShaderHull);
         gatherShaderHull->setUniformOptional("cameraPosition", sceneData.camera->getPosition());
         glDisable(GL_CULL_FACE);

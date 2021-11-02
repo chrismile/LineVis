@@ -130,6 +130,7 @@ public:
 
     // Statistics.
     inline const sgl::AABB3& getModelBoundingBox() { return modelBoundingBox; }
+    inline const sgl::AABB3& getFocusBoundingBox() { return focusBoundingBox; }
     virtual size_t getNumAttributes()=0;
     virtual size_t getNumLines()=0;
     virtual size_t getNumLinePoints()=0;
@@ -247,6 +248,7 @@ protected:
 
     DataSetType dataSetType;
     sgl::AABB3 modelBoundingBox;
+    sgl::AABB3 focusBoundingBox;
     std::vector<std::string> fileNames;
     std::vector<std::string> attributeNames;
     std::vector<glm::vec2> minMaxAttributeValues;
