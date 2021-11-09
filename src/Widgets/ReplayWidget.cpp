@@ -556,7 +556,7 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
         // Set static attributes that need to be set when the state is entered for the first time.
         if (firstTimeState) {
             if (!replayState.datasetName.empty()) {
-                loadMeshCallback(replayState.datasetName);
+                loadLineDataCallback(replayState.datasetName);
             }
             if (!replayState.rendererName.empty()) {
                 loadRendererCallback(replayState.rendererName);
@@ -646,8 +646,8 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
     return true;
 }
 
-void ReplayWidget::setLoadMeshCallback(std::function<void(const std::string& datasetName)> loadMeshCallback) {
-    this->loadMeshCallback = loadMeshCallback;
+void ReplayWidget::setLoadLineDataCallback(std::function<void(const std::string& datasetName)> loadLineDataCallback) {
+    this->loadLineDataCallback = loadLineDataCallback;
 }
 
 void ReplayWidget::setLoadRendererCallback(std::function<void(const std::string& rendererName)> loadRendererCallback) {

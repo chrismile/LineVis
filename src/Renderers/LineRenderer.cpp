@@ -256,10 +256,10 @@ void LineRenderer::setAmbientOcclusionBaker(AmbientOcclusionBakerPtr& aoBaker) {
 bool LineRenderer::setNewSettings(const SettingsMap& settings) {
     bool shallReloadGatherShader = false;
 
-    if (settings.getValueOpt("line_width", lineWidth)) {
+    if (settings.getValueOpt("line_width", lineWidth) && lineData) {
         lineData->setTriangleRepresentationDirty();
     }
-    if (settings.getValueOpt("band_width", bandWidth)) {
+    if (settings.getValueOpt("band_width", bandWidth) && lineData) {
         lineData->setTriangleRepresentationDirty();
     }
 

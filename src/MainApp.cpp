@@ -131,7 +131,7 @@ MainApp::MainApp()
 #ifdef USE_PYTHON
     sgl::ColorLegendWidget::setFontScaleStandard(1.0f);
 
-    replayWidget.setLoadMeshCallback([this](const std::string& datasetName) {
+    replayWidget.setLoadLineDataCallback([this](const std::string &datasetName) {
         int i;
         int oldSelectedDataSetIndex = selectedDataSetIndex;
         for (i = 0; i < int(dataSetNames.size()); i++) {
@@ -141,7 +141,7 @@ MainApp::MainApp()
             }
         }
         if (i != int(dataSetNames.size())) {
-            if (selectedDataSetIndex >= 2 && oldSelectedDataSetIndex != selectedDataSetIndex) {
+            if (selectedDataSetIndex >= 3 && oldSelectedDataSetIndex != selectedDataSetIndex) {
                 loadLineDataSet(getSelectedLineDataSetFilenames(), true);
             }
         } else {

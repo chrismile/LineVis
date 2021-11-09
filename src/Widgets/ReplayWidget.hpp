@@ -192,9 +192,10 @@ struct ReplayState {
     glm::quat cameraOrientation;
     float cameraFovy;
 
-    // Renderer settings (optional).
+    // Renderer and data set settings (optional).
     ReplaySettingsMap rendererSettings;
     ReplaySettingsMap datasetSettings;
+    ReplaySettingsMap loaderSettings;
 };
 
 
@@ -222,7 +223,7 @@ public:
     inline bool getUseCameraFlight() { return useCameraFlight; }
 
     /// Callback functions when, e.g., a new renderer is requested.
-    void setLoadMeshCallback(std::function<void(const std::string& datasetName)> loadMeshCallback);
+    void setLoadLineDataCallback(std::function<void(const std::string& datasetName)> loadLineDataCallback);
     void setLoadRendererCallback(std::function<void(const std::string& rendererName)> loadRendererCallback);
     void setLoadTransferFunctionCallback(
             std::function<void(const std::string& tfName)> loadTransferFunctionCallback);
@@ -242,9 +243,9 @@ private:
     // Script directory data.
     sgl::PathWatch directoryContentWatch;
     std::string scriptDirectory;
-    std::string scriptFileName = "";
+    std::string scriptFileName;
     void updateAvailableReplayScripts();
-    std::function<void(const std::string& datasetName)> loadMeshCallback;
+    std::function<void(const std::string& datasetName)> loadLineDataCallback;
     std::function<void(const std::string& rendererName)> loadRendererCallback;
     std::function<void(const std::string& tfName)> loadTransferFunctionCallback;
     std::function<void(const glm::vec2& tfRange)> transferFunctionRangeCallback;
