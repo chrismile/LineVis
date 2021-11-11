@@ -196,6 +196,10 @@ bool LineData::renderGuiWindow(bool isRasterizer) {
 }
 
 bool LineData::renderGuiWindowSecondary(bool isRasterizer) {
+    return false;
+}
+
+bool LineData::renderGuiOverlay() {
     bool shallReloadGatherShader = false;
 
     if (shallRenderColorLegendWidgets) {

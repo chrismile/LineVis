@@ -212,6 +212,11 @@ public:
      * @return true if the gather shader needs to be reloaded.
      */
     virtual bool renderGuiWindowSecondary(bool isRasterizer);
+    /**
+     * For rendering secondary, overlay ImGui windows.
+     * @return true if the gather shader needs to be reloaded.
+     */
+    virtual bool renderGuiOverlay();
 
     /// Certain GUI widgets might need the clear color.
     virtual void setClearColor(const sgl::Color& clearColor);

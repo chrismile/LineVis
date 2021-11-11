@@ -87,6 +87,12 @@ public:
      * @return true if the gather shader needs to be reloaded.
      */
     bool renderGuiWindowSecondary(bool isRasterizer) override;
+    /**
+     * For rendering secondary, overlay ImGui windows.
+     * @return true if the gather shader needs to be reloaded.
+     */
+    bool renderGuiOverlay() override;
+
     /// Set current rendering mode (e.g. for making visible certain UI options only for certain renderers).
     void setLineRenderer(LineRenderer* lineRenderer) override;
     /// Certain GUI widgets might need the clear color.

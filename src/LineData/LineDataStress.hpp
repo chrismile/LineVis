@@ -128,29 +128,35 @@ public:
      * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
      * @return true if the gather shader needs to be reloaded.
      */
-    virtual bool renderGuiRenderer(bool isRasterizer);
+    bool renderGuiRenderer(bool isRasterizer) override;
     /**
      * For line data settings.
      * @return true if the gather shader needs to be reloaded.
      */
-    virtual bool renderGuiLineData(bool isRasterizer);
+    bool renderGuiLineData(bool isRasterizer) override;
     /**
      * For changing other line rendering settings.
      */
-    virtual bool renderGuiRenderingSettings() override;
+    bool renderGuiRenderingSettings() override;
     /**
      * For rendering secondary ImGui windows (e.g., for transfer function widgets).
      * @return true if the gather shader needs to be reloaded.
      */
-    virtual bool renderGuiWindowSecondary(bool isRasterizer) override;
+    bool renderGuiWindowSecondary(bool isRasterizer) override;
+    /**
+     * For rendering secondary, overlay ImGui windows.
+     * @return true if the gather shader needs to be reloaded.
+     */
+    bool renderGuiOverlay() override;
+
     /// Certain GUI widgets might need the clear color.
-    virtual void setClearColor(const sgl::Color& clearColor);
+    void setClearColor(const sgl::Color& clearColor) override;
     /// Whether to use linear RGB when rendering.
-    virtual void setUseLinearRGB(bool useLinearRGB) override;
-    virtual bool shallRenderTransferFunctionWindow() override { return !usePrincipalStressDirectionIndex; }
+    void setUseLinearRGB(bool useLinearRGB) override;
+    bool shallRenderTransferFunctionWindow() override { return !usePrincipalStressDirectionIndex; }
 
     /// Set current rendering mode (e.g. for making visible certain UI options only for certain renderers).
-    virtual void setRenderingMode(RenderingMode renderingMode) override;
+    void setRenderingMode(RenderingMode renderingMode) override;
 
     static inline void setUseMajorPS(bool val) { useMajorPS = val; }
     static inline void setUseMediumPS(bool val) { useMediumPS = val; }
@@ -168,8 +174,8 @@ public:
     inline const glm::vec3& getCurrentSeedPosition() const { return seedPoints.at(currentSeedIdx); }
 
 private:
-    virtual void recomputeHistogram() override;
-    virtual void recomputeColorLegend() override;
+    void recomputeHistogram() override;
+    void recomputeColorLegend() override;
     void recomputeColorLegendPositions();
 
     // Should we show major, medium and/or minor principal stress lines?

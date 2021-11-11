@@ -207,6 +207,10 @@ public:
     ~ReplayWidget();
     bool update(float currentTime, bool& stopRecording, bool& stopCameraFlight);
 
+    [[nodiscard]] inline bool getShowWindow() const { return showWindow; }
+    [[nodiscard]] inline bool& getShowWindow() { return showWindow; }
+    inline void setShowWindow(bool show) { showWindow = show; }
+
     enum ReplayWidgetUpdateType {
         REPLAY_WIDGET_UPDATE_NONE,
         REPLAY_WIDGET_UPDATE_LOAD,

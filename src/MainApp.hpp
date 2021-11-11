@@ -80,6 +80,11 @@ private:
     // Called when the camera moved.
     void hasMoved();
 
+    // Docking space mode.
+    void renderGuiMenuBar();
+    int focusedWindowIndex = -1;
+    int mouseHoverWindowIndex = -1;
+
     /// Scene data (e.g., camera, main framebuffer, ...).
     SceneData sceneData;
 
@@ -135,6 +140,7 @@ private:
     /// A list of filters that are applied sequentially on the data.
     std::vector<LineFilter*> dataFilters;
 
+    bool showMainWindow = true;
     LineRenderer* lineRenderer = nullptr;
     LineDataPtr lineData;
     LineDataRequester lineDataRequester;

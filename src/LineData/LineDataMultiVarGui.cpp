@@ -86,6 +86,20 @@ void LineDataMultiVar::recomputeWidgetPositions() {
 }
 
 bool LineDataMultiVar::renderGuiWindowSecondary(bool isRasterizer)  {
+    if (useMultiVarRendering && multiVarTransferFunctionWindow.renderGui()) {
+        reRender = true;
+        if (multiVarTransferFunctionWindow.getTransferFunctionMapRebuilt()) {
+            onTransferFunctionMapRebuilt();
+            if (lineRenderer) {
+                lineRenderer->onTransferFunctionMapRebuilt();
+            }
+        }
+    }
+
+    return LineData::renderGuiWindowSecondary(isRasterizer);
+}
+
+bool LineDataMultiVar::renderGuiOverlay() {
     bool shallReloadGatherShader = false;
     if (useMultiVarRendering && shallRenderColorLegendWidgets) {
         for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
@@ -98,19 +112,8 @@ bool LineDataMultiVar::renderGuiWindowSecondary(bool isRasterizer)  {
             }
         }
     } else {
-        shallReloadGatherShader = LineData::renderGuiWindowSecondary(isRasterizer) || shallReloadGatherShader;
+        shallReloadGatherShader = LineData::renderGuiOverlay() || shallReloadGatherShader;
     }
-
-    if (useMultiVarRendering && multiVarTransferFunctionWindow.renderGui()) {
-        reRender = true;
-        if (multiVarTransferFunctionWindow.getTransferFunctionMapRebuilt()) {
-            onTransferFunctionMapRebuilt();
-            if (lineRenderer) {
-                lineRenderer->onTransferFunctionMapRebuilt();
-            }
-        }
-    }
-
     return shallReloadGatherShader;
 }
 

@@ -413,6 +413,18 @@ void LineRenderer::renderGuiWindow() {
     }
 }
 
+void LineRenderer::renderGuiOverlay() {
+    bool shallReloadGatherShader = false;
+
+    if (lineData && lineData->renderGuiOverlay()) {
+        shallReloadGatherShader = true;
+    }
+
+    if (shallReloadGatherShader) {
+        reloadGatherShaderExternal();
+    }
+}
+
 void LineRenderer::renderGui() {
     renderLineWidthSlider();
     if (lineData) {

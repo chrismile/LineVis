@@ -49,8 +49,10 @@
 #include <Math/Geometry/MatrixUtil.hpp>
 #include <Graphics/Window.hpp>
 #include <Graphics/Renderer.hpp>
+#include <Graphics/OpenGL/Texture.hpp>
 
 #include <ImGui/ImGuiWrapper.hpp>
+#include <ImGui/ImGuiFileDialog/ImGuiFileDialog.h>
 #include <ImGui/imgui_internal.h>
 #include <ImGui/imgui_custom.h>
 #include <ImGui/imgui_stdlib.h>
@@ -77,6 +79,7 @@
 #include "Renderers/Vulkan/Scattering/ScatteredLinesRenderer.hpp"
 #include "Renderers/Vulkan/VulkanAmbientOcclusionBaker.hpp"
 #include <Graphics/Vulkan/Utils/Instance.hpp>
+
 #endif
 #ifdef USE_OSPRAY
 #include "Renderers/Ospray/OsprayRenderer.hpp"
@@ -282,6 +285,9 @@ MainApp::MainApp()
             centerOffset = glm::vec3(0.0f, -0.1f, 0.0f);
         }
     });
+
+    useDockSpaceMode = true;
+    sgl::ImGuiWrapper::get()->setUseDockSpaceMode(useDockSpaceMode);
 
     useLinearRGB = false;
     transferFunctionWindow.setClearColor(clearColor);
@@ -596,6 +602,59 @@ void MainApp::render() {
 }
 
 void MainApp::renderGui() {
+    focusedWindowIndex = -1;
+    mouseHoverWindowIndex = -1;
+
+    if (ImGuiFileDialog::Instance()->Display("ChooseDataSetFile")) {
+        if (ImGuiFileDialog::Instance()->IsOk()) {
+            std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+            std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
+            std::string filter = ImGuiFileDialog::Instance()->GetCurrentFilter();
+            std::string userDatas;
+            if (ImGuiFileDialog::Instance()->GetUserDatas()) {
+                userDatas = std::string((const char*)ImGuiFileDialog::Instance()->GetUserDatas());
+            }
+            auto selection = ImGuiFileDialog::Instance()->GetSelection();
+            customDataSetFileName = selection.begin()->second;
+            loadLineDataSet(getSelectedLineDataSetFilenames());
+        }
+        ImGuiFileDialog::Instance()->Close();
+    }
+
+    if (useDockSpaceMode) {
+        ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+
+        renderGuiMenuBar();
+
+        if (ImGui::Begin("Main Window", &showMainWindow)) {
+            if (ImGui::IsWindowFocused()) {
+                focusedWindowIndex = 0;
+            }
+            sgl::ImGuiWrapper::get()->setWindowViewport(0, ImGui::GetWindowViewport());
+            sgl::ImGuiWrapper::get()->setWindowViewport(0, ImGui::GetWindowViewport());
+            sgl::ImGuiWrapper::get()->setWindowPosAndSize(0, ImGui::GetWindowPos(), ImGui::GetWindowSize());
+
+            // TODO
+            ImVec2 sizeContent = ImGui::GetContentRegionAvail();
+            //std::cout << "sizeContent: " << sizeContent.x << ", " << sizeContent.y << std::endl;
+            ImGui::Image(
+                    (void*)(intptr_t)static_cast<sgl::TextureGL*>(sceneTexture.get())->getTexture(),
+                    sizeContent, ImVec2(0, 1), ImVec2(1, 0));
+            if (ImGui::IsItemHovered()) {
+                mouseHoverWindowIndex = 0;
+            }
+
+            if (lineRenderer) {
+                lineRenderer->renderGuiOverlay();
+            }
+        }
+        ImGui::End();
+    } else {
+        if (lineRenderer) {
+            lineRenderer->renderGuiOverlay();
+        }
+    }
+
     if (showSettingsWindow) {
         sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(3090, 56, 735, 1085);
         if (ImGui::Begin("Settings", &showSettingsWindow)) {
@@ -643,6 +702,10 @@ void MainApp::renderGui() {
         fovDegree = camera->getFOVy() / sgl::PI * 180.0f;
         reRender = true;
         hasMoved();
+    }
+
+    if (useDockSpaceMode) {
+        renderGuiPropertyEditorWindow();
     }
 
 #ifdef USE_PYTHON
@@ -787,7 +850,7 @@ void MainApp::renderSceneSettingsGui() {
     }
 
     SciVisApp::renderSceneSettingsGuiPre();
-    ImGui::Checkbox("Show Transfer Function Window", &transferFunctionWindow.getShowTransferFunctionWindow());
+    ImGui::Checkbox("Show Transfer Function Window", &transferFunctionWindow.getShowWindow());
     if (lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES && renderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
         if (ImGui::Checkbox("Visualize Seeding Process", &visualizeSeedingProcess)) {
             LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
@@ -807,6 +870,66 @@ void MainApp::renderSceneSettingsGui() {
     }
 
     SciVisApp::renderSceneSettingsGuiPost();
+}
+
+void MainApp::renderGuiMenuBar() {
+    if (ImGui::BeginMainMenuBar()) {
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("Open Dataset...", "CTRL+O")) {
+                selectedDataSetIndex = 0;
+                ImGuiFileDialog::Instance()->OpenModal(
+                        "ChooseDataSetFile", "Choose a File", ".*,.obj,.nc,.dat",
+                        sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/",
+                        "", 1, nullptr,
+                        ImGuiFileDialogFlags_ConfirmOverwrite);
+            }
+
+            if (ImGui::BeginMenu("Datasets")) {
+                for (size_t i = 1; i < dataSetNames.size(); i++) {
+                    if (ImGui::MenuItem(dataSetNames.at(i).c_str())) {
+                        selectedDataSetIndex = int(i);
+                        if (selectedDataSetIndex >= NUM_MANUAL_LOADERS) {
+                            loadLineDataSet(getSelectedLineDataSetFilenames());
+                        }
+                    }
+                }
+                ImGui::EndMenu();
+            }
+
+            if (ImGui::MenuItem("Quit", "CTRL+Q")) {
+                quit();
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Window")) {
+            if (ImGui::MenuItem("Main Window", nullptr, showMainWindow)) {
+                showMainWindow = !showMainWindow;
+            }
+            if (ImGui::MenuItem("FPS Overlay", nullptr, showMainWindow)) {
+                showFpsOverlay = !showFpsOverlay;
+            }
+            if (ImGui::MenuItem("Property Editor", nullptr, showPropertyEditor)) {
+                showPropertyEditor = !showPropertyEditor;
+            }
+            if (ImGui::MenuItem(
+                    "Transfer Function Window", nullptr, transferFunctionWindow.getShowWindow())) {
+                transferFunctionWindow.setShowWindow(!transferFunctionWindow.getShowWindow());
+            }
+            if (ImGui::MenuItem("Checkpoint Window", nullptr, checkpointWindow.getShowWindow())) {
+                checkpointWindow.setShowWindow(!checkpointWindow.getShowWindow());
+            }
+            if (ImGui::MenuItem("Replay Widget", nullptr, replayWidget.getShowWindow())) {
+                replayWidget.setShowWindow(!replayWidget.getShowWindow());
+            }
+            if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {}  // Disabled item
+            ImGui::Separator();
+            if (ImGui::MenuItem("Cut", "CTRL+X")) {}
+            if (ImGui::MenuItem("Copy", "CTRL+C")) {}
+            if (ImGui::MenuItem("Paste", "CTRL+V")) {}
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
+    }
 }
 
 void MainApp::update(float dt) {
@@ -909,25 +1032,21 @@ void MainApp::update(float dt) {
     }
 
     ImGuiIO &io = ImGui::GetIO();
-    if (io.WantCaptureKeyboard && !recording) {
-        // Ignore inputs below
-        return;
+    if (!io.WantCaptureKeyboard || recording || focusedWindowIndex != -1) {
+        moveCameraKeyboard(dt);
+
+        if (sgl::Keyboard->isKeyDown(SDLK_u)) {
+            transferFunctionWindow.setShowWindow(showSettingsWindow);
+        }
     }
 
-    moveCameraKeyboard(dt);
-    if (sgl::Keyboard->isKeyDown(SDLK_u)) {
-        transferFunctionWindow.setShow(showSettingsWindow);
-    }
 
-    if (io.WantCaptureMouse) {
-        // Ignore inputs below
-        return;
-    }
+    if (!io.WantCaptureMouse || (focusedWindowIndex != -1 && mouseHoverWindowIndex != -1)) {
+        moveCameraMouse(dt);
 
-    moveCameraMouse(dt);
-
-    if (lineRenderer != nullptr) {
-        lineRenderer->update(dt);
+        if (lineRenderer != nullptr) {
+            lineRenderer->update(dt);
+        }
     }
 }
 

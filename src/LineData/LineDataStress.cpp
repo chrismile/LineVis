@@ -296,6 +296,10 @@ bool LineDataStress::renderGuiWindowSecondary(bool isRasterizer) {
         }
     }
 
+    return LineData::renderGuiWindowSecondary(isRasterizer);
+}
+
+bool LineDataStress::renderGuiOverlay() {
     if (usePrincipalStressDirectionIndex && shallRenderColorLegendWidgets) {
         for (int psIdx : loadedPsIndices) {
             colorLegendWidgets.at(psIdx).setAttributeMinValue(
@@ -308,7 +312,7 @@ bool LineDataStress::renderGuiWindowSecondary(bool isRasterizer) {
         }
         return false;
     } else {
-        return LineData::renderGuiWindowSecondary(isRasterizer);
+        return LineData::renderGuiOverlay();
     }
 }
 

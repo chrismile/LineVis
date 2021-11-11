@@ -87,6 +87,8 @@ public:
     virtual void render()=0;
     /// Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
     virtual void renderGuiWindow();
+    /// Renders GUI overlays. The "dirty" and "reRender" flags might be set depending on the user's actions.
+    virtual void renderGuiOverlay();
     /// Updates the internal logic (called once per frame).
     virtual void update(float dt);
 

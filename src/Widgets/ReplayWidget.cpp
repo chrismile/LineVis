@@ -699,6 +699,10 @@ void ReplayWidget::updateAvailableReplayScripts() {
 ReplayWidget::ReplayWidgetUpdateType ReplayWidget::renderFileDialog() {
     ReplayWidget::ReplayWidgetUpdateType updateType = ReplayWidget::REPLAY_WIDGET_UPDATE_NONE;
 
+    if (!showWindow) {
+        return updateType;
+    }
+
     sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(2177, 115, 646, 294);
     if (ImGui::Begin("Replay Widget", &showWindow)) {
         // Load file data
