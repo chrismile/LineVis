@@ -44,6 +44,7 @@
 
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "VulkanRayTracer.hpp"
 
@@ -51,7 +52,7 @@ using namespace sgl;
 
 VulkanRayTracer::VulkanRayTracer(
         SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
-        : LineRenderer("Vulkan Test Renderer", sceneData, transferFunctionWindow),
+        : LineRenderer("Vulkan Ray Tracer", sceneData, transferFunctionWindow),
         rendererVk(rendererVk) {
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     renderReadySemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
@@ -206,6 +207,37 @@ void VulkanRayTracer::renderGui() {
     }
 
     if (ImGui::Checkbox("Use Analytic Intersections", &useAnalyticIntersections)) {
+        rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
+        rayTracingRenderPass->setShaderDirty();
+        rayTracingRenderPass->setLineData(lineData, false);
+        accumulatedFramesCounter = 0;
+    }
+    ImGui::SameLine();
+    ImGui::HelpMarker("Whether to trace rays against a triangle mesh or analytic tubes using line segment AABBs.");
+}
+
+void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
+
+    if (propertyEditor.addSliderInt(
+            "#Samples/Frame", reinterpret_cast<int*>(&numSamplesPerFrame), 1, 32)) {
+        rayTracingRenderPass->setNumSamplesPerFrame(numSamplesPerFrame);
+        accumulatedFramesCounter = 0;
+    }
+
+    if (propertyEditor.addSliderInt(
+            "#Accum. Frames", reinterpret_cast<int*>(&maxNumAccumulatedFrames), 1, 32)) {
+        rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
+        accumulatedFramesCounter = 0;
+    }
+
+    if (propertyEditor.addSliderInt(
+            "Max. Depth", reinterpret_cast<int*>(&maxDepthComplexity), 1, 2048)) {
+        rayTracingRenderPass->setMaxDepthComplexity(maxDepthComplexity);
+        accumulatedFramesCounter = 0;
+    }
+
+    if (propertyEditor.addCheckbox("Use Analytic Intersections", &useAnalyticIntersections)) {
         rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
         rayTracingRenderPass->setShaderDirty();
         rayTracingRenderPass->setLineData(lineData, false);

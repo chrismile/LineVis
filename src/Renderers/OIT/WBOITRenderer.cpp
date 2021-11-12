@@ -36,6 +36,7 @@
 #include <Graphics/Texture/TextureManager.hpp>
 #include <Graphics/OpenGL/GeometryBuffer.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "WBOITRenderer.hpp"
 
@@ -193,4 +194,8 @@ void WBOITRenderer::render() {
 
 void WBOITRenderer::renderGui() {
     LineRenderer::renderGui();
+}
+
+void WBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 }

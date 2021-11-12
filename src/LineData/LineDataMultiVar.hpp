@@ -78,10 +78,20 @@ public:
      */
     bool renderGuiRenderer(bool isRasterizer) override;
     /**
+     * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
+     * @return true if the gather shader needs to be reloaded.
+     */
+    bool renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, bool isRasterizer) override;
+    /**
      * For line data settings.
      * @return true if the gather shader needs to be reloaded.
      */
     bool renderGuiLineData(bool isRasterizer) override;
+    /**
+     * Renders the entries in the property editor.
+     * @return true if the gather shader needs to be reloaded.
+     */
+    bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor, bool isRasterizer) override;
     /**
      * For rendering secondary ImGui windows (e.g., for transfer function widgets).
      * @return true if the gather shader needs to be reloaded.
@@ -106,7 +116,9 @@ private:
     void recomputeColorLegend() override;
     void recomputeWidgetPositions();
     bool renderGuiTechniqueSettings();
+    bool renderGuiTechniqueSettingsPropertyEditor(sgl::PropertyEditor& propertyEditor);
     bool renderGuiLineRenderingSettings();
+    bool renderGuiLineRenderingSettingsPropertyEditor(sgl::PropertyEditor& propertyEditor);
 
     /// Create render data.
     TubeRenderDataMultiVar getTubeRenderDataMultiVar();

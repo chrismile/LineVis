@@ -39,6 +39,7 @@
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
 #include <ImGui/imgui_custom.h>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "Utils/InternalState.hpp"
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
@@ -910,6 +911,58 @@ void OpacityOptimizationRenderer::renderGui() {
         }
         if (useMultisampling) {
             if (ImGui::Combo("Samples", &sampleModeSelection, sampleModeNames.data(), numSampleModes)) {
+                numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
+                reloadResolveShader();
+                onResolutionChanged();
+                reRender = true;
+            }
+        }
+    }
+}
+
+void OpacityOptimizationRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
+
+    if (propertyEditor.addSliderFloat("q", &q, 0.0f, 5000.0f, "%.1f")) {
+        reRender = true;
+        onHasMoved();
+    }
+    if (propertyEditor.addSliderFloat("r", &r, 0.0f, 5000.0f, "%.1f")) {
+        reRender = true;
+        onHasMoved();
+    }
+    if (propertyEditor.addSliderInt("s", &s, 0, 20)) {
+        reRender = true;
+        onHasMoved();
+    }
+    if (propertyEditor.addSliderFloat("lambda", &lambda, 0.1f, 20.0f, "%.1f")) {
+        reRender = true;
+        onHasMoved();
+    }
+    if (propertyEditor.addSliderFloat("rel", &relaxationConstant, 0.0f, 1.0f, "%.2f")) {
+        reRender = true;
+        onHasMoved();
+    }
+    if (propertyEditor.addSliderFloat("ts", &temporalSmoothingFactor, 0.0f, 1.0f, "%.2f")) {
+        reRender = true;
+        onHasMoved();
+    }
+
+    if (propertyEditor.addCombo(
+            "Sorting Mode", (int*)&sortingAlgorithmMode, SORTING_MODE_NAMES, NUM_SORTING_MODES)) {
+        setSortingAlgorithmDefine();
+        reloadResolveShader();
+        reRender = true;
+        onHasMoved();
+    }
+
+    if (maximumNumberOfSamples > 1) {
+        if (propertyEditor.addCheckbox("Multisampling", &useMultisampling)) {
+            onResolutionChanged();
+            reRender = true;
+        }
+        if (useMultisampling) {
+            if (propertyEditor.addCombo("Samples", &sampleModeSelection, sampleModeNames.data(), numSampleModes)) {
                 numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
                 reloadResolveShader();
                 onResolutionChanged();

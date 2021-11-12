@@ -28,6 +28,7 @@
 
 #include <iostream>
 #include <Math/Math.hpp>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #ifdef USE_VULKAN_INTEROP
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
@@ -160,6 +161,20 @@ bool LineDataScattering::renderGuiRenderer(bool isRasterizer) {
 #ifdef USE_VULKAN_INTEROP
     if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_SCATTERED_LINES_RENDERER) {
         if (ImGui::Checkbox("Use Line Segment Length", &useLineSegmentLengthForDensityField)) {
+            dirty = true;
+            reRender = true;
+            lineDensityFieldImageComputeRenderPass->setUseLineSegmentLength(useLineSegmentLengthForDensityField);
+        }
+    }
+#endif
+    return shallReloadGatherShader;
+}
+
+bool LineDataScattering::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, bool isRasterizer) {
+    bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodesRenderer(propertyEditor, isRasterizer);
+#ifdef USE_VULKAN_INTEROP
+    if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_SCATTERED_LINES_RENDERER) {
+        if (propertyEditor.addCheckbox("Use Line Segment Length", &useLineSegmentLengthForDensityField)) {
             dirty = true;
             reRender = true;
             lineDensityFieldImageComputeRenderPass->setUseLineSegmentLength(useLineSegmentLengthForDensityField);

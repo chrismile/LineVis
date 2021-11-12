@@ -42,6 +42,10 @@
 #include "LineDataHeader.hpp"
 #include "LineRenderData.hpp"
 
+namespace sgl {
+class PropertyEditor;
+}
+
 namespace sgl { namespace vk {
 class RenderData;
 typedef std::shared_ptr<RenderData> RenderDataPtr;
@@ -194,6 +198,11 @@ public:
      */
     virtual bool renderGuiRenderer(bool isRasterizer);
     /**
+     * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
+     * @return true if the gather shader needs to be reloaded.
+     */
+    virtual bool renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, bool isRasterizer);
+    /**
      * For line data settings.
      * @return true if the gather shader needs to be reloaded.
      */
@@ -202,6 +211,10 @@ public:
      * For changing other line rendering settings.
      */
     virtual bool renderGuiRenderingSettings();
+    /**
+     * For changing other line rendering settings.
+     */
+    virtual bool renderGuiRenderingSettingsPropertyEditor(sgl::PropertyEditor& propertyEditor);
     /**
      * For rendering a separate ImGui window.
      * @return true if the gather shader needs to be reloaded.
@@ -217,6 +230,11 @@ public:
      * @return true if the gather shader needs to be reloaded.
      */
     virtual bool renderGuiOverlay();
+    /**
+     * Renders the entries in the property editor.
+     * @return true if the gather shader needs to be reloaded.
+     */
+    virtual bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor, bool isRasterizer);
 
     /// Certain GUI widgets might need the clear color.
     virtual void setClearColor(const sgl::Color& clearColor);
@@ -226,6 +244,8 @@ public:
     virtual void setLineRenderer(LineRenderer* lineRenderer) { this->lineRenderer = lineRenderer; }
     virtual void setRenderingMode(RenderingMode renderingMode) { this->renderingMode = renderingMode; }
     inline bool getShallRenderSimulationMeshBoundary() { return shallRenderSimulationMeshBoundary; }
+    inline const std::string& getLineDataWindowName() const { return lineDataWindowName; }
+
 
     enum LinePrimitiveMode {
         LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH,

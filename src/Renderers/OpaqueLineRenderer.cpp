@@ -37,6 +37,7 @@
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "LineData/LineDataStress.hpp"
 #include "Helpers/Sphere.hpp"
@@ -268,6 +269,35 @@ void OpaqueLineRenderer::renderGui() {
         }
         if (useMultisampling) {
             if (ImGui::Combo("Samples", &sampleModeSelection, sampleModeNames.data(), numSampleModes)) {
+                numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
+                onResolutionChanged();
+                reRender = true;
+            }
+        }
+    }
+}
+
+void OpaqueLineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
+
+    if (shaderAttributesDegeneratePoints && hasDegeneratePoints
+            && propertyEditor.addCheckbox("Show Degenerate Points", &showDegeneratePoints)) {
+        reRender = true;
+    }
+    if (shaderAttributesDegeneratePoints && showDegeneratePoints && hasDegeneratePoints) {
+        if (shaderAttributesDegeneratePoints && propertyEditor.addSliderFloat(
+                "Point Width", &pointWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH)) {
+            reRender = true;
+        }
+    }
+    if (maximumNumberOfSamples > 1) {
+        if (propertyEditor.addCheckbox("Multisampling", &useMultisampling)) {
+            onResolutionChanged();
+            reRender = true;
+        }
+        if (useMultisampling) {
+            if (propertyEditor.addCombo(
+                    "Samples", &sampleModeSelection, sampleModeNames.data(), numSampleModes)) {
                 numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
                 onResolutionChanged();
                 reRender = true;

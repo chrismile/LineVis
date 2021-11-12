@@ -33,6 +33,7 @@
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/OpenGL/Shader.hpp>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
 #include "TilingMode.hpp"
@@ -240,6 +241,18 @@ void MLABBucketRenderer::renderGui() {
     }
 
     if (ImGui::SliderFloat("Back Bucket Upper Opacity", &upperBackBufferOpacity, 0.0f, 1.0f)) {
+        reRender = true;
+    }
+}
+
+void MLABBucketRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    MLABRenderer::renderGuiPropertyEditorNodes(propertyEditor);
+
+    if (propertyEditor.addSliderFloat("Back Bucket Lower Opacity", &lowerBackBufferOpacity, 0.0f, 1.0f)) {
+        reRender = true;
+    }
+
+    if (propertyEditor.addSliderFloat("Back Bucket Upper Opacity", &upperBackBufferOpacity, 0.0f, 1.0f)) {
         reRender = true;
     }
 }

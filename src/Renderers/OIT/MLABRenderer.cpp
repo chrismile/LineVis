@@ -35,6 +35,7 @@
 #include <Graphics/OpenGL/GeometryBuffer.hpp>
 #include <Graphics/OpenGL/Shader.hpp>
 #include <Graphics/OpenGL/SystemGL.hpp>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "Utils/InternalState.hpp"
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
@@ -376,6 +377,40 @@ void MLABRenderer::renderGui() {
         reRender = true;
     }
     if (ImGui::Button("Reload Shader")) {
+        reloadGatherShader();
+        if (shaderAttributes) {
+            shaderAttributes = shaderAttributes->copy(gatherShader);
+        }
+        reRender = true;
+    }
+}
+
+void MLABRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
+
+    if (propertyEditor.addSliderInt("Num Layers", &numLayers, 1, 64)) {
+        updateLayerMode();
+        reloadShaders();
+        reRender = true;
+    }
+    const char *syncModeNames[] = { "No Sync (Unsafe)", "Fragment Shader Interlock", "Spinlock" };
+    if (propertyEditor.addCombo(
+            "Sync Mode", (int*)&syncMode, syncModeNames, IM_ARRAYSIZE(syncModeNames))) {
+        updateSyncMode();
+        reloadGatherShader();
+        reRender = true;
+    }
+    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK && propertyEditor.addCheckbox(
+            "Ordered Sync", &useOrderedFragmentShaderInterlock)) {
+        reloadGatherShader();
+        reRender = true;
+    }
+    if (selectTilingModeUI()) {
+        reloadShaders();
+        clearBitSet = true;
+        reRender = true;
+    }
+    if (propertyEditor.addButton("Reload Gather Shader", "Reload")) {
         reloadGatherShader();
         if (shaderAttributes) {
             shaderAttributes = shaderAttributes->copy(gatherShader);

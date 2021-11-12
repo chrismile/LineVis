@@ -138,6 +138,12 @@ void VulkanTestRenderer::renderGui() {
     // Add GUI code here.
 }
 
+void VulkanTestRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
+
+    // Add GUI code here.
+}
+
 
 
 TestRenderPass::TestRenderPass(sgl::vk::Renderer* renderer, sgl::CameraPtr camera)

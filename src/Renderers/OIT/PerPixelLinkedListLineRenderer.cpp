@@ -36,6 +36,7 @@
 #include <Utils/AppSettings.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "Utils/InternalState.hpp"
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
@@ -352,6 +353,21 @@ void PerPixelLinkedListLineRenderer::renderGui() {
         reRender = true;
     }
     if (ImGui::Button("Reload Shader")) {
+        reloadGatherShader();
+        reRender = true;
+    }
+}
+
+void PerPixelLinkedListLineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
+
+    if (propertyEditor.addCombo(
+            "Sorting Mode", (int*)&sortingAlgorithmMode, SORTING_MODE_NAMES, NUM_SORTING_MODES)) {
+        setSortingAlgorithmDefine();
+        reloadResolveShader();
+        reRender = true;
+    }
+    if (propertyEditor.addButton("Reload Gather Shader", "Reload")) {
         reloadGatherShader();
         reRender = true;
     }

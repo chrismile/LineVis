@@ -80,8 +80,12 @@ private:
     // Called when the camera moved.
     void hasMoved();
 
-    // Docking space mode.
+    void scheduleRecreateSceneFramebuffer();
+    bool scheduledRecreateSceneFramebuffer = false;
+
+    // Dock space mode.
     void renderGuiMenuBar();
+    void renderGuiPropertyEditorCustomNodes() override;
     int focusedWindowIndex = -1;
     int mouseHoverWindowIndex = -1;
 

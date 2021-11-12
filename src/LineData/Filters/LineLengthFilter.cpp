@@ -27,12 +27,13 @@
  */
 
 #include <ImGui/imgui_custom.h>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "LineData/LineData.hpp"
 #include "LineLengthFilter.hpp"
 
 void LineLengthFilter::onDataLoaded(LineDataPtr lineDataIn) {
-    trajectoryFilteringThreshold = 0.0f;
+    trajectoryFilteringThresholdMin = 0.0f;
     maxTrajectoryLength = 0.0f;
     trajectoryLengths.clear();
 
@@ -48,6 +49,7 @@ void LineLengthFilter::onDataLoaded(LineDataPtr lineDataIn) {
         maxTrajectoryLength = std::max(maxTrajectoryLength, trajectoryLength);
     });
 
+    trajectoryFilteringThresholdMax = maxTrajectoryLength;
     canUseLiveUpdate = lineDataIn->getCanUseLiveUpdate(LineDataAccessType::FILTERED_LINES);
 }
 
@@ -58,7 +60,8 @@ void LineLengthFilter::filterData(LineDataPtr lineDataIn) {
 
     size_t trajectoryIdx = 0;
     lineDataIn->filterTrajectories([&trajectoryIdx, this](const Trajectory& trajectory) -> bool {
-        return trajectoryLengths.at(trajectoryIdx++) < trajectoryFilteringThreshold;
+        float trajectoryLength = trajectoryLengths.at(trajectoryIdx++);
+        return trajectoryLength < trajectoryFilteringThresholdMin || trajectoryLength > trajectoryFilteringThresholdMax;
     });
     dirty = false;
 }
@@ -66,12 +69,41 @@ void LineLengthFilter::filterData(LineDataPtr lineDataIn) {
 void LineLengthFilter::renderGui() {
     sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(3220, 1792, 612, 120);
     if (ImGui::Begin("Line Length Filter", &showFilterWindow)) {
-        EditMode editMode = ImGui::SliderFloatEdit(
-                "Min. Length", &trajectoryFilteringThreshold, 0.0f, maxTrajectoryLength);
-        if ((canUseLiveUpdate && editMode != EditMode::NO_CHANGE)
-                || (!canUseLiveUpdate && editMode == EditMode::INPUT_FINISHED)) {
+        glm::vec2 newRange(trajectoryFilteringThresholdMin, trajectoryFilteringThresholdMax);
+        ImGui::EditMode editMode = ImGui::SliderFloatEdit(
+                "Length Range", &newRange.x, 0.0f, maxTrajectoryLength);
+        if (editMode != ImGui::EditMode::NO_CHANGE && newRange.x > newRange.y) {
+            if (newRange.x != trajectoryFilteringThresholdMin) {
+                newRange.x = newRange.y;
+            } else {
+                newRange.y = newRange.x;
+            }
+        }
+        trajectoryFilteringThresholdMin = newRange.x;
+        trajectoryFilteringThresholdMax = newRange.y;
+        if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
+            || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
             dirty = true;
         }
     }
     ImGui::End();
+}
+
+void LineLengthFilter::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    glm::vec2 newRange(trajectoryFilteringThresholdMin, trajectoryFilteringThresholdMax);
+    ImGui::EditMode editMode = propertyEditor.addSliderFloat2Edit(
+            "Length Range", &newRange.x, 0.0f, maxTrajectoryLength);
+    if (editMode != ImGui::EditMode::NO_CHANGE && newRange.x > newRange.y) {
+        if (newRange.x != trajectoryFilteringThresholdMin) {
+            newRange.x = newRange.y;
+        } else {
+            newRange.y = newRange.x;
+        }
+    }
+    trajectoryFilteringThresholdMin = newRange.x;
+    trajectoryFilteringThresholdMax = newRange.y;
+    if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
+            || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
+        dirty = true;
+    }
 }

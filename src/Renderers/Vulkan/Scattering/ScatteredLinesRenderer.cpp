@@ -42,6 +42,7 @@
 #include <Graphics/Vulkan/Render/GraphicsPipeline.hpp>
 
 #include <ImGui/ImGuiWrapper.hpp>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "LineData/Scattering/LineDataScattering.hpp"
 #include "ScatteredLinesRenderer.hpp"
@@ -146,6 +147,14 @@ void ScatteredLinesRenderer::render() {
 
 void ScatteredLinesRenderer::renderGui() {
     bool somethingChanged = lineDensityFieldDvrPass->renderGui();
+
+    if (somethingChanged) {
+        reRender = true;
+    }
+}
+
+void ScatteredLinesRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    bool somethingChanged = lineDensityFieldDvrPass->renderGuiPropertyEditorNodes(propertyEditor);
 
     if (somethingChanged) {
         reRender = true;
@@ -304,9 +313,16 @@ void LineDensityFieldDvrPass::setBackgroundColor(const glm::vec4& color) {
 
 bool LineDensityFieldDvrPass::renderGui() {
     bool changed = false;
-    changed |= ImGui::SliderFloat("Attenuation Coefficient",
-                                  &renderSettingsData.attenuationCoefficient, 0, 500);
+    changed |= ImGui::SliderFloat(
+            "Attenuation Coefficient", &renderSettingsData.attenuationCoefficient, 0, 500);
 
+    return changed;
+}
+
+bool LineDensityFieldDvrPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    bool changed = false;
+    changed |= propertyEditor.addSliderFloat(
+            "Attenuation Coefficient", &renderSettingsData.attenuationCoefficient, 0, 500);
 
     return changed;
 }

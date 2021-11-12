@@ -59,6 +59,8 @@ public:
     void render() override;
     // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
     void renderGui() override;
+    /// Renders the entries in the property editor.
+    void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
 private:
     void setUniformData();

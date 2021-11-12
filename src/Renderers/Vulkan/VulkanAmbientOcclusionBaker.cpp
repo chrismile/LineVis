@@ -445,18 +445,18 @@ bool VulkanAmbientOcclusionBaker::renderGui() {
         }
 
         if (ImGui::SliderIntEdit(
-                "#Iterations", &maxNumIterations, 1, 4096) == EditMode::INPUT_FINISHED) {
+                "#Iterations", &maxNumIterations, 1, 4096) == ImGui::EditMode::INPUT_FINISHED) {
             dirty = true;
         }
         if (ImGui::SliderFloatEdit(
                 "Line Resolution", &aoComputeRenderPass->expectedParamSegmentLength,
-                0.0001f, 0.01f, "%.4f") == EditMode::INPUT_FINISHED) {
+                0.0001f, 0.01f, "%.4f") == ImGui::EditMode::INPUT_FINISHED) {
             dirty = true;
             parametrizationDirty = true;
         }
         if (ImGui::SliderIntEdit(
                 "#Subdivisions", reinterpret_cast<int*>(&aoComputeRenderPass->numTubeSubdivisionsNew),
-                3, 16) == EditMode::INPUT_FINISHED) {
+                3, 16) == ImGui::EditMode::INPUT_FINISHED) {
             aoComputeRenderPass->numTubeSubdivisions = aoComputeRenderPass->numTubeSubdivisionsNew;
             dirty = true;
             parametrizationDirty = true;
@@ -464,12 +464,12 @@ bool VulkanAmbientOcclusionBaker::renderGui() {
         if (ImGui::SliderIntEdit(
                 "#Samples/Frame",
                 reinterpret_cast<int*>(&aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame),
-                1, 4096) == EditMode::INPUT_FINISHED) {
+                1, 4096) == ImGui::EditMode::INPUT_FINISHED) {
             dirty = true;
         }
         if (ImGui::SliderFloatEdit(
                 "AO Radius", &aoComputeRenderPass->ambientOcclusionRadius,
-                0.01f, 0.2f) == EditMode::INPUT_FINISHED) {
+                0.01f, 0.2f) == ImGui::EditMode::INPUT_FINISHED) {
             dirty = true;
         }
         if (ImGui::Checkbox("Use Distance-based AO", &aoComputeRenderPass->useDistance)) {

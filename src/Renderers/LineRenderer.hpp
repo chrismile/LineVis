@@ -89,6 +89,8 @@ public:
     virtual void renderGuiWindow();
     /// Renders GUI overlays. The "dirty" and "reRender" flags might be set depending on the user's actions.
     virtual void renderGuiOverlay();
+    /// Renders the entries in the property editor.
+    virtual void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
     /// Updates the internal logic (called once per frame).
     virtual void update(float dt);
 
@@ -119,6 +121,8 @@ public:
     static void setBandWidth(float width) { LineRenderer::bandWidth = width; }
     static inline float getLineWidth() { return LineRenderer::lineWidth; }
     static inline float getBandWidth() { return LineRenderer::bandWidth; }
+
+    inline const std::string& getWindowName() { return windowName; }
 
 protected:
     // Reload the gather shader.

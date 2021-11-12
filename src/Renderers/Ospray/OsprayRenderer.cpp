@@ -34,6 +34,7 @@
 #include <Graphics/Window.hpp>
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Texture/TextureManager.hpp>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "OsprayRenderer.hpp"
 
@@ -620,6 +621,75 @@ void OsprayRenderer::renderGui() {
     }
     if (numAoSamples > 0 && denoiserAvailable) {
         if (ImGui::Checkbox("Use Denoiser", &useDenoiser)) {
+            if (useDenoiser && frameBufferFormat != OSP_FB_RGBA32F) {
+                frameBufferFormat = OSP_FB_RGBA32F;
+                onResolutionChanged();
+            }
+            updateDenoiserMode();
+            frameParameterChanged = true;
+        }
+    }
+
+    if (isDataDirty) {
+        setLineData(lineData, false);
+        reRender = true;
+    }
+}
+
+void OsprayRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
+
+    bool isDataDirty = false;
+
+    if (propertyEditor.addCombo(
+            "Geometry Mode", (int*)&geometryMode, GEOMETRY_MODE_NAMES,
+            IM_ARRAYSIZE(GEOMETRY_MODE_NAMES))) {
+        isDataDirty = true;
+    }
+
+    if (geometryMode == GeometryMode::CURVES) {
+        int curveTypeInt = int(curveType);
+        if (propertyEditor.addCombo(
+                "Curve Type", &curveTypeInt, CURVE_TYPE_NAMES,
+                IM_ARRAYSIZE(CURVE_TYPE_NAMES))) {
+            curveType = OSPCurveType(curveTypeInt);
+            if (curveType == OSP_RIBBON) {
+                sgl::Logfile::get()->writeError(
+                        "Warning in OsprayRenderer::renderGui: The curve type 'Ribbon' is currently not "
+                        "supported, as it would need additional normal data.");
+            }
+            isDataDirty = true;
+        }
+        int curveBasisInt = int(curveBasis);
+        if (propertyEditor.addCombo(
+                "Curve Basis", &curveBasisInt, CURVE_BASIS_NAMES,
+                IM_ARRAYSIZE(CURVE_BASIS_NAMES))) {
+            curveBasis = OSPCurveBasis(curveBasisInt);
+            if (curveBasis == OSP_HERMITE) {
+                sgl::Logfile::get()->writeError(
+                        "Warning in OsprayRenderer::renderGui: The curve basis type 'Hermite' is currently not "
+                        "supported, as it would need additional tangent data.");
+            }
+            isDataDirty = true;
+        }
+    }
+
+    int frameBufferFormatInt = int(frameBufferFormat) - 1;
+    if (propertyEditor.addCombo(
+            "Framebuffer Format", &frameBufferFormatInt, FRAME_BUFFER_FORMAT_NAMES,
+            IM_ARRAYSIZE(FRAME_BUFFER_FORMAT_NAMES))) {
+        frameBufferFormat = OSPFrameBufferFormat(frameBufferFormatInt + 1);
+        onResolutionChanged();
+        frameParameterChanged = true;
+    }
+
+    if (propertyEditor.addSliderInt("#AO Samples", &numAoSamples, 0, 64)) {
+        ospSetInt(ospRenderer, "aoSamples", numAoSamples);
+        ospCommit(ospRenderer);
+        frameParameterChanged = true;
+    }
+    if (numAoSamples > 0 && denoiserAvailable) {
+        if (propertyEditor.addCheckbox("Use Denoiser", &useDenoiser)) {
             if (useDenoiser && frameBufferFormat != OSP_FB_RGBA32F) {
                 frameBufferFormat = OSP_FB_RGBA32F;
                 onResolutionChanged();

@@ -130,6 +130,11 @@ public:
      */
     bool renderGuiRenderer(bool isRasterizer) override;
     /**
+     * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
+     * @return true if the gather shader needs to be reloaded.
+     */
+    bool renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, bool isRasterizer) override;
+    /**
      * For line data settings.
      * @return true if the gather shader needs to be reloaded.
      */
@@ -138,6 +143,10 @@ public:
      * For changing other line rendering settings.
      */
     bool renderGuiRenderingSettings() override;
+    /**
+     * For changing other line rendering settings.
+     */
+    bool renderGuiRenderingSettingsPropertyEditor(sgl::PropertyEditor& propertyEditor) override;
     /**
      * For rendering secondary ImGui windows (e.g., for transfer function widgets).
      * @return true if the gather shader needs to be reloaded.
@@ -148,6 +157,11 @@ public:
      * @return true if the gather shader needs to be reloaded.
      */
     bool renderGuiOverlay() override;
+    /**
+     * Renders the entries in the property editor.
+     * @return true if the gather shader needs to be reloaded.
+     */
+    bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor, bool isRasterizer) override;
 
     /// Certain GUI widgets might need the clear color.
     void setClearColor(const sgl::Color& clearColor) override;

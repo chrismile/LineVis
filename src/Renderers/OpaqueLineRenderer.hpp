@@ -35,22 +35,24 @@
 class OpaqueLineRenderer : public LineRenderer {
 public:
     OpaqueLineRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
-    virtual ~OpaqueLineRenderer() {}
+    ~OpaqueLineRenderer() override {}
     RenderingMode getRenderingMode() override { return RENDERING_MODE_ALL_LINES_OPAQUE; }
 
     /**
      * Re-generates the visualization mapping.
      * @param lineData The render data.
      */
-    virtual void setLineData(LineDataPtr& lineData, bool isNewData);
+    void setLineData(LineDataPtr& lineData, bool isNewData) override;
 
     /// Called when the resolution of the application window has changed.
-    virtual void onResolutionChanged();
+    void onResolutionChanged() override;
 
     // Renders the object to the scene framebuffer.
-    virtual void render();
+    void render() override;
     // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
-    virtual void renderGui();
+    void renderGui() override;
+    /// Renders the entries in the property editor.
+    void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
     // For use in MainApp.cpp.
     void setVisualizeSeedingProcess(bool visualizeSeedingProcess);

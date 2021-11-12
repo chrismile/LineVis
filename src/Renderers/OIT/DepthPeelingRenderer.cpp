@@ -39,6 +39,7 @@
 #include <Graphics/OpenGL/SystemGL.hpp>
 #include <Graphics/OpenGL/Shader.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
 #include "DepthPeelingRenderer.hpp"
@@ -269,9 +270,9 @@ void DepthPeelingRenderer::computeDepthComplexity() {
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
     // Compute the maximum depth complexity of the scene.
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
+    sgl::Window* window = sgl::AppSettings::get()->getMainWindow();
     int bufferSize = window->getWidth() * window->getHeight();
-    uint32_t *data = (uint32_t*)fragmentCounterBuffer->mapBuffer(sgl::BUFFER_MAP_READ_ONLY);
+    uint32_t* data = (uint32_t*)fragmentCounterBuffer->mapBuffer(sgl::BUFFER_MAP_READ_ONLY);
 
     uint64_t maxDepthComplexity = 0;
 #if _OPENMP >= 201107
@@ -288,4 +289,9 @@ void DepthPeelingRenderer::computeDepthComplexity() {
 void DepthPeelingRenderer::renderGui() {
     LineRenderer::renderGui();
     ImGui::Text("Max. depth complexity: %lu", maxDepthComplexity);
+}
+
+void DepthPeelingRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
+    propertyEditor.addText("Max. Depth Complexity", std::to_string(maxDepthComplexity));
 }

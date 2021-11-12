@@ -34,6 +34,8 @@
 #include <Graphics/Texture/TextureManager.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
+#include <ImGui/Widgets/PropertyEditor.hpp>
+
 #include "VoxelRayCastingRenderer.hpp"
 
 VoxelRayCastingRenderer::VoxelRayCastingRenderer(
@@ -266,6 +268,36 @@ void VoxelRayCastingRenderer::renderGui() {
         voxelGridDirty = true;
     }
     if (ImGui::SliderIntPowerOfTwo("Quantization Resolution", &quantizationResolution1D, 1, 64)) {
+        voxelGridDirty = true;
+    }
+
+    if (voxelGridDirty) {
+        dirty = true;
+        internalReRender = true;
+        reRender = true;
+    }
+}
+
+void VoxelRayCastingRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
+
+    bool voxelGridDirty = false;
+
+    if (propertyEditor.addCheckbox("Use GPU for Voxelization", &useGpuForVoxelization)) {
+        voxelGridDirty = true;
+    }
+
+    if (propertyEditor.addCheckbox("Use Line Hull", &computeNearestFurthestHitsUsingHull)) {
+        reloadGatherShader();
+        internalReRender = true;
+        reRender = true;
+    }
+
+    if (propertyEditor.addSliderInt("Grid Resolution", &gridResolution1D, 4, 256)) {
+        voxelGridDirty = true;
+    }
+    if (propertyEditor.addSliderIntPowerOfTwo(
+            "Quantization Resolution", &quantizationResolution1D, 1, 64)) {
         voxelGridDirty = true;
     }
 

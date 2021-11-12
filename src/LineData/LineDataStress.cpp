@@ -30,6 +30,7 @@
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
 #include <ImGui/imgui_custom.h>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #ifdef USE_VULKAN_INTEROP
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
@@ -176,6 +177,11 @@ bool LineDataStress::renderGuiRenderer(bool isRasterizer) {
     return shallReloadGatherShader;
 }
 
+bool LineDataStress::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, bool isRasterizer) {
+    bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodesRenderer(propertyEditor, isRasterizer);
+    return shallReloadGatherShader;
+}
+
 bool LineDataStress::renderGuiLineData(bool isRasterizer) {
     bool shallReloadGatherShader = LineData::renderGuiLineData(isRasterizer);
 
@@ -202,10 +208,10 @@ bool LineDataStress::renderGuiLineData(bool isRasterizer) {
             bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
             bool sliderChanged = false;
             for (int psIdx : loadedPsIndices) {
-                EditMode editMode = ImGui::SliderFloatEdit(
+                ImGui::EditMode editMode = ImGui::SliderFloatEdit(
                         stressDirectionNames[psIdx], &lineHierarchySliderValues[psIdx], 0.0f, 1.0f);
-                if ((canUseLiveUpdate && editMode != EditMode::NO_CHANGE)
-                        || (!canUseLiveUpdate && editMode == EditMode::INPUT_FINISHED)) {
+                if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
+                        || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
                     reRender = true;
                     recomputeOpacityOptimization = true;
                     sliderChanged = true;
@@ -265,11 +271,26 @@ bool LineDataStress::renderGuiLineData(bool isRasterizer) {
 bool LineDataStress::renderGuiRenderingSettings() {
     bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
     if (useBands()) {
-        EditMode editMode = ImGui::SliderFloatEdit(
+        ImGui::EditMode editMode = ImGui::SliderFloatEdit(
                 "Band Width", &LineRenderer::bandWidth, LineRenderer::MIN_BAND_WIDTH, LineRenderer::MAX_BAND_WIDTH,
                 "%.4f");
-        if ((canUseLiveUpdate && editMode != EditMode::NO_CHANGE)
-                || (!canUseLiveUpdate && editMode == EditMode::INPUT_FINISHED)) {
+        if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
+                || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
+            reRender = true;
+            setTriangleRepresentationDirty();
+        }
+    }
+    return false;
+}
+
+bool LineDataStress::renderGuiRenderingSettingsPropertyEditor(sgl::PropertyEditor& propertyEditor) {
+    bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
+    if (useBands()) {
+        ImGui::EditMode editMode = propertyEditor.addSliderFloatEdit(
+                "Band Width", &LineRenderer::bandWidth, LineRenderer::MIN_BAND_WIDTH, LineRenderer::MAX_BAND_WIDTH,
+                "%.4f");
+        if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
+            || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
             reRender = true;
             setTriangleRepresentationDirty();
         }
@@ -314,6 +335,97 @@ bool LineDataStress::renderGuiOverlay() {
     } else {
         return LineData::renderGuiOverlay();
     }
+}
+
+bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor, bool isRasterizer) {
+    bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodes(propertyEditor, isRasterizer);
+
+    if (propertyEditor.beginNode("Used PS Directions")) {
+        bool usedPsChanged = false;
+        usedPsChanged |= propertyEditor.addCheckbox("Major##usedpsmajor", &useMajorPS);
+        usedPsChanged |= propertyEditor.addCheckbox("Medium##usedpsmedium", &useMediumPS);
+        usedPsChanged |= propertyEditor.addCheckbox("Minor##usedpsminor", &useMinorPS);
+        if (usedPsChanged) {
+            setUsedPsDirections({useMajorPS, useMediumPS, useMinorPS});
+            shallReloadGatherShader = true;
+        }
+    }
+
+    bool recomputeOpacityOptimization = false;
+    if (hasLineHierarchy) {
+        if (fileFormatVersion >= 3) {
+            if (propertyEditor.addCombo(
+                    "Line Hierarchy Type", (int*)&lineHierarchyType,
+                    lineHierarchyTypeNames, IM_ARRAYSIZE(lineHierarchyTypeNames))) {
+                updateLineHierarchyHistogram();
+                dirty = true;
+            }
+        }
+        if (!rendererSupportsTransparency && useLineHierarchy) {
+            bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
+            bool sliderChanged = false;
+            for (int psIdx : loadedPsIndices) {
+                ImGui::EditMode editMode = propertyEditor.addSliderFloatEdit(
+                        stressDirectionNames[psIdx], &lineHierarchySliderValues[psIdx], 0.0f, 1.0f);
+                if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
+                    || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
+                    reRender = true;
+                    recomputeOpacityOptimization = true;
+                    sliderChanged = true;
+                }
+            }
+            if (sliderChanged) {
+                bool useLineHierarchyNew = glm::any(
+                        glm::lessThan(lineHierarchySliderValues, glm::vec3(1.0f)));
+                if (isRasterizer) {
+                    if (useLineHierarchy != useLineHierarchyNew) {
+                        shallReloadGatherShader = true;
+                    }
+                }
+                triangleRepresentationDirty = true;
+            }
+        }
+    }
+
+    if (useBands()) {
+        if (propertyEditor.beginNode("Render as Bands")) {
+            bool usedBandsChanged = false;
+            usedBandsChanged |= propertyEditor.addCheckbox("Major##bandsmajor", &psUseBands[0]);
+            usedBandsChanged |= propertyEditor.addCheckbox("Medium##bandsmedium", &psUseBands[1]);
+            usedBandsChanged |= propertyEditor.addCheckbox("Minor##bandsminor", &psUseBands[2]);
+            if (usedBandsChanged) {
+                dirty = true;
+            }
+            propertyEditor.endNode();
+        }
+    }
+
+    if (propertyEditor.beginNode("Advanced Settings")) {
+        if (useBands()) {
+            if (propertyEditor.addCheckbox("Render Thick Bands", &renderThickBands)) {
+                shallReloadGatherShader = true;
+            }
+
+            if (fileFormatVersion >= 3 && propertyEditor.addCheckbox("Smoothed Bands", &useSmoothedBands)) {
+                dirty = true;
+            }
+        }
+
+        if (propertyEditor.addCheckbox(
+                "Use Principal Stress Direction Index", &usePrincipalStressDirectionIndex)) {
+            dirty = true;
+            shallReloadGatherShader = true;
+            recomputeColorLegend();
+        }
+
+        propertyEditor.endNode();
+    }
+
+    if (lineRenderer && renderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION && recomputeOpacityOptimization) {
+        static_cast<OpacityOptimizationRenderer*>(lineRenderer)->onHasMoved();
+    }
+
+    return shallReloadGatherShader;
 }
 
 void LineDataStress::setClearColor(const sgl::Color& clearColor) {

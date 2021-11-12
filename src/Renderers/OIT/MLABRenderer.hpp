@@ -70,6 +70,8 @@ public:
     virtual void render();
     // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
     virtual void renderGui();
+    /// Renders the entries in the property editor.
+    void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
     /// For changing performance measurement modes.
     virtual void setNewState(const InternalState& newState);

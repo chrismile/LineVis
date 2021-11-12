@@ -34,6 +34,7 @@
 #include <Graphics/OpenGL/RendererGL.hpp>
 #include <Graphics/OpenGL/GeometryBuffer.hpp>
 #include <ImGui/imgui_custom.h>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "LineRenderer.hpp"
 
@@ -345,9 +346,9 @@ void LineRenderer::renderGuiWindow() {
             }
 
             if (mode != RENDERING_MODE_SCATTERED_LINES_RENDERER) {
-                EditMode editModeDepthCue = ImGui::SliderFloatEdit(
+                ImGui::EditMode editModeDepthCue = ImGui::SliderFloatEdit(
                         "Depth Cue Strength", &depthCueStrength, 0.0f, 1.0f);
-                if (editModeDepthCue != EditMode::NO_CHANGE) {
+                if (editModeDepthCue != ImGui::EditMode::NO_CHANGE) {
                     reRender = true;
                     internalReRender = true;
                     if (depthCueStrength > 0.0f && !useDepthCues) {
@@ -356,7 +357,7 @@ void LineRenderer::renderGuiWindow() {
                         shallReloadGatherShader = true;
                     }
                 }
-                if (editModeDepthCue == EditMode::INPUT_FINISHED) {
+                if (editModeDepthCue == ImGui::EditMode::INPUT_FINISHED) {
                     if (depthCueStrength <= 0.0f && useDepthCues) {
                         useDepthCues = false;
                         updateDepthCueMode();
@@ -368,9 +369,9 @@ void LineRenderer::renderGuiWindow() {
             if (ambientOcclusionBaker.get() != nullptr
                     && mode != RENDERING_MODE_VOXEL_RAY_CASTING
                     && mode != RENDERING_MODE_SCATTERED_LINES_RENDERER) {
-                EditMode editModeAo = ImGui::SliderFloatEdit(
+                ImGui::EditMode editModeAo = ImGui::SliderFloatEdit(
                         "AO Strength", &ambientOcclusionStrength, 0.0f, 1.0f);
-                if (editModeAo != EditMode::NO_CHANGE) {
+                if (editModeAo != ImGui::EditMode::NO_CHANGE) {
                     reRender = true;
                     internalReRender = true;
                     if (ambientOcclusionStrength > 0.0f && !useAmbientOcclusion) {
@@ -379,7 +380,7 @@ void LineRenderer::renderGuiWindow() {
                         shallReloadGatherShader = true;
                     }
                 }
-                if (editModeAo == EditMode::INPUT_FINISHED) {
+                if (editModeAo == ImGui::EditMode::INPUT_FINISHED) {
                     if (ambientOcclusionStrength <= 0.0f && useAmbientOcclusion) {
                         useAmbientOcclusion = false;
                         updateAmbientOcclusionMode();
@@ -425,6 +426,83 @@ void LineRenderer::renderGuiOverlay() {
     }
 }
 
+void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    bool shallReloadGatherShader = false;
+
+    bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
+    ImGui::EditMode editMode = propertyEditor.addSliderFloatEdit(
+            "Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f");
+    if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
+        || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
+        if (lineData) {
+            lineData->setTriangleRepresentationDirty();
+        }
+        reRender = true;
+        internalReRender = true;
+    }
+
+    if (lineData) {
+        shallReloadGatherShader =
+                lineData->renderGuiRenderingSettingsPropertyEditor(propertyEditor) || shallReloadGatherShader;
+    }
+
+    if (lineData) {
+        RenderingMode mode = getRenderingMode();
+
+        if (lineData->renderGuiPropertyEditorNodesRenderer(propertyEditor, isRasterizer)) {
+            shallReloadGatherShader = true;
+        }
+
+        if (mode != RENDERING_MODE_SCATTERED_LINES_RENDERER) {
+            ImGui::EditMode editModeDepthCue = propertyEditor.addSliderFloatEdit(
+                    "Depth Cue Strength", &depthCueStrength, 0.0f, 1.0f);
+            if (editModeDepthCue != ImGui::EditMode::NO_CHANGE) {
+                reRender = true;
+                internalReRender = true;
+                if (depthCueStrength > 0.0f && !useDepthCues) {
+                    useDepthCues = true;
+                    updateDepthCueMode();
+                    shallReloadGatherShader = true;
+                }
+            }
+            if (editModeDepthCue == ImGui::EditMode::INPUT_FINISHED) {
+                if (depthCueStrength <= 0.0f && useDepthCues) {
+                    useDepthCues = false;
+                    updateDepthCueMode();
+                    shallReloadGatherShader = true;
+                }
+            }
+        }
+
+        if (ambientOcclusionBaker.get() != nullptr
+                && mode != RENDERING_MODE_VOXEL_RAY_CASTING
+                && mode != RENDERING_MODE_SCATTERED_LINES_RENDERER) {
+            ImGui::EditMode editModeAo = propertyEditor.addSliderFloatEdit(
+                    "AO Strength", &ambientOcclusionStrength, 0.0f, 1.0f);
+            if (editModeAo != ImGui::EditMode::NO_CHANGE) {
+                reRender = true;
+                internalReRender = true;
+                if (ambientOcclusionStrength > 0.0f && !useAmbientOcclusion) {
+                    useAmbientOcclusion = true;
+                    updateAmbientOcclusionMode();
+                    shallReloadGatherShader = true;
+                }
+            }
+            if (editModeAo == ImGui::EditMode::INPUT_FINISHED) {
+                if (ambientOcclusionStrength <= 0.0f && useAmbientOcclusion) {
+                    useAmbientOcclusion = false;
+                    updateAmbientOcclusionMode();
+                    shallReloadGatherShader = true;
+                }
+            }
+        }
+    }
+
+    if (shallReloadGatherShader) {
+        reloadGatherShaderExternal();
+    }
+}
+
 void LineRenderer::renderGui() {
     renderLineWidthSlider();
     if (lineData) {
@@ -434,10 +512,10 @@ void LineRenderer::renderGui() {
 
 void LineRenderer::renderLineWidthSlider() {
     bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
-    EditMode editMode = ImGui::SliderFloatEdit(
+    ImGui::EditMode editMode = ImGui::SliderFloatEdit(
             "Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f");
-    if ((canUseLiveUpdate && editMode != EditMode::NO_CHANGE)
-            || (!canUseLiveUpdate && editMode == EditMode::INPUT_FINISHED)) {
+    if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
+            || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
         if (lineData) {
             lineData->setTriangleRepresentationDirty();
         }

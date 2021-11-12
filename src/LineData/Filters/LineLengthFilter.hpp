@@ -39,10 +39,13 @@ public:
     virtual void filterData(LineDataPtr lineDataIn) override;
 
     // Renders the GUI. The "dirty" flag might be set depending on the user's actions.
-    virtual void renderGui() override;
+    void renderGui() override;
+    /// Renders the entries in the property editor.
+    void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
 private:
-    float trajectoryFilteringThreshold = 0.0f;
+    float trajectoryFilteringThresholdMin = 0.0f;
+    float trajectoryFilteringThresholdMax = 0.0f;
     float maxTrajectoryLength = 0.0f;
     std::vector<float> trajectoryLengths;
 };

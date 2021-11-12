@@ -287,6 +287,7 @@ MainApp::MainApp()
     });
 
     useDockSpaceMode = true;
+    showPropertyEditor = useDockSpaceMode;
     sgl::ImGuiWrapper::get()->setUseDockSpaceMode(useDockSpaceMode);
 
     useLinearRGB = false;
@@ -463,6 +464,10 @@ void MainApp::setNewState(const InternalState &newState) {
     usesNewState = true;
 }
 
+void MainApp::scheduleRecreateSceneFramebuffer() {
+    scheduledRecreateSceneFramebuffer = true;
+}
+
 void MainApp::setRenderer() {
     if (lineRenderer) {
         delete lineRenderer;
@@ -477,7 +482,7 @@ void MainApp::setRenderer() {
             } else {
                 sceneDepthRBOType = sgl::RBO_DEPTH24_STENCIL8;
             }
-            createSceneFramebuffer();
+            scheduleRecreateSceneFramebuffer();
         }
         oldRenderingMode = renderingMode;
     }
@@ -562,6 +567,11 @@ void MainApp::updateColorSpaceMode() {
 }
 
 void MainApp::render() {
+    if (scheduledRecreateSceneFramebuffer) {
+        createSceneFramebuffer();
+        scheduledRecreateSceneFramebuffer = false;
+    }
+
     SciVisApp::preRender();
     prepareVisualizationPipeline();
 
@@ -644,6 +654,10 @@ void MainApp::renderGui() {
                 mouseHoverWindowIndex = 0;
             }
 
+            if (showFpsOverlay) {
+                renderGuiFpsOverlay();
+            }
+
             if (lineRenderer) {
                 lineRenderer->renderGuiOverlay();
             }
@@ -704,7 +718,7 @@ void MainApp::renderGui() {
         hasMoved();
     }
 
-    if (useDockSpaceMode) {
+    if (useDockSpaceMode && showPropertyEditor) {
         renderGuiPropertyEditorWindow();
     }
 
@@ -766,8 +780,10 @@ void MainApp::renderGui() {
     }
 #endif
 
-    for (LineFilter* dataFilter : dataFilters) {
-        dataFilter->renderGui();
+    if (!useDockSpaceMode) {
+        for (LineFilter* dataFilter : dataFilters) {
+            dataFilter->renderGui();
+        }
     }
     lineRenderer->renderGuiWindow();
 }
@@ -931,6 +947,31 @@ void MainApp::renderGuiMenuBar() {
         ImGui::EndMainMenuBar();
     }
 }
+
+void MainApp::renderGuiPropertyEditorCustomNodes() {
+    if (lineData) {
+        if (propertyEditor.beginNode(lineData->getLineDataWindowName())) {
+            bool isRasterizer = lineRenderer != nullptr && lineRenderer->getIsRasterizer();
+            lineData->renderGuiPropertyEditorNodes(propertyEditor, isRasterizer);
+            propertyEditor.endNode();
+        }
+    }
+    if (lineData) {
+        if (propertyEditor.beginNode("Line Filters")) {
+            for (LineFilter* dataFilter : dataFilters) {
+                dataFilter->renderGuiPropertyEditorNodes(propertyEditor);
+            }
+            propertyEditor.endNode();
+        }
+    }
+    if (lineRenderer) {
+        if (propertyEditor.beginNode(lineRenderer->getWindowName())) {
+            lineRenderer->renderGuiPropertyEditorNodes(propertyEditor);
+            propertyEditor.endNode();
+        }
+    }
+}
+
 
 void MainApp::update(float dt) {
     sgl::SciVisApp::update(dt);

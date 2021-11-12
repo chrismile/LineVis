@@ -40,25 +40,27 @@ class AutoPerfMeasurer;
 class DepthComplexityRenderer : public LineRenderer {
 public:
     DepthComplexityRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
-    virtual ~DepthComplexityRenderer() {}
+    ~DepthComplexityRenderer() override = default;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_DEPTH_COMPLEXITY; }
 
     /**
      * Re-generates the visualization mapping.
      * @param lineData The render data.
      */
-    virtual void setLineData(LineDataPtr& lineData, bool isNewData);
+    void setLineData(LineDataPtr& lineData, bool isNewData) override;
 
     // Renders the object to the scene framebuffer.
-    virtual void render();
+    void render() override;
     // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
-    virtual void renderGui();
+    void renderGui() override;
+    /// Renders the entries in the property editor.
+    void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
     // Called when the resolution of the application window has changed.
-    virtual void onResolutionChanged();
+    void onResolutionChanged() override;
 
     // Returns if the data needs to be re-rendered, but the visualization mapping is valid.
-    virtual bool needsReRender();
+    bool needsReRender() override;
 
 protected:
     void reloadGatherShader(bool canCopyShaderAttributes = true) override;

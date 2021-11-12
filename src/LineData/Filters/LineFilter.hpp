@@ -31,6 +31,10 @@
 
 #include <memory>
 
+namespace sgl {
+class PropertyEditor;
+}
+
 class LineData;
 typedef std::shared_ptr<LineData> LineDataPtr;
 
@@ -52,6 +56,8 @@ public:
 
     // Renders the GUI. The "dirty" flag might be set depending on the user's actions.
     virtual void renderGui()=0;
+    /// Renders the entries in the property editor.
+    virtual void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor)=0;
 
     /// For changing performance measurement modes.
     virtual void setNewState(const InternalState& newState) {}

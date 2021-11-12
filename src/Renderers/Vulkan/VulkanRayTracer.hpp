@@ -77,6 +77,8 @@ public:
     void render() override;
     // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
     void renderGui() override;
+    /// Renders the entries in the property editor.
+    void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
     // Updates the internal logic (called once per frame).
     void update(float dt) override;
     // Returns if the data needs to be re-rendered, but the visualization mapping is valid.

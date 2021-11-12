@@ -64,15 +64,17 @@ public:
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
 
-    // Renders the object to the scene framebuffer.
+    /// Renders the object to the scene framebuffer.
     void render() override;
-    // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
+    /// Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
     void renderGui() override;
-    // Updates the internal logic (called once per frame).
+    /// Renders the entries in the property editor.
+    void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
+    /// Updates the internal logic (called once per frame).
     void update(float dt) override;
-    // Returns if the data needs to be re-rendered, but the visualization mapping is valid.
+    /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
     bool needsReRender() override;
-    // Called when the camera has moved.
+    // /Called when the camera has moved.
     void onHasMoved() override;
 
     /// For changing performance measurement modes.

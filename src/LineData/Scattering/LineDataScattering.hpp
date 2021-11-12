@@ -83,6 +83,11 @@ public:
      * @return true if the gather shader needs to be reloaded.
      */
     bool renderGuiRenderer(bool isRasterizer) override;
+    /**
+     * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
+     * @return true if the gather shader needs to be reloaded.
+     */
+    bool renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, bool isRasterizer) override;
 
     void setDataSetInformation(const std::string& dataSetName, const std::vector<std::string>& attributeNames);
     void setGridData(

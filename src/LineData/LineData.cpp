@@ -39,6 +39,7 @@
 
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_custom.h>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "Utils/TriangleNormals.hpp"
 #include "Utils/MeshSmoothing.hpp"
@@ -142,18 +143,79 @@ bool LineData::renderGuiRenderer(bool isRasterizer) {
         //    reRender = true;
         //}
 
-        EditMode editModeHullOpacity = ImGui::SliderFloatEdit(
+        ImGui::EditMode editModeHullOpacity = ImGui::SliderFloatEdit(
                 "Hull Opacity", &hullOpacity, 0.0f, 1.0f, "%.4f");
-        if (editModeHullOpacity != EditMode::NO_CHANGE) {
+        if (editModeHullOpacity != ImGui::EditMode::NO_CHANGE) {
             shallRenderSimulationMeshBoundary = hullOpacity > 0.0f;
             reRender = true;
         }
         if (lineRenderer && lineRenderer->isVulkanRenderer && !lineRenderer->isRasterizer
-                && editModeHullOpacity == EditMode::INPUT_FINISHED) {
+                && editModeHullOpacity == ImGui::EditMode::INPUT_FINISHED) {
             lineRenderer->setRenderSimulationMeshHull(shallRenderSimulationMeshBoundary);
         }
         if (shallRenderSimulationMeshBoundary) {
             if (ImGui::ColorEdit3("Hull Color", &hullColor.r)) {
+                reRender = true;
+            }
+        }
+    }
+
+    return shallReloadGatherShader;
+}
+
+bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, bool isRasterizer) {
+    bool shallReloadGatherShader = false;
+
+    if (isRasterizer) {
+        size_t numPrimitiveModes = IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES);
+        if (getType() != DATA_SET_TYPE_STRESS_LINES) {
+            numPrimitiveModes -= 2;
+        }
+        if (renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION && propertyEditor.addCombo(
+                "Line Primitives", (int*)&linePrimitiveMode,
+                LINE_PRIMITIVE_MODE_DISPLAYNAMES, numPrimitiveModes)) {
+            dirty = true;
+            shallReloadGatherShader = true;
+        }
+    }
+
+    bool isTriangleRepresentationUsed = lineRenderer && lineRenderer->getIsTriangleRepresentationUsed();
+    if (isTriangleRepresentationUsed
+        || (isRasterizer && renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION
+            && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
+                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND))) {
+        if (propertyEditor.addSliderInt("Tube Subdivisions", &tubeNumSubdivisions, 3, 8)) {
+            if (isRasterizer) {
+                shallReloadGatherShader = true;
+            }
+            setTriangleRepresentationDirty();
+        }
+    }
+
+    if (lineRenderer && (linePrimitiveMode == LINE_PRIMITIVES_TRIANGLE_MESH || lineRenderer->isVulkanRenderer)) {
+        if (propertyEditor.addCheckbox("Capped Tubes", &useCappedTubes)) {
+            triangleRepresentationDirty = true;
+            if (lineRenderer->isVulkanRenderer && !lineRenderer->isRasterizer) {
+                shallReloadGatherShader = true;
+            }
+        }
+    }
+
+    propertyEditor.addCheckbox("Render Color Legend", &shallRenderColorLegendWidgets);
+
+    if (!simulationMeshOutlineTriangleIndices.empty()) {
+        ImGui::EditMode editModeHullOpacity = propertyEditor.addSliderFloatEdit(
+                "Hull Opacity", &hullOpacity, 0.0f, 1.0f, "%.4f");
+        if (editModeHullOpacity != ImGui::EditMode::NO_CHANGE) {
+            shallRenderSimulationMeshBoundary = hullOpacity > 0.0f;
+            reRender = true;
+        }
+        if (lineRenderer && lineRenderer->isVulkanRenderer && !lineRenderer->isRasterizer
+            && editModeHullOpacity == ImGui::EditMode::INPUT_FINISHED) {
+            lineRenderer->setRenderSimulationMeshHull(shallRenderSimulationMeshBoundary);
+        }
+        if (shallRenderSimulationMeshBoundary) {
+            if (propertyEditor.addColorEdit3("Hull Color", &hullColor.r)) {
                 reRender = true;
             }
         }
@@ -173,6 +235,10 @@ bool LineData::renderGuiLineData(bool isRasterizer) {
 }
 
 bool LineData::renderGuiRenderingSettings() {
+    return false;
+}
+
+bool LineData::renderGuiRenderingSettingsPropertyEditor(sgl::PropertyEditor& propertyEditor) {
     return false;
 }
 
@@ -208,6 +274,79 @@ bool LineData::renderGuiOverlay() {
         colorLegendWidgets.at(selectedAttributeIndex).setAttributeMaxValue(
                 transferFunctionWindow.getSelectedRangeMax());
         colorLegendWidgets.at(selectedAttributeIndex).renderGui();
+    }
+
+    return shallReloadGatherShader;
+}
+
+bool LineData::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor, bool isRasterizer) {
+    bool shallReloadGatherShader = false;
+
+    // Switch importance criterion.
+    if (propertyEditor.addCombo(
+            "Attribute", (int*)&selectedAttributeIndexUi,
+            attributeNames.data(), attributeNames.size())) {
+        setSelectedAttributeIndex(selectedAttributeIndexUi);
+    }
+
+    if (isRasterizer) {
+        size_t numPrimitiveModes = IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES);
+        if (getType() != DATA_SET_TYPE_STRESS_LINES) {
+            numPrimitiveModes -= 2;
+        }
+        if (renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION && propertyEditor.addCombo(
+                "Line Primitives", (int*)&linePrimitiveMode,
+                LINE_PRIMITIVE_MODE_DISPLAYNAMES, numPrimitiveModes)) {
+            dirty = true;
+            shallReloadGatherShader = true;
+        }
+    }
+
+    bool isTriangleRepresentationUsed = lineRenderer && lineRenderer->getIsTriangleRepresentationUsed();
+    if (isTriangleRepresentationUsed
+        || (isRasterizer && renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION
+            && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
+                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND))) {
+        if (propertyEditor.addSliderInt("Tube Subdivisions", &tubeNumSubdivisions, 3, 8)) {
+            if (isRasterizer) {
+                shallReloadGatherShader = true;
+            }
+            setTriangleRepresentationDirty();
+        }
+    }
+
+    if (lineRenderer && (linePrimitiveMode == LINE_PRIMITIVES_TRIANGLE_MESH || lineRenderer->isVulkanRenderer)) {
+        if (propertyEditor.addCheckbox("Capped Tubes", &useCappedTubes)) {
+            triangleRepresentationDirty = true;
+            if (lineRenderer->isVulkanRenderer && !lineRenderer->isRasterizer) {
+                shallReloadGatherShader = true;
+            }
+        }
+        ImGui::SameLine();
+    }
+
+    propertyEditor.addCheckbox("Render Color Legend", &shallRenderColorLegendWidgets);
+
+    if (!simulationMeshOutlineTriangleIndices.empty()) {
+        //if (ImGui::Checkbox("Render Mesh Boundary", &shallRenderSimulationMeshBoundary)) {
+        //    reRender = true;
+        //}
+
+        ImGui::EditMode editModeHullOpacity = propertyEditor.addSliderFloatEdit(
+                "Hull Opacity", &hullOpacity, 0.0f, 1.0f, "%.4f");
+        if (editModeHullOpacity != ImGui::EditMode::NO_CHANGE) {
+            shallRenderSimulationMeshBoundary = hullOpacity > 0.0f;
+            reRender = true;
+        }
+        if (lineRenderer && lineRenderer->isVulkanRenderer && !lineRenderer->isRasterizer
+            && editModeHullOpacity == ImGui::EditMode::INPUT_FINISHED) {
+            lineRenderer->setRenderSimulationMeshHull(shallRenderSimulationMeshBoundary);
+        }
+        if (shallRenderSimulationMeshBoundary) {
+            if (propertyEditor.addColorEdit3("Hull Color", &hullColor.r)) {
+                reRender = true;
+            }
+        }
     }
 
     return shallReloadGatherShader;

@@ -29,12 +29,13 @@
 #include <limits>
 
 #include <ImGui/imgui_custom.h>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "LineData/LineData.hpp"
 #include "MaxLineAttributeFilter.hpp"
 
 void MaxLineAttributeFilter::onDataLoaded(LineDataPtr lineDataIn) {
-    trajectoryFilteringThreshold = 0.0f;
+    trajectoryFilteringThresholdMin = 0.0f;
     minGlobalAttribute = std::numeric_limits<float>::max();
     maxGlobalAttribute = std::numeric_limits<float>::lowest();
     minTrajectoryAttributes.clear();
@@ -57,7 +58,8 @@ void MaxLineAttributeFilter::onDataLoaded(LineDataPtr lineDataIn) {
         minGlobalAttribute = std::min(minGlobalAttribute, minTrajectoryAttribute);
         maxGlobalAttribute = std::max(maxGlobalAttribute, maxTrajectoryAttribute);
     });
-    trajectoryFilteringThreshold = minGlobalAttribute;
+    trajectoryFilteringThresholdMin = minGlobalAttribute;
+    trajectoryFilteringThresholdMax = maxGlobalAttribute;
 
     canUseLiveUpdate = lineDataIn->getCanUseLiveUpdate(LineDataAccessType::FILTERED_LINES);
 }
@@ -69,7 +71,8 @@ void MaxLineAttributeFilter::filterData(LineDataPtr lineDataIn) {
 
     size_t trajectoryIdx = 0;
     lineDataIn->filterTrajectories([this, &trajectoryIdx, lineDataIn](const Trajectory& trajectory) -> bool {
-        return maxTrajectoryAttributes.at(trajectoryIdx++) < trajectoryFilteringThreshold;
+        float attributeValue = maxTrajectoryAttributes.at(trajectoryIdx++);
+        return attributeValue < trajectoryFilteringThresholdMin || attributeValue > trajectoryFilteringThresholdMax;
     });
     dirty = false;
 }
@@ -77,12 +80,41 @@ void MaxLineAttributeFilter::filterData(LineDataPtr lineDataIn) {
 void MaxLineAttributeFilter::renderGui() {
     sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(3220, 1932, 612, 120);
     if (ImGui::Begin("Line Attribute Filter", &showFilterWindow)) {
-        EditMode editMode = ImGui::SliderFloatEdit(
-                "Min. Attribute", &trajectoryFilteringThreshold, minGlobalAttribute, maxGlobalAttribute);
-        if ((canUseLiveUpdate && editMode != EditMode::NO_CHANGE)
-                || (!canUseLiveUpdate && editMode == EditMode::INPUT_FINISHED)) {
+        glm::vec2 newRange(trajectoryFilteringThresholdMin, trajectoryFilteringThresholdMax);
+        ImGui::EditMode editMode = ImGui::SliderFloatEdit(
+                "Attribute Range", &newRange.x, minGlobalAttribute, maxGlobalAttribute);
+        if (editMode != ImGui::EditMode::NO_CHANGE && newRange.x > newRange.y) {
+            if (newRange.x != trajectoryFilteringThresholdMin) {
+                newRange.x = newRange.y;
+            } else {
+                newRange.y = newRange.x;
+            }
+        }
+        trajectoryFilteringThresholdMin = newRange.x;
+        trajectoryFilteringThresholdMax = newRange.y;
+        if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
+            || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
             dirty = true;
         }
     }
     ImGui::End();
+}
+
+void MaxLineAttributeFilter::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    glm::vec2 newRange(trajectoryFilteringThresholdMin, trajectoryFilteringThresholdMax);
+    ImGui::EditMode editMode = propertyEditor.addSliderFloat2Edit(
+            "Attribute Range", &newRange.x, minGlobalAttribute, maxGlobalAttribute);
+    if (editMode != ImGui::EditMode::NO_CHANGE && newRange.x > newRange.y) {
+        if (newRange.x != trajectoryFilteringThresholdMin) {
+            newRange.x = newRange.y;
+        } else {
+            newRange.y = newRange.x;
+        }
+    }
+    trajectoryFilteringThresholdMin = newRange.x;
+    trajectoryFilteringThresholdMax = newRange.y;
+    if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
+        || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
+        dirty = true;
+    }
 }
