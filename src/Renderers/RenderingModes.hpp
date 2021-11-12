@@ -34,12 +34,12 @@ enum RenderingMode {
     RENDERING_MODE_OPACITY_OPTIMIZATION, RENDERING_MODE_DEPTH_COMPLEXITY, RENDERING_MODE_MBOIT,
     RENDERING_MODE_MLAB_BUCKETS, RENDERING_MODE_WBOIT, RENDERING_MODE_DEPTH_PEELING,
     RENDERING_MODE_VULKAN_RAY_TRACER, RENDERING_MODE_VOXEL_RAY_CASTING, RENDERING_MODE_VULKAN_TEST,
-    RENDERING_MODE_OSPRAY_RAY_TRACER, RENDERING_MODE_SCATTERED_LINES_RENDERER
+    RENDERING_MODE_OSPRAY_RAY_TRACER, RENDERING_MODE_LINE_DENSITY_MAP_RENDERER
 };
 const char* const RENDERING_MODE_NAMES[] = {
         "Opaque", "Per-Pixel Linked Lists", "Multi-Layer Alpha Blending", "Opacity Optimization", "Depth Complexity",
         "Moment-Based OIT", "MLAB (Buckets)", "WBOIT", "Depth Peeling", "Vulkan Ray Tracer", "Voxel Ray Casting",
-        "Vulkan Test", "OSPRay Ray Tracer", "Scattered Lines Renderer"
+        "Vulkan Test", "OSPRay Ray Tracer", "Line Density Map Renderer"
 };
 const int NUM_RENDERING_MODES = ((int)(sizeof(RENDERING_MODE_NAMES) / sizeof(*RENDERING_MODE_NAMES)));
 

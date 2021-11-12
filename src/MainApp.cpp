@@ -76,7 +76,7 @@
 #ifdef USE_VULKAN_INTEROP
 #include "Renderers/Vulkan/VulkanRayTracer.hpp"
 #include "Renderers/Vulkan/VulkanTestRenderer.hpp"
-#include "Renderers/Vulkan/Scattering/ScatteredLinesRenderer.hpp"
+#include "Renderers/Vulkan/Scattering/LineDensityMapRenderer.hpp"
 #include "Renderers/Vulkan/VulkanAmbientOcclusionBaker.hpp"
 #include <Graphics/Vulkan/Utils/Instance.hpp>
 
@@ -532,8 +532,8 @@ void MainApp::setRenderer() {
     }
 #endif
 #ifdef USE_VULKAN_INTEROP
-    else if (renderingMode == RENDERING_MODE_SCATTERED_LINES_RENDERER) {
-        lineRenderer = new ScatteredLinesRenderer(sceneData, transferFunctionWindow, rendererVk);
+    else if (renderingMode == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
+        lineRenderer = new LineDensityMapRenderer(sceneData, transferFunctionWindow, rendererVk);
     }
 #endif
     else {

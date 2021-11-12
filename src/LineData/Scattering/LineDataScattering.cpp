@@ -135,7 +135,7 @@ void LineDataScattering::setGridData(
 }
 
 void LineDataScattering::recomputeHistogram() {
-    if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_SCATTERED_LINES_RENDERER
+    if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER
             && (histogramNeverComputedBefore || !isVolumeRenderer)) {
         selectedAttributeIndex = int(attributeNames.size());
         isVolumeRenderer = true;
@@ -146,7 +146,7 @@ void LineDataScattering::recomputeHistogram() {
 
         recomputeColorLegend();
     }
-    if ((!lineRenderer || lineRenderer->getRenderingMode() != RENDERING_MODE_SCATTERED_LINES_RENDERER)
+    if ((!lineRenderer || lineRenderer->getRenderingMode() != RENDERING_MODE_LINE_DENSITY_MAP_RENDERER)
             && (histogramNeverComputedBefore || isVolumeRenderer)) {
         selectedAttributeIndex = 0;
         isVolumeRenderer = false;
@@ -159,7 +159,7 @@ void LineDataScattering::recomputeHistogram() {
 bool LineDataScattering::renderGuiRenderer(bool isRasterizer) {
     bool shallReloadGatherShader = LineData::renderGuiRenderer(isRasterizer);
 #ifdef USE_VULKAN_INTEROP
-    if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_SCATTERED_LINES_RENDERER) {
+    if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
         if (ImGui::Checkbox("Use Line Segment Length", &useLineSegmentLengthForDensityField)) {
             dirty = true;
             reRender = true;
@@ -173,7 +173,7 @@ bool LineDataScattering::renderGuiRenderer(bool isRasterizer) {
 bool LineDataScattering::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, bool isRasterizer) {
     bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodesRenderer(propertyEditor, isRasterizer);
 #ifdef USE_VULKAN_INTEROP
-    if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_SCATTERED_LINES_RENDERER) {
+    if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
         if (propertyEditor.addCheckbox("Use Line Segment Length", &useLineSegmentLengthForDensityField)) {
             dirty = true;
             reRender = true;

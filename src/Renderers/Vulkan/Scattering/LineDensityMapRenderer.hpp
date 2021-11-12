@@ -26,8 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEVIS_SCATTEREDLINESRENDERER_HPP
-#define LINEVIS_SCATTEREDLINESRENDERER_HPP
+#ifndef LINEVIS_LINEDENSITYMAPRENDERER_HPP
+#define LINEVIS_LINEDENSITYMAPRENDERER_HPP
 
 #include <Graphics/Vulkan/Render/Passes/Pass.hpp>
 
@@ -55,12 +55,12 @@ class LineDensityFieldDvrPass;
 /**
  * A dummy renderer for testing OpenGL-Vulkan interoperability.
  */
-class ScatteredLinesRenderer : public LineRenderer {
+class LineDensityMapRenderer : public LineRenderer {
 public:
-    ScatteredLinesRenderer(
+    LineDensityMapRenderer(
             SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
-    ~ScatteredLinesRenderer() override;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_SCATTERED_LINES_RENDERER; }
+    ~LineDensityMapRenderer() override;
+    RenderingMode getRenderingMode() override { return RENDERING_MODE_LINE_DENSITY_MAP_RENDERER; }
 
     /// Returns whether the triangle representation is used by the renderer.
     bool getIsTriangleRepresentationUsed() const override { return false; }
@@ -172,4 +172,4 @@ private:
     sgl::vk::BufferPtr renderSettingsBuffer;
 };
 
-#endif //LINEVIS_SCATTEREDLINESRENDERER_HPP
+#endif //LINEVIS_LINEDENSITYMAPRENDERER_HPP

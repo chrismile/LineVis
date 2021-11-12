@@ -45,11 +45,11 @@
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "LineData/Scattering/LineDataScattering.hpp"
-#include "ScatteredLinesRenderer.hpp"
+#include "LineDensityMapRenderer.hpp"
 
 using namespace sgl;
 
-ScatteredLinesRenderer::ScatteredLinesRenderer(
+LineDensityMapRenderer::LineDensityMapRenderer(
         SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
         : LineRenderer("Scattered Lines Renderer", sceneData, transferFunctionWindow),
           rendererVk(rendererVk) {
@@ -66,11 +66,11 @@ ScatteredLinesRenderer::ScatteredLinesRenderer(
     onResolutionChanged();
 }
 
-ScatteredLinesRenderer::~ScatteredLinesRenderer() {
+LineDensityMapRenderer::~LineDensityMapRenderer() {
     sgl::AppSettings::get()->getPrimaryDevice()->waitIdle();
 }
 
-void ScatteredLinesRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
+void LineDensityMapRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
 
     dirty = false;
@@ -86,7 +86,7 @@ void ScatteredLinesRenderer::setLineData(LineDataPtr& lineData, bool isNewData) 
     lineDensityFieldDvrPass->setLineData(lineData, isNewData);
 }
 
-void ScatteredLinesRenderer::onResolutionChanged() {
+void LineDensityMapRenderer::onResolutionChanged() {
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
     auto width = uint32_t(window->getWidth());
@@ -105,7 +105,7 @@ void ScatteredLinesRenderer::onResolutionChanged() {
     lineDensityFieldDvrPass->recreateSwapchain(width, height);
 }
 
-void ScatteredLinesRenderer::render() {
+void LineDensityMapRenderer::render() {
     LineRenderer::render();
 
     if (lineData && lineData->getType() != DATA_SET_TYPE_SCATTERING_LINES) {
@@ -145,7 +145,7 @@ void ScatteredLinesRenderer::render() {
             true);
 }
 
-void ScatteredLinesRenderer::renderGui() {
+void LineDensityMapRenderer::renderGui() {
     bool somethingChanged = lineDensityFieldDvrPass->renderGui();
 
     if (somethingChanged) {
@@ -153,7 +153,7 @@ void ScatteredLinesRenderer::renderGui() {
     }
 }
 
-void ScatteredLinesRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+void LineDensityMapRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool somethingChanged = lineDensityFieldDvrPass->renderGuiPropertyEditorNodes(propertyEditor);
 
     if (somethingChanged) {

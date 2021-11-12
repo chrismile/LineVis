@@ -345,7 +345,7 @@ void LineRenderer::renderGuiWindow() {
                 shallReloadGatherShader = true;
             }
 
-            if (mode != RENDERING_MODE_SCATTERED_LINES_RENDERER) {
+            if (mode != RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
                 ImGui::EditMode editModeDepthCue = ImGui::SliderFloatEdit(
                         "Depth Cue Strength", &depthCueStrength, 0.0f, 1.0f);
                 if (editModeDepthCue != ImGui::EditMode::NO_CHANGE) {
@@ -368,7 +368,7 @@ void LineRenderer::renderGuiWindow() {
 
             if (ambientOcclusionBaker.get() != nullptr
                     && mode != RENDERING_MODE_VOXEL_RAY_CASTING
-                    && mode != RENDERING_MODE_SCATTERED_LINES_RENDERER) {
+                    && mode != RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
                 ImGui::EditMode editModeAo = ImGui::SliderFloatEdit(
                         "AO Strength", &ambientOcclusionStrength, 0.0f, 1.0f);
                 if (editModeAo != ImGui::EditMode::NO_CHANGE) {
@@ -453,7 +453,7 @@ void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
             shallReloadGatherShader = true;
         }
 
-        if (mode != RENDERING_MODE_SCATTERED_LINES_RENDERER) {
+        if (mode != RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
             ImGui::EditMode editModeDepthCue = propertyEditor.addSliderFloatEdit(
                     "Depth Cue Strength", &depthCueStrength, 0.0f, 1.0f);
             if (editModeDepthCue != ImGui::EditMode::NO_CHANGE) {
@@ -476,7 +476,7 @@ void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
 
         if (ambientOcclusionBaker.get() != nullptr
                 && mode != RENDERING_MODE_VOXEL_RAY_CASTING
-                && mode != RENDERING_MODE_SCATTERED_LINES_RENDERER) {
+                && mode != RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
             ImGui::EditMode editModeAo = propertyEditor.addSliderFloatEdit(
                     "AO Strength", &ambientOcclusionStrength, 0.0f, 1.0f);
             if (editModeAo != ImGui::EditMode::NO_CHANGE) {
