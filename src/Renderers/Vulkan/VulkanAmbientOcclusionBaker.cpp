@@ -71,7 +71,7 @@ void VulkanAmbientOcclusionBaker::waitCommandBuffersFinished() {
 
 void VulkanAmbientOcclusionBaker::deriveOptimalAoSettingsFromLineData(LineDataPtr& lineData) {
     float linesLengthSum = 0.0f;
-    std::vector<std::vector<glm::vec3>> lines = lineData->getFilteredLines();
+    std::vector<std::vector<glm::vec3>> lines = lineData->getFilteredLines(nullptr);
 #if _OPENMP >= 201107
     #pragma omp parallel for reduction(+: linesLengthSum) shared(lines) default(none)
 #endif
@@ -502,15 +502,15 @@ AmbientOcclusionComputeRenderPass::AmbientOcclusionComputeRenderPass(sgl::vk::Re
 }
 
 void AmbientOcclusionComputeRenderPass::setLineData(LineDataPtr& lineData) {
-    topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS();
-    lines = lineData->getFilteredLines();
+    topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS(nullptr);
+    lines = lineData->getFilteredLines(nullptr);
 
     if (this->lineData && this->lineData->getType() != lineData->getType()) {
         setShaderDirty();
     }
     this->lineData = lineData;
 
-    linePointsBuffer = lineData->getVulkanTubeTriangleRenderData(true).linePointBuffer;
+    linePointsBuffer = lineData->getVulkanTubeTriangleRenderData(nullptr, true).linePointBuffer;
 
     numLineVertices = linePointsBuffer ? uint32_t(linePointsBuffer->getSizeInBytes() / sizeof(TubeLinePointData)) : 0;
     if (numLineVertices != 0) {
@@ -700,7 +700,7 @@ void AmbientOcclusionComputeRenderPass::createComputeData(
 }
 
 void AmbientOcclusionComputeRenderPass::_render() {
-    lineData->updateVulkanUniformBuffers(renderer);
+    lineData->updateVulkanUniformBuffers(nullptr, renderer);
 
     lineRenderSettings.lineRadius = LineRenderer::getLineWidth() * 0.5f;
     lineRenderSettings.ambientOcclusionRadius = ambientOcclusionRadius;

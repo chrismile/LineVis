@@ -50,9 +50,22 @@ void LineRenderer::initialize() {
     sgl::ShaderManager->addPreprocessorDefine("COMPUTE_DEPTH_CUES_GPU", "");
     computeDepthValuesShaderProgram = sgl::ShaderManager->getShaderProgram({"ComputeDepthValues.Compute"});
     minMaxReduceDepthShaderProgram = sgl::ShaderManager->getShaderProgram({"MinMaxReduce.Compute"});
+
+    // Add events for interaction with line data.
+    onTransferFunctionMapRebuiltListenerToken = sgl::EventManager::get()->addListener(
+            ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT, [this](const sgl::EventPtr&) {
+                this->onTransferFunctionMapRebuilt();
+            });
+
+    isInitialized = true;
 }
 
 LineRenderer::~LineRenderer() {
+    if (isInitialized) {
+        sgl::EventManager::get()->removeListener(
+                ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT, onTransferFunctionMapRebuiltListenerToken);
+    }
+
     if (useDepthCues) {
         sgl::ShaderManager->removePreprocessorDefine("USE_SCREEN_SPACE_POSITION");
         sgl::ShaderManager->removePreprocessorDefine("USE_DEPTH_CUES");
@@ -94,7 +107,7 @@ void LineRenderer::updateAmbientOcclusionMode() {
 }
 
 void LineRenderer::updateDepthCueGeometryData() {
-    filteredLines = lineData->getFilteredLines();
+    filteredLines = lineData->getFilteredLines(this);
     std::vector<glm::vec4> filteredLinesVertices;
     for (std::vector<glm::vec3>& line : filteredLines) {
         for (const glm::vec3& point : line) {
@@ -328,92 +341,6 @@ void LineRenderer::render() {
     }
 }
 
-void LineRenderer::renderGuiWindow() {
-    bool shallReloadGatherShader = false;
-
-    if (windowName == "Opaque Line Renderer") {
-        sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(2, 14, 735, 564);
-    }
-    if (ImGui::Begin(windowName.c_str(), &showRendererWindow)) {
-        this->renderGui();
-
-        if (lineData) {
-            RenderingMode mode = getRenderingMode();
-
-            ImGui::Separator();
-            if (lineData->renderGuiRenderer(isRasterizer)) {
-                shallReloadGatherShader = true;
-            }
-
-            if (mode != RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
-                ImGui::EditMode editModeDepthCue = ImGui::SliderFloatEdit(
-                        "Depth Cue Strength", &depthCueStrength, 0.0f, 1.0f);
-                if (editModeDepthCue != ImGui::EditMode::NO_CHANGE) {
-                    reRender = true;
-                    internalReRender = true;
-                    if (depthCueStrength > 0.0f && !useDepthCues) {
-                        useDepthCues = true;
-                        updateDepthCueMode();
-                        shallReloadGatherShader = true;
-                    }
-                }
-                if (editModeDepthCue == ImGui::EditMode::INPUT_FINISHED) {
-                    if (depthCueStrength <= 0.0f && useDepthCues) {
-                        useDepthCues = false;
-                        updateDepthCueMode();
-                        shallReloadGatherShader = true;
-                    }
-                }
-            }
-
-            if (ambientOcclusionBaker.get() != nullptr
-                    && mode != RENDERING_MODE_VOXEL_RAY_CASTING
-                    && mode != RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
-                ImGui::EditMode editModeAo = ImGui::SliderFloatEdit(
-                        "AO Strength", &ambientOcclusionStrength, 0.0f, 1.0f);
-                if (editModeAo != ImGui::EditMode::NO_CHANGE) {
-                    reRender = true;
-                    internalReRender = true;
-                    if (ambientOcclusionStrength > 0.0f && !useAmbientOcclusion) {
-                        useAmbientOcclusion = true;
-                        updateAmbientOcclusionMode();
-                        shallReloadGatherShader = true;
-                    }
-                }
-                if (editModeAo == ImGui::EditMode::INPUT_FINISHED) {
-                    if (ambientOcclusionStrength <= 0.0f && useAmbientOcclusion) {
-                        useAmbientOcclusion = false;
-                        updateAmbientOcclusionMode();
-                        shallReloadGatherShader = true;
-                    }
-                }
-            }
-        }
-    }
-    ImGui::End();
-
-    if (useAmbientOcclusion && ambientOcclusionBaker) {
-        if (ambientOcclusionBaker->renderGui()) {
-            reRender = true;
-            internalReRender = true;
-            if (isVulkanRenderer) {
-                ambientOcclusionBuffersDirty = true;
-            }
-        }
-    }
-
-    if (lineData && lineData->renderGuiWindow(isRasterizer)) {
-        shallReloadGatherShader = true;
-    }
-    if (lineData && lineData->renderGuiWindowSecondary(isRasterizer)) {
-        shallReloadGatherShader = true;
-    }
-
-    if (shallReloadGatherShader) {
-        reloadGatherShaderExternal();
-    }
-}
-
 void LineRenderer::renderGuiOverlay() {
     bool shallReloadGatherShader = false;
 
@@ -449,7 +376,7 @@ void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
     if (lineData) {
         RenderingMode mode = getRenderingMode();
 
-        if (lineData->renderGuiPropertyEditorNodesRenderer(propertyEditor, isRasterizer)) {
+        if (lineData->renderGuiPropertyEditorNodesRenderer(propertyEditor, this)) {
             shallReloadGatherShader = true;
         }
 
@@ -500,27 +427,6 @@ void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
 
     if (shallReloadGatherShader) {
         reloadGatherShaderExternal();
-    }
-}
-
-void LineRenderer::renderGui() {
-    renderLineWidthSlider();
-    if (lineData) {
-        lineData->renderGuiRenderingSettings();
-    }
-}
-
-void LineRenderer::renderLineWidthSlider() {
-    bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
-    ImGui::EditMode editMode = ImGui::SliderFloatEdit(
-            "Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f");
-    if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
-            || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
-        if (lineData) {
-            lineData->setTriangleRepresentationDirty();
-        }
-        reRender = true;
-        internalReRender = true;
     }
 }
 

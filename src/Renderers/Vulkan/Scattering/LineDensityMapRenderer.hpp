@@ -49,7 +49,6 @@ typedef std::shared_ptr<RasterData> RasterDataPtr;
 class Renderer;
 }}
 
-class AabbRenderPass;
 class LineDensityFieldDvrPass;
 
 /**
@@ -76,8 +75,6 @@ public:
 
     // Renders the object to the scene framebuffer.
     void render() override;
-    // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
-    void renderGui() override;
     /// Renders the entries in the property editor.
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
@@ -92,40 +89,6 @@ private:
     std::shared_ptr<LineDensityFieldDvrPass> lineDensityFieldDvrPass;
 };
 
-class AabbRenderPass : public sgl::vk::RasterPass {
-public:
-    explicit AabbRenderPass(sgl::vk::Renderer* renderer, sgl::CameraPtr camera);
-
-    // Public interface.
-    void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
-    void setBackgroundColor(const glm::vec4& color);
-    void setLineData(LineDataPtr& lineData, bool isNewData);
-
-    void recreateSwapchain(uint32_t width, uint32_t height) override;
-
-protected:
-    void loadShader() override;
-    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
-    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
-    void _render() override;
-
-private:
-    sgl::CameraPtr camera;
-    LineDataPtr lineData;
-    sgl::vk::ImageViewPtr sceneImageView;
-    sgl::vk::ImageViewPtr depthImageView;
-    glm::vec4 backgroundColor{};
-
-    sgl::vk::BufferPtr indexBuffer;
-    sgl::vk::BufferPtr vertexBuffer;
-
-    struct RenderSettingsData {
-        glm::vec3 cameraPosition;
-    };
-    RenderSettingsData renderSettingsData{};
-    sgl::vk::BufferPtr renderSettingsBuffer;
-};
-
 /**
  * Direct volume rendering (DVR) pass.
  */
@@ -137,7 +100,6 @@ public:
     void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
     void setBackgroundColor(const glm::vec4& color);
     void setLineData(LineDataPtr& lineData, bool isNewData);
-    bool renderGui();
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
 
 protected:

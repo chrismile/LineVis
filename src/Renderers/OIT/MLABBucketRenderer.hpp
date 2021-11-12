@@ -53,25 +53,23 @@
 class MLABBucketRenderer : public MLABRenderer {
 public:
     MLABBucketRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
-    virtual void initialize();
-    virtual ~MLABBucketRenderer();
+    void initialize() override;
+    ~MLABBucketRenderer() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_MLAB_BUCKETS; }
 
     /**
      * Re-generates the visualization mapping.
      * @param lineData The render data.
      */
-    virtual void setLineData(LineDataPtr& lineData, bool isNewData);
+    void setLineData(LineDataPtr& lineData, bool isNewData) override;
 
     // Renders the object to the scene framebuffer.
-    virtual void render();
-    // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
-    virtual void renderGui();
+    void render() override;
     /// Renders the entries in the property editor.
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
     /// For changing performance measurement modes.
-    virtual void setNewState(const InternalState& newState);
+    void setNewState(const InternalState& newState) override;
 
 protected:
     void reloadGatherShader(bool canCopyShaderAttributes = true) override;

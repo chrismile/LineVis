@@ -78,16 +78,14 @@ public:
     inline const sgl::AABB3& getGridBoundingBox() const { return gridAabb; }
     inline bool getUseLineSegmentLengthForDensityField() const { return useLineSegmentLengthForDensityField; }
 
+    /// Set current rendering modes (e.g. for making visible certain UI options only for certain renderers).
+    virtual void setLineRenderers(const std::vector<LineRenderer*> lineRenderers);
+
     /**
      * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
      * @return true if the gather shader needs to be reloaded.
      */
-    bool renderGuiRenderer(bool isRasterizer) override;
-    /**
-     * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
-     * @return true if the gather shader needs to be reloaded.
-     */
-    bool renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, bool isRasterizer) override;
+    bool renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer) override;
 
     void setDataSetInformation(const std::string& dataSetName, const std::vector<std::string>& attributeNames);
     void setGridData(
@@ -104,8 +102,8 @@ public:
 #ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---
     VulkanLineDataScatteringRenderData getVulkanLineDataScatteringRenderData();
-    VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(bool raytracing) override;
-    VulkanTubeAabbRenderData getVulkanTubeAabbRenderData() override;
+    VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
+    VulkanTubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) override;
     VulkanHullTriangleRenderData getVulkanHullTriangleRenderData(bool raytracing) override;
 #endif
 
@@ -117,6 +115,7 @@ private:
     float voxelSizeX = 0.0f, voxelSizeY = 0.0f, voxelSizeZ = 0.0f;
     sgl::AABB3 gridAabb;
     bool histogramNeverComputedBefore = true;
+    bool lineRenderersUseVolumeRenderer = false;
     bool isVolumeRenderer = false;
     bool useLineSegmentLengthForDensityField = true;
 

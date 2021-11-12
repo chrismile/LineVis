@@ -55,27 +55,25 @@ const int MESH_MODE_DEPTH_COMPLEXITIES_PPLL[4][2] = {
 class PerPixelLinkedListLineRenderer : public LineRenderer {
 public:
     PerPixelLinkedListLineRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
-    virtual ~PerPixelLinkedListLineRenderer();
+    ~PerPixelLinkedListLineRenderer() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_PER_PIXEL_LINKED_LIST; }
 
     /**
      * Re-generates the visualization mapping.
      * @param lineData The render data.
      */
-    virtual void setLineData(LineDataPtr& lineData, bool isNewData);
+    void setLineData(LineDataPtr& lineData, bool isNewData) override;
 
     /// Called when the resolution of the application window has changed.
-    virtual void onResolutionChanged();
+    void onResolutionChanged() override;
 
     // Renders the object to the scene framebuffer.
-    virtual void render();
-    // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
-    virtual void renderGui();
+    void render() override;
     /// Renders the entries in the property editor.
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
     /// For changing performance measurement modes.
-    virtual void setNewState(const InternalState& newState);
+    void setNewState(const InternalState& newState) override;
 
 protected:
     void setSortingAlgorithmDefine();

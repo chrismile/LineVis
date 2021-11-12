@@ -97,12 +97,13 @@ void LineDataStress::update(float dt) {
     }
 }
 
-void LineDataStress::setRenderingMode(RenderingMode renderingMode) {
-    LineData::setRenderingMode(renderingMode);
-    rendererSupportsTransparency =
-            renderingMode != RENDERING_MODE_ALL_LINES_OPAQUE
-            && renderingMode != RENDERING_MODE_VULKAN_RAY_TRACER
-            && renderingMode != RENDERING_MODE_VOXEL_RAY_CASTING;
+void LineDataStress::setRenderingModes(const std::vector<RenderingMode>& renderingModes) {
+    LineData::setRenderingModes(renderingModes);
+    rendererSupportsTransparency = std::all_of(renderingModes.cbegin(), renderingModes.cend(), [](RenderingMode mode){
+        return mode != RENDERING_MODE_ALL_LINES_OPAQUE
+               && mode != RENDERING_MODE_VULKAN_RAY_TRACER
+               && mode != RENDERING_MODE_VOXEL_RAY_CASTING;
+    });
 }
 
 bool LineDataStress::setNewSettings(const SettingsMap& settings) {
@@ -165,122 +166,17 @@ bool LineDataStress::setNewSettings(const SettingsMap& settings) {
         recomputeColorLegend();
     }
 
-    if (lineRenderer && renderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION && recomputeOpacityOptimization) {
-        static_cast<OpacityOptimizationRenderer*>(lineRenderer)->onHasMoved();
+    if (recomputeOpacityOptimization) {
+        sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(ON_OPACITY_OPTIMIZATION_RECOMPUTE_EVENT));
     }
 
     return shallReloadGatherShader;
 }
 
-bool LineDataStress::renderGuiRenderer(bool isRasterizer) {
-    bool shallReloadGatherShader = LineData::renderGuiRenderer(isRasterizer);
+bool LineDataStress::renderGuiPropertyEditorNodesRenderer(
+        sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer) {
+    bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodesRenderer(propertyEditor, lineRenderer);
     return shallReloadGatherShader;
-}
-
-bool LineDataStress::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, bool isRasterizer) {
-    bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodesRenderer(propertyEditor, isRasterizer);
-    return shallReloadGatherShader;
-}
-
-bool LineDataStress::renderGuiLineData(bool isRasterizer) {
-    bool shallReloadGatherShader = LineData::renderGuiLineData(isRasterizer);
-
-    bool usedPsChanged = false;
-    usedPsChanged |= ImGui::Checkbox("Major##usedpsmajor", &useMajorPS); ImGui::SameLine();
-    usedPsChanged |= ImGui::Checkbox("Medium##usedpsmedium", &useMediumPS); ImGui::SameLine();
-    usedPsChanged |= ImGui::Checkbox("Minor##usedpsminor", &useMinorPS);
-    if (usedPsChanged) {
-        setUsedPsDirections({useMajorPS, useMediumPS, useMinorPS});
-        shallReloadGatherShader = true;
-    }
-
-    bool recomputeOpacityOptimization = false;
-    if (hasLineHierarchy) {
-        if (fileFormatVersion >= 3) {
-            if (ImGui::Combo(
-                    "Line Hierarchy Type", (int*)&lineHierarchyType,
-                    lineHierarchyTypeNames, IM_ARRAYSIZE(lineHierarchyTypeNames))) {
-                updateLineHierarchyHistogram();
-                dirty = true;
-            }
-        }
-        if (!rendererSupportsTransparency && useLineHierarchy) {
-            bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
-            bool sliderChanged = false;
-            for (int psIdx : loadedPsIndices) {
-                ImGui::EditMode editMode = ImGui::SliderFloatEdit(
-                        stressDirectionNames[psIdx], &lineHierarchySliderValues[psIdx], 0.0f, 1.0f);
-                if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
-                        || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
-                    reRender = true;
-                    recomputeOpacityOptimization = true;
-                    sliderChanged = true;
-                }
-            }
-            if (sliderChanged) {
-                bool useLineHierarchyNew = glm::any(
-                        glm::lessThan(lineHierarchySliderValues, glm::vec3(1.0f)));
-                if (isRasterizer) {
-                    if (useLineHierarchy != useLineHierarchyNew) {
-                        shallReloadGatherShader = true;
-                    }
-                }
-                triangleRepresentationDirty = true;
-            }
-        }
-    }
-
-    if (useBands()) {
-        ImGui::Text("Render as bands:");
-        bool usedBandsChanged = false;
-        usedBandsChanged |= ImGui::Checkbox("Major##bandsmajor", &psUseBands[0]); ImGui::SameLine();
-        usedBandsChanged |= ImGui::Checkbox("Medium##bandsmedium", &psUseBands[1]); ImGui::SameLine();
-        usedBandsChanged |= ImGui::Checkbox("Minor##bandsminor", &psUseBands[2]);
-        if (usedBandsChanged) {
-            dirty = true;
-        }
-    }
-
-    if (ImGui::CollapsingHeader(
-            "Advanced Settings", nullptr, 0)) {
-        if (useBands()) {
-            if (ImGui::Checkbox("Render Thick Bands", &renderThickBands)) {
-                shallReloadGatherShader = true;
-            }
-            ImGui::SameLine();
-
-            if (fileFormatVersion >= 3 && ImGui::Checkbox("Smoothed Bands", &useSmoothedBands)) {
-                dirty = true;
-            }
-        }
-
-        if (ImGui::Checkbox("Use Principal Stress Direction Index", &usePrincipalStressDirectionIndex)) {
-            dirty = true;
-            shallReloadGatherShader = true;
-            recomputeColorLegend();
-        }
-    }
-
-    if (lineRenderer && renderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION && recomputeOpacityOptimization) {
-        static_cast<OpacityOptimizationRenderer*>(lineRenderer)->onHasMoved();
-    }
-
-    return shallReloadGatherShader;
-}
-
-bool LineDataStress::renderGuiRenderingSettings() {
-    bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
-    if (useBands()) {
-        ImGui::EditMode editMode = ImGui::SliderFloatEdit(
-                "Band Width", &LineRenderer::bandWidth, LineRenderer::MIN_BAND_WIDTH, LineRenderer::MAX_BAND_WIDTH,
-                "%.4f");
-        if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
-                || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
-            reRender = true;
-            setTriangleRepresentationDirty();
-        }
-    }
-    return false;
 }
 
 bool LineDataStress::renderGuiRenderingSettingsPropertyEditor(sgl::PropertyEditor& propertyEditor) {
@@ -298,26 +194,24 @@ bool LineDataStress::renderGuiRenderingSettingsPropertyEditor(sgl::PropertyEdito
     return false;
 }
 
-bool LineDataStress::renderGuiWindowSecondary(bool isRasterizer) {
+bool LineDataStress::renderGuiWindowSecondary() {
     if (rendererSupportsTransparency && useLineHierarchy) {
         bool hierarchyMappingChanged = stressLineHierarchyMappingWidget.renderGui();
         reRender = reRender || hierarchyMappingChanged;
-        if (lineRenderer && renderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION) {
-            static_cast<OpacityOptimizationRenderer*>(lineRenderer)->onHasMoved();
-        }
+        sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(
+                ON_OPACITY_OPTIMIZATION_RECOMPUTE_EVENT));
     }
 
     if (usePrincipalStressDirectionIndex && multiVarTransferFunctionWindow.renderGui()) {
         reRender = true;
         if (multiVarTransferFunctionWindow.getTransferFunctionMapRebuilt()) {
             onTransferFunctionMapRebuilt();
-            if (lineRenderer) {
-                lineRenderer->onTransferFunctionMapRebuilt();
-            }
+            sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(
+                    ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT));
         }
     }
 
-    return LineData::renderGuiWindowSecondary(isRasterizer);
+    return LineData::renderGuiWindowSecondary();
 }
 
 bool LineDataStress::renderGuiOverlay() {
@@ -337,8 +231,8 @@ bool LineDataStress::renderGuiOverlay() {
     }
 }
 
-bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor, bool isRasterizer) {
-    bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodes(propertyEditor, isRasterizer);
+bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodes(propertyEditor);
 
     if (propertyEditor.beginNode("Used PS Directions")) {
         bool usedPsChanged = false;
@@ -377,6 +271,12 @@ bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyE
             if (sliderChanged) {
                 bool useLineHierarchyNew = glm::any(
                         glm::lessThan(lineHierarchySliderValues, glm::vec3(1.0f)));
+
+                bool isRasterizer = std::any_of(
+                        lineRenderersCached.cbegin(), lineRenderersCached.cend(), [](LineRenderer* lineRenderer){
+                            return lineRenderer->getIsRasterizer();
+                        });
+
                 if (isRasterizer) {
                     if (useLineHierarchy != useLineHierarchyNew) {
                         shallReloadGatherShader = true;
@@ -421,8 +321,8 @@ bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyE
         propertyEditor.endNode();
     }
 
-    if (lineRenderer && renderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION && recomputeOpacityOptimization) {
-        static_cast<OpacityOptimizationRenderer*>(lineRenderer)->onHasMoved();
+    if (recomputeOpacityOptimization) {
+        sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(ON_OPACITY_OPTIMIZATION_RECOMPUTE_EVENT));
     }
 
     return shallReloadGatherShader;
@@ -938,7 +838,7 @@ Trajectories LineDataStress::filterTrajectoryData() {
     return trajectoriesFiltered;
 }
 
-std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines() {
+std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines(LineRenderer* lineRenderer) {
     rebuildInternalRepresentationIfNecessary();
 
     std::vector<std::vector<glm::vec3>> linesFiltered;
@@ -957,7 +857,7 @@ std::vector<std::vector<glm::vec3>> LineDataStress::getFilteredLines() {
                 trajectoryIdx++;
                 continue;
             }
-            if (lineRenderer && !lineRenderer->isRasterizer && lineHierarchySliderValues[psIdx]
+            if ((!lineRenderer || !lineRenderer->isRasterizer) && lineHierarchySliderValues[psIdx]
                     < 1.0 - stressTrajectoriesData.at(trajectoryIdx).hierarchyLevels.at(int(lineHierarchyType))) {
                 trajectoryIdx++;
                 continue;
@@ -1940,7 +1840,8 @@ void LineDataStress::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gath
 
 
 #ifdef USE_VULKAN_INTEROP
-VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(bool raytracing) {
+VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(
+        LineRenderer* lineRenderer, bool raytracing) {
     rebuildInternalRepresentationIfNecessary();
     if (vulkanTubeTriangleRenderData.vertexBuffer) {
         return vulkanTubeTriangleRenderData;
@@ -1966,7 +1867,7 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(boo
             if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
                 continue;
             }
-            if (lineRenderer && !lineRenderer->isRasterizer && lineHierarchySliderValues[psIdx]
+            if ((!lineRenderer || !lineRenderer->isRasterizer) && lineHierarchySliderValues[psIdx]
                     < 1.0 - stressTrajectoriesData.at(trajectoryIdx).hierarchyLevels.at(int(lineHierarchyType))) {
                 continue;
             }
@@ -2076,7 +1977,7 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(boo
     return vulkanTubeTriangleRenderData;
 }
 
-VulkanTubeAabbRenderData LineDataStress::getVulkanTubeAabbRenderData() {
+VulkanTubeAabbRenderData LineDataStress::getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) {
     rebuildInternalRepresentationIfNecessary();
     if (vulkanTubeTriangleRenderData.vertexBuffer) {
         return vulkanTubeAabbRenderData;
@@ -2105,7 +2006,7 @@ VulkanTubeAabbRenderData LineDataStress::getVulkanTubeAabbRenderData() {
             if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
                 continue;
             }
-            if (lineRenderer && !lineRenderer->isRasterizer && lineHierarchySliderValues[psIdx]
+            if ((!lineRenderer || !lineRenderer->isRasterizer) && lineHierarchySliderValues[psIdx]
                     < 1.0 - stressTrajectoriesData.at(trajectoryIdx).hierarchyLevels.at(int(lineHierarchyType))) {
                 continue;
             }
@@ -2247,8 +2148,8 @@ void LineDataStress::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr
     }
 }
 
-void LineDataStress::updateVulkanUniformBuffers(sgl::vk::Renderer* renderer) {
-    LineData::updateVulkanUniformBuffers(renderer);
+void LineDataStress::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::Renderer* renderer) {
+    LineData::updateVulkanUniformBuffers(lineRenderer, renderer);
 
     stressLineRenderSettings.lineHierarchySlider = glm::vec3(1.0f) - lineHierarchySliderValues;
     stressLineRenderSettings.bandWidth = LineRenderer::getBandWidth();
@@ -2261,6 +2162,7 @@ void LineDataStress::updateVulkanUniformBuffers(sgl::vk::Renderer* renderer) {
 #endif
 
 void LineDataStress::getTriangleMesh(
+        LineRenderer* lineRenderer,
         std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions,
         std::vector<glm::vec3>& vertexNormals, std::vector<float>& vertexAttributes) {
     rebuildInternalRepresentationIfNecessary();
@@ -2286,7 +2188,7 @@ void LineDataStress::getTriangleMesh(
             if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
                 continue;
             }
-            if (lineRenderer && !lineRenderer->isRasterizer && lineHierarchySliderValues[psIdx]
+            if ((!lineRenderer || !lineRenderer->isRasterizer) && lineHierarchySliderValues[psIdx]
                     < 1.0 - stressTrajectoriesData.at(trajectoryIdx).hierarchyLevels.at(int(lineHierarchyType))) {
                 continue;
             }
@@ -2367,8 +2269,8 @@ void LineDataStress::getTriangleMesh(
 }
 
 void LineDataStress::getTriangleMesh(
-        std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions) {
+        LineRenderer* lineRenderer, std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions) {
     std::vector<glm::vec3> vertexNormals;
     std::vector<float> vertexAttributes;
-    getTriangleMesh(triangleIndices, vertexPositions, vertexNormals, vertexAttributes);
+    getTriangleMesh(lineRenderer, triangleIndices, vertexPositions, vertexNormals, vertexAttributes);
 }

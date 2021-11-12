@@ -249,35 +249,6 @@ void VoxelRayCastingRenderer::render() {
     glDepthMask(GL_TRUE);
 }
 
-void VoxelRayCastingRenderer::renderGui() {
-    LineRenderer::renderGui();
-
-    bool voxelGridDirty = false;
-
-    if (ImGui::Checkbox("Use GPU for Voxelization", &useGpuForVoxelization)) {
-        voxelGridDirty = true;
-    }
-
-    if (ImGui::Checkbox("Use Line Hull", &computeNearestFurthestHitsUsingHull)) {
-        reloadGatherShader();
-        internalReRender = true;
-        reRender = true;
-    }
-
-    if (ImGui::SliderInt("Grid Resolution", &gridResolution1D, 4, 256)) {
-        voxelGridDirty = true;
-    }
-    if (ImGui::SliderIntPowerOfTwo("Quantization Resolution", &quantizationResolution1D, 1, 64)) {
-        voxelGridDirty = true;
-    }
-
-    if (voxelGridDirty) {
-        dirty = true;
-        internalReRender = true;
-        reRender = true;
-    }
-}
-
 void VoxelRayCastingRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 

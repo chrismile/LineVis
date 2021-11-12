@@ -192,10 +192,6 @@ void WBOITRenderer::render() {
     glDepthMask(GL_TRUE);
 }
 
-void WBOITRenderer::renderGui() {
-    LineRenderer::renderGui();
-}
-
 void WBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 }

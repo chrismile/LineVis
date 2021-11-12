@@ -76,27 +76,17 @@ public:
      * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
      * @return true if the gather shader needs to be reloaded.
      */
-    bool renderGuiRenderer(bool isRasterizer) override;
-    /**
-     * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
-     * @return true if the gather shader needs to be reloaded.
-     */
-    bool renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, bool isRasterizer) override;
-    /**
-     * For line data settings.
-     * @return true if the gather shader needs to be reloaded.
-     */
-    bool renderGuiLineData(bool isRasterizer) override;
+    bool renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer) override;
     /**
      * Renders the entries in the property editor.
      * @return true if the gather shader needs to be reloaded.
      */
-    bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor, bool isRasterizer) override;
+    bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
     /**
      * For rendering secondary ImGui windows (e.g., for transfer function widgets).
      * @return true if the gather shader needs to be reloaded.
      */
-    bool renderGuiWindowSecondary(bool isRasterizer) override;
+    bool renderGuiWindowSecondary() override;
     /**
      * For rendering secondary, overlay ImGui windows.
      * @return true if the gather shader needs to be reloaded.
@@ -104,7 +94,7 @@ public:
     bool renderGuiOverlay() override;
 
     /// Set current rendering mode (e.g. for making visible certain UI options only for certain renderers).
-    void setLineRenderer(LineRenderer* lineRenderer) override;
+    void setLineRenderers(const std::vector<LineRenderer*>& lineRenderers) override;
     /// Certain GUI widgets might need the clear color.
     void setClearColor(const sgl::Color& clearColor) override;
     /// Whether to use linear RGB when rendering.
@@ -115,9 +105,7 @@ private:
     void recomputeHistogram() override;
     void recomputeColorLegend() override;
     void recomputeWidgetPositions();
-    bool renderGuiTechniqueSettings();
     bool renderGuiTechniqueSettingsPropertyEditor(sgl::PropertyEditor& propertyEditor);
-    bool renderGuiLineRenderingSettings();
     bool renderGuiLineRenderingSettingsPropertyEditor(sgl::PropertyEditor& propertyEditor);
 
     /// Create render data.

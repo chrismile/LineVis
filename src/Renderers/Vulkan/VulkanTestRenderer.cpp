@@ -54,7 +54,7 @@ VulkanTestRenderer::VulkanTestRenderer(
     isVulkanRenderer = true;
     isRasterizer = true;
 
-    testRenderPass = std::make_shared<TestRenderPass>(rendererVk, sceneData.camera);
+    testRenderPass = std::make_shared<TestRenderPass>(this, rendererVk, sceneData.camera);
     testRenderPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
@@ -132,12 +132,6 @@ void VulkanTestRenderer::render() {
             true);
 }
 
-void VulkanTestRenderer::renderGui() {
-    LineRenderer::renderGui();
-
-    // Add GUI code here.
-}
-
 void VulkanTestRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 
@@ -146,8 +140,9 @@ void VulkanTestRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& prope
 
 
 
-TestRenderPass::TestRenderPass(sgl::vk::Renderer* renderer, sgl::CameraPtr camera)
-        : RasterPass(renderer), camera(std::move(camera)) {
+TestRenderPass::TestRenderPass(
+        VulkanTestRenderer* vulkanTestRenderer, sgl::vk::Renderer* renderer, sgl::CameraPtr camera)
+        : RasterPass(renderer), vulkanTestRenderer(vulkanTestRenderer), camera(std::move(camera)) {
     renderSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(RenderSettingsData),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -168,7 +163,7 @@ void TestRenderPass::setBackgroundColor(const glm::vec4& color) {
 void TestRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
     this->lineData = lineData;
 
-    std::vector<std::vector<glm::vec3>> filteredLines = lineData->getFilteredLines();
+    std::vector<std::vector<glm::vec3>> filteredLines = lineData->getFilteredLines(vulkanTestRenderer);
 
     sgl::AABB3 aabb;
     for (const std::vector<glm::vec3>& line : filteredLines) {

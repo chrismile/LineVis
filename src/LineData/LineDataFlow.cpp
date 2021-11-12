@@ -245,7 +245,7 @@ Trajectories LineDataFlow::filterTrajectoryData() {
     return trajectoriesFiltered;
 }
 
-std::vector<std::vector<glm::vec3>> LineDataFlow::getFilteredLines() {
+std::vector<std::vector<glm::vec3>> LineDataFlow::getFilteredLines(LineRenderer* lineRenderer) {
     rebuildInternalRepresentationIfNecessary();
 
     std::vector<std::vector<glm::vec3>> linesFiltered;
@@ -477,7 +477,8 @@ TubeRenderDataOpacityOptimization LineDataFlow::getTubeRenderDataOpacityOptimiza
 
 
 #ifdef USE_VULKAN_INTEROP
-VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(bool raytracing) {
+VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(
+        LineRenderer* lineRenderer, bool raytracing) {
     rebuildInternalRepresentationIfNecessary();
     if (vulkanTubeTriangleRenderData.vertexBuffer) {
         return vulkanTubeTriangleRenderData;
@@ -562,7 +563,7 @@ VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(bool 
     return vulkanTubeTriangleRenderData;
 }
 
-VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData() {
+VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) {
     rebuildInternalRepresentationIfNecessary();
     if (vulkanTubeAabbRenderData.indexBuffer) {
         return vulkanTubeAabbRenderData;
@@ -676,6 +677,7 @@ VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData() {
 #endif
 
 void LineDataFlow::getTriangleMesh(
+        LineRenderer* lineRenderer,
         std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions,
         std::vector<glm::vec3>& vertexNormals, std::vector<float>& vertexAttributes) {
     rebuildInternalRepresentationIfNecessary();
@@ -724,8 +726,9 @@ void LineDataFlow::getTriangleMesh(
 }
 
 void LineDataFlow::getTriangleMesh(
+        LineRenderer* lineRenderer,
         std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions) {
     std::vector<glm::vec3> vertexNormals;
     std::vector<float> vertexAttributes;
-    getTriangleMesh(triangleIndices, vertexPositions, vertexNormals, vertexAttributes);
+    getTriangleMesh(lineRenderer, triangleIndices, vertexPositions, vertexNormals, vertexAttributes);
 }

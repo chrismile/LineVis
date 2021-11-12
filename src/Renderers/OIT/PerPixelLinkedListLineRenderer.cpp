@@ -343,21 +343,6 @@ void PerPixelLinkedListLineRenderer::resolve() {
     glDepthMask(GL_TRUE);
 }
 
-void PerPixelLinkedListLineRenderer::renderGui() {
-    LineRenderer::renderGui();
-
-    if (ImGui::Combo(
-            "Sorting Mode", (int*)&sortingAlgorithmMode, SORTING_MODE_NAMES, NUM_SORTING_MODES)) {
-        setSortingAlgorithmDefine();
-        reloadResolveShader();
-        reRender = true;
-    }
-    if (ImGui::Button("Reload Shader")) {
-        reloadGatherShader();
-        reRender = true;
-    }
-}
-
 void PerPixelLinkedListLineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 

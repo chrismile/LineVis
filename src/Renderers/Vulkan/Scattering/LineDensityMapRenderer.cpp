@@ -145,148 +145,12 @@ void LineDensityMapRenderer::render() {
             true);
 }
 
-void LineDensityMapRenderer::renderGui() {
-    bool somethingChanged = lineDensityFieldDvrPass->renderGui();
-
-    if (somethingChanged) {
-        reRender = true;
-    }
-}
-
 void LineDensityMapRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool somethingChanged = lineDensityFieldDvrPass->renderGuiPropertyEditorNodes(propertyEditor);
 
     if (somethingChanged) {
         reRender = true;
     }
-}
-
-
-
-AabbRenderPass::AabbRenderPass(sgl::vk::Renderer* renderer, sgl::CameraPtr camera)
-        : RasterPass(renderer), camera(std::move(camera)) {
-    renderSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, sizeof(RenderSettingsData),
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY);
-}
-
-void AabbRenderPass::setOutputImage(sgl::vk::ImageViewPtr& colorImage) {
-    sceneImageView = colorImage;
-}
-
-void AabbRenderPass::setBackgroundColor(const glm::vec4& color) {
-    if (framebuffer && backgroundColor != color) {
-        framebuffer->setClearColor(0, color);
-    }
-    backgroundColor = color;
-}
-
-void AabbRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
-    this->lineData = lineData;
-
-    if (lineData->getType() != DATA_SET_TYPE_SCATTERING_LINES) {
-        sgl::Logfile::get()->writeError(
-                "Error in AabbRenderPass::setLineData: Only data sets of the type "
-                "DATA_SET_TYPE_SCATTERING_LINES are supported.");
-        return;
-    }
-
-    std::shared_ptr<LineDataScattering> lineDataScattering = std::static_pointer_cast<LineDataScattering>(lineData);
-    VulkanLineDataScatteringRenderData lineDataScatteringRenderData =
-            lineDataScattering->getVulkanLineDataScatteringRenderData();
-
-    // TODO: Use lineDataScatteringRenderData.lineDensityFieldBuffer (and later maybe .scalarFieldBuffer).
-
-    std::vector<std::vector<glm::vec3>> filteredLines = lineData->getFilteredLines();
-
-    sgl::AABB3 aabb;
-    for (const std::vector<glm::vec3>& line : filteredLines) {
-        for (const glm::vec3& point : line) {
-            aabb.combine(point);
-        }
-    }
-
-    std::vector<uint32_t> triangleIndices = {
-            0, 4, 6, 0, 6, 2, // left
-            1, 3, 7, 1, 7, 5, // right
-            0, 1, 5, 0, 5, 4, // bottom
-            2, 6, 7, 2, 7, 3, // top
-            0, 2, 3, 0, 3, 1, // back
-            4, 5, 7, 4, 7, 6, // front
-    };
-    indexBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, triangleIndices.size() * sizeof(uint32_t), triangleIndices.data(),
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY);
-
-    std::vector<glm::vec3> vertexPositions = {
-            { aabb.getMinimum().x, aabb.getMinimum().y, aabb.getMinimum().z }, // 0
-            { aabb.getMaximum().x, aabb.getMinimum().y, aabb.getMinimum().z }, // 1
-            { aabb.getMinimum().x, aabb.getMaximum().y, aabb.getMinimum().z }, // 2
-            { aabb.getMaximum().x, aabb.getMaximum().y, aabb.getMinimum().z }, // 3
-            { aabb.getMinimum().x, aabb.getMinimum().y, aabb.getMaximum().z }, // 4
-            { aabb.getMaximum().x, aabb.getMinimum().y, aabb.getMaximum().z }, // 5
-            { aabb.getMinimum().x, aabb.getMaximum().y, aabb.getMaximum().z }, // 6
-            { aabb.getMaximum().x, aabb.getMaximum().y, aabb.getMaximum().z }, // 7
-    };
-    vertexBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, vertexPositions.size() * sizeof(glm::vec3), vertexPositions.data(),
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY);
-
-    dataDirty = true;
-}
-
-void AabbRenderPass::recreateSwapchain(uint32_t width, uint32_t height) {
-    framebuffer = std::make_shared<sgl::vk::Framebuffer>(device, width, height);
-
-    sgl::vk::AttachmentState attachmentState;
-    attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    framebuffer->setColorAttachment(sceneImageView, 0, attachmentState, backgroundColor);
-
-    sgl::vk::ImageSettings depthImageSettings;
-    depthImageSettings.width = width;
-    depthImageSettings.height = height;
-    depthImageSettings.format = VK_FORMAT_D32_SFLOAT;
-    depthImageSettings.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-    sgl::vk::ImagePtr depthImage(new sgl::vk::Image(device, depthImageSettings));
-    depthImageView = std::make_shared<sgl::vk::ImageView>(
-            depthImage, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_DEPTH_BIT);
-
-    sgl::vk::AttachmentState depthAttachmentState;
-    depthAttachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    framebuffer->setDepthStencilAttachment(depthImageView, depthAttachmentState, 1.0f);
-
-    framebufferDirty = true;
-}
-
-void AabbRenderPass::loadShader() {
-    shaderStages = sgl::vk::ShaderManager->getShaderStages({"TestShader.Vertex", "TestShader.Fragment"});
-}
-
-void AabbRenderPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
-    pipelineInfo.setVertexBufferBinding(0, sizeof(glm::vec3));
-    pipelineInfo.setInputAttributeDescription(0, 0, "vertexPosition");
-    //pipelineInfo.setCullMode(vk::CullMode::CULL_NONE);
-}
-
-void AabbRenderPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
-    rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
-    rasterData->setIndexBuffer(indexBuffer);
-    rasterData->setVertexBuffer(vertexBuffer, "vertexPosition");
-    rasterData->setStaticBuffer(renderSettingsBuffer, "RenderSettingsBuffer");
-    rasterData->setStaticBuffer(renderSettingsBuffer, "MatrixUniformBuffers");
-}
-
-void AabbRenderPass::_render() {
-    glm::vec3 cameraPosition = camera->getPosition();
-    renderSettingsData.cameraPosition = cameraPosition;
-    renderSettingsBuffer->updateData(
-            sizeof(RenderSettingsData), &renderSettingsData, renderer->getVkCommandBuffer());
-
-    RasterPass::_render();
 }
 
 
@@ -309,14 +173,6 @@ void LineDensityFieldDvrPass::setOutputImage(sgl::vk::ImageViewPtr& colorImage) 
 
 void LineDensityFieldDvrPass::setBackgroundColor(const glm::vec4& color) {
     renderSettingsData.backgroundColor = color;
-}
-
-bool LineDensityFieldDvrPass::renderGui() {
-    bool changed = false;
-    changed |= ImGui::SliderFloat(
-            "Attenuation Coefficient", &renderSettingsData.attenuationCoefficient, 0, 500);
-
-    return changed;
 }
 
 bool LineDensityFieldDvrPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {

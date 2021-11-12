@@ -214,28 +214,10 @@ std::string numberToCommaString(int64_t number, bool attachLeadingZeroes = false
     }
 }
 
-void DepthComplexityRenderer::renderGui() {
-    std::string totalNumFragmentsString = numberToCommaString(totalNumFragments);
-    ImGui::Text("Depth complexity: #fragments: %s", totalNumFragmentsString.c_str());
-    ImGui::Text("avg used: %.2f, avg all: %.2f, max: %lu",
-                (double(totalNumFragments) / double(usedLocations)),
-                (double(totalNumFragments) / double(bufferSize)), maxComplexity);
-
-    LineRenderer::renderGui();
-
-    if (ImGui::ColorEdit4("Coloring", (float*)&colorSelection, 0)) {
-        sgl::Color newColor = sgl::colorFromFloat(colorSelection.x, colorSelection.y, colorSelection.z, 1.0f);
-        renderColor = newColor;
-        intensity = 0.0001f + 3*colorSelection.w;
-        numFragmentsMaxColor = std::max(maxComplexity, uint64_t(4ull))/intensity;
-        reRender = true;
-    }
-}
-
 void DepthComplexityRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 
-    std::string totalNumFragmentsString = numberToCommaString(totalNumFragments);
+    std::string totalNumFragmentsString = numberToCommaString(int64_t(totalNumFragments));
     propertyEditor.addText("#Fragments", totalNumFragmentsString);
     propertyEditor.addText(
             "Average Used",
@@ -249,7 +231,7 @@ void DepthComplexityRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& 
         sgl::Color newColor = sgl::colorFromFloat(colorSelection.x, colorSelection.y, colorSelection.z, 1.0f);
         renderColor = newColor;
         intensity = 0.0001f + 3*colorSelection.w;
-        numFragmentsMaxColor = std::max(maxComplexity, uint64_t(4ull))/intensity;
+        numFragmentsMaxColor = uint32_t(float(std::max(maxComplexity, uint64_t(4ull))) / intensity);
         reRender = true;
     }
 }

@@ -147,7 +147,7 @@ public:
 
     // Get filtered line data (only containing points also shown when rendering).
     virtual Trajectories filterTrajectoryData()=0;
-    virtual std::vector<std::vector<glm::vec3>> getFilteredLines()=0;
+    virtual std::vector<std::vector<glm::vec3>> getFilteredLines(LineRenderer* lineRenderer)=0;
 
     // --- Retrieve data for rendering. Preferred way. ---
     virtual sgl::ShaderProgramPtr reloadGatherShader();
@@ -165,23 +165,25 @@ public:
 
 #ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---
-    virtual VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(bool raytracing)=0;
-    virtual VulkanTubeAabbRenderData getVulkanTubeAabbRenderData()=0;
+    virtual VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing)=0;
+    virtual VulkanTubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer)=0;
     virtual VulkanHullTriangleRenderData getVulkanHullTriangleRenderData(bool raytracing);
-    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleTopLevelAS();
-    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleAndHullTopLevelAS();
-    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbTopLevelAS();
-    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbAndHullTopLevelAS();
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleTopLevelAS(LineRenderer* lineRenderer);
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleAndHullTopLevelAS(LineRenderer* lineRenderer);
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbTopLevelAS(LineRenderer* lineRenderer);
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbAndHullTopLevelAS(LineRenderer* lineRenderer);
     virtual std::map<std::string, std::string> getVulkanShaderPreprocessorDefines();
     virtual void setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData);
-    virtual void updateVulkanUniformBuffers(sgl::vk::Renderer* renderer);
+    virtual void updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::Renderer* renderer);
 #endif
 
     // --- Retrieve triangle mesh on the CPU. ---
     virtual void getTriangleMesh(
+            LineRenderer* lineRenderer,
             std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions,
             std::vector<glm::vec3>& vertexNormals, std::vector<float>& vertexAttributes)=0;
     virtual void getTriangleMesh(
+            LineRenderer* lineRenderer,
             std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions)=0;
 
     // Retrieve simulation mesh outline (optional).
@@ -196,35 +198,16 @@ public:
      * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
      * @return true if the gather shader needs to be reloaded.
      */
-    virtual bool renderGuiRenderer(bool isRasterizer);
-    /**
-     * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
-     * @return true if the gather shader needs to be reloaded.
-     */
-    virtual bool renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, bool isRasterizer);
-    /**
-     * For line data settings.
-     * @return true if the gather shader needs to be reloaded.
-     */
-    virtual bool renderGuiLineData(bool isRasterizer);
-    /**
-     * For changing other line rendering settings.
-     */
-    virtual bool renderGuiRenderingSettings();
+    virtual bool renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer);
     /**
      * For changing other line rendering settings.
      */
     virtual bool renderGuiRenderingSettingsPropertyEditor(sgl::PropertyEditor& propertyEditor);
     /**
-     * For rendering a separate ImGui window.
-     * @return true if the gather shader needs to be reloaded.
-     */
-    virtual bool renderGuiWindow(bool isRasterizer);
-    /**
      * For rendering secondary ImGui windows (e.g., for transfer function widgets).
      * @return true if the gather shader needs to be reloaded.
      */
-    virtual bool renderGuiWindowSecondary(bool isRasterizer);
+    virtual bool renderGuiWindowSecondary();
     /**
      * For rendering secondary, overlay ImGui windows.
      * @return true if the gather shader needs to be reloaded.
@@ -234,15 +217,15 @@ public:
      * Renders the entries in the property editor.
      * @return true if the gather shader needs to be reloaded.
      */
-    virtual bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor, bool isRasterizer);
+    virtual bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
 
     /// Certain GUI widgets might need the clear color.
     virtual void setClearColor(const sgl::Color& clearColor);
     /// Whether to use linear RGB when rendering.
     virtual void setUseLinearRGB(bool useLinearRGB) {}
-    /// Set current rendering mode (e.g. for making visible certain UI options only for certain renderers).
-    virtual void setLineRenderer(LineRenderer* lineRenderer) { this->lineRenderer = lineRenderer; }
-    virtual void setRenderingMode(RenderingMode renderingMode) { this->renderingMode = renderingMode; }
+    /// Set current rendering modes (e.g. for making visible certain UI options only for certain renderers).
+    virtual void setLineRenderers(const std::vector<LineRenderer*>& lineRenderers);
+    virtual void setRenderingModes(const std::vector<RenderingMode>& renderingModes) {}
     inline bool getShallRenderSimulationMeshBoundary() { return shallRenderSimulationMeshBoundary; }
     inline const std::string& getLineDataWindowName() const { return lineDataWindowName; }
 
@@ -289,8 +272,7 @@ protected:
     std::vector<sgl::ColorLegendWidget> colorLegendWidgets;
 
     // Rendering settings.
-    RenderingMode renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
-    LineRenderer* lineRenderer = nullptr;
+    std::vector<LineRenderer*> lineRenderersCached;
     static LinePrimitiveMode linePrimitiveMode;
     static int tubeNumSubdivisions; ///< Number of tube subdivisions for LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER.
     std::vector<std::string> supportedRenderingModes;
@@ -304,8 +286,8 @@ protected:
 #ifdef USE_VULKAN_INTEROP
     // Caches the rendering data when using Vulkan (as, e.g., the Vulkan ray tracer and AO baking could be used at the
     // same time).
-    sgl::vk::BottomLevelAccelerationStructurePtr getTubeTriangleBottomLevelAS();
-    sgl::vk::BottomLevelAccelerationStructurePtr getTubeAabbBottomLevelAS();
+    sgl::vk::BottomLevelAccelerationStructurePtr getTubeTriangleBottomLevelAS(LineRenderer* lineRenderer);
+    sgl::vk::BottomLevelAccelerationStructurePtr getTubeAabbBottomLevelAS(LineRenderer* lineRenderer);
     sgl::vk::BottomLevelAccelerationStructurePtr getHullTriangleBottomLevelAS();
     VulkanTubeTriangleRenderData vulkanTubeTriangleRenderData;
     VulkanTubeAabbRenderData vulkanTubeAabbRenderData;

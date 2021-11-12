@@ -233,18 +233,6 @@ void MLABBucketRenderer::computeDepthRange() {
     minDepthPassShader->setUniform("logDepthMax", logmax);
 }
 
-void MLABBucketRenderer::renderGui() {
-    MLABRenderer::renderGui();
-
-    if (ImGui::SliderFloat("Back Bucket Lower Opacity", &lowerBackBufferOpacity, 0.0f, 1.0f)) {
-        reRender = true;
-    }
-
-    if (ImGui::SliderFloat("Back Bucket Upper Opacity", &upperBackBufferOpacity, 0.0f, 1.0f)) {
-        reRender = true;
-    }
-}
-
 void MLABBucketRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     MLABRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 

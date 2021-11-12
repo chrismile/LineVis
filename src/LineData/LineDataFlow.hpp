@@ -63,7 +63,7 @@ public:
 
     // Get filtered line data (only containing points also shown when rendering).
     Trajectories filterTrajectoryData() override;
-    std::vector<std::vector<glm::vec3>> getFilteredLines() override;
+    std::vector<std::vector<glm::vec3>> getFilteredLines(LineRenderer* lineRenderer) override;
 
     // --- Retrieve data for rendering. ---
     TubeRenderData getTubeRenderData() override;
@@ -72,15 +72,17 @@ public:
 
 #ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---
-    VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(bool raytracing) override;
-    VulkanTubeAabbRenderData getVulkanTubeAabbRenderData() override;
+    VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
+    VulkanTubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) override;
 #endif
 
     // --- Retrieve triangle mesh on the CPU. ---
     void getTriangleMesh(
+            LineRenderer* lineRenderer,
             std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions,
             std::vector<glm::vec3>& vertexNormals, std::vector<float>& vertexAttributes) override;
     void getTriangleMesh(
+            LineRenderer* lineRenderer,
             std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions) override;
 
 protected:

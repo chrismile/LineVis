@@ -87,25 +87,22 @@ bool LineData::getCanUseLiveUpdate(LineDataAccessType accessType) const {
     if (accessType == LineDataAccessType::FILTERED_LINES) {
         return getIsSmallDataSet();
     }
-    return !lineRenderer || lineRenderer->getCanUseLiveUpdate(accessType);
+    bool canUseLiveUpdate = std::all_of(
+            lineRenderersCached.cbegin(), lineRenderersCached.cend(), [accessType](LineRenderer* lineRenderer){
+                return lineRenderer->getCanUseLiveUpdate(accessType);
+            });
+    return canUseLiveUpdate;
 }
 
-bool LineData::renderGuiRenderer(bool isRasterizer) {
+bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer) {
     bool shallReloadGatherShader = false;
 
-    // Switch importance criterion.
-    //if (ImGui::Combo(
-    //        "Attribute", (int*)&selectedAttributeIndexUi,
-    //        attributeNames.data(), attributeNames.size())) {
-    //    setSelectedAttributeIndex(selectedAttributeIndexUi);
-    //}
-
-    if (isRasterizer) {
+    if (lineRenderer->getIsRasterizer()) {
         size_t numPrimitiveModes = IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES);
         if (getType() != DATA_SET_TYPE_STRESS_LINES) {
             numPrimitiveModes -= 2;
         }
-        if (renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION && ImGui::Combo(
+        if (lineRenderer->getRenderingMode() != RENDERING_MODE_OPACITY_OPTIMIZATION && propertyEditor.addCombo(
                 "Line Primitives", (int*)&linePrimitiveMode,
                 LINE_PRIMITIVE_MODE_DISPLAYNAMES, numPrimitiveModes)) {
             dirty = true;
@@ -115,77 +112,11 @@ bool LineData::renderGuiRenderer(bool isRasterizer) {
 
     bool isTriangleRepresentationUsed = lineRenderer && lineRenderer->getIsTriangleRepresentationUsed();
     if (isTriangleRepresentationUsed
-            || (isRasterizer && renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION
-                                && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
-                                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND))) {
-        if (ImGui::SliderInt("Tube Subdivisions", &tubeNumSubdivisions, 3, 8)) {
-            if (isRasterizer) {
-                shallReloadGatherShader = true;
-            }
-            setTriangleRepresentationDirty();
-        }
-    }
-
-    if (lineRenderer && (linePrimitiveMode == LINE_PRIMITIVES_TRIANGLE_MESH || lineRenderer->isVulkanRenderer)) {
-        if (ImGui::Checkbox("Capped Tubes", &useCappedTubes)) {
-            triangleRepresentationDirty = true;
-            if (lineRenderer->isVulkanRenderer && !lineRenderer->isRasterizer) {
-                shallReloadGatherShader = true;
-            }
-        }
-        ImGui::SameLine();
-    }
-
-    ImGui::Checkbox("Render Color Legend", &shallRenderColorLegendWidgets);
-
-    if (!simulationMeshOutlineTriangleIndices.empty()) {
-        //if (ImGui::Checkbox("Render Mesh Boundary", &shallRenderSimulationMeshBoundary)) {
-        //    reRender = true;
-        //}
-
-        ImGui::EditMode editModeHullOpacity = ImGui::SliderFloatEdit(
-                "Hull Opacity", &hullOpacity, 0.0f, 1.0f, "%.4f");
-        if (editModeHullOpacity != ImGui::EditMode::NO_CHANGE) {
-            shallRenderSimulationMeshBoundary = hullOpacity > 0.0f;
-            reRender = true;
-        }
-        if (lineRenderer && lineRenderer->isVulkanRenderer && !lineRenderer->isRasterizer
-                && editModeHullOpacity == ImGui::EditMode::INPUT_FINISHED) {
-            lineRenderer->setRenderSimulationMeshHull(shallRenderSimulationMeshBoundary);
-        }
-        if (shallRenderSimulationMeshBoundary) {
-            if (ImGui::ColorEdit3("Hull Color", &hullColor.r)) {
-                reRender = true;
-            }
-        }
-    }
-
-    return shallReloadGatherShader;
-}
-
-bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, bool isRasterizer) {
-    bool shallReloadGatherShader = false;
-
-    if (isRasterizer) {
-        size_t numPrimitiveModes = IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES);
-        if (getType() != DATA_SET_TYPE_STRESS_LINES) {
-            numPrimitiveModes -= 2;
-        }
-        if (renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION && propertyEditor.addCombo(
-                "Line Primitives", (int*)&linePrimitiveMode,
-                LINE_PRIMITIVE_MODE_DISPLAYNAMES, numPrimitiveModes)) {
-            dirty = true;
-            shallReloadGatherShader = true;
-        }
-    }
-
-    bool isTriangleRepresentationUsed = lineRenderer && lineRenderer->getIsTriangleRepresentationUsed();
-    if (isTriangleRepresentationUsed
-        || (isRasterizer && renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION
+        || (lineRenderer->getIsRasterizer() && lineRenderer->getRenderingMode() != RENDERING_MODE_OPACITY_OPTIMIZATION
             && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
                 || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND))) {
         if (propertyEditor.addSliderInt("Tube Subdivisions", &tubeNumSubdivisions, 3, 8)) {
-            if (isRasterizer) {
+            if (lineRenderer->getIsRasterizer()) {
                 shallReloadGatherShader = true;
             }
             setTriangleRepresentationDirty();
@@ -224,44 +155,11 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
     return shallReloadGatherShader;
 }
 
-bool LineData::renderGuiLineData(bool isRasterizer) {
-    // Switch importance criterion.
-    if (ImGui::Combo(
-            "Attribute", (int*)&selectedAttributeIndexUi,
-            attributeNames.data(), attributeNames.size())) {
-        setSelectedAttributeIndex(selectedAttributeIndexUi);
-    }
-    return false;
-}
-
-bool LineData::renderGuiRenderingSettings() {
-    return false;
-}
-
 bool LineData::renderGuiRenderingSettingsPropertyEditor(sgl::PropertyEditor& propertyEditor) {
     return false;
 }
 
-bool LineData::renderGuiWindow(bool isRasterizer) {
-    bool shallReloadGatherShader = false;
-
-    /*if (lineDataWindowName == "Line Data (Flow)") {
-        sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(2, 580, 735, 575);
-    } else if (lineDataWindowName == "Line Data (Stress)") {
-        sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(2, 580, 735, 575);
-    }*/
-    sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(2, 580, 735, 575);
-    if (ImGui::Begin(lineDataWindowName.c_str(), &showLineDataWindow)) {
-        if (renderGuiLineData(isRasterizer)) {
-            shallReloadGatherShader = true;
-        }
-    }
-    ImGui::End();
-
-    return shallReloadGatherShader;
-}
-
-bool LineData::renderGuiWindowSecondary(bool isRasterizer) {
+bool LineData::renderGuiWindowSecondary() {
     return false;
 }
 
@@ -279,15 +177,29 @@ bool LineData::renderGuiOverlay() {
     return shallReloadGatherShader;
 }
 
-bool LineData::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor, bool isRasterizer) {
+void LineData::setLineRenderers(const std::vector<LineRenderer*>& lineRenderers) {
+    lineRenderersCached = lineRenderers;
+
+    bool canSelectLinePrimitives = std::any_of(
+            lineRenderersCached.cbegin(), lineRenderersCached.cend(), [](LineRenderer* lineRenderer){
+                return lineRenderer->getRenderingMode() != RENDERING_MODE_OPACITY_OPTIMIZATION;
+            });
+}
+
+bool LineData::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool shallReloadGatherShader = false;
 
     // Switch importance criterion.
     if (propertyEditor.addCombo(
             "Attribute", (int*)&selectedAttributeIndexUi,
-            attributeNames.data(), attributeNames.size())) {
+            attributeNames.data(), int(attributeNames.size()))) {
         setSelectedAttributeIndex(selectedAttributeIndexUi);
     }
+
+    // TODO
+    bool isRasterizer = true;
+    RenderingMode renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+    LineRenderer* lineRenderer = nullptr;
 
     if (isRasterizer) {
         size_t numPrimitiveModes = IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES);
@@ -296,17 +208,19 @@ bool LineData::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor,
         }
         if (renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION && propertyEditor.addCombo(
                 "Line Primitives", (int*)&linePrimitiveMode,
-                LINE_PRIMITIVE_MODE_DISPLAYNAMES, numPrimitiveModes)) {
+                LINE_PRIMITIVE_MODE_DISPLAYNAMES, int(numPrimitiveModes))) {
             dirty = true;
             shallReloadGatherShader = true;
         }
     }
 
-    bool isTriangleRepresentationUsed = lineRenderer && lineRenderer->getIsTriangleRepresentationUsed();
+    bool isTriangleRepresentationUsed = std::any_of(
+            lineRenderersCached.cbegin(), lineRenderersCached.cend(), [](LineRenderer* lineRenderer){
+                return lineRenderer->getIsTriangleRepresentationUsed();
+            });
     if (isTriangleRepresentationUsed
-        || (isRasterizer && renderingMode != RENDERING_MODE_OPACITY_OPTIMIZATION
-            && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
-                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND))) {
+        || (isRasterizer && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
+                             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND))) {
         if (propertyEditor.addSliderInt("Tube Subdivisions", &tubeNumSubdivisions, 3, 8)) {
             if (isRasterizer) {
                 shallReloadGatherShader = true;
@@ -339,7 +253,7 @@ bool LineData::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor,
             reRender = true;
         }
         if (lineRenderer && lineRenderer->isVulkanRenderer && !lineRenderer->isRasterizer
-            && editModeHullOpacity == ImGui::EditMode::INPUT_FINISHED) {
+                && editModeHullOpacity == ImGui::EditMode::INPUT_FINISHED) {
             lineRenderer->setRenderSimulationMeshHull(shallRenderSimulationMeshBoundary);
         }
         if (shallRenderSimulationMeshBoundary) {
@@ -353,8 +267,8 @@ bool LineData::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor,
 }
 
 void LineData::setClearColor(const sgl::Color& clearColor) {
-    for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
-        colorLegendWidgets.at(i).setClearColor(clearColor);
+    for (auto& colorLegendWidget : colorLegendWidgets) {
+        colorLegendWidget.setClearColor(clearColor);
     }
 }
 
@@ -371,12 +285,12 @@ void LineData::onTransferFunctionMapRebuilt() {
 }
 
 void LineData::recomputeColorLegend() {
-    for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
-        colorLegendWidgets[i].setTransferFunctionColorMap(
+    for (auto& colorLegendWidget : colorLegendWidgets) {
+        colorLegendWidget.setTransferFunctionColorMap(
                 transferFunctionWindow.getTransferFunctionMap_sRGB());
-        colorLegendWidgets[i].setAttributeMinValue(
+        colorLegendWidget.setAttributeMinValue(
                 transferFunctionWindow.getSelectedRangeMin());
-        colorLegendWidgets[i].setAttributeMinValue(
+        colorLegendWidget.setAttributeMinValue(
                 transferFunctionWindow.getSelectedRangeMax());
     }
 }
@@ -568,14 +482,14 @@ void LineData::setUniformGatherShaderDataHull_Pass(sgl::ShaderProgramPtr& gather
 
 
 #ifdef USE_VULKAN_INTEROP
-sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLevelAS() {
+sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLevelAS(LineRenderer* lineRenderer) {
     rebuildInternalRepresentationIfNecessary();
     if (tubeTriangleBottomLevelAS) {
         return tubeTriangleBottomLevelAS;
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    VulkanTubeTriangleRenderData tubeTriangleRenderData = getVulkanTubeTriangleRenderData(true);
+    VulkanTubeTriangleRenderData tubeTriangleRenderData = getVulkanTubeTriangleRenderData(lineRenderer, true);
 
     if (!tubeTriangleRenderData.indexBuffer) {
         return tubeTriangleBottomLevelAS;
@@ -592,14 +506,14 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLeve
     return tubeTriangleBottomLevelAS;
 }
 
-sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeAabbBottomLevelAS() {
+sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeAabbBottomLevelAS(LineRenderer* lineRenderer) {
     rebuildInternalRepresentationIfNecessary();
     if (tubeAabbBottomLevelAS) {
         return tubeAabbBottomLevelAS;
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    VulkanTubeAabbRenderData tubeAabbRenderData = getVulkanTubeAabbRenderData();
+    VulkanTubeAabbRenderData tubeAabbRenderData = getVulkanTubeAabbRenderData(lineRenderer);
 
     if (!tubeAabbRenderData.indexBuffer) {
         return tubeAabbBottomLevelAS;
@@ -638,14 +552,14 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getHullTriangleBottomLeve
     return hullTriangleBottomLevelAS;
 }
 
-sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleTopLevelAS() {
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleTopLevelAS(LineRenderer* lineRenderer) {
     rebuildInternalRepresentationIfNecessary();
     if (tubeTriangleTopLevelAS) {
         return tubeTriangleTopLevelAS;
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    tubeTriangleBottomLevelAS = getTubeTriangleBottomLevelAS();
+    tubeTriangleBottomLevelAS = getTubeTriangleBottomLevelAS(lineRenderer);
 
     if (!tubeTriangleBottomLevelAS) {
         return tubeTriangleTopLevelAS;
@@ -657,17 +571,18 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleTop
     return tubeTriangleTopLevelAS;
 }
 
-sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleAndHullTopLevelAS() {
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleAndHullTopLevelAS(
+        LineRenderer* lineRenderer) {
     rebuildInternalRepresentationIfNecessary();
     if (tubeTriangleAndHullTopLevelAS) {
         return tubeTriangleAndHullTopLevelAS;
     }
     if (simulationMeshOutlineTriangleIndices.empty()) {
-        return getRayTracingTubeTriangleTopLevelAS();
+        return getRayTracingTubeTriangleTopLevelAS(lineRenderer);
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    tubeTriangleBottomLevelAS = getTubeTriangleBottomLevelAS();
+    tubeTriangleBottomLevelAS = getTubeTriangleBottomLevelAS(lineRenderer);
     hullTriangleBottomLevelAS = getHullTriangleBottomLevelAS();
 
     if (!tubeTriangleBottomLevelAS && !hullTriangleBottomLevelAS) {
@@ -690,14 +605,14 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleAnd
     return tubeTriangleAndHullTopLevelAS;
 }
 
-sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbTopLevelAS() {
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbTopLevelAS(LineRenderer* lineRenderer) {
     rebuildInternalRepresentationIfNecessary();
     if (tubeAabbTopLevelAS) {
         return tubeAabbTopLevelAS;
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    tubeAabbBottomLevelAS = getTubeAabbBottomLevelAS();
+    tubeAabbBottomLevelAS = getTubeAabbBottomLevelAS(lineRenderer);
 
     if (!tubeAabbBottomLevelAS) {
         return tubeAabbTopLevelAS;
@@ -709,17 +624,17 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbTopLeve
     return tubeAabbTopLevelAS;
 }
 
-sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbAndHullTopLevelAS() {
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbAndHullTopLevelAS(LineRenderer* lineRenderer) {
     rebuildInternalRepresentationIfNecessary();
     if (tubeAabbAndHullTopLevelAS) {
         return tubeAabbAndHullTopLevelAS;
     }
     if (simulationMeshOutlineTriangleIndices.empty()) {
-        return getRayTracingTubeAabbTopLevelAS();
+        return getRayTracingTubeAabbTopLevelAS(lineRenderer);
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    tubeAabbBottomLevelAS = getTubeAabbBottomLevelAS();
+    tubeAabbBottomLevelAS = getTubeAabbBottomLevelAS(lineRenderer);
     hullTriangleBottomLevelAS = getHullTriangleBottomLevelAS();
 
     if (!tubeAabbBottomLevelAS && !hullTriangleBottomLevelAS) {
@@ -825,12 +740,12 @@ void LineData::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& rend
     }
 }
 
-void LineData::updateVulkanUniformBuffers(sgl::vk::Renderer* renderer) {
+void LineData::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::Renderer* renderer) {
     lineRenderSettings.lineWidth = LineRenderer::getLineWidth();
     lineRenderSettings.hasHullMesh = simulationMeshOutlineTriangleIndices.empty() ? 0 : 1;
-    lineRenderSettings.depthCueStrength = lineRenderer->depthCueStrength;
-    lineRenderSettings.ambientOcclusionStrength = lineRenderer->ambientOcclusionStrength;
-    if (lineRenderer->useAmbientOcclusion && lineRenderer->ambientOcclusionBaker) {
+    lineRenderSettings.depthCueStrength = lineRenderer ? lineRenderer->depthCueStrength : 0.0f;
+    lineRenderSettings.ambientOcclusionStrength = lineRenderer ? lineRenderer->ambientOcclusionStrength : 0.0f;
+    if (lineRenderer && lineRenderer->useAmbientOcclusion && lineRenderer->ambientOcclusionBaker) {
         lineRenderSettings.numAoTubeSubdivisions = lineRenderer->ambientOcclusionBaker->getNumTubeSubdivisions();
         lineRenderSettings.numLineVertices = lineRenderer->ambientOcclusionBaker->getNumLineVertices();
         lineRenderSettings.numParametrizationVertices =

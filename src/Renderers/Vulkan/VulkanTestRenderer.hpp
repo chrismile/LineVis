@@ -74,8 +74,6 @@ public:
 
     // Renders the object to the scene framebuffer.
     void render() override;
-    // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
-    void renderGui() override;
     /// Renders the entries in the property editor.
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
@@ -92,7 +90,7 @@ private:
 
 class TestRenderPass : public sgl::vk::RasterPass {
 public:
-    explicit TestRenderPass(sgl::vk::Renderer* renderer, sgl::CameraPtr camera);
+    TestRenderPass(VulkanTestRenderer* vulkanTestRenderer, sgl::vk::Renderer* renderer, sgl::CameraPtr camera);
 
     // Public interface.
     void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
@@ -108,6 +106,7 @@ protected:
     void _render() override;
 
 private:
+    VulkanTestRenderer* vulkanTestRenderer = nullptr;
     sgl::CameraPtr camera;
     LineDataPtr lineData;
     sgl::vk::ImageViewPtr sceneImageView;

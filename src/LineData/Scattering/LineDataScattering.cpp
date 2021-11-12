@@ -135,8 +135,7 @@ void LineDataScattering::setGridData(
 }
 
 void LineDataScattering::recomputeHistogram() {
-    if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER
-            && (histogramNeverComputedBefore || !isVolumeRenderer)) {
+    if (lineRenderersUseVolumeRenderer && (histogramNeverComputedBefore || !isVolumeRenderer)) {
         selectedAttributeIndex = int(attributeNames.size());
         isVolumeRenderer = true;
 
@@ -146,8 +145,7 @@ void LineDataScattering::recomputeHistogram() {
 
         recomputeColorLegend();
     }
-    if ((!lineRenderer || lineRenderer->getRenderingMode() != RENDERING_MODE_LINE_DENSITY_MAP_RENDERER)
-            && (histogramNeverComputedBefore || isVolumeRenderer)) {
+    if (!lineRenderersUseVolumeRenderer && (histogramNeverComputedBefore || isVolumeRenderer)) {
         selectedAttributeIndex = 0;
         isVolumeRenderer = false;
         LineDataFlow::recomputeHistogram();
@@ -156,22 +154,17 @@ void LineDataScattering::recomputeHistogram() {
     histogramNeverComputedBefore = false;
 }
 
-bool LineDataScattering::renderGuiRenderer(bool isRasterizer) {
-    bool shallReloadGatherShader = LineData::renderGuiRenderer(isRasterizer);
-#ifdef USE_VULKAN_INTEROP
-    if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
-        if (ImGui::Checkbox("Use Line Segment Length", &useLineSegmentLengthForDensityField)) {
-            dirty = true;
-            reRender = true;
-            lineDensityFieldImageComputeRenderPass->setUseLineSegmentLength(useLineSegmentLengthForDensityField);
-        }
-    }
-#endif
-    return shallReloadGatherShader;
+void LineDataScattering::setLineRenderers(const std::vector<LineRenderer*> lineRenderers) {
+    LineData::setLineRenderers(lineRenderers);
+    lineRenderersUseVolumeRenderer = std::all_of(
+            lineRenderers.cbegin(), lineRenderers.cend(), [this](LineRenderer* lineRenderer){
+                return lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER;
+            });
 }
 
-bool LineDataScattering::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, bool isRasterizer) {
-    bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodesRenderer(propertyEditor, isRasterizer);
+bool LineDataScattering::renderGuiPropertyEditorNodesRenderer(
+        sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer) {
+    bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodesRenderer(propertyEditor, lineRenderer);
 #ifdef USE_VULKAN_INTEROP
     if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
         if (propertyEditor.addCheckbox("Use Line Segment Length", &useLineSegmentLengthForDensityField)) {
@@ -251,13 +244,14 @@ VulkanLineDataScatteringRenderData LineDataScattering::getVulkanLineDataScatteri
     return vulkanScatteredLinesGridRenderData;
 }
 
-VulkanTubeTriangleRenderData LineDataScattering::getVulkanTubeTriangleRenderData(bool raytracing) {
+VulkanTubeTriangleRenderData LineDataScattering::getVulkanTubeTriangleRenderData(
+        LineRenderer* lineRenderer, bool raytracing) {
     recomputeHistogram();
-    return LineDataFlow::getVulkanTubeTriangleRenderData(raytracing);
+    return LineDataFlow::getVulkanTubeTriangleRenderData(lineRenderer, raytracing);
 }
-VulkanTubeAabbRenderData LineDataScattering::getVulkanTubeAabbRenderData() {
+VulkanTubeAabbRenderData LineDataScattering::getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) {
     recomputeHistogram();
-    return LineDataFlow::getVulkanTubeAabbRenderData();
+    return LineDataFlow::getVulkanTubeAabbRenderData(lineRenderer);
 }
 VulkanHullTriangleRenderData LineDataScattering::getVulkanHullTriangleRenderData(bool raytracing) {
     recomputeHistogram();

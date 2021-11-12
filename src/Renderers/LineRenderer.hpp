@@ -29,6 +29,7 @@
 #ifndef RENDERERS_HEXAHEDRALMESHRENDERER_HPP
 #define RENDERERS_HEXAHEDRALMESHRENDERER_HPP
 
+#include <Utils/Events/EventManager.hpp>
 #include <Renderers/AmbientOcclusion/AmbientOcclusionBaker.hpp>
 #include "LineData/LineData.hpp"
 #include "RenderingModes.hpp"
@@ -85,12 +86,10 @@ public:
 
     /// Renders the object to the scene framebuffer.
     virtual void render()=0;
-    /// Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
-    virtual void renderGuiWindow();
-    /// Renders GUI overlays. The "dirty" and "reRender" flags might be set depending on the user's actions.
-    virtual void renderGuiOverlay();
     /// Renders the entries in the property editor.
     virtual void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
+    /// Renders GUI overlays. The "dirty" and "reRender" flags might be set depending on the user's actions.
+    virtual void renderGuiOverlay();
     /// Updates the internal logic (called once per frame).
     virtual void update(float dt);
 
@@ -128,12 +127,12 @@ protected:
     // Reload the gather shader.
     virtual void reloadGatherShader(bool canCopyShaderAttributes = true);
     void updateNewLineData(LineDataPtr& lineData, bool isNewData);
-    // GUI rendering code to be implemented by sub-classes.
-    virtual void renderGui();
-    void renderLineWidthSlider();
     bool showRendererWindow = true;
     // Rendering helpers for sub-classes.
     void renderHull();
+
+    bool isInitialized = false;
+    sgl::ListenerToken onTransferFunctionMapRebuiltListenerToken;
 
     // Metadata about renderer.
     bool isRasterizer = true;

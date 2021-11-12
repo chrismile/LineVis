@@ -516,59 +516,6 @@ void MBOITRenderer::resolve() {
     glDepthMask(GL_TRUE);
 }
 
-void MBOITRenderer::renderGui() {
-    LineRenderer::renderGui();
-
-    // USE_R_RG_RGBA_FOR_MBOIT6
-    const char *const momentModes[] = {
-            "Power Moments: 4", "Power Moments: 6 (Layered)", "Power Moments: 6 (R_RG_RGBA)", "Power Moments: 8",
-            "Trigonometric Moments: 2", "Trigonometric Moments: 3 (Layered)", "Trigonometric Moments: 3 (R_RG_RGBA)",
-            "Trigonometric Moments: 4"};
-    const int momentModesNumMoments[] = {4, 6, 6, 8, 4, 6, 6, 8};
-    static int momentModeIndex = -1;
-    if (true) { // momentModeIndex == -1
-        // Initialize
-        momentModeIndex = usePowerMoments ? 0 : 4;
-        momentModeIndex += numMoments/2 - 2;
-        momentModeIndex += (USE_R_RG_RGBA_FOR_MBOIT6 && numMoments == 6) ? 1 : 0;
-        momentModeIndex += (numMoments == 8) ? 1 : 0;
-    }
-
-    if (ImGui::Combo("Moment Mode", &momentModeIndex, momentModes, IM_ARRAYSIZE(momentModes))) {
-        usePowerMoments = (momentModeIndex / 4) == 0;
-        numMoments = momentModesNumMoments[momentModeIndex]; // Count complex moments * 2
-        USE_R_RG_RGBA_FOR_MBOIT6 = (momentModeIndex == 2) || (momentModeIndex == 6);
-        updateMomentMode();
-        reRender = true;
-    }
-
-    const char *const pixelFormatModes[] = {"Float 32-bit", "UNORM Integer 16-bit"};
-    if (ImGui::Combo(
-            "Pixel Format", (int*)&pixelFormat, pixelFormatModes, IM_ARRAYSIZE(pixelFormatModes))) {
-        updateMomentMode();
-        reRender = true;
-    }
-
-    if (ImGui::SliderFloat("Overestimation", &overestimationBeta, 0.0f, 1.0f, "%.2f")) {
-        momentUniformData.overestimation = overestimationBeta;
-        momentOITUniformBuffer->subData(0, sizeof(MomentOITUniformData), &momentUniformData);
-        reRender = true;
-    }
-
-    const char *syncModeNames[] = { "No Sync (Unsafe)", "Fragment Shader Interlock", "Spinlock" };
-    if (ImGui::Combo(
-            "Sync Mode", (int*)&syncMode, syncModeNames, IM_ARRAYSIZE(syncModeNames))) {
-        updateSyncMode();
-        reloadGatherShader();
-        reRender = true;
-    }
-    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK && ImGui::Checkbox(
-            "Ordered Sync", &useOrderedFragmentShaderInterlock)) {
-        reloadGatherShader();
-        reRender = true;
-    }
-}
-
 void MBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 

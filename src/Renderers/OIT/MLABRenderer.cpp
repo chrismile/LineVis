@@ -351,40 +351,6 @@ void MLABRenderer::resolve() {
     glDepthMask(GL_TRUE);
 }
 
-void MLABRenderer::renderGui() {
-    LineRenderer::renderGui();
-
-    if (ImGui::SliderInt("Num Layers", &numLayers, 1, 64)) {
-        updateLayerMode();
-        reloadShaders();
-        reRender = true;
-    }
-    const char *syncModeNames[] = { "No Sync (Unsafe)", "Fragment Shader Interlock", "Spinlock" };
-    if (ImGui::Combo(
-            "Sync Mode", (int*)&syncMode, syncModeNames, IM_ARRAYSIZE(syncModeNames))) {
-        updateSyncMode();
-        reloadGatherShader();
-        reRender = true;
-    }
-    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK && ImGui::Checkbox(
-            "Ordered Sync", &useOrderedFragmentShaderInterlock)) {
-        reloadGatherShader();
-        reRender = true;
-    }
-    if (selectTilingModeUI()) {
-        reloadShaders();
-        clearBitSet = true;
-        reRender = true;
-    }
-    if (ImGui::Button("Reload Shader")) {
-        reloadGatherShader();
-        if (shaderAttributes) {
-            shaderAttributes = shaderAttributes->copy(gatherShader);
-        }
-        reRender = true;
-    }
-}
-
 void MLABRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 

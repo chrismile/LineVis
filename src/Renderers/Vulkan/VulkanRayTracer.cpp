@@ -58,7 +58,7 @@ VulkanRayTracer::VulkanRayTracer(
     renderReadySemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
     renderFinishedSemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
 
-    rayTracingRenderPass = std::make_shared<RayTracingRenderPass>(rendererVk, sceneData.camera);
+    rayTracingRenderPass = std::make_shared<RayTracingRenderPass>(this, rendererVk, sceneData.camera);
     rayTracingRenderPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
     rayTracingRenderPass->setNumSamplesPerFrame(numSamplesPerFrame);
     rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
@@ -185,37 +185,6 @@ void VulkanRayTracer::render() {
     accumulatedFramesCounter++;
 }
 
-void VulkanRayTracer::renderGui() {
-    LineRenderer::renderGui();
-
-    if (ImGui::SliderInt(
-            "#Samples/Frame", reinterpret_cast<int*>(&numSamplesPerFrame), 1, 32)) {
-        rayTracingRenderPass->setNumSamplesPerFrame(numSamplesPerFrame);
-        accumulatedFramesCounter = 0;
-    }
-
-    if (ImGui::SliderInt(
-            "#Accum. Frames", reinterpret_cast<int*>(&maxNumAccumulatedFrames), 1, 32)) {
-        rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
-        accumulatedFramesCounter = 0;
-    }
-
-    if (ImGui::SliderInt(
-            "Max. Depth", reinterpret_cast<int*>(&maxDepthComplexity), 1, 2048)) {
-        rayTracingRenderPass->setMaxDepthComplexity(maxDepthComplexity);
-        accumulatedFramesCounter = 0;
-    }
-
-    if (ImGui::Checkbox("Use Analytic Intersections", &useAnalyticIntersections)) {
-        rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
-        rayTracingRenderPass->setShaderDirty();
-        rayTracingRenderPass->setLineData(lineData, false);
-        accumulatedFramesCounter = 0;
-    }
-    ImGui::SameLine();
-    ImGui::HelpMarker("Whether to trace rays against a triangle mesh or analytic tubes using line segment AABBs.");
-}
-
 void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 
@@ -268,8 +237,9 @@ void VulkanRayTracer::update(float dt) {
 
 
 
-RayTracingRenderPass::RayTracingRenderPass(sgl::vk::Renderer* renderer, sgl::CameraPtr camera)
-        : RayTracingPass(renderer), camera(std::move(camera)) {
+RayTracingRenderPass::RayTracingRenderPass(
+        VulkanRayTracer* vulkanRayTracer, sgl::vk::Renderer* renderer, sgl::CameraPtr camera)
+        : RayTracingPass(renderer), vulkanRayTracer(vulkanRayTracer), camera(std::move(camera)) {
     cameraSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(CameraSettings),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -300,19 +270,19 @@ void RayTracingRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
     this->lineData = lineData;
     if (useAnalyticIntersections) {
         tubeTriangleRenderData = VulkanTubeTriangleRenderData();
-        tubeAabbRenderData = lineData->getVulkanTubeAabbRenderData();
+        tubeAabbRenderData = lineData->getVulkanTubeAabbRenderData(vulkanRayTracer);
         if (lineData->getShallRenderSimulationMeshBoundary()) {
-            topLevelAS = lineData->getRayTracingTubeAabbAndHullTopLevelAS();
+            topLevelAS = lineData->getRayTracingTubeAabbAndHullTopLevelAS(vulkanRayTracer);
         } else {
-            topLevelAS = lineData->getRayTracingTubeAabbTopLevelAS();
+            topLevelAS = lineData->getRayTracingTubeAabbTopLevelAS(vulkanRayTracer);
         }
     } else {
-        tubeTriangleRenderData = lineData->getVulkanTubeTriangleRenderData(true);
+        tubeTriangleRenderData = lineData->getVulkanTubeTriangleRenderData(vulkanRayTracer, true);
         tubeAabbRenderData = VulkanTubeAabbRenderData();
         if (lineData->getShallRenderSimulationMeshBoundary()) {
-            topLevelAS = lineData->getRayTracingTubeTriangleAndHullTopLevelAS();
+            topLevelAS = lineData->getRayTracingTubeTriangleAndHullTopLevelAS(vulkanRayTracer);
         } else {
-            topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS();
+            topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS(vulkanRayTracer);
         }
     }
 
@@ -458,7 +428,7 @@ void RayTracingRenderPass::_render() {
     shaderGroupSettings.hitShaderGroupSize = lineData->getShallRenderSimulationMeshBoundary() ? 2 : 1;
     rayTracingData->setShaderGroupSettings(shaderGroupSettings);
 
-    lineData->updateVulkanUniformBuffers(renderer);
+    lineData->updateVulkanUniformBuffers(vulkanRayTracer, renderer);
 
     renderer->transitionImageLayout(sceneImageView->getImage(), VK_IMAGE_LAYOUT_GENERAL);
     renderer->traceRays(rayTracingData, launchSizeX, launchSizeY, launchSizeZ);

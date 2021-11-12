@@ -548,8 +548,8 @@ void MainApp::setRenderer() {
     lineRenderer->initialize();
 
     if (lineData) {
-        lineData->setRenderingMode(renderingMode);
-        lineData->setLineRenderer(lineRenderer);
+        lineData->setLineRenderers({ lineRenderer });
+        lineData->setRenderingModes({ renderingMode });
     }
 }
 
@@ -785,7 +785,12 @@ void MainApp::renderGui() {
             dataFilter->renderGui();
         }
     }
-    lineRenderer->renderGuiWindow();
+    if (lineData) {
+        bool shallReloadGatherShader = lineData->renderGuiWindowSecondary();
+        if (shallReloadGatherShader) {
+            lineRenderer->reloadGatherShaderExternal();
+        }
+    }
 }
 
 void MainApp::loadAvailableDataSetInformation() {
@@ -951,8 +956,10 @@ void MainApp::renderGuiMenuBar() {
 void MainApp::renderGuiPropertyEditorCustomNodes() {
     if (lineData) {
         if (propertyEditor.beginNode(lineData->getLineDataWindowName())) {
-            bool isRasterizer = lineRenderer != nullptr && lineRenderer->getIsRasterizer();
-            lineData->renderGuiPropertyEditorNodes(propertyEditor, isRasterizer);
+            bool reloadGatherShader = lineData->renderGuiPropertyEditorNodes(propertyEditor);
+            if (reloadGatherShader) {
+                lineRenderer->reloadGatherShaderExternal();
+            }
             propertyEditor.endNode();
         }
     }
@@ -1161,8 +1168,8 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames, bool bl
             lineData->recomputeHistogram();
             lineData->setClearColor(clearColor);
             lineData->setUseLinearRGB(useLinearRGB);
-            lineData->setRenderingMode(renderingMode);
-            lineData->setLineRenderer(lineRenderer);
+            lineData->setLineRenderers({ lineRenderer });
+            lineData->setRenderingModes({ renderingMode });
             newMeshLoaded = true;
             modelBoundingBox = lineData->getModelBoundingBox();
 
@@ -1221,8 +1228,8 @@ void MainApp::checkLoadingRequestFinished() {
         lineData->recomputeHistogram();
         lineData->setClearColor(clearColor);
         lineData->setUseLinearRGB(useLinearRGB);
-        lineData->setRenderingMode(renderingMode);
-        lineData->setLineRenderer(lineRenderer);
+        lineData->setLineRenderers({ lineRenderer });
+        lineData->setRenderingModes({ renderingMode });
         newMeshLoaded = true;
         modelBoundingBox = lineData->getModelBoundingBox();
 

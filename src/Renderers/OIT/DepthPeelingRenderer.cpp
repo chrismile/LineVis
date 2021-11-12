@@ -286,11 +286,6 @@ void DepthPeelingRenderer::computeDepthComplexity() {
     fragmentCounterBuffer->unmapBuffer();
 }
 
-void DepthPeelingRenderer::renderGui() {
-    LineRenderer::renderGui();
-    ImGui::Text("Max. depth complexity: %lu", maxDepthComplexity);
-}
-
 void DepthPeelingRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
     propertyEditor.addText("Max. Depth Complexity", std::to_string(maxDepthComplexity));

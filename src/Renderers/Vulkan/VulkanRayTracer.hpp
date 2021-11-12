@@ -75,8 +75,6 @@ public:
 
     // Renders the object to the scene framebuffer.
     void render() override;
-    // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
-    void renderGui() override;
     /// Renders the entries in the property editor.
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
     // Updates the internal logic (called once per frame).
@@ -125,7 +123,7 @@ private:
 
 class RayTracingRenderPass : public sgl::vk::RayTracingPass {
 public:
-    explicit RayTracingRenderPass(sgl::vk::Renderer* renderer, sgl::CameraPtr camera);
+    RayTracingRenderPass(VulkanRayTracer* vulkanRayTracer, sgl::vk::Renderer* renderer, sgl::CameraPtr camera);
 
     // Public interface.
     void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
@@ -151,6 +149,8 @@ private:
     sgl::vk::RayTracingPipelinePtr createRayTracingPipeline() override;
     void createRayTracingData(sgl::vk::Renderer* renderer, sgl::vk::RayTracingPipelinePtr& rayTracingPipeline) override;
     void _render() override;
+
+    VulkanRayTracer* vulkanRayTracer = nullptr;
 
     sgl::CameraPtr camera;
     LineDataPtr lineData;

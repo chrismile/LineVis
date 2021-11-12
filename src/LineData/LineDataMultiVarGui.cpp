@@ -30,6 +30,7 @@
 
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
+#include <Utils/Events/EventManager.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
@@ -86,18 +87,17 @@ void LineDataMultiVar::recomputeWidgetPositions() {
     }
 }
 
-bool LineDataMultiVar::renderGuiWindowSecondary(bool isRasterizer)  {
+bool LineDataMultiVar::renderGuiWindowSecondary()  {
     if (useMultiVarRendering && multiVarTransferFunctionWindow.renderGui()) {
         reRender = true;
         if (multiVarTransferFunctionWindow.getTransferFunctionMapRebuilt()) {
             onTransferFunctionMapRebuilt();
-            if (lineRenderer) {
-                lineRenderer->onTransferFunctionMapRebuilt();
-            }
+            sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(
+                    ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT));
         }
     }
 
-    return LineData::renderGuiWindowSecondary(isRasterizer);
+    return LineData::renderGuiWindowSecondary();
 }
 
 bool LineDataMultiVar::renderGuiOverlay() {
@@ -118,16 +118,9 @@ bool LineDataMultiVar::renderGuiOverlay() {
     return shallReloadGatherShader;
 }
 
-bool LineDataMultiVar::renderGuiRenderer(bool isRasterizer) {
-    bool shallReloadGatherShader = LineData::renderGuiRenderer(isRasterizer);
-    if (ImGui::CollapsingHeader("Line Rendering Settings", NULL, ImGuiTreeNodeFlags_DefaultOpen)) {
-        shallReloadGatherShader = renderGuiLineRenderingSettings() || shallReloadGatherShader;
-    }
-    return shallReloadGatherShader;
-}
-
-bool LineDataMultiVar::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, bool isRasterizer) {
-    bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodesRenderer(propertyEditor, isRasterizer);
+bool LineDataMultiVar::renderGuiPropertyEditorNodesRenderer(
+        sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer) {
+    bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodesRenderer(propertyEditor, lineRenderer);
     if (propertyEditor.beginNode("Line Rendering Settings")) {
         shallReloadGatherShader =
                 renderGuiLineRenderingSettingsPropertyEditor(propertyEditor) || shallReloadGatherShader;
@@ -136,9 +129,10 @@ bool LineDataMultiVar::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor&
     return shallReloadGatherShader;
 }
 
-bool LineDataMultiVar::renderGuiLineData(bool isRasterizer) {
+bool LineDataMultiVar::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool shallReloadGatherShader = false;
-    if (rendererSupportsMultiVarRendering && ImGui::Checkbox("Multivariate Rendering", &useMultiVarRendering)) {
+    if (rendererSupportsMultiVarRendering && propertyEditor.addCheckbox(
+            "Multivariate Rendering", &useMultiVarRendering)) {
         dirty = true;
         shallReloadGatherShader = true;
         recomputeColorLegend();
@@ -146,28 +140,7 @@ bool LineDataMultiVar::renderGuiLineData(bool isRasterizer) {
     }
 
     if (!useMultiVarRendering) {
-        return LineData::renderGuiLineData(isRasterizer) || shallReloadGatherShader;
-    }
-
-    if (ImGui::CollapsingHeader("Multi-Variate Settings", NULL, ImGuiTreeNodeFlags_DefaultOpen)) {
-        shallReloadGatherShader = renderGuiTechniqueSettings() || shallReloadGatherShader;
-    }
-
-    return shallReloadGatherShader;
-}
-
-bool LineDataMultiVar::renderGuiPropertyEditorNodes(
-        sgl::PropertyEditor& propertyEditor, bool isRasterizer) {
-    bool shallReloadGatherShader = false;
-    if (rendererSupportsMultiVarRendering && propertyEditor.addCheckbox("Multivariate Rendering", &useMultiVarRendering)) {
-        dirty = true;
-        shallReloadGatherShader = true;
-        recomputeColorLegend();
-        recomputeWidgetPositions();
-    }
-
-    if (!useMultiVarRendering) {
-        return LineData::renderGuiPropertyEditorNodes(propertyEditor, isRasterizer) || shallReloadGatherShader;
+        return LineData::renderGuiPropertyEditorNodes(propertyEditor) || shallReloadGatherShader;
     }
 
     if (propertyEditor.beginNode("Multi-Variate Settings")) {
@@ -175,157 +148,6 @@ bool LineDataMultiVar::renderGuiPropertyEditorNodes(
                 renderGuiTechniqueSettingsPropertyEditor(propertyEditor) || shallReloadGatherShader;
         propertyEditor.endNode();
     }
-
-    return shallReloadGatherShader;
-}
-
-bool LineDataMultiVar::renderGuiTechniqueSettings() {
-    bool shallReloadGatherShader = false;
-
-    if (ImGui::Combo(
-            "Render Technique", (int *) &multiVarRenderMode, MULTIVAR_RENDERTYPE_DISPLAYNAMES,
-            IM_ARRAYSIZE(MULTIVAR_RENDERTYPE_DISPLAYNAMES))) {
-        shallReloadGatherShader = true;
-    }
-
-    ImGui::Separator();
-    ImGui::Text("Technique settings:");
-
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ROLLS
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_COLOR_BANDS
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_TWISTED_ROLLS
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_CHECKERBOARD
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_FIBERS) {
-        if (ImGui::Checkbox("Map Tube Diameter", &mapTubeDiameter)) {
-            reRender = true;
-        }
-
-        if (mapTubeDiameter) {
-            if (ImGui::Combo(
-                    "Radius Mapping Mode", (int*)&multiVarRadiusMappingMode,
-                    MULTIVAR_RADIUSTYPE_DISPLAYNAMES, IM_ARRAYSIZE(MULTIVAR_RADIUSTYPE_DISPLAYNAMES))) {
-                reRender = true;
-            }
-        }
-    }
-
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_CHECKERBOARD) {
-        if (ImGui::SliderInt("Checkerboard Height", &checkerboardHeight, 1, 10)) {
-            reRender = true;
-        }
-        if (ImGui::SliderInt("Checkerboard Width", &checkerboardWidth, 1, 20)) {
-            reRender = true;
-        }
-        if (ImGui::SliderInt("Checkerboard Iterator", &checkerboardIterator, 1, 5)) {
-            reRender = true;
-        }
-    }
-
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_TWISTED_ROLLS) {
-        if (ImGui::SliderFloat("Twist Offset", &twistOffset, 0.0, 1.0, "%.2f")) {
-            reRender = true;
-        }
-
-        if (ImGui::Checkbox("Constant Twist Offset", &constantTwistOffset)) {
-            reRender = true;
-        }
-    }
-
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS
-            || multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS_RIBBON) {
-        if (ImGui::Combo(
-                "Oriented Ribbon Mode", (int*)&orientedRibbonMode,
-                ORIENTED_RIBBON_MODE_DISPLAYNAMES, IM_ARRAYSIZE(ORIENTED_RIBBON_MODE_DISPLAYNAMES))) {
-            shallReloadGatherShader = true;
-        }
-        if (orientedRibbonMode == ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH) {
-            if (ImGui::ColorEdit3(
-                    "Band Background Color", reinterpret_cast<float*>(&bandBackgroundColor))) {
-                reRender = true;
-            }
-        }
-    }
-
-    if (ImGui::SliderFloat("Separator Width", &separatorWidth, 0.0, 1.0, "%.2f")) {
-        reRender = true;
-    }
-
-    //if (ImGui::SliderFloat("Min Color Intensity", &minColorIntensity, 0.0, 1.0, "%.2f")) {
-    //    reRender = true;
-    //    recomputeColorLegend();
-    //}
-    if (ImGui::Checkbox("Use Color Intensity", &useColorIntensity)) {
-        reRender = true;
-        recomputeColorLegend();
-    }
-
-    auto& varNames = attributeNames;
-    bool itemHasChanged = false;
-
-    std::vector<std::string> comboSelVec(0);
-    if (ImGui::BeginCombo("Variables", comboValue.c_str(), ImGuiComboFlags_NoArrowButton)) {
-        for (size_t v = 0; v < varSelected.size(); ++v) {
-            std::vector<std::string> names;
-            boost::split(names, varNames[v], [](char c) { return c == '#'; });
-
-            if (ImGui::Selectable(
-                    names[0].c_str(), reinterpret_cast<bool*>(&varSelected[v]),
-                    ImGuiSelectableFlags_::ImGuiSelectableFlags_DontClosePopups)) {
-                itemHasChanged = true;
-            }
-
-            if (static_cast<bool>(varSelected[v])) {
-                ImGui::SetItemDefaultFocus();
-                comboSelVec.push_back(names[1]);
-            }
-        }
-
-        numVariablesSelected = comboSelVec.size();
-
-        comboValue = "";
-        for (size_t v = 0; v < comboSelVec.size(); ++v) {
-            comboValue += comboSelVec[v];
-            if (comboSelVec.size() > 1 && v + 1 != comboSelVec.size()) {
-                comboValue += ",";
-            }
-        }
-
-        // Update SSBO
-        if (itemHasChanged) {
-            varSelectedArrayBuffer = sgl::Renderer->createGeometryBuffer(
-                    varSelected.size() * sizeof(uint32_t), varSelected.data(),
-                    sgl::SHADER_STORAGE_BUFFER);
-            shallReloadGatherShader = true;
-            recomputeWidgetPositions();
-        }
-
-        ImGui::EndCombo();
-    }
-
-    ImGui::NewLine();
-
-    /*bool colorHasChanged = false;
-    for (auto v = 0; v < varSelected.size(); ++v) {
-        if (varSelected[v]) {
-            std::vector<std::string> names;
-            boost::split(names, varNames[v], [](char c) { return c == '#'; });
-
-            ImGui::SameLine();
-            if (ImGui::ColorEdit3(
-                    names[1].c_str(), reinterpret_cast<float*>(&varColors[v]),
-                    ImGuiColorEditFlags_HSV | ImGuiColorEditFlags_NoInputs)) {
-                colorHasChanged = true;
-            }
-        }
-    }
-
-    if (colorHasChanged) {
-        varColorArrayBuffer = sgl::Renderer->createGeometryBuffer(
-                varColors.size() * sizeof(glm::vec4), varColors.data(),
-                sgl::SHADER_STORAGE_BUFFER);
-        recomputeColorLegend();
-        reRender = true;
-    }*/
 
     return shallReloadGatherShader;
 }
@@ -444,76 +266,6 @@ bool LineDataMultiVar::renderGuiTechniqueSettingsPropertyEditor(sgl::PropertyEdi
         }
 
         propertyEditor.addEndCombo();
-    }
-
-    return shallReloadGatherShader;
-}
-
-bool LineDataMultiVar::renderGuiLineRenderingSettings() {
-    bool shallReloadGatherShader = false;
-
-    if (ImGui::Button("Reload Shader")) {
-        shallReloadGatherShader = true;
-    }
-
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_FIBERS) {
-        if (ImGui::SliderInt("Num Line Segments", &numLineSegments, 3, 20)) {
-            shallReloadGatherShader = true;
-        }
-    }
-
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_FIBERS) {
-        if (ImGui::SliderFloat("Fiber radius", &fiberRadius, 0.0001f, 0.01f, "%.4f")) {
-            reRender = true;
-        }
-    }
-
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ROLLS
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_COLOR_BANDS
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_TWISTED_ROLLS
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_CHECKERBOARD) {
-        if (ImGui::SliderInt("Num Line Segments", &numInstances, 3, 20)) {
-            shallReloadGatherShader = true;
-        }
-    }
-
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ROLLS
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_COLOR_BANDS
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_TWISTED_ROLLS
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_CHECKERBOARD
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_FIBERS) {
-        if (ImGui::SliderFloat("Min. Radius Factor", &minRadiusFactor, 0.0f, 1.0f, "%.3f")) {
-            reRender = true;
-        }
-    }
-
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ROLLS) {
-        if (ImGui::SliderInt("Roll Width", &rollWidth, 1, 4)) {
-            reRender = true;
-        }
-    }
-
-    ImGui::Separator();
-    ImGui::Text("Phong Lighting Settings:");
-
-    if (ImGui::SliderFloat("MaterialAmbient", &materialConstantAmbient, 0.0, 1.0, "%.2f")) {
-        reRender = true;
-    }
-    if (ImGui::SliderFloat("MaterialDiffuse", &materialConstantDiffuse, 0.0, 1.0, "%.2f")) {
-        reRender = true;
-    }
-    if (ImGui::SliderFloat("MaterialSpecular", &materialConstantSpecular, 0.0, 1.0, "%.2f")) {
-        reRender = true;
-    }
-    if (ImGui::SliderFloat("MaterialSpecularExp", &materialConstantSpecularExp, 0.0, 100.0, "%.2f")) {
-        reRender = true;
-    }
-    if (ImGui::Checkbox("Draw Halo", &drawHalo)) {
-        reRender = true;
-    }
-    if (ImGui::SliderFloat("Halo Factor", &haloFactor, 0.0, 4.0, "%.1f")) {
-        reRender = true;
     }
 
     return shallReloadGatherShader;

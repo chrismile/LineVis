@@ -52,7 +52,7 @@ const int MESH_MODE_DEPTH_COMPLEXITIES_OPOPT[2][2] = {
 class OpacityOptimizationRenderer : public LineRenderer {
 public:
     OpacityOptimizationRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
-    ~OpacityOptimizationRenderer() override {}
+    ~OpacityOptimizationRenderer() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_OPACITY_OPTIMIZATION; }
 
     /**
@@ -66,8 +66,6 @@ public:
 
     /// Renders the object to the scene framebuffer.
     void render() override;
-    /// Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
-    void renderGui() override;
     /// Renders the entries in the property editor.
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
     /// Updates the internal logic (called once per frame).
@@ -98,6 +96,9 @@ protected:
     void clearPpllFinal();
     void gatherPpllFinal();
     void resolvePpllFinal();
+
+    // Events.
+    sgl::ListenerToken onOpacityEstimationRecomputeListenerToken;
 
     // Line data.
     std::vector<std::vector<glm::vec3>> lines;

@@ -116,12 +116,16 @@ LineDataMultiVar::LineDataMultiVar(sgl::TransferFunctionWindow &transferFunction
     lineDataWindowName = "Line Data (MultiVar)";
 }
 
-void LineDataMultiVar::setLineRenderer(LineRenderer* lineRenderer) {
-    LineData::setLineRenderer(lineRenderer);
+void LineDataMultiVar::setLineRenderers(const std::vector<LineRenderer*>& lineRenderers) {
+    LineData::setLineRenderers(lineRenderers);
 
-    if (lineRenderer->getIsVulkanRenderer() || !lineRenderer->getIsRasterizer()
-            || lineRenderer->getRenderingMode() == RENDERING_MODE_OPACITY_OPTIMIZATION) {
-        rendererSupportsMultiVarRendering = false;
+    rendererSupportsMultiVarRendering = std::all_of(
+            lineRenderers.cbegin(), lineRenderers.cend(), [](LineRenderer* lineRenderer){
+                return !lineRenderer->getIsVulkanRenderer() && lineRenderer->getIsRasterizer()
+                       && lineRenderer->getRenderingMode() != RENDERING_MODE_OPACITY_OPTIMIZATION;
+            });
+
+    if (!rendererSupportsMultiVarRendering) {
         if (useMultiVarRendering) {
             useMultiVarRendering = false;
             disabledMultiVarRenderingDueToLineRenderer = true;

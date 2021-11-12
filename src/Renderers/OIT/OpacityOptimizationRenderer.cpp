@@ -101,7 +101,18 @@ OpacityOptimizationRenderer::OpacityOptimizationRenderer(SceneData& sceneData, s
     clearPpllFinalRenderData->addGeometryBuffer(
             geomBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
 
+    // Add events for interaction with line data.
+    onOpacityEstimationRecomputeListenerToken = sgl::EventManager::get()->addListener(
+            ON_OPACITY_OPTIMIZATION_RECOMPUTE_EVENT, [this](const sgl::EventPtr&) {
+                this->onHasMoved();
+            });
+
     onResolutionChanged();
+}
+
+OpacityOptimizationRenderer::~OpacityOptimizationRenderer() {
+    sgl::EventManager::get()->removeListener(
+            ON_OPACITY_OPTIMIZATION_RECOMPUTE_EVENT, onOpacityEstimationRecomputeListenerToken);
 }
 
 void OpacityOptimizationRenderer::reloadResolveShader() {
@@ -265,7 +276,7 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewD
     gatherPpllFinalRenderData = sgl::ShaderAttributesPtr();
     updateLargeMeshMode();
 
-    lines = lineData->getFilteredLines();
+    lines = lineData->getFilteredLines(this);
 
     sgl::GeometryBufferPtr indexBuffer;
     sgl::GeometryBufferPtr vertexPositionBuffer;
@@ -867,58 +878,6 @@ void OpacityOptimizationRenderer::resolvePpllFinal() {
     glDepthMask(GL_TRUE);
 }
 
-
-void OpacityOptimizationRenderer::renderGui() {
-    LineRenderer::renderGui();
-
-    if (ImGui::SliderFloat("q", &q, 0.0f, 5000.0f, "%.1f")) {
-        reRender = true;
-        onHasMoved();
-    }
-    if (ImGui::SliderFloat("r", &r, 0.0f, 5000.0f, "%.1f")) {
-        reRender = true;
-        onHasMoved();
-    }
-    if (ImGui::SliderInt("s", &s, 0, 20)) {
-        reRender = true;
-        onHasMoved();
-    }
-    if (ImGui::SliderFloat("lambda", &lambda, 0.1f, 20.0f, "%.1f")) {
-        reRender = true;
-        onHasMoved();
-    }
-    if (ImGui::SliderFloat("rel", &relaxationConstant, 0.0f, 1.0f, "%.2f")) {
-        reRender = true;
-        onHasMoved();
-    }
-    if (ImGui::SliderFloat("ts", &temporalSmoothingFactor, 0.0f, 1.0f, "%.2f")) {
-        reRender = true;
-        onHasMoved();
-    }
-
-    if (ImGui::Combo(
-            "Sorting Mode", (int*)&sortingAlgorithmMode, SORTING_MODE_NAMES, NUM_SORTING_MODES)) {
-        setSortingAlgorithmDefine();
-        reloadResolveShader();
-        reRender = true;
-        onHasMoved();
-    }
-
-    if (maximumNumberOfSamples > 1) {
-        if (ImGui::Checkbox("Multisampling", &useMultisampling)) {
-            onResolutionChanged();
-            reRender = true;
-        }
-        if (useMultisampling) {
-            if (ImGui::Combo("Samples", &sampleModeSelection, sampleModeNames.data(), numSampleModes)) {
-                numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
-                reloadResolveShader();
-                onResolutionChanged();
-                reRender = true;
-            }
-        }
-    }
-}
 
 void OpacityOptimizationRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);

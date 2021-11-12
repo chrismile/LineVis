@@ -90,7 +90,7 @@ public:
 
     // Get filtered line data (only containing points also shown when rendering).
     Trajectories filterTrajectoryData() override;
-    std::vector<std::vector<glm::vec3>> getFilteredLines() override;
+    std::vector<std::vector<glm::vec3>> getFilteredLines(LineRenderer* lineRenderer) override;
     std::vector<Trajectories> filterTrajectoryPsData();
     /// Principal stress direction -> Line set index -> Point on line index.
     std::vector<std::vector<std::vector<glm::vec3>>> getFilteredPrincipalStressLines();
@@ -110,39 +110,27 @@ public:
 
 #ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---
-    VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(bool raytracing) override;
-    VulkanTubeAabbRenderData getVulkanTubeAabbRenderData() override;
+    VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
+    VulkanTubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) override;
     std::map<std::string, std::string> getVulkanShaderPreprocessorDefines() override;
     void setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData) override;
-    void updateVulkanUniformBuffers(sgl::vk::Renderer* renderer) override;
+    void updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::Renderer* renderer) override;
 #endif
 
     // --- Retrieve triangle mesh on the CPU. ---
     void getTriangleMesh(
+            LineRenderer* lineRenderer,
             std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions,
             std::vector<glm::vec3>& vertexNormals, std::vector<float>& vertexAttributes) override;
     void getTriangleMesh(
+            LineRenderer* lineRenderer,
             std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions) override;
 
     /**
      * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
      * @return true if the gather shader needs to be reloaded.
      */
-    bool renderGuiRenderer(bool isRasterizer) override;
-    /**
-     * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
-     * @return true if the gather shader needs to be reloaded.
-     */
-    bool renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, bool isRasterizer) override;
-    /**
-     * For line data settings.
-     * @return true if the gather shader needs to be reloaded.
-     */
-    bool renderGuiLineData(bool isRasterizer) override;
-    /**
-     * For changing other line rendering settings.
-     */
-    bool renderGuiRenderingSettings() override;
+    bool renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer) override;
     /**
      * For changing other line rendering settings.
      */
@@ -151,7 +139,7 @@ public:
      * For rendering secondary ImGui windows (e.g., for transfer function widgets).
      * @return true if the gather shader needs to be reloaded.
      */
-    bool renderGuiWindowSecondary(bool isRasterizer) override;
+    bool renderGuiWindowSecondary() override;
     /**
      * For rendering secondary, overlay ImGui windows.
      * @return true if the gather shader needs to be reloaded.
@@ -161,7 +149,7 @@ public:
      * Renders the entries in the property editor.
      * @return true if the gather shader needs to be reloaded.
      */
-    bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor, bool isRasterizer) override;
+    bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
     /// Certain GUI widgets might need the clear color.
     void setClearColor(const sgl::Color& clearColor) override;
@@ -169,8 +157,8 @@ public:
     void setUseLinearRGB(bool useLinearRGB) override;
     bool shallRenderTransferFunctionWindow() override { return !usePrincipalStressDirectionIndex; }
 
-    /// Set current rendering mode (e.g. for making visible certain UI options only for certain renderers).
-    void setRenderingMode(RenderingMode renderingMode) override;
+    /// Set current rendering modes (e.g. for making visible certain UI options only for certain renderers).
+    void setRenderingModes(const std::vector<RenderingMode>& renderingModes) override;
 
     static inline void setUseMajorPS(bool val) { useMajorPS = val; }
     static inline void setUseMediumPS(bool val) { useMediumPS = val; }

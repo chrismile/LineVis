@@ -53,28 +53,26 @@ public:
     MLABRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     MLABRenderer(
             const std::string& windowName, SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow);
-    virtual void initialize();
-    virtual ~MLABRenderer() {}
+    void initialize() override;
+    ~MLABRenderer() override {}
     RenderingMode getRenderingMode() override { return RENDERING_MODE_MLAB; }
 
     /**
      * Re-generates the visualization mapping.
      * @param lineData The render data.
      */
-    virtual void setLineData(LineDataPtr& lineData, bool isNewData);
+    void setLineData(LineDataPtr& lineData, bool isNewData) override;
 
     /// Called when the resolution of the application window has changed.
-    virtual void onResolutionChanged();
+    void onResolutionChanged() override;
 
     // Renders the object to the scene framebuffer.
-    virtual void render();
-    // Renders the GUI. The "dirty" and "reRender" flags might be set depending on the user's actions.
-    virtual void renderGui();
+    void render() override;
     /// Renders the entries in the property editor.
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
     /// For changing performance measurement modes.
-    virtual void setNewState(const InternalState& newState);
+    void setNewState(const InternalState& newState) override;
 
 protected:
     void updateSyncMode();

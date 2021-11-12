@@ -249,34 +249,6 @@ void OpaqueLineRenderer::render() {
     }
 }
 
-void OpaqueLineRenderer::renderGui() {
-    LineRenderer::renderGui();
-
-    if (shaderAttributesDegeneratePoints && hasDegeneratePoints
-            && ImGui::Checkbox("Show Degenerate Points", &showDegeneratePoints)) {
-        reRender = true;
-    }
-    if (shaderAttributesDegeneratePoints && showDegeneratePoints && hasDegeneratePoints) {
-        if (shaderAttributesDegeneratePoints && ImGui::SliderFloat(
-                "Point Width", &pointWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH)) {
-            reRender = true;
-        }
-    }
-    if (maximumNumberOfSamples > 1) {
-        if (ImGui::Checkbox("Multisampling", &useMultisampling)) {
-            onResolutionChanged();
-            reRender = true;
-        }
-        if (useMultisampling) {
-            if (ImGui::Combo("Samples", &sampleModeSelection, sampleModeNames.data(), numSampleModes)) {
-                numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
-                onResolutionChanged();
-                reRender = true;
-            }
-        }
-    }
-}
-
 void OpaqueLineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 
