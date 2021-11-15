@@ -302,8 +302,12 @@ MainApp::MainApp()
     });
 
     useDockSpaceMode = true;
+    sgl::AppSettings::get()->getSettings().getValueOpt("useDockSpaceMode", useDockSpaceMode);
     showPropertyEditor = useDockSpaceMode;
     sgl::ImGuiWrapper::get()->setUseDockSpaceMode(useDockSpaceMode);
+
+    showFpsOverlay = true;
+    sgl::AppSettings::get()->getSettings().getValueOpt("showFpsOverlay", showFpsOverlay);
 
     useLinearRGB = false;
     transferFunctionWindow.setClearColor(clearColor);
@@ -396,6 +400,9 @@ MainApp::~MainApp() {
     zmq_ctx_destroy(zeromqContext);
     zeromqContext = nullptr;
 #endif
+
+    sgl::AppSettings::get()->getSettings().addKeyValue("useDockSpaceMode", useDockSpaceMode);
+    sgl::AppSettings::get()->getSettings().addKeyValue("showFpsOverlay", showFpsOverlay);
 }
 
 void MainApp::setNewState(const InternalState &newState) {
@@ -669,7 +676,9 @@ void MainApp::renderGui() {
     focusedWindowIndex = -1;
     mouseHoverWindowIndex = -1;
 
-    if (ImGuiFileDialog::Instance()->Display("ChooseDataSetFile")) {
+    if (ImGuiFileDialog::Instance()->Display(
+            "ChooseDataSetFile", ImGuiWindowFlags_NoCollapse,
+            sgl::ImGuiWrapper::get()->getScaleDependentSize(1000, 580))) {
         if (ImGuiFileDialog::Instance()->IsOk()) {
             std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
             std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
@@ -686,85 +695,118 @@ void MainApp::renderGui() {
     }
 
     if (useDockSpaceMode) {
-        ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+        ImGuiID dockSpaceId = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+        ImGuiDockNode* centralNode = ImGui::DockBuilderGetNode(dockSpaceId);
+        static bool isProgramStartup = true;
+        if (isProgramStartup && centralNode->IsEmpty()) {
+            ImGuiID dockLeftId, dockMainId;
+            ImGui::DockBuilderSplitNode(
+                    dockSpaceId, ImGuiDir_Left, 0.18f, &dockLeftId, &dockMainId);
+            ImGui::DockBuilderDockWindow("Opaque Line Renderer (1)", dockMainId);
+
+            ImGuiID dockLeftUpId, dockLeftDownId;
+            ImGui::DockBuilderSplitNode(
+                    dockLeftId, ImGuiDir_Up, 0.47f, &dockLeftUpId, &dockLeftDownId);
+            ImGui::DockBuilderDockWindow("Property Editor", dockLeftUpId);
+
+            ImGuiID dockLeftDownUpId, dockLeftDownDownId;
+            ImGui::DockBuilderSplitNode(
+                    dockLeftDownId, ImGuiDir_Up, 0.28f,
+                    &dockLeftDownUpId, &dockLeftDownDownId);
+            ImGui::DockBuilderDockWindow("Transfer Function", dockLeftDownDownId);
+            ImGui::DockBuilderDockWindow("Multi-Var Transfer Function", dockLeftDownDownId);
+            ImGui::DockBuilderDockWindow("Camera Checkpoints", dockLeftDownUpId);
+            ImGui::DockBuilderDockWindow("Replay Widget", dockLeftDownUpId);
+
+            ImGui::DockBuilderFinish(dockLeftId);
+            ImGui::DockBuilderFinish(dockSpaceId);
+        }
+        isProgramStartup = false;
 
         renderGuiMenuBar();
 
-        int i = 0;
-        for (DataViewPtr& dataView : dataViews) {
-            std::string windowName = dataView->getWindowName(i);
-            if (ImGui::Begin(windowName.c_str(), &showMainWindow)) {
-                if (ImGui::IsWindowFocused()) {
-                    focusedWindowIndex = 0;
-                }
-                sgl::ImGuiWrapper::get()->setWindowViewport(i, ImGui::GetWindowViewport());
-                sgl::ImGuiWrapper::get()->setWindowViewport(i, ImGui::GetWindowViewport());
-                sgl::ImGuiWrapper::get()->setWindowPosAndSize(i, ImGui::GetWindowPos(), ImGui::GetWindowSize());
+        for (int i = 0; i < int(dataViews.size()); i++) {
+            DataViewPtr& dataView = dataViews.at(i);
+            if (dataView->showWindow) {
+                std::string windowName = dataView->getWindowName(i);
+                bool isViewOpen = true;
+                sgl::ImGuiWrapper::get()->setNextWindowStandardSize(800, 600);
+                if (ImGui::Begin(windowName.c_str(), &isViewOpen)) {
+                    if (ImGui::IsWindowFocused()) {
+                        focusedWindowIndex = 0;
+                    }
+                    sgl::ImGuiWrapper::get()->setWindowViewport(i, ImGui::GetWindowViewport());
+                    sgl::ImGuiWrapper::get()->setWindowViewport(i, ImGui::GetWindowViewport());
+                    sgl::ImGuiWrapper::get()->setWindowPosAndSize(i, ImGui::GetWindowPos(), ImGui::GetWindowSize());
 
-                ImVec2 sizeContent = ImGui::GetContentRegionAvail();
-                if (int(sizeContent.x) != int(dataView->viewportWidth)
+                    ImVec2 sizeContent = ImGui::GetContentRegionAvail();
+                    if (int(sizeContent.x) != int(dataView->viewportWidth)
                         || int(sizeContent.y) != int(dataView->viewportHeight)) {
-                    dataView->resize(int(sizeContent.x), int(sizeContent.y));
-                    if (dataView->lineRenderer && dataView->viewportWidth > 0 && dataView->viewportHeight > 0) {
-                        dataView->lineRenderer->onResolutionChanged();
+                        dataView->resize(int(sizeContent.x), int(sizeContent.y));
+                        if (dataView->lineRenderer && dataView->viewportWidth > 0 && dataView->viewportHeight > 0) {
+                            dataView->lineRenderer->onResolutionChanged();
+                        }
+                        reRender = true;
                     }
-                    reRender = true;
-                }
 
-                bool reRenderLocal = reRender || dataView->reRender;
-                dataView->reRender = false;
-                bool componentOtherThanRendererNeedsReRenderLocal = componentOtherThanRendererNeedsReRender;
-                if (dataView->lineRenderer != nullptr) {
-                    reRenderLocal = reRenderLocal || dataView->lineRenderer->needsReRender();
-                    componentOtherThanRendererNeedsReRenderLocal |= dataView->lineRenderer->needsInternalReRender();
-                }
-                if (dataView->lineRenderer && componentOtherThanRendererNeedsReRenderLocal) {
-                    // If the re-rendering was triggered from an outside source, frame accumulation cannot be used!
-                    dataView->lineRenderer->notifyReRenderTriggeredExternally();
-                }
+                    bool reRenderLocal = reRender || dataView->reRender;
+                    dataView->reRender = false;
+                    bool componentOtherThanRendererNeedsReRenderLocal = componentOtherThanRendererNeedsReRender;
+                    if (dataView->lineRenderer != nullptr) {
+                        reRenderLocal = reRenderLocal || dataView->lineRenderer->needsReRender();
+                        componentOtherThanRendererNeedsReRenderLocal |= dataView->lineRenderer->needsInternalReRender();
+                    }
+                    if (dataView->lineRenderer && componentOtherThanRendererNeedsReRenderLocal) {
+                        // If the re-rendering was triggered from an outside source, frame accumulation cannot be used!
+                        dataView->lineRenderer->notifyReRenderTriggeredExternally();
+                    }
 
-                if (dataView->viewportWidth > 0 && dataView->viewportHeight > 0
+                    if (dataView->viewportWidth > 0 && dataView->viewportHeight > 0
                         && (reRenderLocal || continuousRendering)) {
-                    dataView->beginRender();
+                        dataView->beginRender();
 
-                    if (renderingMode != RENDERING_MODE_PER_PIXEL_LINKED_LIST && usePerformanceMeasurementMode) {
-                        performanceMeasurer->startMeasure(recordingTimeLast);
+                        if (renderingMode != RENDERING_MODE_PER_PIXEL_LINKED_LIST && usePerformanceMeasurementMode) {
+                            performanceMeasurer->startMeasure(recordingTimeLast);
+                        }
+
+                        if (lineData.get() != nullptr && dataView->lineRenderer != nullptr) {
+                            dataView->lineRenderer->render();
+                        }
+
+                        if (renderingMode != RENDERING_MODE_PER_PIXEL_LINKED_LIST && usePerformanceMeasurementMode) {
+                            performanceMeasurer->endMeasure();
+                        }
+
+                        reRenderLocal = false;
+
+                        dataView->endRender();
                     }
 
-                    if (lineData.get() != nullptr && dataView->lineRenderer != nullptr) {
-                        dataView->lineRenderer->render();
+                    if (dataView->viewportWidth > 0 && dataView->viewportHeight > 0) {
+                        ImGui::Image(
+                                (void*)(intptr_t)static_cast<sgl::TextureGL*>(
+                                        dataView->sceneTexture.get())->getTexture(),
+                                sizeContent, ImVec2(0, 1), ImVec2(1, 0));
+                        if (ImGui::IsItemHovered()) {
+                            mouseHoverWindowIndex = 0;
+                        }
+
+                        if (i == 0 && showFpsOverlay) {
+                            renderGuiFpsOverlay();
+                        }
+
+                        if (i == 0 && dataView->lineRenderer) {
+                            dataView->lineRenderer->renderGuiOverlay();
+                        }
                     }
-
-                    if (renderingMode != RENDERING_MODE_PER_PIXEL_LINKED_LIST && usePerformanceMeasurementMode) {
-                        performanceMeasurer->endMeasure();
-                    }
-
-                    reRenderLocal = false;
-
-                    dataView->endRender();
                 }
+                ImGui::End();
 
-                if (dataView->viewportWidth > 0 && dataView->viewportHeight > 0) {
-                    ImGui::Image(
-                            (void*)(intptr_t)static_cast<sgl::TextureGL*>(
-                                    dataView->sceneTexture.get())->getTexture(),
-                            sizeContent, ImVec2(0, 1), ImVec2(1, 0));
-                    if (ImGui::IsItemHovered()) {
-                        mouseHoverWindowIndex = 0;
-                    }
-
-                    if (i == 0 && showFpsOverlay) {
-                        renderGuiFpsOverlay();
-                    }
-
-                    if (i == 0 && dataView->lineRenderer) {
-                        dataView->lineRenderer->renderGuiOverlay();
-                    }
+                if (!isViewOpen) {
+                    dataViews.erase(dataViews.begin() + i);
+                    i--;
                 }
             }
-            ImGui::End();
-
-            i++;
         }
         if (!dataViews.empty()) {
             sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
@@ -1029,13 +1071,12 @@ void MainApp::renderGuiMenuBar() {
                 }
             }
             ImGui::Separator();
-            int i = 0;
-            for (DataViewPtr& dataView : dataViews) {
+            for (int i = 0; i < int(dataViews.size()); i++) {
+                DataViewPtr& dataView = dataViews.at(i);
                 std::string windowName = dataView->getWindowName(i);
                 if (ImGui::MenuItem(windowName.c_str(), nullptr, dataView->showWindow)) {
                     dataView->showWindow = !dataView->showWindow;
                 }
-                i++;
             }
             if (ImGui::MenuItem("FPS Overlay", nullptr, showFpsOverlay)) {
                 showFpsOverlay = !showFpsOverlay;
@@ -1072,6 +1113,8 @@ void MainApp::renderGuiMenuBar() {
 
 void MainApp::renderGuiPropertyEditorBegin() {
     if (!useDockSpaceMode) {
+        renderGuiFpsCounter();
+
         if (ImGui::Combo(
                 "Data Set", &selectedDataSetIndex, dataSetNames.data(),
                 int(dataSetNames.size()))) {
@@ -1128,10 +1171,19 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
         }
     }
 
-    int i = 0;
     if (useDockSpaceMode) {
-        for (DataViewPtr& dataView : dataViews) {
-            if (propertyEditor.beginNode(dataView->getWindowName(i))) {
+        for (int i = 0; i < int(dataViews.size()); i++) {
+            DataViewPtr& dataView = dataViews.at(i);
+            bool removeView = false;
+            bool beginNode = propertyEditor.beginNode(dataView->getWindowName(i));
+            ImGui::SameLine();
+            float indentWidth = ImGui::GetContentRegionAvailWidth();
+            ImGui::Indent(indentWidth);
+            if (ImGui::Button("X")) {
+                removeView = true;
+            }
+            ImGui::Unindent(indentWidth);
+            if (beginNode) {
                 std::string previewValue =
                         dataView->renderingMode == RENDERING_MODE_NONE
                         ? "None" : RENDERING_MODE_NAMES[int(dataView->renderingMode)];
@@ -1149,12 +1201,15 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
                     }
                     propertyEditor.addEndCombo();
                 }
-                if (lineRenderer) {
-                    lineRenderer->renderGuiPropertyEditorNodes(propertyEditor);
+                if (dataView->lineRenderer) {
+                    dataView->lineRenderer->renderGuiPropertyEditorNodes(propertyEditor);
                 }
                 propertyEditor.endNode();
             }
-            i++;
+            if (removeView) {
+                dataViews.erase(dataViews.begin() + i);
+                i--;
+            }
         }
     } else {
         if (lineRenderer) {

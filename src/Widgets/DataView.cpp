@@ -62,6 +62,7 @@ DataView::DataView(SceneData* parentSceneData, sgl::ShaderProgramPtr gammaCorrec
     camera->setPitch(parentCamera->getPitch());
     camera->setFOVy(parentCamera->getFOVy());
     camera->setPosition(parentCamera->getPosition());
+    sceneData.camera = &camera;
 }
 
 DataView::~DataView() {
@@ -129,6 +130,10 @@ void DataView::beginRender() {
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     glEnable(GL_DEPTH_TEST);
+    if (!(*sceneData.screenshotTransparentBackground)) {
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
+    }
 }
 
 void DataView::endRender() {

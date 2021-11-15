@@ -243,6 +243,7 @@ bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyE
             setUsedPsDirections({useMajorPS, useMediumPS, useMinorPS});
             shallReloadGatherShader = true;
         }
+        propertyEditor.endNode();
     }
 
     bool recomputeOpacityOptimization = false;
