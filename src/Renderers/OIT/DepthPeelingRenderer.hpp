@@ -38,7 +38,7 @@
  */
 class DepthPeelingRenderer : public LineRenderer {
 public:
-    DepthPeelingRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+    DepthPeelingRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~DepthPeelingRenderer() override = default;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_DEPTH_PEELING; }
 

@@ -51,7 +51,8 @@
 // Use stencil buffer to mask unused pixels
 static bool useStencilBuffer = false;
 
-OpacityOptimizationRenderer::OpacityOptimizationRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
+OpacityOptimizationRenderer::OpacityOptimizationRenderer(
+        SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Opacity Optimization Renderer", sceneData, transferFunctionWindow) {
     sgl::ShaderManager->invalidateShaderCache();
     setSortingAlgorithmDefine();
@@ -244,12 +245,13 @@ void OpacityOptimizationRenderer::setSortingAlgorithmDefine() {
 void OpacityOptimizationRenderer::setNewState(const InternalState& newState) {
     currentStateName = newState.name;
     timerDataIsWritten = false;
-    if (sceneData.performanceMeasurer && !timerDataIsWritten) {
+    if ((*sceneData->performanceMeasurer) && !timerDataIsWritten) {
         if (timer) {
             delete timer;
+            timer = nullptr;
         }
         timer = new sgl::TimerGL;
-        sceneData.performanceMeasurer->setPpllTimer(timer);
+        (*sceneData->performanceMeasurer)->setPpllTimer(timer);
     }
 }
 
@@ -533,20 +535,21 @@ void OpacityOptimizationRenderer::reallocateFragmentBuffer() {
             std::string() + "Fragment buffer size GiB (total): "
             + std::to_string(fragmentBufferSizeBytes / 1024.0 / 1024.0 / 1024.0));
 
-    if (sceneData.performanceMeasurer) {
-        sceneData.performanceMeasurer->setCurrentAlgorithmBufferSizeBytes(fragmentBufferSizeBytes);
+    if ((*sceneData->performanceMeasurer)) {
+        (*sceneData->performanceMeasurer)->setCurrentAlgorithmBufferSizeBytes(fragmentBufferSizeBytes);
     }
 }
 
 void OpacityOptimizationRenderer::onResolutionChanged() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    viewportWidthOpacity = std::round(window->getWidth() * opacityBufferScaleFactor);
-    viewportHeightOpacity = std::round(window->getHeight() * opacityBufferScaleFactor);
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
+    viewportWidthOpacity = int(std::round(float(width) * opacityBufferScaleFactor));
+    viewportHeightOpacity = int(std::round(float(height) * opacityBufferScaleFactor));
     paddedViewportWidthOpacity = viewportWidthOpacity;
     paddedViewportHeightOpacity = viewportHeightOpacity;
     getScreenSizeWithTiling(paddedViewportWidthOpacity, paddedViewportHeightOpacity);
-    viewportWidthFinal = window->getWidth();
-    viewportHeightFinal = window->getHeight();
+    viewportWidthFinal = width;
+    viewportHeightFinal = height;
     paddedViewportWidthFinal = viewportWidthFinal;
     paddedViewportHeightFinal = viewportHeightFinal;
     getScreenSizeWithTiling(paddedViewportWidthFinal, paddedViewportHeightFinal);
@@ -575,7 +578,7 @@ void OpacityOptimizationRenderer::onResolutionChanged() {
         msaaSceneFBO = sgl::Renderer->createFBO();
         msaaRenderTexture = sgl::TextureManager->createMultisampledTexture(
                 viewportWidthFinal, viewportHeightFinal, numSamples,
-                sceneData.sceneTexture->getSettings().internalFormat, true);
+                (*sceneData->sceneTexture)->getSettings().internalFormat, true);
         msaaDepthRBO = sgl::Renderer->createRBO(
                 viewportWidthFinal, viewportHeightFinal, sgl::RBO_DEPTH24_STENCIL8, numSamples);
         msaaSceneFBO->bindTexture(msaaRenderTexture);
@@ -611,7 +614,7 @@ void OpacityOptimizationRenderer::setUniformData() {
 
     gatherPpllOpacitiesShader->setUniform("viewportW", paddedViewportWidthOpacity);
     gatherPpllOpacitiesShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeOpacity);
-    gatherPpllOpacitiesShader->setUniform("cameraPosition", sceneData.camera->getPosition());
+    gatherPpllOpacitiesShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
     gatherPpllOpacitiesShader->setUniform("lineWidth", lineWidth);
     gatherPpllOpacitiesShader->setUniformOptional("minAttrValue", transferFunctionWindow.getDataRangeMin());
     gatherPpllOpacitiesShader->setUniformOptional("maxAttrValue", transferFunctionWindow.getDataRangeMax());
@@ -620,14 +623,14 @@ void OpacityOptimizationRenderer::setUniformData() {
 
     gatherPpllFinalShader->setUniform("viewportW", paddedViewportWidthFinal);
     gatherPpllFinalShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeFinal);
-    gatherPpllFinalShader->setUniform("cameraPosition", sceneData.camera->getPosition());
+    gatherPpllFinalShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
     gatherPpllFinalShader->setUniform("lineWidth", lineWidth);
     if (gatherPpllFinalShader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         gatherPpllFinalShader->setUniform("backgroundColor", backgroundColor);
     }
     if (gatherPpllFinalShader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
         gatherPpllFinalShader->setUniform("foregroundColor", foregroundColor);
     }
@@ -697,8 +700,8 @@ void OpacityOptimizationRenderer::gatherPpllOpacities() {
         glClear(GL_STENCIL_BUFFER_BIT);
     }
 
-    sgl::Renderer->setProjectionMatrix(sceneData.camera->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix(sceneData.camera->getViewMatrix());
+    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
+    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     // Now, the final gather step.
@@ -832,14 +835,14 @@ void OpacityOptimizationRenderer::gatherPpllFinal() {
         glClear(GL_STENCIL_BUFFER_BIT);
     }
 
-    sgl::Renderer->setProjectionMatrix(sceneData.camera->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix(sceneData.camera->getViewMatrix());
+    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
+    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     if (useMultisampling) {
         sgl::Renderer->bindFBO(msaaSceneFBO);
         sgl::Renderer->clearFramebuffer(
-                GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, sceneData.clearColor);
+                GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, *sceneData->clearColor);
     }
 
     // Now, the final gather step.
@@ -854,7 +857,7 @@ void OpacityOptimizationRenderer::gatherPpllFinal() {
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
     if (useMultisampling) {
-        sgl::Renderer->bindFBO(sceneData.framebuffer);
+        sgl::Renderer->bindFBO(*sceneData->framebuffer);
     }
 }
 

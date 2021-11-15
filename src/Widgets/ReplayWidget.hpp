@@ -172,6 +172,7 @@ struct ReplayState {
     // Mesh name (optional).
     std::string datasetName;
     std::string rendererName;
+    int viewIndex = 0;
 
     // Transfer function data.
     std::string transferFunctionName;
@@ -202,7 +203,7 @@ struct ReplayState {
 class ReplayWidget {
 public:
     ReplayWidget(
-            SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow,
+            SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow,
             sgl::CheckpointWindow& checkpointWindow);
     ~ReplayWidget();
     bool update(float currentTime, bool& stopRecording, bool& stopCameraFlight);
@@ -228,7 +229,8 @@ public:
 
     /// Callback functions when, e.g., a new renderer is requested.
     void setLoadLineDataCallback(std::function<void(const std::string& datasetName)> loadLineDataCallback);
-    void setLoadRendererCallback(std::function<void(const std::string& rendererName)> loadRendererCallback);
+    void setLoadRendererCallback(
+            std::function<void(const std::string& rendererName, int viewIdx)> loadRendererCallback);
     void setLoadTransferFunctionCallback(
             std::function<void(const std::string& tfName)> loadTransferFunctionCallback);
     void setTransferFunctionRangeCallback(
@@ -240,7 +242,7 @@ public:
 
 private:
     // Global data.
-    SceneData& sceneData;
+    SceneData* sceneData;
     sgl::TransferFunctionWindow& transferFunctionWindow;
     sgl::CheckpointWindow& checkpointWindow;
 
@@ -250,7 +252,7 @@ private:
     std::string scriptFileName;
     void updateAvailableReplayScripts();
     std::function<void(const std::string& datasetName)> loadLineDataCallback;
-    std::function<void(const std::string& rendererName)> loadRendererCallback;
+    std::function<void(const std::string& rendererName, int viewIdx)> loadRendererCallback;
     std::function<void(const std::string& tfName)> loadTransferFunctionCallback;
     std::function<void(const glm::vec2& tfRange)> transferFunctionRangeCallback;
     std::function<void(const std::vector<std::string>& tfNames)> loadMultiVarTransferFunctionsCallback;

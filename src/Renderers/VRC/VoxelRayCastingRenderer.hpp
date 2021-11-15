@@ -42,7 +42,7 @@
 class VoxelRayCastingRenderer : public LineRenderer {
 public:
     VoxelRayCastingRenderer(
-            SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+            SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     RenderingMode getRenderingMode() override { return RENDERING_MODE_VOXEL_RAY_CASTING; }
 
     /**

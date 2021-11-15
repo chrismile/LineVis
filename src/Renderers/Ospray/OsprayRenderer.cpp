@@ -62,7 +62,7 @@ bool OsprayRenderer::isOsprayInitialized = false;
 bool OsprayRenderer::denoiserAvailable = false;
 
 OsprayRenderer::OsprayRenderer(
-        SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
+        SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("OSPRay Renderer", sceneData, transferFunctionWindow) {
     isVulkanRenderer = false;
     isRasterizer = false;
@@ -92,7 +92,7 @@ OsprayRenderer::OsprayRenderer(
     }
 
     ospRenderer = ospNewRenderer("scivis");
-    backgroundColor = sceneData.clearColor.getFloatColorRGBA();
+    backgroundColor = sceneData->clearColor->getFloatColorRGBA();
     ospSetVec4f(
             ospRenderer, "backgroundColor",
             backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
@@ -396,9 +396,8 @@ void OsprayRenderer::onLineRadiusChanged() {
 }
 
 void OsprayRenderer::onResolutionChanged() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
 
     sgl::TextureSettings settings;
     if (frameBufferFormat == OSP_FB_RGBA32F) {
@@ -453,8 +452,9 @@ void OsprayRenderer::notifyReRenderTriggeredExternally() {
 }
 
 void OsprayRenderer::onHasMoved() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    glm::mat4 invViewMatrix = glm::inverse(sceneData.camera->getViewMatrix());
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
+    glm::mat4 invViewMatrix = glm::inverse((*sceneData->camera)->getViewMatrix());
     glm::vec3 upDir = invViewMatrix[1];
     glm::vec3 lookDir = -invViewMatrix[2];
     glm::vec3 position = invViewMatrix[3];
@@ -463,8 +463,8 @@ void OsprayRenderer::onHasMoved() {
     float camPosition[] = { position.x, position.y, position.z };
     float camDirection[] = { lookDir.x, lookDir.y, lookDir.z };
     float camUp[] = { upDir.x, upDir.y, upDir.z };
-    ospSetFloat(ospCamera, "aspect", float(window->getWidth()) / float(window->getHeight()));
-    ospSetFloat(ospCamera, "fovy", glm::degrees(sceneData.camera->getFOVy()));
+    ospSetFloat(ospCamera, "aspect", float(width) / float(height));
+    ospSetFloat(ospCamera, "fovy", glm::degrees((*sceneData->camera)->getFOVy()));
     ospSetParam(ospCamera, "position", OSP_VEC3F, camPosition);
     ospSetParam(ospCamera, "direction", OSP_VEC3F, camDirection);
     ospSetParam(ospCamera, "up", OSP_VEC3F, camUp);
@@ -480,16 +480,15 @@ void OsprayRenderer::onHasMoved() {
 void OsprayRenderer::render() {
     LineRenderer::render();
 
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
 
     if (currentLineWidth != LineRenderer::getLineWidth()) {
         currentLineWidth = LineRenderer::getLineWidth();
         onLineRadiusChanged();
     }
 
-    glm::vec4 newBackgroundColor = sceneData.clearColor.getFloatColorRGBA();
+    glm::vec4 newBackgroundColor = sceneData->clearColor->getFloatColorRGBA();
     if (newBackgroundColor != backgroundColor) {
         backgroundColor = newBackgroundColor;
         ospSetVec4f(
@@ -531,7 +530,7 @@ void OsprayRenderer::render() {
     glDisable(GL_DEPTH_TEST);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // Pre-multiplied alpha
 
-    sgl::Renderer->clearFramebuffer(GL_COLOR_BUFFER_BIT, sceneData.clearColor);
+    sgl::Renderer->clearFramebuffer(GL_COLOR_BUFFER_BIT, *sceneData->clearColor);
     sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
     sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());

@@ -54,7 +54,7 @@ const int MESH_MODE_DEPTH_COMPLEXITIES_PPLL[4][2] = {
  */
 class PerPixelLinkedListLineRenderer : public LineRenderer {
 public:
-    PerPixelLinkedListLineRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+    PerPixelLinkedListLineRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~PerPixelLinkedListLineRenderer() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_PER_PIXEL_LINKED_LIST; }
 

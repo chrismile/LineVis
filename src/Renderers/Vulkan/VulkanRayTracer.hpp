@@ -60,7 +60,7 @@ class RayTracingRenderPass;
 class VulkanRayTracer : public LineRenderer {
 public:
     VulkanRayTracer(
-            SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
+            SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
     ~VulkanRayTracer() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_VULKAN_RAY_TRACER; }
 
@@ -123,7 +123,7 @@ private:
 
 class RayTracingRenderPass : public sgl::vk::RayTracingPass {
 public:
-    RayTracingRenderPass(VulkanRayTracer* vulkanRayTracer, sgl::vk::Renderer* renderer, sgl::CameraPtr camera);
+    RayTracingRenderPass(VulkanRayTracer* vulkanRayTracer, sgl::vk::Renderer* renderer, sgl::CameraPtr* camera);
 
     // Public interface.
     void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
@@ -152,7 +152,7 @@ private:
 
     VulkanRayTracer* vulkanRayTracer = nullptr;
 
-    sgl::CameraPtr camera;
+    sgl::CameraPtr* camera;
     LineDataPtr lineData;
     sgl::vk::ImageViewPtr sceneImageView;
 

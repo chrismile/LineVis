@@ -39,7 +39,7 @@
 #include "VoxelRayCastingRenderer.hpp"
 
 VoxelRayCastingRenderer::VoxelRayCastingRenderer(
-        SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
+        SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Voxel Ray Casting Renderer", sceneData, transferFunctionWindow) {
     isVulkanRenderer = false;
     isRasterizer = false;
@@ -130,9 +130,8 @@ void VoxelRayCastingRenderer::setLineData(LineDataPtr& lineData, bool isNewData)
 }
 
 void VoxelRayCastingRenderer::onResolutionChanged() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
 
     nearestLineHullHitFbo = sgl::Renderer->createFBO();
     nearestLineHullHitDepthTexture = sgl::TextureManager->createDepthTexture(
@@ -147,36 +146,35 @@ void VoxelRayCastingRenderer::onResolutionChanged() {
 
 void VoxelRayCastingRenderer::setUniformData() {
     // Set camera data
-    renderShader->setUniform("fov", sceneData.camera->getFOVy());
-    renderShader->setUniform("aspectRatio", sceneData.camera->getAspectRatio());
+    renderShader->setUniform("fov", (*sceneData->camera)->getFOVy());
+    renderShader->setUniform("aspectRatio", (*sceneData->camera)->getAspectRatio());
     renderShader->setUniform(
             "cameraPositionVoxelGrid",
-            sgl::transformPoint(worldToVoxelGridMatrix, sceneData.camera->getPosition()));
+            sgl::transformPoint(worldToVoxelGridMatrix, (*sceneData->camera)->getPosition()));
 
-    glm::mat4 inverseViewMatrix = glm::inverse(sceneData.camera->getViewMatrix());
-    renderShader->setUniform("viewMatrix", sceneData.camera->getViewMatrix());
+    glm::mat4 inverseViewMatrix = glm::inverse((*sceneData->camera)->getViewMatrix());
+    renderShader->setUniform("viewMatrix", (*sceneData->camera)->getViewMatrix());
     renderShader->setUniform("inverseViewMatrix", inverseViewMatrix);
 
-    glm::mat4 inverseProjectionMatrix = glm::inverse(sceneData.camera->getProjectionMatrix());
+    glm::mat4 inverseProjectionMatrix = glm::inverse((*sceneData->camera)->getProjectionMatrix());
     renderShader->setUniformOptional(
             "ndcToVoxelSpace", worldToVoxelGridMatrix * inverseViewMatrix * inverseProjectionMatrix);
 
     float voxelSpaceLineRadius = lineWidth * 0.5f * glm::length(worldToVoxelGridMatrix[0]);
     renderShader->setUniform("lineRadius", voxelSpaceLineRadius);
-    renderShader->setUniform("clearColor", sceneData.clearColor);
+    renderShader->setUniform("clearColor", *sceneData->clearColor);
     if (renderShader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
         renderShader->setUniform("foregroundColor", foregroundColor);
     }
 
     if (renderShader->hasUniform("cameraPosition")) {
-        renderShader->setUniform("cameraPosition", sceneData.camera->getPosition());
+        renderShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
     }
 
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
     renderShader->setUniform("viewportSize", glm::ivec2(width, height));
 
     sgl::ShaderManager->bindShaderStorageBuffer(0, voxelGridLineSegmentOffsetsBuffer);
@@ -243,7 +241,7 @@ void VoxelRayCastingRenderer::render() {
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glDepthMask(GL_FALSE);
     glDisable(GL_DEPTH_TEST);
-    sgl::Renderer->bindFBO(sceneData.framebuffer);
+    sgl::Renderer->bindFBO(*sceneData->framebuffer);
     sgl::Renderer->render(blitRenderData);
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);

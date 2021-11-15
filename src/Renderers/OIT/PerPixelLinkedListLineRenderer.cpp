@@ -28,7 +28,6 @@
 
 #include <Math/Geometry/MatrixUtil.hpp>
 #include <Utils/File/Logfile.hpp>
-#include <Graphics/Window.hpp>
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/OpenGL/GeometryBuffer.hpp>
@@ -47,7 +46,7 @@
 static bool useStencilBuffer = true;
 
 PerPixelLinkedListLineRenderer::PerPixelLinkedListLineRenderer(
-        SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
+        SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Per-Pixel Linked List Renderer", sceneData, transferFunctionWindow) {
     sgl::ShaderManager->invalidateShaderCache();
     setSortingAlgorithmDefine();
@@ -76,9 +75,9 @@ PerPixelLinkedListLineRenderer::PerPixelLinkedListLineRenderer(
 }
 
 PerPixelLinkedListLineRenderer::~PerPixelLinkedListLineRenderer() {
-    if (sceneData.performanceMeasurer && !timerDataIsWritten && timer) {
+    if ((*sceneData->performanceMeasurer) && !timerDataIsWritten && timer) {
         delete timer;
-        sceneData.performanceMeasurer->setPpllTimer(nullptr);
+        (*sceneData->performanceMeasurer)->setPpllTimer(nullptr);
     }
 }
 
@@ -135,12 +134,12 @@ void PerPixelLinkedListLineRenderer::setSortingAlgorithmDefine() {
 void PerPixelLinkedListLineRenderer::setNewState(const InternalState& newState) {
     currentStateName = newState.name;
     timerDataIsWritten = false;
-    if (sceneData.performanceMeasurer && !timerDataIsWritten) {
+    if ((*sceneData->performanceMeasurer) && !timerDataIsWritten) {
         if (timer) {
             delete timer;
         }
         timer = new sgl::TimerGL;
-        sceneData.performanceMeasurer->setPpllTimer(timer);
+        (*sceneData->performanceMeasurer)->setPpllTimer(timer);
     }
 }
 
@@ -173,9 +172,8 @@ void PerPixelLinkedListLineRenderer::setLineData(LineDataPtr& lineData, bool isN
 }
 
 void PerPixelLinkedListLineRenderer::reallocateFragmentBuffer() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
     int paddedWidth = width, paddedHeight = height;
     getScreenSizeWithTiling(paddedWidth, paddedHeight);
 
@@ -189,11 +187,11 @@ void PerPixelLinkedListLineRenderer::reallocateFragmentBuffer() {
     } else {
         sgl::Logfile::get()->writeInfo(
                 std::string() + "Fragment buffer size GiB: "
-                + std::to_string(fragmentBufferSizeBytes / 1024.0 / 1024.0 / 1024.0));
+                + std::to_string(double(fragmentBufferSizeBytes) / 1024.0 / 1024.0 / 1024.0));
     }
 
-    if (sceneData.performanceMeasurer) {
-        sceneData.performanceMeasurer->setCurrentAlgorithmBufferSizeBytes(fragmentBufferSizeBytes);
+    if ((*sceneData->performanceMeasurer)) {
+        (*sceneData->performanceMeasurer)->setCurrentAlgorithmBufferSizeBytes(fragmentBufferSizeBytes);
     }
 
     fragmentBuffer = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
@@ -202,10 +200,9 @@ void PerPixelLinkedListLineRenderer::reallocateFragmentBuffer() {
 }
 
 void PerPixelLinkedListLineRenderer::onResolutionChanged() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    windowWidth = window->getWidth();
-    windowHeight = window->getHeight();
-    paddedWindowWidth = windowWidth, paddedWindowHeight = windowHeight;
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
+    paddedWindowWidth = width, paddedWindowHeight = height;
     getScreenSizeWithTiling(paddedWindowWidth, paddedWindowHeight);
 
     reallocateFragmentBuffer();
@@ -213,18 +210,18 @@ void PerPixelLinkedListLineRenderer::onResolutionChanged() {
     size_t startOffsetBufferSizeBytes = sizeof(uint32_t) * paddedWindowWidth * paddedWindowHeight;
     startOffsetBuffer = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
     startOffsetBuffer = sgl::Renderer->createGeometryBuffer(
-            startOffsetBufferSizeBytes, NULL, sgl::SHADER_STORAGE_BUFFER);
+            startOffsetBufferSizeBytes, nullptr, sgl::SHADER_STORAGE_BUFFER);
 
     atomicCounterBuffer = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
     atomicCounterBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t), NULL, sgl::ATOMIC_COUNTER_BUFFER);
+            sizeof(uint32_t), nullptr, sgl::ATOMIC_COUNTER_BUFFER);
 }
 
 void PerPixelLinkedListLineRenderer::render() {
     LineRenderer::render();
 
     setUniformData();
-    if (sceneData.performanceMeasurer) {
+    if ((*sceneData->performanceMeasurer)) {
         timer->startGPU("PPLLClear", frameCounter);
         clear();
         timer->end();
@@ -249,14 +246,14 @@ void PerPixelLinkedListLineRenderer::setUniformData() {
 
     gatherShader->setUniform("viewportW", paddedWindowWidth);
     gatherShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSize);
-    gatherShader->setUniform("cameraPosition", sceneData.camera->getPosition());
+    gatherShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
     if (gatherShader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         gatherShader->setUniform("backgroundColor", backgroundColor);
     }
     if (gatherShader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
         gatherShader->setUniform("foregroundColor", foregroundColor);
     }
@@ -307,8 +304,8 @@ void PerPixelLinkedListLineRenderer::gather() {
         glClear(GL_STENCIL_BUFFER_BIT);
     }
 
-    sgl::Renderer->setProjectionMatrix(sceneData.camera->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix(sceneData.camera->getViewMatrix());
+    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
+    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     // Now, the final gather step.

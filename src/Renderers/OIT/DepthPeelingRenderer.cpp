@@ -45,7 +45,7 @@
 #include "DepthPeelingRenderer.hpp"
 
 DepthPeelingRenderer::DepthPeelingRenderer(
-        SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
+        SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Depth Peeling", sceneData, transferFunctionWindow) {
     onResolutionChanged();
 }
@@ -84,9 +84,8 @@ void DepthPeelingRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 }
 
 void DepthPeelingRenderer::onResolutionChanged() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
 
     sgl::TextureSettings textureSettingsColor;
     textureSettingsColor.internalFormat = GL_RGBA32F;
@@ -115,8 +114,8 @@ void DepthPeelingRenderer::onResolutionChanged() {
 
     size_t bufferSizeColorAccumulators = 2 * sizeof(float) * 4 * width * height;
     size_t bufferSizeDepthTextures = 2 * sizeof(float) * width * height;
-    if (sceneData.performanceMeasurer) {
-        sceneData.performanceMeasurer->setCurrentAlgorithmBufferSizeBytes(
+    if ((*sceneData->performanceMeasurer)) {
+        (*sceneData->performanceMeasurer)->setCurrentAlgorithmBufferSizeBytes(
                 numFragmentsBufferSizeBytes + bufferSizeColorAccumulators + bufferSizeDepthTextures);
     }
 }
@@ -125,19 +124,21 @@ void DepthPeelingRenderer::setUniformData() {
     sgl::ShaderManager->bindShaderStorageBuffer(0, fragmentCounterBuffer);
     lineData->setUniformGatherShaderData_AllPasses();
 
-    depthComplexityGatherShader->setUniformOptional("cameraPosition", sceneData.camera->getPosition());
+    int width = int(*sceneData->viewportWidth);
+
+    depthComplexityGatherShader->setUniformOptional("cameraPosition", (*sceneData->camera)->getPosition());
     depthComplexityGatherShader->setUniform("lineWidth", lineWidth);
-    depthComplexityGatherShader->setUniform("viewportW", sgl::AppSettings::get()->getMainWindow()->getWidth());
+    depthComplexityGatherShader->setUniform("viewportW", width);
     lineData->setUniformGatherShaderData_Pass(depthComplexityGatherShader);
 
-    gatherShader->setUniform("cameraPosition", sceneData.camera->getPosition());
+    gatherShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
     if (gatherShader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         gatherShader->setUniform("backgroundColor", backgroundColor);
     }
     if (gatherShader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
         gatherShader->setUniform("foregroundColor", foregroundColor);
     }
@@ -196,8 +197,8 @@ void DepthPeelingRenderer::gather() {
         gatherShader->setUniform("depthReadTexture", depthRenderTextures[(i+1)%2], 7);
         gatherShader->setUniform("iteration", int(i));
 
-        sgl::Renderer->setProjectionMatrix(sceneData.camera->getProjectionMatrix());
-        sgl::Renderer->setViewMatrix(sceneData.camera->getViewMatrix());
+        sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
+        sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
         sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
         sgl::Renderer->render(shaderAttributes);
@@ -215,7 +216,7 @@ void DepthPeelingRenderer::gather() {
                 colorRenderTextures[i%2],
                 sgl::AABB2(glm::vec2(-1.0f, -1.0f), glm::vec2(1.0f, 1.0f)));
 
-        // NVIDIA OpenGL Linux driver assumes the application has hung if we don't swap buffers every now and then.
+        // NVIDIA OpenGL Linux driver assumes the application has hung if we don't swap buffers at regular intervals.
         if (i % SWAP_INTERVAL == 0 && i > 0) {
             sgl::AppSettings::get()->getMainWindow()->flip();
         }
@@ -233,7 +234,7 @@ void DepthPeelingRenderer::resolve() {
     sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
-    sgl::Renderer->bindFBO(sceneData.framebuffer);
+    sgl::Renderer->bindFBO(*sceneData->framebuffer);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // Pre-multiplied alpha
     sgl::Renderer->blitTexture(
             colorAccumulatorTexture,
@@ -254,8 +255,8 @@ void DepthPeelingRenderer::computeDepthComplexity() {
 
     // Render to numFragmentsBuffer to determine the depth complexity of the scene.
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-    sgl::Renderer->setProjectionMatrix(sceneData.camera->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix(sceneData.camera->getViewMatrix());
+    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
+    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
@@ -270,8 +271,9 @@ void DepthPeelingRenderer::computeDepthComplexity() {
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
     // Compute the maximum depth complexity of the scene.
-    sgl::Window* window = sgl::AppSettings::get()->getMainWindow();
-    int bufferSize = window->getWidth() * window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
+    int bufferSize = width * height;
     uint32_t* data = (uint32_t*)fragmentCounterBuffer->mapBuffer(sgl::BUFFER_MAP_READ_ONLY);
 
     uint64_t maxDepthComplexity = 0;

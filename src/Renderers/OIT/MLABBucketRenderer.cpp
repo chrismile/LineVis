@@ -46,7 +46,7 @@ static float lowerBackBufferOpacity = 0.2;
 static float upperBackBufferOpacity = 0.98;
 
 MLABBucketRenderer::MLABBucketRenderer(
-        SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
+        SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : MLABRenderer("Multi-Layer Alpha Blending Renderer with Depth Buckets",
                        sceneData, transferFunctionWindow) {
 }
@@ -111,9 +111,8 @@ void MLABBucketRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 }
 
 void MLABBucketRenderer::reallocateFragmentBuffer() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
     int paddedWidth = width, paddedHeight = height;
     getScreenSizeWithTiling(paddedWidth, paddedHeight);
 
@@ -131,8 +130,8 @@ void MLABBucketRenderer::reallocateFragmentBuffer() {
 
     size_t minDepthBufferSizeBytes = sizeof(float) * 2 * size_t(paddedWidth) * size_t(paddedHeight);
 
-    if (sceneData.performanceMeasurer) {
-        sceneData.performanceMeasurer->setCurrentAlgorithmBufferSizeBytes(
+    if ((*sceneData->performanceMeasurer)) {
+        (*sceneData->performanceMeasurer)->setCurrentAlgorithmBufferSizeBytes(
                 fragmentBufferSizeBytes + minDepthBufferSizeBytes);
     }
 
@@ -165,14 +164,14 @@ void MLABBucketRenderer::setUniformData() {
     sgl::ShaderManager->bindShaderStorageBuffer(1, minDepthBuffer);
 
     minDepthPassShader->setUniform("viewportW", paddedWindowWidth);
-    minDepthPassShader->setUniform("cameraPosition", sceneData.camera->getPosition());
+    minDepthPassShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
     minDepthPassShader->setUniform("lineWidth", lineWidth);
     if (minDepthPassShader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         minDepthPassShader->setUniform("backgroundColor", backgroundColor);
     }
     if (minDepthPassShader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
         minDepthPassShader->setUniform("foregroundColor", foregroundColor);
     }
@@ -195,8 +194,8 @@ void MLABBucketRenderer::gather() {
         glClear(GL_STENCIL_BUFFER_BIT);
     }
 
-    sgl::Renderer->setProjectionMatrix(sceneData.camera->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix(sceneData.camera->getViewMatrix());
+    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
+    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     // Now, the final gather step.
@@ -218,15 +217,15 @@ void MLABBucketRenderer::gather() {
 
 void MLABBucketRenderer::computeDepthRange() {
     const sgl::AABB3& boundingBox = lineData->getModelBoundingBox();
-    sgl::AABB3 screenSpaceBoundingBox = boundingBox.transformed(sceneData.camera->getViewMatrix());
+    sgl::AABB3 screenSpaceBoundingBox = boundingBox.transformed((*sceneData->camera)->getViewMatrix());
 
     // Add offset of 0.1 for e.g. point data sets where additonal vertices may be added in the shader for quads.
     float minViewZ = screenSpaceBoundingBox.getMaximum().z + 0.1;
     float maxViewZ = screenSpaceBoundingBox.getMinimum().z - 0.1;
-    minViewZ = std::max(-minViewZ, sceneData.camera->getNearClipDistance());
-    maxViewZ = std::min(-maxViewZ, sceneData.camera->getFarClipDistance());
-    minViewZ = std::min(minViewZ, sceneData.camera->getFarClipDistance());
-    maxViewZ = std::max(maxViewZ, sceneData.camera->getNearClipDistance());
+    minViewZ = std::max(-minViewZ, (*sceneData->camera)->getNearClipDistance());
+    maxViewZ = std::min(-maxViewZ, (*sceneData->camera)->getFarClipDistance());
+    minViewZ = std::min(minViewZ, (*sceneData->camera)->getFarClipDistance());
+    maxViewZ = std::max(maxViewZ, (*sceneData->camera)->getNearClipDistance());
     float logmin = log(minViewZ);
     float logmax = log(maxViewZ);
     minDepthPassShader->setUniform("logDepthMin", logmin);

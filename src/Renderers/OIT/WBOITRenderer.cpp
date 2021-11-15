@@ -43,9 +43,9 @@
 // Use stencil buffer to mask unused pixels
 const bool useStencilBuffer = true;
 
-WBOITRenderer::WBOITRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
-        : LineRenderer("Weighted Blended Order Independent Transparency",
-                       sceneData, transferFunctionWindow) {
+WBOITRenderer::WBOITRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
+        : LineRenderer(
+                "Weighted Blended Order Independent Transparency", sceneData, transferFunctionWindow) {
     sgl::ShaderManager->invalidateShaderCache();
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"WBOITGather.glsl\"");
     onResolutionChanged();
@@ -107,9 +107,8 @@ void WBOITRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 }
 
 void WBOITRenderer::onResolutionChanged() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
 
     sgl::TextureSettings textureSettingsColor;
     textureSettingsColor.internalFormat = GL_RGBA32F; // GL_RGBA16F?
@@ -122,18 +121,18 @@ void WBOITRenderer::onResolutionChanged() {
     revealageRenderTexture = sgl::TextureManager->createEmptyTexture(width, height, textureSettingsColor);
     gatherPassFBO->bindTexture(accumulationRenderTexture, sgl::COLOR_ATTACHMENT0);
     gatherPassFBO->bindTexture(revealageRenderTexture, sgl::COLOR_ATTACHMENT1);
-    gatherPassFBO->bindRenderbuffer(sceneData.sceneDepthRBO, sgl::DEPTH_ATTACHMENT);
+    gatherPassFBO->bindRenderbuffer(*sceneData->sceneDepthRBO, sgl::DEPTH_ATTACHMENT);
 }
 
 void WBOITRenderer::setUniformData() {
-    gatherShader->setUniform("cameraPosition", sceneData.camera->getPosition());
+    gatherShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
     if (gatherShader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         gatherShader->setUniform("backgroundColor", backgroundColor);
     }
     if (gatherShader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
         gatherShader->setUniform("foregroundColor", foregroundColor);
     }
@@ -164,8 +163,8 @@ void WBOITRenderer::render() {
     glBlendFunci(0, GL_ONE, GL_ONE);
     glBlendFunci(1, GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
 
-    sgl::Renderer->setProjectionMatrix(sceneData.camera->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix(sceneData.camera->getViewMatrix());
+    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
+    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
@@ -182,7 +181,7 @@ void WBOITRenderer::render() {
     sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
-    sgl::Renderer->bindFBO(sceneData.framebuffer);
+    sgl::Renderer->bindFBO(*sceneData->framebuffer);
     // Normal alpha blending
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
     sgl::Renderer->render(blitRenderData);

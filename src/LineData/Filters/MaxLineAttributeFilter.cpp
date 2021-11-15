@@ -77,29 +77,6 @@ void MaxLineAttributeFilter::filterData(LineDataPtr lineDataIn) {
     dirty = false;
 }
 
-void MaxLineAttributeFilter::renderGui() {
-    sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(3220, 1932, 612, 120);
-    if (ImGui::Begin("Line Attribute Filter", &showFilterWindow)) {
-        glm::vec2 newRange(trajectoryFilteringThresholdMin, trajectoryFilteringThresholdMax);
-        ImGui::EditMode editMode = ImGui::SliderFloatEdit(
-                "Attribute Range", &newRange.x, minGlobalAttribute, maxGlobalAttribute);
-        if (editMode != ImGui::EditMode::NO_CHANGE && newRange.x > newRange.y) {
-            if (newRange.x != trajectoryFilteringThresholdMin) {
-                newRange.x = newRange.y;
-            } else {
-                newRange.y = newRange.x;
-            }
-        }
-        trajectoryFilteringThresholdMin = newRange.x;
-        trajectoryFilteringThresholdMax = newRange.y;
-        if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
-            || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
-            dirty = true;
-        }
-    }
-    ImGui::End();
-}
-
 void MaxLineAttributeFilter::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     glm::vec2 newRange(trajectoryFilteringThresholdMin, trajectoryFilteringThresholdMax);
     ImGui::EditMode editMode = propertyEditor.addSliderFloat2Edit(

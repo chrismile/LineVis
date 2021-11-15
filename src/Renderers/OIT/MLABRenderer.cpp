@@ -45,12 +45,12 @@
 // Whether to use stencil buffer to mask unused pixels.
 bool MLABRenderer::useStencilBuffer = true;
 
-MLABRenderer::MLABRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
+MLABRenderer::MLABRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : MLABRenderer("Multi-Layer Alpha Blending Renderer", sceneData, transferFunctionWindow) {
 }
 
 MLABRenderer::MLABRenderer(
-        const std::string& windowName, SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow)
+        const std::string& windowName, SceneData* sceneData, sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineRenderer("Multi-Layer Alpha Blending Renderer", sceneData, transferFunctionWindow) {
 }
 
@@ -82,9 +82,8 @@ void MLABRenderer::initialize() {
 }
 
 void MLABRenderer::updateSyncMode() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
     int paddedWidth = width, paddedHeight = height;
     getScreenSizeWithTiling(paddedWidth, paddedHeight);
 
@@ -180,13 +179,13 @@ void MLABRenderer::setNewState(const InternalState& newState) {
     }
 
     timerDataIsWritten = false;
-    if (sceneData.performanceMeasurer && !timerDataIsWritten) {
+    if ((*sceneData->performanceMeasurer) && !timerDataIsWritten) {
         if (timer) {
             delete timer;
         }
         timer = new sgl::TimerGL;
         // TODO
-        //sceneData.performanceMeasurer->setMlabTimer(timer);
+        //(*sceneData->performanceMeasurer)->setMlabTimer(timer);
     }
 }
 
@@ -202,9 +201,8 @@ void MLABRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 }
 
 void MLABRenderer::reallocateFragmentBuffer() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
     int paddedWidth = width, paddedHeight = height;
     getScreenSizeWithTiling(paddedWidth, paddedHeight);
 
@@ -217,16 +215,16 @@ void MLABRenderer::reallocateFragmentBuffer() {
     } else {
         sgl::Logfile::get()->writeInfo(
                 std::string() + "Fragment buffer size GiB: "
-                + std::to_string(fragmentBufferSizeBytes / 1024.0 / 1024.0 / 1024.0));
+                + std::to_string(double(fragmentBufferSizeBytes) / 1024.0 / 1024.0 / 1024.0));
     }
 
-    if (sceneData.performanceMeasurer) {
-        sceneData.performanceMeasurer->setCurrentAlgorithmBufferSizeBytes(fragmentBufferSizeBytes);
+    if ((*sceneData->performanceMeasurer)) {
+        (*sceneData->performanceMeasurer)->setCurrentAlgorithmBufferSizeBytes(fragmentBufferSizeBytes);
     }
 
     fragmentBuffer = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
     fragmentBuffer = sgl::Renderer->createGeometryBuffer(
-            fragmentBufferSizeBytes, NULL, sgl::SHADER_STORAGE_BUFFER);
+            fragmentBufferSizeBytes, nullptr, sgl::SHADER_STORAGE_BUFFER);
 
     updateSyncMode();
 
@@ -235,9 +233,10 @@ void MLABRenderer::reallocateFragmentBuffer() {
 }
 
 void MLABRenderer::onResolutionChanged() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    windowWidth = window->getWidth();
-    windowHeight = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
+    windowWidth = width;
+    windowHeight = height;
     paddedWindowWidth = windowWidth, paddedWindowHeight = windowHeight;
     getScreenSizeWithTiling(paddedWindowWidth, paddedWindowHeight);
 
@@ -260,14 +259,14 @@ void MLABRenderer::setUniformData() {
     }
 
     gatherShader->setUniform("viewportW", paddedWindowWidth);
-    gatherShader->setUniform("cameraPosition", sceneData.camera->getPosition());
+    gatherShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
     if (gatherShader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         gatherShader->setUniform("backgroundColor", backgroundColor);
     }
     if (gatherShader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
         gatherShader->setUniform("foregroundColor", foregroundColor);
     }
@@ -315,8 +314,8 @@ void MLABRenderer::gather() {
         glClear(GL_STENCIL_BUFFER_BIT);
     }
 
-    sgl::Renderer->setProjectionMatrix(sceneData.camera->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix(sceneData.camera->getViewMatrix());
+    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
+    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     // Now, the final gather step.

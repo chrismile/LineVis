@@ -52,7 +52,7 @@
  */
 class MLABBucketRenderer : public MLABRenderer {
 public:
-    MLABBucketRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+    MLABBucketRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     void initialize() override;
     ~MLABBucketRenderer() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_MLAB_BUCKETS; }

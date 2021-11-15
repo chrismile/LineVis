@@ -43,7 +43,7 @@
 #include "Helpers/Sphere.hpp"
 #include "OpaqueLineRenderer.hpp"
 
-OpaqueLineRenderer::OpaqueLineRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
+OpaqueLineRenderer::OpaqueLineRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Opaque Line Renderer", sceneData, transferFunctionWindow) {
     // Get all available multisampling modes.
     glGetIntegerv(GL_MAX_SAMPLES, &maximumNumberOfSamples);
@@ -100,12 +100,12 @@ void OpaqueLineRenderer::renderSphere(const glm::vec3& position, float radius, c
     gatherShaderSphere->setUniform("spherePosition", position);
     gatherShaderSphere->setUniform("sphereRadius", radius);
     gatherShaderSphere->setUniform("sphereColor", color);
-    gatherShaderSphere->setUniform("cameraPosition", sceneData.camera->getPosition());
+    gatherShaderSphere->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
     if (gatherShaderSphere->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         gatherShaderSphere->setUniform("backgroundColor", backgroundColor);
     }
-    glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+    glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
     glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
     if (gatherShaderSphere->hasUniform("foregroundColor")) {
         gatherShaderSphere->setUniform("foregroundColor", foregroundColor);
@@ -166,14 +166,14 @@ void OpaqueLineRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 }
 
 void OpaqueLineRenderer::onResolutionChanged() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
 
     if (useMultisampling) {
         msaaSceneFBO = sgl::Renderer->createFBO();
         msaaRenderTexture = sgl::TextureManager->createMultisampledTexture(
-                width, height, numSamples, sceneData.sceneTexture->getSettings().internalFormat, true);
+                width, height, numSamples,
+                (*sceneData->sceneTexture)->getSettings().internalFormat, true);
         msaaDepthRBO = sgl::Renderer->createRBO(width, height, sgl::RBO_DEPTH24_STENCIL8, numSamples);
         msaaSceneFBO->bindTexture(msaaRenderTexture);
         msaaSceneFBO->bindRenderbuffer(msaaDepthRBO, sgl::DEPTH_STENCIL_ATTACHMENT);
@@ -187,13 +187,13 @@ void OpaqueLineRenderer::onResolutionChanged() {
 void OpaqueLineRenderer::render() {
     LineRenderer::render();
 
-    gatherShader->setUniform("cameraPosition", sceneData.camera->getPosition());
+    gatherShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
     if (gatherShader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         gatherShader->setUniform("backgroundColor", backgroundColor);
     }
-    glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+    glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
     glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
     if (gatherShader->hasUniform("foregroundColor")) {
         gatherShader->setUniform("foregroundColor", foregroundColor);
@@ -204,7 +204,7 @@ void OpaqueLineRenderer::render() {
     if (useMultisampling) {
         sgl::Renderer->bindFBO(msaaSceneFBO);
         sgl::Renderer->clearFramebuffer(
-                GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, sceneData.clearColor);
+                GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, *sceneData->clearColor);
     }
 
     //if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
@@ -226,7 +226,7 @@ void OpaqueLineRenderer::render() {
     }
 
     if (shaderAttributesDegeneratePoints && showDegeneratePoints && hasDegeneratePoints) {
-        gatherShaderPoints->setUniform("cameraPosition", sceneData.camera->getPosition());
+        gatherShaderPoints->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
         gatherShaderPoints->setUniform("pointWidth", pointWidth);
         gatherShaderPoints->setUniform("foregroundColor", foregroundColor);
         gatherShaderPoints->setUniform("pointColor", glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
@@ -240,7 +240,7 @@ void OpaqueLineRenderer::render() {
     glEnable(GL_CULL_FACE);
 
     if (useMultisampling) {
-        sgl::Renderer->bindFBO(sceneData.framebuffer);
+        sgl::Renderer->bindFBO(*sceneData->framebuffer);
         sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
         sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
         sgl::Renderer->setModelMatrix(sgl::matrixIdentity());

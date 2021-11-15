@@ -48,14 +48,14 @@
 using namespace sgl;
 
 VulkanTestRenderer::VulkanTestRenderer(
-        SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
+        SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
         : LineRenderer("Vulkan Test Renderer", sceneData, transferFunctionWindow),
           rendererVk(rendererVk) {
     isVulkanRenderer = true;
     isRasterizer = true;
 
-    testRenderPass = std::make_shared<TestRenderPass>(this, rendererVk, sceneData.camera);
-    testRenderPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
+    testRenderPass = std::make_shared<TestRenderPass>(this, rendererVk, sceneData->camera);
+    testRenderPass->setBackgroundColor(sceneData->clearColor->getFloatColorRGBA());
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     renderReadySemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
@@ -79,13 +79,12 @@ void VulkanTestRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 
 void VulkanTestRenderer::onResolutionChanged() {
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    auto width = uint32_t(window->getWidth());
-    auto height = uint32_t(window->getHeight());
+    uint32_t width = *sceneData->viewportWidth;
+    uint32_t height = *sceneData->viewportHeight;
 
     sgl::vk::ImageSettings imageSettings;
-    imageSettings.width = window->getWidth();
-    imageSettings.height = window->getHeight();
+    imageSettings.width = width;
+    imageSettings.height = height;
     imageSettings.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     imageSettings.exportMemory = true;
     sgl::vk::ImageSamplerSettings samplerSettings;
@@ -102,9 +101,9 @@ void VulkanTestRenderer::render() {
     renderReadySemaphore->signalSemaphoreGl(renderTextureGl, GL_NONE);
 
     rendererVk->beginCommandBuffer();
-    rendererVk->setViewMatrix(sceneData.camera->getViewMatrix());
-    rendererVk->setProjectionMatrix(sceneData.camera->getProjectionMatrixVulkan());
-    testRenderPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
+    rendererVk->setViewMatrix((*sceneData->camera)->getViewMatrix());
+    rendererVk->setProjectionMatrix((*sceneData->camera)->getProjectionMatrixVulkan());
+    testRenderPass->setBackgroundColor(sceneData->clearColor->getFloatColorRGBA());
     testRenderPass->render();
     rendererVk->endCommandBuffer();
 
@@ -123,7 +122,7 @@ void VulkanTestRenderer::render() {
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
 
-    sgl::Renderer->bindFBO(sceneData.framebuffer);
+    sgl::Renderer->bindFBO(*sceneData->framebuffer);
     sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
     sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
@@ -141,8 +140,8 @@ void VulkanTestRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& prope
 
 
 TestRenderPass::TestRenderPass(
-        VulkanTestRenderer* vulkanTestRenderer, sgl::vk::Renderer* renderer, sgl::CameraPtr camera)
-        : RasterPass(renderer), vulkanTestRenderer(vulkanTestRenderer), camera(std::move(camera)) {
+        VulkanTestRenderer* vulkanTestRenderer, sgl::vk::Renderer* renderer, sgl::CameraPtr* camera)
+        : RasterPass(renderer), vulkanTestRenderer(vulkanTestRenderer), camera(camera) {
     renderSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(RenderSettingsData),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -245,7 +244,7 @@ void TestRenderPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::Grap
 }
 
 void TestRenderPass::_render() {
-    glm::vec3 cameraPosition = camera->getPosition();
+    glm::vec3 cameraPosition = (*camera)->getPosition();
     renderSettingsData.cameraPosition = cameraPosition;
     renderSettingsBuffer->updateData(
             sizeof(RenderSettingsData), &renderSettingsData, renderer->getVkCommandBuffer());

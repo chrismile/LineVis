@@ -51,15 +51,15 @@
 using namespace sgl;
 
 VulkanRayTracer::VulkanRayTracer(
-        SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
+        SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
         : LineRenderer("Vulkan Ray Tracer", sceneData, transferFunctionWindow),
         rendererVk(rendererVk) {
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     renderReadySemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
     renderFinishedSemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
 
-    rayTracingRenderPass = std::make_shared<RayTracingRenderPass>(this, rendererVk, sceneData.camera);
-    rayTracingRenderPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
+    rayTracingRenderPass = std::make_shared<RayTracingRenderPass>(this, rendererVk, sceneData->camera);
+    rayTracingRenderPass->setBackgroundColor(sceneData->clearColor->getFloatColorRGBA());
     rayTracingRenderPass->setNumSamplesPerFrame(numSamplesPerFrame);
     rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
     rayTracingRenderPass->setMaxDepthComplexity(maxDepthComplexity);
@@ -103,9 +103,8 @@ void VulkanRayTracer::setRenderSimulationMeshHull(bool shallRenderSimulationMesh
 
 void VulkanRayTracer::onResolutionChanged() {
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    sgl::Window* window = sgl::AppSettings::get()->getMainWindow();
-    auto width = uint32_t(window->getWidth());
-    auto height = uint32_t(window->getHeight());
+    uint32_t width = *sceneData->viewportWidth;
+    uint32_t height = *sceneData->viewportHeight;
 
     sgl::vk::ImageSettings imageSettings;
     imageSettings.width = width;
@@ -147,7 +146,7 @@ void VulkanRayTracer::render() {
         ambientOcclusionBuffersDirty = false;
     }
 
-    rayTracingRenderPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
+    rayTracingRenderPass->setBackgroundColor(sceneData->clearColor->getFloatColorRGBA());
     rayTracingRenderPass->setFrameNumber(accumulatedFramesCounter);
     rayTracingRenderPass->setDepthMinMaxBuffer(depthMinMaxBuffersVk[outputDepthMinMaxBufferIndex]);
     rayTracingRenderPass->render();
@@ -175,7 +174,7 @@ void VulkanRayTracer::render() {
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
 
-    sgl::Renderer->bindFBO(sceneData.framebuffer);
+    sgl::Renderer->bindFBO(*sceneData->framebuffer);
     sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
     sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
@@ -238,8 +237,8 @@ void VulkanRayTracer::update(float dt) {
 
 
 RayTracingRenderPass::RayTracingRenderPass(
-        VulkanRayTracer* vulkanRayTracer, sgl::vk::Renderer* renderer, sgl::CameraPtr camera)
-        : RayTracingPass(renderer), vulkanRayTracer(vulkanRayTracer), camera(std::move(camera)) {
+        VulkanRayTracer* vulkanRayTracer, sgl::vk::Renderer* renderer, sgl::CameraPtr* camera)
+        : RayTracingPass(renderer), vulkanRayTracer(vulkanRayTracer), camera(camera) {
     cameraSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(CameraSettings),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -407,7 +406,7 @@ void RayTracingRenderPass::createRayTracingData(
 }
 
 void RayTracingRenderPass::updateLineRenderSettings() {
-    glm::vec3 cameraPosition = camera->getPosition();
+    glm::vec3 cameraPosition = (*camera)->getPosition();
     rayTracerSettings.cameraPosition = cameraPosition;
 
     rayTracerSettingsBuffer->updateData(
@@ -417,10 +416,10 @@ void RayTracingRenderPass::updateLineRenderSettings() {
 void RayTracingRenderPass::_render() {
     updateLineRenderSettings();
 
-    cameraSettings.viewMatrix = camera->getViewMatrix();
-    cameraSettings.projectionMatrix = camera->getProjectionMatrixVulkan();
-    cameraSettings.inverseViewMatrix = glm::inverse(camera->getViewMatrix());
-    cameraSettings.inverseProjectionMatrix = glm::inverse(camera->getProjectionMatrixVulkan());
+    cameraSettings.viewMatrix = (*camera)->getViewMatrix();
+    cameraSettings.projectionMatrix = (*camera)->getProjectionMatrixVulkan();
+    cameraSettings.inverseViewMatrix = glm::inverse((*camera)->getViewMatrix());
+    cameraSettings.inverseProjectionMatrix = glm::inverse((*camera)->getProjectionMatrixVulkan());
     cameraSettingsBuffer->updateData(
             sizeof(CameraSettings), &cameraSettings, renderer->getVkCommandBuffer());
 

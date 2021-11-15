@@ -57,7 +57,7 @@ class LineDensityFieldDvrPass;
 class LineDensityMapRenderer : public LineRenderer {
 public:
     LineDensityMapRenderer(
-            SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
+            SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
     ~LineDensityMapRenderer() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_LINE_DENSITY_MAP_RENDERER; }
 
@@ -94,7 +94,7 @@ private:
  */
 class LineDensityFieldDvrPass : public sgl::vk::ComputePass {
 public:
-    explicit LineDensityFieldDvrPass(sgl::vk::Renderer* renderer, sgl::CameraPtr camera);
+    explicit LineDensityFieldDvrPass(sgl::vk::Renderer* renderer, sgl::CameraPtr* camera);
 
     // Public interface.
     void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
@@ -109,7 +109,7 @@ protected:
     void _render() override;
 
 private:
-    sgl::CameraPtr camera;
+    sgl::CameraPtr* camera;
     LineDataPtr lineData;
     sgl::vk::ImageViewPtr sceneImageView;
     VulkanLineDataScatteringRenderData lineDataScatteringRenderData;

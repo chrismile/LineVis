@@ -229,7 +229,7 @@ bool LineDataMultiVar::renderGuiTechniqueSettingsPropertyEditor(sgl::PropertyEdi
     bool itemHasChanged = false;
 
     std::vector<std::string> comboSelVec(0);
-    if (propertyEditor.addBeginCombo("Variables", comboValue.c_str(), ImGuiComboFlags_NoArrowButton)) {
+    if (propertyEditor.addBeginCombo("Variables", comboValue, ImGuiComboFlags_NoArrowButton)) {
         for (size_t v = 0; v < varSelected.size(); ++v) {
             std::vector<std::string> names;
             boost::split(names, varNames[v], [](char c) { return c == '#'; });

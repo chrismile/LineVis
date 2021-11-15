@@ -59,7 +59,7 @@ struct TriangleMesh {
 class OsprayRenderer : public LineRenderer {
 public:
     OsprayRenderer(
-            SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+            SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~OsprayRenderer();
     RenderingMode getRenderingMode() override { return RENDERING_MODE_OSPRAY_RAY_TRACER; }
 

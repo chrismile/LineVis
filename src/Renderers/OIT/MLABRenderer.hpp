@@ -50,9 +50,9 @@
  */
 class MLABRenderer : public LineRenderer {
 public:
-    MLABRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+    MLABRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     MLABRenderer(
-            const std::string& windowName, SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow);
+            const std::string& windowName, SceneData* sceneData, sgl::TransferFunctionWindow &transferFunctionWindow);
     void initialize() override;
     ~MLABRenderer() override {}
     RenderingMode getRenderingMode() override { return RENDERING_MODE_MLAB; }

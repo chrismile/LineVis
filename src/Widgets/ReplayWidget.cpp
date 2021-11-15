@@ -205,10 +205,26 @@ static PyObject* py_set_transfer_functions_ranges(PyObject* self, PyObject* args
 
 static PyObject* py_set_renderer(PyObject* self, PyObject* args) {
     const char* rendererName = nullptr;
-    if (!PyArg_ParseTuple(args, "s", &rendererName)) {
+    int viewIndex = 0;
+
+    Py_ssize_t tupleSize = PyTuple_Size(args);
+    if (tupleSize == 1) {
+        if (!PyArg_ParseTuple(args, "s", &rendererName)) {
+            return nullptr;
+        }
+    } else if (tupleSize == 2) {
+        if (!PyArg_ParseTuple(args, "si", &rendererName, &viewIndex)) {
+            return nullptr;
+        }
+    } else {
+        sgl::Logfile::get()->writeError(
+                "ERROR in py_set_renderer: Function must be called with the renderer name and optionally the "
+                "affected view index.");
         return nullptr;
     }
+
     currentReplayStateGlobal.rendererName = rendererName;
+    currentReplayStateGlobal.viewIndex = viewIndex;
     Py_RETURN_NONE;
 }
 
@@ -430,7 +446,7 @@ static PyModuleDef EmbModule = {
 };
 
 ReplayWidget::ReplayWidget(
-        SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow,
+        SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow,
         sgl::CheckpointWindow& checkpointWindow)
         : sceneData(sceneData), transferFunctionWindow(transferFunctionWindow), checkpointWindow(checkpointWindow) {
     scriptDirectory = sgl::AppSettings::get()->getDataDirectory() + "ReplayScripts/";
@@ -517,11 +533,11 @@ bool ReplayWidget::runScript(const std::string& filename) {
     currentReplayStateGlobal = ReplayState();
     useCameraFlight = useCameraFlightGlobal;
 
-    cameraPositionLast = sceneData.camera->getPosition();
+    cameraPositionLast = (*sceneData->camera)->getPosition();
     cameraOrientationLast =
-            glm::angleAxis(-sceneData.camera->getPitch(), glm::vec3(1, 0, 0))
-            * glm::angleAxis(sceneData.camera->getYaw() + sgl::PI / 2.0f, glm::vec3(0, 1, 0));
-    cameraFovyLast = sceneData.camera->getFOVy();
+            glm::angleAxis(-(*sceneData->camera)->getPitch(), glm::vec3(1, 0, 0))
+            * glm::angleAxis((*sceneData->camera)->getYaw() + sgl::PI / 2.0f, glm::vec3(0, 1, 0));
+    cameraFovyLast = (*sceneData->camera)->getFOVy();
     currentRendererSettings = std::map<std::string, std::string>();
     currentDatasetSettings = std::map<std::string, std::string>();
     replaySettingsRendererLast = ReplaySettingsMap();
@@ -559,7 +575,7 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
                 loadLineDataCallback(replayState.datasetName);
             }
             if (!replayState.rendererName.empty()) {
-                loadRendererCallback(replayState.rendererName);
+                loadRendererCallback(replayState.rendererName, replayState.viewIndex);
             }
             if (!replayState.transferFunctionName.empty()) {
                 loadTransferFunctionCallback(replayState.transferFunctionName);
@@ -650,7 +666,8 @@ void ReplayWidget::setLoadLineDataCallback(std::function<void(const std::string&
     this->loadLineDataCallback = loadLineDataCallback;
 }
 
-void ReplayWidget::setLoadRendererCallback(std::function<void(const std::string& rendererName)> loadRendererCallback) {
+void ReplayWidget::setLoadRendererCallback(
+        std::function<void(const std::string& rendererName, int viewIdx)> loadRendererCallback) {
     this->loadRendererCallback = loadRendererCallback;
 }
 

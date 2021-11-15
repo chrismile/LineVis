@@ -56,7 +56,7 @@ class TestRenderPass;
 class VulkanTestRenderer : public LineRenderer {
 public:
     VulkanTestRenderer(
-            SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
+            SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
     ~VulkanTestRenderer() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_VULKAN_TEST; }
 
@@ -90,7 +90,7 @@ private:
 
 class TestRenderPass : public sgl::vk::RasterPass {
 public:
-    TestRenderPass(VulkanTestRenderer* vulkanTestRenderer, sgl::vk::Renderer* renderer, sgl::CameraPtr camera);
+    TestRenderPass(VulkanTestRenderer* vulkanTestRenderer, sgl::vk::Renderer* renderer, sgl::CameraPtr* camera);
 
     // Public interface.
     void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
@@ -107,7 +107,7 @@ protected:
 
 private:
     VulkanTestRenderer* vulkanTestRenderer = nullptr;
-    sgl::CameraPtr camera;
+    sgl::CameraPtr* camera;
     LineDataPtr lineData;
     sgl::vk::ImageViewPtr sceneImageView;
     sgl::vk::ImageViewPtr depthImageView;

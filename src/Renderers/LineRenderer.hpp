@@ -56,7 +56,7 @@ class LineRenderer {
 
 public:
     LineRenderer(
-            const std::string& windowName, SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow)
+            const std::string& windowName, SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : windowName(windowName), sceneData(sceneData), transferFunctionWindow(transferFunctionWindow) {}
     virtual void initialize();
     virtual ~LineRenderer();
@@ -143,7 +143,7 @@ protected:
     sgl::ShaderProgramPtr gatherShaderHull;
     sgl::ShaderAttributesPtr shaderAttributesHull;
 
-    SceneData& sceneData;
+    SceneData* sceneData;
     LineDataPtr lineData;
     sgl::TransferFunctionWindow& transferFunctionWindow;
     bool dirty = true;

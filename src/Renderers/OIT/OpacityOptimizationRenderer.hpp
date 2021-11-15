@@ -51,7 +51,7 @@ const int MESH_MODE_DEPTH_COMPLEXITIES_OPOPT[2][2] = {
  */
 class OpacityOptimizationRenderer : public LineRenderer {
 public:
-    OpacityOptimizationRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+    OpacityOptimizationRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~OpacityOptimizationRenderer() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_OPACITY_OPTIMIZATION; }
 

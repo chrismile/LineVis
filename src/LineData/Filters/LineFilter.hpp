@@ -54,8 +54,6 @@ public:
     virtual void onDataLoaded(LineDataPtr lineDataIn) {}
     virtual void filterData(LineDataPtr lineDataIn)=0;
 
-    // Renders the GUI. The "dirty" flag might be set depending on the user's actions.
-    virtual void renderGui()=0;
     /// Renders the entries in the property editor.
     virtual void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor)=0;
 

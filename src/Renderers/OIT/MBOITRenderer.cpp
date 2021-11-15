@@ -49,7 +49,7 @@ bool MBOITRenderer::USE_R_RG_RGBA_FOR_MBOIT6 = true;
 float MBOITRenderer::overestimationBeta = 0.1;
 
 MBOITRenderer::MBOITRenderer(
-        SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
+        SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Moment-Based Order Independent Transparency",
                        sceneData, transferFunctionWindow) {
     syncMode = getSupportedSyncMode();
@@ -78,9 +78,8 @@ MBOITRenderer::MBOITRenderer(
 }
 
 void MBOITRenderer::updateSyncMode() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
 
     spinlockViewportBuffer = sgl::GeometryBufferPtr();
     if (syncMode == SYNC_SPINLOCK) {
@@ -165,9 +164,8 @@ void MBOITRenderer::updateMomentMode() {
     reloadShaders();
 
     // 3. Load textures
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
 
     //const GLint internalFormat1 = pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32 ? GL_R32F : GL_R16;
     const GLint internalFormat1 = GL_R32F;
@@ -226,8 +224,8 @@ void MBOITRenderer::updateMomentMode() {
     }
 
     size_t baseSizeBytes = MBOIT_PIXEL_FORMAT_FLOAT_32 ? 4 : 2;
-    if (sceneData.performanceMeasurer) {
-        sceneData.performanceMeasurer->setCurrentAlgorithmBufferSizeBytes(
+    if ((*sceneData->performanceMeasurer)) {
+        (*sceneData->performanceMeasurer)->setCurrentAlgorithmBufferSizeBytes(
                 baseSizeBytes * numMoments * width * height);
     }
     free(emptyData);
@@ -320,9 +318,8 @@ void MBOITRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 }
 
 void MBOITRenderer::onResolutionChanged() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
 
     // Create accumulator framebuffer object & texture
     blendFBO = sgl::Renderer->createFBO();
@@ -330,7 +327,7 @@ void MBOITRenderer::onResolutionChanged() {
     textureSettings.internalFormat = GL_RGBA32F;
     blendRenderTexture = sgl::TextureManager->createEmptyTexture(width, height, textureSettings);
     blendFBO->bindTexture(blendRenderTexture);
-    blendFBO->bindRenderbuffer(sceneData.sceneDepthRBO, sgl::DEPTH_STENCIL_ATTACHMENT);
+    blendFBO->bindRenderbuffer(*sceneData->sceneDepthRBO, sgl::DEPTH_STENCIL_ATTACHMENT);
 
     updateMomentMode();
 }
@@ -345,9 +342,8 @@ void MBOITRenderer::render() {
 }
 
 void MBOITRenderer::setUniformData() {
-    //sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    //int width = window->getWidth();
-    //int height = window->getHeight();
+    //int width = int(*sceneData->viewportWidth);
+    //int height = int(*sceneData->viewportHeight);
 
     if (syncMode == SYNC_SPINLOCK) {
         sgl::ShaderManager->bindShaderStorageBuffer(1, spinlockViewportBuffer);
@@ -362,14 +358,14 @@ void MBOITRenderer::setUniformData() {
             1, b, textureSettingsB.internalFormat, GL_READ_WRITE,
             0, true, 0);
     //mboitPass1Shader->setUniform("viewportW", width);
-    mboitPass1Shader->setUniform("cameraPosition", sceneData.camera->getPosition());
+    mboitPass1Shader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
     mboitPass1Shader->setUniform("lineWidth", lineWidth);
     if (mboitPass1Shader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         mboitPass1Shader->setUniform("backgroundColor", backgroundColor);
     }
     if (mboitPass1Shader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
         mboitPass1Shader->setUniform("foregroundColor", foregroundColor);
     }
@@ -383,14 +379,14 @@ void MBOITRenderer::setUniformData() {
             1, b, textureSettingsB.internalFormat, GL_READ_WRITE,
             0, true, 0); // GL_READ_ONLY? -> Shader
     //mboitPass2Shader->setUniform("viewportW", width);
-    mboitPass2Shader->setUniform("cameraPosition", sceneData.camera->getPosition());
+    mboitPass2Shader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
     mboitPass2Shader->setUniform("lineWidth", lineWidth);
     if (mboitPass2Shader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         mboitPass2Shader->setUniform("backgroundColor", backgroundColor);
     }
     if (mboitPass2Shader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData.clearColor.getFloatColorRGB();
+        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
         glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
         mboitPass2Shader->setUniform("foregroundColor", foregroundColor);
     }
@@ -424,15 +420,15 @@ void MBOITRenderer::setUniformData() {
 
 void MBOITRenderer::computeDepthRange() {
     const sgl::AABB3& boundingBox = lineData->getModelBoundingBox();
-    sgl::AABB3 screenSpaceBoundingBox = boundingBox.transformed(sceneData.camera->getViewMatrix());
+    sgl::AABB3 screenSpaceBoundingBox = boundingBox.transformed((*sceneData->camera)->getViewMatrix());
 
     // Add offset of 0.1 for e.g. point data sets where additonal vertices may be added in the shader for quads.
-    float minViewZ = screenSpaceBoundingBox.getMaximum().z + 0.1;
-    float maxViewZ = screenSpaceBoundingBox.getMinimum().z - 0.1;
-    minViewZ = std::max(-minViewZ, sceneData.camera->getNearClipDistance());
-    maxViewZ = std::min(-maxViewZ, sceneData.camera->getFarClipDistance());
-    minViewZ = std::min(minViewZ, sceneData.camera->getFarClipDistance());
-    maxViewZ = std::max(maxViewZ, sceneData.camera->getNearClipDistance());
+    float minViewZ = screenSpaceBoundingBox.getMaximum().z + 0.1f;
+    float maxViewZ = screenSpaceBoundingBox.getMinimum().z - 0.1f;
+    minViewZ = std::max(-minViewZ, (*sceneData->camera)->getNearClipDistance());
+    maxViewZ = std::min(-maxViewZ, (*sceneData->camera)->getFarClipDistance());
+    minViewZ = std::min(minViewZ, (*sceneData->camera)->getFarClipDistance());
+    maxViewZ = std::max(maxViewZ, (*sceneData->camera)->getNearClipDistance());
     float logmin = log(minViewZ);
     float logmax = log(maxViewZ);
     mboitPass1Shader->setUniform("logDepthMin", logmin);
@@ -467,8 +463,8 @@ void MBOITRenderer::gather() {
         glDisable(GL_CULL_FACE);
     }
 
-    sgl::Renderer->setProjectionMatrix(sceneData.camera->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix(sceneData.camera->getViewMatrix());
+    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
+    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     sgl::Renderer->render(shaderAttributesPass1);
@@ -506,7 +502,7 @@ void MBOITRenderer::resolve() {
 
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
 
-    sgl::Renderer->bindFBO(sceneData.framebuffer);
+    sgl::Renderer->bindFBO(*sceneData->framebuffer);
     sgl::Renderer->render(blitRenderData);
 
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);

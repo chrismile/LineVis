@@ -39,7 +39,7 @@ class AutoPerfMeasurer;
  */
 class DepthComplexityRenderer : public LineRenderer {
 public:
-    DepthComplexityRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+    DepthComplexityRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~DepthComplexityRenderer() override = default;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_DEPTH_COMPLEXITY; }
 

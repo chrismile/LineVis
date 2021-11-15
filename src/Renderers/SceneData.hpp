@@ -37,24 +37,28 @@ class AutomaticPerformanceMeasurer;
 
 struct SceneData {
     SceneData(
-            sgl::FramebufferObjectPtr& framebuffer, sgl::TexturePtr& sceneTexture,
-            sgl::RenderbufferObjectPtr& sceneDepthRBO, sgl::CameraPtr& camera,
-            sgl::Color& clearColor, bool& screenshotTransparentBackground,
-            AutomaticPerformanceMeasurer*& performanceMeasurer, bool& recordingMode, bool& useCameraFlight)
-            : framebuffer(framebuffer), sceneTexture(sceneTexture), sceneDepthRBO(sceneDepthRBO), camera(camera),
-              clearColor(clearColor), screenshotTransparentBackground(screenshotTransparentBackground),
+            sgl::FramebufferObjectPtr* framebuffer, sgl::TexturePtr* sceneTexture,
+            sgl::RenderbufferObjectPtr* sceneDepthRBO, uint32_t* viewportWidth, uint32_t* viewportHeight,
+            sgl::CameraPtr* camera, sgl::Color* clearColor, bool* screenshotTransparentBackground,
+            AutomaticPerformanceMeasurer** performanceMeasurer, bool* recordingMode, bool* useCameraFlight)
+            : framebuffer(framebuffer), sceneTexture(sceneTexture),
+              sceneDepthRBO(sceneDepthRBO), viewportWidth(viewportWidth), viewportHeight(viewportHeight),
+              camera(camera), clearColor(clearColor), screenshotTransparentBackground(screenshotTransparentBackground),
               performanceMeasurer(performanceMeasurer), recordingMode(recordingMode), useCameraFlight(useCameraFlight)
-              {}
-    sgl::FramebufferObjectPtr& framebuffer;
-    sgl::TexturePtr& sceneTexture;
-    sgl::RenderbufferObjectPtr& sceneDepthRBO;
+            {}
+    sgl::FramebufferObjectPtr* framebuffer;
+    sgl::TexturePtr* sceneTexture;
+    sgl::RenderbufferObjectPtr* sceneDepthRBO;
 
-    sgl::CameraPtr& camera;
-    sgl::Color& clearColor;
-    bool& screenshotTransparentBackground;
-    AutomaticPerformanceMeasurer*& performanceMeasurer;
-    bool& recordingMode;
-    bool& useCameraFlight;
+    uint32_t* viewportWidth;
+    uint32_t* viewportHeight;
+
+    sgl::CameraPtr* camera;
+    sgl::Color* clearColor;
+    bool* screenshotTransparentBackground;
+    AutomaticPerformanceMeasurer** performanceMeasurer;
+    bool* recordingMode;
+    bool* useCameraFlight;
 };
 
 #endif //LINEVIS_SCENEDATA_HPP

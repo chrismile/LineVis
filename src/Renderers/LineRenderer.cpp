@@ -155,16 +155,16 @@ void LineRenderer::computeDepthRange() {
         uint32_t numVertices = filteredLinesVerticesBuffer->getSize() / sizeof(glm::vec4);
         uint32_t numBlocks = sgl::iceil(int(numVertices), BLOCK_SIZE);
         computeDepthValuesShaderProgram->setUniform("numVertices", numVertices);
-        computeDepthValuesShaderProgram->setUniform("nearDist", sceneData.camera->getNearClipDistance());
-        computeDepthValuesShaderProgram->setUniform("farDist", sceneData.camera->getFarClipDistance());
-        computeDepthValuesShaderProgram->setUniform("cameraViewMatrix", sceneData.camera->getViewMatrix());
+        computeDepthValuesShaderProgram->setUniform("nearDist", (*sceneData->camera)->getNearClipDistance());
+        computeDepthValuesShaderProgram->setUniform("farDist", (*sceneData->camera)->getFarClipDistance());
+        computeDepthValuesShaderProgram->setUniform("cameraViewMatrix", (*sceneData->camera)->getViewMatrix());
         computeDepthValuesShaderProgram->setUniform(
-                "cameraProjectionMatrix", sceneData.camera->getProjectionMatrix());
+                "cameraProjectionMatrix", (*sceneData->camera)->getProjectionMatrix());
         computeDepthValuesShaderProgram->dispatchCompute(int(numBlocks));
         glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-        minMaxReduceDepthShaderProgram->setUniform("nearDist", sceneData.camera->getNearClipDistance());
-        minMaxReduceDepthShaderProgram->setUniform("farDist", sceneData.camera->getFarClipDistance());
+        minMaxReduceDepthShaderProgram->setUniform("nearDist", (*sceneData->camera)->getNearClipDistance());
+        minMaxReduceDepthShaderProgram->setUniform("farDist", (*sceneData->camera)->getFarClipDistance());
         int iteration = 0;
         uint32_t inputSize;
         while (numBlocks > 1) {
@@ -195,11 +195,11 @@ void LineRenderer::computeDepthRange() {
         bool useBoundingBox = lineData->getNumLines() > 1000;
         if (useBoundingBox) {
             const sgl::AABB3& boundingBox = lineData->getModelBoundingBox();
-            sgl::AABB3 screenSpaceBoundingBox = boundingBox.transformed(sceneData.camera->getViewMatrix());
+            sgl::AABB3 screenSpaceBoundingBox = boundingBox.transformed((*sceneData->camera)->getViewMatrix());
             minDepth = -screenSpaceBoundingBox.getMaximum().z;
             maxDepth = -screenSpaceBoundingBox.getMinimum().z;
         } else {
-            glm::mat4 viewMatrix = sceneData.camera->getViewMatrix();
+            glm::mat4 viewMatrix = (*sceneData->camera)->getViewMatrix();
             minDepth = std::numeric_limits<float>::max();
             maxDepth = std::numeric_limits<float>::lowest();
 #if _OPENMP >= 201107
@@ -217,9 +217,9 @@ void LineRenderer::computeDepthRange() {
         }
 
         minDepth = glm::clamp(
-                minDepth, sceneData.camera->getFarClipDistance(), sceneData.camera->getNearClipDistance());
+                minDepth, (*sceneData->camera)->getFarClipDistance(), (*sceneData->camera)->getNearClipDistance());
         maxDepth = glm::clamp(
-                maxDepth, sceneData.camera->getFarClipDistance(), sceneData.camera->getNearClipDistance());
+                maxDepth, (*sceneData->camera)->getFarClipDistance(), (*sceneData->camera)->getNearClipDistance());
     }
 }
 
@@ -235,10 +235,10 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
 
     shaderProgram->setUniformOptional("depthCueStrength", depthCueStrength);
 
-    shaderProgram->setUniformOptional("fieldOfViewY", sceneData.camera->getFOVy());
+    shaderProgram->setUniformOptional("fieldOfViewY", (*sceneData->camera)->getFOVy());
     shaderProgram->setUniformOptional(
             "viewportSize",
-            glm::ivec2(sceneData.sceneTexture->getW(), sceneData.sceneTexture->getH()));
+            glm::ivec2((*sceneData->sceneTexture)->getW(), (*sceneData->sceneTexture)->getH()));
 
     if (useAmbientOcclusion && ambientOcclusionBaker && ambientOcclusionBaker->getIsDataReady()
             && ambientOcclusionBaker->getAmbientOcclusionBuffer()) {
@@ -472,7 +472,7 @@ void LineRenderer::renderHull() {
             shaderAttributesHull = lineData->getGatherShaderAttributesHull(gatherShaderHull);
         }
         lineData->setUniformGatherShaderDataHull_Pass(gatherShaderHull);
-        gatherShaderHull->setUniformOptional("cameraPosition", sceneData.camera->getPosition());
+        gatherShaderHull->setUniformOptional("cameraPosition", (*sceneData->camera)->getPosition());
         glDisable(GL_CULL_FACE);
         sgl::Renderer->render(shaderAttributesHull);
         glEnable(GL_CULL_FACE);

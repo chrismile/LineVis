@@ -73,17 +73,20 @@
 #include "Renderers/OIT/WBOITRenderer.hpp"
 #include "Renderers/OIT/DepthPeelingRenderer.hpp"
 #include "Renderers/VRC/VoxelRayCastingRenderer.hpp"
+
 #ifdef USE_VULKAN_INTEROP
 #include "Renderers/Vulkan/VulkanRayTracer.hpp"
 #include "Renderers/Vulkan/VulkanTestRenderer.hpp"
 #include "Renderers/Vulkan/Scattering/LineDensityMapRenderer.hpp"
 #include "Renderers/Vulkan/VulkanAmbientOcclusionBaker.hpp"
 #include <Graphics/Vulkan/Utils/Instance.hpp>
-
 #endif
+
 #ifdef USE_OSPRAY
 #include "Renderers/Ospray/OsprayRenderer.hpp"
 #endif
+
+#include "Widgets/DataView.hpp"
 #include "MainApp.hpp"
 
 void openglErrorCallback() {
@@ -108,11 +111,11 @@ void signalHandler(int signum) {
 
 MainApp::MainApp()
         : sceneData(
-                sceneFramebuffer, sceneTexture, sceneDepthRBO, camera,
-                clearColor, screenshotTransparentBackground,
-                performanceMeasurer, recording, useCameraFlight),
+                &sceneFramebuffer, &sceneTexture, &sceneDepthRBO, &viewportWidth, &viewportHeight, &camera,
+                &clearColor, &screenshotTransparentBackground,
+                &performanceMeasurer, &recording, &useCameraFlight),
 #ifdef USE_PYTHON
-          replayWidget(sceneData, transferFunctionWindow, checkpointWindow),
+          replayWidget(&sceneData, transferFunctionWindow, checkpointWindow),
 #endif
           lineDataRequester(transferFunctionWindow),
 #ifdef USE_ZEROMQ
@@ -152,12 +155,29 @@ MainApp::MainApp()
                     "Replay widget: loadMeshCallback: Invalid data set name \"" + datasetName + "\".");
         }
     });
-    replayWidget.setLoadRendererCallback([this](const std::string& rendererName) {
-        RenderingMode renderingModeNew = renderingMode;
+    replayWidget.setLoadRendererCallback([this](const std::string& rendererName, int viewIdx) {
+        SceneData* sceneDataPtr;
+        RenderingMode* renderingModeNew;
+        RenderingMode* renderingModeOld;
+        LineRenderer** lineRendererPtr;
+        if (useDockSpaceMode) {
+            if (viewIdx >= int(dataViews.size())) {
+                addNewDataView();
+            }
+            sceneDataPtr = &dataViews.at(viewIdx)->sceneData;
+            renderingModeNew = &dataViews.at(viewIdx)->renderingMode;
+            renderingModeOld = &dataViews.at(viewIdx)->oldRenderingMode;
+            lineRendererPtr = &dataViews.at(viewIdx)->lineRenderer;
+        } else {
+            sceneDataPtr = &sceneData;
+            renderingModeNew = &renderingMode;
+            renderingModeOld = &oldRenderingMode;
+            lineRendererPtr = &lineRenderer;
+        }
         int i;
         for (i = 0; i < IM_ARRAYSIZE(RENDERING_MODE_NAMES); i++) {
             if (RENDERING_MODE_NAMES[i] == rendererName) {
-                renderingModeNew = RenderingMode(i);
+                *renderingModeNew = RenderingMode(i);
                 break;
             }
         }
@@ -166,9 +186,8 @@ MainApp::MainApp()
                     std::string() + "ERROR in replay widget load renderer callback: Unknown renderer name \""
                     + rendererName + "\".");
         }
-        if (renderingModeNew != renderingMode) {
-            renderingMode = renderingModeNew;
-            setRenderer();
+        if (*renderingModeNew != *renderingModeOld) {
+            setRenderer(*sceneDataPtr, *renderingModeOld, *renderingModeNew, *lineRendererPtr, viewIdx);
         }
     });
     replayWidget.setLoadTransferFunctionCallback([this](const std::string& tfName) {
@@ -176,9 +195,8 @@ MainApp::MainApp()
             transferFunctionWindow.loadFunctionFromFile(
                     transferFunctionWindow.getSaveDirectory() + tfName);
             lineData->onTransferFunctionMapRebuilt();
-            if (lineRenderer) {
-                lineRenderer->onTransferFunctionMapRebuilt();
-            }
+            sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(
+                    ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT));
         }
     });
     replayWidget.setTransferFunctionRangeCallback([this](const glm::vec2& tfRange) {
@@ -187,9 +205,8 @@ MainApp::MainApp()
             updateTransferFunctionRange = true;
             transferFunctionRange = tfRange;
             lineData->onTransferFunctionMapRebuilt();
-            if (lineRenderer) {
-                lineRenderer->onTransferFunctionMapRebuilt();
-            }
+            sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(
+                    ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT));
         }
     });
     replayWidget.setLoadMultiVarTransferFunctionsCallback([this](
@@ -209,9 +226,8 @@ MainApp::MainApp()
             }
             multiVarTransferFunctionWindow->loadFromTfNameList(tfNames);
             lineData->onTransferFunctionMapRebuilt();
-            if (lineRenderer) {
-                lineRenderer->onTransferFunctionMapRebuilt();
-            }
+            sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(
+                    ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT));
         }
     });
     replayWidget.setMultiVarTransferFunctionsRangesCallback([this](
@@ -234,9 +250,8 @@ MainApp::MainApp()
                 multiVarTransferFunctionWindow->setSelectedRange(varIdx, tfRanges.at(varIdx));
             }
             lineData->onTransferFunctionMapRebuilt();
-            if (lineRenderer) {
-                lineRenderer->onTransferFunctionMapRebuilt();
-            }
+            sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(
+                    ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT));
         }
     });
 #endif
@@ -333,7 +348,9 @@ MainApp::MainApp()
     }
 #endif
 
-    setRenderer();
+    if (!useDockSpaceMode) {
+        setRenderer(sceneData, oldRenderingMode, renderingMode, lineRenderer, 0);
+    }
 
     customDataSetFileName = sgl::FileUtils::get()->getUserDirectory();
     loadAvailableDataSetInformation();
@@ -364,8 +381,12 @@ MainApp::~MainApp() {
     }
     dataFilters.clear();
 
-    delete lineRenderer;
+    if (lineRenderer) {
+        delete lineRenderer;
+        lineRenderer = nullptr;
+    }
     lineData = {};
+    dataViews.clear();
 
     delete stressLineTracingRequester;
     stressLineTracingRequester = nullptr;
@@ -405,10 +426,18 @@ void MainApp::setNewState(const InternalState &newState) {
     // 2.1. Do we need to load new renderers?
     if (firstState || newState.renderingMode != lastState.renderingMode
         || newState.rendererSettings != lastState.rendererSettings) {
-        delete lineRenderer;
-        lineRenderer = nullptr;
+        dataViews.clear();
         renderingMode = newState.renderingMode;
-        setRenderer();
+        if (useDockSpaceMode) {
+            if (dataViews.empty()) {
+                addNewDataView();
+            }
+            setRenderer(
+                    dataViews[0]->sceneData, dataViews[0]->oldRenderingMode, dataViews[0]->renderingMode,
+                    dataViews[0]->lineRenderer, 0);
+        } else {
+            setRenderer(sceneData, oldRenderingMode, renderingMode, lineRenderer, 0);
+        }
     }
 
     // 2.2. Pass state change to renderers to handle internally necessary state changes.
@@ -468,95 +497,117 @@ void MainApp::scheduleRecreateSceneFramebuffer() {
     scheduledRecreateSceneFramebuffer = true;
 }
 
-void MainApp::setRenderer() {
-    if (lineRenderer) {
-        delete lineRenderer;
-        lineRenderer = nullptr;
+void MainApp::setRenderer(
+        SceneData& sceneDataRef, RenderingMode& oldRenderingMode, RenderingMode& newRenderingMode,
+        LineRenderer*& newLineRenderer, int dataViewIndex) {
+    if (newLineRenderer) {
+        delete newLineRenderer;
+        newLineRenderer = nullptr;
     }
 
-    if (oldRenderingMode != renderingMode) {
+    if (oldRenderingMode != newRenderingMode) {
         // User depth buffer with higher accuracy when rendering lines opaquely.
-        if (renderingMode == RENDERING_MODE_ALL_LINES_OPAQUE || oldRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
-            if (renderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
-                sceneDepthRBOType = sgl::RBO_DEPTH32F_STENCIL8;
+        if (newRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE
+                || oldRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
+            sgl::RenderbufferType rboType;
+            if (newRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
+                rboType = sgl::RBO_DEPTH32F_STENCIL8;
             } else {
-                sceneDepthRBOType = sgl::RBO_DEPTH24_STENCIL8;
+                rboType = sgl::RBO_DEPTH24_STENCIL8;
+            }
+            if (useDockSpaceMode) {
+                dataViews.at(dataViewIndex)->sceneDepthRBOType = rboType;
+                sceneDepthRBOType = rboType;
+            } else {
+                sceneDepthRBOType = rboType;
             }
             scheduleRecreateSceneFramebuffer();
         }
-        oldRenderingMode = renderingMode;
+        oldRenderingMode = newRenderingMode;
     }
 
-    if (renderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
-        lineRenderer = new OpaqueLineRenderer(sceneData, transferFunctionWindow);
-    } else if (renderingMode == RENDERING_MODE_PER_PIXEL_LINKED_LIST) {
-        lineRenderer = new PerPixelLinkedListLineRenderer(sceneData, transferFunctionWindow);
-    } else if (renderingMode == RENDERING_MODE_MLAB) {
-        lineRenderer = new MLABRenderer(sceneData, transferFunctionWindow);
-    } else if (renderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION) {
-        lineRenderer = new OpacityOptimizationRenderer(sceneData, transferFunctionWindow);
-    } else if (renderingMode == RENDERING_MODE_DEPTH_COMPLEXITY) {
-        lineRenderer = new DepthComplexityRenderer(sceneData, transferFunctionWindow);
-    } else if (renderingMode == RENDERING_MODE_MBOIT) {
-        lineRenderer = new MBOITRenderer(sceneData, transferFunctionWindow);
-    } else if (renderingMode == RENDERING_MODE_MLAB_BUCKETS) {
-        lineRenderer = new MLABBucketRenderer(sceneData, transferFunctionWindow);
-    } else if (renderingMode == RENDERING_MODE_WBOIT) {
-        lineRenderer = new WBOITRenderer(sceneData, transferFunctionWindow);
-    } else if (renderingMode == RENDERING_MODE_DEPTH_PEELING) {
-        lineRenderer = new DepthPeelingRenderer(sceneData, transferFunctionWindow);
+    if (newRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
+        newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
+    } else if (newRenderingMode == RENDERING_MODE_PER_PIXEL_LINKED_LIST) {
+        newLineRenderer = new PerPixelLinkedListLineRenderer(&sceneDataRef, transferFunctionWindow);
+    } else if (newRenderingMode == RENDERING_MODE_MLAB) {
+        newLineRenderer = new MLABRenderer(&sceneDataRef, transferFunctionWindow);
+    } else if (newRenderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION) {
+        newLineRenderer = new OpacityOptimizationRenderer(&sceneDataRef, transferFunctionWindow);
+    } else if (newRenderingMode == RENDERING_MODE_DEPTH_COMPLEXITY) {
+        newLineRenderer = new DepthComplexityRenderer(&sceneDataRef, transferFunctionWindow);
+    } else if (newRenderingMode == RENDERING_MODE_MBOIT) {
+        newLineRenderer = new MBOITRenderer(&sceneDataRef, transferFunctionWindow);
+    } else if (newRenderingMode == RENDERING_MODE_MLAB_BUCKETS) {
+        newLineRenderer = new MLABBucketRenderer(&sceneDataRef, transferFunctionWindow);
+    } else if (newRenderingMode == RENDERING_MODE_WBOIT) {
+        newLineRenderer = new WBOITRenderer(&sceneDataRef, transferFunctionWindow);
+    } else if (newRenderingMode == RENDERING_MODE_DEPTH_PEELING) {
+        newLineRenderer = new DepthPeelingRenderer(&sceneDataRef, transferFunctionWindow);
     }
 #ifdef USE_VULKAN_INTEROP
-    else if (renderingMode == RENDERING_MODE_VULKAN_RAY_TRACER) {
+    else if (newRenderingMode == RENDERING_MODE_VULKAN_RAY_TRACER) {
         if (sgl::AppSettings::get()->getPrimaryDevice()->getRayTracingPipelineSupported()) {
-            lineRenderer = new VulkanRayTracer(sceneData, transferFunctionWindow, rendererVk);
+            newLineRenderer = new VulkanRayTracer(&sceneDataRef, transferFunctionWindow, rendererVk);
         } else {
-            renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
-            lineRenderer = new OpaqueLineRenderer(sceneData, transferFunctionWindow);
+            newRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+            newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
             sgl::Logfile::get()->writeError(
                     "Error in MainApp::setRenderer: Vulkan ray pipelines are not supported on this hardware.");
         }
     }
 #endif
-    else if (renderingMode == RENDERING_MODE_VOXEL_RAY_CASTING) {
-        lineRenderer = new VoxelRayCastingRenderer(sceneData, transferFunctionWindow);
+    else if (newRenderingMode == RENDERING_MODE_VOXEL_RAY_CASTING) {
+        newLineRenderer = new VoxelRayCastingRenderer(&sceneDataRef, transferFunctionWindow);
     }
 #ifdef USE_VULKAN_INTEROP
-    else if (renderingMode == RENDERING_MODE_VULKAN_TEST) {
-        lineRenderer = new VulkanTestRenderer(sceneData, transferFunctionWindow, rendererVk);
+    else if (newRenderingMode == RENDERING_MODE_VULKAN_TEST) {
+        newLineRenderer = new VulkanTestRenderer(&sceneDataRef, transferFunctionWindow, rendererVk);
     }
 #endif
 #ifdef USE_OSPRAY
-    else if (renderingMode == RENDERING_MODE_OSPRAY_RAY_TRACER) {
-        lineRenderer = new OsprayRenderer(sceneData, transferFunctionWindow);
+    else if (newRenderingMode == RENDERING_MODE_OSPRAY_RAY_TRACER) {
+        newLineRenderer = new OsprayRenderer(&sceneDataRef, transferFunctionWindow);
     }
 #endif
 #ifdef USE_VULKAN_INTEROP
-    else if (renderingMode == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
-        lineRenderer = new LineDensityMapRenderer(sceneData, transferFunctionWindow, rendererVk);
+    else if (newRenderingMode == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
+        newLineRenderer = new LineDensityMapRenderer(&sceneDataRef, transferFunctionWindow, rendererVk);
     }
 #endif
     else {
-        renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
-        lineRenderer = new OpaqueLineRenderer(sceneData, transferFunctionWindow);
+        newRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+        newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
         sgl::Logfile::get()->writeError(
                 "Error in MainApp::setRenderer: A renderer unsupported in this build configuration was selected.");
     }
     if (ambientOcclusionBaker) {
-        lineRenderer->setAmbientOcclusionBaker(ambientOcclusionBaker);
+        newLineRenderer->setAmbientOcclusionBaker(ambientOcclusionBaker);
     }
-    lineRenderer->initialize();
+    newLineRenderer->initialize();
 
     if (lineData) {
-        lineData->setLineRenderers({ lineRenderer });
-        lineData->setRenderingModes({ renderingMode });
+        if (useDockSpaceMode) {
+            std::vector<LineRenderer*> lineRenderers;
+            for (DataViewPtr& dataView : dataViews) {
+                if (dataView->lineRenderer) {
+                    lineRenderers.push_back(dataView->lineRenderer);
+                }
+            }
+            lineData->setLineRenderers(lineRenderers);
+        } else {
+            lineData->setLineRenderers({ lineRenderer });
+        }
+        lineData->setRenderingModes({ newRenderingMode });
     }
 }
 
 void MainApp::resolutionChanged(sgl::EventPtr event) {
     SciVisApp::resolutionChanged(event);
-    if (lineRenderer != nullptr) {
-        lineRenderer->onResolutionChanged();
+    if (!useDockSpaceMode) {
+        if (lineRenderer != nullptr) {
+            lineRenderer->onResolutionChanged();
+        }
     }
 }
 
@@ -575,37 +626,40 @@ void MainApp::render() {
     SciVisApp::preRender();
     prepareVisualizationPipeline();
 
-    bool componentOtherThanRendererNeedsReRender = reRender;
-    if (lineRenderer != nullptr) {
-        reRender = reRender || lineRenderer->needsReRender();
-        componentOtherThanRendererNeedsReRender |= lineRenderer->needsInternalReRender();
-    }
+    componentOtherThanRendererNeedsReRender = reRender;
     if (lineData != nullptr) {
         bool lineDataNeedsReRender = lineData->needsReRender();
         reRender = reRender || lineDataNeedsReRender;
         componentOtherThanRendererNeedsReRender = componentOtherThanRendererNeedsReRender || lineDataNeedsReRender;
     }
-    if (lineRenderer && componentOtherThanRendererNeedsReRender) {
-        // If the re-rendering was triggered from an outside source, frame accumulation cannot be used!
-        lineRenderer->notifyReRenderTriggeredExternally();
-    }
 
-    if (reRender || continuousRendering) {
-        if (renderingMode != RENDERING_MODE_PER_PIXEL_LINKED_LIST && usePerformanceMeasurementMode) {
-            performanceMeasurer->startMeasure(recordingTimeLast);
+    if (!useDockSpaceMode) {
+        if (lineRenderer != nullptr) {
+            reRender = reRender || lineRenderer->needsReRender();
+            componentOtherThanRendererNeedsReRender |= lineRenderer->needsInternalReRender();
+        }
+        if (lineRenderer && componentOtherThanRendererNeedsReRender) {
+            // If the re-rendering was triggered from an outside source, frame accumulation cannot be used!
+            lineRenderer->notifyReRenderTriggeredExternally();
         }
 
-        SciVisApp::prepareReRender();
+        if (reRender || continuousRendering) {
+            if (renderingMode != RENDERING_MODE_PER_PIXEL_LINKED_LIST && usePerformanceMeasurementMode) {
+                performanceMeasurer->startMeasure(recordingTimeLast);
+            }
 
-        if (lineData.get() != nullptr && lineRenderer != nullptr) {
-            lineRenderer->render();
+            SciVisApp::prepareReRender();
+
+            if (lineData.get() != nullptr && lineRenderer != nullptr) {
+                lineRenderer->render();
+            }
+
+            if (renderingMode != RENDERING_MODE_PER_PIXEL_LINKED_LIST && usePerformanceMeasurementMode) {
+                performanceMeasurer->endMeasure();
+            }
+
+            reRender = false;
         }
-
-        if (renderingMode != RENDERING_MODE_PER_PIXEL_LINKED_LIST && usePerformanceMeasurementMode) {
-            performanceMeasurer->endMeasure();
-        }
-
-        reRender = false;
     }
 
     SciVisApp::postRender();
@@ -636,61 +690,93 @@ void MainApp::renderGui() {
 
         renderGuiMenuBar();
 
-        if (ImGui::Begin("Main Window", &showMainWindow)) {
-            if (ImGui::IsWindowFocused()) {
-                focusedWindowIndex = 0;
-            }
-            sgl::ImGuiWrapper::get()->setWindowViewport(0, ImGui::GetWindowViewport());
-            sgl::ImGuiWrapper::get()->setWindowViewport(0, ImGui::GetWindowViewport());
-            sgl::ImGuiWrapper::get()->setWindowPosAndSize(0, ImGui::GetWindowPos(), ImGui::GetWindowSize());
+        int i = 0;
+        for (DataViewPtr& dataView : dataViews) {
+            std::string windowName = dataView->getWindowName(i);
+            if (ImGui::Begin(windowName.c_str(), &showMainWindow)) {
+                if (ImGui::IsWindowFocused()) {
+                    focusedWindowIndex = 0;
+                }
+                sgl::ImGuiWrapper::get()->setWindowViewport(i, ImGui::GetWindowViewport());
+                sgl::ImGuiWrapper::get()->setWindowViewport(i, ImGui::GetWindowViewport());
+                sgl::ImGuiWrapper::get()->setWindowPosAndSize(i, ImGui::GetWindowPos(), ImGui::GetWindowSize());
 
-            // TODO
-            ImVec2 sizeContent = ImGui::GetContentRegionAvail();
-            //std::cout << "sizeContent: " << sizeContent.x << ", " << sizeContent.y << std::endl;
-            ImGui::Image(
-                    (void*)(intptr_t)static_cast<sgl::TextureGL*>(sceneTexture.get())->getTexture(),
-                    sizeContent, ImVec2(0, 1), ImVec2(1, 0));
-            if (ImGui::IsItemHovered()) {
-                mouseHoverWindowIndex = 0;
-            }
+                ImVec2 sizeContent = ImGui::GetContentRegionAvail();
+                if (int(sizeContent.x) != int(dataView->viewportWidth)
+                        || int(sizeContent.y) != int(dataView->viewportHeight)) {
+                    dataView->resize(int(sizeContent.x), int(sizeContent.y));
+                    if (dataView->lineRenderer && dataView->viewportWidth > 0 && dataView->viewportHeight > 0) {
+                        dataView->lineRenderer->onResolutionChanged();
+                    }
+                    reRender = true;
+                }
 
-            if (showFpsOverlay) {
-                renderGuiFpsOverlay();
-            }
+                bool reRenderLocal = reRender || dataView->reRender;
+                dataView->reRender = false;
+                bool componentOtherThanRendererNeedsReRenderLocal = componentOtherThanRendererNeedsReRender;
+                if (dataView->lineRenderer != nullptr) {
+                    reRenderLocal = reRenderLocal || dataView->lineRenderer->needsReRender();
+                    componentOtherThanRendererNeedsReRenderLocal |= dataView->lineRenderer->needsInternalReRender();
+                }
+                if (dataView->lineRenderer && componentOtherThanRendererNeedsReRenderLocal) {
+                    // If the re-rendering was triggered from an outside source, frame accumulation cannot be used!
+                    dataView->lineRenderer->notifyReRenderTriggeredExternally();
+                }
 
-            if (lineRenderer) {
-                lineRenderer->renderGuiOverlay();
+                if (dataView->viewportWidth > 0 && dataView->viewportHeight > 0
+                        && (reRenderLocal || continuousRendering)) {
+                    dataView->beginRender();
+
+                    if (renderingMode != RENDERING_MODE_PER_PIXEL_LINKED_LIST && usePerformanceMeasurementMode) {
+                        performanceMeasurer->startMeasure(recordingTimeLast);
+                    }
+
+                    if (lineData.get() != nullptr && dataView->lineRenderer != nullptr) {
+                        dataView->lineRenderer->render();
+                    }
+
+                    if (renderingMode != RENDERING_MODE_PER_PIXEL_LINKED_LIST && usePerformanceMeasurementMode) {
+                        performanceMeasurer->endMeasure();
+                    }
+
+                    reRenderLocal = false;
+
+                    dataView->endRender();
+                }
+
+                if (dataView->viewportWidth > 0 && dataView->viewportHeight > 0) {
+                    ImGui::Image(
+                            (void*)(intptr_t)static_cast<sgl::TextureGL*>(
+                                    dataView->sceneTexture.get())->getTexture(),
+                            sizeContent, ImVec2(0, 1), ImVec2(1, 0));
+                    if (ImGui::IsItemHovered()) {
+                        mouseHoverWindowIndex = 0;
+                    }
+
+                    if (i == 0 && showFpsOverlay) {
+                        renderGuiFpsOverlay();
+                    }
+
+                    if (i == 0 && dataView->lineRenderer) {
+                        dataView->lineRenderer->renderGuiOverlay();
+                    }
+                }
             }
+            ImGui::End();
+
+            i++;
         }
-        ImGui::End();
+        if (!dataViews.empty()) {
+            sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
+            int width = window->getWidth();
+            int height = window->getHeight();
+            glViewport(0, 0, width, height);
+        }
+        reRender = false;
     } else {
         if (lineRenderer) {
             lineRenderer->renderGuiOverlay();
         }
-    }
-
-    if (showSettingsWindow) {
-        sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(3090, 56, 735, 1085);
-        if (ImGui::Begin("Settings", &showSettingsWindow)) {
-            SciVisApp::renderGuiFpsCounter();
-
-            // Selection of displayed model
-            renderFileSelectionSettingsGui();
-
-            if (ImGui::Combo(
-                    "Rendering Mode", (int*)&renderingMode, RENDERING_MODE_NAMES,
-                    IM_ARRAYSIZE(RENDERING_MODE_NAMES))) {
-                setRenderer();
-                reRender = true;
-            }
-
-            ImGui::Separator();
-
-            if (ImGui::CollapsingHeader("Scene Settings", NULL, ImGuiTreeNodeFlags_DefaultOpen)) {
-                renderSceneSettingsGui();
-            }
-        }
-        ImGui::End();
     }
 
     if (selectedDataSetIndex == 1) {
@@ -706,9 +792,8 @@ void MainApp::renderGui() {
             if (lineData) {
                 lineData->onTransferFunctionMapRebuilt();
             }
-            if (lineRenderer) {
-                lineRenderer->onTransferFunctionMapRebuilt();
-            }
+            sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(
+                    ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT));
         }
     }
 
@@ -718,7 +803,7 @@ void MainApp::renderGui() {
         hasMoved();
     }
 
-    if (useDockSpaceMode && showPropertyEditor) {
+    if (showPropertyEditor) {
         renderGuiPropertyEditorWindow();
     }
 
@@ -780,15 +865,16 @@ void MainApp::renderGui() {
     }
 #endif
 
-    if (!useDockSpaceMode) {
-        for (LineFilter* dataFilter : dataFilters) {
-            dataFilter->renderGui();
-        }
-    }
     if (lineData) {
         bool shallReloadGatherShader = lineData->renderGuiWindowSecondary();
         if (shallReloadGatherShader) {
-            lineRenderer->reloadGatherShaderExternal();
+            if (useDockSpaceMode) {
+                for (DataViewPtr& dataView : dataViews) {
+                    dataView->lineRenderer->reloadGatherShaderExternal();
+                }
+            } else {
+                lineRenderer->reloadGatherShaderExternal();
+            }
         }
     }
 }
@@ -831,36 +917,8 @@ std::vector<std::string> MainApp::getSelectedLineDataSetFilenames() {
     return filenames;
 }
 
-void MainApp::renderFileSelectionSettingsGui() {
-    if (ImGui::Combo(
-            "Data Set", &selectedDataSetIndex, dataSetNames.data(),
-            dataSetNames.size())) {
-        if (selectedDataSetIndex >= NUM_MANUAL_LOADERS) {
-            loadLineDataSet(getSelectedLineDataSetFilenames());
-        }
-    }
-
-    if (lineDataRequester.getIsProcessingRequest() || stressLineTracingRequester->getIsProcessingRequest()
-        || scatteringLineTracingRequester->getIsProcessingRequest()
-        || (ambientOcclusionBaker && ambientOcclusionBaker->getIsComputationRunning())) {
-        ImGui::SameLine();
-        ImGui::ProgressSpinner(
-                "##progress-spinner", -1.0f, -1.0f, 4.0f,
-                ImVec4(0.1, 0.5, 1.0, 1.0));
-    }
-
-
-    if (selectedDataSetIndex == 0) {
-        ImGui::InputText("##meshfilenamelabel", &customDataSetFileName);
-        ImGui::SameLine();
-        if (ImGui::Button("Load File")) {
-            loadLineDataSet(getSelectedLineDataSetFilenames());
-        }
-    }
-}
-
-void MainApp::renderSceneSettingsGui() {
-    if (ImGui::ColorEdit3("Clear Color", (float*)&clearColorSelection, 0)) {
+void MainApp::renderGuiGeneralSettingsPropertyEditor() {
+    if (propertyEditor.addColorEdit3("Clear Color", (float*)&clearColorSelection, 0)) {
         clearColor = sgl::colorFromFloat(
                 clearColorSelection.x, clearColorSelection.y, clearColorSelection.z, clearColorSelection.w);
         transferFunctionWindow.setClearColor(clearColor);
@@ -870,27 +928,62 @@ void MainApp::renderSceneSettingsGui() {
         reRender = true;
     }
 
-    SciVisApp::renderSceneSettingsGuiPre();
-    ImGui::Checkbox("Show Transfer Function Window", &transferFunctionWindow.getShowWindow());
-    if (lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES && renderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
-        if (ImGui::Checkbox("Visualize Seeding Process", &visualizeSeedingProcess)) {
-            LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
-            lineDataStress->setShallRenderSeedingProcess(visualizeSeedingProcess);
-            OpaqueLineRenderer* opaqueLineRenderer = static_cast<OpaqueLineRenderer*>(lineRenderer);
-            opaqueLineRenderer->setVisualizeSeedingProcess(true);
-            recordingTimeStampStart = sgl::Timer->getTicksMicroseconds();
-            //useCameraFlight = visualizeSeedingProcess;
-            //startedCameraFlightPerUI = true;
-            recordingTime = 0.0f;
-            //realTimeCameraFlight = false;
-            //cameraPath.resetTime();
-            customEndTime =
-                    visualizeSeedingProcess ? TIME_PER_SEED_POINT * (lineDataStress->getNumSeedPoints() + 1) : 0.0f;
-            reRender = true;
-        }
+    bool newDockSpaceMode = useDockSpaceMode;
+    if (propertyEditor.addCheckbox("Use Docking Mode", &newDockSpaceMode)) {
+        scheduledDockSpaceModeChange = true;
     }
 
-    SciVisApp::renderSceneSettingsGuiPost();
+    if (lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES && renderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
+        if (useDockSpaceMode) {
+            bool hasOpaqueLineRenderer = false;
+            for (DataViewPtr& dataView : dataViews) {
+                if (dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_ALL_LINES_OPAQUE) {
+                    hasOpaqueLineRenderer = true;
+                    dataView->lineRenderer->notifyReRenderTriggeredExternally();
+                    dataView->reRender = true;
+                }
+            }
+
+            if (hasOpaqueLineRenderer) {
+                if (propertyEditor.addCheckbox("Visualize Seeding Process", &visualizeSeedingProcess)) {
+                    LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
+                    lineDataStress->setShallRenderSeedingProcess(visualizeSeedingProcess);
+                    for (DataViewPtr& dataView : dataViews) {
+                        if (dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_ALL_LINES_OPAQUE) {
+                            OpaqueLineRenderer* opaqueLineRenderer = static_cast<OpaqueLineRenderer*>(
+                                    dataView->lineRenderer);
+                            opaqueLineRenderer->setVisualizeSeedingProcess(true);
+                        }
+                    }
+                    recordingTimeStampStart = sgl::Timer->getTicksMicroseconds();
+                    recordingTime = 0.0f;
+                    customEndTime =
+                            visualizeSeedingProcess ? TIME_PER_SEED_POINT * (lineDataStress->getNumSeedPoints() + 1) : 0.0f;
+                }
+            }
+        } else {
+            if (renderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
+                if (propertyEditor.addCheckbox("Visualize Seeding Process", &visualizeSeedingProcess)) {
+                    LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
+                    lineDataStress->setShallRenderSeedingProcess(visualizeSeedingProcess);
+                    OpaqueLineRenderer* opaqueLineRenderer = static_cast<OpaqueLineRenderer*>(lineRenderer);
+                    opaqueLineRenderer->setVisualizeSeedingProcess(true);
+                    recordingTimeStampStart = sgl::Timer->getTicksMicroseconds();
+                    recordingTime = 0.0f;
+                    customEndTime =
+                            visualizeSeedingProcess ? TIME_PER_SEED_POINT * (lineDataStress->getNumSeedPoints() + 1) : 0.0f;
+                    reRender = true;
+                }
+            }
+        }
+    }
+}
+
+void MainApp::addNewDataView() {
+    DataViewPtr dataView = std::make_shared<DataView>(&sceneData, gammaCorrectionShader);
+    dataView->useLinearRGB = useLinearRGB;
+    dataView->clearColor = clearColor;
+    dataViews.push_back(dataView);
 }
 
 void MainApp::renderGuiMenuBar() {
@@ -923,10 +1016,28 @@ void MainApp::renderGuiMenuBar() {
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Window")) {
-            if (ImGui::MenuItem("Main Window", nullptr, showMainWindow)) {
-                showMainWindow = !showMainWindow;
+            if (ImGui::MenuItem("New View...")) {
+                addNewDataView();
+                if (dataViews.size() == 1) {
+                    DataViewPtr dataView = dataViews.back();
+                    dataView->renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+                    dataView->resize(1, 1); // Use arbitrary size for initialization.
+                    setRenderer(
+                            dataViews[0]->sceneData, dataViews[0]->oldRenderingMode,
+                            dataViews[0]->renderingMode, dataViews[0]->lineRenderer, 0);
+                    prepareVisualizationPipeline();
+                }
             }
-            if (ImGui::MenuItem("FPS Overlay", nullptr, showMainWindow)) {
+            ImGui::Separator();
+            int i = 0;
+            for (DataViewPtr& dataView : dataViews) {
+                std::string windowName = dataView->getWindowName(i);
+                if (ImGui::MenuItem(windowName.c_str(), nullptr, dataView->showWindow)) {
+                    dataView->showWindow = !dataView->showWindow;
+                }
+                i++;
+            }
+            if (ImGui::MenuItem("FPS Overlay", nullptr, showFpsOverlay)) {
                 showFpsOverlay = !showFpsOverlay;
             }
             if (ImGui::MenuItem("Property Editor", nullptr, showPropertyEditor)) {
@@ -942,14 +1053,58 @@ void MainApp::renderGuiMenuBar() {
             if (ImGui::MenuItem("Replay Widget", nullptr, replayWidget.getShowWindow())) {
                 replayWidget.setShowWindow(!replayWidget.getShowWindow());
             }
-            if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {}  // Disabled item
-            ImGui::Separator();
-            if (ImGui::MenuItem("Cut", "CTRL+X")) {}
-            if (ImGui::MenuItem("Copy", "CTRL+C")) {}
-            if (ImGui::MenuItem("Paste", "CTRL+V")) {}
             ImGui::EndMenu();
+
         }
+
+        if (lineDataRequester.getIsProcessingRequest() || stressLineTracingRequester->getIsProcessingRequest()
+                || scatteringLineTracingRequester->getIsProcessingRequest()
+                || (ambientOcclusionBaker && ambientOcclusionBaker->getIsComputationRunning())) {
+            ImGui::SetCursorPosX(ImGui::GetWindowContentRegionWidth() - ImGui::GetTextLineHeight());
+            ImGui::ProgressSpinner(
+                    "##progress-spinner", -1.0f, -1.0f, 4.0f,
+                    ImVec4(0.1, 0.5, 1.0, 1.0));
+        }
+
         ImGui::EndMainMenuBar();
+    }
+}
+
+void MainApp::renderGuiPropertyEditorBegin() {
+    if (!useDockSpaceMode) {
+        if (ImGui::Combo(
+                "Data Set", &selectedDataSetIndex, dataSetNames.data(),
+                int(dataSetNames.size()))) {
+            if (selectedDataSetIndex >= NUM_MANUAL_LOADERS) {
+                loadLineDataSet(getSelectedLineDataSetFilenames());
+            }
+        }
+
+        if (lineDataRequester.getIsProcessingRequest() || stressLineTracingRequester->getIsProcessingRequest()
+                || scatteringLineTracingRequester->getIsProcessingRequest()
+                || (ambientOcclusionBaker && ambientOcclusionBaker->getIsComputationRunning())) {
+            ImGui::SameLine();
+            ImGui::ProgressSpinner(
+                    "##progress-spinner", -1.0f, -1.0f, 4.0f,
+                    ImVec4(0.1, 0.5, 1.0, 1.0));
+        }
+
+        if (selectedDataSetIndex == 0) {
+            ImGui::InputText("##meshfilenamelabel", &customDataSetFileName);
+            ImGui::SameLine();
+            if (ImGui::Button("Load File")) {
+                loadLineDataSet(getSelectedLineDataSetFilenames());
+            }
+        }
+
+        if (ImGui::Combo(
+                "Rendering Mode", (int*)&renderingMode, RENDERING_MODE_NAMES,
+                IM_ARRAYSIZE(RENDERING_MODE_NAMES))) {
+            setRenderer(sceneData, oldRenderingMode, renderingMode, lineRenderer, 0);
+            reRender = true;
+        }
+
+        ImGui::Separator();
     }
 }
 
@@ -963,6 +1118,7 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
             propertyEditor.endNode();
         }
     }
+
     if (lineData) {
         if (propertyEditor.beginNode("Line Filters")) {
             for (LineFilter* dataFilter : dataFilters) {
@@ -971,17 +1127,67 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
             propertyEditor.endNode();
         }
     }
-    if (lineRenderer) {
-        if (propertyEditor.beginNode(lineRenderer->getWindowName())) {
-            lineRenderer->renderGuiPropertyEditorNodes(propertyEditor);
-            propertyEditor.endNode();
+
+    int i = 0;
+    if (useDockSpaceMode) {
+        for (DataViewPtr& dataView : dataViews) {
+            if (propertyEditor.beginNode(dataView->getWindowName(i))) {
+                std::string previewValue =
+                        dataView->renderingMode == RENDERING_MODE_NONE
+                        ? "None" : RENDERING_MODE_NAMES[int(dataView->renderingMode)];
+                if (propertyEditor.addBeginCombo("Rendering Mode", previewValue)) {
+                    for (int j = 0; j < IM_ARRAYSIZE(RENDERING_MODE_NAMES); j++) {
+                        if (ImGui::Selectable(
+                                RENDERING_MODE_NAMES[int(j)], false,
+                                ImGuiSelectableFlags_::ImGuiSelectableFlags_DontClosePopups)) {
+                            dataView->renderingMode = RenderingMode(j);
+                            setRenderer(
+                                    dataView->sceneData, dataView->oldRenderingMode, dataView->renderingMode,
+                                    dataView->lineRenderer, i);
+                            reRender = true;
+                        }
+                    }
+                    propertyEditor.addEndCombo();
+                }
+                if (lineRenderer) {
+                    lineRenderer->renderGuiPropertyEditorNodes(propertyEditor);
+                }
+                propertyEditor.endNode();
+            }
+            i++;
+        }
+    } else {
+        if (lineRenderer) {
+            if (propertyEditor.beginNode(lineRenderer->getWindowName())) {
+                lineRenderer->renderGuiPropertyEditorNodes(propertyEditor);
+                propertyEditor.endNode();
+            }
         }
     }
 }
 
-
 void MainApp::update(float dt) {
     sgl::SciVisApp::update(dt);
+
+    if (scheduledDockSpaceModeChange) {
+        if (useDockSpaceMode) {
+            if (!dataViews.empty() && dataViews.front()->lineRenderer) {
+                lineRenderer = dataViews.front()->lineRenderer;
+                dataViews.front()->lineRenderer = nullptr;
+            }
+            dataViews.clear();
+        } else {
+            if (lineRenderer) {
+                addNewDataView();
+                DataViewPtr dataView = dataViews.back();
+                dataView->lineRenderer = lineRenderer;
+                lineRenderer = nullptr;
+            }
+        }
+
+        useDockSpaceMode = newDockSpaceMode;
+        scheduledDockSpaceModeChange = false;
+    }
 
     if (visualizeSeedingProcess) {
         const int seedPointIdx = recordingTime / TIME_PER_SEED_POINT - 1;
@@ -1029,10 +1235,8 @@ void MainApp::update(float dt) {
             transferFunctionWindow.setSelectedRange(transferFunctionRange);
             updateTransferFunctionRange = false;
             lineData->onTransferFunctionMapRebuilt();
-            if (lineRenderer) {
-                lineRenderer->onTransferFunctionMapRebuilt();
-            }
-
+            sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(
+                    ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT));
         }
 
         replayWidgetRunning = true;
@@ -1092,15 +1296,31 @@ void MainApp::update(float dt) {
     if (!io.WantCaptureMouse || (focusedWindowIndex != -1 && mouseHoverWindowIndex != -1)) {
         moveCameraMouse(dt);
 
-        if (lineRenderer != nullptr) {
-            lineRenderer->update(dt);
+        if (useDockSpaceMode) {
+            for (DataViewPtr& dataView : dataViews) {
+                if (dataView->lineRenderer != nullptr) {
+                    dataView->lineRenderer->update(dt);
+                }
+            }
+        } else {
+            if (lineRenderer != nullptr) {
+                lineRenderer->update(dt);
+            }
         }
     }
 }
 
 void MainApp::hasMoved() {
-    if (lineRenderer != nullptr) {
-        lineRenderer->onHasMoved();
+    if (useDockSpaceMode) {
+        for (DataViewPtr& dataView : dataViews) {
+            if (dataView->lineRenderer != nullptr) {
+                dataView->lineRenderer->onHasMoved();
+            }
+        }
+    } else {
+        if (lineRenderer != nullptr) {
+            lineRenderer->onHasMoved();
+        }
     }
 }
 
@@ -1108,14 +1328,14 @@ void MainApp::hasMoved() {
 // --- Visualization pipeline ---
 
 void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames, bool blockingDataLoading) {
-    if (fileNames.size() == 0 || fileNames.front().size() == 0) {
+    if (fileNames.empty() || fileNames.front().empty()) {
         lineData = LineDataPtr();
         return;
     }
     currentlyLoadedDataSetIndex = selectedDataSetIndex;
 
     DataSetInformation selectedDataSetInformation;
-    if (selectedDataSetIndex >= NUM_MANUAL_LOADERS && dataSetInformation.size() > 0) {
+    if (selectedDataSetIndex >= NUM_MANUAL_LOADERS && !dataSetInformation.empty()) {
         selectedDataSetInformation = dataSetInformation.at(selectedDataSetIndex - NUM_MANUAL_LOADERS);
     } else if (selectedDataSetIndex == 1) {
         selectedDataSetInformation = stressLineTracerDataSetInformation;
@@ -1168,7 +1388,17 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames, bool bl
             lineData->recomputeHistogram();
             lineData->setClearColor(clearColor);
             lineData->setUseLinearRGB(useLinearRGB);
-            lineData->setLineRenderers({ lineRenderer });
+            if (useDockSpaceMode) {
+                std::vector<LineRenderer*> lineRenderers;
+                for (DataViewPtr& dataView : dataViews) {
+                    if (dataView->lineRenderer) {
+                        lineRenderers.push_back(dataView->lineRenderer);
+                    }
+                }
+                lineData->setLineRenderers(lineRenderers);
+            } else {
+                lineData->setLineRenderers({ lineRenderer });
+            }
             lineData->setRenderingModes({ renderingMode });
             newMeshLoaded = true;
             modelBoundingBox = lineData->getModelBoundingBox();
@@ -1228,7 +1458,17 @@ void MainApp::checkLoadingRequestFinished() {
         lineData->recomputeHistogram();
         lineData->setClearColor(clearColor);
         lineData->setUseLinearRGB(useLinearRGB);
-        lineData->setLineRenderers({ lineRenderer });
+        if (useDockSpaceMode) {
+            std::vector<LineRenderer*> lineRenderers;
+            for (DataViewPtr& dataView : dataViews) {
+                if (dataView->lineRenderer) {
+                    lineRenderers.push_back(dataView->lineRenderer);
+                }
+            }
+            lineData->setLineRenderers(lineRenderers);
+        } else {
+            lineData->setLineRenderers({ lineRenderer });
+        }
         lineData->setRenderingModes({ renderingMode });
         newMeshLoaded = true;
         modelBoundingBox = lineData->getModelBoundingBox();
@@ -1266,6 +1506,39 @@ void MainApp::reloadDataSet() {
 }
 
 void MainApp::prepareVisualizationPipeline() {
+    if (useDockSpaceMode) {
+        if (lineData && !dataViews.empty()) {
+            bool isPreviousNodeDirty = lineData->isDirty();
+            filterData(isPreviousNodeDirty);
+            if (isPreviousNodeDirty) {
+                lineData->setTriangleRepresentationDirty();
+            }
+            bool isTriangleRepresentationDirty = lineData->isTriangleRepresentationDirty();
+            for (DataViewPtr& dataView : dataViews) {
+                if (!dataView->lineRenderer) {
+                    continue;
+                }
+                bool isTriangleRepresentationDirtyLocal =
+                        isTriangleRepresentationDirty && dataView->lineRenderer->getIsTriangleRepresentationUsed();
+                if (dataView->lineRenderer->isDirty() || isPreviousNodeDirty || isTriangleRepresentationDirtyLocal) {
+                    dataView->lineRenderer->setLineData(lineData, newMeshLoaded);
+                }
+            }
+        }
+    } else {
+        if (lineData && lineRenderer) {
+            bool isPreviousNodeDirty = lineData->isDirty();
+            bool isTriangleRepresentationDirty =
+                    lineData->isTriangleRepresentationDirty() && lineRenderer->getIsTriangleRepresentationUsed();
+            filterData(isPreviousNodeDirty);
+            if (isPreviousNodeDirty) {
+                lineData->setTriangleRepresentationDirty();
+            }
+            if (lineRenderer->isDirty() || isPreviousNodeDirty || isTriangleRepresentationDirty) {
+                lineRenderer->setLineData(lineData, newMeshLoaded);
+            }
+        }
+    }
     if (lineData && lineRenderer) {
         bool isPreviousNodeDirty = lineData->isDirty();
         bool isTriangleRepresentationDirty =

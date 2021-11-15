@@ -42,7 +42,8 @@
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
 #include "DepthComplexityRenderer.hpp"
 
-DepthComplexityRenderer::DepthComplexityRenderer(SceneData &sceneData, sgl::TransferFunctionWindow &transferFunctionWindow)
+DepthComplexityRenderer::DepthComplexityRenderer(
+        SceneData* sceneData, sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineRenderer("Depth Complexity Renderer", sceneData, transferFunctionWindow) {
     sgl::ShaderManager->invalidateShaderCache();
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"DepthComplexityGatherInc.glsl\"");
@@ -97,9 +98,8 @@ void DepthComplexityRenderer::setLineData(LineDataPtr& lineData, bool isNewData)
 }
 
 void DepthComplexityRenderer::onResolutionChanged() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
 
     size_t fragmentCounterBufferSizeBytes = sizeof(uint32_t) * width * height;
     fragmentCounterBuffer = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
@@ -108,12 +108,11 @@ void DepthComplexityRenderer::onResolutionChanged() {
 }
 
 void DepthComplexityRenderer::setUniformData() {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
+    int width = int(*sceneData->viewportWidth);
 
     sgl::ShaderManager->bindShaderStorageBuffer(0, fragmentCounterBuffer);
 
-    gatherShader->setUniformOptional("cameraPosition", sceneData.camera->getPosition());
+    gatherShader->setUniformOptional("cameraPosition", (*sceneData->camera)->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
     gatherShader->setUniform("viewportW", width);
     lineData->setUniformGatherShaderData(gatherShader);
@@ -155,8 +154,8 @@ void DepthComplexityRenderer::gather() {
     glClear(GL_STENCIL_BUFFER_BIT);
     glDisable(GL_CULL_FACE);
 
-    sgl::Renderer->setProjectionMatrix(sceneData.camera->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix(sceneData.camera->getViewMatrix());
+    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
+    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     // Now, the final gather step.
@@ -194,7 +193,7 @@ void DepthComplexityRenderer::render() {
     gather();
     resolve();
 
-    if (sceneData.performanceMeasurer != nullptr || sceneData.recordingMode) {
+    if ((*sceneData->performanceMeasurer) != nullptr || (*sceneData->recordingMode)) {
         computeStatistics(false);
     }
 }
@@ -250,9 +249,8 @@ bool DepthComplexityRenderer::needsReRender() {
 }
 
 void DepthComplexityRenderer::computeStatistics(bool isReRender) {
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int width = window->getWidth();
-    int height = window->getHeight();
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
     bufferSize = width * height;
 
     uint32_t *data = (uint32_t*)fragmentCounterBuffer->mapBuffer(sgl::BUFFER_MAP_READ_ONLY);
@@ -281,8 +279,8 @@ void DepthComplexityRenderer::computeStatistics(bool isReRender) {
 
     fragmentCounterBuffer->unmapBuffer();
 
-    bool performanceMeasureMode = sceneData.performanceMeasurer != nullptr;
-    if ((performanceMeasureMode || sceneData.recordingMode) || firstFrame || true) {
+    bool performanceMeasureMode = (*sceneData->performanceMeasurer) != nullptr;
+    if ((performanceMeasureMode || (*sceneData->recordingMode)) || firstFrame || true) {
         if (!isReRender) {
             firstFrame = false;
         }
@@ -290,7 +288,7 @@ void DepthComplexityRenderer::computeStatistics(bool isReRender) {
     }
 
     if (performanceMeasureMode) {
-        sceneData.performanceMeasurer->pushDepthComplexityFrame(
+        (*sceneData->performanceMeasurer)->pushDepthComplexityFrame(
                 minComplexity, maxComplexity,
                 (float)totalNumFragments / usedLocations,
                 (float)totalNumFragments / bufferSize, totalNumFragments);

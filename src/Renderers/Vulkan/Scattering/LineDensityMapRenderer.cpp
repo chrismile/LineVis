@@ -50,14 +50,14 @@
 using namespace sgl;
 
 LineDensityMapRenderer::LineDensityMapRenderer(
-        SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
+        SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
         : LineRenderer("Scattered Lines Renderer", sceneData, transferFunctionWindow),
           rendererVk(rendererVk) {
     isVulkanRenderer = true;
     isRasterizer = true;
 
-    lineDensityFieldDvrPass = std::make_shared<LineDensityFieldDvrPass>(rendererVk, sceneData.camera);
-    lineDensityFieldDvrPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
+    lineDensityFieldDvrPass = std::make_shared<LineDensityFieldDvrPass>(rendererVk, sceneData->camera);
+    lineDensityFieldDvrPass->setBackgroundColor(sceneData->clearColor->getFloatColorRGBA());
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     renderReadySemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
@@ -88,13 +88,12 @@ void LineDensityMapRenderer::setLineData(LineDataPtr& lineData, bool isNewData) 
 
 void LineDensityMapRenderer::onResolutionChanged() {
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    auto width = uint32_t(window->getWidth());
-    auto height = uint32_t(window->getHeight());
+    uint32_t width = *sceneData->viewportWidth;
+    uint32_t height = *sceneData->viewportHeight;
 
     sgl::vk::ImageSettings imageSettings;
-    imageSettings.width = window->getWidth();
-    imageSettings.height = window->getHeight();
+    imageSettings.width = width;
+    imageSettings.height = height;
     imageSettings.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     imageSettings.exportMemory = true;
     sgl::vk::ImageSamplerSettings samplerSettings;
@@ -115,9 +114,9 @@ void LineDensityMapRenderer::render() {
     renderReadySemaphore->signalSemaphoreGl(renderTextureGl, GL_NONE);
 
     rendererVk->beginCommandBuffer();
-    rendererVk->setViewMatrix(sceneData.camera->getViewMatrix());
-    rendererVk->setProjectionMatrix(sceneData.camera->getProjectionMatrixVulkan());
-    lineDensityFieldDvrPass->setBackgroundColor(sceneData.clearColor.getFloatColorRGBA());
+    rendererVk->setViewMatrix((*sceneData->camera)->getViewMatrix());
+    rendererVk->setProjectionMatrix((*sceneData->camera)->getProjectionMatrixVulkan());
+    lineDensityFieldDvrPass->setBackgroundColor(sceneData->clearColor->getFloatColorRGBA());
     lineDensityFieldDvrPass->render();
     rendererVk->endCommandBuffer();
 
@@ -136,7 +135,7 @@ void LineDensityMapRenderer::render() {
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
 
-    sgl::Renderer->bindFBO(sceneData.framebuffer);
+    sgl::Renderer->bindFBO(*sceneData->framebuffer);
     sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
     sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
@@ -155,8 +154,8 @@ void LineDensityMapRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& p
 
 
 
-LineDensityFieldDvrPass::LineDensityFieldDvrPass(sgl::vk::Renderer* renderer, sgl::CameraPtr camera)
-        : ComputePass(renderer), camera(std::move(camera)) {
+LineDensityFieldDvrPass::LineDensityFieldDvrPass(sgl::vk::Renderer* renderer, sgl::CameraPtr* camera)
+        : ComputePass(renderer), camera(camera) {
     cameraSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(CameraSettings),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -220,10 +219,10 @@ void LineDensityFieldDvrPass::createComputeData(sgl::vk::Renderer* renderer, sgl
 }
 
 void LineDensityFieldDvrPass::_render() {
-    cameraSettings.viewMatrix = camera->getViewMatrix();
-    cameraSettings.projectionMatrix = camera->getProjectionMatrixVulkan();
-    cameraSettings.inverseViewMatrix = glm::inverse(camera->getViewMatrix());
-    cameraSettings.inverseProjectionMatrix = glm::inverse(camera->getProjectionMatrixVulkan());
+    cameraSettings.viewMatrix = (*camera)->getViewMatrix();
+    cameraSettings.projectionMatrix = (*camera)->getProjectionMatrixVulkan();
+    cameraSettings.inverseViewMatrix = glm::inverse((*camera)->getViewMatrix());
+    cameraSettings.inverseProjectionMatrix = glm::inverse((*camera)->getProjectionMatrixVulkan());
     cameraSettingsBuffer->updateData(
             sizeof(CameraSettings), &cameraSettings, renderer->getVkCommandBuffer());
 

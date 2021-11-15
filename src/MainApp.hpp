@@ -53,6 +53,8 @@
 class LineRenderer;
 class LineData;
 typedef std::shared_ptr<LineData> LineDataPtr;
+class DataView;
+typedef std::shared_ptr<DataView> DataViewPtr;
 
 class MainApp : public sgl::SciVisApp {
 public:
@@ -60,36 +62,43 @@ public:
      * @param supportsRaytracing Whether raytracing via OpenGL-Vulkan interoperability is supported.
      */
     MainApp();
-    ~MainApp();
-    void render();
-    void update(float dt);
-    void resolutionChanged(sgl::EventPtr event);
+    ~MainApp() override;
+    void render() override;
+    void update(float dt) override;
+    void resolutionChanged(sgl::EventPtr event) override;
 
     /// For changing performance measurement modes.
     void setNewState(const InternalState& newState);
 
+protected:
+    void renderGuiGeneralSettingsPropertyEditor() override;
+
 private:
     /// Renders the GUI of the scene settings and all filters and renderers.
-    void renderGui();
-    /// Renders the GUI for selecting an input file.
-    void renderFileSelectionSettingsGui();
-    /// Render the scene settings GUI, e.g. for setting the background clear color.
-    void renderSceneSettingsGui();
+    void renderGui() override;
     /// Update the color space (linear RGB vs. sRGB).
-    void updateColorSpaceMode();
+    void updateColorSpaceMode() override;
     // Called when the camera moved.
-    void hasMoved();
+    void hasMoved() override;
 
     void scheduleRecreateSceneFramebuffer();
     bool scheduledRecreateSceneFramebuffer = false;
+    bool componentOtherThanRendererNeedsReRender = false;
 
     // Dock space mode.
     void renderGuiMenuBar();
+    void renderGuiPropertyEditorBegin() override;
     void renderGuiPropertyEditorCustomNodes() override;
+    void addNewDataView();
+    bool scheduledDockSpaceModeChange = false;
+    bool newDockSpaceMode = false;
     int focusedWindowIndex = -1;
     int mouseHoverWindowIndex = -1;
+    std::vector<DataViewPtr> dataViews;
 
     /// Scene data (e.g., camera, main framebuffer, ...).
+    uint32_t viewportWidth = 0;
+    uint32_t viewportHeight = 0;
     SceneData sceneData;
 
     /// Scene data used in user interface.
@@ -122,7 +131,7 @@ private:
     bool replayWidgetRunning = false;
     bool realTimeReplayUpdates = false;
     bool updateTransferFunctionRange = false;
-    glm::vec2 transferFunctionRange;
+    glm::vec2 transferFunctionRange{};
 #endif
 
 
@@ -139,7 +148,9 @@ private:
     /// Returns the filtered mesh that is passed to the renderers.
     void filterData(bool& isDirty);
     /// Sets the used renderers.
-    void setRenderer();
+    void setRenderer(
+            SceneData& sceneDataRef, RenderingMode& oldRenderingMode, RenderingMode& newRenderingMode,
+            LineRenderer*& newLineRenderer, int dataViewIndex);
 
     /// A list of filters that are applied sequentially on the data.
     std::vector<LineFilter*> dataFilters;

@@ -46,7 +46,7 @@
  */
 class MBOITRenderer : public LineRenderer {
 public:
-    MBOITRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+    MBOITRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~MBOITRenderer() override = default;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_MBOIT; }
 
@@ -84,7 +84,7 @@ private:
     sgl::ShaderAttributesPtr shaderAttributesPass2;
     sgl::ShaderProgramPtr blendShader;
 
-    MomentOITUniformData momentUniformData;
+    MomentOITUniformData momentUniformData{};
     sgl::GeometryBufferPtr momentOITUniformBuffer;
 
     // Blit data (ignores model-view-projection matrix and uses normalized device coordinates)

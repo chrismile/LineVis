@@ -42,8 +42,8 @@
  */
 class WBOITRenderer : public LineRenderer {
 public:
-    WBOITRenderer(SceneData& sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
-    ~WBOITRenderer() override {}
+    WBOITRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+    ~WBOITRenderer() override = default;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_WBOIT; }
 
     /**
