@@ -137,7 +137,7 @@ MainApp::MainApp()
 #ifdef USE_PYTHON
     sgl::ColorLegendWidget::setFontScaleStandard(1.0f);
 
-    replayWidget.setLoadLineDataCallback([this](const std::string &datasetName) {
+    replayWidget.setLoadLineDataCallback([this](const std::string& datasetName) {
         int i;
         int oldSelectedDataSetIndex = selectedDataSetIndex;
         for (i = 0; i < int(dataSetNames.size()); i++) {
@@ -267,6 +267,12 @@ MainApp::MainApp()
             sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(
                     ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT));
         }
+    });
+    replayWidget.setSaveScreenshotCallback([this](const std::string& screenshotName) {
+        if (!screenshotName.empty()) {
+            saveFilenameScreenshots = screenshotName;
+        }
+        screenshot = true;
     });
 #endif
 

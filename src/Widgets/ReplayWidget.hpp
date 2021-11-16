@@ -195,6 +195,9 @@ struct ReplayState {
     glm::quat cameraOrientation;
     float cameraFovy;
 
+    // For saving screenshots while running the replay states.
+    std::string screenshotName;
+
     // Renderer and data set settings (optional).
     ReplaySettingsMap rendererSettings;
     ReplaySettingsMap datasetSettings;
@@ -245,6 +248,7 @@ public:
             std::function<void(const std::vector<glm::vec2>& tfRanges)> multiVarTransferFunctionsRangesCallback);
     void setLineTracerSettingsCallback(
             std::function<void(const SettingsMap& settings)> lineTracerSettingsCallback);
+    void setSaveScreenshotCallback(std::function<void(const std::string& screenshotName)> saveScreenshotCallback);
 
 private:
     // Global data.
@@ -264,6 +268,7 @@ private:
     std::function<void(const std::vector<std::string>& tfNames)> loadMultiVarTransferFunctionsCallback;
     std::function<void(const std::vector<glm::vec2>& tfRanges)> multiVarTransferFunctionsRangesCallback;
     std::function<void(const SettingsMap& settings)> lineTracerSettingsCallback;
+    std::function<void(const std::string& screenshotName)> saveScreenshotCallback;
 
     // Script data.
     bool runScript(const std::string& filename);
