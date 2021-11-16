@@ -27,6 +27,7 @@
  */
 
 #include <map>
+#include <utility>
 #include <vector>
 #include <iostream>
 
@@ -410,6 +411,10 @@ static PyObject* py_set_use_camera_flight(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+static PyObject* py_set_tracer_settings(PyObject* self, PyObject* args) {
+    return parseSettingsDict(self, args, currentReplayStateGlobal.tracerSettings);
+}
+
 static PyMethodDef REPLAY_METHODS[] = {
         {"set_duration", py_set_duration, METH_VARARGS,
                 "Sets the duration of the state. Needs to be called as the first function in each state!"},
@@ -437,7 +442,12 @@ static PyMethodDef REPLAY_METHODS[] = {
                 "Sets the camera checkpoint corresponding to the passed string."},
         {"set_use_camera_flight", py_set_use_camera_flight, METH_VARARGS,
                 "Whether to use the pre-defined camera flight for camera positions and orientations."},
-        {nullptr, nullptr, 0, nullptr}
+
+        // For stress line tracer and scattering line tracer.
+        {"set_tracer_settings", py_set_tracer_settings, METH_VARARGS,
+                "Sets a dict of settings for the stress line or scattering line tracer."},
+
+        {nullptr, nullptr, 0, nullptr},
 };
 
 static PyModuleDef EmbModule = {
@@ -574,6 +584,12 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
             if (!replayState.datasetName.empty()) {
                 loadLineDataCallback(replayState.datasetName);
             }
+            if (!replayState.tracerSettings.empty()) {
+                SettingsMap lineTracerSettings;
+                replayState.tracerSettings.setStaticSettings(lineTracerSettings);
+                replayState.tracerSettings.setDynamicSettings(lineTracerSettings);
+                lineTracerSettingsCallback(lineTracerSettings);
+            }
             if (!replayState.rendererName.empty()) {
                 loadRendererCallback(replayState.rendererName, replayState.viewIndex);
             }
@@ -663,32 +679,37 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
 }
 
 void ReplayWidget::setLoadLineDataCallback(std::function<void(const std::string& datasetName)> loadLineDataCallback) {
-    this->loadLineDataCallback = loadLineDataCallback;
+    this->loadLineDataCallback = std::move(loadLineDataCallback);
 }
 
 void ReplayWidget::setLoadRendererCallback(
         std::function<void(const std::string& rendererName, int viewIdx)> loadRendererCallback) {
-    this->loadRendererCallback = loadRendererCallback;
+    this->loadRendererCallback = std::move(loadRendererCallback);
 }
 
 void ReplayWidget::setLoadTransferFunctionCallback(
         std::function<void(const std::string& tfName)> loadTransferFunctionCallback) {
-    this->loadTransferFunctionCallback = loadTransferFunctionCallback;
+    this->loadTransferFunctionCallback = std::move(loadTransferFunctionCallback);
 }
 
 void ReplayWidget::setTransferFunctionRangeCallback(
         std::function<void(const glm::vec2& tfRange)> transferFunctionRangeCallback) {
-    this->transferFunctionRangeCallback = transferFunctionRangeCallback;
+    this->transferFunctionRangeCallback = std::move(transferFunctionRangeCallback);
 }
 
 void ReplayWidget::setLoadMultiVarTransferFunctionsCallback(
         std::function<void(const std::vector<std::string>& tfNames)> loadMultiVarTransferFunctionsCallback) {
-    this->loadMultiVarTransferFunctionsCallback = loadMultiVarTransferFunctionsCallback;
+    this->loadMultiVarTransferFunctionsCallback = std::move(loadMultiVarTransferFunctionsCallback);
 }
 
 void ReplayWidget::setMultiVarTransferFunctionsRangesCallback(
         std::function<void(const std::vector<glm::vec2>& tfRanges)> multiVarTransferFunctionsRangesCallback) {
-    this->multiVarTransferFunctionsRangesCallback = multiVarTransferFunctionsRangesCallback;
+    this->multiVarTransferFunctionsRangesCallback = std::move(multiVarTransferFunctionsRangesCallback);
+}
+
+void ReplayWidget::setLineTracerSettingsCallback(
+        std::function<void(const SettingsMap& settings)> lineTracerSettingsCallback) {
+    this->lineTracerSettingsCallback = lineTracerSettingsCallback;
 }
 
 void ReplayWidget::updateAvailableReplayScripts() {

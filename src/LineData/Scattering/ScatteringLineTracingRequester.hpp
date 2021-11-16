@@ -72,6 +72,7 @@ public:
     );
     ~ScatteringLineTracingRequester();
     void renderGui();
+    void setLineTracerSettings(const SettingsMap& settings);
     bool getHasNewData(DataSetInformation& dataSetInformation, LineDataPtr& lineData);
 
     /**

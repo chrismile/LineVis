@@ -29,6 +29,7 @@
 #ifndef LINEVIS_STRESSLINETRACINGREQUESTER_HPP
 #define LINEVIS_STRESSLINETRACINGREQUESTER_HPP
 
+#include <Utils/InternalState.hpp>
 #include "StressLineTracingRequesterSocket.hpp"
 
 class DataSetInformation;
@@ -66,6 +67,7 @@ public:
      */
     explicit StressLineTracingRequester(void* context);
     void renderGui();
+    void setLineTracerSettings(const SettingsMap& settings);
     bool getHasNewData(DataSetInformation& dataSetInformation);
 
     /**

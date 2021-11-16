@@ -36,12 +36,13 @@
 #include <Utils/AppSettings.hpp>
 #include <Utils/Convert.hpp>
 
+#include "Utils/VecStringConversion.hpp"
 #include "Loaders/DataSetList.hpp"
 #include "Renderers/RenderingModes.hpp"
 
 class SettingsMap {
 public:
-    SettingsMap() {}
+    SettingsMap() = default;
     SettingsMap(const std::map<std::string, std::string>& stringMap) : settings(stringMap) {}
     inline std::string getValue(const char *key) const { auto it = settings.find(key); return it == settings.end() ? "" : it->second; }
     inline int getIntValue(const char *key) const { return sgl::fromString<int>(getValue(key)); }
@@ -67,6 +68,30 @@ public:
         }
         return false;
     }
+    bool getValueOpt(const char *key, glm::vec2 &toset) const {
+        auto it = settings.find(key);
+        if (it != settings.end()) {
+            toset = stringToVec2(it->second);
+            return true;
+        }
+        return false;
+    }
+    bool getValueOpt(const char *key, glm::vec3 &toset) const {
+        auto it = settings.find(key);
+        if (it != settings.end()) {
+            toset = stringToVec3(it->second);
+            return true;
+        }
+        return false;
+    }
+    bool getValueOpt(const char *key, glm::vec4 &toset) const {
+        auto it = settings.find(key);
+        if (it != settings.end()) {
+            toset = stringToVec4(it->second);
+            return true;
+        }
+        return false;
+    }
     template<typename T> bool getValueOpt(const char *key, T &toset) const {
         auto it = settings.find(key);
         if (it != settings.end()) {
@@ -80,7 +105,7 @@ public:
         settings = stringMap;
     }
 
-    const std::map<std::string, std::string> &getMap() const {
+    [[nodiscard]] const std::map<std::string, std::string>& getMap() const {
         return settings;
     }
 

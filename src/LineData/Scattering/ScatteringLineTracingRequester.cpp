@@ -174,6 +174,37 @@ void ScatteringLineTracingRequester::renderGui() {
     ImGui::End();
 }
 
+void ScatteringLineTracingRequester::setLineTracerSettings(const SettingsMap& settings) {
+    bool changed = false;
+
+    std::string datasetName;
+    if (settings.getValueOpt("dataset", datasetName)) {
+        for (int i = 0; i < int(gridDataSetNames.size()); i++) {
+            if (datasetName == gridDataSetNames.at(i)) {
+                selectedGridDataSetIndex = i + 1;
+                gridDataSetFilename = gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+                changed = true;
+                break;
+            }
+        }
+    }
+
+    changed |= settings.getValueOpt("use_isosurface", gui_tracing_settings.show_iso_surface);
+    changed |= settings.getValueOpt("camera_fov", gui_tracing_settings.camera_fov_deg);
+    changed |= settings.getValueOpt("camera_position", gui_tracing_settings.camera_position);
+    changed |= settings.getValueOpt("camera_look_at", gui_tracing_settings.camera_look_at);
+    changed |= settings.getValueOpt("res_x", gui_tracing_settings.res_x);
+    changed |= settings.getValueOpt("res_y", gui_tracing_settings.res_y);
+    changed |= settings.getValueOpt("samples_per_pixel", gui_tracing_settings.samples_per_pixel);
+    changed |= settings.getValueOpt("extinction", gui_tracing_settings.extinction);
+    changed |= settings.getValueOpt("scattering_albedo", gui_tracing_settings.scattering_albedo);
+    changed |= settings.getValueOpt("g", gui_tracing_settings.g);
+
+    if (changed) {
+        requestNewData();
+    }
+}
+
 void ScatteringLineTracingRequester::requestNewData() {
     if (gridDataSetFilename.empty()) {
         return;

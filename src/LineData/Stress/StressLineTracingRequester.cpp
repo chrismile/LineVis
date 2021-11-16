@@ -125,6 +125,64 @@ void StressLineTracingRequester::renderGui() {
     ImGui::End();
 }
 
+void StressLineTracingRequester::setLineTracerSettings(const SettingsMap& settings) {
+    bool changed = false;
+
+    std::string datasetName;
+    if (settings.getValueOpt("dataset", datasetName)) {
+        for (int i = 0; i < int(meshNames.size()); i++) {
+            if (datasetName == meshNames.at(i)) {
+                selectedMeshIndex = i + 1;
+                meshFilename = meshFilenames.at(selectedMeshIndex - 1);
+                changed = true;
+                break;
+            }
+        }
+    }
+
+    changed |= settings.getValueOpt("use_custom_line_density", useCustomLineDensity);
+    changed |= settings.getValueOpt("line_density", lineDensCtrl);
+    changed |= settings.getValueOpt("use_custom_seed_density", useCustomSeedDensity);
+    changed |= settings.getValueOpt("seed_density", seedDensCtrl);
+    changed |= settings.getValueOpt("use_custom_num_levels", useCustomNumLevels);
+    changed |= settings.getValueOpt("num_levels", numLevels);
+    changed |= settings.getValueOpt("trace_major_ps", traceMajorPS);
+    changed |= settings.getValueOpt("trace_medium_ps", traceMediumPS);
+    changed |= settings.getValueOpt("trace_minor_ps", traceMinorPS);
+
+    std::string seedStrategyName;
+    if (settings.getValueOpt("seed_strategy", seedStrategyName)) {
+        for (int i = 0; i < IM_ARRAYSIZE(SEED_STRATEGY_NAMES); i++) {
+            if (seedStrategyName == SEED_STRATEGY_NAMES[i] || seedStrategyName == SEED_STRATEGY_ABBREVIATIONS[i]) {
+                seedStrategy = SeedStrategy(i);
+                changed = true;
+                break;
+            }
+        }
+    }
+
+    std::string tracingAlgorithmName;
+    if (settings.getValueOpt("tracing_algorithm", tracingAlgorithmName)) {
+        for (int i = 0; i < IM_ARRAYSIZE(TRACING_ALGORITHM_NAMES); i++) {
+            if (tracingAlgorithmName == TRACING_ALGORITHM_NAMES[i]
+                    || tracingAlgorithmName == TRACING_ALGORITHM_ABBREVIATIONS[i]) {
+                tracingAlgorithm = TracingAlgorithm(i);
+                changed = true;
+                break;
+            }
+        }
+    }
+
+    changed |= settings.getValueOpt("max_angle_deviation", maxAngleDeviation);
+    changed |= settings.getValueOpt("merging_opt", mergingOpt);
+    changed |= settings.getValueOpt("snapping_opt", snappingOpt);
+    changed |= settings.getValueOpt("multi_merging_thresholds", multiMergingThresholds);
+
+    if (changed) {
+        requestNewData();
+    }
+}
+
 void StressLineTracingRequester::requestNewData() {
     if (meshFilename.empty()) {
         return;

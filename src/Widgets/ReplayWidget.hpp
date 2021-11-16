@@ -93,6 +93,8 @@ public:
         dataMap.insert(std::make_pair(key, std::make_pair(REPLAY_DATA_TYPE_QUATERNION, quatToString(value))));
     }
 
+    inline bool empty() const { return dataMap.empty(); }
+
     void updateReplaySettings(ReplaySettingsMap& mNew) {
         for (auto it : mNew.dataMap) {
             this->dataMap[it.first] = it.second;
@@ -196,7 +198,9 @@ struct ReplayState {
     // Renderer and data set settings (optional).
     ReplaySettingsMap rendererSettings;
     ReplaySettingsMap datasetSettings;
-    ReplaySettingsMap loaderSettings;
+
+    // For stress line tracer and scattering line tracer.
+    ReplaySettingsMap tracerSettings;
 };
 
 
@@ -239,6 +243,8 @@ public:
             std::function<void(const std::vector<std::string>& tfNames)> loadMultiVarTransferFunctionsCallback);
     void setMultiVarTransferFunctionsRangesCallback(
             std::function<void(const std::vector<glm::vec2>& tfRanges)> multiVarTransferFunctionsRangesCallback);
+    void setLineTracerSettingsCallback(
+            std::function<void(const SettingsMap& settings)> lineTracerSettingsCallback);
 
 private:
     // Global data.
@@ -257,6 +263,7 @@ private:
     std::function<void(const glm::vec2& tfRange)> transferFunctionRangeCallback;
     std::function<void(const std::vector<std::string>& tfNames)> loadMultiVarTransferFunctionsCallback;
     std::function<void(const std::vector<glm::vec2>& tfRanges)> multiVarTransferFunctionsRangesCallback;
+    std::function<void(const SettingsMap& settings)> lineTracerSettingsCallback;
 
     // Script data.
     bool runScript(const std::string& filename);
@@ -264,10 +271,8 @@ private:
     bool firstTimeState = true;
     int currentStateIndex = 0;
 
-    ReplaySettingsMap replaySettingsRendererLast;
-    ReplaySettingsMap replaySettingsDatasetLast;
-    SettingsMap currentRendererSettings;
-    SettingsMap currentDatasetSettings;
+    ReplaySettingsMap replaySettingsRendererLast, replaySettingsDatasetLast;
+    SettingsMap currentRendererSettings, currentDatasetSettings;
     glm::vec3 cameraPositionLast;
     glm::quat cameraOrientationLast;
     float cameraFovyLast;

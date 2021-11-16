@@ -78,8 +78,10 @@ private:
     void renderGui() override;
     /// Update the color space (linear RGB vs. sRGB).
     void updateColorSpaceMode() override;
-    // Called when the camera moved.
+    /// Called when the camera moved.
     void hasMoved() override;
+    /// Callback when the camera was reset.
+    void onCameraReset() override;
 
     void scheduleRecreateSceneFramebuffer();
     bool scheduledRecreateSceneFramebuffer = false;
@@ -95,6 +97,7 @@ private:
     int focusedWindowIndex = -1;
     int mouseHoverWindowIndex = -1;
     std::vector<DataViewPtr> dataViews;
+    int hasMovedIndex = -1;
 
     /// Scene data (e.g., camera, main framebuffer, ...).
     uint32_t viewportWidth = 0;

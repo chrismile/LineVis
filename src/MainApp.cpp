@@ -147,12 +147,26 @@ MainApp::MainApp()
             }
         }
         if (i != int(dataSetNames.size())) {
-            if (selectedDataSetIndex >= 3 && oldSelectedDataSetIndex != selectedDataSetIndex) {
+            if (selectedDataSetIndex >= NUM_MANUAL_LOADERS && oldSelectedDataSetIndex != selectedDataSetIndex) {
                 loadLineDataSet(getSelectedLineDataSetFilenames(), true);
             }
         } else {
             sgl::Logfile::get()->writeError(
                     "Replay widget: loadMeshCallback: Invalid data set name \"" + datasetName + "\".");
+        }
+    });
+    replayWidget.setLineTracerSettingsCallback([this](const SettingsMap& settings) {
+        if (selectedDataSetIndex == 0 || selectedDataSetIndex >= NUM_MANUAL_LOADERS) {
+            sgl::Logfile::get()->writeError(
+                    "Replay widget: lineTracerSettingsCallback: No line tracer is used.");
+            return;
+        }
+
+        if (selectedDataSetIndex == 1) {
+            stressLineTracingRequester->setLineTracerSettings(settings);
+        }
+        if (selectedDataSetIndex == 2) {
+            scatteringLineTracingRequester->setLineTracerSettings(settings);
         }
     });
     replayWidget.setLoadRendererCallback([this](const std::string& rendererName, int viewIdx) {
@@ -733,7 +747,7 @@ void MainApp::renderGui() {
                 sgl::ImGuiWrapper::get()->setNextWindowStandardSize(800, 600);
                 if (ImGui::Begin(windowName.c_str(), &isViewOpen)) {
                     if (ImGui::IsWindowFocused()) {
-                        focusedWindowIndex = 0;
+                        focusedWindowIndex = i;
                     }
                     sgl::ImGuiWrapper::get()->setWindowViewport(i, ImGui::GetWindowViewport());
                     sgl::ImGuiWrapper::get()->setWindowViewport(i, ImGui::GetWindowViewport());
@@ -762,7 +776,7 @@ void MainApp::renderGui() {
                     }
 
                     if (dataView->viewportWidth > 0 && dataView->viewportHeight > 0
-                        && (reRenderLocal || continuousRendering)) {
+                            && (reRenderLocal || continuousRendering)) {
                         dataView->beginRender();
 
                         if (renderingMode != RENDERING_MODE_PER_PIXEL_LINKED_LIST && usePerformanceMeasurementMode) {
@@ -788,7 +802,7 @@ void MainApp::renderGui() {
                                         dataView->sceneTexture.get())->getTexture(),
                                 sizeContent, ImVec2(0, 1), ImVec2(1, 0));
                         if (ImGui::IsItemHovered()) {
-                            mouseHoverWindowIndex = 0;
+                            mouseHoverWindowIndex = i;
                         }
 
                         if (i == 0 && showFpsOverlay) {
@@ -843,6 +857,7 @@ void MainApp::renderGui() {
         fovDegree = camera->getFOVy() / sgl::PI * 180.0f;
         reRender = true;
         hasMoved();
+        onCameraReset();
     }
 
     if (showPropertyEditor) {
@@ -1201,6 +1216,11 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
                     }
                     propertyEditor.addEndCombo();
                 }
+
+                if (propertyEditor.addCheckbox("Sync with Global Camera", &dataView->syncWithParentCamera)) {
+                    dataView->reRender = true;
+                }
+
                 if (dataView->lineRenderer) {
                     dataView->lineRenderer->renderGuiPropertyEditorNodes(propertyEditor);
                 }
@@ -1340,7 +1360,31 @@ void MainApp::update(float dt) {
 
     ImGuiIO &io = ImGui::GetIO();
     if (!io.WantCaptureKeyboard || recording || focusedWindowIndex != -1) {
-        moveCameraKeyboard(dt);
+        if (useDockSpaceMode) {
+            for (int i = 0; i < int(dataViews.size()); i++) {
+                DataViewPtr& dataView = dataViews.at(i);
+                if (i != focusedWindowIndex) {
+                    continue;
+                }
+
+                sgl::CameraPtr parentCamera = this->camera;
+                bool reRenderOld = reRender;
+                if (!dataView->syncWithParentCamera) {
+                    this->camera = dataView->camera;
+                    this->reRender = false;
+                    hasMovedIndex = i;
+                }
+                moveCameraKeyboard(dt);
+                if (!dataView->syncWithParentCamera) {
+                    this->camera = parentCamera;
+                    dataView->reRender = dataView->reRender || this->reRender;
+                    this->reRender = reRenderOld;
+                    hasMovedIndex = -1;
+                }
+            }
+        } else {
+            moveCameraKeyboard(dt);
+        }
 
         if (sgl::Keyboard->isKeyDown(SDLK_u)) {
             transferFunctionWindow.setShowWindow(showSettingsWindow);
@@ -1348,8 +1392,32 @@ void MainApp::update(float dt) {
     }
 
 
-    if (!io.WantCaptureMouse || (focusedWindowIndex != -1 && mouseHoverWindowIndex != -1)) {
-        moveCameraMouse(dt);
+    if (!io.WantCaptureMouse || mouseHoverWindowIndex != -1) {
+        if (useDockSpaceMode) {
+            for (int i = 0; i < int(dataViews.size()); i++) {
+                DataViewPtr& dataView = dataViews.at(i);
+                if (i != mouseHoverWindowIndex) {
+                    continue;
+                }
+
+                sgl::CameraPtr parentCamera = this->camera;
+                bool reRenderOld = reRender;
+                if (!dataView->syncWithParentCamera) {
+                    this->camera = dataView->camera;
+                    this->reRender = false;
+                    hasMovedIndex = i;
+                }
+                moveCameraMouse(dt);
+                if (!dataView->syncWithParentCamera) {
+                    this->camera = parentCamera;
+                    dataView->reRender = dataView->reRender || this->reRender;
+                    this->reRender = reRenderOld;
+                    hasMovedIndex = -1;
+                }
+            }
+        } else {
+            moveCameraKeyboard(dt);
+        }
 
         if (useDockSpaceMode) {
             for (DataViewPtr& dataView : dataViews) {
@@ -1367,7 +1435,14 @@ void MainApp::update(float dt) {
 
 void MainApp::hasMoved() {
     if (useDockSpaceMode) {
-        for (DataViewPtr& dataView : dataViews) {
+        if (hasMovedIndex < 0) {
+            for (DataViewPtr& dataView : dataViews) {
+                if (dataView->lineRenderer != nullptr) {
+                    dataView->lineRenderer->onHasMoved();
+                }
+            }
+        } else {
+            DataViewPtr& dataView = dataViews.at(hasMovedIndex);
             if (dataView->lineRenderer != nullptr) {
                 dataView->lineRenderer->onHasMoved();
             }
@@ -1375,6 +1450,19 @@ void MainApp::hasMoved() {
     } else {
         if (lineRenderer != nullptr) {
             lineRenderer->onHasMoved();
+        }
+    }
+}
+
+void MainApp::onCameraReset() {
+    if (useDockSpaceMode) {
+        for (DataViewPtr& dataView : dataViews) {
+            dataView->camera->setNearClipDistance(camera->getNearClipDistance());
+            dataView->camera->setFarClipDistance(camera->getFarClipDistance());
+            dataView->camera->setYaw(camera->getYaw());
+            dataView->camera->setPitch(camera->getPitch());
+            dataView->camera->setFOVy(camera->getFOVy());
+            dataView->camera->setPosition(camera->getPosition());
         }
     }
 }
