@@ -26,31 +26,26 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEVIS_RENDERINGMODES_HPP
-#define LINEVIS_RENDERINGMODES_HPP
+#ifndef LINEVIS_DENOISER_HPP
+#define LINEVIS_DENOISER_HPP
 
-enum RenderingMode : int {
-    RENDERING_MODE_NONE = -1,
-    RENDERING_MODE_ALL_LINES_OPAQUE = 0, RENDERING_MODE_PER_PIXEL_LINKED_LIST, RENDERING_MODE_MLAB,
-    RENDERING_MODE_OPACITY_OPTIMIZATION, RENDERING_MODE_DEPTH_COMPLEXITY, RENDERING_MODE_MBOIT,
-    RENDERING_MODE_MLAB_BUCKETS, RENDERING_MODE_WBOIT, RENDERING_MODE_DEPTH_PEELING,
-    RENDERING_MODE_VULKAN_RAY_TRACER, RENDERING_MODE_VOXEL_RAY_CASTING, RENDERING_MODE_VULKAN_TEST,
-    RENDERING_MODE_OSPRAY_RAY_TRACER,
+#include <string>
 
-    // For LineDataScattering:
-    RENDERING_MODE_LINE_DENSITY_MAP_RENDERER, RENDERING_MODE_VOLUMETRIC_PATH_TRACER
+#include <Graphics/Vulkan/Image/Image.hpp>
+
+class Denoiser {
+public:
+    virtual ~Denoiser()=default;
+    virtual const char* getDenoiserName() const = 0;
+    virtual bool getIsEnabled() const { return true; }
+    virtual void setOutputImage(sgl::vk::ImageViewPtr& outputImage)=0;
+    virtual void setFeatureMap(const std::string& featureMapName, const sgl::vk::TexturePtr& featureTexture)=0;
+    virtual void denoise() = 0;
+    virtual void recreateSwapchain(uint32_t width, uint32_t height) {}
+
+    /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
+    virtual bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) { return false; }
+
 };
-const char* const RENDERING_MODE_NAMES[] = {
-        "Opaque", "Per-Pixel Linked Lists", "Multi-Layer Alpha Blending", "Opacity Optimization", "Depth Complexity",
-        "Moment-Based OIT", "MLAB (Buckets)", "WBOIT", "Depth Peeling", "Vulkan Ray Tracer", "Voxel Ray Casting",
-        "Vulkan Test", "OSPRay Ray Tracer",
 
-        // For LineDataScattering:
-        "Line Density Map Renderer", "Volumetric Path Tracer"
-};
-const int NUM_RENDERING_MODES = ((int)(sizeof(RENDERING_MODE_NAMES) / sizeof(*RENDERING_MODE_NAMES)));
-
-const uint32_t ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT = 4052753091u;
-const uint32_t ON_OPACITY_OPTIMIZATION_RECOMPUTE_EVENT = 4052753092u;
-
-#endif //LINEVIS_RENDERINGMODES_HPP
+#endif //LINEVIS_DENOISER_HPP

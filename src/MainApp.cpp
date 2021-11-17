@@ -78,6 +78,7 @@
 #include "Renderers/Vulkan/VulkanRayTracer.hpp"
 #include "Renderers/Vulkan/VulkanTestRenderer.hpp"
 #include "Renderers/Vulkan/Scattering/LineDensityMapRenderer.hpp"
+#include <Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracerRenderer.hpp>
 #include "Renderers/Vulkan/VulkanAmbientOcclusionBaker.hpp"
 #include <Graphics/Vulkan/Utils/Instance.hpp>
 #endif
@@ -278,6 +279,8 @@ MainApp::MainApp()
 
     checkpointWindow.setStandardWindowSize(1254, 390);
     checkpointWindow.setStandardWindowPosition(841, 53);
+
+    propertyEditor.setInitWidthValues(280.0f);
 
     camera->setNearClipDistance(0.01f);
     camera->setFarClipDistance(100.0f);
@@ -600,6 +603,8 @@ void MainApp::setRenderer(
 #ifdef USE_VULKAN_INTEROP
     else if (newRenderingMode == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
         newLineRenderer = new LineDensityMapRenderer(&sceneDataRef, transferFunctionWindow, rendererVk);
+    } else if (newRenderingMode == RENDERING_MODE_VOLUMETRIC_PATH_TRACER) {
+        newLineRenderer = new VolumetricPathTracerRenderer(&sceneDataRef, transferFunctionWindow, rendererVk);
     }
 #endif
     else {
@@ -721,8 +726,8 @@ void MainApp::renderGui() {
         if (isProgramStartup && centralNode->IsEmpty()) {
             ImGuiID dockLeftId, dockMainId;
             ImGui::DockBuilderSplitNode(
-                    dockSpaceId, ImGuiDir_Left, 0.18f, &dockLeftId, &dockMainId);
-            ImGui::DockBuilderDockWindow("Opaque Line Renderer (1)", dockMainId);
+                    dockSpaceId, ImGuiDir_Left, 0.21f, &dockLeftId, &dockMainId);
+            ImGui::DockBuilderDockWindow("Opaque Line Renderer (1)###data_view_0", dockMainId);
 
             ImGuiID dockLeftUpId, dockLeftDownId;
             ImGui::DockBuilderSplitNode(
@@ -803,6 +808,21 @@ void MainApp::renderGui() {
                     }
 
                     if (dataView->viewportWidth > 0 && dataView->viewportHeight > 0) {
+                        if (!uiOnScreenshot && screenshot) {
+                            printNow = true;
+                            sgl::Renderer->bindFBO(dataView->getSceneFramebuffer());
+                            customScreenshotWidth = int(dataView->viewportWidth);
+                            customScreenshotHeight = int(dataView->viewportHeight);
+                            saveScreenshot(
+                                    saveDirectoryScreenshots + saveFilenameScreenshots
+                                    + "_" + sgl::toString(screenshotNumber) + "_" + std::to_string(i) + ".png");
+                            customScreenshotWidth = -1;
+                            customScreenshotHeight = -1;
+                            sgl::Renderer->unbindFBO();
+                            printNow = false;
+                            screenshot = true;
+                        }
+
                         ImGui::Image(
                                 (void*)(intptr_t)static_cast<sgl::TextureGL*>(
                                         dataView->sceneTexture.get())->getTexture(),
@@ -827,6 +847,10 @@ void MainApp::renderGui() {
                     i--;
                 }
             }
+        }
+        if (!uiOnScreenshot && screenshot) {
+            screenshot = false;
+            screenshotNumber++;
         }
         if (!dataViews.empty()) {
             sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
@@ -1225,6 +1249,9 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
 
                 if (propertyEditor.addCheckbox("Sync with Global Camera", &dataView->syncWithParentCamera)) {
                     dataView->reRender = true;
+                    if (dataView->lineRenderer) {
+                        dataView->lineRenderer->notifyReRenderTriggeredExternally();
+                    }
                 }
 
                 if (dataView->lineRenderer) {
@@ -1377,16 +1404,23 @@ void MainApp::update(float dt) {
                 bool reRenderOld = reRender;
                 if (!dataView->syncWithParentCamera) {
                     this->camera = dataView->camera;
-                    this->reRender = false;
                     hasMovedIndex = i;
                 }
+                this->reRender = false;
                 moveCameraKeyboard(dt);
+                if (this->reRender && dataView->syncWithParentCamera) {
+                    for (DataViewPtr& dataViewLocal : dataViews) {
+                        if (dataViewLocal->syncWithParentCamera) {
+                            dataViewLocal->reRender = dataView->reRender || this->reRender;
+                        }
+                    }
+                }
                 if (!dataView->syncWithParentCamera) {
-                    this->camera = parentCamera;
                     dataView->reRender = dataView->reRender || this->reRender;
-                    this->reRender = reRenderOld;
+                    this->camera = parentCamera;
                     hasMovedIndex = -1;
                 }
+                this->reRender = reRenderOld;
             }
         } else {
             moveCameraKeyboard(dt);
@@ -1396,7 +1430,6 @@ void MainApp::update(float dt) {
             transferFunctionWindow.setShowWindow(showSettingsWindow);
         }
     }
-
 
     if (!io.WantCaptureMouse || mouseHoverWindowIndex != -1) {
         if (useDockSpaceMode) {
@@ -1410,19 +1443,26 @@ void MainApp::update(float dt) {
                 bool reRenderOld = reRender;
                 if (!dataView->syncWithParentCamera) {
                     this->camera = dataView->camera;
-                    this->reRender = false;
                     hasMovedIndex = i;
                 }
+                this->reRender = false;
                 moveCameraMouse(dt);
+                if (this->reRender && dataView->syncWithParentCamera) {
+                    for (DataViewPtr& dataViewLocal : dataViews) {
+                        if (dataViewLocal->syncWithParentCamera) {
+                            dataViewLocal->reRender = dataView->reRender || this->reRender;
+                        }
+                    }
+                }
                 if (!dataView->syncWithParentCamera) {
-                    this->camera = parentCamera;
                     dataView->reRender = dataView->reRender || this->reRender;
-                    this->reRender = reRenderOld;
+                    this->camera = parentCamera;
                     hasMovedIndex = -1;
                 }
+                this->reRender = reRenderOld;
             }
         } else {
-            moveCameraKeyboard(dt);
+            moveCameraMouse(dt);
         }
 
         if (useDockSpaceMode) {
@@ -1443,7 +1483,7 @@ void MainApp::hasMoved() {
     if (useDockSpaceMode) {
         if (hasMovedIndex < 0) {
             for (DataViewPtr& dataView : dataViews) {
-                if (dataView->lineRenderer != nullptr) {
+                if (dataView->lineRenderer != nullptr && dataView->syncWithParentCamera) {
                     dataView->lineRenderer->onHasMoved();
                 }
             }

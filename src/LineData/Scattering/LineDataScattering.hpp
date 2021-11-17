@@ -75,6 +75,7 @@ public:
     inline float getVoxelSizeX() const { return voxelSizeX; }
     inline float getVoxelSizeY() const { return voxelSizeY; }
     inline float getVoxelSizeZ() const { return voxelSizeZ; }
+    inline float* getScalarFieldData() const { return scalarFieldData; }
     inline const sgl::AABB3& getGridBoundingBox() const { return gridAabb; }
     inline bool getUseLineSegmentLengthForDensityField() const { return useLineSegmentLengthForDensityField; }
 
@@ -94,7 +95,7 @@ public:
 #endif
             const std::vector<uint32_t>& outlineTriangleIndices,
             const std::vector<glm::vec3>& outlineVertexPositions, const std::vector<glm::vec3>& outlineVertexNormals,
-            uint32_t gridSizeX, uint32_t gridSizeY, uint32_t gridSizeZ,
+            float* scalarFieldData, uint32_t gridSizeX, uint32_t gridSizeY, uint32_t gridSizeZ,
             float voxelSizeX, float voxelSizeY, float voxelSizeZ);
 
     void rebuildInternalRepresentationIfNecessary() override;
@@ -113,6 +114,7 @@ protected:
 private:
     uint32_t gridSizeX = 0, gridSizeY = 0, gridSizeZ = 0;
     float voxelSizeX = 0.0f, voxelSizeY = 0.0f, voxelSizeZ = 0.0f;
+    float* scalarFieldData = nullptr;
     sgl::AABB3 gridAabb;
     bool histogramNeverComputedBefore = true;
     bool lineRenderersUseVolumeRenderer = false;

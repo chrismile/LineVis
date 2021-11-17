@@ -48,12 +48,16 @@ public:
     virtual void beginRender();
     virtual void endRender();
     inline sgl::TexturePtr& getSceneTextureResolved() { return useLinearRGB ? resolvedSceneTexture : sceneTexture; }
+    inline sgl::FramebufferObjectPtr& getSceneFramebuffer() {
+        return useLinearRGB ? resolvedSceneFramebuffer : sceneFramebuffer;
+    }
     inline void setClearColor(const sgl::Color& color) { clearColor = color; }
-    inline std::string getWindowName(int index) const {
+    [[nodiscard]] inline std::string getWindowName(int index) const {
         if (lineRenderer) {
-            return lineRenderer->getWindowName() + " (" + std::to_string(index + 1) + ")";
+            return lineRenderer->getWindowName() + " (" + std::to_string(index + 1) + ")###data_view_"
+                    + std::to_string(index);
         } else {
-            return "Data View (" + std::to_string(index + 1) + ")";
+            return "Data View (" + std::to_string(index + 1) + ")###data_view_" + std::to_string(index);
         }
     }
 

@@ -60,6 +60,10 @@ LineDataScattering::LineDataScattering(
 }
 
 LineDataScattering::~LineDataScattering() {
+    if (scalarFieldData) {
+        scalarFieldData = nullptr;
+        delete[] scalarFieldData;
+    }
 }
 
 sgl::ShaderProgramPtr LineDataScattering::reloadGatherShader() {
@@ -79,7 +83,7 @@ void LineDataScattering::setGridData(
 #endif
         const std::vector<uint32_t>& outlineTriangleIndices,
         const std::vector<glm::vec3>& outlineVertexPositions, const std::vector<glm::vec3>& outlineVertexNormals,
-        uint32_t gridSizeX, uint32_t gridSizeY, uint32_t gridSizeZ,
+        float* scalarFieldData, uint32_t gridSizeX, uint32_t gridSizeY, uint32_t gridSizeZ,
         float voxelSizeX, float voxelSizeY, float voxelSizeZ) {
     this->gridSizeX = gridSizeX;
     this->gridSizeY = gridSizeY;
@@ -87,6 +91,13 @@ void LineDataScattering::setGridData(
     this->voxelSizeX = voxelSizeX;
     this->voxelSizeY = voxelSizeY;
     this->voxelSizeZ = voxelSizeZ;
+
+    if (this->scalarFieldData) {
+        delete[] this->scalarFieldData;
+        this->scalarFieldData = nullptr;
+    }
+    this->scalarFieldData = new float[gridSizeX * gridSizeY * gridSizeZ];
+    memcpy(this->scalarFieldData, scalarFieldData, sizeof(float) * gridSizeX * gridSizeY * gridSizeZ);
 
     uint32_t maxDimSize = std::max(gridSizeX, std::max(gridSizeY, gridSizeZ));
     gridAabb.max = glm::vec3(gridSizeX, gridSizeY, gridSizeZ) * 0.25f / float(maxDimSize);
@@ -158,7 +169,8 @@ void LineDataScattering::setLineRenderers(const std::vector<LineRenderer*> lineR
     LineData::setLineRenderers(lineRenderers);
     lineRenderersUseVolumeRenderer = std::all_of(
             lineRenderers.cbegin(), lineRenderers.cend(), [this](LineRenderer* lineRenderer){
-                return lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER;
+                return lineRenderer && (lineRenderer->getRenderingMode() == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER
+                        || lineRenderer->getRenderingMode() == RENDERING_MODE_VOLUMETRIC_PATH_TRACER);
             });
 }
 

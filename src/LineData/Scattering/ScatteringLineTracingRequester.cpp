@@ -423,7 +423,7 @@ void ScatteringLineTracingRequester::traceLines(
             cachedScalarFieldTexture,
 #endif
             outlineTriangleIndices, outlineVertexPositions, outlineVertexNormals,
-            cached_grid.size_x, cached_grid.size_y, cached_grid.size_z,
+            cached_grid.data, cached_grid.size_x, cached_grid.size_y, cached_grid.size_z,
             cached_grid.voxel_size_x, cached_grid.voxel_size_y, cached_grid.voxel_size_z);
 
 }

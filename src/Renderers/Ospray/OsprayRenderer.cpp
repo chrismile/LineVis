@@ -586,7 +586,7 @@ void OsprayRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyE
             curveType = OSPCurveType(curveTypeInt);
             if (curveType == OSP_RIBBON) {
                 sgl::Logfile::get()->writeError(
-                        "Warning in OsprayRenderer::renderGui: The curve type 'Ribbon' is currently not "
+                        "Warning in OsprayRenderer::renderGuiPropertyEditorNodes: The curve type 'Ribbon' is currently not "
                         "supported, as it would need additional normal data.");
             }
             isDataDirty = true;
@@ -598,7 +598,7 @@ void OsprayRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyE
             curveBasis = OSPCurveBasis(curveBasisInt);
             if (curveBasis == OSP_HERMITE) {
                 sgl::Logfile::get()->writeError(
-                        "Warning in OsprayRenderer::renderGui: The curve basis type 'Hermite' is currently not "
+                        "Warning in OsprayRenderer::renderGuiPropertyEditorNodes: The curve basis type 'Hermite' is currently not "
                         "supported, as it would need additional tangent data.");
             }
             isDataDirty = true;

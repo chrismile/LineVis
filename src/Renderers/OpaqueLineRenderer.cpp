@@ -186,6 +186,8 @@ void OpaqueLineRenderer::onResolutionChanged() {
 
 void OpaqueLineRenderer::render() {
     LineRenderer::render();
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
 
     gatherShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
@@ -240,12 +242,16 @@ void OpaqueLineRenderer::render() {
     glEnable(GL_CULL_FACE);
 
     if (useMultisampling) {
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
         sgl::Renderer->bindFBO(*sceneData->framebuffer);
         sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
         sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
         sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
         sgl::Renderer->blitTexture(
                 msaaRenderTexture, sgl::AABB2(glm::vec2(-1, -1), glm::vec2(1, 1)));
+        glDepthMask(GL_TRUE);
+        glEnable(GL_DEPTH_TEST);
     }
 }
 
