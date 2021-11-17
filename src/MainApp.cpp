@@ -1326,17 +1326,31 @@ void MainApp::update(float dt) {
                 camera->setFOVy(replayWidget.getCameraFovy());
             }
         }
-        SettingsMap currentRendererSettings = replayWidget.getCurrentRendererSettings();
         SettingsMap currentDatasetSettings = replayWidget.getCurrentDatasetSettings();
         bool reloadGatherShader = false;
-        if (lineRenderer != nullptr) {
-            reloadGatherShader |= lineRenderer->setNewSettings(currentRendererSettings);
-        }
-        if (lineData != nullptr) {
+        if (lineData) {
             reloadGatherShader |= lineData->setNewSettings(currentDatasetSettings);
         }
-        if (reloadGatherShader) {
-            lineRenderer->reloadGatherShaderExternal();
+        if (useDockSpaceMode) {
+            for (DataViewPtr& dataView : dataViews) {
+                bool reloadGatherShaderLocal = reloadGatherShader;
+                if (lineRenderer) {
+                    // TODO: View index i
+                    SettingsMap currentRendererSettings = replayWidget.getCurrentRendererSettings();
+                    reloadGatherShaderLocal |= lineRenderer->setNewSettings(currentRendererSettings);
+                }
+                if (dataView->lineRenderer && reloadGatherShaderLocal) {
+                    dataView->lineRenderer->reloadGatherShaderExternal();
+                }
+            }
+        } else {
+            if (lineRenderer) {
+                SettingsMap currentRendererSettings = replayWidget.getCurrentRendererSettings();
+                reloadGatherShader |= lineRenderer->setNewSettings(currentRendererSettings);
+            }
+            if (lineRenderer && reloadGatherShader) {
+                lineRenderer->reloadGatherShaderExternal();
+            }
         }
 
         if (updateTransferFunctionRange) {

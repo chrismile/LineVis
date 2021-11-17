@@ -131,7 +131,6 @@ void DataView::beginRender() {
 
     glEnable(GL_DEPTH_TEST);
     if (!(*sceneData.screenshotTransparentBackground)) {
-        glDisable(GL_BLEND);
         glBlendEquation(GL_FUNC_ADD);
         glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
     }
