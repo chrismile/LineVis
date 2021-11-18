@@ -280,7 +280,7 @@ MainApp::MainApp()
     checkpointWindow.setStandardWindowSize(1254, 390);
     checkpointWindow.setStandardWindowPosition(841, 53);
 
-    propertyEditor.setInitWidthValues(280.0f);
+    propertyEditor.setInitWidthValues(sgl::ImGuiWrapper::get()->getScaleDependentSize(280.0f));
 
     camera->setNearClipDistance(0.01f);
     camera->setFarClipDistance(100.0f);
@@ -731,7 +731,7 @@ void MainApp::renderGui() {
 
             ImGuiID dockLeftUpId, dockLeftDownId;
             ImGui::DockBuilderSplitNode(
-                    dockLeftId, ImGuiDir_Up, 0.47f, &dockLeftUpId, &dockLeftDownId);
+                    dockLeftId, ImGuiDir_Up, 0.45f, &dockLeftUpId, &dockLeftDownId);
             ImGui::DockBuilderDockWindow("Property Editor", dockLeftUpId);
 
             ImGuiID dockLeftDownUpId, dockLeftDownDownId;
@@ -766,7 +766,7 @@ void MainApp::renderGui() {
 
                     ImVec2 sizeContent = ImGui::GetContentRegionAvail();
                     if (int(sizeContent.x) != int(dataView->viewportWidth)
-                        || int(sizeContent.y) != int(dataView->viewportHeight)) {
+                            || int(sizeContent.y) != int(dataView->viewportHeight)) {
                         dataView->resize(int(sizeContent.x), int(sizeContent.y));
                         if (dataView->lineRenderer && dataView->viewportWidth > 0 && dataView->viewportHeight > 0) {
                             dataView->lineRenderer->onResolutionChanged();
@@ -821,6 +821,9 @@ void MainApp::renderGui() {
                             sgl::Renderer->unbindFBO();
                             printNow = false;
                             screenshot = true;
+                        }
+                        if (!uiOnScreenshot && recording && !isFirstRecordingFrame && i == 0) {
+                            videoWriter->pushFramebuffer(dataView->getSceneFramebuffer());
                         }
 
                         ImGui::Image(

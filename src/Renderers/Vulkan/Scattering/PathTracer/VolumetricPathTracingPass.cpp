@@ -304,7 +304,7 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
             reRender = true;
         }
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(220.0f);
+        ImGui::SetNextItemWidth(sgl::ImGuiWrapper::get()->getScaleDependentSize(220.0f));
         ImGui::InputInt("##targetNumSamples", &targetNumSamples);
         if (propertyEditor.addColorEdit3("Sunlight Color", &sunlightColor.x)) {
             optionChanged = true;
