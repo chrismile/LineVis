@@ -85,7 +85,7 @@ void LineDensityMapRenderer::setLineData(LineDataPtr& lineData, bool isNewData) 
 
     if (lineData->getType() != DATA_SET_TYPE_SCATTERING_LINES) {
         sgl::Logfile::get()->writeError(
-                "Error in ScatteredLinesRenderer::setLineData: Only data sets of the type "
+                "Error in LineDensityMapRenderer::setLineData: Only data sets of the type "
                 "DATA_SET_TYPE_SCATTERING_LINES are supported.");
         return;
     }

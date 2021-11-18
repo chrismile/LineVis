@@ -26,9 +26,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <Utils/File/Logfile.hpp>
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Texture/TextureManager.hpp>
 #include <Graphics/Scene/RenderTarget.hpp>
+
+#include "LineData/Scattering/LineDataScattering.hpp"
 #include "SphericalHeatMapRenderer.hpp"
 
 SphericalHeatMapRenderer::SphericalHeatMapRenderer(
@@ -41,14 +44,32 @@ SphericalHeatMapRenderer::~SphericalHeatMapRenderer() {
     if (heatMap) {
         delete[] heatMap;
         heatMap = nullptr;
+        heatMapTexture = {};
     }
 }
 
 void SphericalHeatMapRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
+    reRender = true;
+
+    if (lineData->getType() != DATA_SET_TYPE_SCATTERING_LINES) {
+        sgl::Logfile::get()->writeError(
+                "Error in SphericalHeatMapRenderer::setLineData: Only data sets of the type "
+                "DATA_SET_TYPE_SCATTERING_LINES are supported.");
+
+        if (heatMap) {
+            delete[] heatMap;
+            heatMap = nullptr;
+            heatMapTexture = {};
+        }
+
+        return;
+    }
+
+    std::shared_ptr<LineDataScattering> lineDataScattering = std::static_pointer_cast<LineDataScattering>(lineData);
+
+    // TODO: Test data just uses horizontal gradient.
     uint32_t w = 200, h = 200;
     auto* testData = new float[w * h];
-
-    // TODO: Test data uses horizontal gradient.
     for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x = 0; x < w; x++) {
             testData[x + y * w] = float(x) / float(w - 1);
@@ -64,6 +85,7 @@ void SphericalHeatMapRenderer::setHeatMapData(float* data, uint32_t width, uint3
     if (heatMap) {
         delete[] heatMap;
         heatMap = nullptr;
+        heatMapTexture = {};
     }
 
     heatMapWidth = width;
@@ -82,6 +104,10 @@ void SphericalHeatMapRenderer::setHeatMapData(float* data, uint32_t width, uint3
 }
 
 void SphericalHeatMapRenderer::render() {
+    if (!heatMapTexture) {
+        return;
+    }
+
     sgl::FramebufferObjectPtr fbo = (*sceneData->camera)->getRenderTarget()->getFramebufferObject();
 
     // Don't use a 3D camera, but normalized device coordinate space ([-1, 1]^3).
