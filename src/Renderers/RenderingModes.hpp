@@ -38,7 +38,8 @@ enum RenderingMode : int {
     RENDERING_MODE_OSPRAY_RAY_TRACER,
 
     // For LineDataScattering:
-    RENDERING_MODE_LINE_DENSITY_MAP_RENDERER, RENDERING_MODE_VOLUMETRIC_PATH_TRACER
+    RENDERING_MODE_LINE_DENSITY_MAP_RENDERER, RENDERING_MODE_VOLUMETRIC_PATH_TRACER,
+    RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER
 };
 const char* const RENDERING_MODE_NAMES[] = {
         "Opaque", "Per-Pixel Linked Lists", "Multi-Layer Alpha Blending", "Opacity Optimization", "Depth Complexity",
@@ -46,7 +47,7 @@ const char* const RENDERING_MODE_NAMES[] = {
         "Vulkan Test", "OSPRay Ray Tracer",
 
         // For LineDataScattering:
-        "Line Density Map Renderer", "Volumetric Path Tracer"
+        "Line Density Map Renderer", "Volumetric Path Tracer", "Spherical Heat Map Renderer"
 };
 const int NUM_RENDERING_MODES = ((int)(sizeof(RENDERING_MODE_NAMES) / sizeof(*RENDERING_MODE_NAMES)));
 

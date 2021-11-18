@@ -56,6 +56,8 @@ VulkanAmbientOcclusionBaker::~VulkanAmbientOcclusionBaker() {
     }
 
     waitCommandBuffersFinished();
+
+    aoComputeRenderPass = {};
 }
 
 void VulkanAmbientOcclusionBaker::waitCommandBuffersFinished() {

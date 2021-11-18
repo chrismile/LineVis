@@ -68,6 +68,13 @@ LineDensityMapRenderer::LineDensityMapRenderer(
 
 LineDensityMapRenderer::~LineDensityMapRenderer() {
     sgl::AppSettings::get()->getPrimaryDevice()->waitIdle();
+
+    lineDensityFieldDvrPass = {};
+
+    if (rendererVk) {
+        delete rendererVk;
+        rendererVk = nullptr;
+    }
 }
 
 void LineDensityMapRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {

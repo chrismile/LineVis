@@ -67,9 +67,9 @@ class AmbientOcclusionBaker {
 public:
     AmbientOcclusionBaker(sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
             : transferFunctionWindow(transferFunctionWindow), rendererVk(rendererVk) {}
-    virtual ~AmbientOcclusionBaker() = default;
+    virtual ~AmbientOcclusionBaker();
 
-    inline BakingMode getBakingMode() const { return bakingMode; }
+    [[nodiscard]] inline BakingMode getBakingMode() const { return bakingMode; }
 
     virtual void startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData)=0;
     virtual void updateIterative(bool isVulkanRenderer)=0;

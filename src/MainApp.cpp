@@ -78,9 +78,11 @@
 #include "Renderers/Vulkan/VulkanRayTracer.hpp"
 #include "Renderers/Vulkan/VulkanTestRenderer.hpp"
 #include "Renderers/Vulkan/Scattering/LineDensityMapRenderer.hpp"
-#include <Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracerRenderer.hpp>
+#include "Renderers/Vulkan/Scattering/SphericalHeatMapRenderer.hpp"
+#include "Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracerRenderer.hpp"
 #include "Renderers/Vulkan/VulkanAmbientOcclusionBaker.hpp"
 #include <Graphics/Vulkan/Utils/Instance.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 #endif
 
 #ifdef USE_OSPRAY
@@ -370,8 +372,9 @@ MainApp::MainApp()
 
 #ifdef USE_VULKAN_INTEROP
     if (sgl::AppSettings::get()->getPrimaryDevice()->getRayQueriesSupported()) {
+        auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(
-                new VulkanAmbientOcclusionBaker(transferFunctionWindow, rendererVk));
+                new VulkanAmbientOcclusionBaker(transferFunctionWindow, renderer));
     }
 #endif
 
@@ -578,7 +581,8 @@ void MainApp::setRenderer(
 #ifdef USE_VULKAN_INTEROP
     else if (newRenderingMode == RENDERING_MODE_VULKAN_RAY_TRACER) {
         if (sgl::AppSettings::get()->getPrimaryDevice()->getRayTracingPipelineSupported()) {
-            newLineRenderer = new VulkanRayTracer(&sceneDataRef, transferFunctionWindow, rendererVk);
+            auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
+            newLineRenderer = new VulkanRayTracer(&sceneDataRef, transferFunctionWindow, renderer);
         } else {
             newRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
             newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
@@ -592,7 +596,8 @@ void MainApp::setRenderer(
     }
 #ifdef USE_VULKAN_INTEROP
     else if (newRenderingMode == RENDERING_MODE_VULKAN_TEST) {
-        newLineRenderer = new VulkanTestRenderer(&sceneDataRef, transferFunctionWindow, rendererVk);
+        auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
+        newLineRenderer = new VulkanTestRenderer(&sceneDataRef, transferFunctionWindow, renderer);
     }
 #endif
 #ifdef USE_OSPRAY
@@ -602,9 +607,13 @@ void MainApp::setRenderer(
 #endif
 #ifdef USE_VULKAN_INTEROP
     else if (newRenderingMode == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
-        newLineRenderer = new LineDensityMapRenderer(&sceneDataRef, transferFunctionWindow, rendererVk);
+        auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
+        newLineRenderer = new LineDensityMapRenderer(&sceneDataRef, transferFunctionWindow, renderer);
     } else if (newRenderingMode == RENDERING_MODE_VOLUMETRIC_PATH_TRACER) {
-        newLineRenderer = new VolumetricPathTracerRenderer(&sceneDataRef, transferFunctionWindow, rendererVk);
+        auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
+        newLineRenderer = new VolumetricPathTracerRenderer(&sceneDataRef, transferFunctionWindow, renderer);
+    } else if (newRenderingMode == RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER) {
+        newLineRenderer = new SphericalHeatMapRenderer(&sceneDataRef, transferFunctionWindow);
     }
 #endif
     else {
@@ -1416,6 +1425,11 @@ void MainApp::update(float dt) {
                 if (i != focusedWindowIndex) {
                     continue;
                 }
+                // Camera movement disabled for certain renderers.
+                if (dataView->lineRenderer
+                        && dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER) {
+                    continue;
+                }
 
                 sgl::CameraPtr parentCamera = this->camera;
                 bool reRenderOld = reRender;
@@ -1453,6 +1467,11 @@ void MainApp::update(float dt) {
             for (int i = 0; i < int(dataViews.size()); i++) {
                 DataViewPtr& dataView = dataViews.at(i);
                 if (i != mouseHoverWindowIndex) {
+                    continue;
+                }
+                // Camera movement disabled for certain renderers.
+                if (dataView->lineRenderer
+                        && dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER) {
                     continue;
                 }
 

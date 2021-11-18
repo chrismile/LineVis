@@ -26,20 +26,39 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef USE_VULKAN_INTEROP
-#include <Utils/AppSettings.hpp>
-#include <Graphics/Vulkan/Render/Renderer.hpp>
-#endif
+#ifndef LINEVIS_SPHERICALHEATMAPRENDERER_HPP
+#define LINEVIS_SPHERICALHEATMAPRENDERER_HPP
 
-#include "AmbientOcclusionBaker.hpp"
+#include "Renderers/LineRenderer.hpp"
 
-AmbientOcclusionBaker::~AmbientOcclusionBaker() {
-#ifdef USE_VULKAN_INTEROP
-    sgl::AppSettings::get()->getPrimaryDevice()->waitIdle();
+class SphericalHeatMapRenderer : public LineRenderer {
+public:
+    SphericalHeatMapRenderer(
+            SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+    ~SphericalHeatMapRenderer() override;
+    RenderingMode getRenderingMode() override { return RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER; }
 
-    if (rendererVk) {
-        delete rendererVk;
-        rendererVk = nullptr;
-    }
-#endif
-}
+    /// Returns whether the triangle representation is used by the renderer.
+    [[nodiscard]] bool getIsTriangleRepresentationUsed() const override { return false; }
+
+    /**
+     * Re-generates the visualization mapping.
+     * @param lineData The render data.
+     */
+    void setLineData(LineDataPtr& lineData, bool isNewData) override;
+
+    /// Set heat map data.
+    void setHeatMapData(float* data, uint32_t width, uint32_t height);
+
+    // Renders the object to the scene framebuffer.
+    void render() override;
+    /// Renders the entries in the property editor.
+    void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
+
+private:
+    uint32_t heatMapWidth = 0, heatMapHeight = 0;
+    float* heatMap = nullptr;
+    sgl::TexturePtr heatMapTexture;
+};
+
+#endif //LINEVIS_SPHERICALHEATMAPRENDERER_HPP

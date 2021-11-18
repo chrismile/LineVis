@@ -73,6 +73,13 @@ VulkanRayTracer::VulkanRayTracer(
 
 VulkanRayTracer::~VulkanRayTracer() {
     sgl::AppSettings::get()->getPrimaryDevice()->waitIdle();
+
+    rayTracingRenderPass = {};
+
+    if (rendererVk) {
+        delete rendererVk;
+        rendererVk = nullptr;
+    }
 }
 
 void VulkanRayTracer::reloadGatherShader(bool canCopyShaderAttributes) {

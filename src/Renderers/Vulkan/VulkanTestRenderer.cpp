@@ -66,6 +66,13 @@ VulkanTestRenderer::VulkanTestRenderer(
 
 VulkanTestRenderer::~VulkanTestRenderer() {
     sgl::AppSettings::get()->getPrimaryDevice()->waitIdle();
+
+    testRenderPass = {};
+
+    if (rendererVk) {
+        delete rendererVk;
+        rendererVk = nullptr;
+    }
 }
 
 void VulkanTestRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {

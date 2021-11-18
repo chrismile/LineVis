@@ -68,6 +68,13 @@ VolumetricPathTracerRenderer::VolumetricPathTracerRenderer(
 
 VolumetricPathTracerRenderer::~VolumetricPathTracerRenderer() {
     sgl::AppSettings::get()->getPrimaryDevice()->waitIdle();
+
+    vptPass = {};
+
+    if (rendererVk) {
+        delete rendererVk;
+        rendererVk = nullptr;
+    }
 }
 
 void VolumetricPathTracerRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
