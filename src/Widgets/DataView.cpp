@@ -181,6 +181,11 @@ void DataView::moveCamera2dMouse(float dt) {
 
         glm::vec2 translationVector = hWorld / hPixel * glm::vec2(pixelMovement.x, pixelMovement.y);
         camera2d->translate(glm::vec3(-translationVector.x, translationVector.y, 0.0f));
+
+        reRender = true;
+        if (lineRenderer != nullptr) {
+            lineRenderer->onHasMoved();
+        }
     }
     if (sgl::Mouse->getScrollWheel() > 0.1 || sgl::Mouse->getScrollWheel() < -0.1) {
         float moveAmount = sgl::Mouse->getScrollWheel() * dt * 4.0f;
@@ -188,6 +193,7 @@ void DataView::moveCamera2dMouse(float dt) {
         camera2d->setPosition(glm::vec3(
                 camera2d->getPosition().x, camera2d->getPosition().y,
                 sgl::max(camera2d->getPosition().z, 0.002f)));
+
         reRender = true;
         if (lineRenderer != nullptr) {
             lineRenderer->onHasMoved();
