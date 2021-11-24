@@ -127,6 +127,7 @@ Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_heig
                 p->r = result.getR();
                 p->g = result.getG();
                 p->b = result.getB();
+                p->a = 255;
             }
         }
     }
