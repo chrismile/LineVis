@@ -30,6 +30,7 @@
 #define SEARCH_STRUCTURE_H_
 
 #include <vector>
+#include <optional>
 #include <glm/glm.hpp>
 
 #if __cplusplus >= 201703L
