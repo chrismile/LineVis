@@ -382,7 +382,7 @@ MainApp::MainApp()
         setRenderer(sceneData, oldRenderingMode, renderingMode, lineRenderer, 0);
     }
 
-    fileDialogInstance = new ImGuiFileDialog;
+    fileDialogInstance = IGFD_Create();
     customDataSetFileName = sgl::FileUtils::get()->getUserDirectory();
     loadAvailableDataSetInformation();
 
@@ -428,7 +428,7 @@ MainApp::~MainApp() {
     zeromqContext = nullptr;
 #endif
 
-    delete fileDialogInstance;
+    IGFD_Destroy(fileDialogInstance);
 
     sgl::AppSettings::get()->getSettings().addKeyValue("useDockSpaceMode", useDockSpaceMode);
     sgl::AppSettings::get()->getSettings().addKeyValue("showFpsOverlay", showFpsOverlay);
