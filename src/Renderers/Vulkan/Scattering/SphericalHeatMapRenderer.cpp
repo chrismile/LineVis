@@ -111,8 +111,8 @@ void SphericalHeatMapRenderer::render() {
     sgl::FramebufferObjectPtr fbo = (*sceneData->camera)->getRenderTarget()->getFramebufferObject();
 
     // Don't use a 3D camera, but normalized device coordinate space ([-1, 1]^3).
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
+    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
+    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     /*
@@ -120,6 +120,7 @@ void SphericalHeatMapRenderer::render() {
      * to determine which part of the [-1, 1]^2 normalized viewport area should be covered.
      */
 
+    sgl::Renderer->clearFramebuffer(GL_COLOR_BUFFER_BIT, sgl::Color(0, 0, 0, 0));
     sgl::Renderer->blitTexture(
             heatMapTexture, sgl::AABB2(glm::vec2(-1), glm::vec2(1)));
 }

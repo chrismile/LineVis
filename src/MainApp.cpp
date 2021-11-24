@@ -206,6 +206,9 @@ MainApp::MainApp()
         if (*renderingModeNew != *renderingModeOld) {
             setRenderer(*sceneDataPtr, *renderingModeOld, *renderingModeNew, *lineRendererPtr, viewIdx);
         }
+        if (useDockSpaceMode) {
+            dataViews.at(viewIdx)->updateCameraMode();
+        }
     });
     replayWidget.setLoadTransferFunctionCallback([this](const std::string& tfName) {
         if (lineData) {
@@ -471,6 +474,7 @@ void MainApp::setNewState(const InternalState &newState) {
             setRenderer(
                     dataViews[0]->sceneData, dataViews[0]->oldRenderingMode, dataViews[0]->renderingMode,
                     dataViews[0]->lineRenderer, 0);
+            dataViews[0]->updateCameraMode();
         } else {
             setRenderer(sceneData, oldRenderingMode, renderingMode, lineRenderer, 0);
         }
@@ -1130,6 +1134,7 @@ void MainApp::renderGuiMenuBar() {
                     setRenderer(
                             dataViews[0]->sceneData, dataViews[0]->oldRenderingMode,
                             dataViews[0]->renderingMode, dataViews[0]->lineRenderer, 0);
+                    dataView->updateCameraMode();
                     prepareVisualizationPipeline();
                 }
             }
@@ -1259,6 +1264,7 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
                             setRenderer(
                                     dataView->sceneData, dataView->oldRenderingMode, dataView->renderingMode,
                                     dataView->lineRenderer, i);
+                            dataView->updateCameraMode();
                             reRender = true;
                         }
                     }
@@ -1431,9 +1437,10 @@ void MainApp::update(float dt) {
                 if (i != focusedWindowIndex) {
                     continue;
                 }
-                // Camera movement disabled for certain renderers.
+                // 3D camera movement disabled for certain renderers.
                 if (dataView->lineRenderer
                         && dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER) {
+                    dataView->moveCamera2dKeyboard(dt);
                     continue;
                 }
 
@@ -1475,9 +1482,10 @@ void MainApp::update(float dt) {
                 if (i != mouseHoverWindowIndex) {
                     continue;
                 }
-                // Camera movement disabled for certain renderers.
+                // 3D camera movement disabled for certain renderers.
                 if (dataView->lineRenderer
                         && dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER) {
+                    dataView->moveCamera2dMouse(dt);
                     continue;
                 }
 

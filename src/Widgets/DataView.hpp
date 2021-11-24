@@ -47,6 +47,12 @@ public:
     virtual void resize(int newWidth, int newHeight);
     virtual void beginRender();
     virtual void endRender();
+
+    /// For data views using 2D cameras. 3D cameras are handled by SciVisApp.
+    void updateCameraMode();
+    void moveCamera2dKeyboard(float dt);
+    void moveCamera2dMouse(float dt);
+
     inline sgl::TexturePtr& getSceneTextureResolved() { return useLinearRGB ? resolvedSceneTexture : sceneTexture; }
     inline sgl::FramebufferObjectPtr& getSceneFramebuffer() {
         return useLinearRGB ? resolvedSceneFramebuffer : sceneFramebuffer;
@@ -81,6 +87,7 @@ public:
     /// Scene data (e.g., camera, main framebuffer, ...).
     bool syncWithParentCamera = true;
     sgl::CameraPtr camera;
+    sgl::CameraPtr camera2d;
     uint32_t viewportWidth = 0;
     uint32_t viewportHeight = 0;
     SceneData sceneData;

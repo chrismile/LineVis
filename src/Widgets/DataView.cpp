@@ -27,6 +27,7 @@
  */
 
 #include <Utils/AppSettings.hpp>
+#include <Input/Mouse.hpp>
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Texture/TextureManager.hpp>
 #include <Graphics/Scene/RenderTarget.hpp>
@@ -63,6 +64,12 @@ DataView::DataView(SceneData* parentSceneData, sgl::ShaderProgramPtr gammaCorrec
     camera->setFOVy(parentCamera->getFOVy());
     camera->setPosition(parentCamera->getPosition());
     sceneData.camera = &camera;
+
+    camera2d = std::make_shared<sgl::Camera>();
+    camera2d->setPosition(glm::vec3(0.0f, 0.0f, 1.0f));
+    camera2d->setFOVy(sgl::PI / 2.0f);
+    camera2d->setNearClipDistance(0.001f);
+    camera2d->setFarClipDistance(100.0f);
 }
 
 DataView::~DataView() {
@@ -98,8 +105,11 @@ void DataView::resize(int newWidth, int newHeight) {
     sceneFramebuffer->bindTexture(sceneTexture);
     sceneDepthRBO = sgl::Renderer->createRBO(int(viewportWidth), int(viewportHeight), sceneDepthRBOType);
     sceneFramebuffer->bindRenderbuffer(sceneDepthRBO, sgl::DEPTH_STENCIL_ATTACHMENT);
-    camera->setRenderTarget(std::make_shared<sgl::RenderTarget>(sceneFramebuffer), false);
+    auto renderTarget = std::make_shared<sgl::RenderTarget>(sceneFramebuffer);
+    camera->setRenderTarget(renderTarget, false);
     camera->onResolutionChanged({});
+    camera2d->setRenderTarget(renderTarget, false);
+    camera2d->onResolutionChanged({});
 
     if (useLinearRGB) {
         textureSettings.internalFormat = GL_RGBA8;
@@ -149,6 +159,42 @@ void DataView::endRender() {
     }
     sgl::Renderer->unbindFBO();
 }
+
+void DataView::updateCameraMode() {
+    bool useCamera2dNew = lineRenderer->getRenderingMode() == RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER;
+    if (useCamera2dNew) {
+        sceneData.camera = &camera2d;
+    } else {
+        sceneData.camera = &camera;
+    }
+}
+
+void DataView::moveCamera2dKeyboard(float dt) {
+}
+
+void DataView::moveCamera2dMouse(float dt) {
+    if (sgl::Mouse->isButtonDown(1) && sgl::Mouse->mouseMoved()) {
+        sgl::Point2 pixelMovement = sgl::Mouse->mouseMovement();
+
+        float hWorld = 2.0f * camera2d->getPosition().z * std::tan(camera2d->getFOVy() * 0.5f);
+        float hPixel = float(viewportHeight);
+
+        glm::vec2 translationVector = hWorld / hPixel * glm::vec2(pixelMovement.x, pixelMovement.y);
+        camera2d->translate(glm::vec3(-translationVector.x, translationVector.y, 0.0f));
+    }
+    if (sgl::Mouse->getScrollWheel() > 0.1 || sgl::Mouse->getScrollWheel() < -0.1) {
+        float moveAmount = sgl::Mouse->getScrollWheel() * dt * 4.0f;
+        camera2d->translate(glm::vec3(0.0f, 0.0f, -moveAmount));
+        camera2d->setPosition(glm::vec3(
+                camera2d->getPosition().x, camera2d->getPosition().y,
+                sgl::max(camera2d->getPosition().z, 0.002f)));
+        reRender = true;
+        if (lineRenderer != nullptr) {
+            lineRenderer->onHasMoved();
+        }
+    }
+}
+
 
 
 #ifdef USE_VULKAN_INTEROP
