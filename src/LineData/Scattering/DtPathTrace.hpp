@@ -25,7 +25,8 @@ struct VolumeInfo {
 
 typedef std::vector<glm::vec3> Exit_Directions;
 
-void write_bmp_file(const char* file_name, Exit_Directions* exit_dirs);
+Image create_spherical_heatmap_image(KdTree<Empty> kd_tree, uint32_t image_height);
+
 void dt_path_trace(PathInfo path_info, VolumeInfo volume_info,
                    Trajectories* traj, Exit_Directions* exit_dirs);
 

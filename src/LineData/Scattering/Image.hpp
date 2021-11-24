@@ -1,14 +1,14 @@
 #pragma once
 #include <stdint.h>
+#include <stdlib.h>
 
 typedef unsigned char byte;
 
 union Pixel {
     struct {
-        // NOTE(Felix): This is the correct memory order, this is not a mistake
-        byte b;
-        byte g;
         byte r;
+        byte g;
+        byte b;
         byte a;
     };
     byte     bytes[4];
@@ -20,7 +20,11 @@ struct Image {
     uint32_t height;
     Pixel*   pixels;
 
-    void allocate();
-    void free();
-    void save_as_bmp(const char* file_name);
+    void allocate() {
+        this->pixels = (Pixel*)calloc(1, this->width * this->height * sizeof(Pixel));
+    }
+    void free() {
+        ::free(this->pixels);
+        this->pixels = nullptr;
+    }
 };

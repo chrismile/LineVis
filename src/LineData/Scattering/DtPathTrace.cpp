@@ -55,94 +55,84 @@ inline uint32_t min(uint32_t a, uint32_t b) {
     return a < b ? a : b;
 }
 
-
-void write_bmp_file(const char *file_name, Exit_Directions* exit_dirs) {
+Image create_spherical_heatmap_image(KdTree<Empty> kd_tree, uint32_t image_height) {
     Image out_image;
-    out_image.width  = 600;
-    out_image.height = 300;
+    out_image.width  = image_height * 2;
+    out_image.height = image_height;
     out_image.allocate();
 
-    defer {
-        out_image.save_as_bmp(file_name);
-        out_image.free();
-    };
+    const double sqrt_two     =       sqrt(2.0);
+    const double two_sqrt_two = 2.0 * sqrt_two;
 
-    KdTree<Empty> kd_tree;
-    kd_tree.build(*exit_dirs);
+    assert(out_image.width > 0);
+    assert(out_image.height > 0);
 
-    {
-        const double sqrt_two     =       sqrt(2.0);
-        const double two_sqrt_two = 2.0 * sqrt_two;
+    int max_hits = 0;
+    for (uint32_t y = 0; y < out_image.height; ++y) {
+        for (uint32_t x = 0; x < out_image.width; ++x) {
+            float u =   -1 + (1.0*x / (out_image.width-1)) * 2; // from   -1 to 1
+            float v = -0.5 + (1.0*y / (out_image.height-1));    // from -0.5 to 0.5
 
-        assert(out_image.width > 0);
-        assert(out_image.height > 0);
+            Pixel* p = &out_image.pixels[y*out_image.width+x];
 
-        int max_hits = 0;
-        for (uint32_t y = 0; y < out_image.height; ++y) {
-            for (uint32_t x = 0; x < out_image.width; ++x) {
-                float u =   -1 + (1.0*x / (out_image.width-1)) * 2; // from   -1 to 1
-                float v = -0.5 + (1.0*y / (out_image.height-1));    // from -0.5 to 0.5
+            if (glm::length(glm::vec2(u, 2*v)) <= 1) {
+                // we are in the ellipse
+                float x_inner = two_sqrt_two * u;
+                float y_inner = two_sqrt_two * v;
 
-                Pixel* p = &out_image.pixels[y*out_image.width+x];
+                float z = sqrt(1- pow(x_inner/4, 2)-pow(y_inner/2,2));
 
-                if (glm::length(glm::vec2(u, 2*v)) <= 1) {
-                    // we are in the ellipse
-                    float x_inner = two_sqrt_two * u;
-                    float y_inner = two_sqrt_two * v;
+                float lambda = 2 * atan((z * x_inner) / (2*(2*pow(z,2)-1))); // from -pi to pi
+                float phi    = asin(z * y_inner);                            // from -pi/2 to pi/2
 
-                    float z = sqrt(1- pow(x_inner/4, 2)-pow(y_inner/2,2));
+                const glm::vec4 X = glm::vec4(1.0f,0.0f,0.0f, 0.0f);
+                const glm::vec3 Y = glm::vec3(0.0f,1.0f,0.0f);
+                const glm::vec3 Z = glm::vec3(0.0f,0.0f,1.0f);
 
-                    float lambda = 2 * atan((z * x_inner) / (2*(2*pow(z,2)-1))); // from -pi to pi
-                    float phi    = asin(z * y_inner);                            // from -pi/2 to pi/2
+                glm::vec3 point_on_sphere =
+                    glm::rotate(lambda,  Y) *
+                    glm::rotate(phi,     Z) *
+                    X;
 
-                    const glm::vec4 X = glm::vec4(1.0f,0.0f,0.0f, 0.0f);
-                    const glm::vec3 Y = glm::vec3(0.0f,1.0f,0.0f);
-                    const glm::vec3 Z = glm::vec3(0.0f,0.0f,1.0f);
+                auto num_hits = kd_tree.getNumPointsInSphere(point_on_sphere, 0.025);
 
-                    glm::vec3 point_on_sphere =
-                        glm::rotate(lambda,  Y) *
-                        glm::rotate(phi,     Z) *
-                        X;
-
-                    auto num_hits = kd_tree.getNumPointsInSphere(point_on_sphere, 0.025);
-
-                    max_hits = std::max(int(num_hits), max_hits);
-                    p->s32 = int32_t(num_hits);
-                } else {
-                    // we are outside the ellipse
-                    p->s32 = -1;
-                }
-            }
-        }
-
-        for (uint32_t y = 0; y < out_image.height; ++y) {
-            for (uint32_t x = 0; x < out_image.width; ++x) {
-                Pixel* p = &out_image.pixels[y*out_image.width+x];
-                if (p->s32 == -1) {
-                    p->r = 0;
-                    p->g = 0;
-                    p->b = 0;
-                    p->a = 0;
-                } else {
-                    auto hits = p->s32;
-                    sgl::Color result;
-                    // NOTE(Felix): poor man's transfer function
-                    if (hits < max_hits/2) {
-                        // blue to green gradient
-                        result = sgl::colorLerp({0,0,255,255}, {0,255,0,255}, 2.0f*hits/max_hits);
-                    } else {
-                        // green to red gradient
-                        result = sgl::colorLerp({0,255,0,255}, {255,0,0,255}, 2.0f*hits/max_hits-1.0f);
-                    }
-                    p->r = result.getR();
-                    p->g = result.getG();
-                    p->b = result.getB();
-                }
+                max_hits = std::max(int(num_hits), max_hits);
+                p->s32 = int32_t(num_hits);
+            } else {
+                // we are outside the ellipse
+                p->s32 = -1;
             }
         }
     }
-}
 
+    for (uint32_t y = 0; y < out_image.height; ++y) {
+        for (uint32_t x = 0; x < out_image.width; ++x) {
+            Pixel* p = &out_image.pixels[y*out_image.width+x];
+            if (p->s32 == -1) {
+                p->r = 0;
+                p->g = 0;
+                p->b = 0;
+                p->a = 0;
+            } else {
+                auto hits = p->s32;
+                sgl::Color result;
+                // NOTE(Felix): poor man's transfer function
+                if (hits < max_hits/2) {
+                    // blue to green gradient
+                    result = sgl::colorLerp({0,0,255,255}, {0,255,0,255}, 2.0f*hits/max_hits);
+                } else {
+                    // green to red gradient
+                    result = sgl::colorLerp({0,255,0,255}, {255,0,0,255}, 2.0f*hits/max_hits-1.0f);
+                }
+                p->r = result.getR();
+                p->g = result.getG();
+                p->b = result.getB();
+            }
+        }
+    }
+
+    return out_image;
+}
 
 namespace Random {
     static struct {

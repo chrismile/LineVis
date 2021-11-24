@@ -410,7 +410,11 @@ void ScatteringLineTracingRequester::traceLines(
         }
     }
 
-    write_bmp_file("distribution.bmp", &exit_directions);
+    __debugbreak();
+    KdTree<Empty> kd_tree_exit_dirs;
+    kd_tree_exit_dirs.build(exit_directions);
+
+    lineData->setExitDirections(kd_tree_exit_dirs);
 
     // TODO: This function normalizes the vertex positions of the trajectories;
     //   should we also normalize the grid size?

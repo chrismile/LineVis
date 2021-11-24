@@ -41,9 +41,9 @@ SphericalHeatMapRenderer::SphericalHeatMapRenderer(
 }
 
 SphericalHeatMapRenderer::~SphericalHeatMapRenderer() {
-    if (heatMap) {
-        delete[] heatMap;
-        heatMap = nullptr;
+    if (heat_map.pixels) {
+        heat_map.free();
+        heat_map = {};
         heatMapTexture = {};
     }
 }
@@ -56,10 +56,9 @@ void SphericalHeatMapRenderer::setLineData(LineDataPtr& lineData, bool isNewData
                 "Error in SphericalHeatMapRenderer::setLineData: Only data sets of the type "
                 "DATA_SET_TYPE_SCATTERING_LINES are supported.");
 
-        if (heatMap) {
-            delete[] heatMap;
-            heatMap = nullptr;
-            heatMapTexture = {};
+        if (heat_map.pixels) {
+            heat_map.free();
+            heat_map = {};
         }
 
         return;
@@ -67,40 +66,30 @@ void SphericalHeatMapRenderer::setLineData(LineDataPtr& lineData, bool isNewData
 
     std::shared_ptr<LineDataScattering> lineDataScattering = std::static_pointer_cast<LineDataScattering>(lineData);
 
-    // TODO: Test data just uses horizontal gradient.
-    uint32_t w = 200, h = 200;
-    auto* testData = new float[w * h];
-    for (uint32_t y = 0; y < h; y++) {
-        for (uint32_t x = 0; x < w; x++) {
-            testData[x + y * w] = float(x) / float(w - 1);
-        }
-    }
+    KdTree<Empty> exit_dirs = lineDataScattering->getExitDirections();
+    Image heat_map = create_spherical_heatmap_image(exit_dirs, 300);
 
-    setHeatMapData(testData, w, h);
-
-    delete[] testData;
+    setHeatMapData(heat_map);
 }
 
-void SphericalHeatMapRenderer::setHeatMapData(float* data, uint32_t width, uint32_t height) {
-    if (heatMap) {
-        delete[] heatMap;
-        heatMap = nullptr;
+void SphericalHeatMapRenderer::setHeatMapData(Image data) {
+    if (heat_map.pixels) {
+        heat_map.free();
+        heat_map = {};
         heatMapTexture = {};
     }
 
-    heatMapWidth = width;
-    heatMapHeight = height;
-
-    heatMap = new float[heatMapWidth * heatMapHeight];
-    memcpy(heatMap, data, sizeof(float) * heatMapWidth * heatMapHeight);
+    heat_map = data;
 
     sgl::PixelFormat pixelFormat;
-    pixelFormat.pixelFormat = GL_RED;
-    pixelFormat.pixelType = GL_FLOAT;
+    pixelFormat.pixelFormat = GL_RGBA8;
+    pixelFormat.pixelType = GL_4_BYTES;
+    // pixelFormat.pixelType = GL_FLOAT;
     sgl::TextureSettings textureSettings;
-    textureSettings.internalFormat = GL_R32F;
+    textureSettings.internalFormat = GL_RGBA8;
+
     heatMapTexture = sgl::TextureManager->createTexture(
-            heatMap, int(width), int(height), pixelFormat, textureSettings);
+        heat_map.pixels, heat_map.width, heat_map.width, pixelFormat, textureSettings);
 }
 
 void SphericalHeatMapRenderer::render() {

@@ -30,6 +30,8 @@
 #define LINEVIS_SPHERICALHEATMAPRENDERER_HPP
 
 #include "Renderers/LineRenderer.hpp"
+#include "../../../LineData/Scattering/DtPathTrace.hpp"
+
 
 class SphericalHeatMapRenderer : public LineRenderer {
 public:
@@ -48,7 +50,7 @@ public:
     void setLineData(LineDataPtr& lineData, bool isNewData) override;
 
     /// Set heat map data.
-    void setHeatMapData(float* data, uint32_t width, uint32_t height);
+    void setHeatMapData(Image heat_map);
 
     // Renders the object to the scene framebuffer.
     void render() override;
@@ -56,8 +58,9 @@ public:
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
 private:
-    uint32_t heatMapWidth = 0, heatMapHeight = 0;
-    float* heatMap = nullptr;
+    Image heat_map;
+    // uint32_t heatMapWidth = 0, heatMapHeight = 0;
+    // float* heatMap = nullptr;
     sgl::TexturePtr heatMapTexture;
 };
 
