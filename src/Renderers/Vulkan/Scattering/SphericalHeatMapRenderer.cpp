@@ -50,6 +50,7 @@ SphericalHeatMapRenderer::~SphericalHeatMapRenderer() {
 
 void SphericalHeatMapRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     reRender = true;
+    dirty = false;
 
     if (lineData->getType() != DATA_SET_TYPE_SCATTERING_LINES) {
         sgl::Logfile::get()->writeError(
@@ -66,8 +67,8 @@ void SphericalHeatMapRenderer::setLineData(LineDataPtr& lineData, bool isNewData
 
     std::shared_ptr<LineDataScattering> lineDataScattering = std::static_pointer_cast<LineDataScattering>(lineData);
 
-    KdTree<Empty> exit_dirs = lineDataScattering->getExitDirections();
-    Image heat_map = create_spherical_heatmap_image(exit_dirs, 300);
+    KdTree<Empty>* exit_dirs = lineDataScattering->getExitDirections();
+    Image heat_map = create_spherical_heatmap_image(exit_dirs, 50);
 
     setHeatMapData(heat_map);
 }
@@ -82,14 +83,23 @@ void SphericalHeatMapRenderer::setHeatMapData(Image data) {
     heat_map = data;
 
     sgl::PixelFormat pixelFormat;
-    pixelFormat.pixelFormat = GL_RGBA8;
-    pixelFormat.pixelType = GL_4_BYTES;
-    // pixelFormat.pixelType = GL_FLOAT;
+    pixelFormat.pixelFormat = GL_RGBA;
+    pixelFormat.pixelType = GL_UNSIGNED_BYTE;
     sgl::TextureSettings textureSettings;
     textureSettings.internalFormat = GL_RGBA8;
 
+
+
+    for (int y = 0; y < heat_map.height; ++y) {
+        for (int x = 0; x < heat_map.width; ++x) {
+            Pixel* p = &heat_map.pixels[y*heat_map.width+x];
+            printf("px[%d, %d] = %d %d %d %d\n", x, y, p->r, p->g, p->g, p->a);
+        }
+        fflush(stdout);
+    }
+
     heatMapTexture = sgl::TextureManager->createTexture(
-        heat_map.pixels, heat_map.width, heat_map.width, pixelFormat, textureSettings);
+        heat_map.pixels, heat_map.width, heat_map.height, pixelFormat, textureSettings);
 }
 
 void SphericalHeatMapRenderer::render() {

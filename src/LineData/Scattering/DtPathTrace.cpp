@@ -55,7 +55,7 @@ inline uint32_t min(uint32_t a, uint32_t b) {
     return a < b ? a : b;
 }
 
-Image create_spherical_heatmap_image(KdTree<Empty> kd_tree, uint32_t image_height) {
+Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_height) {
     Image out_image;
     out_image.width  = image_height * 2;
     out_image.height = image_height;
@@ -94,7 +94,7 @@ Image create_spherical_heatmap_image(KdTree<Empty> kd_tree, uint32_t image_heigh
                     glm::rotate(phi,     Z) *
                     X;
 
-                auto num_hits = kd_tree.getNumPointsInSphere(point_on_sphere, 0.025);
+                auto num_hits = kd_tree->getNumPointsInSphere(point_on_sphere, 0.025);
 
                 max_hits = std::max(int(num_hits), max_hits);
                 p->s32 = int32_t(num_hits);
