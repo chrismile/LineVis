@@ -110,22 +110,35 @@ void SphericalHeatMapRenderer::render() {
 
     sgl::FramebufferObjectPtr fbo = (*sceneData->camera)->getRenderTarget()->getFramebufferObject();
 
+    int px_width = fbo->getWidth();
+    int px_height = fbo->getHeight();
+
+    float heat_map_aspect_ratio = 2; // dim_x / dim_y
+    float fb_aspect_ratio = 1.0f * px_width / px_height;
+
+
+    int real_height = px_height;
+    int real_width = heat_map_aspect_ratio * px_height;
+
+    glm::vec2 texture_lower_left = { -heat_map_aspect_ratio, -1};
+
+    if (heat_map_aspect_ratio > 1.0f * fb_aspect_ratio) {
+        // bars top and bottom
+        texture_lower_left *=  fb_aspect_ratio / heat_map_aspect_ratio;
+    }
+
+    sgl::AABB2 aabb2 { texture_lower_left, -texture_lower_left };
+
     // Don't use a 3D camera, but normalized device coordinate space ([-1, 1]^3).
     sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
     sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
-    /*
-     * TODO: Use framebuffer width and height in combination with heatMapWidth and heatMapHeight
-     * to determine which part of the [-1, 1]^2 normalized viewport area should be covered.
-     */
-
     sgl::Renderer->clearFramebuffer(GL_COLOR_BUFFER_BIT, sgl::Color(0, 0, 0, 0));
     sgl::Renderer->blitTexture(
-            heatMapTexture, sgl::AABB2(glm::vec2(-1), glm::vec2(1)));
+            heatMapTexture, aabb2);
 }
 
 void SphericalHeatMapRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     ;
 }
-
