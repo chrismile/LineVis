@@ -410,9 +410,8 @@ void ScatteringLineTracingRequester::traceLines(
         }
     }
 
-    __debugbreak();
-    KdTree<Empty> kd_tree_exit_dirs;
-    kd_tree_exit_dirs.build(exit_directions);
+    KdTree<Empty>* kd_tree_exit_dirs = new KdTree<Empty>;
+    kd_tree_exit_dirs->build(exit_directions);
 
     lineData->setExitDirections(kd_tree_exit_dirs);
 

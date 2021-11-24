@@ -71,11 +71,11 @@ sgl::ShaderProgramPtr LineDataScattering::reloadGatherShader() {
     return LineDataFlow::reloadGatherShader();
 }
 
-KdTree<Empty> LineDataScattering::getExitDirections() {
+KdTree<Empty>* LineDataScattering::getExitDirections() {
     return ray_exit_directions;
 }
 
-void LineDataScattering::setExitDirections(KdTree<Empty> exit_dirs) {
+void LineDataScattering::setExitDirections(KdTree<Empty>* exit_dirs) {
     ray_exit_directions = exit_dirs;
 }
 

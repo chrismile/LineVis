@@ -58,9 +58,7 @@ public:
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
 private:
-    Image heat_map;
-    // uint32_t heatMapWidth = 0, heatMapHeight = 0;
-    // float* heatMap = nullptr;
+    Image heat_map = {};
     sgl::TexturePtr heatMapTexture;
 };
 
