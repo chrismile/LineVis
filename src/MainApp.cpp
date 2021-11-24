@@ -382,6 +382,7 @@ MainApp::MainApp()
         setRenderer(sceneData, oldRenderingMode, renderingMode, lineRenderer, 0);
     }
 
+    fileDialogInstance = new ImGuiFileDialog;
     customDataSetFileName = sgl::FileUtils::get()->getUserDirectory();
     loadAvailableDataSetInformation();
 
@@ -426,6 +427,8 @@ MainApp::~MainApp() {
     zmq_ctx_destroy(zeromqContext);
     zeromqContext = nullptr;
 #endif
+
+    delete fileDialogInstance;
 
     sgl::AppSettings::get()->getSettings().addKeyValue("useDockSpaceMode", useDockSpaceMode);
     sgl::AppSettings::get()->getSettings().addKeyValue("showFpsOverlay", showFpsOverlay);
@@ -710,22 +713,24 @@ void MainApp::renderGui() {
     focusedWindowIndex = -1;
     mouseHoverWindowIndex = -1;
 
-    if (ImGuiFileDialog::Instance()->Display(
+    if (IGFD_DisplayDialog(
+            fileDialogInstance,
             "ChooseDataSetFile", ImGuiWindowFlags_NoCollapse,
-            sgl::ImGuiWrapper::get()->getScaleDependentSize(1000, 580))) {
-        if (ImGuiFileDialog::Instance()->IsOk()) {
-            std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
-            std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
-            std::string filter = ImGuiFileDialog::Instance()->GetCurrentFilter();
+            sgl::ImGuiWrapper::get()->getScaleDependentSize(1000, 580),
+            ImVec2(FLT_MAX, FLT_MAX))) {
+        if (IGFD_IsOk(fileDialogInstance)) {
+            std::string filePathName = IGFD_GetFilePathName(fileDialogInstance);
+            std::string filePath = IGFD_GetCurrentPath(fileDialogInstance);
+            std::string filter = IGFD_GetCurrentFilter(fileDialogInstance);
             std::string userDatas;
-            if (ImGuiFileDialog::Instance()->GetUserDatas()) {
-                userDatas = std::string((const char*)ImGuiFileDialog::Instance()->GetUserDatas());
+            if (IGFD_GetUserDatas(fileDialogInstance)) {
+                userDatas = std::string((const char*)IGFD_GetUserDatas(fileDialogInstance));
             }
-            auto selection = ImGuiFileDialog::Instance()->GetSelection();
-            customDataSetFileName = selection.begin()->second;
+            auto selection = IGFD_GetSelection(fileDialogInstance);
+            customDataSetFileName = selection.table[0].filePathName;
             loadLineDataSet(getSelectedLineDataSetFilenames());
         }
-        ImGuiFileDialog::Instance()->Close();
+        IGFD_CloseDialog(fileDialogInstance);
     }
 
     if (useDockSpaceMode) {
@@ -1090,9 +1095,10 @@ void MainApp::renderGuiMenuBar() {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Open Dataset...", "CTRL+O")) {
                 selectedDataSetIndex = 0;
-                ImGuiFileDialog::Instance()->OpenModal(
+                IGFD_OpenModal(
+                        fileDialogInstance,
                         "ChooseDataSetFile", "Choose a File", ".*,.obj,.nc,.dat",
-                        sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/",
+                        (sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/").c_str(),
                         "", 1, nullptr,
                         ImGuiFileDialogFlags_ConfirmOverwrite);
             }

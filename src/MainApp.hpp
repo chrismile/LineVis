@@ -50,6 +50,11 @@
 #include "Widgets/ReplayWidget.hpp"
 #endif
 
+namespace IGFD {
+class FileDialog;
+}
+typedef IGFD::FileDialog ImGuiFileDialog;
+
 class LineRenderer;
 class LineData;
 typedef std::shared_ptr<LineData> LineDataPtr;
@@ -119,6 +124,7 @@ private:
     DataSetType dataSetType = DATA_SET_TYPE_NONE;
     bool visualizeSeedingProcess = false; ///< Only for stress line data.
     const float TIME_PER_SEED_POINT = 0.25f;
+    ImGuiFileDialog* fileDialogInstance = nullptr;
 
     // Coloring & filtering dependent on importance criteria.
     sgl::TransferFunctionWindow transferFunctionWindow;
