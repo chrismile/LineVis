@@ -70,6 +70,10 @@ public:
     KdTree() : root(nullptr) {}
     ~KdTree() override = default;
 
+    // Forbid the use of copy operations.
+    KdTree& operator=(const KdTree& other) = delete;
+    KdTree(const KdTree& other) = delete;
+
     /**
      * Builds a k-d-tree from the passed point and data array.
      * @param points The point array.
