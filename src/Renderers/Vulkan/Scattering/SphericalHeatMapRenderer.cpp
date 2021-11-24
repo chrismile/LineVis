@@ -105,10 +105,6 @@ void SphericalHeatMapRenderer::render() {
     float heat_map_aspect_ratio = 2; // dim_x / dim_y
     float fb_aspect_ratio = 1.0f * px_width / px_height;
 
-
-    int real_height = px_height;
-    int real_width = heat_map_aspect_ratio * px_height;
-
     glm::vec2 texture_lower_left = { -heat_map_aspect_ratio, -1};
 
     if (heat_map_aspect_ratio > 1.0f * fb_aspect_ratio) {
@@ -123,9 +119,10 @@ void SphericalHeatMapRenderer::render() {
     sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
     sgl::Renderer->clearFramebuffer(GL_COLOR_BUFFER_BIT, sgl::Color(0, 0, 0, 0));
-    sgl::Renderer->blitTexture(
-            heatMapTexture, aabb2);
+    sgl::Renderer->blitTexture(heatMapTexture, aabb2);
 }
 
 void SphericalHeatMapRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
