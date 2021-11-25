@@ -71,8 +71,10 @@ public:
 #endif
     );
     ~ScatteringLineTracingRequester();
+
     void renderGui();
     void setLineTracerSettings(const SettingsMap& settings);
+    void setDatasetFilename(const std::string& newDatasetFilename);
     bool getHasNewData(DataSetInformation& dataSetInformation, LineDataPtr& lineData);
 
     /**
@@ -145,6 +147,7 @@ private:
 
     // GUI data.
     bool showWindow = true;
+    std::string lineDataSetsDirectory;
     std::string gridDataSetFilename;
     std::vector<std::string> gridDataSetNames;
     std::vector<std::string> gridDataSetFilenames;

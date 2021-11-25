@@ -394,6 +394,11 @@ MainApp::MainApp()
         cameraNavigationMode = sgl::CameraNavigationMode::TURNTABLE;
     }
 
+    addNewDataView();
+    if (dataViews.size() == 1) {
+        initializeFirstDataView();
+    }
+
     recordingTimeStampStart = sgl::Timer->getTicksMicroseconds();
     usesNewState = true;
     if (usePerformanceMeasurementMode) {
@@ -736,8 +741,36 @@ void MainApp::renderGui() {
                 userDatas = std::string((const char*)IGFD_GetUserDatas(fileDialogInstance));
             }
             auto selection = IGFD_GetSelection(fileDialogInstance);
-            customDataSetFileName = selection.table[0].filePathName;
-            loadLineDataSet(getSelectedLineDataSetFilenames());
+
+            // Is this line data set or a volume data file for the scattering line tracer?
+            const char* currentPath = IGFD_GetCurrentPath(fileDialogInstance);
+            std::string filename = currentPath;
+            if (!filename.empty() && filename.back() != '/' && filename.back() != '\\') {
+                filename += "/";
+            }
+            filename += selection.table[0].fileName;
+            IGFD_Selection_DestroyContent(&selection);
+            if (currentPath) {
+                free((void*)currentPath);
+                currentPath = nullptr;
+            }
+
+            std::string filenameLower = boost::to_lower_copy(filename);
+            if (boost::ends_with(filenameLower, ".xyz")) {
+                selectedDataSetIndex = 2;
+                scatteringLineTracingRequester->setDatasetFilename(filename);
+            } else {
+                selectedDataSetIndex = 0;
+                if (boost::ends_with(filenameLower, ".obj") || boost::ends_with(filenameLower, ".nc")) {
+                    dataSetType = DATA_SET_TYPE_FLOW_LINES;
+                } else if (boost::ends_with(filenameLower, ".dat")) {
+                    dataSetType = DATA_SET_TYPE_STRESS_LINES;
+                } else {
+                    sgl::Logfile::get()->writeError("The selected file name has an unknown extension.");
+                }
+                customDataSetFileName = filename;
+                loadLineDataSet(getSelectedLineDataSetFilenames());
+            }
         }
         IGFD_CloseDialog(fileDialogInstance);
     }
@@ -1099,6 +1132,17 @@ void MainApp::addNewDataView() {
     dataViews.push_back(dataView);
 }
 
+void MainApp::initializeFirstDataView() {
+    DataViewPtr dataView = dataViews.back();
+    dataView->renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+    dataView->resize(1, 1); // Use arbitrary size for initialization.
+    setRenderer(
+            dataViews[0]->sceneData, dataViews[0]->oldRenderingMode,
+            dataViews[0]->renderingMode, dataViews[0]->lineRenderer, 0);
+    dataView->updateCameraMode();
+    prepareVisualizationPipeline();
+}
+
 void MainApp::renderGuiMenuBar() {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
@@ -1133,14 +1177,7 @@ void MainApp::renderGuiMenuBar() {
             if (ImGui::MenuItem("New View...")) {
                 addNewDataView();
                 if (dataViews.size() == 1) {
-                    DataViewPtr dataView = dataViews.back();
-                    dataView->renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
-                    dataView->resize(1, 1); // Use arbitrary size for initialization.
-                    setRenderer(
-                            dataViews[0]->sceneData, dataViews[0]->oldRenderingMode,
-                            dataViews[0]->renderingMode, dataViews[0]->lineRenderer, 0);
-                    dataView->updateCameraMode();
-                    prepareVisualizationPipeline();
+                    initializeFirstDataView();
                 }
             }
             ImGui::Separator();

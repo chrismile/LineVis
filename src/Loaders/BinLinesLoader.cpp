@@ -74,8 +74,7 @@ Trajectories loadTrajectoriesFromBinLines(const std::string& filename) {
         }
     }
 
-    delete[] buffer;
-    buffer = nullptr;
+    //delete[] buffer; // BinaryReadStream does deallocation
 
     return trajectories;
 }

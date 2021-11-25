@@ -97,6 +97,7 @@ private:
     void renderGuiPropertyEditorBegin() override;
     void renderGuiPropertyEditorCustomNodes() override;
     void addNewDataView();
+    void initializeFirstDataView();
     bool scheduledDockSpaceModeChange = false;
     bool newDockSpaceMode = false;
     int focusedWindowIndex = -1;

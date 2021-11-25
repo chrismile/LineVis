@@ -69,6 +69,7 @@ ScatteringLineTracingRequester::ScatteringLineTracingRequester(
     lineDensityFieldSmoothingPass = std::make_shared<LineDensityFieldSmoothingPass>(rendererVk);
 #endif
 
+    lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
     loadGridDataSetList();
     requesterThread = std::thread(&ScatteringLineTracingRequester::mainLoop, this);
 }
@@ -92,7 +93,6 @@ void ScatteringLineTracingRequester::loadGridDataSetList() {
     gridDataSetFilenames.clear();
     gridDataSetNames.emplace_back("Local file...");
 
-    const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
     std::string filename = lineDataSetsDirectory + "grids.json";
     if (sgl::FileUtils::get()->exists(filename)) {
         // Parse the passed JSON file.
@@ -125,7 +125,7 @@ void ScatteringLineTracingRequester::renderGui() {
                 "Data Set", &selectedGridDataSetIndex, gridDataSetNames.data(),
                 int(gridDataSetNames.size()))) {
             if (selectedGridDataSetIndex >= 1) {
-                gridDataSetFilename = gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+                gridDataSetFilename = lineDataSetsDirectory + gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
                 changed = true;
             }
         }
@@ -150,8 +150,8 @@ void ScatteringLineTracingRequester::renderGui() {
 
         changed |= ImGui::InputInt("Res X", (int*)&gui_tracing_settings.res_x);
         changed |= ImGui::InputInt("Res Y", (int*)&gui_tracing_settings.res_y);
-        changed |= ImGui::InputInt("Samples per Pixel",
-                                   (int*)&gui_tracing_settings.samples_per_pixel);
+        changed |= ImGui::InputInt(
+                "Samples per Pixel", (int*)&gui_tracing_settings.samples_per_pixel);
 
         // NOTE(Felix): res_x, res_y and samples should not be smaller than 1
         gui_tracing_settings.res_x = std::max(gui_tracing_settings.res_x, 1u);
@@ -182,7 +182,7 @@ void ScatteringLineTracingRequester::setLineTracerSettings(const SettingsMap& se
         for (int i = 0; i < int(gridDataSetNames.size()); i++) {
             if (datasetName == gridDataSetNames.at(i)) {
                 selectedGridDataSetIndex = i + 1;
-                gridDataSetFilename = gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+                gridDataSetFilename = lineDataSetsDirectory + gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
                 changed = true;
                 break;
             }
@@ -205,17 +205,34 @@ void ScatteringLineTracingRequester::setLineTracerSettings(const SettingsMap& se
     }
 }
 
+void ScatteringLineTracingRequester::setDatasetFilename(const std::string& newDatasetFilename) {
+    bool isDataSetInList = false;
+    for (int i = 0; i < int(gridDataSetFilenames.size()); i++) {
+        auto newDataSetPath = boost::filesystem::absolute(newDatasetFilename);
+        auto currentDataSetPath = boost::filesystem::absolute(lineDataSetsDirectory + gridDataSetFilenames.at(i));
+        if (boost::filesystem::equivalent(newDataSetPath, currentDataSetPath)) {
+            selectedGridDataSetIndex = i + 1;
+            gridDataSetFilename = lineDataSetsDirectory + gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+            isDataSetInList = true;
+            break;
+        }
+    }
+
+    if (!isDataSetInList) {
+        selectedGridDataSetIndex = 0;
+        gridDataSetFilename = newDatasetFilename;
+    }
+
+    requestNewData();
+}
+
 void ScatteringLineTracingRequester::requestNewData() {
     if (gridDataSetFilename.empty()) {
         return;
     }
 
-    const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
-
     Tracing_Settings request = gui_tracing_settings;
-    request.dataset_filename = boost::filesystem::absolute(
-        lineDataSetsDirectory + gridDataSetFilename).generic_string();
-
+    request.dataset_filename = boost::filesystem::absolute(gridDataSetFilename).generic_string();
 
     queueRequestStruct(request);
     isProcessingRequest = true;
@@ -485,7 +502,7 @@ void ScatteringLineTracingRequester::createIsosurface() {
                 cachedScalarFieldTexture, padding);
         polygonizeSnapMC(
                 scalarFieldSmoothed, int(smoothedGridSizeX), int(smoothedGridSizeY), int(smoothedGridSizeZ),
-                1e-4f, gamma, isosurfaceVertexPositions, isosurfaceVertexNormals);
+                0.01f, gamma, isosurfaceVertexPositions, isosurfaceVertexNormals);
         delete[] scalarFieldSmoothed;
     }
 #endif
