@@ -45,6 +45,7 @@
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/FileUtils.hpp>
 #include <Input/Keyboard.hpp>
+#include <Input/Mouse.hpp>
 #include <Math/Math.hpp>
 #include <Math/Geometry/MatrixUtil.hpp>
 #include <Graphics/Window.hpp>
@@ -388,6 +389,10 @@ MainApp::MainApp()
     fileDialogInstance = IGFD_Create();
     customDataSetFileName = sgl::FileUtils::get()->getUserDirectory();
     loadAvailableDataSetInformation();
+
+    if (!sgl::AppSettings::get()->getSettings().hasKey("cameraNavigationMode")) {
+        cameraNavigationMode = sgl::CameraNavigationMode::TURNTABLE;
+    }
 
     recordingTimeStampStart = sgl::Timer->getTicksMicroseconds();
     usesNewState = true;
@@ -1559,6 +1564,7 @@ void MainApp::onCameraReset() {
             dataView->camera->setPitch(camera->getPitch());
             dataView->camera->setFOVy(camera->getFOVy());
             dataView->camera->setPosition(camera->getPosition());
+            dataView->camera->resetLookAtLocation();
         }
     }
 }

@@ -57,12 +57,7 @@ DataView::DataView(SceneData* parentSceneData, sgl::ShaderProgramPtr gammaCorrec
     sgl::CameraPtr parentCamera = *parentSceneData->camera;
 
     camera = std::make_shared<sgl::Camera>();
-    camera->setNearClipDistance(parentCamera->getNearClipDistance());
-    camera->setFarClipDistance(parentCamera->getFarClipDistance());
-    camera->setYaw(parentCamera->getYaw());
-    camera->setPitch(parentCamera->getPitch());
-    camera->setFOVy(parentCamera->getFOVy());
-    camera->setPosition(parentCamera->getPosition());
+    camera->copyState(parentCamera);
     sceneData.camera = &camera;
 
     camera2d = std::make_shared<sgl::Camera>();
@@ -122,12 +117,7 @@ void DataView::resize(int newWidth, int newHeight) {
 void DataView::beginRender() {
     if (syncWithParentCamera) {
         sgl::CameraPtr parentCamera = *parentSceneData->camera;
-        camera->setNearClipDistance(parentCamera->getNearClipDistance());
-        camera->setFarClipDistance(parentCamera->getFarClipDistance());
-        camera->setYaw(parentCamera->getYaw());
-        camera->setPitch(parentCamera->getPitch());
-        camera->setFOVy(parentCamera->getFOVy());
-        camera->setPosition(parentCamera->getPosition());
+        camera->copyState(parentCamera);
     }
 
     //sgl::Renderer->bindFBO(sceneFramebuffer);
