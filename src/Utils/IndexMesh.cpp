@@ -27,6 +27,7 @@
  */
 
 #include <chrono>
+#include <iostream>
 #include <Math/Math.hpp>
 #include <Utils/File/Logfile.hpp>
 #include "LineData/SearchStructures/KdTree.hpp"
@@ -37,26 +38,60 @@ void computeSharedIndexRepresentation(
         const std::vector<glm::vec3>& vertexPositions, const std::vector<glm::vec3>& vertexNormals,
         std::vector<uint32_t>& triangleIndices,
         std::vector<glm::vec3>& vertexPositionsShared, std::vector<glm::vec3>& vertexNormalsShared) {
-    SearchStructure<ptrdiff_t>* searchStructure = new HashedGrid<ptrdiff_t>(
+    // 1,979,796
+    vertexPositions.size() * 12;
+    vertexPositions.size() * 6; // <
+    vertexPositions.size() * 6;
+    std::cout << vertexPositions.size() << std::endl;
+
+
+    SearchStructure<uint32_t>* searchStructure = new HashedGrid<uint32_t>(
             std::max(vertexPositions.size() / 4, size_t(1)), 1.0f / sgl::PI);
     searchStructure->reserveDynamic(vertexPositions.size());
 
     const float EPSILON = 1e-5f;
-    size_t uniqueVertexCounter = 0;
+    uint32_t uniqueVertexCounter = 0;
+    std::vector<std::pair<glm::vec3, uint32_t>> searchCache;
     for (size_t i = 0; i < vertexPositions.size(); i++) {
         const glm::vec3& vertexPosition = vertexPositions.at(i);
         const glm::vec3& vertexNormal = vertexNormals.at(i);
-        auto closestPointIndex = searchStructure->findDataClosest(vertexPosition, EPSILON);
+        searchCache.clear();
+        auto closestPointIndex = searchStructure->findDataClosest(vertexPosition, EPSILON, searchCache);
         if (closestPointIndex) {
             triangleIndices.push_back(closestPointIndex.value());
         } else {
-            searchStructure->add(vertexPositions.at(i), ptrdiff_t(uniqueVertexCounter));
+            searchStructure->add(vertexPositions.at(i), uniqueVertexCounter);
             vertexPositionsShared.push_back(vertexPosition);
             vertexNormalsShared.push_back(vertexNormal);
-            triangleIndices.push_back(uint32_t(uniqueVertexCounter));
+            triangleIndices.push_back(uniqueVertexCounter);
             uniqueVertexCounter++;
         }
     }
+
+    std::vector<size_t> numberOfElementsPerBucket =
+            static_cast<HashedGrid<uint32_t>*>(searchStructure)->getNumberOfElementsPerBucket();
+    size_t numberOfElementsTotal = 0;
+    size_t minNumberOfElements = std::numeric_limits<size_t>::max();
+    size_t maxNumberOfElements = std::numeric_limits<size_t>::lowest();
+    for (size_t numberOfElements : numberOfElementsPerBucket) {
+        numberOfElementsTotal += numberOfElements;
+        minNumberOfElements = std::min(minNumberOfElements, numberOfElements);
+        maxNumberOfElements = std::max(maxNumberOfElements, numberOfElements);
+    }
+    double meanNumberOfElementsPerBucket = double(numberOfElementsTotal) / double(numberOfElementsPerBucket.size());
+
+    double variance = 0.0;
+    for (size_t numberOfElements : numberOfElementsPerBucket) {
+        double diff = double(numberOfElements) - meanNumberOfElementsPerBucket;
+        variance += diff * diff;
+    }
+    variance = variance / double(numberOfElementsPerBucket.size() - 1);
+
+    std::cout << "mean: " << meanNumberOfElementsPerBucket << std::endl;
+    std::cout << "variance: " << variance << std::endl;
+    std::cout << "stddev: " << std::sqrt(variance) << std::endl;
+    std::cout << "min: " << minNumberOfElements << std::endl;
+    std::cout << "max: " << maxNumberOfElements << std::endl;
 
     delete searchStructure;
 }
@@ -65,21 +100,23 @@ void computeSharedIndexRepresentation(
         const std::vector<glm::vec3>& vertexPositions,
         std::vector<uint32_t>& triangleIndices,
         std::vector<glm::vec3>& vertexPositionsShared) {
-    SearchStructure<ptrdiff_t>* searchStructure = new HashedGrid<ptrdiff_t>(
+    SearchStructure<uint32_t>* searchStructure = new HashedGrid<uint32_t>(
             std::max(vertexPositions.size() / 4, size_t(1)), 1.0f / sgl::PI);
     searchStructure->reserveDynamic(vertexPositions.size());
 
     const float EPSILON = 1e-5f;
-    size_t uniqueVertexCounter = 0;
+    uint32_t uniqueVertexCounter = 0;
+    std::vector<std::pair<glm::vec3, uint32_t>> searchCache;
     for (size_t i = 0; i < vertexPositions.size(); i++) {
         const glm::vec3& vertexPosition = vertexPositions.at(i);
-        auto closestPointIndex = searchStructure->findDataClosest(vertexPosition, EPSILON);
+        searchCache.clear();
+        auto closestPointIndex = searchStructure->findDataClosest(vertexPosition, EPSILON, searchCache);
         if (closestPointIndex) {
             triangleIndices.push_back(closestPointIndex.value());
         } else {
-            searchStructure->add(vertexPositions.at(i), ptrdiff_t(uniqueVertexCounter));
+            searchStructure->add(vertexPositions.at(i), uniqueVertexCounter);
             vertexPositionsShared.push_back(vertexPosition);
-            triangleIndices.push_back(uint32_t(uniqueVertexCounter));
+            triangleIndices.push_back(uniqueVertexCounter);
             uniqueVertexCounter++;
         }
     }

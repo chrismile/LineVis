@@ -72,8 +72,14 @@ public:
      * @param box The bounding box.
      * @return The points stored in the search structure inside of the bounding box.
      */
-    std::vector<std::pair<glm::vec3, T>> findPointsInAxisAlignedBox(const AxisAlignedBox &box) override {
-        return pointsAndData;
+    void findPointsAndDataInAxisAlignedBox(
+            const AxisAlignedBox &box,
+            std::vector<std::pair<glm::vec3, T>>& pointsAndDataInAxisAlignedBoundingBox) override {
+        for (auto& entry : pointsAndData) {
+            if (box.contains(entry.first)) {
+                pointsAndDataInAxisAlignedBoundingBox.push_back(entry);
+            }
+        }
     }
 
     /**
@@ -81,10 +87,15 @@ public:
      * some center point.
      * @param centerPoint The center point.
      * @param radius The search radius.
-     * @return The points and data stored in the search structure inside of the search radius.
+     * @param pointsInSphere The points and data stored in the search structure inside of the search radius.
      */
-    std::vector<std::pair<glm::vec3, T>> findPointsInSphere(const glm::vec3& center, float radius) {
-        return pointsAndData;
+    void findPointsAndDataInSphere(
+            const glm::vec3& center, float radius, std::vector<std::pair<glm::vec3, T>>& pointsAndDataInSphere) {
+        for (auto& entry : pointsAndData) {
+            if (glm::distance(center, entry.first) <= radius) {
+                pointsAndDataInSphere.push_back(entry);
+            }
+        }
     }
 
 private:

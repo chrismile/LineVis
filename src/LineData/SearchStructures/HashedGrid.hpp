@@ -87,13 +87,14 @@ public:
         hashTableEntries.at(tableIndex).push_back(pointAndData);
     }
 
+
     /**
      * Performs an area search in the hashed grid and returns all points within a certain bounding box.
      * @param box The bounding box.
-     * @return The points stored in the hashed grid inside of the bounding box.
+     * @param pointsAndData The points stored in the hashed grid inside of the bounding box.
      */
-    std::vector<std::pair<glm::vec3, T>> findPointsAndDataInAxisAlignedBox(const AxisAlignedBox& box) override {
-        std::vector<std::pair<glm::vec3, T>> pointsAndData;
+    void findPointsAndDataInAxisAlignedBox(
+            const AxisAlignedBox& box, std::vector<std::pair<glm::vec3, T>>& pointsAndData) override {
         ptrdiff_t lowerGrid[3];
         ptrdiff_t upperGrid[3];
 
@@ -113,24 +114,22 @@ public:
                 }
             }
         }
-
-        return pointsAndData;
     }
 
     /**
      * Performs an area search in the hashed grid and returns all points within a certain distance to some center point.
      * @param centerPoint The center point.
      * @param radius The search radius.
-     * @return The points stored in the hashed grid inside of the search radius.
+     * @param pointsWithDistance The points stored in the hashed grid inside of the search radius.
      */
-    std::vector<std::pair<glm::vec3, T>> findPointsAndDataInSphere(const glm::vec3& center, float radius) override {
-        std::vector<std::pair<glm::vec3, T>> pointsWithDistance;
-
+    void findPointsAndDataInSphere(
+            const glm::vec3& center, float radius,
+            std::vector<std::pair<glm::vec3, T>>& pointsWithDistance) override {
         // First, find all points within the bounding box containing the search circle.
         glm::vec3 lower = center - glm::vec3(radius, radius, radius);
         glm::vec3 upper = center + glm::vec3(radius, radius, radius);
-        std::vector<std::pair<glm::vec3, T>> pointsInRect = findPointsAndDataInAxisAlignedBox(
-                AxisAlignedBox(lower, upper));
+        std::vector<std::pair<glm::vec3, T>> pointsInRect;
+        findPointsAndDataInAxisAlignedBox(AxisAlignedBox(lower, upper), pointsInRect);
 
         // Now, filter all points out that are not within the search radius.
         float squaredRadius = radius * radius;
@@ -142,8 +141,17 @@ public:
                 pointsWithDistance.push_back(pointAndIndex);
             }
         }
+    }
 
-        return pointsWithDistance;
+
+    // ---- Statistical data ----
+    std::vector<size_t> getNumberOfElementsPerBucket() {
+        std::vector<size_t> numberOfElementsPerBucket;
+        numberOfElementsPerBucket.reserve(hashTableEntries.size());
+        for (std::vector<std::pair<glm::vec3, T>>& hashTableEntry : hashTableEntries) {
+            numberOfElementsPerBucket.push_back(hashTableEntry.size());
+        }
+        return numberOfElementsPerBucket;
     }
 
 

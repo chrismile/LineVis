@@ -67,6 +67,7 @@ Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_heig
     assert(out_image.width > 0);
     assert(out_image.height > 0);
 
+    std::vector<std::pair<glm::vec3, Empty>> searchCache;
     int max_hits = 0;
     for (uint32_t y = 0; y < out_image.height; ++y) {
         for (uint32_t x = 0; x < out_image.width; ++x) {
@@ -94,7 +95,7 @@ Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_heig
                     glm::rotate(phi,     Z) *
                     X;
 
-                auto num_hits = kd_tree->getNumPointsInSphere(point_on_sphere, 0.025);
+                auto num_hits = kd_tree->getNumPointsInSphere(point_on_sphere, 0.025, searchCache);
 
                 max_hits = std::max(int(num_hits), max_hits);
                 p->s32 = int32_t(num_hits);

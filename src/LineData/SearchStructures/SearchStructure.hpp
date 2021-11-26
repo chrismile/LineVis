@@ -126,66 +126,71 @@ public:
         add(pointAndData.first, pointAndData.second);
     }
 
+
     /**
      * Performs an area search and returns all points within a certain bounding box.
      * @param box The bounding box.
-     * @return The points and/or data stored in the search structure inside of the bounding box.
+     * @param pointsInAxisAlignedBox The points and/or data stored in the search structure inside of the bounding box.
      */
-    virtual std::vector<glm::vec3> findPointsInAxisAlignedBox(const AxisAlignedBox& box) {
-        std::vector<std::pair<glm::vec3, T>> pointsAndDataInAxisAlignedBox = findPointsAndDataInAxisAlignedBox(box);
-        std::vector<glm::vec3> pointsInAxisAlignedBox;
+    virtual void findPointsInAxisAlignedBox(
+            const AxisAlignedBox& box, std::vector<glm::vec3>& pointsInAxisAlignedBox) {
+        std::vector<std::pair<glm::vec3, T>> pointsAndDataInAxisAlignedBox;
+        findPointsAndDataInAxisAlignedBox(box, pointsAndDataInAxisAlignedBox);
         pointsInAxisAlignedBox.reserve(pointsAndDataInAxisAlignedBox.size());
         for (const std::pair<glm::vec3, T>& pointAndData : pointsAndDataInAxisAlignedBox) {
             pointsInAxisAlignedBox.push_back(pointAndData.first);
         }
-        return pointsInAxisAlignedBox;
     }
-    virtual std::vector<T> findDataInAxisAlignedBox(const AxisAlignedBox& box) {
-        std::vector<std::pair<glm::vec3, T>> pointsAndDataInAxisAlignedBox = findPointsAndDataInAxisAlignedBox(box);
-        std::vector<T> dataInAxisAlignedBox;
+    virtual void findDataInAxisAlignedBox(const AxisAlignedBox& box, std::vector<T>& dataInAxisAlignedBox) {
+        std::vector<std::pair<glm::vec3, T>> pointsAndDataInAxisAlignedBox;
+        findPointsAndDataInAxisAlignedBox(box, pointsAndDataInAxisAlignedBox);
         dataInAxisAlignedBox.reserve(pointsAndDataInAxisAlignedBox.size());
         for (const std::pair<glm::vec3, T>& pointAndData : pointsAndDataInAxisAlignedBox) {
             dataInAxisAlignedBox.push_back(pointAndData.second);
         }
-        return dataInAxisAlignedBox;
     }
-    virtual std::vector<std::pair<glm::vec3, T>> findPointsAndDataInAxisAlignedBox(const AxisAlignedBox& box)=0;
+    virtual void findPointsAndDataInAxisAlignedBox(
+            const AxisAlignedBox& box, std::vector<std::pair<glm::vec3, T>>& pointsAndData)=0;
 
     /**
      * Performs an area search and returns all points within a certain distance to some center point.
      * @param centerPoint The center point.
      * @param radius The search radius.
-     * @return The points and/or data stored in the search structure inside of the search radius.
+     * @param pointsInSphere The points and/or data stored in the search structure inside of the search radius.
      */
-    virtual std::vector<glm::vec3> findPointsInSphere(const glm::vec3& center, float radius) {
-        std::vector<std::pair<glm::vec3, T>> pointsAndDataInSphere = findPointsAndDataInSphere(center, radius);
-        std::vector<glm::vec3> pointsInSphere;
+    virtual void findPointsInSphere(
+            const glm::vec3& center, float radius, std::vector<glm::vec3>& pointsInSphere) {
+        std::vector<std::pair<glm::vec3, T>> pointsAndDataInSphere;
+        findPointsAndDataInSphere(center, radius, pointsAndDataInSphere);
         pointsInSphere.reserve(pointsAndDataInSphere.size());
         for (const std::pair<glm::vec3, T>& pointAndData : pointsAndDataInSphere) {
             pointsInSphere.push_back(pointAndData.first);
         }
-        return pointsInSphere;
     }
-    virtual std::vector<T> findDataInSphere(const glm::vec3& center, float radius) {
-        std::vector<std::pair<glm::vec3, T>> pointsAndDataInSphere = findPointsAndDataInSphere(center, radius);
-        std::vector<T> dataInSphere;
+    virtual void findDataInSphere(const glm::vec3& center, float radius, std::vector<T>& dataInSphere) {
+        std::vector<std::pair<glm::vec3, T>> pointsAndDataInSphere;
+        findPointsAndDataInSphere(center, radius, pointsAndDataInSphere);
         dataInSphere.reserve(pointsAndDataInSphere.size());
         for (const std::pair<glm::vec3, T>& pointAndData : pointsAndDataInSphere) {
             dataInSphere.push_back(pointAndData.second);
         }
-        return dataInSphere;
     }
-    virtual std::vector<std::pair<glm::vec3, T>> findPointsAndDataInSphere(const glm::vec3& center, float radius)=0;
+    virtual void findPointsAndDataInSphere(
+            const glm::vec3& center, float radius,
+            std::vector<std::pair<glm::vec3, T>>& pointsAndDataInSphere)=0;
 
     /**
      * Performs an area search in the k-d-tree and returns the number of points within a certain distance to some
      * center point.
      * @param centerPoint The center point.
      * @param radius The search radius.
+     * @param searchCache A vector that can be used to store the points.
      * @return The number of points stored in the k-d-tree inside of the search radius.
      */
-    virtual size_t getNumPointsInSphere(const glm::vec3& center, float radius) {
-        return findPointsAndDataInSphere(center, radius).size();
+    virtual size_t getNumPointsInSphere(
+            const glm::vec3& center, float radius, std::vector<std::pair<glm::vec3, T>>& searchCache) {
+        findPointsAndDataInSphere(center, radius, searchCache);
+        return searchCache.size();
     }
 
 
@@ -193,13 +198,15 @@ public:
      * Performs an area search and returns the closest point within the specified radius.
      * @param centerPoint The center point.
      * @param radius The search radius.
+     * @param searchCache A vector that can be used to store the points.
      * @return The points and/or data stored in the search structure inside of the search radius.
      */
-    virtual std::optional<glm::vec3> findPointClosest(const glm::vec3& center, float radius) {
-        std::vector<glm::vec3> points = findPointsInSphere(center, radius);
+    virtual std::optional<glm::vec3> findPointClosest(
+            const glm::vec3& center, float radius, std::vector<glm::vec3>& searchCache) {
+        findPointsInSphere(center, radius, searchCache);
         float minDistance = std::numeric_limits<float>::max();
         std::optional<glm::vec3> closestPoint{};
-        for (const glm::vec3& point : points) {
+        for (const glm::vec3& point : searchCache) {
             float currentDistance = glm::distance(center, point);
             if (currentDistance < minDistance) {
                 minDistance = currentDistance;
@@ -208,11 +215,12 @@ public:
         }
         return closestPoint;
     }
-    virtual std::optional<T> findDataClosest(const glm::vec3& center, float radius) {
-        std::vector<std::pair<glm::vec3, T>> pointsAndData = findPointsAndDataInSphere(center, radius);
+    virtual std::optional<T> findDataClosest(
+            const glm::vec3& center, float radius, std::vector<std::pair<glm::vec3, T>>& searchCache) {
+        findPointsAndDataInSphere(center, radius, searchCache);
         float minDistance = std::numeric_limits<float>::max();
         std::optional<T> closestData{};
-        for (const std::pair<glm::vec3, T>& pointAndData : pointsAndData) {
+        for (const std::pair<glm::vec3, T>& pointAndData : searchCache) {
             float currentDistance = glm::distance(center, pointAndData.first);
             if (currentDistance < minDistance) {
                 minDistance = currentDistance;
@@ -221,11 +229,12 @@ public:
         }
         return closestData;
     }
-    virtual std::optional<std::pair<glm::vec3, T>> findPointAndDataClosest(const glm::vec3& center, float radius) {
-        std::vector<std::pair<glm::vec3, T>> pointsAndData = findPointsAndDataInSphere(center, radius);
+    virtual std::optional<std::pair<glm::vec3, T>> findPointAndDataClosest(
+            const glm::vec3& center, float radius, std::vector<std::pair<glm::vec3, T>>& searchCache) {
+        findPointsAndDataInSphere(center, radius, searchCache);
         float minDistance = std::numeric_limits<float>::max();
         std::optional<std::pair<glm::vec3, T>> closestPointAndData{};
-        for (const std::pair<glm::vec3, T>& pointAndData : pointsAndData) {
+        for (const std::pair<glm::vec3, T>& pointAndData : searchCache) {
             float currentDistance = glm::distance(center, pointAndData.first);
             if (currentDistance < minDistance) {
                 minDistance = currentDistance;

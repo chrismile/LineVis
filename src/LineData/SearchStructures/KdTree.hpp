@@ -142,12 +142,11 @@ public:
     /**
      * Performs an area search in the k-d-tree and returns all points within a certain bounding box.
      * @param box The bounding box.
-     * @return The points stored in the k-d-tree inside of the bounding box.
+     * @param pointsAndData The points and data stored in the k-d-tree inside of the bounding box.
      */
-    std::vector<std::pair<glm::vec3, T>> findPointsAndDataInAxisAlignedBox(const AxisAlignedBox& box) override {
-        std::vector<std::pair<glm::vec3, T>> points;
-        _findPointsAndDataInAxisAlignedBox(box, points, root);
-        return points;
+    void findPointsAndDataInAxisAlignedBox(
+            const AxisAlignedBox& box, std::vector<std::pair<glm::vec3, T>>& pointsAndData) override {
+        _findPointsAndDataInAxisAlignedBox(box, pointsAndData, root);
     }
 
     /**
@@ -156,8 +155,8 @@ public:
      * @param radius The search radius.
      * @return The points stored in the k-d-tree inside of the search radius.
      */
-    std::vector<std::pair<glm::vec3, T>> findPointsAndDataInSphere(const glm::vec3& center, float radius) override {
-        std::vector<std::pair<glm::vec3, T>> pointsWithDistance;
+    void findPointsAndDataInSphere(
+            const glm::vec3& center, float radius, std::vector<std::pair<glm::vec3, T>>& pointsWithDistance) override {
         std::vector<std::pair<glm::vec3, T>> pointsInRect;
 
         // First, find all points within the bounding box containing the search circle.
@@ -176,8 +175,6 @@ public:
                 pointsWithDistance.push_back(point);
             }
         }
-
-        return pointsWithDistance;
     }
 
     /**
@@ -185,22 +182,23 @@ public:
      * center point.
      * @param centerPoint The center point.
      * @param radius The search radius.
+     * @param searchCache A vector that can be used to store the points.
      * @return The number of points stored in the k-d-tree inside of the search radius.
      */
-    size_t getNumPointsInSphere(const glm::vec3& center, float radius) override {
+    size_t getNumPointsInSphere(
+            const glm::vec3& center, float radius, std::vector<std::pair<glm::vec3, T>>& searchCache) override {
         size_t numPointsInSphere = 0;
-        std::vector<std::pair<glm::vec3, T>> pointsInRect;
 
         // First, find all points within the bounding box containing the search circle.
         AxisAlignedBox box;
         box.min = center - glm::vec3(radius, radius, radius);
         box.max = center + glm::vec3(radius, radius, radius);
-        _findPointsAndDataInAxisAlignedBox(box, pointsInRect, root);
+        _findPointsAndDataInAxisAlignedBox(box, searchCache, root);
 
         // Now, filter all points out that are not within the search radius.
         float squaredRadius = radius*radius;
         glm::vec3 differenceVector;
-        for (const std::pair<glm::vec3, T>& point : pointsInRect) {
+        for (const std::pair<glm::vec3, T>& point : searchCache) {
             differenceVector = point.first - center;
             if (differenceVector.x * differenceVector.x + differenceVector.y * differenceVector.y
                     + differenceVector.z * differenceVector.z <= squaredRadius) {
