@@ -95,6 +95,7 @@ Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_heig
                     glm::rotate(phi,     Z) *
                     X;
 
+                searchCache.clear();
                 auto num_hits = kd_tree->getNumPointsInSphere(point_on_sphere, 0.025, searchCache);
 
                 max_hits = std::max(int(num_hits), max_hits);

@@ -329,7 +329,8 @@ private:
      * @param node The current k-d-tree node that is searched.
      */
     void _findNearestNeighbor(
-            const glm::vec3& point, float& nearestNeighborDistance, std::pair<glm::vec3, T>& nearestNeighbor, KdNode<T>* node) {
+            const glm::vec3& point, float& nearestNeighborDistance,
+            std::pair<glm::vec3, T>& nearestNeighbor, KdNode<T>* node) {
         if (node == nullptr) {
             return;
         }
