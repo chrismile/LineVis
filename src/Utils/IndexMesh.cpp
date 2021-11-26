@@ -38,13 +38,6 @@ void computeSharedIndexRepresentation(
         const std::vector<glm::vec3>& vertexPositions, const std::vector<glm::vec3>& vertexNormals,
         std::vector<uint32_t>& triangleIndices,
         std::vector<glm::vec3>& vertexPositionsShared, std::vector<glm::vec3>& vertexNormalsShared) {
-    // 1,979,796
-    vertexPositions.size() * 12;
-    vertexPositions.size() * 6; // <
-    vertexPositions.size() * 6;
-    std::cout << vertexPositions.size() << std::endl;
-
-
     SearchStructure<uint32_t>* searchStructure = new HashedGrid<uint32_t>(
             std::max(vertexPositions.size() / 4, size_t(1)), 1.0f / sgl::PI);
     searchStructure->reserveDynamic(vertexPositions.size());
@@ -67,31 +60,6 @@ void computeSharedIndexRepresentation(
             uniqueVertexCounter++;
         }
     }
-
-    std::vector<size_t> numberOfElementsPerBucket =
-            static_cast<HashedGrid<uint32_t>*>(searchStructure)->getNumberOfElementsPerBucket();
-    size_t numberOfElementsTotal = 0;
-    size_t minNumberOfElements = std::numeric_limits<size_t>::max();
-    size_t maxNumberOfElements = std::numeric_limits<size_t>::lowest();
-    for (size_t numberOfElements : numberOfElementsPerBucket) {
-        numberOfElementsTotal += numberOfElements;
-        minNumberOfElements = std::min(minNumberOfElements, numberOfElements);
-        maxNumberOfElements = std::max(maxNumberOfElements, numberOfElements);
-    }
-    double meanNumberOfElementsPerBucket = double(numberOfElementsTotal) / double(numberOfElementsPerBucket.size());
-
-    double variance = 0.0;
-    for (size_t numberOfElements : numberOfElementsPerBucket) {
-        double diff = double(numberOfElements) - meanNumberOfElementsPerBucket;
-        variance += diff * diff;
-    }
-    variance = variance / double(numberOfElementsPerBucket.size() - 1);
-
-    std::cout << "mean: " << meanNumberOfElementsPerBucket << std::endl;
-    std::cout << "variance: " << variance << std::endl;
-    std::cout << "stddev: " << std::sqrt(variance) << std::endl;
-    std::cout << "min: " << minNumberOfElements << std::endl;
-    std::cout << "max: " << maxNumberOfElements << std::endl;
 
     delete searchStructure;
 }
