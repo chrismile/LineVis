@@ -27,6 +27,7 @@
  */
 
 #include <Utils/AppSettings.hpp>
+#include <Utils/SciVis/Navigation/CameraNavigator2D.hpp>
 #include <Input/Mouse.hpp>
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Texture/TextureManager.hpp>
@@ -65,6 +66,9 @@ DataView::DataView(SceneData* parentSceneData, sgl::ShaderProgramPtr gammaCorrec
     camera2d->setFOVy(sgl::PI / 2.0f);
     camera2d->setNearClipDistance(0.001f);
     camera2d->setFarClipDistance(100.0f);
+
+    camera2dNavigator = std::make_shared<sgl::CameraNavigator2D>(
+            *sceneData.MOVE_SPEED, *sceneData.MOUSE_ROT_SPEED);
 }
 
 DataView::~DataView() {
@@ -160,30 +164,18 @@ void DataView::updateCameraMode() {
 }
 
 void DataView::moveCamera2dKeyboard(float dt) {
-}
-
-void DataView::moveCamera2dMouse(float dt) {
-    if (sgl::Mouse->isButtonDown(1) && sgl::Mouse->mouseMoved()) {
-        sgl::Point2 pixelMovement = sgl::Mouse->mouseMovement();
-
-        float hWorld = 2.0f * camera2d->getPosition().z * std::tan(camera2d->getFOVy() * 0.5f);
-        float hPixel = float(viewportHeight);
-
-        glm::vec2 translationVector = hWorld / hPixel * glm::vec2(pixelMovement.x, pixelMovement.y);
-        camera2d->translate(glm::vec3(-translationVector.x, translationVector.y, 0.0f));
-
+    bool cameraMoved = camera2dNavigator->moveCameraKeyboard(camera2d, dt);
+    if (cameraMoved) {
         reRender = true;
         if (lineRenderer != nullptr) {
             lineRenderer->onHasMoved();
         }
     }
-    if (sgl::Mouse->getScrollWheel() > 0.1 || sgl::Mouse->getScrollWheel() < -0.1) {
-        float moveAmount = sgl::Mouse->getScrollWheel() * dt * 4.0f;
-        camera2d->translate(glm::vec3(0.0f, 0.0f, -moveAmount));
-        camera2d->setPosition(glm::vec3(
-                camera2d->getPosition().x, camera2d->getPosition().y,
-                sgl::max(camera2d->getPosition().z, 0.002f)));
+}
 
+void DataView::moveCamera2dMouse(float dt) {
+    bool cameraMoved = camera2dNavigator->moveCameraMouse(camera2d, dt);
+    if (cameraMoved) {
         reRender = true;
         if (lineRenderer != nullptr) {
             lineRenderer->onHasMoved();

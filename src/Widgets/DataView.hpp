@@ -31,6 +31,7 @@
 
 #include <Graphics/Buffers/FBO.hpp>
 #include <Graphics/Buffers/RBO.hpp>
+#include <Utils/SciVis/Navigation/CameraNavigator.hpp>
 
 namespace sgl { namespace vk {
 class Renderer;
@@ -88,6 +89,7 @@ public:
     bool syncWithParentCamera = true;
     sgl::CameraPtr camera;
     sgl::CameraPtr camera2d;
+    sgl::CameraNavigatorPtr camera2dNavigator;
     uint32_t viewportWidth = 0;
     uint32_t viewportHeight = 0;
     SceneData sceneData;

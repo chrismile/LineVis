@@ -40,11 +40,13 @@ struct SceneData {
             sgl::FramebufferObjectPtr* framebuffer, sgl::TexturePtr* sceneTexture,
             sgl::RenderbufferObjectPtr* sceneDepthRBO, uint32_t* viewportWidth, uint32_t* viewportHeight,
             sgl::CameraPtr* camera, sgl::Color* clearColor, bool* screenshotTransparentBackground,
-            AutomaticPerformanceMeasurer** performanceMeasurer, bool* recordingMode, bool* useCameraFlight)
+            AutomaticPerformanceMeasurer** performanceMeasurer, bool* recordingMode, bool* useCameraFlight,
+            float* MOVE_SPEED, float* MOUSE_ROT_SPEED)
             : framebuffer(framebuffer), sceneTexture(sceneTexture),
               sceneDepthRBO(sceneDepthRBO), viewportWidth(viewportWidth), viewportHeight(viewportHeight),
               camera(camera), clearColor(clearColor), screenshotTransparentBackground(screenshotTransparentBackground),
-              performanceMeasurer(performanceMeasurer), recordingMode(recordingMode), useCameraFlight(useCameraFlight)
+              performanceMeasurer(performanceMeasurer), recordingMode(recordingMode), useCameraFlight(useCameraFlight),
+              MOVE_SPEED(MOVE_SPEED), MOUSE_ROT_SPEED(MOUSE_ROT_SPEED)
             {}
     sgl::FramebufferObjectPtr* framebuffer;
     sgl::TexturePtr* sceneTexture;
@@ -59,6 +61,9 @@ struct SceneData {
     AutomaticPerformanceMeasurer** performanceMeasurer;
     bool* recordingMode;
     bool* useCameraFlight;
+
+    float* MOVE_SPEED;
+    float* MOUSE_ROT_SPEED;
 };
 
 #endif //LINEVIS_SCENEDATA_HPP
