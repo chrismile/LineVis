@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <vector>
 #include <cmath>
+#include <tracy/Tracy.hpp>
 #include "SearchStructure.hpp"
 
 template<class T>
@@ -52,6 +53,8 @@ public:
      * @param points The point and data array.
      */
     void build(const std::vector<std::pair<glm::vec3, T>>& pointsAndData) override {
+        ZoneScoped;
+
         // Clear the table entries.
         for (std::vector<std::pair<glm::vec3, T>>& hashTableEntry : hashTableEntries) {
             hashTableEntry.clear();
@@ -83,6 +86,8 @@ public:
      * @param pointAndData The point and data to add.
      */
     void add(const std::pair<glm::vec3, T>& pointAndData) override {
+        ZoneScoped;
+
         size_t tableIndex = convertPointPositionToTableIndex(pointAndData.first);
         hashTableEntries.at(tableIndex).push_back(pointAndData);
     }

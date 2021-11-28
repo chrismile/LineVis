@@ -30,6 +30,7 @@
 #include <iostream>
 #include <Math/Math.hpp>
 #include <Utils/File/Logfile.hpp>
+#include <tracy/Tracy.hpp>
 #include "LineData/SearchStructures/KdTree.hpp"
 #include "LineData/SearchStructures/HashedGrid.hpp"
 #include "IndexMesh.hpp"
@@ -38,6 +39,8 @@ void computeSharedIndexRepresentation(
         const std::vector<glm::vec3>& vertexPositions, const std::vector<glm::vec3>& vertexNormals,
         std::vector<uint32_t>& triangleIndices,
         std::vector<glm::vec3>& vertexPositionsShared, std::vector<glm::vec3>& vertexNormalsShared) {
+    ZoneScoped;
+
     SearchStructure<uint32_t>* searchStructure = new HashedGrid<uint32_t>(
             std::max(vertexPositions.size() / 4, size_t(1)), 1.0f / sgl::PI);
     searchStructure->reserveDynamic(vertexPositions.size());

@@ -448,6 +448,8 @@ MainApp::~MainApp() {
 }
 
 void MainApp::setNewState(const InternalState &newState) {
+    ZoneScoped;
+
     if (performanceMeasurer) {
         performanceMeasurer->setCurrentAlgorithmBufferSizeBytes(0);
     }
@@ -661,6 +663,8 @@ void MainApp::setRenderer(
 }
 
 void MainApp::resolutionChanged(sgl::EventPtr event) {
+    ZoneScoped;
+
     SciVisApp::resolutionChanged(event);
     if (!useDockSpaceMode) {
         if (lineRenderer != nullptr) {
@@ -676,6 +680,8 @@ void MainApp::updateColorSpaceMode() {
 }
 
 void MainApp::render() {
+    ZoneScoped;
+
     if (scheduledRecreateSceneFramebuffer) {
         createSceneFramebuffer();
         scheduledRecreateSceneFramebuffer = false;
@@ -724,6 +730,8 @@ void MainApp::render() {
 }
 
 void MainApp::renderGui() {
+    ZoneScoped;
+
     focusedWindowIndex = -1;
     mouseHoverWindowIndex = -1;
 
@@ -827,7 +835,7 @@ void MainApp::renderGui() {
                         if (dataView->lineRenderer && dataView->viewportWidth > 0 && dataView->viewportHeight > 0) {
                             dataView->lineRenderer->onResolutionChanged();
                         }
-                        reRender = true;
+                        dataView->reRender = true;
                     }
 
                     bool reRenderLocal = reRender || dataView->reRender;
@@ -1341,6 +1349,8 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
 }
 
 void MainApp::update(float dt) {
+    ZoneScoped;
+
     sgl::SciVisApp::update(dt);
 
     if (scheduledDockSpaceModeChange) {
@@ -1788,6 +1798,8 @@ void MainApp::reloadDataSet() {
 }
 
 void MainApp::prepareVisualizationPipeline() {
+    ZoneScoped;
+
     if (useDockSpaceMode) {
         if (lineData && !dataViews.empty()) {
             bool isPreviousNodeDirty = lineData->isDirty();

@@ -130,6 +130,11 @@ else()
 endif()
 
 add_subdirectory(submodules/IsosurfaceCpp)
+if ("TRACY_ENABLE" IN_LIST SGL_INTERFACE_COMPILE_DEFINITIONS)
+    target_compile_definitions(IsosurfaceCpp PUBLIC TRACY_ENABLE)
+    target_compile_definitions(IsosurfaceCpp PUBLIC TRACY_IMPORTS)
+    target_include_directories(IsosurfaceCpp PUBLIC $<TARGET_PROPERTY:sgl,INTERFACE_INCLUDE_DIRECTORIES>)
+endif()
 target_link_libraries(LineVis PRIVATE IsosurfaceCpp)
 target_include_directories(LineVis PRIVATE submodules)
 

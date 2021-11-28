@@ -31,6 +31,7 @@
 
 #include <vector>
 #include <optional>
+#include <tracy/Tracy.hpp>
 #include <glm/glm.hpp>
 
 #if __cplusplus >= 201703L
@@ -217,6 +218,8 @@ public:
     }
     virtual std::optional<T> findDataClosest(
             const glm::vec3& center, float radius, std::vector<std::pair<glm::vec3, T>>& searchCache) {
+        ZoneScoped;
+
         findPointsAndDataInSphere(center, radius, searchCache);
         float minDistance = std::numeric_limits<float>::max();
         std::optional<T> closestData{};

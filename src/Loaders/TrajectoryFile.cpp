@@ -36,6 +36,7 @@
 #include <Math/Geometry/AABB3.hpp>
 #include <Utils/Events/Stream/Stream.hpp>
 #include <Utils/File/FileLoader.hpp>
+#include <tracy/Tracy.hpp>
 
 #include "ObjLoader.hpp"
 #include "NetCdfLoader.hpp"
@@ -106,6 +107,8 @@ void normalizeTrajectoriesVertexPositions(Trajectories& trajectories, const glm:
 void normalizeVertexPositions(
         std::vector<glm::vec3>& vertexPositions, const sgl::AABB3& aabb,
         const glm::mat4* vertexTransformationMatrixPtr) {
+    ZoneScoped;
+
     glm::vec3 translation = -aabb.getCenter();
     glm::vec3 scale3D = 0.5f / aabb.getDimensions();
     float scale = std::min(scale3D.x, std::min(scale3D.y, scale3D.z));

@@ -1,9 +1,10 @@
 #include "DtPathTrace.hpp"
-#include <Utils/Defer.hpp>
 #include <vector>
 #include <variant>
 #include <cstdint>
 #include <cmath>
+
+#include <Utils/Defer.hpp>
 
 #ifdef _WIN32
 #include <corecrt_math.h>
@@ -339,7 +340,6 @@ bool box_intersect(glm::vec3 b_min, glm::vec3 b_max, glm::vec3 P,
 void dt_path_trace(PathInfo path_info, VolumeInfo volume_info,
                    Trajectories* trajis, Exit_Directions* exit_dirs)
 {
-
     int pass_number = path_info.pass_number;
     glm::vec3 x = path_info.camera_pos;
     glm::vec3 w = path_info.ray_direction;

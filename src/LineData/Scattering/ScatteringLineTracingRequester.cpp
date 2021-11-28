@@ -30,6 +30,7 @@
 #include <cstdint>
 
 #include <boost/filesystem.hpp>
+#include <tracy/Tracy.hpp>
 
 #include <Utils/AppSettings.hpp>
 #include <Utils/File/Logfile.hpp>
@@ -301,6 +302,10 @@ void ScatteringLineTracingRequester::join() {
 }
 
 void ScatteringLineTracingRequester::mainLoop() {
+#ifdef TRACY_ENABLE
+    tracy::SetThreadName("ScatteringLineTracingRequester");
+#endif
+
     while (true) {
         std::unique_lock<std::mutex> requestLock(requestMutex);
         hasRequestConditionVariable.wait(requestLock, [this] { return hasRequest; });
@@ -468,6 +473,8 @@ void ScatteringLineTracingRequester::createScalarFieldTexture() {
 #endif
 
 void ScatteringLineTracingRequester::createIsosurface() {
+    ZoneScoped;
+
     outlineTriangleIndices.clear();
     outlineVertexPositions.clear();
     outlineVertexNormals.clear();

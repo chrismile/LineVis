@@ -27,11 +27,14 @@
  */
 
 #include <glm/glm.hpp>
+#include <tracy/Tracy.hpp>
 #include "MeshSmoothing.hpp"
 
 void createNeighborMap(
         const std::vector<uint32_t>& triangleIndices,
         std::unordered_map<uint32_t, std::unordered_set<uint32_t>>& neighborsMap) {
+    ZoneScoped;
+
     for (size_t i = 0; i < triangleIndices.size(); i += 3) {
         uint32_t idx0 = triangleIndices.at(i+0);
         uint32_t idx1 = triangleIndices.at(i+1);
@@ -48,6 +51,8 @@ void createNeighborMap(
 void laplacianSmoothing(
         const std::vector<glm::vec3>& pointsIn, std::vector<glm::vec3>& pointsOut,
         const std::unordered_map<uint32_t, std::unordered_set<uint32_t>>& neighborsMap, float lambda) {
+    ZoneScoped;
+
     for (uint32_t i = 0; i < pointsIn.size(); i++) {
         float weightSum = 0.0f;
         glm::vec3 pointSum(0.0f);
@@ -67,6 +72,8 @@ void laplacianSmoothing(
 void laplacianSmoothing(
         const std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions,
         int numIterations, float lambda) {
+    ZoneScoped;
+
     std::unordered_map<uint32_t, std::unordered_set<uint32_t>> neighborsMap;
     createNeighborMap(triangleIndices, neighborsMap);
 
