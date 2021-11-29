@@ -88,7 +88,7 @@ public:
     uint32_t getNumParametrizationVertices() override;
 
     /// Returns whether the baking process was re-run.
-    bool renderGui() override;
+    bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
 private:
     // Computes AO settings that cause as little stuttering in the application as possible.

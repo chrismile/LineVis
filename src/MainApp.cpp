@@ -877,9 +877,14 @@ void MainApp::renderGui() {
                             sgl::Renderer->bindFBO(dataView->getSceneFramebuffer());
                             customScreenshotWidth = int(dataView->viewportWidth);
                             customScreenshotHeight = int(dataView->viewportHeight);
-                            saveScreenshot(
+                            std::string screenshotFilename =
                                     saveDirectoryScreenshots + saveFilenameScreenshots
-                                    + "_" + sgl::toString(screenshotNumber) + "_" + std::to_string(i) + ".png");
+                                    + "_" + sgl::toString(screenshotNumber);
+                            if (dataViews.size() > 1) {
+                                screenshotFilename += "_" + std::to_string(i);
+                            }
+                            screenshotFilename += ".png";
+                            saveScreenshot(screenshotFilename);
                             customScreenshotWidth = -1;
                             customScreenshotHeight = -1;
                             sgl::Renderer->unbindFBO();

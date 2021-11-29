@@ -34,6 +34,7 @@
 namespace sgl {
 
 class TransferFunctionWindow;
+class PropertyEditor;
 class GeometryBuffer;
 typedef std::shared_ptr<GeometryBuffer> GeometryBufferPtr;
 
@@ -90,12 +91,11 @@ public:
     virtual uint32_t getNumParametrizationVertices()=0;
 
     /// Returns whether the baking process was re-run.
-    virtual bool renderGui() { return false; }
+    virtual bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) { return false; }
 
 protected:
     sgl::TransferFunctionWindow& transferFunctionWindow;
     sgl::vk::Renderer* rendererVk;
-    bool showWindow = true;
     BakingMode bakingMode = BakingMode::ITERATIVE_UPDATE;
 };
 

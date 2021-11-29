@@ -427,6 +427,16 @@ void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
         }
     }
 
+    if (useAmbientOcclusion && ambientOcclusionBaker) {
+        if (ambientOcclusionBaker->renderGuiPropertyEditorNodes(propertyEditor)) {
+            reRender = true;
+            internalReRender = true;
+            if (isVulkanRenderer) {
+                ambientOcclusionBuffersDirty = true;
+            }
+        }
+    }
+
     if (shallReloadGatherShader) {
         reloadGatherShaderExternal();
     }

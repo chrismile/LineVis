@@ -35,6 +35,7 @@
 #include <Graphics/OpenGL/GeometryBuffer.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "LineData/LineData.hpp"
 #include "Renderers/LineRenderer.hpp"
@@ -314,30 +315,27 @@ void VulkanAmbientOcclusionBaker::updateIterative(bool isVulkanRenderer) {
     renderReadySemaphore->signalSemaphoreGl(aoBufferGl);
 
     aoComputeRenderPass->setFrameNumber(numIterations);
-    if (!isVulkanRenderer) {
-        rendererVk->beginCommandBuffer();
-    }
+
+    rendererVk->beginCommandBuffer();
+
     aoComputeRenderPass->render();
     rendererVk->insertMemoryBarrier(
             VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-    if (!isVulkanRenderer) {
-        rendererVk->endCommandBuffer();
-    }
 
-    if (!isVulkanRenderer) {
-        // Submit the rendering operation in Vulkan.
-        sgl::vk::SemaphorePtr renderReadySemaphoreVk =
-                std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderReadySemaphore);
-        sgl::vk::SemaphorePtr renderFinishedSemaphoreVk =
-                std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderFinishedSemaphore);
-        rendererVk->submitToQueue(
-                renderReadySemaphoreVk, renderFinishedSemaphoreVk, {},
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    rendererVk->endCommandBuffer();
 
-        // Wait for the rendering to finish on the Vulkan side.
-        renderFinishedSemaphore->waitSemaphoreGl(aoBufferGl);
-    }
+    // Submit the rendering operation in Vulkan.
+    sgl::vk::SemaphorePtr renderReadySemaphoreVk =
+            std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderReadySemaphore);
+    sgl::vk::SemaphorePtr renderFinishedSemaphoreVk =
+            std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderFinishedSemaphore);
+    rendererVk->submitToQueue(
+            renderReadySemaphoreVk, renderFinishedSemaphoreVk, {},
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
+    // Wait for the rendering to finish on the Vulkan side.
+    renderFinishedSemaphore->waitSemaphoreGl(aoBufferGl);
 
     numIterations++;
     isDataReady = true;
@@ -353,42 +351,38 @@ void VulkanAmbientOcclusionBaker::updateMultiThreaded(bool isVulkanRenderer) {
     //device->waitIdle(); // To make sure we don't get any MultipleThreads warnings...
     waitCommandBuffersFinished();
 
-    if (!isVulkanRenderer) {
-        renderReadySemaphore->signalSemaphoreGl(aoBufferGl);
+    renderReadySemaphore->signalSemaphoreGl(aoBufferGl);
 
-        sgl::vk::CommandPoolType commandPoolType;
-        commandPoolType.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        commandBuffers = device->allocateCommandBuffers(commandPoolType, &commandPool, 1);
+    sgl::vk::CommandPoolType commandPoolType;
+    commandPoolType.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    commandBuffers = device->allocateCommandBuffers(commandPoolType, &commandPool, 1);
 
-        rendererVk->setCustomCommandBuffer(commandBuffers.front());
-        rendererVk->beginCommandBuffer();
-    }
+    rendererVk->setCustomCommandBuffer(commandBuffers.front());
+    rendererVk->beginCommandBuffer();
+
     rendererVk->insertBufferMemoryBarrier(
             VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
             device->getComputeQueueIndex(), device->getGraphicsQueueIndex(),
             aoBufferThreaded);
     aoBufferThreaded->copyDataTo(aoBufferVk, rendererVk->getVkCommandBuffer());
-    if (!isVulkanRenderer) {
-        rendererVk->endCommandBuffer();
-    }
 
-    if (!isVulkanRenderer) {
-        // Submit the rendering operation in Vulkan.
-        sgl::vk::SemaphorePtr renderReadySemaphoreVk =
-                std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderReadySemaphore);
-        sgl::vk::SemaphorePtr renderFinishedSemaphoreVk =
-                std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderFinishedSemaphore);
-        commandBuffersUseFence = std::make_shared<sgl::vk::Fence>(device, 0);
-        rendererVk->submitToQueue(
-                { threadFinishedSemaphore, renderReadySemaphoreVk },
-                { renderFinishedSemaphoreVk }, commandBuffersUseFence,
-                { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT });
-        rendererVk->resetCustomCommandBuffer();
+    rendererVk->endCommandBuffer();
 
-        // Wait for the copy operation to finish on the Vulkan side.
-        renderFinishedSemaphore->waitSemaphoreGl(aoBufferGl);
-    }
+    // Submit the rendering operation in Vulkan.
+    sgl::vk::SemaphorePtr renderReadySemaphoreVk =
+            std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderReadySemaphore);
+    sgl::vk::SemaphorePtr renderFinishedSemaphoreVk =
+            std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderFinishedSemaphore);
+    commandBuffersUseFence = std::make_shared<sgl::vk::Fence>(device, 0);
+    rendererVk->submitToQueue(
+            { threadFinishedSemaphore, renderReadySemaphoreVk },
+            { renderFinishedSemaphoreVk }, commandBuffersUseFence,
+            { VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT });
+    rendererVk->resetCustomCommandBuffer();
+
+    // Wait for the copy operation to finish on the Vulkan side.
+    renderFinishedSemaphore->waitSemaphoreGl(aoBufferGl);
 
     hasThreadUpdate = false;
     isDataReady = true;
@@ -435,50 +429,50 @@ uint32_t VulkanAmbientOcclusionBaker::getNumParametrizationVertices() {
     return aoComputeRenderPass->getNumParametrizationVertices();
 }
 
-bool VulkanAmbientOcclusionBaker::renderGui() {
+bool VulkanAmbientOcclusionBaker::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool dirty = false;
     bool parametrizationDirty = false;
 
-    if (ImGui::Begin("RTAO Baking", &showWindow)) {
-        if (ImGui::Combo(
+    if (propertyEditor.beginNode("RTAO Baking")) {
+        if (propertyEditor.addCombo(
                 "Baking Mode", (int*)&bakingMode, BAKING_MODE_NAMES,
                 IM_ARRAYSIZE(BAKING_MODE_NAMES))) {
             dirty = true;
         }
 
-        if (ImGui::SliderIntEdit(
+        if (propertyEditor.addSliderIntEdit(
                 "#Iterations", &maxNumIterations, 1, 4096) == ImGui::EditMode::INPUT_FINISHED) {
             dirty = true;
         }
-        if (ImGui::SliderFloatEdit(
+        if (propertyEditor.addSliderFloatEdit(
                 "Line Resolution", &aoComputeRenderPass->expectedParamSegmentLength,
                 0.0001f, 0.01f, "%.4f") == ImGui::EditMode::INPUT_FINISHED) {
             dirty = true;
             parametrizationDirty = true;
         }
-        if (ImGui::SliderIntEdit(
+        if (propertyEditor.addSliderIntEdit(
                 "#Subdivisions", reinterpret_cast<int*>(&aoComputeRenderPass->numTubeSubdivisionsNew),
                 3, 16) == ImGui::EditMode::INPUT_FINISHED) {
             aoComputeRenderPass->numTubeSubdivisions = aoComputeRenderPass->numTubeSubdivisionsNew;
             dirty = true;
             parametrizationDirty = true;
         }
-        if (ImGui::SliderIntEdit(
+        if (propertyEditor.addSliderIntEdit(
                 "#Samples/Frame",
                 reinterpret_cast<int*>(&aoComputeRenderPass->numAmbientOcclusionSamplesPerFrame),
                 1, 4096) == ImGui::EditMode::INPUT_FINISHED) {
             dirty = true;
         }
-        if (ImGui::SliderFloatEdit(
+        if (propertyEditor.addSliderFloatEdit(
                 "AO Radius", &aoComputeRenderPass->ambientOcclusionRadius,
                 0.01f, 0.2f) == ImGui::EditMode::INPUT_FINISHED) {
             dirty = true;
         }
-        if (ImGui::Checkbox("Use Distance-based AO", &aoComputeRenderPass->useDistance)) {
+        if (propertyEditor.addCheckbox("Use Distance-based AO", &aoComputeRenderPass->useDistance)) {
             dirty = true;
         }
 
-        ImGui::End();
+        propertyEditor.endNode();
     }
 
     if (dirty) {
