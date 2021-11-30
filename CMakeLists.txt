@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.5)
-cmake_policy(VERSION 3.5...3.20)
+cmake_policy(VERSION 3.7...3.20)
 
 project (LineVis)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/CMake)
@@ -250,6 +250,10 @@ if (Python3_FOUND AND USE_PYTHON)
 endif()
 
 if (SUPPORT_VULKAN AND USE_VULKAN_INTEROP)
+    find_package(Vulkan REQUIRED)
+    if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.21.0")
+        target_link_libraries(sgl PUBLIC Vulkan::Headers)
+    endif()
     add_definitions(-DUSE_VULKAN_INTEROP)
     add_definitions(-DENABLE_AMBIENT_OCCLUSION)
 endif()
