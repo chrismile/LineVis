@@ -64,8 +64,8 @@ jobs:
       if: env.USE_OSPRAY
       shell: bash
       run: |
-        wget "https://github.com/ospray/OSPRay/releases/download/v${{OSPRAY_VERSION}}/ospray-${{env.OSPRAY_VERSION}}.x86_64.linux.tar.gz"
-        tar -xvzf "ospray-${{OSPRAY_VERSION}}.x86_64.linux.tar.gz"
+        wget "https://github.com/ospray/OSPRay/releases/download/v${{env.OSPRAY_VERSION}}/ospray-${{env.OSPRAY_VERSION}}.x86_64.linux.tar.gz"
+        tar -xvzf "ospray-${{env.OSPRAY_VERSION}}.x86_64.linux.tar.gz"
 
     - name: Configure CMake (sgl)
       run: cmake ${{env.sgl_REPO_DIR}} -B ${{env.sgl_REPO_DIR}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{env.sgl_DIR}}
