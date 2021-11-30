@@ -46,11 +46,11 @@
 
 #include "LineData/Scattering/LineDataScattering.hpp"
 #include "VolumetricPathTracingPass.hpp"
-#include "VolumetricPathTracerRenderer.hpp"
+#include "VolumetricPathTracingRenderer.hpp"
 
 using namespace sgl;
 
-VolumetricPathTracerRenderer::VolumetricPathTracerRenderer(
+VolumetricPathTracingRenderer::VolumetricPathTracingRenderer(
         SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
         : LineRenderer("Volumetric Path Tracer", sceneData, transferFunctionWindow),
           rendererVk(rendererVk) {
@@ -66,7 +66,7 @@ VolumetricPathTracerRenderer::VolumetricPathTracerRenderer(
     onResolutionChanged();
 }
 
-VolumetricPathTracerRenderer::~VolumetricPathTracerRenderer() {
+VolumetricPathTracingRenderer::~VolumetricPathTracingRenderer() {
     sgl::AppSettings::get()->getPrimaryDevice()->waitIdle();
 
     vptPass = {};
@@ -77,7 +77,7 @@ VolumetricPathTracerRenderer::~VolumetricPathTracerRenderer() {
     }
 }
 
-void VolumetricPathTracerRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
+void VolumetricPathTracingRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
 
     dirty = false;
@@ -94,7 +94,7 @@ void VolumetricPathTracerRenderer::setLineData(LineDataPtr& lineData, bool isNew
     vptPass->setLineData(lineDataScattering, isNewData);
 }
 
-void VolumetricPathTracerRenderer::onResolutionChanged() {
+void VolumetricPathTracingRenderer::onResolutionChanged() {
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     uint32_t width = *sceneData->viewportWidth;
     uint32_t height = *sceneData->viewportHeight;
@@ -114,21 +114,21 @@ void VolumetricPathTracerRenderer::onResolutionChanged() {
     vptPass->recreateSwapchain(width, height);
 }
 
-bool VolumetricPathTracerRenderer::needsReRender() {
+bool VolumetricPathTracingRenderer::needsReRender() {
     bool reRenderParent = LineRenderer::needsReRender();
     return vptPass->needsReRender() || reRenderParent;
 }
 
-void VolumetricPathTracerRenderer::onHasMoved() {
+void VolumetricPathTracingRenderer::onHasMoved() {
     vptPass->onHasMoved();
 }
 
-void VolumetricPathTracerRenderer::notifyReRenderTriggeredExternally() {
+void VolumetricPathTracingRenderer::notifyReRenderTriggeredExternally() {
     LineRenderer::notifyReRenderTriggeredExternally();
     vptPass->onHasMoved();
 }
 
-void VolumetricPathTracerRenderer::render() {
+void VolumetricPathTracingRenderer::render() {
     LineRenderer::render();
 
     if (lineData && lineData->getType() != DATA_SET_TYPE_SCATTERING_LINES) {
@@ -172,7 +172,7 @@ void VolumetricPathTracerRenderer::render() {
             false);
 }
 
-void VolumetricPathTracerRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+void VolumetricPathTracingRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool somethingChanged = vptPass->renderGuiPropertyEditorNodes(propertyEditor);
 
     if (somethingChanged) {
@@ -180,5 +180,5 @@ void VolumetricPathTracerRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEdi
     }
 }
 
-void VolumetricPathTracerRenderer::renderGuiOverlay() {
+void VolumetricPathTracingRenderer::renderGuiOverlay() {
 }

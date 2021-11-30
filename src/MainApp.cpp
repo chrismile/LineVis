@@ -80,7 +80,7 @@
 #include "Renderers/Vulkan/VulkanTestRenderer.hpp"
 #include "Renderers/Vulkan/Scattering/LineDensityMapRenderer.hpp"
 #include "Renderers/Vulkan/Scattering/SphericalHeatMapRenderer.hpp"
-#include "Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracerRenderer.hpp"
+#include "Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracingRenderer.hpp"
 #include "Renderers/Vulkan/VulkanAmbientOcclusionBaker.hpp"
 #include <Graphics/Vulkan/Utils/Instance.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
@@ -630,7 +630,7 @@ void MainApp::setRenderer(
         newLineRenderer = new LineDensityMapRenderer(&sceneDataRef, transferFunctionWindow, renderer);
     } else if (newRenderingMode == RENDERING_MODE_VOLUMETRIC_PATH_TRACER) {
         auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
-        newLineRenderer = new VolumetricPathTracerRenderer(&sceneDataRef, transferFunctionWindow, renderer);
+        newLineRenderer = new VolumetricPathTracingRenderer(&sceneDataRef, transferFunctionWindow, renderer);
     } else if (newRenderingMode == RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER) {
         newLineRenderer = new SphericalHeatMapRenderer(&sceneDataRef, transferFunctionWindow);
     }

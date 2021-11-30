@@ -26,8 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEVIS_VOLUMETRICPATHTRACERRENDERER_HPP
-#define LINEVIS_VOLUMETRICPATHTRACERRENDERER_HPP
+#ifndef LINEVIS_VOLUMETRICPATHTRACINGRENDERER_HPP
+#define LINEVIS_VOLUMETRICPATHTRACINGRENDERER_HPP
 
 #include <Graphics/Vulkan/Render/Passes/Pass.hpp>
 
@@ -54,11 +54,11 @@ class VolumetricPathTracingPass;
 /**
  * A dummy renderer for testing OpenGL-Vulkan interoperability.
  */
-class VolumetricPathTracerRenderer : public LineRenderer {
+class VolumetricPathTracingRenderer : public LineRenderer {
 public:
-    VolumetricPathTracerRenderer(
+    VolumetricPathTracingRenderer(
             SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
-    ~VolumetricPathTracerRenderer() override;
+    ~VolumetricPathTracingRenderer() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_VOLUMETRIC_PATH_TRACER; }
 
     /// Returns whether the triangle representation is used by the renderer.
@@ -98,4 +98,4 @@ private:
     std::shared_ptr<VolumetricPathTracingPass> vptPass;
 };
 
-#endif //LINEVIS_VOLUMETRICPATHTRACERRENDERER_HPP
+#endif //LINEVIS_VOLUMETRICPATHTRACINGRENDERER_HPP

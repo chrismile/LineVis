@@ -32,7 +32,6 @@
 #include "Renderers/LineRenderer.hpp"
 #include "../../../LineData/Scattering/DtPathTrace.hpp"
 
-
 class SphericalHeatMapRenderer : public LineRenderer {
 public:
     SphericalHeatMapRenderer(
