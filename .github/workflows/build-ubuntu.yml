@@ -56,8 +56,6 @@ jobs:
     - name: Download Embree
       if: env.USE_EMBREE
       shell: bash
-      env:
-        EMBREE_VERSION: ${{ env.EMBREE_VERSION }}
       run: |
         wget "https://github.com/embree/embree/releases/download/v${{env.EMBREE_VERSION}}/embree-${{env.EMBREE_VERSION}}.x86_64.linux.tar.gz"
         tar -xvzf "embree-${{env.EMBREE_VERSION}}.x86_64.linux.tar.gz"
@@ -65,8 +63,6 @@ jobs:
     - name: Download OSPRay
       if: env.USE_OSPRAY
       shell: bash
-      env:
-        OSPRAY_VERSION: ${{ env.OSPRAY_VERSION }}
       run: |
         wget "https://github.com/ospray/OSPRay/releases/download/v${{OSPRAY_VERSION}}/ospray-${{env.OSPRAY_VERSION}}.x86_64.linux.tar.gz"
         tar -xvzf "ospray-${{OSPRAY_VERSION}}.x86_64.linux.tar.gz"
