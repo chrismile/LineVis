@@ -1,0 +1,21 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
+    "name": "LineVis",
+    "version": "0.1.0-dev",
+    "dependencies": [
+        "boost-core",
+        "boost-algorithm",
+        "boost-filesystem",
+        {
+            "name": "sdl2",
+            "features": [ "vulkan" ]
+        },
+        "glew",
+        "glm",
+        "eigen3",
+        "jsoncpp",
+        "python3",
+        "cppzmq",
+        "netcdf-c"
+    ]
+}
