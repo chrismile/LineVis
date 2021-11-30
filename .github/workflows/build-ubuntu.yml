@@ -56,16 +56,20 @@ jobs:
     - name: Download Embree
       if: env.USE_EMBREE
       shell: bash
+      env:
+        EMBREE_VERSION: ${{ env.EMBREE_VERSION }}
       run: |
-        wget "https://github.com/embree/embree/releases/download/v{{env.EMBREE_VERSION}}/embree-{{env.EMBREE_VERSION}}.x86_64.linux.tar.gz"
-        tar -xvzf "embree-{{env.EMBREE_VERSION}}.x86_64.linux.tar.gz"
+        wget "https://github.com/embree/embree/releases/download/v${{env.EMBREE_VERSION}}/embree-${{env.EMBREE_VERSION}}.x86_64.linux.tar.gz"
+        tar -xvzf "embree-${{env.EMBREE_VERSION}}.x86_64.linux.tar.gz"
 
     - name: Download OSPRay
       if: env.USE_OSPRAY
       shell: bash
+      env:
+        OSPRAY_VERSION: ${{ env.OSPRAY_VERSION }}
       run: |
-        wget "https://github.com/ospray/OSPRay/releases/download/v{{env.OSPRAY_VERSION}}/ospray-{{env.OSPRAY_VERSION}}.x86_64.linux.tar.gz"
-        tar -xvzf "ospray-{{env.OSPRAY_VERSION}}.x86_64.linux.tar.gz"
+        wget "https://github.com/ospray/OSPRay/releases/download/v${{OSPRAY_VERSION}}/ospray-${{env.OSPRAY_VERSION}}.x86_64.linux.tar.gz"
+        tar -xvzf "ospray-${{OSPRAY_VERSION}}.x86_64.linux.tar.gz"
 
     - name: Configure CMake (sgl)
       run: cmake ${{env.sgl_REPO_DIR}} -B ${{env.sgl_REPO_DIR}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{env.sgl_DIR}}
@@ -77,7 +81,7 @@ jobs:
       run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --target install
 
     - name: Configure CMake (LineVis)
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dsgl_DIR=${{env.sgl_DIR}}/lib/cmake/sgl -Dembree_DIR=${{github.workspace}}/embree-{{env.EMBREE_VERSION}}.x86_64.linux/lib/cmake/embree-{{env.EMBREE_VERSION}} -Dospray_DIR=${{github.workspace}}/ospray-{{env.OSPRAY_VERSION}}.x86_64.linux/lib/cmake/ospray-{{env.OSPRAY_VERSION}}
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dsgl_DIR=${{env.sgl_DIR}}/lib/cmake/sgl -Dembree_DIR=${{github.workspace}}/embree-${{env.EMBREE_VERSION}}.x86_64.linux/lib/cmake/embree-${{env.EMBREE_VERSION}} -Dospray_DIR=${{github.workspace}}/ospray-${{env.OSPRAY_VERSION}}.x86_64.linux/lib/cmake/ospray-${{env.OSPRAY_VERSION}}
 
     - name: Build (LineVis)
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
