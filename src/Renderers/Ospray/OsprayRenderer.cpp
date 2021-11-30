@@ -28,6 +28,7 @@
 
 #include <boost/algorithm/string/case_conv.hpp>
 
+#include <GL/glew.h>
 #include <ospray/ospray.h>
 
 #include <Utils/File/Logfile.hpp>
