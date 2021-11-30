@@ -17,9 +17,9 @@ jobs:
         use-vulkan: [true, false]
   
     runs-on: ubuntu-latest
+    name: ${{ github.workflow }} (Use Vulkan: ${{ matrix.use-vulkan }})
 
     env:
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg/bincache
       sgl_REPO_DIR: ${{ github.workspace }}/sgl-repo
       sgl_DIR: ${{ github.workspace }}/sgl
 
