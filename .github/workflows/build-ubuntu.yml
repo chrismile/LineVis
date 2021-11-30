@@ -14,11 +14,15 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg/bincache
       sgl_REPO_DIR: ${{ github.workspace }}/sgl-repo
       sgl_DIR: ${{ github.workspace }}/sgl
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg/bincache
 
     steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
     - uses: actions/checkout@v2
       with:
         repository: chrismile/sgl
@@ -32,7 +36,7 @@ jobs:
         libjsoncpp-dev libeigen3-dev python3-dev libzmq3-dev libnetcdf-dev
 
     - name: Configure CMake (sgl)
-      run: cmake ${{env.sgl_REPO_DIR}} -B ${{env.sgl_REPO_DIR}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{env.sgl_REPO_DIR}}
+      run: cmake ${{env.sgl_REPO_DIR}} -B ${{env.sgl_REPO_DIR}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{env.sgl_DIR}}
 
     - name: Build (sgl)
       run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}}
@@ -40,12 +44,8 @@ jobs:
     - name: Install (sgl)
       run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --target install
 
-    - uses: actions/checkout@v2
-      with:
-        submodules: true
-
     - name: Configure CMake (LineVis)
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dsgl_DIR=${{env.sgl_REPO_DIR}}/lib/cmake/sgl
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dsgl_DIR=${{env.sgl_DIR}}/lib/cmake/sgl
 
     - name: Build (LineVis)
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
