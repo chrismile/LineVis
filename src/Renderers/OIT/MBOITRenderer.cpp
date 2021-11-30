@@ -26,6 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <GL/glew.h>
+
 #include <Math/Geometry/MatrixUtil.hpp>
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Window.hpp>
