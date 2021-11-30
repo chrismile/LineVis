@@ -20,6 +20,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        repository: chrismile/sgl
+        path: sgl-repo
+        submodules: true
 
     - name: Install system packages
       run: |
@@ -35,6 +39,10 @@ jobs:
 
     - name: Install (sgl)
       run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --target install
+
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
 
     - name: Configure CMake (LineVis)
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
