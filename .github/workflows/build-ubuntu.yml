@@ -17,7 +17,7 @@ jobs:
         use-vulkan: [true, false]
   
     runs-on: ubuntu-latest
-    name: ${{ github.workflow }} (Use Vulkan: ${{ matrix.use-vulkan }})
+    name: "${{ github.workflow }} (Use Vulkan: ${{ matrix.use-vulkan }})"
 
     env:
       sgl_REPO_DIR: ${{ github.workspace }}/sgl-repo
