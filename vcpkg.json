@@ -1,6 +1,6 @@
 {
     "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg/master/scripts/vcpkg.schema.json",
-    "name": "LineVis",
+    "name": "linevis",
     "version": "0.1.0-dev",
     "dependencies": [
         "boost-core",
