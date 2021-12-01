@@ -73,6 +73,8 @@ jobs:
       uses: lukka/run-vcpkg@v10
       with:
         vcpkgGitCommitId: '7c92c79a1a0a0ab4ab9c6d8b544495a68ab4835c'
+        doNotCacheOnWorkflowFailure: true
+        doNotCache: true
 
     - name: Create custom vcpkg triplet
       run: |
@@ -94,6 +96,12 @@ jobs:
 
     - name: Install (sgl)
       run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --target install
+
+    - name: Clean cloned sgl repository
+      shell: bash
+      run: |
+        # Save memory by removing the repository directory together with the build directory.
+        rm -rf ${{env.sgl_REPO_DIR}}
 
     - name: Configure CMake (LineVis)
       shell: bash
