@@ -40,6 +40,14 @@ jobs:
           exit 1
         fi
 
+    - name: Release unused data to get more disk space
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          sudo rm -rf /usr/local/lib/android # releases approx. 10 GB
+          sudo rm -rf /usr/share/dotnet # releases approx. 20GB
+        fi
+
     - uses: actions/checkout@v2
       with:
         submodules: true
