@@ -87,7 +87,8 @@ int main(int argc, char *argv[]) {
             VK_KHR_RAY_QUERY_EXTENSION_NAME,
             VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME
     };
-    sgl::AppSettings::get()->initializeVulkanInteropSupport({}, raytracingDeviceExtensions);
+    sgl::AppSettings::get()->initializeVulkanInteropSupport(
+            {}, raytracingDeviceExtensions);
     for (const char* deviceExtension : raytracingDeviceExtensions) {
         if (!sgl::AppSettings::get()->getPrimaryDevice()->isDeviceExtensionSupported(deviceExtension)) {
             sgl::Logfile::get()->writeInfo(

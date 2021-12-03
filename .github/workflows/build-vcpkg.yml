@@ -40,14 +40,6 @@ jobs:
           exit 1
         fi
 
-    - name: Release unused data to get more disk space
-      shell: bash
-      run: |
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          sudo rm -rf /usr/local/lib/android # releases approx. 10 GB
-          sudo rm -rf /usr/share/dotnet # releases approx. 20GB
-        fi
-
     - uses: actions/checkout@v2
       with:
         submodules: true
@@ -80,7 +72,7 @@ jobs:
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v10
       with:
-        vcpkgGitCommitId: '7c92c79a1a0a0ab4ab9c6d8b544495a68ab4835c'
+        vcpkgGitCommitId: 'df9052e29fde61a6306396579762894ba46b85a3'
         doNotCacheOnWorkflowFailure: true
         doNotCache: true
 
@@ -104,12 +96,6 @@ jobs:
 
     - name: Install (sgl)
       run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --target install
-
-    - name: Clean cloned sgl repository
-      shell: bash
-      run: |
-        # Save memory by removing the repository directory together with the build directory.
-        rm -rf ${{env.sgl_REPO_DIR}}
 
     - name: Configure CMake (LineVis)
       shell: bash
