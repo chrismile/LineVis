@@ -40,6 +40,7 @@
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <Graphics/Vulkan/Render/Data.hpp>
 #include <Graphics/Vulkan/Render/GraphicsPipeline.hpp>
+#include <Graphics/Vulkan/Render/CommandBuffer.hpp>
 
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
@@ -137,23 +138,22 @@ void VolumetricPathTracingRenderer::render() {
 
     renderReadySemaphore->signalSemaphoreGl(renderTextureGl, GL_NONE);
 
-    rendererVk->beginCommandBuffer();
-    rendererVk->setViewMatrix((*sceneData->camera)->getViewMatrix());
-    rendererVk->setProjectionMatrix((*sceneData->camera)->getProjectionMatrixVulkan());
-    vptPass->render();
-    rendererVk->endCommandBuffer();
-
-    // Submit the rendering operation in Vulkan.
-    sgl::vk::FencePtr fence;
     sgl::vk::SemaphorePtr renderReadySemaphoreVk =
             std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderReadySemaphore);
     sgl::vk::SemaphorePtr renderFinishedSemaphoreVk =
             std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderFinishedSemaphore);
-    //rendererVk->submitToQueue(
-    //        renderReadySemaphoreVk, renderFinishedSemaphoreVk, fence, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-    rendererVk->submitToQueue(
-            renderReadySemaphoreVk, renderFinishedSemaphoreVk, fence, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-    //rendererVk->getDevice()->waitIdle();
+
+    rendererVk->beginCommandBuffer();
+    rendererVk->getCommandBuffer()->pushWaitSemaphore(
+            renderReadySemaphoreVk, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+    rendererVk->setViewMatrix((*sceneData->camera)->getViewMatrix());
+    rendererVk->setProjectionMatrix((*sceneData->camera)->getProjectionMatrixVulkan());
+    vptPass->render();
+    rendererVk->getCommandBuffer()->pushSignalSemaphore(renderFinishedSemaphoreVk);
+    rendererVk->endCommandBuffer();
+
+    // Submit the rendering operation in Vulkan.
+    rendererVk->submitToQueue();
 
     // Wait for the rendering to finish on the Vulkan side.
     //renderFinishedSemaphore->waitSemaphoreGl(renderTextureGl, GL_LAYOUT_SHADER_READ_ONLY_EXT);

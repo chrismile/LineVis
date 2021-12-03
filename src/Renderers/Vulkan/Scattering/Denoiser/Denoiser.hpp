@@ -33,13 +33,33 @@
 
 #include <Graphics/Vulkan/Image/Image.hpp>
 
+namespace sgl {
+class PropertyEditor;
+}
+
+enum class DenoiserType {
+    NONE,
+    EAW,
+#ifdef SUPPORT_OPTIX
+    OPTIX
+#endif
+};
+const char* const DENOISER_NAMES[3] = {
+        "None",
+        "Edge-Avoiding À-Trous Wavelet Transform",
+#ifdef SUPPORT_OPTIX
+        "OptiX Denoiser"
+#endif
+};
+
 class Denoiser {
 public:
-    virtual ~Denoiser()=default;
+    virtual ~Denoiser() = default;
+    virtual DenoiserType getDenoiserType() = 0;
     virtual const char* getDenoiserName() const = 0;
     virtual bool getIsEnabled() const { return true; }
-    virtual void setOutputImage(sgl::vk::ImageViewPtr& outputImage)=0;
-    virtual void setFeatureMap(const std::string& featureMapName, const sgl::vk::TexturePtr& featureTexture)=0;
+    virtual void setOutputImage(sgl::vk::ImageViewPtr& outputImage) = 0;
+    virtual void setFeatureMap(const std::string& featureMapName, const sgl::vk::TexturePtr& featureTexture) = 0;
     virtual void denoise() = 0;
     virtual void recreateSwapchain(uint32_t width, uint32_t height) {}
 

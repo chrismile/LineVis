@@ -77,6 +77,10 @@ int main(int argc, char *argv[]) {
     sgl::AppSettings::get()->createWindow();
 
 #if defined(USE_VULKAN_INTEROP)
+    std::vector<const char*> optionalDeviceExtensions;
+#ifdef SUPPORT_OPTIX
+    optionalDeviceExtensions = sgl::vk::Device::getCudaInteropDeviceExtensions();
+#endif
     std::vector<const char*> raytracingDeviceExtensions = {
             VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
             VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
@@ -87,9 +91,12 @@ int main(int argc, char *argv[]) {
             VK_KHR_RAY_QUERY_EXTENSION_NAME,
             VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME
     };
+    optionalDeviceExtensions.insert(
+            optionalDeviceExtensions.end(),
+            raytracingDeviceExtensions.begin(), raytracingDeviceExtensions.end());
     sgl::AppSettings::get()->initializeVulkanInteropSupport(
-            {}, raytracingDeviceExtensions);
-    for (const char* deviceExtension : raytracingDeviceExtensions) {
+            {}, optionalDeviceExtensions);
+    for (const char* deviceExtension : optionalDeviceExtensions) {
         if (!sgl::AppSettings::get()->getPrimaryDevice()->isDeviceExtensionSupported(deviceExtension)) {
             sgl::Logfile::get()->writeInfo(
                     std::string() + "Warning: Vulkan interoperability support was enabled, but the Vulkan device "

@@ -32,7 +32,7 @@
 
 SuperVoxelGrid::SuperVoxelGrid(
         sgl::vk::Device* device, int voxelGridSizeX, int voxelGridSizeY, int voxelGridSizeZ,
-        const float* voxelGridData, float extinction, int superVoxelSize1D)
+        const float* voxelGridData, int superVoxelSize1D)
         : voxelGridSizeX(voxelGridSizeX), voxelGridSizeY(voxelGridSizeY), voxelGridSizeZ(voxelGridSizeZ) {
     superVoxelSize = glm::ivec3(superVoxelSize1D);
 
@@ -43,6 +43,9 @@ SuperVoxelGrid::SuperVoxelGrid(
 
     superVoxelGrid = new SuperVoxel[superVoxelGridSize];
     superVoxelGridEmpty = new uint8_t[superVoxelGridSize];
+    superVoxelGridMinDensity = new float[superVoxelGridSize];
+    superVoxelGridMaxDensity = new float[superVoxelGridSize];
+    superVoxelGridAvgDensity = new float[superVoxelGridSize];
 
     sgl::vk::ImageSettings imageSettings{};
     imageSettings.width = superVoxelGridSizeX;
@@ -61,15 +64,16 @@ SuperVoxelGrid::SuperVoxelGrid(
 SuperVoxelGrid::~SuperVoxelGrid() {
     delete[] superVoxelGrid;
     delete[] superVoxelGridEmpty;
+    delete[] superVoxelGridMinDensity;
+    delete[] superVoxelGridMaxDensity;
+    delete[] superVoxelGridAvgDensity;
 }
 
 void SuperVoxelGrid::computeSuperVoxels(const float* voxelGridData) {
     int superVoxelGridSize = superVoxelGridSizeX * superVoxelGridSizeY * superVoxelGridSizeZ;
 
-    const float gamma = 2.0f;
-    const float D = std::sqrt(3.0f) * float(std::max(superVoxelSize.x, std::max(superVoxelSize.y, superVoxelSize.z)));
-
-    #pragma omp parallel for shared(voxelGridData) firstprivate(superVoxelGridSize, D, gamma) default(none)
+    #pragma omp parallel for firstprivate(superVoxelGridSize) default(none) \
+    shared(voxelGridData, superVoxelGridMinDensity, superVoxelGridMaxDensity, superVoxelGridAvgDensity)
     for (int superVoxelIdx = 0; superVoxelIdx < superVoxelGridSize; superVoxelIdx++) {
         int superVoxelIdxX = superVoxelIdx % superVoxelGridSizeX;
         int superVoxelIdxY = (superVoxelIdx / superVoxelGridSizeX) % superVoxelGridSizeY;
@@ -101,10 +105,36 @@ void SuperVoxelGrid::computeSuperVoxels(const float* voxelGridData) {
         }
         densityAvg /= float(numValidVoxels);
 
-        // TODO: Is this correct?
-        float mu_min = densityMin;
-        float mu_max = densityMax;
-        float mu_avg = densityAvg;
+        superVoxelGridMinDensity[superVoxelIdx] = densityMin;
+        superVoxelGridMaxDensity[superVoxelIdx] = densityMax;
+        superVoxelGridAvgDensity[superVoxelIdx] = densityAvg;
+    }
+}
+
+void SuperVoxelGrid::setExtinction(float extinction) {
+    this->extinction = extinction;
+    recomputeSuperVoxels();
+}
+
+void SuperVoxelGrid::recomputeSuperVoxels() {
+    int superVoxelGridSize = superVoxelGridSizeX * superVoxelGridSizeY * superVoxelGridSizeZ;
+
+    const float gamma = 2.0f;
+    const float D = std::sqrt(3.0f) * float(std::max(superVoxelSize.x, std::max(superVoxelSize.y, superVoxelSize.z)));
+
+    #pragma omp parallel for firstprivate(superVoxelGridSize, D, gamma) default(none) \
+    shared(superVoxelGridMinDensity, superVoxelGridMaxDensity, superVoxelGridAvgDensity)
+    for (int superVoxelIdx = 0; superVoxelIdx < superVoxelGridSize; superVoxelIdx++) {
+        float densityMin = superVoxelGridMinDensity[superVoxelIdx];
+        float densityMax = superVoxelGridMaxDensity[superVoxelIdx];
+        float densityAvg = superVoxelGridAvgDensity[superVoxelIdx];
+
+        float mu_min = densityMin * extinction;
+        float mu_max = densityMax * extinction;
+        float mu_avg = densityAvg * extinction;
+        //float mu_min = densityMin;
+        //float mu_max = densityMax;
+        //float mu_avg = densityAvg;
 
         // Sec. 5.1 in paper by Novák et al. [2014].
         float mu_r_bar = std::max(mu_max - mu_min, 0.1f);

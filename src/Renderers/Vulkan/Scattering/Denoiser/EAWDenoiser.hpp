@@ -45,6 +45,7 @@ class EAWBlitPass;
 class EAWDenoiser : public Denoiser {
 public:
     explicit EAWDenoiser(sgl::vk::Renderer* renderer);
+    DenoiserType getDenoiserType() override { return DenoiserType::EAW; }
     [[nodiscard]] const char* getDenoiserName() const override { return "EAW Denoiser"; }
     [[nodiscard]] bool getIsEnabled() const override;
     void setOutputImage(sgl::vk::ImageViewPtr& outputImage) override;

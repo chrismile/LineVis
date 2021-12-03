@@ -28,6 +28,7 @@
 
 #include <Math/Math.hpp>
 #include <Utils/AppSettings.hpp>
+#include <Utils/File/Logfile.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/RayTracingPipeline.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
@@ -35,9 +36,13 @@
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
+#include "../Denoiser/EAWDenoiser.hpp"
+#ifdef SUPPORT_OPTIX
+#include "../Denoiser/OptixVptDenoiser.hpp"
+#endif
+
 #include "Renderers/OIT/MBOITUtils.hpp"
 #include "LineData/Scattering/LineDataScattering.hpp"
-#include "../Denoiser/EAWDenoiser.hpp"
 #include "SuperVoxelGrid.hpp"
 #include "VolumetricPathTracingPass.hpp"
 
@@ -62,8 +67,33 @@ VolumetricPathTracingPass::VolumetricPathTracingPass(sgl::vk::Renderer* renderer
     blitPrimaryRayMomentTexturePass = std::make_shared<BlitMomentTexturePass>(renderer, "Primary");
     blitScatterRayMomentTexturePass = std::make_shared<BlitMomentTexturePass>(renderer, "Scatter");
 
-    denoiser = std::shared_ptr<Denoiser>(new EAWDenoiser(renderer));
+    createDenoiser();
     updateVptMode();
+}
+
+void VolumetricPathTracingPass::createDenoiser() {
+    if (denoiserType == DenoiserType::NONE) {
+        denoiser = {};
+    } else if (denoiserType == DenoiserType::EAW) {
+        denoiser = std::shared_ptr<Denoiser>(new EAWDenoiser(renderer));
+    }
+#ifdef SUPPORT_OPTIX
+    else if (denoiserType == DenoiserType::OPTIX) {
+        denoiser = std::shared_ptr<Denoiser>(new OptixVptDenoiser(renderer));
+    }
+#endif
+    else {
+        denoiser = {};
+        sgl::Logfile::get()->writeError(
+                "Error in VolumetricPathTracingPass::createDenoiser: Invalid denoiser type selected.");
+    }
+
+    if (resultImageTexture) {
+        setDenoiserFeatureMaps();
+        if (denoiser) {
+            denoiser->recreateSwapchain(lastViewportWidth, lastViewportHeight);
+        }
+    }
 }
 
 void VolumetricPathTracingPass::setOutputImage(sgl::vk::ImageViewPtr& imageView) {
@@ -84,6 +114,8 @@ void VolumetricPathTracingPass::setOutputImage(sgl::vk::ImageViewPtr& imageView)
     denoisedImageView = std::make_shared<sgl::vk::ImageView>(
             std::make_shared<sgl::vk::Image>(device, imageSettings));
 
+    resultImageTexture = std::make_shared<sgl::vk::Texture>(resultImageView, samplerSettings);
+
     imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     accImageTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
     firstXTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
@@ -94,19 +126,25 @@ void VolumetricPathTracingPass::setOutputImage(sgl::vk::ImageViewPtr& imageView)
     blitPrimaryRayMomentTexturePass->setOutputImage(imageView);
     blitScatterRayMomentTexturePass->setOutputImage(imageView);
 
-    if (denoiser) {
-        denoiser->setFeatureMap(
-                "color", std::make_shared<sgl::vk::Texture>(resultImageView, samplerSettings));
-        denoiser->setFeatureMap("position", firstXTexture);
-        denoiser->setFeatureMap("normal", firstWTexture);
-        denoiser->setOutputImage(denoisedImageView);
-    }
+    setDenoiserFeatureMaps();
 
     frameInfo.frameCount = 0;
     setDataDirty();
 }
 
+void VolumetricPathTracingPass::setDenoiserFeatureMaps() {
+    if (denoiser) {
+        denoiser->setFeatureMap("color", resultImageTexture);
+        denoiser->setFeatureMap("position", firstXTexture);
+        denoiser->setFeatureMap("normal", firstWTexture);
+        denoiser->setOutputImage(denoisedImageView);
+    }
+}
+
 void VolumetricPathTracingPass::recreateSwapchain(uint32_t width, uint32_t height) {
+    lastViewportWidth = width;
+    lastViewportHeight = height;
+
     blitResultRenderPass->recreateSwapchain(width, height);
     blitScatterRayMomentTexturePass->recreateSwapchain(width, height);
     blitPrimaryRayMomentTexturePass->recreateSwapchain(width, height);
@@ -149,7 +187,8 @@ void VolumetricPathTracingPass::updateVptMode() {
         superVoxelGrid = std::make_shared<SuperVoxelGrid>(
                 device, lineData->getGridSizeX(), lineData->getGridSizeY(),
                 lineData->getGridSizeZ(), lineData->getScalarFieldData(),
-                (cloudExtinctionBase * cloudExtinctionScale).x, superVoxelSize);
+                superVoxelSize);
+        superVoxelGrid->setExtinction((cloudExtinctionBase * cloudExtinctionScale).x);
     } else {
         superVoxelGrid = std::shared_ptr<SuperVoxelGrid>();
     }
@@ -175,6 +214,8 @@ void VolumetricPathTracingPass::loadShader() {
         customPreprocessorDefines.insert({ "USE_DELTA_TRACKING", "" });
     } else if (vptMode == VptMode::SPECTRAL_DELTA_TRACKING) {
         customPreprocessorDefines.insert({ "USE_SPECTRAL_DELTA_TRACKING", "" });
+    } else if (vptMode == VptMode::RATIO_TRACKING) {
+        customPreprocessorDefines.insert({ "USE_RATIO_TRACKING", "" });
     } else if (vptMode == VptMode::RESIDUAL_RATIO_TRACKING) {
         customPreprocessorDefines.insert({ "USE_RESIDUAL_RATIO_TRACKING", "" });
     }
@@ -372,6 +413,13 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
         }
 
         propertyEditor.endNode();
+    }
+
+    if (propertyEditor.addCombo(
+            "Denoiser", (int*)&denoiserType,
+            DENOISER_NAMES, IM_ARRAYSIZE(DENOISER_NAMES))) {
+        createDenoiser();
+        reRender = true;
     }
 
     if (useDenoiser && denoiser) {

@@ -52,15 +52,18 @@ class SuperVoxelGrid {
 public:
     SuperVoxelGrid(
             sgl::vk::Device* device, int voxelGridSizeX, int voxelGridSizeY, int voxelGridSizeZ,
-            const float* voxelGridData, float extinction, int superVoxelSize1D);
+            const float* voxelGridData, int superVoxelSize1D);
     ~SuperVoxelGrid();
 
-    inline const glm::ivec3& getSuperVoxelSize() const { return superVoxelSize; }
-    inline glm::ivec3 getSuperVoxelGridSize() const {
+    [[nodiscard]] inline const glm::ivec3& getSuperVoxelSize() const { return superVoxelSize; }
+    [[nodiscard]] inline glm::ivec3 getSuperVoxelGridSize() const {
         return {superVoxelGridSizeX, superVoxelGridSizeY, superVoxelGridSizeZ};
     }
     inline const sgl::vk::TexturePtr& getSuperVoxelGridTexture() { return superVoxelGridTexture; }
     inline const sgl::vk::TexturePtr& getSuperVoxelGridEmptyTexture() { return superVoxelGridEmptyTexture; }
+
+    void setExtinction(float extinction);
+    void recomputeSuperVoxels();
 
 private:
     void computeSuperVoxels(const float* voxelGridData);
@@ -70,8 +73,14 @@ private:
     int superVoxelGridSizeX = 0, superVoxelGridSizeY = 0, superVoxelGridSizeZ = 0;
     int voxelGridSizeX = 0, voxelGridSizeY = 0, voxelGridSizeZ = 0;
 
+    float extinction = 1024.0f;
+    float scatteringAlbedo = 1.0f;
+
     SuperVoxel* superVoxelGrid;
     uint8_t* superVoxelGridEmpty;
+    float* superVoxelGridMinDensity = nullptr;
+    float* superVoxelGridMaxDensity = nullptr;
+    float* superVoxelGridAvgDensity = nullptr;
 
     sgl::vk::TexturePtr superVoxelGridTexture;
     sgl::vk::TexturePtr superVoxelGridEmptyTexture;

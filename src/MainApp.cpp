@@ -76,14 +76,17 @@
 #include "Renderers/VRC/VoxelRayCastingRenderer.hpp"
 
 #ifdef USE_VULKAN_INTEROP
+#include <Graphics/Vulkan/Utils/Instance.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 #include "Renderers/Vulkan/VulkanRayTracer.hpp"
 #include "Renderers/Vulkan/VulkanTestRenderer.hpp"
 #include "Renderers/Vulkan/Scattering/LineDensityMapRenderer.hpp"
 #include "Renderers/Vulkan/Scattering/SphericalHeatMapRenderer.hpp"
 #include "Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracingRenderer.hpp"
 #include "Renderers/Vulkan/VulkanAmbientOcclusionBaker.hpp"
-#include <Graphics/Vulkan/Utils/Instance.hpp>
-#include <Graphics/Vulkan/Render/Renderer.hpp>
+#ifdef SUPPORT_OPTIX
+#include "Renderers/Vulkan/Scattering/Denoiser/OptixVptDenoiser.hpp"
+#endif
 #endif
 
 #ifdef USE_OSPRAY
@@ -136,6 +139,9 @@ MainApp::MainApp()
           )) {
 #ifdef USE_VULKAN_INTEROP
     sgl::AppSettings::get()->getVulkanInstance()->setDebugCallback(&vulkanErrorCallback);
+#ifdef SUPPORT_OPTIX
+    optixInitialized = OptixVptDenoiser::initGlobal();
+#endif
 #endif
 
 #ifdef USE_PYTHON
@@ -442,6 +448,12 @@ MainApp::~MainApp() {
 #endif
 
     IGFD_Destroy(fileDialogInstance);
+
+#if defined(USE_VULKAN_INTEROP) && defined(SUPPORT_OPTIX)
+    if (optixInitialized) {
+        OptixVptDenoiser::freeGlobal();
+    }
+#endif
 
     sgl::AppSettings::get()->getSettings().addKeyValue("useDockSpaceMode", useDockSpaceMode);
     sgl::AppSettings::get()->getSettings().addKeyValue("showFpsOverlay", showFpsOverlay);

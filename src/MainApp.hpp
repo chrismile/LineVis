@@ -177,6 +177,7 @@ private:
     DataSetInformation stressLineTracerDataSetInformation;
 
     AmbientOcclusionBakerPtr ambientOcclusionBaker;
+    bool optixInitialized = false;
 };
 
 #endif // MAINAPP_HPP

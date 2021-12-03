@@ -82,16 +82,19 @@ private:
 
     void updateVptMode();
     enum class VptMode {
-        DELTA_TRACKING, SPECTRAL_DELTA_TRACKING, RESIDUAL_RATIO_TRACKING
+        DELTA_TRACKING, SPECTRAL_DELTA_TRACKING, RATIO_TRACKING, RESIDUAL_RATIO_TRACKING
     };
-    const char* const VPT_MODE_NAMES[3] = {
-            "Delta Tracking", "Delta Tracking (Spectral)", "Residual Ratio Tracking"
+    const char* const VPT_MODE_NAMES[4] = {
+            "Delta Tracking", "Delta Tracking (Spectral)", "Ratio Tracking", "Residual Ratio Tracking"
     };
-    VptMode vptMode = VptMode::DELTA_TRACKING;
+    VptMode vptMode = VptMode::RATIO_TRACKING;
     std::shared_ptr<SuperVoxelGrid> superVoxelGrid;
     int superVoxelSize = 8;
 
+    uint32_t lastViewportWidth = 0, lastViewportHeight = 0;
+
     sgl::vk::ImageViewPtr resultImageView;
+    sgl::vk::TexturePtr resultImageTexture;
     sgl::vk::TexturePtr resultTexture;
     sgl::vk::ImageViewPtr denoisedImageView;
     sgl::vk::TexturePtr densityFieldTexture;
@@ -113,6 +116,9 @@ private:
     std::shared_ptr<BlitMomentTexturePass> blitPrimaryRayMomentTexturePass;
     std::shared_ptr<BlitMomentTexturePass> blitScatterRayMomentTexturePass;
 
+    void createDenoiser();
+    void setDenoiserFeatureMaps();
+    DenoiserType denoiserType = DenoiserType::EAW;
     bool useDenoiser = true;
     std::shared_ptr<Denoiser> denoiser;
 
