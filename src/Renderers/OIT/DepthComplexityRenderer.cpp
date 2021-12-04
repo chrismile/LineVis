@@ -284,7 +284,7 @@ void DepthComplexityRenderer::computeStatistics(bool isReRender) {
         if (!isReRender) {
             firstFrame = false;
         }
-        numFragmentsMaxColor = std::max(maxComplexity, uint64_t(4ull))/intensity;
+        numFragmentsMaxColor = uint32_t(std::max(maxComplexity, uint64_t(4ull)) / intensity);
     }
 
     if (performanceMeasureMode) {

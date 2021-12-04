@@ -16,8 +16,8 @@
 #define INFO(...)
 // #define INFO(...) printf("INFO: "  __VA_ARGS__);
 //
-const float pi = 3.1415926535897932384626433832795;
-const float two_pi = 6.283185307179586476925286766559;
+const float pi = 3.1415926535897932384626433832795f;
+const float two_pi = 6.283185307179586476925286766559f;
 
 
 inline int32_t max(int32_t a, int32_t b) {
@@ -62,8 +62,8 @@ Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_heig
     out_image.height = image_height;
     out_image.allocate();
 
-    const double sqrt_two     =       sqrt(2.0);
-    const double two_sqrt_two = 2.0 * sqrt_two;
+    const float sqrt_two     = std::sqrt(2.0f);
+    const float two_sqrt_two = 2.0f * sqrt_two;
 
     assert(out_image.width > 0);
     assert(out_image.height > 0);
@@ -72,8 +72,8 @@ Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_heig
     int max_hits = 0;
     for (uint32_t y = 0; y < out_image.height; ++y) {
         for (uint32_t x = 0; x < out_image.width; ++x) {
-            float u =   -1 + (1.0*x / (out_image.width-1)) * 2; // from   -1 to 1
-            float v = -0.5 + (1.0*y / (out_image.height-1));    // from -0.5 to 0.5
+            float u = -1.0f + (1.0f * x / (out_image.width - 1)) * 2.0f; // from   -1 to 1
+            float v = -0.5f + (1.0f * y / (out_image.height - 1));       // from -0.5 to 0.5
 
             Pixel* p = &out_image.pixels[y*out_image.width+x];
 
@@ -82,14 +82,14 @@ Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_heig
                 float x_inner = two_sqrt_two * u;
                 float y_inner = two_sqrt_two * v;
 
-                float z = sqrt(1- pow(x_inner/4, 2)-pow(y_inner/2,2));
+                float z = float(std::sqrt(1 - std::pow(x_inner / 4, 2) - std::pow(y_inner / 2, 2)));
 
-                float lambda = 2 * atan((z * x_inner) / (2*(2*pow(z,2)-1))); // from -pi to pi
-                float phi    = asin(z * y_inner);                            // from -pi/2 to pi/2
+                float lambda = float(2 * std::atan((z * x_inner) / (2 * (2 * std::pow(z, 2) - 1)))); // from -pi to pi
+                float phi    = std::asin(z * y_inner);                                               // from -pi/2 to pi/2
 
-                const glm::vec4 X = glm::vec4(1.0f,0.0f,0.0f, 0.0f);
-                const glm::vec3 Y = glm::vec3(0.0f,1.0f,0.0f);
-                const glm::vec3 Z = glm::vec3(0.0f,0.0f,1.0f);
+                const glm::vec4 X = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+                const glm::vec3 Y = glm::vec3(0.0f, 1.0f, 0.0f);
+                const glm::vec3 Z = glm::vec3(0.0f, 0.0f, 1.0f);
 
                 glm::vec3 point_on_sphere =
                     glm::rotate(lambda,  Y) *
@@ -97,7 +97,7 @@ Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_heig
                     X;
 
                 searchCache.clear();
-                auto num_hits = kd_tree->getNumPointsInSphere(point_on_sphere, 0.025, searchCache);
+                auto num_hits = kd_tree->getNumPointsInSphere(point_on_sphere, 0.025f, searchCache);
 
                 max_hits = std::max(int(num_hits), max_hits);
                 p->s32 = int32_t(num_hits);
@@ -162,7 +162,7 @@ namespace Random {
         RNG_STATE.z = taus_step(RNG_STATE.z, 3, 11, 17, 4294967280);
         RNG_STATE.w = lcg_step(RNG_STATE.w, 1664525, 1013904223);
 
-        return 2.3283064365387e-10 * (RNG_STATE.x ^ RNG_STATE.y ^ RNG_STATE.z ^ RNG_STATE.w);
+        return float(2.3283064365387e-10 * (RNG_STATE.x ^ RNG_STATE.y ^ RNG_STATE.z ^ RNG_STATE.w));
     }
 
     float random() {
@@ -207,7 +207,7 @@ glm::vec3 random_direction(glm::vec3 D) {
     float r2 = Random::random() * 2 - 1;
     float sqrR2 = r2 * r2;
     float two_pi_by_r1 = two_pi * r1;
-    float sqrt_of_one_minus_sqrR2 = std::sqrt(1.0 - sqrR2);
+    float sqrt_of_one_minus_sqrR2 = std::sqrt(1.0f - sqrR2);
     float x = std::cos(two_pi_by_r1) * sqrt_of_one_minus_sqrR2;
     float y = std::sin(two_pi_by_r1) * sqrt_of_one_minus_sqrR2;
     float z = r2;
@@ -219,9 +219,9 @@ glm::vec3 random_direction(glm::vec3 D) {
 }
 
 float invert_cdf(float g_factor, float xi) {
-#define one_minus_g2 (1.0 - (g_factor) * (g_factor))
-#define one_plus_g2  (1.0 + (g_factor) * (g_factor))
-#define one_over_2g  (0.5 / (g_factor))
+#define one_minus_g2 (1.0f - (g_factor) * (g_factor))
+#define one_plus_g2  (1.0f + (g_factor) * (g_factor))
+#define one_over_2g  (0.5f / (g_factor))
 
     float t = (one_minus_g2) / (1.0f - g_factor + 2.0f * g_factor * xi);
     return one_over_2g * (one_plus_g2 - t * t);
@@ -232,7 +232,7 @@ float invert_cdf(float g_factor, float xi) {
 }
 
 glm::vec3 importance_sample_phase(float g_factor, glm::vec3 D) {
-    if (std::fabs(g_factor) < 0.001) {
+    if (std::fabs(g_factor) < 0.001f) {
         return random_direction(-D);
     }
 
@@ -249,7 +249,7 @@ glm::vec3 importance_sample_phase(float g_factor, glm::vec3 D) {
 }
 
 void get_grid_box(Texture3D grid, glm::vec3& minim, glm::vec3& maxim) {
-    float maxDim = max(grid.size_x, grid.size_y, grid.size_z);
+    float maxDim = max(float(grid.size_x), float(grid.size_y), float(grid.size_z));
     maxim = glm::vec3{
         (float)grid.size_x,
         (float)grid.size_y,
@@ -301,7 +301,7 @@ bool box_intersect(glm::vec3 b_min, glm::vec3 b_max, glm::vec3 P,
     glm::mat2x3 D2 = glm::mat2x3{ D, D };
 
     glm::mat2x3 T =
-        abs(D2) <= 0.000001
+        abs(D2) <= 0.000001f
         ? glm::mat2x3{glm::vec3{-1000, -1000, -1000},
                       glm::vec3{ 1000,  1000,  1000}}
         : C / D2;

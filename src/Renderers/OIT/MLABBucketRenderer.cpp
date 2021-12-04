@@ -40,10 +40,10 @@
 #include "MLABBucketRenderer.hpp"
 
 // Opacity threshold for lower back buffer boundary.
-static float lowerBackBufferOpacity = 0.2;
+static float lowerBackBufferOpacity = 0.2f;
 
 // Opacity threshold for upper back buffer boundary.
-static float upperBackBufferOpacity = 0.98;
+static float upperBackBufferOpacity = 0.98f;
 
 MLABBucketRenderer::MLABBucketRenderer(
         SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
@@ -220,8 +220,8 @@ void MLABBucketRenderer::computeDepthRange() {
     sgl::AABB3 screenSpaceBoundingBox = boundingBox.transformed((*sceneData->camera)->getViewMatrix());
 
     // Add offset of 0.1 for e.g. point data sets where additonal vertices may be added in the shader for quads.
-    float minViewZ = screenSpaceBoundingBox.getMaximum().z + 0.1;
-    float maxViewZ = screenSpaceBoundingBox.getMinimum().z - 0.1;
+    float minViewZ = screenSpaceBoundingBox.getMaximum().z + 0.1f;
+    float maxViewZ = screenSpaceBoundingBox.getMinimum().z - 0.1f;
     minViewZ = std::max(-minViewZ, (*sceneData->camera)->getNearClipDistance());
     maxViewZ = std::min(-maxViewZ, (*sceneData->camera)->getFarClipDistance());
     minViewZ = std::min(minViewZ, (*sceneData->camera)->getFarClipDistance());

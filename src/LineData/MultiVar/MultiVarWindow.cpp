@@ -37,9 +37,8 @@
 // https://github.com/ocornut/imgui/issues/2342
 
 MultiVarWindow::MultiVarWindow()
-        : showWindow(true), variableIndex(0), clearColor(sgl::Color(255, 0, 0, 1.0)),
+        : showWindow(true), variableIndex(0), clearColor(sgl::Color(255, 0, 0, 255)),
           histogramRes(50) {
-
 }
 
 void MultiVarWindow::setAttributes(
@@ -120,8 +119,8 @@ void MultiVarWindow::computeHistograms() {
 }
 
 void MultiVarWindow::renderVarChart() {
-    int regionWidth = ImGui::GetContentRegionAvailWidth();
-    int graphHeight = 150;
+    float regionWidth = ImGui::GetContentRegionAvailWidth();
+    float graphHeight = 150;
 
     const auto &histogram = histograms[variableIndex];
 
@@ -130,7 +129,7 @@ void MultiVarWindow::renderVarChart() {
     ImVec2 backgroundPos = ImGui::GetCursorScreenPos();
 
     ImColor backgroundColor(clearColor.getFloatR(), clearColor.getFloatG(), clearColor.getFloatB());
-    int border = 0;
+    float border = 0;
     drawList->AddRectFilled(
             ImVec2(backgroundPos.x + border, backgroundPos.y + border),
             ImVec2(backgroundPos.x + regionWidth - border, backgroundPos.y + graphHeight - border),
@@ -139,7 +138,7 @@ void MultiVarWindow::renderVarChart() {
     ImVec2 oldPadding = ImGui::GetStyle().FramePadding;
     ImGui::GetStyle().FramePadding = ImVec2(1, 1);
     ImGui::PlotHistogram(
-            "##histogram", histogram.data(), histogram.size(), 0, NULL,
+            "##histogram", histogram.data(), int(histogram.size()), 0, nullptr,
             0.0f, 1.0f, ImVec2(regionWidth, graphHeight));
     ImGui::GetStyle().FramePadding = oldPadding;
 }

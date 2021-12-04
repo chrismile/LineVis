@@ -80,7 +80,7 @@ Trajectories loadTrajectoriesFromObj(const std::string& filename, std::vector<st
                 char currentChar = lineBuffer.at(linePtr);
                 bool isWhitespace = currentChar == ' ' || currentChar == '\t';
                 if (isWhitespace && !stringBuffer.empty()) {
-                    globalLineVertexAttributes.push_back(atof(stringBuffer.c_str()));
+                    globalLineVertexAttributes.push_back(float(std::atof(stringBuffer.c_str())));
                     numAttributes++;
                     stringBuffer.clear();
                 } else if (!isWhitespace) {
@@ -88,7 +88,7 @@ Trajectories loadTrajectoriesFromObj(const std::string& filename, std::vector<st
                 }
             }
             if (!stringBuffer.empty()) {
-                globalLineVertexAttributes.push_back(atof(stringBuffer.c_str()));
+                globalLineVertexAttributes.push_back(float(std::atof(stringBuffer.c_str())));
                 numAttributes++;
                 stringBuffer.clear();
             }

@@ -314,7 +314,7 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewD
     gatherPpllOpacitiesRenderData = sgl::ShaderManager->createShaderAttributes(gatherPpllOpacitiesShader);
     gatherPpllFinalRenderData = sgl::ShaderManager->createShaderAttributes(gatherPpllFinalShader);
 
-    numLineVertices = vertexPositionBuffer->getSize() / sizeof(glm::vec3);
+    numLineVertices = uint32_t(vertexPositionBuffer->getSize() / sizeof(glm::vec3));
     generateBlendingWeightParametrization(isNewData);
 
     vertexOpacityBuffer = sgl::Renderer->createGeometryBuffer(
@@ -409,7 +409,7 @@ void OpacityOptimizationRenderer::generateBlendingWeightParametrization(bool isN
         }
         polylineLengths.at(lineIdx) = polylineLength;
         linesLengthSum += polylineLength;
-        numPolylineSegments += n - 1;
+        numPolylineSegments += uint32_t(n - 1);
     }
 
     if (useViewDependentParametrization) {
@@ -432,7 +432,7 @@ void OpacityOptimizationRenderer::recomputeStaticParametrization() {
     const int approximateLineSegmentsTotal = int(lines.size()) * 32; // Avg. discretization of 32 segments per line.
     lineSegmentConnectivityData.reserve(approximateLineSegmentsTotal);
 
-    size_t segmentIdOffset = 0;
+    uint32_t segmentIdOffset = 0;
     size_t vertexIdx = 0;
     for (size_t lineIdx = 0; lineIdx < lines.size(); lineIdx++) {
         std::vector<glm::vec3>& line = lines.at(lineIdx);
@@ -475,7 +475,7 @@ void OpacityOptimizationRenderer::recomputeStaticParametrization() {
 
         segmentIdOffset += numLineSubdivs;
     }
-    numLineSegments = lineSegmentConnectivityData.size();
+    numLineSegments = uint32_t(lineSegmentConnectivityData.size());
 
     // Upload the data to the GPU.
     lineSegmentIdBuffer = sgl::Renderer->createGeometryBuffer(

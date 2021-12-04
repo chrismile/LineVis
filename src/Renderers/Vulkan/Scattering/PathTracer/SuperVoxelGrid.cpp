@@ -72,8 +72,10 @@ SuperVoxelGrid::~SuperVoxelGrid() {
 void SuperVoxelGrid::computeSuperVoxels(const float* voxelGridData) {
     int superVoxelGridSize = superVoxelGridSizeX * superVoxelGridSizeY * superVoxelGridSizeZ;
 
+#if _OPENMP >= 200805
     #pragma omp parallel for firstprivate(superVoxelGridSize) default(none) \
     shared(voxelGridData, superVoxelGridMinDensity, superVoxelGridMaxDensity, superVoxelGridAvgDensity)
+#endif
     for (int superVoxelIdx = 0; superVoxelIdx < superVoxelGridSize; superVoxelIdx++) {
         int superVoxelIdxX = superVoxelIdx % superVoxelGridSizeX;
         int superVoxelIdxY = (superVoxelIdx / superVoxelGridSizeX) % superVoxelGridSizeY;
@@ -122,8 +124,10 @@ void SuperVoxelGrid::recomputeSuperVoxels() {
     const float gamma = 2.0f;
     const float D = std::sqrt(3.0f) * float(std::max(superVoxelSize.x, std::max(superVoxelSize.y, superVoxelSize.z)));
 
+#if _OPENMP >= 200805
     #pragma omp parallel for firstprivate(superVoxelGridSize, D, gamma) default(none) \
     shared(superVoxelGridMinDensity, superVoxelGridMaxDensity, superVoxelGridAvgDensity)
+#endif
     for (int superVoxelIdx = 0; superVoxelIdx < superVoxelGridSize; superVoxelIdx++) {
         float densityMin = superVoxelGridMinDensity[superVoxelIdx];
         float densityMax = superVoxelGridMaxDensity[superVoxelIdx];

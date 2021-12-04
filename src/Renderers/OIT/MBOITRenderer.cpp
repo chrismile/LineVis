@@ -48,7 +48,7 @@ bool MBOITRenderer::usePowerMoments = true;
 int MBOITRenderer::numMoments = 4;
 MBOITPixelFormat MBOITRenderer::pixelFormat = MBOIT_PIXEL_FORMAT_FLOAT_32;
 bool MBOITRenderer::USE_R_RG_RGBA_FOR_MBOIT6 = true;
-float MBOITRenderer::overestimationBeta = 0.1;
+float MBOITRenderer::overestimationBeta = 0.1f;
 
 MBOITRenderer::MBOITRenderer(
         SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
@@ -57,7 +57,7 @@ MBOITRenderer::MBOITRenderer(
     syncMode = getSupportedSyncMode();
 
     // Create moment OIT uniform data buffer.
-    momentUniformData.moment_bias = 5*1e-7;
+    momentUniformData.moment_bias = 5*1e-7f;
     momentUniformData.overestimation = overestimationBeta;
     computeWrappingZoneParameters(momentUniformData.wrapping_zone_parameters);
     momentOITUniformBuffer = sgl::Renderer->createGeometryBuffer(
@@ -236,31 +236,31 @@ void MBOITRenderer::updateMomentMode() {
     // Set algorithm-dependent bias
     if (usePowerMoments) {
         if (numMoments == 4 && pixelFormat == MBOIT_PIXEL_FORMAT_UNORM_16) {
-            momentUniformData.moment_bias = 6*1e-4; // 6*1e-5
-        } else if (numMoments == 4 && pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32) {
-            momentUniformData.moment_bias = 5*1e-7; // 5*1e-7
+            momentUniformData.moment_bias = 6*1e-4f;    // 6*1e-5
+        } else if (numMoments == 4 && pixelFormat ==  MBOIT_PIXEL_FORMAT_FLOAT_32) {
+            momentUniformData.moment_bias = 5*1e-7f;    // 5*1e-7
         } else if (numMoments == 6 && pixelFormat == MBOIT_PIXEL_FORMAT_UNORM_16) {
-            momentUniformData.moment_bias = 6*1e-3; // 6*1e-4
+            momentUniformData.moment_bias = 6*1e-3f;    // 6*1e-4
         } else if (numMoments == 6 && pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32) {
-            momentUniformData.moment_bias = 5*1e-6; // 5*1e-6
+            momentUniformData.moment_bias = 5*1e-6f;    // 5*1e-6
         } else if (numMoments == 8 && pixelFormat == MBOIT_PIXEL_FORMAT_UNORM_16) {
-            momentUniformData.moment_bias = 2.5*1e-2; // 2.5*1e-3
+            momentUniformData.moment_bias = 2.5f*1e-2f; // 2.5*1e-3
         } else if (numMoments == 8 && pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32) {
-            momentUniformData.moment_bias = 5*1e-5; // 5*1e-5
+            momentUniformData.moment_bias = 5*1e-5f;    // 5*1e-5
         }
     } else {
         if (numMoments == 4 && pixelFormat == MBOIT_PIXEL_FORMAT_UNORM_16) {
-            momentUniformData.moment_bias = 4*1e-3; // 4*1e-4
+            momentUniformData.moment_bias = 4*1e-3f;    // 4*1e-4
         } else if (numMoments == 4 && pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32) {
-            momentUniformData.moment_bias = 4*1e-7; // 4*1e-7
+            momentUniformData.moment_bias = 4*1e-7f;    // 4*1e-7
         } else if (numMoments == 6 && pixelFormat == MBOIT_PIXEL_FORMAT_UNORM_16) {
-            momentUniformData.moment_bias = 6.5*1e-3; // 6.5*1e-4
+            momentUniformData.moment_bias = 6.5f*1e-3f; // 6.5*1e-4
         } else if (numMoments == 6 && pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32) {
-            momentUniformData.moment_bias = 8*1e-6; // 8*1e-7
+            momentUniformData.moment_bias = 8*1e-6f;    // 8*1e-7
         } else if (numMoments == 8 && pixelFormat == MBOIT_PIXEL_FORMAT_UNORM_16) {
-            momentUniformData.moment_bias = 8.5*1e-3; // 8.5*1e-4
+            momentUniformData.moment_bias = 8.5f*1e-3f; // 8.5*1e-4
         } else if (numMoments == 8 && pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32) {
-            momentUniformData.moment_bias = 1.5*1e-5; // 1.5*1e-6;
+            momentUniformData.moment_bias = 1.5f*1e-5f; // 1.5*1e-6;
         }
     }
 

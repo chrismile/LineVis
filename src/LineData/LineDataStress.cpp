@@ -1124,7 +1124,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                 StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(lineId);
                 assert(lineCenters.size() == lineAttributes.size());
                 size_t n = lineCenters.size();
-                size_t indexOffset = vertexPositions.size();
+                uint32_t indexOffset = uint32_t(vertexPositions.size());
 
                 if (n < 2) {
                     continue;
@@ -1175,7 +1175,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
                 }
 
                 // Create indices
-                for (int i = 0; i < numValidLinePoints-1; i++) {
+                for (int i = 0; i < numValidLinePoints - 1; i++) {
                     lineIndices.push_back(indexOffset + i);
                     lineIndices.push_back(indexOffset + i + 1);
                 }
@@ -1552,7 +1552,7 @@ BandRenderData LineDataStress::getBandRenderData() {
                     continue;
                 }
 
-                size_t indexStart = vertexPositions.size();
+                uint32_t indexStart = uint32_t(vertexPositions.size());
                 int n = int(trajectory.positions.size());
                 int numValidLinePoints = 0;
                 for (int i = 0; i < int(trajectory.positions.size()); i++) {
@@ -1596,7 +1596,7 @@ BandRenderData LineDataStress::getBandRenderData() {
                     continue;
                 }
 
-                for (int i = 0; i < numValidLinePoints-1; i++) {
+                for (int i = 0; i < numValidLinePoints - 1; i++) {
                     lineIndices.push_back(indexStart + i);
                     lineIndices.push_back(indexStart + i + 1);
                 }
@@ -2015,7 +2015,7 @@ VulkanTubeAabbRenderData LineDataStress::getVulkanTubeAabbRenderData(LineRendere
             StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
 
             glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
-            size_t numValidLinePoints = 0;
+            uint32_t numValidLinePoints = 0;
             for (size_t i = 0; i < trajectory.positions.size(); i++) {
                 glm::vec3 tangent;
                 if (i == 0) {
@@ -2064,7 +2064,7 @@ VulkanTubeAabbRenderData LineDataStress::getVulkanTubeAabbRenderData(LineRendere
                 continue;
             }
 
-            for (size_t pointIdx = 1; pointIdx < numValidLinePoints; pointIdx++) {
+            for (uint32_t pointIdx = 1; pointIdx < numValidLinePoints; pointIdx++) {
                 lineSegmentPointIndices.push_back(lineSegmentIndexCounter + pointIdx - 1);
                 lineSegmentPointIndices.push_back(lineSegmentIndexCounter + pointIdx);
 
@@ -2076,7 +2076,7 @@ VulkanTubeAabbRenderData LineDataStress::getVulkanTubeAabbRenderData(LineRendere
                 aabb.max = glm::max(pt0, pt1) + lineWidthOffset;
                 lineSegmentAabbs.push_back(aabb);
             }
-            lineSegmentIndexCounter += uint32_t(numValidLinePoints);
+            lineSegmentIndexCounter += numValidLinePoints;
         }
     }
 

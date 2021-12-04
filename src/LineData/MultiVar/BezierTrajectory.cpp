@@ -46,7 +46,7 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
     for (const auto& trajectory : inTrajectories) {
         std::vector<BezierCurve> &curveSet = curves[trajCounter];
 
-        const int maxVertices = trajectory.positions.size();
+        const int maxVertices = int(trajectory.positions.size());
 
         float minT = 0.0f;
         float maxT = 1.0f;
@@ -89,7 +89,7 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
     avgSegLength /= numSegments;
 
     // 2) Compute min max values of all attributes across all trajectories
-    const uint32_t numVariables = inTrajectories[0].attributes.size();
+    const uint32_t numVariables = uint32_t(inTrajectories[0].attributes.size());
     if (numVariables <= 0) {
         sgl::Logfile::get()->writeError("ERROR: No variable was found in trajectory file.");
         std::exit(-2);
@@ -98,8 +98,8 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
     std::vector<glm::vec2> attributesMinMax(
             numVariables, glm::vec2(std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest()));
 
-    const uint32_t maxNumVariables = inTrajectories[0].attributes.size();
-    const uint32_t numLines = inTrajectories.size();
+    const uint32_t maxNumVariables = uint32_t(inTrajectories[0].attributes.size());
+    const uint32_t numLines = uint32_t(inTrajectories.size());
 
     // 2.5) Create buffer array with all variables and statistics
     std::vector<std::vector<float>> multiVarData(numLines);
@@ -116,7 +116,7 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
             VarDesc varDescPerLine = {0};
             varDescPerLine.minMax = glm::vec2(
                     std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest());
-            varDescPerLine.startIndex = varOffsetPerLine;
+            varDescPerLine.startIndex = float(varOffsetPerLine);
             varDescPerLine.dummy = 0.0f;
 
             const std::vector<float>& variableArray = trajectory.attributes[v];
@@ -132,10 +132,10 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
             }
 
             lineMultiVarDescs[lineID].push_back(varDescPerLine);
-            varOffsetPerLine += variableArray.size();
+            varOffsetPerLine += uint32_t(variableArray.size());
         }
-        lineDescs[lineID].startIndex = lineOffset;
-        lineDescs[lineID].numValues = varOffsetPerLine;
+        lineDescs[lineID].startIndex = float(lineOffset);
+        lineDescs[lineID].numValues = float(varOffsetPerLine);
 
         lineOffset += varOffsetPerLine;
         lineID++;

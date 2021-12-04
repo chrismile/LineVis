@@ -1239,7 +1239,7 @@ void MainApp::renderGuiMenuBar() {
             ImGui::SetCursorPosX(ImGui::GetWindowContentRegionWidth() - ImGui::GetTextLineHeight());
             ImGui::ProgressSpinner(
                     "##progress-spinner", -1.0f, -1.0f, 4.0f,
-                    ImVec4(0.1, 0.5, 1.0, 1.0));
+                    ImVec4(0.1f, 0.5f, 1.0f, 1.0f));
         }
 
         ImGui::EndMainMenuBar();
@@ -1264,7 +1264,7 @@ void MainApp::renderGuiPropertyEditorBegin() {
             ImGui::SameLine();
             ImGui::ProgressSpinner(
                     "##progress-spinner", -1.0f, -1.0f, 4.0f,
-                    ImVec4(0.1, 0.5, 1.0, 1.0));
+                    ImVec4(0.1f, 0.5f, 1.0f, 1.0f));
         }
 
         if (selectedDataSetIndex == 0) {
@@ -1391,7 +1391,7 @@ void MainApp::update(float dt) {
     }
 
     if (visualizeSeedingProcess) {
-        const int seedPointIdx = recordingTime / TIME_PER_SEED_POINT - 1;
+        const int seedPointIdx = int(recordingTime / TIME_PER_SEED_POINT - 1);
         LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
         if (seedPointIdx < lineDataStress->getNumSeedPoints()) {
             lineDataStress->setCurrentSeedIdx(seedPointIdx);
@@ -1461,7 +1461,7 @@ void MainApp::update(float dt) {
             if (realTimeReplayUpdates) {
                 uint64_t currentTimeStamp = sgl::Timer->getTicksMicroseconds();
                 uint64_t timeElapsedMicroSec = currentTimeStamp - recordingTimeStampStart;
-                recordingTime = timeElapsedMicroSec * 1e-6;
+                recordingTime = timeElapsedMicroSec * 1e-6f;
             } else {
                 recordingTime += FRAME_TIME_CAMERA_PATH;
             }

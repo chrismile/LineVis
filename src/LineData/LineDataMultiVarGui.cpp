@@ -106,9 +106,9 @@ bool LineDataMultiVar::renderGuiOverlay() {
         for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
             if (varSelected.at(i)) {
                 colorLegendWidgets.at(i).setAttributeMinValue(
-                        multiVarTransferFunctionWindow.getSelectedRangeMin(i));
+                        multiVarTransferFunctionWindow.getSelectedRangeMin(int(i)));
                 colorLegendWidgets.at(i).setAttributeMaxValue(
-                        multiVarTransferFunctionWindow.getSelectedRangeMax(i));
+                        multiVarTransferFunctionWindow.getSelectedRangeMax(int(i)));
                 colorLegendWidgets.at(i).renderGui();
             }
         }
@@ -246,7 +246,7 @@ bool LineDataMultiVar::renderGuiTechniqueSettingsPropertyEditor(sgl::PropertyEdi
             }
         }
 
-        numVariablesSelected = comboSelVec.size();
+        numVariablesSelected = uint32_t(comboSelVec.size());
 
         comboValue = "";
         for (size_t v = 0; v < comboSelVec.size(); ++v) {

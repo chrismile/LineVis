@@ -288,9 +288,9 @@ static PyObject* parseSettingsDict(PyObject* self, PyObject* args, ReplaySetting
                 bool isFloat = PyFloat_Check(tupleValues[i]);
                 bool isLong = PyLong_Check(tupleValues[i]);
                 if (isFloat) {
-                    values[i] = PyFloat_AsDouble(tupleValues[i]);
+                    values[i] = float(PyFloat_AsDouble(tupleValues[i]));
                 } else if (isLong) {
-                    values[i] = PyLong_AsDouble(tupleValues[i]);
+                    values[i] = float(PyLong_AsDouble(tupleValues[i]));
                 } else {
                     sgl::Logfile::get()->writeError(
                             "ERROR in py_set_rendering_algorithm_settings: Tuple must contain float or long values.");
@@ -774,7 +774,7 @@ ReplayWidget::ReplayWidgetUpdateType ReplayWidget::renderFileDialog() {
                 [this](void *data, int idx, const char **out_text) -> bool {
                     *out_text = availableScriptFiles.at(idx).c_str();
                     return true;
-                }, NULL, availableScriptFiles.size(), 4)) {
+                }, nullptr, int(availableScriptFiles.size()), 4)) {
             scriptFileName = availableScriptFiles.at(selectedFileIndex);
         }
         ImVec2 cursorPosEnd = ImGui::GetCursorPos();

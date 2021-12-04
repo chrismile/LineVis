@@ -55,7 +55,7 @@
 #define SAFE_DELETE(x) (if (x != NULL) { delete x; x = NULL; })
 #define SAFE_DELETE_ARRAY(x) if (x != NULL) { delete[] x; x = NULL; }
 
-const float MISSING_VALUE = -999.E9;
+const float MISSING_VALUE = -999.E9f;
 
 
 /**

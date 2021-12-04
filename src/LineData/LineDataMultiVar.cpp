@@ -353,7 +353,7 @@ void LineDataMultiVar::recomputeColorLegend() {
             colorLegendWidgets.at(i).setTransferFunctionColorMap(transferFunctionColorMap);*/
 
             std::vector<sgl::Color16> transferFunctionColorMap =
-                    multiVarTransferFunctionWindow.getTransferFunctionMap_sRGB(i);
+                    multiVarTransferFunctionWindow.getTransferFunctionMap_sRGB(int(i));
             if (!useColorIntensity) {
                 for (size_t i = 0; i < transferFunctionColorMap.size(); i++) {
                     transferFunctionColorMap.at(i) = transferFunctionColorMap.back();

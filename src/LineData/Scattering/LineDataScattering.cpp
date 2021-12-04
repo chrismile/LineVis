@@ -347,7 +347,7 @@ void LineDensityFieldImageComputeRenderPass::createComputeData(
         for (size_t i = 0; i < trajectory.positions.size(); i++) {
             linePoints.emplace_back(trajectory.positions.at(i), trajectory.attributes.at(selectedAttributeIndex).at(i));
         }
-        offsetCounter += trajectory.positions.size();
+        offsetCounter += uint32_t(trajectory.positions.size());
         lineOffsets.push_back(offsetCounter);
     }
     sgl::vk::BufferPtr linePointBuffer = std::make_shared<sgl::vk::Buffer>(

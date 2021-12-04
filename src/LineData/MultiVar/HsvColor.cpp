@@ -42,14 +42,14 @@ glm::vec3 rgbToHsv(const glm::vec3& color) {
     if (maxValue == color.r) {
         H = glm::mod((color.g - color.b) / C, 6.0f);
     } else if (maxValue == color.g) {
-        H = (color.b - color.r) / C + 2;
+        H = (color.b - color.r) / C + 2.0f;
     } else if (maxValue == color.b) {
-        H = (color.r - color.g) / C + 4;
+        H = (color.r - color.g) / C + 4.0f;
     } else {
-        H = 0;
+        H = 0.0f;
     }
 
-    H *= 60; // hue is in degree
+    H *= 60.0f; // hue is in degree
 
     // 2) Compute the value V
     float V = maxValue;
@@ -74,14 +74,14 @@ glm::vec3 hsvToRgb(const glm::vec3& color) {
     const float S = color.g;
     const float V = color.b;
 
-    float h = H / 60.0;
+    float h = H / 60.0f;
 
     int hi = int(glm::floor(h));
     float f = (h - float(hi));
 
-    float p = V * (1.0 - S);
-    float q = V * (1.0 - S * f);
-    float t = V * (1.0 - S * (1.0 - f));
+    float p = V * (1.0f - S);
+    float q = V * (1.0f - S * f);
+    float t = V * (1.0f - S * (1.0f - f));
 
     if (hi == 1) {
         return glm::vec3(q, V, p);

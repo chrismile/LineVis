@@ -138,7 +138,7 @@ void StressLineHierarchyMappingWidget::rebuildHierarchyMappingTexture() {
                 float hierarchyMapping1 = hierarchyMappingPoints[psIdx].at(hierarchyMappingPointsIdx).mappedValue;
                 float pos0 = hierarchyMappingPoints[psIdx].at(hierarchyMappingPointsIdx - 1).hierarchyLevel;
                 float pos1 = hierarchyMappingPoints[psIdx].at(hierarchyMappingPointsIdx).hierarchyLevel;
-                float factor = 1.0 - (pos1 - currentPosition) / (pos1 - pos0);
+                float factor = 1.0f - (pos1 - currentPosition) / (pos1 - pos0);
                 hierarchyMappingAtIdx = sgl::interpolateLinear(hierarchyMapping0, hierarchyMapping1, factor);
             }
 
@@ -164,11 +164,11 @@ void StressLineHierarchyMappingWidget::update(float dt) {
 void StressLineHierarchyMappingWidget::renderGraphArea(int psIdx) {
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     float scaleFactor = sgl::ImGuiWrapper::get()->getScaleFactor();
-    int regionWidth = ImGui::GetContentRegionAvailWidth();
-    int graphHeight = 200;
-    int border = 2*scaleFactor;
-    int areaWidth = regionWidth - 2.0f*border;
-    int areaHeight = graphHeight - 2.0f*border;
+    float regionWidth = ImGui::GetContentRegionAvailWidth();
+    float graphHeight = 200;
+    float border = 2 * scaleFactor;
+    float areaWidth = regionWidth - 2.0f * border;
+    float areaHeight = graphHeight - 2.0f * border;
     graphBoxes[psIdx].min = glm::vec2(ImGui::GetCursorScreenPos().x + border, ImGui::GetCursorScreenPos().y + border);
     graphBoxes[psIdx].max = graphBoxes[psIdx].min + glm::vec2(areaWidth, areaHeight);
 
@@ -198,7 +198,7 @@ void StressLineHierarchyMappingWidget::renderGraphArea(int psIdx) {
     ImVec2 oldPadding = ImGui::GetStyle().FramePadding;
     ImGui::GetStyle().FramePadding = ImVec2(1, 1);
     ImGui::PlotHistogram(
-            histogramId.c_str(), histogram[psIdx].data(), histogram[psIdx].size(),
+            histogramId.c_str(), histogram[psIdx].data(), int(histogram[psIdx].size()),
             0, nullptr, 0.0f, 1.0f, ImVec2(regionWidth, graphHeight));
     ImGui::GetStyle().FramePadding = oldPadding;
 

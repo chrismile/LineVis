@@ -147,14 +147,14 @@ bool MeshLoader::loadHexahedralMeshFromFile(
             if (tokens.size() == 1) {
                 lastLineWasVerticesHeader = true;
             } else {
-                numVerticesLeft = sgl::fromString<size_t>(tokens.at(1));
+                numVerticesLeft = sgl::fromString<int>(tokens.at(1));
                 isVerticesReadMode = numVerticesLeft > 0;
             }
             return true;
         }
 
         if (lastLineWasVerticesHeader) {
-            numVerticesLeft = sgl::fromString<size_t>(tokens.at(0));
+            numVerticesLeft = sgl::fromString<int>(tokens.at(0));
             lastLineWasVerticesHeader = false;
             isVerticesReadMode = numVerticesLeft > 0;
             return true;
@@ -165,14 +165,14 @@ bool MeshLoader::loadHexahedralMeshFromFile(
             if (tokens.size() == 1) {
                 lastLineWasHexahedraHeader = true;
             } else {
-                numHexahedraLeft = sgl::fromString<size_t>(tokens.at(1));
+                numHexahedraLeft = sgl::fromString<int>(tokens.at(1));
                 isHexahedraReadMode = numHexahedraLeft > 0;
             }
             return true;
         }
 
         if (lastLineWasHexahedraHeader) {
-            numHexahedraLeft = sgl::fromString<size_t>(tokens.at(0));
+            numHexahedraLeft = sgl::fromString<int>(tokens.at(0));
             lastLineWasHexahedraHeader = false;
             isHexahedraReadMode = numHexahedraLeft > 0;
             return true;
@@ -183,14 +183,14 @@ bool MeshLoader::loadHexahedralMeshFromFile(
             if (tokens.size() == 1) {
                 lastLineWasQuadrilateralsHeader = true;
             } else {
-                numQuadrilateralsLeft = sgl::fromString<size_t>(tokens.at(0));
+                numQuadrilateralsLeft = sgl::fromString<int>(tokens.at(0));
                 isQuadrilateralsReadMode = numQuadrilateralsLeft > 0;
             }
             return true;
         }
 
         if (lastLineWasQuadrilateralsHeader) {
-            numQuadrilateralsLeft = sgl::fromString<size_t>(tokens.at(0));
+            numQuadrilateralsLeft = sgl::fromString<int>(tokens.at(0));
             lastLineWasQuadrilateralsHeader = false;
             isQuadrilateralsReadMode = numQuadrilateralsLeft > 0;
             return true;

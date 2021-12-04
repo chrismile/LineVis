@@ -32,7 +32,7 @@
 #include <Utils/InternalState.hpp>
 #include "StressLineTracingRequesterSocket.hpp"
 
-class DataSetInformation;
+struct DataSetInformation;
 
 enum class SeedStrategy {
     VOLUME, SURFACE, LOADING_AREA, APPROX_TOPOLOGY

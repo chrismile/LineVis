@@ -44,7 +44,7 @@ void createLineTubesRenderDataCPU(
         const std::vector<T> &lineAttributes = lineAttributesList.at(lineId);
         assert(lineCenters.size() == lineAttributes.size());
         size_t n = lineCenters.size();
-        size_t indexOffset = vertexPositions.size();
+        uint32_t indexOffset = uint32_t(vertexPositions.size());
 
         if (n < 2) {
             continue;
@@ -138,12 +138,12 @@ void createLineTubesRenderDataCPU(
         std::vector<uint32_t>& validLineIndices,
         std::vector<uint32_t>& numValidLineVertices) {
     assert(lineCentersList.size() == lineAttributesList.size());
-    for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
+    for (uint32_t lineId = 0; lineId < uint32_t(lineCentersList.size()); lineId++) {
         const std::vector<glm::vec3> &lineCenters = lineCentersList.at(lineId);
         const std::vector<T> &lineAttributes = lineAttributesList.at(lineId);
         assert(lineCenters.size() == lineAttributes.size());
         size_t n = lineCenters.size();
-        size_t indexOffset = vertexPositions.size();
+        uint32_t indexOffset = uint32_t(vertexPositions.size());
 
         if (n < 2) {
             //sgl::Logfile::get()->writeError(

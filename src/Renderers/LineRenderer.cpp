@@ -152,7 +152,7 @@ void LineRenderer::computeDepthRange() {
     if (computeDepthCuesOnGpu) {
         sgl::ShaderManager->bindShaderStorageBuffer(12, filteredLinesVerticesBuffer);
         sgl::ShaderManager->bindShaderStorageBuffer(11, depthMinMaxBuffers[0]);
-        uint32_t numVertices = filteredLinesVerticesBuffer->getSize() / sizeof(glm::vec4);
+        uint32_t numVertices = uint32_t(filteredLinesVerticesBuffer->getSize() / sizeof(glm::vec4));
         uint32_t numBlocks = sgl::iceil(int(numVertices), BLOCK_SIZE);
         computeDepthValuesShaderProgram->setUniform("numVertices", numVertices);
         computeDepthValuesShaderProgram->setUniform("nearDist", (*sceneData->camera)->getNearClipDistance());

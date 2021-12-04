@@ -298,7 +298,7 @@ void GuiVarData::rebuildTransferFunctionMap_LinearRGB() {
             glm::vec3 color1 = colorPoints_LinearRGB.at(colorPointsIdx).color;
             float pos0 = colorPoints_LinearRGB.at(colorPointsIdx-1).position;
             float pos1 = colorPoints_LinearRGB.at(colorPointsIdx).position;
-            float factor = 1.0 - (pos1 - currentPosition) / (pos1 - pos0);
+            float factor = 1.0f - (pos1 - currentPosition) / (pos1 - pos0);
             linearRGBColorAtIdx = glm::mix(color0, color1, factor);
         }
 
@@ -310,7 +310,7 @@ void GuiVarData::rebuildTransferFunctionMap_LinearRGB() {
             float opacity1 = opacityPoints.at(opacityPointsIdx).opacity;
             float pos0 = opacityPoints.at(opacityPointsIdx-1).position;
             float pos1 = opacityPoints.at(opacityPointsIdx).position;
-            float factor = 1.0 - (pos1 - currentPosition) / (pos1 - pos0);
+            float factor = 1.0f - (pos1 - currentPosition) / (pos1 - pos0);
             opacityAtIdx = sgl::interpolateLinear(opacity0, opacity1, factor);
         }
 
@@ -345,7 +345,7 @@ void GuiVarData::rebuildTransferFunctionMap_sRGB() {
             glm::vec3 color1 = colorPoints.at(colorPointsIdx).color.getFloatColorRGB();
             float pos0 = colorPoints.at(colorPointsIdx-1).position;
             float pos1 = colorPoints.at(colorPointsIdx).position;
-            float factor = 1.0 - (pos1 - currentPosition) / (pos1 - pos0);
+            float factor = 1.0f - (pos1 - currentPosition) / (pos1 - pos0);
             sRGBColorAtIdx = glm::mix(color0, color1, factor);
         }
 
@@ -357,7 +357,7 @@ void GuiVarData::rebuildTransferFunctionMap_sRGB() {
             float opacity1 = opacityPoints.at(opacityPointsIdx).opacity;
             float pos0 = opacityPoints.at(opacityPointsIdx-1).position;
             float pos1 = opacityPoints.at(opacityPointsIdx).position;
-            float factor = 1.0 - (pos1 - currentPosition) / (pos1 - pos0);
+            float factor = 1.0f - (pos1 - currentPosition) / (pos1 - pos0);
             opacityAtIdx = sgl::interpolateLinear(opacity0, opacity1, factor);
         }
 
@@ -424,7 +424,7 @@ void GuiVarData::renderFileDialog() {
     if (ImGui::ListBox("##availablefiles", &selectedFileIndex, [this](void* data, int idx, const char** out_text) -> bool {
         *out_text = window->availableFiles.at(idx).c_str();
         return true;
-    }, NULL, window->availableFiles.size(), 4)) {
+    }, nullptr, int(window->availableFiles.size()), 4)) {
         saveFileString = window->availableFiles.at(selectedFileIndex);
     } ImVec2 cursorPosEnd = ImGui::GetCursorPos(); ImGui::SameLine();
 
@@ -480,7 +480,7 @@ void GuiVarData::renderOpacityGraph() {
     ImVec2 oldPadding = ImGui::GetStyle().FramePadding;
     ImGui::GetStyle().FramePadding = ImVec2(1, 1);
     ImGui::PlotHistogram(
-            "##histogram", histogram.data(), histogram.size(), 0,
+            "##histogram", histogram.data(), int(histogram.size()), 0,
             nullptr, 0.0f, 1.0f,
             ImVec2(regionWidth - border * 2, graphHeight - border * 2));
     ImGui::GetStyle().FramePadding = oldPadding;
@@ -514,8 +514,8 @@ void GuiVarData::renderOpacityGraph() {
 void GuiVarData::renderColorBar() {
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     float scaleFactor = sgl::ImGuiWrapper::get()->getScaleFactor();
-    int regionWidth = ImGui::GetContentRegionAvailWidth() - 2;
-    int barHeight = 30 * scaleFactor / 1.875f;
+    float regionWidth = ImGui::GetContentRegionAvailWidth() - 2.0f;
+    float barHeight = 30 * scaleFactor / 1.875f;
     colorBarBox.min = glm::vec2(ImGui::GetCursorScreenPos().x + 1, ImGui::GetCursorScreenPos().y + 1);
     colorBarBox.max = colorBarBox.min + glm::vec2(regionWidth - 2, barHeight - 2);
 
@@ -655,7 +655,7 @@ void GuiVarData::onColorBarClick() {
                 sgl::Color16 newColor = sgl::color16Lerp(
                         colorPoints.at(insertPosition-1).color,
                         colorPoints.at(insertPosition).color,
-                        1.0 - (colorPoints.at(insertPosition).position - newPosition)
+                        1.0f - (colorPoints.at(insertPosition).position - newPosition)
                               / (colorPoints.at(insertPosition).position - colorPoints.at(insertPosition-1).position));
                 colorPoints.insert(
                         colorPoints.begin() + insertPosition,

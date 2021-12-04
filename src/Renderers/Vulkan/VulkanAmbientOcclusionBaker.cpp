@@ -551,7 +551,7 @@ void AmbientOcclusionComputeRenderPass::generateBlendingWeightParametrization() 
         }
         polylineLengths.at(lineIdx) = polylineLength;
         linesLengthSum += polylineLength;
-        numPolylineSegments += n - 1;
+        numPolylineSegments += uint32_t(n) - 1;
     }
 
     recomputeStaticParametrization();
@@ -629,7 +629,7 @@ void AmbientOcclusionComputeRenderPass::recomputeStaticParametrization() {
 
         segmentVertexIdOffset += numSubdivVertices;
     }
-    numParametrizationVertices = samplingLocations.size();
+    numParametrizationVertices = uint32_t(samplingLocations.size());
 
     blendingWeightParametrizationBuffer = std::make_shared<sgl::vk::Buffer>(
             device, numLineVertices * sizeof(float), blendingWeightParametrizationData.data(),
@@ -709,6 +709,6 @@ void AmbientOcclusionComputeRenderPass::_render() {
             sizeof(LineRenderSettings), &lineRenderSettings, renderer->getVkCommandBuffer());
 
     renderer->dispatch(
-            computeData, samplingLocationsBuffer->getSizeInBytes() / sizeof(float),
+            computeData, uint32_t(samplingLocationsBuffer->getSizeInBytes() / sizeof(float)),
             1, 1);
 }

@@ -48,7 +48,7 @@ void buildVerticesSlim(
         const std::vector<glm::vec3>& vertices, const std::vector<uint32_t>& cellIndices,
         std::vector<VertexSlim>& verticesSlim) {
     verticesSlim.resize(vertices.size());
-    const uint32_t numCells = cellIndices.size() / 8;
+    const uint32_t numCells = uint32_t(cellIndices.size() / 8);
     for (uint32_t c_id = 0; c_id < numCells; c_id++) {
         for (uint32_t v_internal_id = 0; v_internal_id < 8; v_internal_id++) {
             uint32_t v_id = cellIndices.at(c_id * 8 + v_internal_id);
@@ -104,7 +104,7 @@ void buildFacesSlim(
         }
     };
 
-    const uint32_t numCells = cellIndices.size() / 8;
+    const uint32_t numCells = uint32_t(cellIndices.size() / 8);
     std::vector<FaceSlim> totalFaces(numCells * 6);
     std::vector<TempFace> tempFaces(numCells * 6);
 

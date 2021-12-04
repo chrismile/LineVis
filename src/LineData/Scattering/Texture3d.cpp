@@ -8,7 +8,7 @@
 #include <Utils/Defer.hpp>
 
 inline float lerp(float a, float t, float b) {
-    return a * (1.0 - t) + b * t;
+    return a * (1.0f - t) + b * t;
 }
 
 Texture3D load_xyz_file(std::string file_name) {
@@ -97,13 +97,13 @@ float Texture3D::sample_at(glm::vec3 pos) {
     float th = fh - (int)fh;
     float td = fd - (int)fd;
 
-    uint32_t idx_w_left = floor(fw);
-    uint32_t idx_h_low  = floor(fh);
-    uint32_t idx_d_near = floor(fd);
+    uint32_t idx_w_left = uint32_t(floor(fw));
+    uint32_t idx_h_low  = uint32_t(floor(fh));
+    uint32_t idx_d_near = uint32_t(floor(fd));
 
-    uint32_t idx_w_right = ceil(fw);
-    uint32_t idx_h_high  = ceil(fh);
-    uint32_t idx_d_far   = ceil(fd);
+    uint32_t idx_w_right = uint32_t(ceil(fw));
+    uint32_t idx_h_high  = uint32_t(ceil(fh));
+    uint32_t idx_d_far   = uint32_t(ceil(fd));
 
     int idx_left_low_near   = IDX(idx_w_left,  idx_h_low,  idx_d_near);
     int idx_left_low_far    = IDX(idx_w_left,  idx_h_low,  idx_d_far);

@@ -201,7 +201,7 @@ bool VtkLoader::loadHexahedralMeshFromFile(
                 sgl::Logfile::get()->writeError("Error in VtkLoader: Malformed POINTS declaration!");
                 return false;
             }
-            numPointsLeft = sgl::fromString<size_t>(tokens.at(1));
+            numPointsLeft = sgl::fromString<int>(tokens.at(1));
             foundPoints = true;
             isPointsReadMode = numPointsLeft > 0;
             return true;
@@ -213,8 +213,8 @@ bool VtkLoader::loadHexahedralMeshFromFile(
                 sgl::Logfile::get()->writeError("Error in VtkLoader: Malformed POINTS declaration!");
                 return false;
             }
-            numCellsLeft = sgl::fromString<size_t>(tokens.at(1));
-            int numEntries = sgl::fromString<size_t>(tokens.at(2));
+            numCellsLeft = sgl::fromString<int>(tokens.at(1));
+            int numEntries = sgl::fromString<int>(tokens.at(2));
             if (numEntries != numCellsLeft * 9) {
                 sgl::Logfile::get()->writeError("Error in VtkLoader: Invalid number of cell entries!");
                 return false;
@@ -230,7 +230,7 @@ bool VtkLoader::loadHexahedralMeshFromFile(
                 sgl::Logfile::get()->writeError("Error in VtkLoader: Malformed CELL_TYPES declaration!");
                 return false;
             }
-            numCellTypesLeft = sgl::fromString<size_t>(tokens.at(1));
+            numCellTypesLeft = sgl::fromString<int>(tokens.at(1));
             foundCellTypes = true;
             isCellTypesReadMode = numCellTypesLeft > 0;
             return true;
@@ -243,7 +243,7 @@ bool VtkLoader::loadHexahedralMeshFromFile(
                 return false;
             }
             // Number of entries + SCALARS + LOOKUP_TABLE information
-            numCellDataLinesLeft = sgl::fromString<size_t>(tokens.at(1)) + 2;
+            numCellDataLinesLeft = sgl::fromString<int>(tokens.at(1)) + 2;
             isCellDataReadMode = true;
             return true;
         }
@@ -255,7 +255,7 @@ bool VtkLoader::loadHexahedralMeshFromFile(
                 return false;
             }
             // Number of entries + SCALARS + LOOKUP_TABLE information
-            numPointDataLinesLeft = sgl::fromString<size_t>(tokens.at(1)) + 2;
+            numPointDataLinesLeft = sgl::fromString<int>(tokens.at(1)) + 2;
             isPointDataReadMode = true;
             return true;
         }
@@ -266,7 +266,7 @@ bool VtkLoader::loadHexahedralMeshFromFile(
                 sgl::Logfile::get()->writeError("Error in VtkLoader: Malformed Deformation declaration!");
                 return false;
             }
-            numDeformationDataLinesLeft = sgl::fromString<size_t>(tokens.at(1));
+            numDeformationDataLinesLeft = sgl::fromString<int>(tokens.at(1));
             isDeformationDataReadMode = true;
             return true;
         }
@@ -277,7 +277,7 @@ bool VtkLoader::loadHexahedralMeshFromFile(
                 sgl::Logfile::get()->writeError("Error in VtkLoader: Malformed AnisotropyMetric declaration!");
                 return false;
             }
-            numAnisotropyMetricLinesLeft = sgl::fromString<size_t>(tokens.at(1));
+            numAnisotropyMetricLinesLeft = sgl::fromString<int>(tokens.at(1));
             isAnisotropyMetricReadMode = true;
             return true;
         }

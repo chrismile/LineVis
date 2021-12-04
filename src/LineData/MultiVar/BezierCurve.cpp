@@ -157,7 +157,7 @@ float BezierCurve::solveTForArcLength(const float _arcLength) const {
     // Initial guess
     float t = minT + _arcLength / totalArcLength * (maxT - minT);
 
-    float delta = 1E-5;
+    float delta = 1e-5f;
     // We use bisection to get closer to our solution
     float lower = minT;
     float upper = maxT;

@@ -31,7 +31,7 @@
 #include "Tubes.hpp"
 
 void addHemisphereToMesh(
-        const glm::vec3& center, glm::vec3 tangent, glm::vec3 normal, size_t indexOffset, uint32_t vertexLinePointIndex,
+        const glm::vec3& center, glm::vec3 tangent, glm::vec3 normal, uint32_t indexOffset, uint32_t vertexLinePointIndex,
         float tubeRadius, int numLongitudeSubdivisions, int numLatitudeSubdivisions, bool isStartHemisphere,
         std::vector<uint32_t>& triangleIndices, std::vector<TubeTriangleVertexData>& vertexDataList) {
     glm::vec3 binormal = glm::cross(normal, tangent);
@@ -42,7 +42,7 @@ void addHemisphereToMesh(
     float theta; // azimuth;
     float phi; // zenith;
 
-    size_t vertexIndexOffset = vertexDataList.size() - indexOffset - numLongitudeSubdivisions;
+    uint32_t vertexIndexOffset = uint32_t(vertexDataList.size()) - indexOffset - numLongitudeSubdivisions;
     for (int lat = 1; lat <= numLatitudeSubdivisions; lat++) {
         phi = sgl::HALF_PI * (1.0f - float(lat) / float(numLatitudeSubdivisions));
         for (int lon = 0; lon < numLongitudeSubdivisions; lon++) {
@@ -148,8 +148,8 @@ void createCappedTriangleTubesRenderDataCPU(
     for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
         const std::vector<glm::vec3>& lineCenters = lineCentersList.at(lineId);
         size_t n = lineCenters.size();
-        size_t indexOffset = vertexDataList.size();
-        size_t lineIndexOffset = lineTangents.size();
+        uint32_t indexOffset = uint32_t(vertexDataList.size());
+        uint32_t lineIndexOffset = uint32_t(lineTangents.size());
 
         // Assert that we have a valid input data range
         if (tubeClosed && n < 3) {
@@ -252,7 +252,7 @@ void createCappedTriangleTubesRenderDataCPU(
              * If the tube is open, close it with two hemisphere caps at the ends.
              */
             int numLongitudeSubdivisions = numCircleSubdivisions; // azimuth
-            int numLatitudeSubdivisions = std::ceil(numCircleSubdivisions/2); // zenith
+            int numLatitudeSubdivisions = int(std::ceil(numCircleSubdivisions/2)); // zenith
 
             // Hemisphere at the start
             glm::vec3 center0 = lineCenters[0];
@@ -283,7 +283,7 @@ void createCappedTriangleTubesRenderDataCPU(
 
 
 void addEllipticHemisphereToMesh(
-        const glm::vec3& center, glm::vec3 tangent, glm::vec3 normal, size_t indexOffset, uint32_t vertexLinePointIndex,
+        const glm::vec3& center, glm::vec3 tangent, glm::vec3 normal, uint32_t indexOffset, uint32_t vertexLinePointIndex,
         float tubeNormalRadius, float tubeBinormalRadius,
         int numLongitudeSubdivisions, int numLatitudeSubdivisions, bool isStartHemisphere,
         std::vector<uint32_t>& triangleIndices, std::vector<TubeTriangleVertexData>& vertexDataList) {
@@ -298,7 +298,7 @@ void addEllipticHemisphereToMesh(
     glm::mat3 frameMatrix(scaledNormal, scaledBinormal, scaledTangent);
     glm::mat3 normalFrameMatrix = glm::transpose(glm::inverse(frameMatrix));
 
-    size_t vertexIndexOffset = vertexDataList.size() - indexOffset - numLongitudeSubdivisions;
+    uint32_t vertexIndexOffset = uint32_t(vertexDataList.size()) - indexOffset - numLongitudeSubdivisions;
     for (int lat = 1; lat <= numLatitudeSubdivisions; lat++) {
         phi = sgl::HALF_PI * (1.0f - float(lat) / float(numLatitudeSubdivisions));
         for (int lon = 0; lon < numLongitudeSubdivisions; lon++) {
@@ -404,8 +404,8 @@ void createCappedTriangleEllipticTubesRenderDataCPU(
         const std::vector<glm::vec3>& lineCenters = lineCentersList.at(lineId);
         const std::vector<glm::vec3> &lineRightVectors = lineRightVectorsList.at(lineId);
         size_t n = lineCenters.size();
-        size_t indexOffset = vertexDataList.size();
-        size_t lineIndexOffset = lineTangents.size();
+        uint32_t indexOffset = uint32_t(vertexDataList.size());
+        uint32_t lineIndexOffset = uint32_t(lineTangents.size());
 
         // Assert that we have a valid input data range
         if (tubeClosed && n < 3) {
@@ -508,7 +508,7 @@ void createCappedTriangleEllipticTubesRenderDataCPU(
              * If the tube is open, close it with two hemisphere caps at the ends.
              */
             int numLongitudeSubdivisions = numCircleSubdivisions; // azimuth
-            int numLatitudeSubdivisions = std::ceil(numCircleSubdivisions/2); // zenith
+            int numLatitudeSubdivisions = int(std::ceil(numCircleSubdivisions/2)); // zenith
 
             // Hemisphere at the start
             glm::vec3 center0 = lineCenters[0];

@@ -46,7 +46,7 @@ void createTriangleTubesRenderDataCPU(
     for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
         const std::vector<glm::vec3> &lineCenters = lineCentersList.at(lineId);
         size_t n = lineCenters.size();
-        size_t indexOffset = vertexDataList.size();
+        uint32_t indexOffset = uint32_t(vertexDataList.size());
 
         if (n < 2) {
             continue;
@@ -137,7 +137,7 @@ void createTriangleEllipticTubesRenderDataCPU(
         const std::vector<glm::vec3> &lineCenters = lineCentersList.at(lineId);
         const std::vector<glm::vec3> &lineRightVectors = lineRightVectorsList.at(lineId);
         size_t n = lineCenters.size();
-        size_t indexOffset = vertexDataList.size();
+        uint32_t indexOffset = uint32_t(vertexDataList.size());
 
         if (n < 2) {
             continue;

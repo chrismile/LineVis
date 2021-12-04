@@ -98,7 +98,7 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
     bool shallReloadGatherShader = false;
 
     if (lineRenderer->getIsRasterizer()) {
-        size_t numPrimitiveModes = IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES);
+        int numPrimitiveModes = IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES);
         if (getType() != DATA_SET_TYPE_STRESS_LINES) {
             numPrimitiveModes -= 2;
         }

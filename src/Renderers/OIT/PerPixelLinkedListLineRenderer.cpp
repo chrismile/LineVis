@@ -222,13 +222,13 @@ void PerPixelLinkedListLineRenderer::render() {
 
     setUniformData();
     if ((*sceneData->performanceMeasurer)) {
-        timer->startGPU("PPLLClear", frameCounter);
+        timer->startGPU("PPLLClear", float(frameCounter));
         clear();
         timer->end();
-        timer->startGPU("FCGather", frameCounter);
+        timer->startGPU("FCGather", float(frameCounter));
         gather();
         timer->end();
-        timer->startGPU("PPLLResolve", frameCounter);
+        timer->startGPU("PPLLResolve", float(frameCounter));
         resolve();
         timer->end();
     } else {

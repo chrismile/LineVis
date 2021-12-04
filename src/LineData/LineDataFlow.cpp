@@ -135,7 +135,7 @@ void LineDataFlow::recomputeHistogram() {
     }
     glm::vec2 minMaxAttributes = minMaxAttributeValues.at(selectedAttributeIndex);
     transferFunctionWindow.computeHistogram(attributeList, minMaxAttributes.x, minMaxAttributes.y);
-    selectedAttributeIndex = attributeNames.size() - 1;
+    selectedAttributeIndex = int(attributeNames.size()) - 1;
     recomputeColorLegend();
 }
 
@@ -585,7 +585,7 @@ VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData(LineRenderer*
         Trajectory& trajectory = trajectories.at(trajectoryIdx);
 
         glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
-        size_t numValidLinePoints = 0;
+        uint32_t numValidLinePoints = 0;
         for (size_t i = 0; i < trajectory.positions.size(); i++) {
             glm::vec3 tangent;
             if (i == 0) {
@@ -631,7 +631,7 @@ VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData(LineRenderer*
             continue;
         }
 
-        for (size_t pointIdx = 1; pointIdx < numValidLinePoints; pointIdx++) {
+        for (uint32_t pointIdx = 1; pointIdx < numValidLinePoints; pointIdx++) {
             lineSegmentPointIndices.push_back(lineSegmentIndexCounter + pointIdx - 1);
             lineSegmentPointIndices.push_back(lineSegmentIndexCounter + pointIdx);
 

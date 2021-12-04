@@ -264,7 +264,7 @@ std::vector<uint32_t> shuffleIndicesLines(const std::vector<uint32_t> &indices) 
         shuffleOffsets.push_back(i);
     }
     auto rng = std::default_random_engine{};
-    rng.seed(std::chrono::system_clock::now().time_since_epoch().count());
+    rng.seed(static_cast<unsigned int>(std::chrono::system_clock::now().time_since_epoch().count()));
     std::shuffle(std::begin(shuffleOffsets), std::end(shuffleOffsets), rng);
 
     std::vector<uint32_t> shuffledIndices;
@@ -304,7 +304,7 @@ std::vector<uint32_t> shuffleLineOrder(const std::vector<uint32_t> &indices) {
 
     // 2. Shuffle line list
     auto rng = std::default_random_engine{};
-    rng.seed(std::chrono::system_clock::now().time_since_epoch().count());
+    rng.seed(static_cast<unsigned int>(std::chrono::system_clock::now().time_since_epoch().count()));
     std::shuffle(std::begin(lines), std::end(lines), rng);
 
     // 3. Reconstruct line list from shuffled lines
@@ -326,7 +326,7 @@ std::vector<uint32_t> shuffleIndicesTriangles(const std::vector<uint32_t> &indic
         shuffleOffsets.push_back(i);
     }
     auto rng = std::default_random_engine{};
-    rng.seed(std::chrono::system_clock::now().time_since_epoch().count());
+    rng.seed(static_cast<unsigned int>(std::chrono::system_clock::now().time_since_epoch().count()));
     std::shuffle(std::begin(shuffleOffsets), std::end(shuffleOffsets), rng);
 
     std::vector<uint32_t> shuffledIndices;

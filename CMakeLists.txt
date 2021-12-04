@@ -154,7 +154,6 @@ endif()
 if(MSVC)
     #target_compile_definitions(LineVis PRIVATE /wd4251)
     set_target_properties(LineVis PROPERTIES COMPILE_FLAGS "/wd4251")
-    set_target_properties(LineVis PROPERTIES LINK_FLAGS "/wd4251")
 endif()
 
 add_subdirectory(submodules/IsosurfaceCpp)

@@ -133,8 +133,8 @@ void AutomaticPerformanceMeasurer::writeCurrentModeData() {
     std::vector<float> frameTimes;
     float averageFrametime = 0.0f;
     for (uint64_t frameTimeNS : frameTimesNS) {
-        float frameTimeMS = double(frameTimeNS) / double(1e6);
-        float frameTimeS = double(frameTimeNS) / double(1e9);
+        float frameTimeMS = float(double(frameTimeNS) / double(1e6));
+        float frameTimeS = float(double(frameTimeNS) / double(1e9));
         frameTimes.push_back(frameTimeS);
         averageFrametime += frameTimeS;
         perfFile.writeCell(sgl::toString(frameTimeMS));
@@ -223,7 +223,7 @@ float AutomaticPerformanceMeasurer::getUsedVideoMemorySizeGiB() {
     if (sgl::SystemGL::get()->isGLExtensionAvailable("GL_NVX_gpu_memory_info")) {
         GLint freeMemKilobytes = 0;
         glGetIntegerv(GL_GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX, &freeMemKilobytes);
-        float usedGiB = (initialFreeMemKilobytes - freeMemKilobytes) * 1000.0 / 1024.0 / 1024.0 / 1024.0;
+        float usedGiB = float((initialFreeMemKilobytes - freeMemKilobytes) * 1000.0 / (1024.0 * 1024.0 * 1024.0));
         return usedGiB;
     }
     // https://www.khronos.org/registry/OpenGL/extensions/NV/NV_query_resource.txt

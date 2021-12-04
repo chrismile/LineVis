@@ -228,7 +228,7 @@ void VoxelCurveDiscretizer::compressData() {
     voxelDensities.reserve(n);
     usedVoxels.reserve(n);
 
-    size_t lineOffset = 0;
+    uint32_t lineOffset = 0;
 #ifdef PACK_LINES
     std::vector<LineSegmentCompressed> lineSegments;
 #else
@@ -241,7 +241,7 @@ void VoxelCurveDiscretizer::compressData() {
 
     for (uint32_t i = 0; i < n; i++) {
         voxelLineListOffsets.push_back(lineOffset);
-        size_t numLines = voxels[i].lines.size();
+        uint32_t numLines = uint32_t(voxels[i].lines.size());
         numLinesInVoxel.push_back(numLines);
         voxelDensities.push_back(voxels[i].computeDensity());
         usedVoxels.push_back(numLines > 0 ? 1 : 0);
@@ -351,7 +351,7 @@ void VoxelCurveDiscretizer::compressLine(
     uint8_t attr1Unorm = uint8_t(glm::clamp(std::round(lineQuantized.a1*255.0f), 0.0f, 255.0f));
     uint8_t attr2Unorm = uint8_t(glm::clamp(std::round(lineQuantized.a2*255.0f), 0.0f, 255.0f));
 
-    int c = round(2*intlog2(quantizationResolution.x));
+    int c = int(std::round(2 * intlog2(quantizationResolution.x)));
     lineCompressed.linePosition = lineQuantized.faceIndex1;
     lineCompressed.linePosition |= lineQuantized.faceIndex2 << 3;
     lineCompressed.linePosition |= lineQuantized.facePositionQuantized1 << 6;
@@ -384,7 +384,7 @@ void VoxelCurveDiscretizer::quantizePoint(const glm::vec3& v, glm::ivec2& qv, in
 
     // Iterate over all dimensions
     for (int i = 0; i < 2; i++) {
-        uint32_t quantizationPos = std::floor(v[dimensions[i]] * quantizationResolution[dimensions[i]]);
+        uint32_t quantizationPos = uint32_t(std::floor(v[dimensions[i]] * quantizationResolution[dimensions[i]]));
         qv[i] = glm::clamp(quantizationPos, 0u, quantizationResolution[dimensions[i]]-1);
     }
 }

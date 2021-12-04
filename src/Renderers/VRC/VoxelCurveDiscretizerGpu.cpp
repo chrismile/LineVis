@@ -80,7 +80,7 @@ void VoxelCurveDiscretizer::createVoxelGridGpu() {
         for (size_t i = 0; i < curveNumPoints; i++) {
             linePoints.emplace_back(curve.points.at(i), curve.attributes.at(i));
         }
-        offsetCounter += curveNumPoints;
+        offsetCounter += uint32_t(curveNumPoints);
         lineOffsets.push_back(offsetCounter);
     }
     sgl::GeometryBufferPtr linePointBuffer = sgl::Renderer->createGeometryBuffer(
