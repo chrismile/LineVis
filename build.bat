@@ -99,7 +99,7 @@ cmake --build %build_dir% --config %cmake_config% --parallel || exit /b 1
 echo ------------------------
 echo    copying new files
 echo ------------------------
-robocopy third_party\vcpkg\installed\x64-windows\tools\python3 ^
+robocopy .build\vcpkg_installed\x64-windows\tools\python3 ^
          %destination_dir%\python3 /e >NUL
 
 if %debug% == true (

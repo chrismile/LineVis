@@ -125,7 +125,7 @@ echo "------------------------"
 [ -d $destination_dir/python3 ]     || mkdir $destination_dir/python3
 [ -d $destination_dir/python3/lib ] || mkdir $destination_dir/python3/lib
 
-rsync -a "third_party/vcpkg/installed/x64-linux/lib/python3.9"  $destination_dir/python3/lib
+rsync -a ".build/vcpkg_installed/x64-linux/lib/python3.9"  $destination_dir/python3/lib
 rsync -a $build_dir/LineVis $destination_dir
 
 echo ""
