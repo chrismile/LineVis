@@ -39,26 +39,6 @@ if ! which cmake >/dev/null 2>&1; then
    exit 1
 fi
 
-dependencies="boost-algorithm                       \
-              boost-core                            \
-              boost-filesystem                      \
-              boost-interprocess                    \
-              boost-locale                          \
-              cppzmq                                \
-              glew                                  \
-              glm                                   \
-              jsoncpp                               \
-              libarchive[bzip2,core,lz4,lzma,zstd]  \
-              libpng                                \
-              netcdf-c                              \
-              python3                               \
-              sdl2-image                            \
-              sdl2[vulkan]                          \
-              shaderc                               \
-              tinyxml2                              \
-              vulkan                                \
-              vulkan-headers"
-
 [ -d "./third_party/" ] || mkdir "./third_party/"
 pushd third_party > /dev/null
 
@@ -72,7 +52,7 @@ if [ ! -d "./vcpkg" ]; then
     fi
     git clone --depth 1 https://github.com/Microsoft/vcpkg.git
     vcpkg/bootstrap-vcpkg.sh -disableMetrics
-    vcpkg/vcpkg install $dependencies
+    vcpkg/vcpkg install
 fi
 
 if [ ! -d "./sgl" ]; then

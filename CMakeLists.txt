@@ -151,8 +151,14 @@ else()
 endif()
 
 
+if(MSVC)
+    #target_compile_definitions(LineVis PRIVATE /wd4251)
+    set_target_properties(LineVis PROPERTIES COMPILE_FLAGS "/wd4251")
+    set_target_properties(LineVis PROPERTIES LINK_FLAGS "/wd4251")
+endif()
+
 add_subdirectory(submodules/IsosurfaceCpp)
-if ("TRACY_ENABLE" IN_LIST SGL_INTERFACE_COMPILE_DEFINITIONS)
+if("TRACY_ENABLE" IN_LIST SGL_INTERFACE_COMPILE_DEFINITIONS)
     target_compile_definitions(IsosurfaceCpp PUBLIC TRACY_ENABLE)
     target_compile_definitions(IsosurfaceCpp PUBLIC TRACY_IMPORTS)
     target_include_directories(IsosurfaceCpp PUBLIC $<TARGET_PROPERTY:sgl,INTERFACE_INCLUDE_DIRECTORIES>)

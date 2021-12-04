@@ -33,26 +33,6 @@ set destination_dir="Shipping"
 
 where cmake >NUL 2>&1 || echo cmake was not found but is required to build the program && exit /b 1
 
-set dependencies="boost-algorithm"                      ^
-                 "boost-core"                           ^
-                 "boost-filesystem"                     ^
-                 "boost-interprocess"                   ^
-                 "boost-locale"                         ^
-                 "cppzmq"                               ^
-                 "glew"                                 ^
-                 "glm"                                  ^
-                 "jsoncpp"                              ^
-                 "libarchive[bzip2,core,lz4,lzma,zstd]" ^
-                 "libpng"                               ^
-                 "netcdf-c"                             ^
-                 "python3"                              ^
-                 "sdl2-image"                           ^
-                 "sdl2[vulkan]"                         ^
-                 "shaderc"                              ^
-                 "tinyxml2"                             ^
-                 "vulkan"                               ^
-                 "vulkan-headers"
-
 if not exist .\third_party\ mkdir .\third_party\
 pushd third_party
 
@@ -62,7 +42,7 @@ if not exist .\vcpkg (
    echo ------------------------
    git clone --depth 1 https://github.com/Microsoft/vcpkg.git || exit /b 1
    call vcpkg\bootstrap-vcpkg.bat -disableMetrics             || exit /b 1
-   vcpkg\vcpkg install %dependencies% --triplet=x64-windows   || exit /b 1
+   vcpkg\vcpkg install --triplet=x64-windows   || exit /b 1
 )
 
 if not exist .\sgl (

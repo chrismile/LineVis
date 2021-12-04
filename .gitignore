@@ -94,5 +94,5 @@ Shipping/*
 .build/*
 .build_*
 third_party/*
-
 dependencies/*
+vcpkg_installed/*
