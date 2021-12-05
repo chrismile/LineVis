@@ -29,13 +29,13 @@
 #ifndef LINEVIS_OPTIXVPTDENOISER_HPP
 #define LINEVIS_OPTIXVPTDENOISER_HPP
 
-#include <optix_stubs.h>
-
-#include <Graphics/Vulkan/Utils/InteropCuda.hpp>
 #include <Graphics/Vulkan/Render/CommandBuffer.hpp>
 #include <Graphics/Vulkan/Render/Passes/BlitRenderPass.hpp>
 
 #include "Denoiser.hpp"
+
+#include <Graphics/Vulkan/Utils/InteropCuda.hpp>
+#include <optix_types.h>
 
 const char* const OPTIX_DENOISTER_MODEL_KIND_NAME[] = {
         "LDR", "HDR"
