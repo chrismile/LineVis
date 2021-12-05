@@ -36,6 +36,14 @@ where cmake >NUL 2>&1 || echo cmake was not found but is required to build the p
 if not exist .\third_party\ mkdir .\third_party\
 pushd third_party
 
+if not exist .\submodules\IsosurfaceCpp\src (
+   echo ------------------------
+   echo initializing submodules
+   echo ------------------------
+   git submodule init   || exit /b 1
+   git submodule update || exit /b 1
+)
+
 if not exist .\vcpkg (
    echo ------------------------
    echo    fetching vkpkg

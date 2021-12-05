@@ -44,7 +44,7 @@ enum class DenoiserType {
     OPTIX
 #endif
 };
-const char* const DENOISER_NAMES[3] = {
+const char* const DENOISER_NAMES[] = {
         "None",
         "Edge-Avoiding À-Trous Wavelet Transform",
 #ifdef SUPPORT_OPTIX

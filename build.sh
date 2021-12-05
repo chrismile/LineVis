@@ -42,6 +42,14 @@ fi
 [ -d "./third_party/" ] || mkdir "./third_party/"
 pushd third_party > /dev/null
 
+if [ ! -d "./submodules/IsosurfaceCpp/src" ]; then
+    echo "------------------------"
+    echo "initializing submodules "
+    echo "------------------------"
+    git submodule init
+    git submodule update
+fi
+
 if [ ! -d "./vcpkg" ]; then
     echo "------------------------"
     echo "   fetching vkpkg       "
