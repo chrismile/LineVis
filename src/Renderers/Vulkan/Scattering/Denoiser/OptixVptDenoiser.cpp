@@ -42,6 +42,12 @@
 #include <optix_stubs.h>
 #include <optix_function_table_definition.h>
 
+#if CUDA_VERSION >= 11020
+#define USE_TIMELINE_SEMAPHORES
+#elif defined(_WIN32)
+#error Binary semaphore sharing is broken on Windows. Please install CUDA >= 11.2 for timeline semaphore support.
+#endif
+
 static void _checkOptixResult(OptixResult result, const std::string& text, const std::string& locationText) {
     if (result != OPTIX_SUCCESS) {
         sgl::Logfile::get()->throwError(std::string() + locationText + ": " + text + optixGetErrorString(result));
@@ -240,8 +246,17 @@ void OptixVptDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
     commandPoolType.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     for (size_t frameIdx = 0; frameIdx < numImages; frameIdx++) {
         postRenderCommandBuffers.push_back(std::make_shared<sgl::vk::CommandBuffer>(device, commandPoolType));
+#ifdef USE_TIMELINE_SEMAPHORES
+        denoiseFinishedSemaphores.push_back(std::make_shared<sgl::vk::SemaphoreVkCudaDriverApiInterop>(
+                device, 0, VK_SEMAPHORE_TYPE_TIMELINE,
+                timelineValue));
+        renderFinishedSemaphores.push_back(std::make_shared<sgl::vk::SemaphoreVkCudaDriverApiInterop>(
+                device, 0, VK_SEMAPHORE_TYPE_TIMELINE,
+                timelineValue));
+#else
         denoiseFinishedSemaphores.push_back(std::make_shared<sgl::vk::SemaphoreVkCudaDriverApiInterop>(device));
         renderFinishedSemaphores.push_back(std::make_shared<sgl::vk::SemaphoreVkCudaDriverApiInterop>(device));
+#endif
     }
 }
 
@@ -266,13 +281,21 @@ void OptixVptDenoiser::_freeBuffers() {
 void OptixVptDenoiser::denoise() {
     sgl::vk::Swapchain* swapchain = sgl::AppSettings::get()->getSwapchain();
     uint32_t frameIndex = swapchain ? swapchain->getImageIndex() : 0;
+    timelineValue++;
 
     inputImageVulkan->getImage()->transitionImageLayout(
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, renderer->getVkCommandBuffer());
     inputImageVulkan->getImage()->copyToBuffer(inputImageBufferVk, renderer->getVkCommandBuffer());
+    //renderer->insertBufferMemoryBarrier(
+    //        VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
+    //        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+    //        inputImageBufferVk);
 
     sgl::vk::CommandBufferPtr commandBufferPreDenoise = renderer->getCommandBuffer();
     sgl::vk::SemaphorePtr renderFinishedSemaphore = renderFinishedSemaphores.at(frameIndex);
+#ifdef USE_TIMELINE_SEMAPHORES
+    renderFinishedSemaphore->setSignalSemaphoreValue(timelineValue);
+#endif
     if (commandBufferPreDenoise->getSignalSemaphoresVk().empty()) {
         commandBufferPreDenoise->pushSignalSemaphore(renderFinishedSemaphore);
     }
@@ -282,6 +305,9 @@ void OptixVptDenoiser::denoise() {
 
     sgl::vk::CommandBufferPtr postRenderCommandBuffer = postRenderCommandBuffers.at(frameIndex);
     sgl::vk::SemaphorePtr denoiseFinishedSemaphore = denoiseFinishedSemaphores.at(frameIndex);
+#ifdef USE_TIMELINE_SEMAPHORES
+    denoiseFinishedSemaphore->setWaitSemaphoreValue(timelineValue);
+#endif
     renderer->pushCommandBuffer(postRenderCommandBuffer);
     renderer->beginCommandBuffer();
     if (postRenderCommandBuffer->getWaitSemaphoresVk().empty()) {
@@ -289,6 +315,10 @@ void OptixVptDenoiser::denoise() {
                 denoiseFinishedSemaphore, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
     }
 
+    //renderer->insertBufferMemoryBarrier(
+    //        VK_ACCESS_MEMORY_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
+    //        VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+    //        outputImageBufferVk);
     outputImageVulkan->getImage()->transitionImageLayout(
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, renderer->getVkCommandBuffer());
     outputImageVulkan->getImage()->copyFromBuffer(outputImageBufferVk, renderer->getVkCommandBuffer());
@@ -298,7 +328,11 @@ void OptixVptDenoiser::runOptixDenoiser() {
     sgl::vk::Swapchain* swapchain = sgl::AppSettings::get()->getSwapchain();
     uint32_t frameIndex = swapchain ? swapchain->getImageIndex() : 0;
     sgl::vk::SemaphoreVkCudaDriverApiInteropPtr renderFinishedSemaphore = renderFinishedSemaphores.at(frameIndex);
+#ifdef USE_TIMELINE_SEMAPHORES
+    renderFinishedSemaphore->waitSemaphoreCuda(stream, timelineValue);
+#else
     renderFinishedSemaphore->waitSemaphoreCuda(stream);
+#endif
 
     OptixDenoiserParams params{};
     params.denoiseAlpha = denoiseAlpha;
@@ -330,7 +364,11 @@ void OptixVptDenoiser::runOptixDenoiser() {
     checkOptixResult(result, "Error in optixDenoiserInvoke: ");
 
     sgl::vk::SemaphoreVkCudaDriverApiInteropPtr denoiseFinishedSemaphore = denoiseFinishedSemaphores.at(frameIndex);
+#ifdef USE_TIMELINE_SEMAPHORES
+    denoiseFinishedSemaphore->signalSemaphoreCuda(stream, timelineValue);
+#else
     denoiseFinishedSemaphore->signalSemaphoreCuda(stream);
+#endif
 }
 
 bool OptixVptDenoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {

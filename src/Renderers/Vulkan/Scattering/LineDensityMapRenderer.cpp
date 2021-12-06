@@ -175,6 +175,10 @@ LineDensityFieldDvrPass::LineDensityFieldDvrPass(sgl::vk::Renderer* renderer, sg
 
 void LineDensityFieldDvrPass::setOutputImage(sgl::vk::ImageViewPtr& colorImage) {
     sceneImageView = colorImage;
+
+    if (computeData) {
+        computeData->setStaticImageView(sceneImageView, "outputImage");
+    }
 }
 
 void LineDensityFieldDvrPass::setBackgroundColor(const glm::vec4& color) {

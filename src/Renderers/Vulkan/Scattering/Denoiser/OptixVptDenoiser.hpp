@@ -104,6 +104,7 @@ private:
     std::vector<sgl::vk::CommandBufferPtr> postRenderCommandBuffers;
     std::vector<sgl::vk::SemaphoreVkCudaDriverApiInteropPtr> renderFinishedSemaphores;
     std::vector<sgl::vk::SemaphoreVkCudaDriverApiInteropPtr> denoiseFinishedSemaphores;
+    uint64_t timelineValue = 0;
 };
 
 #endif //LINEVIS_OPTIXVPTDENOISER_HPP

@@ -118,9 +118,11 @@ void signalHandler(int signum) {
 
 MainApp::MainApp()
         : sceneData(
-                &sceneFramebuffer, &sceneTexture, &sceneDepthRBO, &viewportWidth, &viewportHeight, &camera,
+                &sceneFramebuffer, &sceneTexture, &sceneDepthRBO,
+                &viewportWidth, &viewportHeight, &camera,
                 &clearColor, &screenshotTransparentBackground,
-                &performanceMeasurer, &recording, &useCameraFlight, &MOVE_SPEED, &MOUSE_ROT_SPEED),
+                &performanceMeasurer, &recording,
+                &useCameraFlight, &MOVE_SPEED, &MOUSE_ROT_SPEED),
 #ifdef USE_PYTHON
           replayWidget(&sceneData, transferFunctionWindow, checkpointWindow),
 #endif

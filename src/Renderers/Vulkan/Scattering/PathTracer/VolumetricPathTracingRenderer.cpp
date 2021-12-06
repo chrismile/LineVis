@@ -149,6 +149,9 @@ void VolumetricPathTracingRenderer::render() {
     rendererVk->setViewMatrix((*sceneData->camera)->getViewMatrix());
     rendererVk->setProjectionMatrix((*sceneData->camera)->getProjectionMatrixVulkan());
     vptPass->render();
+    //renderTextureVk->getImage()->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    //renderTextureVk->getImageView()->clearColor(
+    //        glm::vec4(0.0f, 1.0f, 0.0f, 1.0f), rendererVk->getVkCommandBuffer());
     rendererVk->getCommandBuffer()->pushSignalSemaphore(renderFinishedSemaphoreVk);
     rendererVk->endCommandBuffer();
 

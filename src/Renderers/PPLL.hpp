@@ -29,8 +29,9 @@
 #ifndef STRESSLINEVIS_PPLL_HPP
 #define STRESSLINEVIS_PPLL_HPP
 
-const char* const SORTING_MODE_NAMES[7] = {
-        "Priority Queue", "Bubble Sort", "Insertion Sort", "Shell Sort", "Max Heap", "Quicksort", "Quicksort Hybrid"
+const char* const SORTING_MODE_NAMES[] = {
+        "Priority Queue", "Bubble Sort", "Insertion Sort", "Shell Sort", "Max Heap", "Bitonic Sort",
+        "Quicksort", "Quicksort Hybrid"
 };
 
 const int NUM_SORTING_MODES = ((int)(sizeof(SORTING_MODE_NAMES) / sizeof(*SORTING_MODE_NAMES)));
@@ -41,6 +42,7 @@ enum SortingAlgorithmMode {
     SORTING_ALGORITHM_MODE_INSERTION_SORT,
     SORTING_ALGORITHM_MODE_SHELL_SORT,
     SORTING_ALGORITHM_MODE_MAX_HEAP,
+    SORTING_ALGORITHM_MODE_BITONIC_SORT,
     SORTING_ALGORITHM_MODE_QUICKSORT,
     SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID
 };

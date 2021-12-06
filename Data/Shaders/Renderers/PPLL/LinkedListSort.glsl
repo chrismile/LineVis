@@ -236,3 +236,28 @@ vec4 frontToBackPQ(uint fragsCount) {
     rayColor.rgb = rayColor.rgb / rayColor.a; // Correct rgb with alpha
     return rayColor;
 }
+
+
+vec4 bitonicSort(uint fragsCount) {
+    DEPTH_TYPE fragDepth_i, fragDepth_l;
+
+    // Cf. https://en.wikipedia.org/wiki/Bitonic_sorter
+    uint i, j, k, l;
+    for (k = 2; k <= fragsCount; k *= 2) {
+        for (j = k / 2; j > 0; j /= 2) {
+            for (i = 0; i < fragsCount; i++) {
+                l = i ^ j;
+                if (l > i && l < fragsCount) {
+                    fragDepth_i = depthList[i];
+                    fragDepth_l = depthList[l];
+                    if (((i & k) == 0 && fragDepth_i > fragDepth_l)
+                            || ((i & k) != 0 && fragDepth_i < fragDepth_l)) {
+                        swapFragments(i, l);
+                    }
+                }
+            }
+        }
+    }
+
+    return blendFTB(fragsCount);
+}

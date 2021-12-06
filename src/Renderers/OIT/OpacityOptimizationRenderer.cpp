@@ -228,6 +228,8 @@ void OpacityOptimizationRenderer::setSortingAlgorithmDefine() {
         sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "shellSort");
     } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_MAX_HEAP) {
         sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "heapSort");
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_BITONIC_SORT) {
+        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "bitonicSort");
     } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT) {
         sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "quicksort");
     } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID) {
