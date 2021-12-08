@@ -31,6 +31,7 @@
 
 #include <Utils/Events/EventManager.hpp>
 #include <Renderers/AmbientOcclusion/AmbientOcclusionBaker.hpp>
+#include <utility>
 #include "LineData/LineData.hpp"
 #include "RenderingModes.hpp"
 #include "SceneData.hpp"
@@ -56,24 +57,24 @@ class LineRenderer {
 
 public:
     LineRenderer(
-            const std::string& windowName, SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
-        : windowName(windowName), sceneData(sceneData), transferFunctionWindow(transferFunctionWindow) {}
+            std::string windowName, SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
+        : windowName(std::move(windowName)), sceneData(sceneData), transferFunctionWindow(transferFunctionWindow) {}
     virtual void initialize();
     virtual ~LineRenderer();
     virtual RenderingMode getRenderingMode()=0;
 
     /// Returns if the visualization mapping needs to be re-generated.
-    inline bool isDirty() const { return dirty; }
+    [[nodiscard]] inline bool isDirty() const { return dirty; }
     /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
-    virtual bool needsReRender() { bool tmp = reRender; reRender = false; return tmp; }
+    [[nodiscard]] virtual bool needsReRender() { bool tmp = reRender; reRender = false; return tmp; }
     /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
-    virtual bool needsInternalReRender() { bool tmp = internalReRender; internalReRender = false; return tmp; }
+    [[nodiscard]] virtual bool needsInternalReRender() { bool tmp = internalReRender; internalReRender = false; return tmp; }
     /// Returns whether the triangle representation is used by the renderer.
-    virtual bool getIsTriangleRepresentationUsed() const;
+    [[nodiscard]] virtual bool getIsTriangleRepresentationUsed() const;
     /// Returns whether live visualization mapping updates can be used or whether the data set is too large.
-    virtual bool getCanUseLiveUpdate(LineDataAccessType accessType) const;
-    inline bool getIsRasterizer() const { return isRasterizer; }
-    inline bool getIsVulkanRenderer() const { return isVulkanRenderer; }
+    [[nodiscard]] virtual bool getCanUseLiveUpdate(LineDataAccessType accessType) const;
+    [[nodiscard]] inline bool getIsRasterizer() const { return isRasterizer; }
+    [[nodiscard]] inline bool getIsVulkanRenderer() const { return isVulkanRenderer; }
 
     /**
      * Re-generates the visualization mapping.
@@ -132,7 +133,7 @@ protected:
     void renderHull();
 
     bool isInitialized = false;
-    sgl::ListenerToken onTransferFunctionMapRebuiltListenerToken;
+    sgl::ListenerToken onTransferFunctionMapRebuiltListenerToken{};
 
     // Metadata about renderer.
     bool isRasterizer = true;

@@ -62,7 +62,7 @@ public:
     RenderingMode getRenderingMode() override { return RENDERING_MODE_VOLUMETRIC_PATH_TRACER; }
 
     /// Returns whether the triangle representation is used by the renderer.
-    bool getIsTriangleRepresentationUsed() const override { return false; }
+    [[nodiscard]] bool getIsTriangleRepresentationUsed() const override { return false; }
 
     /**
      * Re-generates the visualization mapping.

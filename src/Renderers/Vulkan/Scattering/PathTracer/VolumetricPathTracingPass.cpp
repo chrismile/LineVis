@@ -248,46 +248,52 @@ void VolumetricPathTracingPass::createComputeData(
 }
 
 void VolumetricPathTracingPass::_render() {
-    uniformData.inverseViewProjMatrix = glm::inverse((*camera)->getProjectionMatrix() * (*camera)->getViewMatrix());
-    VkExtent3D gridExtent = {
-            lineData->getGridSizeX(),
-            lineData->getGridSizeY(),
-            lineData->getGridSizeZ()
-    };
-    uint32_t maxDim = std::max(gridExtent.width, std::max(gridExtent.height, gridExtent.depth));
-    uniformData.boxMax = glm::vec3(gridExtent.width, gridExtent.height, gridExtent.depth) * 0.25f / float(maxDim);
-    uniformData.boxMin = -uniformData.boxMax;
-    uniformData.extinction = cloudExtinctionBase * cloudExtinctionScale;
-    uniformData.scatteringAlbedo = cloudScatteringAlbedo;
-    uniformData.sunDirection = sunlightDirection;
-    uniformData.sunIntensity = sunlightIntensity * sunlightColor;
-    if (superVoxelGrid) {
-        uniformData.superVoxelSize = superVoxelGrid->getSuperVoxelSize();
-        uniformData.superVoxelGridSize = superVoxelGrid->getSuperVoxelGridSize();
+    if (!changedDenoiserSettings) {
+        uniformData.inverseViewProjMatrix = glm::inverse(
+                (*camera)->getProjectionMatrix() * (*camera)->getViewMatrix());
+        VkExtent3D gridExtent = {
+                lineData->getGridSizeX(),
+                lineData->getGridSizeY(),
+                lineData->getGridSizeZ()
+        };
+        uint32_t maxDim = std::max(
+                gridExtent.width, std::max(gridExtent.height, gridExtent.depth));
+        uniformData.boxMax = glm::vec3(
+                gridExtent.width, gridExtent.height, gridExtent.depth) * 0.25f / float(maxDim);
+        uniformData.boxMin = -uniformData.boxMax;
+        uniformData.extinction = cloudExtinctionBase * cloudExtinctionScale;
+        uniformData.scatteringAlbedo = cloudScatteringAlbedo;
+        uniformData.sunDirection = sunlightDirection;
+        uniformData.sunIntensity = sunlightIntensity * sunlightColor;
+        if (superVoxelGrid) {
+            uniformData.superVoxelSize = superVoxelGrid->getSuperVoxelSize();
+            uniformData.superVoxelGridSize = superVoxelGrid->getSuperVoxelGridSize();
+        }
+        uniformBuffer->updateData(
+                sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
+
+        frameInfoBuffer->updateData(
+                sizeof(FrameInfo), &frameInfo, renderer->getVkCommandBuffer());
+        frameInfo.frameCount++;
+
+        renderer->transitionImageLayout(resultImageView->getImage(), VK_IMAGE_LAYOUT_GENERAL);
+        renderer->transitionImageLayout(
+                densityFieldTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        renderer->transitionImageLayout(accImageTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);
+        renderer->transitionImageLayout(firstXTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);
+        renderer->transitionImageLayout(firstWTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);
+        renderer->transitionImageLayout(
+                blitPrimaryRayMomentTexturePass->getMomentTexture()->getImage(), VK_IMAGE_LAYOUT_GENERAL);
+        renderer->transitionImageLayout(
+                blitScatterRayMomentTexturePass->getMomentTexture()->getImage(), VK_IMAGE_LAYOUT_GENERAL);
+        auto& imageSettings = resultImageView->getImage()->getImageSettings();
+        renderer->dispatch(
+                computeData,
+                sgl::iceil(int(imageSettings.width), blockSize2D.x),
+                sgl::iceil(int(imageSettings.height), blockSize2D.y),
+                1);
     }
-    uniformBuffer->updateData(
-            sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
-
-    frameInfoBuffer->updateData(
-            sizeof(FrameInfo), &frameInfo, renderer->getVkCommandBuffer());
-    frameInfo.frameCount++;
-
-    renderer->transitionImageLayout(resultImageView->getImage(), VK_IMAGE_LAYOUT_GENERAL);
-    renderer->transitionImageLayout(
-            densityFieldTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    renderer->transitionImageLayout(accImageTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);
-    renderer->transitionImageLayout(firstXTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);
-    renderer->transitionImageLayout(firstWTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);
-    renderer->transitionImageLayout(
-            blitPrimaryRayMomentTexturePass->getMomentTexture()->getImage(), VK_IMAGE_LAYOUT_GENERAL);
-    renderer->transitionImageLayout(
-            blitScatterRayMomentTexturePass->getMomentTexture()->getImage(), VK_IMAGE_LAYOUT_GENERAL);
-    auto& imageSettings = resultImageView->getImage()->getImageSettings();
-    renderer->dispatch(
-            computeData,
-            sgl::iceil(int(imageSettings.width), blockSize2D.x),
-            sgl::iceil(int(imageSettings.height), blockSize2D.y),
-            1);
+    changedDenoiserSettings = false;
 
     if (featureMapType == FeatureMapType::RESULT) {
         if (useDenoiser && denoiser && denoiser->getIsEnabled()) {
@@ -420,11 +426,14 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
             DENOISER_NAMES, IM_ARRAYSIZE(DENOISER_NAMES))) {
         createDenoiser();
         reRender = true;
+        changedDenoiserSettings = true;
     }
 
     if (useDenoiser && denoiser) {
         if (propertyEditor.beginNode(denoiser->getDenoiserName())) {
-            reRender = denoiser->renderGuiPropertyEditorNodes(propertyEditor) || reRender;
+            bool denoiserReRender = denoiser->renderGuiPropertyEditorNodes(propertyEditor);
+            reRender = denoiserReRender || reRender;
+            changedDenoiserSettings = denoiserReRender || changedDenoiserSettings;
             propertyEditor.endNode();
         }
     }
