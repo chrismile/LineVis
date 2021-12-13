@@ -909,12 +909,14 @@ void MainApp::renderGui() {
                             videoWriter->pushFramebuffer(dataView->getSceneFramebuffer());
                         }
 
-                        ImGui::Image(
-                                (void*)(intptr_t)static_cast<sgl::TextureGL*>(
-                                        dataView->sceneTexture.get())->getTexture(),
-                                sizeContent, ImVec2(0, 1), ImVec2(1, 0));
-                        if (ImGui::IsItemHovered()) {
-                            mouseHoverWindowIndex = i;
+                        if (isViewOpen) {
+                            ImGui::Image(
+                                    (void*)(intptr_t)static_cast<sgl::TextureGL*>(
+                                            dataView->sceneTexture.get())->getTexture(),
+                                    sizeContent, ImVec2(0, 1), ImVec2(1, 0));
+                            if (ImGui::IsItemHovered()) {
+                                mouseHoverWindowIndex = i;
+                            }
                         }
 
                         if (i == 0 && showFpsOverlay) {
@@ -1293,7 +1295,13 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
         if (propertyEditor.beginNode(lineData->getLineDataWindowName())) {
             bool reloadGatherShader = lineData->renderGuiPropertyEditorNodes(propertyEditor);
             if (reloadGatherShader) {
-                lineRenderer->reloadGatherShaderExternal();
+                if (useDockSpaceMode) {
+                    for (DataViewPtr& dataView : dataViews) {
+                        dataView->lineRenderer->reloadGatherShaderExternal();
+                    }
+                } else {
+                    lineRenderer->reloadGatherShaderExternal();
+                }
             }
             propertyEditor.endNode();
         }

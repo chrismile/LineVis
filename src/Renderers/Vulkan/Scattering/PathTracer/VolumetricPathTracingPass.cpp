@@ -276,6 +276,10 @@ void VolumetricPathTracingPass::_render() {
                 sizeof(FrameInfo), &frameInfo, renderer->getVkCommandBuffer());
         frameInfo.frameCount++;
 
+        renderer->insertMemoryBarrier(
+                VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
         renderer->transitionImageLayout(resultImageView->getImage(), VK_IMAGE_LAYOUT_GENERAL);
         renderer->transitionImageLayout(
                 densityFieldTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);

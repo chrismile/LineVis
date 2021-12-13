@@ -256,5 +256,11 @@ void TestRenderPass::_render() {
     renderSettingsBuffer->updateData(
             sizeof(RenderSettingsData), &renderSettingsData, renderer->getVkCommandBuffer());
 
+
+    renderer->insertBufferMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT,
+            renderSettingsBuffer);
+
     RasterPass::_render();
 }

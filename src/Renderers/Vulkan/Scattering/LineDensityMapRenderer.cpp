@@ -246,8 +246,8 @@ void LineDensityFieldDvrPass::_render() {
             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
             VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT);
 
-    int width = sceneImageView->getImage()->getImageSettings().width;
-    int height = sceneImageView->getImage()->getImageSettings().height;
+    int width = int(sceneImageView->getImage()->getImageSettings().width);
+    int height = int(sceneImageView->getImage()->getImageSettings().height);
     int groupCountX = sgl::iceil(width, 16);
     int groupCountY = sgl::iceil(height, 16);
     renderer->dispatch(computeData, groupCountX, groupCountY, 1);

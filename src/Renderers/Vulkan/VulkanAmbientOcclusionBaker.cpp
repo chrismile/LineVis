@@ -708,6 +708,11 @@ void AmbientOcclusionComputeRenderPass::_render() {
     lineRenderSettingsBuffer->updateData(
             sizeof(LineRenderSettings), &lineRenderSettings, renderer->getVkCommandBuffer());
 
+    renderer->insertBufferMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            lineRenderSettingsBuffer);
+
     renderer->dispatch(
             computeData, uint32_t(samplingLocationsBuffer->getSizeInBytes() / sizeof(float)),
             1, 1);

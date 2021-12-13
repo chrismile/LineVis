@@ -418,6 +418,11 @@ void RayTracingRenderPass::updateLineRenderSettings() {
 
     rayTracerSettingsBuffer->updateData(
             sizeof(RayTracerSettings), &rayTracerSettings, renderer->getVkCommandBuffer());
+
+    renderer->insertBufferMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+            rayTracerSettingsBuffer);
 }
 
 void RayTracingRenderPass::_render() {

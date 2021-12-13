@@ -429,7 +429,16 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLeve
             tubeTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
             sizeof(TubeTriangleVertexData));
     auto asTubeInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asTubeInput);
-    tubeTriangleBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(asTubeInputPtr);
+    sgl::Logfile::get()->writeInfo("Building tube triangle bottom level ray tracing acceleration structure...");
+    size_t inputVerticesSize = tubeTriangleRenderData.indexBuffer->getSizeInBytes();
+    size_t inputIndicesSize =
+            tubeTriangleRenderData.vertexBuffer->getSizeInBytes() / sizeof(TubeTriangleVertexData) * sizeof(glm::vec3);
+    sgl::Logfile::get()->writeInfo(
+            "Input vertices size: " + sgl::toString(double(inputVerticesSize) / 1024.0 / 1024.0) + "MiB");
+    sgl::Logfile::get()->writeInfo(
+            "Input indices size: " + sgl::toString(double(inputIndicesSize) / 1024.0 / 1024.0) + "MiB");
+    tubeTriangleBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(
+            asTubeInputPtr, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, true);
 
     return tubeTriangleBottomLevelAS;
 }
@@ -450,7 +459,12 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeAabbBottomLevelAS(
     auto asAabbInput = new sgl::vk::AabbsAccelerationStructureInput(device);
     asAabbInput->setAabbsBuffer(tubeAabbRenderData.aabbBuffer);
     auto asAabbInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asAabbInput);
-    tubeAabbBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(asAabbInputPtr);
+    sgl::Logfile::get()->writeInfo("Building tube AABB bottom level ray tracing acceleration structure...");
+    size_t inputSize = tubeAabbRenderData.aabbBuffer->getSizeInBytes();
+    sgl::Logfile::get()->writeInfo(
+            "Input AABBs size: " + sgl::toString(double(inputSize) / 1024.0 / 1024.0) + "MiB");
+    tubeAabbBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(
+            asAabbInputPtr, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, true);
 
     return tubeAabbBottomLevelAS;
 }
@@ -475,7 +489,16 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getHullTriangleBottomLeve
             sizeof(HullTriangleVertexData));
     auto asHullInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asHullInput);
 
-    hullTriangleBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(asHullInputPtr);
+    sgl::Logfile::get()->writeInfo("Building hull triangle bottom level ray tracing acceleration structure...");
+    size_t inputVerticesSize = hullTriangleRenderData.indexBuffer->getSizeInBytes();
+    size_t inputIndicesSize =
+            hullTriangleRenderData.vertexBuffer->getSizeInBytes() / sizeof(HullTriangleVertexData) * sizeof(glm::vec3);
+    sgl::Logfile::get()->writeInfo(
+            "Input vertices size: " + sgl::toString(double(inputVerticesSize) / 1024.0 / 1024.0) + "MiB");
+    sgl::Logfile::get()->writeInfo(
+            "Input indices size: " + sgl::toString(double(inputIndicesSize) / 1024.0 / 1024.0) + "MiB");
+    hullTriangleBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(
+            asHullInputPtr, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, true);
 
     return hullTriangleBottomLevelAS;
 }
