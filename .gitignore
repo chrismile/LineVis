@@ -56,7 +56,7 @@ docs/latex/*
 
 /Debug/
 /build/*
-/build-*
+/build-*/
 
 # CLion
 .idea/*
