@@ -26,6 +26,8 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+set -euo pipefail
+
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 PROJECTPATH="$SCRIPTPATH"
 pushd $SCRIPTPATH > /dev/null
@@ -56,6 +58,9 @@ is_installed_pacman() {
 if command -v apt &> /dev/null; then
     if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
             || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null; then
+        echo "------------------------"
+        echo "installing build essentials"
+        echo "------------------------"
         sudo apt install cmake git curl pkg-config build-essential
     fi
 
@@ -66,12 +71,18 @@ if command -v apt &> /dev/null; then
             || ! is_installed_apt "libglew-dev" || ! is_installed_apt "libjsoncpp-dev" \
             || ! is_installed_apt "libeigen3-dev" || ! is_installed_apt "python3-dev" \
             || ! is_installed_apt "libzmq3-dev" || ! is_installed_apt "libnetcdf-dev"; then
+        echo "------------------------"
+        echo "installing dependencies "
+        echo "------------------------"
         sudo apt install libglm-dev libsdl2-dev libsdl2-image-dev libpng-dev libboost-filesystem-dev libtinyxml2-dev \
         libarchive-dev libglew-dev libjsoncpp-dev libeigen3-dev python3-dev libzmq3-dev libnetcdf-dev
     fi
 elif command -v pacman &> /dev/null; then
     if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
             || ! command -v g++ &> /dev/null; then
+        echo "------------------------"
+        echo "installing build essentials"
+        echo "------------------------"
         sudo pacman -S cmake git curl base-devel
     fi
 
@@ -84,6 +95,9 @@ elif command -v pacman &> /dev/null; then
             || ! is_installed_pacman "jsoncpp" || ! is_installed_pacman "libarchive" \
             || ! is_installed_pacman "zeromq" || ! is_installed_pacman "netcdf" \
             || ! is_installed_pacman "ospray"; then
+        echo "------------------------"
+        echo "installing dependencies "
+        echo "------------------------"
         sudo pacman -S boost libarchive glm tinyxml2 sdl2 sdl2_image glew vulkan-devel shaderc \
         python3 eigen jsoncpp zeromq netcdf ospray
     fi
@@ -175,19 +189,17 @@ if [ ! -d "./sgl/install" ]; then
     cmake .. \
          -DCMAKE_BUILD_TYPE=Debug \
          -DCMAKE_INSTALL_PREFIX="../install"
+    make -j
+    make install
     popd >/dev/null
 
     pushd $build_dir_release >/dev/null
     cmake .. \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="../install"
+    make -j
+    make install
     popd >/dev/null
-
-    cmake --build $build_dir_debug --parallel
-    cmake --build $build_dir_debug --target install
-
-    cmake --build $build_dir_release --parallel
-    cmake --build $build_dir_release --target install
 
     popd >/dev/null
 fi
