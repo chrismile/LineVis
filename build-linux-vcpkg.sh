@@ -2,7 +2,7 @@
 
 # BSD 2-Clause License
 #
-# Copyright (c) 2021, Christoph Neuhauser, Felix Brendel
+# Copyright (c) 2021, Felix Brendel, Christoph Neuhauser
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,6 +26,8 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+set -euo pipefail
+
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 pushd $SCRIPTPATH > /dev/null
 
@@ -43,15 +45,37 @@ is_installed_apt() {
     fi
 }
 
+is_installed_pacman() {
+    local pkg_name="$1"
+    if pacman -Qs $pkg_name > /dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 if command -v apt &> /dev/null; then
-    if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null; then
+    if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
+            || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null; then
         sudo apt install cmake git curl pkg-config build-essential
     fi
 
-    # Dependencies of sgl and LineVis.
-    if ! is_installed_apt "libglm-dev" || ! is_installed_apt "libsdl2-dev" || ! is_installed_apt "libsdl2-image-dev"; then
-        sudo apt install libglm-dev libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libpng-dev  libboost-filesystem-dev libtinyxml2-dev libarchive-dev libglew-dev
+    # Dependencies of vcpkg GLEW port.
+    if ! is_installed_apt "libxmu-dev" || ! is_installed_apt "libxi-dev" || ! is_installed_apt "libgl-dev"; then
+        sudo apt install libxmu-dev libxi-dev libgl-dev
     fi
+elif command -v pacman &> /dev/null; then
+    if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
+            || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null; then
+        sudo pacman -S cmake git curl pkgconf base-devel
+    fi
+
+    # Dependencies of vcpkg GLEW port.
+    if ! is_installed_pacman "libgl" || ! is_installed_pacman "vulkan-devel" || ! is_installed_pacman "shaderc"; then
+        sudo pacman -S libgl vulkan-devel shaderc
+    fi
+else
+    echo "Warning: Unsupported system package manager detected." >&2
 fi
 
 if ! command -v cmake &> /dev/null; then
@@ -71,16 +95,16 @@ if ! command -v curl &> /dev/null; then
     exit 1
 fi
 
-[ -d "./third_party/" ] || mkdir "./third_party/"
-pushd third_party > /dev/null
-
-if [ ! -d "../submodules/IsosurfaceCpp/src" ]; then
+if [ ! -d "submodules/IsosurfaceCpp/src" ]; then
     echo "------------------------"
     echo "initializing submodules "
     echo "------------------------"
     git submodule init
     git submodule update
 fi
+
+[ -d "./third_party/" ] || mkdir "./third_party/"
+pushd third_party > /dev/null
 
 if [[ ! -v VULKAN_SDK ]]; then
     echo "------------------------"
@@ -94,8 +118,9 @@ if [[ ! -v VULKAN_SDK ]]; then
             distro_code_name=$(lsb_release -c | grep -oP "\:\s+\K\S+")
             echo "Setting up Vulkan SDK for Ubuntu $(lsb_release -r | grep -oP "\:\s+\K\S+")..."
             wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-            #sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-${distro_code_name}.list https://packages.lunarg.com/vulkan/1.2.198/lunarg-vulkan-1.2.198-${distro_code_name}.list || sudo rm -f /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-${distro_code_name}.list
-            sudo curl --silent --show-error --fail https://packages.lunarg.com/vulkan/1.2.198/lunarg-vulkan-1.2.198-${distro_code_name}.list --output /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-${distro_code_name}.list
+            sudo curl --silent --show-error --fail \
+            https://packages.lunarg.com/vulkan/1.2.198/lunarg-vulkan-1.2.198-${distro_code_name}.list \
+            --output /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-${distro_code_name}.list
             sudo apt update
             sudo apt install vulkan-sdk shaderc
         fi
@@ -116,6 +141,19 @@ if [[ ! -v VULKAN_SDK ]]; then
     fi
 fi
 
+if [ ! -d "./vcpkg" ]; then
+    echo "------------------------"
+    echo "   fetching vcpkg       "
+    echo "------------------------"
+    if [[ ! -v VULKAN_SDK ]]; then
+        echo "The environment variable VULKAN_SDK is not set but is required in the installation process."
+        exit 1
+    fi
+    git clone --depth 1 https://github.com/Microsoft/vcpkg.git
+    vcpkg/bootstrap-vcpkg.sh -disableMetrics
+    vcpkg/vcpkg install
+fi
+
 if [ ! -d "./sgl" ]; then
     echo "------------------------"
     echo "     fetching sgl       "
@@ -131,7 +169,6 @@ if [ ! -d "./sgl/install" ]; then
     pushd "./sgl" >/dev/null
     mkdir -p .build_debug
     mkdir -p .build_release
-    
 
     pushd "$build_dir_debug" >/dev/null
     cmake ..                                                                   \
@@ -202,4 +239,3 @@ rsync -a $build_dir/LineVis $destination_dir
 
 echo ""
 echo "All done!"
-

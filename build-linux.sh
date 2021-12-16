@@ -2,7 +2,7 @@
 
 # BSD 2-Clause License
 #
-# Copyright (c) 2021, Felix Brendel, Christoph Neuhauser
+# Copyright (c) 2021, Christoph Neuhauser, Felix Brendel
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -26,9 +26,8 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set -euo pipefail
-
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+PROJECTPATH="$SCRIPTPATH"
 pushd $SCRIPTPATH > /dev/null
 
 debug=true
@@ -45,16 +44,53 @@ is_installed_apt() {
     fi
 }
 
+is_installed_pacman() {
+    local pkg_name="$1"
+    if pacman -Qs $pkg_name > /dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 if command -v apt &> /dev/null; then
-    if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null; then
+    if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
+            || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null; then
         sudo apt install cmake git curl pkg-config build-essential
     fi
 
-    # Dependencies of vcpkg GLEW port.
-    if ! is_installed_apt "libxmu-dev" || ! is_installed_apt "libxi-dev" || ! is_installed_apt "libgl-dev"; then
-        sudo apt install libxmu-dev libxi-dev libgl-dev
+    # Dependencies of sgl and LineVis.
+    if ! is_installed_apt "libglm-dev" || ! is_installed_apt "libsdl2-dev" || ! is_installed_apt "libsdl2-image-dev" \
+            || ! is_installed_apt "libpng-dev" || ! is_installed_apt "libboost-filesystem-dev" \
+            || ! is_installed_apt "libtinyxml2-dev" || ! is_installed_apt "libarchive-dev" \
+            || ! is_installed_apt "libglew-dev" || ! is_installed_apt "libjsoncpp-dev" \
+            || ! is_installed_apt "libeigen3-dev" || ! is_installed_apt "python3-dev" \
+            || ! is_installed_apt "libzmq3-dev" || ! is_installed_apt "libnetcdf-dev"; then
+        sudo apt install libglm-dev libsdl2-dev libsdl2-image-dev libpng-dev libboost-filesystem-dev libtinyxml2-dev \
+        libarchive-dev libglew-dev libjsoncpp-dev libeigen3-dev python3-dev libzmq3-dev libnetcdf-dev
     fi
+elif command -v pacman &> /dev/null; then
+    if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
+            || ! command -v g++ &> /dev/null; then
+        sudo pacman -S cmake git curl base-devel
+    fi
+
+    # Dependencies of sgl and LineVis.
+    if ! is_installed_pacman "boost" || ! is_installed_pacman "libarchive" || ! is_installed_pacman "glm" \
+            || ! is_installed_pacman "tinyxml2" || ! is_installed_pacman "sdl2" \
+            || ! is_installed_pacman "sdl2_image" || ! is_installed_pacman "glew" \
+            || ! is_installed_pacman "vulkan-devel" || ! is_installed_pacman "shaderc" \
+            || ! is_installed_pacman "python3" || ! is_installed_pacman "eigen" \
+            || ! is_installed_pacman "jsoncpp" || ! is_installed_pacman "libarchive" \
+            || ! is_installed_pacman "zeromq" || ! is_installed_pacman "netcdf" \
+            || ! is_installed_pacman "ospray"; then
+        sudo pacman -S boost libarchive glm tinyxml2 sdl2 sdl2_image glew vulkan-devel shaderc \
+        python3 eigen jsoncpp zeromq netcdf ospray
+    fi
+else
+    echo "Warning: Unsupported system package manager detected." >&2
 fi
+
 
 if ! command -v cmake &> /dev/null; then
     echo "CMake was not found, but is required to build the program."
@@ -73,16 +109,16 @@ if ! command -v curl &> /dev/null; then
     exit 1
 fi
 
-[ -d "./third_party/" ] || mkdir "./third_party/"
-pushd third_party > /dev/null
-
-if [ ! -d "../submodules/IsosurfaceCpp/src" ]; then
+if [ ! -d "submodules/IsosurfaceCpp/src" ]; then
     echo "------------------------"
     echo "initializing submodules "
     echo "------------------------"
     git submodule init
     git submodule update
 fi
+
+[ -d "./third_party/" ] || mkdir "./third_party/"
+pushd third_party > /dev/null
 
 if [[ ! -v VULKAN_SDK ]]; then
     echo "------------------------"
@@ -96,8 +132,9 @@ if [[ ! -v VULKAN_SDK ]]; then
             distro_code_name=$(lsb_release -c | grep -oP "\:\s+\K\S+")
             echo "Setting up Vulkan SDK for Ubuntu $(lsb_release -r | grep -oP "\:\s+\K\S+")..."
             wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-            #sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-${distro_code_name}.list https://packages.lunarg.com/vulkan/1.2.198/lunarg-vulkan-1.2.198-${distro_code_name}.list || sudo rm -f /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-${distro_code_name}.list
-            sudo curl --silent --show-error --fail https://packages.lunarg.com/vulkan/1.2.198/lunarg-vulkan-1.2.198-${distro_code_name}.list --output /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-${distro_code_name}.list
+            sudo curl --silent --show-error --fail \
+            https://packages.lunarg.com/vulkan/1.2.198/lunarg-vulkan-1.2.198-${distro_code_name}.list \
+            --output /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-${distro_code_name}.list
             sudo apt update
             sudo apt install vulkan-sdk shaderc
         fi
@@ -118,19 +155,6 @@ if [[ ! -v VULKAN_SDK ]]; then
     fi
 fi
 
-if [ ! -d "./vcpkg" ]; then
-    echo "------------------------"
-    echo "   fetching vcpkg       "
-    echo "------------------------"
-    if [[ ! -v VULKAN_SDK ]]; then
-        echo "The environment variable VULKAN_SDK is not set but is required in the installation process."
-        exit 1
-    fi
-    git clone --depth 1 https://github.com/Microsoft/vcpkg.git
-    vcpkg/bootstrap-vcpkg.sh -disableMetrics
-    vcpkg/vcpkg install
-fi
-
 if [ ! -d "./sgl" ]; then
     echo "------------------------"
     echo "     fetching sgl       "
@@ -146,19 +170,16 @@ if [ ! -d "./sgl/install" ]; then
     pushd "./sgl" >/dev/null
     mkdir -p .build_debug
     mkdir -p .build_release
-    
 
     pushd "$build_dir_debug" >/dev/null
-    cmake ..                                                                   \
-         -DCMAKE_BUILD_TYPE=Debug                                              \
-         -DCMAKE_TOOLCHAIN_FILE="../../vcpkg/scripts/buildsystems/vcpkg.cmake" \
+    cmake .. \
+         -DCMAKE_BUILD_TYPE=Debug \
          -DCMAKE_INSTALL_PREFIX="../install"
     popd >/dev/null
 
     pushd $build_dir_release >/dev/null
-    cmake ..                                                                  \
-        -DCMAKE_BUILD_TYPE=Release                                            \
-        -DCMAKE_TOOLCHAIN_FILE="../../vcpkg/scripts/buildsystems/vcpkg.cmake" \
+    cmake .. \
+        -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="../install"
     popd >/dev/null
 
@@ -193,10 +214,9 @@ echo "------------------------"
 echo "      generating        "
 echo "------------------------"
 pushd $build_dir >/dev/null
-cmake -DCMAKE_TOOLCHAIN_FILE="../third_party/vcpkg/scripts/buildsystems/vcpkg.cmake" \
-      -DPYTHONHOME="./python3"                                                    \
-      -DCMAKE_BUILD_TYPE=$cmake_config                                            \
-      -Dsgl_DIR="../third_party/sgl/install/lib/cmake/sgl/" ..
+cmake .. \
+    -DCMAKE_BUILD_TYPE=$cmake_config \
+    -Dsgl_DIR="../third_party/sgl/install/lib/cmake/sgl/"
 popd >/dev/null
 
 echo "------------------------"
@@ -204,17 +224,13 @@ echo "      compiling         "
 echo "------------------------"
 cmake --build $build_dir --parallel
 
-echo "------------------------"
-echo "   copying new files    "
-echo "------------------------"
-
-[ -d $destination_dir ]             || mkdir $destination_dir
-[ -d $destination_dir/python3 ]     || mkdir $destination_dir/python3
-[ -d $destination_dir/python3/lib ] || mkdir $destination_dir/python3/lib
-
-rsync -a ".build/vcpkg_installed/x64-linux/lib/python3.9" $destination_dir/python3/lib
-rsync -a $build_dir/LineVis $destination_dir
-
 echo ""
 echo "All done!"
 
+
+pushd $build_dir >/dev/null
+
+if [[ ! "${LD_LIBRARY_PATH}" == *"${PROJECTPATH}/third_party/sgl/install/lib"* ]]; then
+    export LD_LIBRARY_PATH=LD_LIBRARY_PATH:"${PROJECTPATH}/third_party/sgl/install/lib"
+fi
+./LineVis
