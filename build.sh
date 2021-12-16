@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # BSD 2-Clause License
 #
 # Copyright (c) 2021, Felix Brendel, Christoph Neuhauser
@@ -24,7 +26,6 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#!/bin/bash
 set -euo pipefail
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
@@ -98,7 +99,7 @@ if [[ ! -v VULKAN_SDK ]]; then
             #sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-${distro_code_name}.list https://packages.lunarg.com/vulkan/1.2.198/lunarg-vulkan-1.2.198-${distro_code_name}.list || sudo rm -f /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-${distro_code_name}.list
             sudo curl --silent --show-error --fail https://packages.lunarg.com/vulkan/1.2.198/lunarg-vulkan-1.2.198-${distro_code_name}.list --output /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-${distro_code_name}.list
             sudo apt update
-            sudo apt install vulkan-sdk
+            sudo apt install vulkan-sdk shaderc
         fi
     fi
 
@@ -211,8 +212,9 @@ echo "------------------------"
 [ -d $destination_dir/python3 ]     || mkdir $destination_dir/python3
 [ -d $destination_dir/python3/lib ] || mkdir $destination_dir/python3/lib
 
-rsync -a ".build/vcpkg_installed/x64-linux/lib/python3.9"  $destination_dir/python3/lib
+rsync -a ".build/vcpkg_installed/x64-linux/lib/python3.9" $destination_dir/python3/lib
 rsync -a $build_dir/LineVis $destination_dir
 
 echo ""
 echo "All done!"
+
