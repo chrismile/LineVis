@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.5)
+cmake_minimum_required (VERSION 3.7)
 cmake_policy(VERSION 3.7...3.20)
 
 project (LineVis)
@@ -35,6 +35,17 @@ option(USE_VULKAN_INTEROP "Build with Vulkan interoperability for ray tracing an
 
 set(DATA_PATH "${CMAKE_SOURCE_DIR}/Data" CACHE PATH "Location of folder 'Data'")
 add_definitions(-DDATA_PATH=\"${DATA_PATH}\")
+
+if(VCPKG_TOOLCHAIN)
+    find_package(cppzmq CONFIG QUIET)
+else()
+    find_package(cppzmq QUIET)
+endif()
+
+if (UNIX AND NOT APPLE AND (${CMAKE_VERSION} VERSION_LESS "3.11" OR NOT cppzmq_FOUND))
+    find_package(PkgConfig REQUIRED)
+endif()
+
 
 if (USE_PYTHON)
     if (${CMAKE_VERSION} VERSION_GREATER "3.11")
@@ -80,8 +91,8 @@ else()
 endif()
 
 get_target_property(SGL_INTERFACE_COMPILE_DEFINITIONS sgl INTERFACE_COMPILE_DEFINITIONS)
-if ("SUPPORT_VULKAN" IN_LIST SGL_INTERFACE_COMPILE_DEFINITIONS)
-	set(SUPPORT_VULKAN ON)
+if ("SUPPORT_VULKAN" IN_LIST SGL_INTERFACE_COMPILE_DEFINITIONS AND "GLEW_SUPPORTS_EXTERNAL_OBJECTS_EXT" IN_LIST SGL_INTERFACE_COMPILE_DEFINITIONS)
+    set(SUPPORT_VULKAN ON)
 endif()
 
 if (NOT SUPPORT_VULKAN AND USE_VULKAN_INTEROP)
@@ -212,7 +223,6 @@ if (${cppzmq_FOUND})
     endif()
 else()
     # https://stackoverflow.com/questions/41251474/how-to-import-zeromq-libraries-in-cmake/41252437
-    find_package(PkgConfig REQUIRED)
     pkg_check_modules(PC_ZeroMQ QUIET zmq)
     #if (${PC_ZeroMQ_FOUND})
         find_path(ZeroMQ_INCLUDE_DIRS NAMES zmq.hpp PATHS ${PC_ZeroMQ_INCLUDE_DIRS})

@@ -210,6 +210,7 @@ else
     cmake_config="Release"
     build_dir=$build_dir_release
 fi
+mkdir -p $build_dir
 
 echo "------------------------"
 echo "      generating        "

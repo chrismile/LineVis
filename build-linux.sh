@@ -36,6 +36,13 @@ debug=true
 build_dir_debug=".build_debug"
 build_dir_release=".build_release"
 destination_dir="Shipping"
+if command -v pacman &> /dev/null; then
+    is_embree_installed=true
+    is_ospray_installed=true
+else
+    is_embree_installed=false
+    is_ospray_installed=false
+fi
 
 is_installed_apt() {
     local pkg_name="$1"
@@ -204,6 +211,28 @@ if [ ! -d "./sgl/install" ]; then
     popd >/dev/null
 fi
 
+params=()
+
+embree_version="3.13.2"
+if ! is_embree_installed && [ ! -d "./embree-${embree_version}.x86_64.linux" ]; then
+    echo "------------------------"
+    echo "   downloading Embree   "
+    echo "------------------------"
+    wget "https://github.com/embree/embree/releases/download/v${embree_version}/embree-${embree_version}.x86_64.linux.tar.gz"
+    tar -xvzf "embree-${embree_version}.x86_64.linux.tar.gz"
+    params+=(-Dembree_DIR=${PROJECTPATH}/third_party/embree-${embree_version}.x86_64.linux/lib/cmake/embree-${embree_version})
+fi
+
+ospray_version="2.8.0"
+if ! is_ospray_installed && [ ! -d "./ospray-${ospray_version}.x86_64.linux" ]; then
+    echo "------------------------"
+    echo "   downloading OSPRay   "
+    echo "------------------------"
+    wget "https://github.com/ospray/OSPRay/releases/download/v${ospray_version}/ospray-${ospray_version}.x86_64.linux.tar.gz"
+    tar -xvzf "ospray-${ospray_version}.x86_64.linux.tar.gz"
+    params+=(-Dospray_DIR=${PROJECTPATH}/third_party/ospray-${ospray_version}.x86_64.linux/lib/cmake/ospray-${ospray_version})
+fi
+
 popd >/dev/null # back to project root
 
 if [ $debug = true ] ; then
@@ -221,6 +250,8 @@ else
     cmake_config="Release"
     build_dir=$build_dir_release
 fi
+mkdir -p $build_dir
+ls "$build_dir"
 
 echo "------------------------"
 echo "      generating        "
@@ -228,13 +259,16 @@ echo "------------------------"
 pushd $build_dir >/dev/null
 cmake .. \
     -DCMAKE_BUILD_TYPE=$cmake_config \
-    -Dsgl_DIR="../third_party/sgl/install/lib/cmake/sgl/"
+    -Dsgl_DIR="$PROJECTPATH/third_party/sgl/install/lib/cmake/sgl/" \
+    "${params[@]}"
 popd >/dev/null
 
 echo "------------------------"
 echo "      compiling         "
 echo "------------------------"
-cmake --build $build_dir --parallel
+pushd "$build_dir" >/dev/null
+make -j
+popd >/dev/null
 
 echo ""
 echo "All done!"
@@ -242,7 +276,10 @@ echo "All done!"
 
 pushd $build_dir >/dev/null
 
-if [[ ! "${LD_LIBRARY_PATH}" == *"${PROJECTPATH}/third_party/sgl/install/lib"* ]]; then
-    export LD_LIBRARY_PATH=LD_LIBRARY_PATH:"${PROJECTPATH}/third_party/sgl/install/lib"
+if [[ -z "${LD_LIBRARY_PATH+x}" ]]; then
+    export LD_LIBRARY_PATH="${PROJECTPATH}/third_party/sgl/install/lib"
+elif [[ ! "${LD_LIBRARY_PATH}" == *"${PROJECTPATH}/third_party/sgl/install/lib"* ]]; then
+    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${PROJECTPATH}/third_party/sgl/install/lib"
 fi
 ./LineVis
+
