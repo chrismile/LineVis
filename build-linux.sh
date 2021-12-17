@@ -86,11 +86,11 @@ if command -v apt &> /dev/null; then
     fi
 elif command -v pacman &> /dev/null; then
     if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
-            || ! command -v g++ &> /dev/null; then
+            || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null; then
         echo "------------------------"
         echo "installing build essentials"
         echo "------------------------"
-        sudo pacman -S cmake git curl base-devel
+        sudo pacman -S cmake git curl pkgconf base-devel
     fi
 
     # Dependencies of sgl and LineVis.
@@ -125,7 +125,7 @@ if ! command -v curl &> /dev/null; then
     echo "curl was not found, but is required to build the program."
     exit 1
 fi
-if ! command -v curl &> /dev/null; then
+if ! command -v pkg-config &> /dev/null; then
     echo "pkg-config was not found, but is required to build the program."
     exit 1
 fi

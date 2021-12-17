@@ -90,7 +90,7 @@ if ! command -v curl &> /dev/null; then
     echo "curl was not found, but is required to build the program."
     exit 1
 fi
-if ! command -v curl &> /dev/null; then
+if ! command -v pkg-config &> /dev/null; then
     echo "pkg-config was not found, but is required to build the program."
     exit 1
 fi
