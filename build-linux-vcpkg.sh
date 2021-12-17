@@ -29,6 +29,7 @@
 set -euo pipefail
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+PROJECTPATH="$SCRIPTPATH"
 pushd $SCRIPTPATH > /dev/null
 
 debug=true
@@ -171,15 +172,15 @@ if [ ! -d "./sgl/install" ]; then
     mkdir -p .build_release
 
     pushd "$build_dir_debug" >/dev/null
-    cmake ..                                                                   \
-         -DCMAKE_BUILD_TYPE=Debug                                              \
+    cmake .. \
+         -DCMAKE_BUILD_TYPE=Debug \
          -DCMAKE_TOOLCHAIN_FILE="../../vcpkg/scripts/buildsystems/vcpkg.cmake" \
          -DCMAKE_INSTALL_PREFIX="../install"
     popd >/dev/null
 
     pushd $build_dir_release >/dev/null
-    cmake ..                                                                  \
-        -DCMAKE_BUILD_TYPE=Release                                            \
+    cmake .. \
+        -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_TOOLCHAIN_FILE="../../vcpkg/scripts/buildsystems/vcpkg.cmake" \
         -DCMAKE_INSTALL_PREFIX="../install"
     popd >/dev/null
@@ -216,10 +217,10 @@ echo "------------------------"
 echo "      generating        "
 echo "------------------------"
 pushd $build_dir >/dev/null
-cmake -DCMAKE_TOOLCHAIN_FILE="../third_party/vcpkg/scripts/buildsystems/vcpkg.cmake" \
-      -DPYTHONHOME="./python3"                                                    \
-      -DCMAKE_BUILD_TYPE=$cmake_config                                            \
-      -Dsgl_DIR="../third_party/sgl/install/lib/cmake/sgl/" ..
+cmake -DCMAKE_TOOLCHAIN_FILE="$PROJECTPATH/third_party/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+      -DPYTHONHOME="./python3" \
+      -DCMAKE_BUILD_TYPE=$cmake_config \
+      -Dsgl_DIR="$PROJECTPATH/third_party/sgl/install/lib/cmake/sgl/" ..
 popd >/dev/null
 
 echo "------------------------"
@@ -235,8 +236,18 @@ echo "------------------------"
 [ -d $destination_dir/python3 ]     || mkdir $destination_dir/python3
 [ -d $destination_dir/python3/lib ] || mkdir $destination_dir/python3/lib
 
-rsync -a ".build/vcpkg_installed/x64-linux/lib/python3.9" $destination_dir/python3/lib
+rsync -a "$(eval echo vcpkg_installed/x64-linux/lib/python*)" $destination_dir/python3/lib
 rsync -a $build_dir/LineVis $destination_dir
 
 echo ""
 echo "All done!"
+
+
+pushd $build_dir >/dev/null
+
+if [[ -z "${LD_LIBRARY_PATH+x}" ]]; then
+    export LD_LIBRARY_PATH="${PROJECTPATH}/third_party/sgl/install/lib"
+elif [[ ! "${LD_LIBRARY_PATH}" == *"${PROJECTPATH}/third_party/sgl/install/lib"* ]]; then
+    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${PROJECTPATH}/third_party/sgl/install/lib"
+fi
+./LineVis
