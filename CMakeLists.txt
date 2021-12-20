@@ -196,7 +196,7 @@ if(VCPKG_TOOLCHAIN)
     target_link_libraries(LineVis PRIVATE tinyxml2::tinyxml2 netCDF::netcdf)
 else()
     target_link_libraries(LineVis PRIVATE ${TINYXML2_LIBRARIES} ${NETCDF_LIBRARIES})
-    target_include_directories(LineVis PRIVATE ${NETCDF_INCLUDES})
+    target_include_directories(LineVis PRIVATE ${NETCDF_INCLUDE_DIR})
 endif()
 target_include_directories(LineVis PRIVATE ${sgl_INCLUDES} ${TINYXML2_INCLUDE_DIR})
 

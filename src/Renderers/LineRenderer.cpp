@@ -203,7 +203,7 @@ void LineRenderer::computeDepthRange() {
             minDepth = std::numeric_limits<float>::max();
             maxDepth = std::numeric_limits<float>::lowest();
 #if _OPENMP >= 201107
-#pragma omp parallel for default(none) shared(viewMatrix, filteredLines) \
+            #pragma omp parallel for default(none) shared(viewMatrix, filteredLines) \
             reduction(min: minDepth) reduction(max: maxDepth)
 #endif
             for (size_t lineIdx = 0; lineIdx < filteredLines.size(); lineIdx++) {
