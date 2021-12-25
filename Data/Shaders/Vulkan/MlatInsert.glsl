@@ -82,6 +82,26 @@ void insertNodeMlat(vec4 color) {
     newNode.color = vec4(alpha * color.rgb, color.a);
 
 #ifdef NODES_UNROLLED
+#if NUM_NODES >= 8
+    if (newNode.depth > payload.node7.depth) {
+        swap(newNode, payload.node7);
+    }
+#endif
+#if NUM_NODES >= 7
+    if (newNode.depth > payload.node6.depth) {
+        swap(newNode, payload.node6);
+    }
+#endif
+#if NUM_NODES >= 6
+    if (newNode.depth > payload.node5.depth) {
+        swap(newNode, payload.node5);
+    }
+#endif
+#if NUM_NODES >= 5
+    if (newNode.depth > payload.node4.depth) {
+        swap(newNode, payload.node4);
+    }
+#endif
 #if NUM_NODES >= 4
     if (newNode.depth > payload.node3.depth) {
         swap(newNode, payload.node3);
@@ -101,7 +121,7 @@ void insertNodeMlat(vec4 color) {
         swap(newNode, payload.node0);
     }
 #else
-    for (int i = NUM_NODES - 1; i >= 0; --i) {
+    [[unroll]] for (int i = NUM_NODES - 1; i >= 0; --i) {
         if (newNode.depth > payload.nodes[i].depth) {
             swap(newNode, payload.nodes[i]);
         }
@@ -137,8 +157,20 @@ void insertNodeMlat(vec4 color) {
 #if NUM_NODES >= 4
     transmittance *= payload.node3.transmittance;
 #endif
+#if NUM_NODES >= 5
+    transmittance *= payload.node4.transmittance;
+#endif
+#if NUM_NODES >= 6
+    transmittance *= payload.node5.transmittance;
+#endif
+#if NUM_NODES >= 7
+    transmittance *= payload.node6.transmittance;
+#endif
+#if NUM_NODES >= 8
+    transmittance *= payload.node7.transmittance;
+#endif
 #else
-    for (int i = 0; i < NUM_NODES; ++i) {
+    [[unroll]] for (int i = 0; i < NUM_NODES; ++i) {
         transmittance *= payload.nodes[i].transmittance;
     }
 #endif
@@ -158,6 +190,22 @@ void insertNodeMlat(vec4 color) {
     }
 #elif NUM_NODES == 4
     if (transmittance <= 0.001 && payload.node3.depth <= depth) {
+        return;
+    }
+#elif NUM_NODES == 5
+    if (transmittance <= 0.001 && payload.node4.depth <= depth) {
+        return;
+    }
+#elif NUM_NODES == 6
+    if (transmittance <= 0.001 && payload.node5.depth <= depth) {
+        return;
+    }
+#elif NUM_NODES == 7
+    if (transmittance <= 0.001 && payload.node6.depth <= depth) {
+        return;
+    }
+#elif NUM_NODES == 8
+    if (transmittance <= 0.001 && payload.node7.depth <= depth) {
         return;
     }
 #endif

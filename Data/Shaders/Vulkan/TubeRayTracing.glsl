@@ -125,8 +125,28 @@ vec4 traceRayMlat(vec3 rayOrigin, vec3 rayDirection) {
     payload.node3.transmittance = 1.0;
     payload.node3.depth = 0.0;
 #endif
+#if NUM_NODES >= 5
+    payload.node4.color = vec4(0.0);
+    payload.node4.transmittance = 1.0;
+    payload.node4.depth = 0.0;
+#endif
+#if NUM_NODES >= 6
+    payload.node5.color = vec4(0.0);
+    payload.node5.transmittance = 1.0;
+    payload.node5.depth = 0.0;
+#endif
+#if NUM_NODES >= 7
+    payload.node6.color = vec4(0.0);
+    payload.node6.transmittance = 1.0;
+    payload.node6.depth = 0.0;
+#endif
+#if NUM_NODES >= 8
+    payload.node7.color = vec4(0.0);
+    payload.node7.transmittance = 1.0;
+    payload.node7.depth = 0.0;
+#endif
 #else
-    for (int i = 0; i < NUM_NODES; i++) {
+    [[unroll]] for (int i = 0; i < NUM_NODES; i++) {
         payload.nodes[i].color = vec4(0.0);
         payload.nodes[i].transmittance = 1.0;
         payload.nodes[i].depth = 0.0;
@@ -156,6 +176,26 @@ vec4 traceRayMlat(vec3 rayOrigin, vec3 rayDirection) {
 #endif
 #if NUM_NODES >= 4
     hitColor = payload.node3.color;
+    fragmentColor.rgb = fragmentColor.rgb + (1.0 - fragmentColor.a) * hitColor.rgb;
+    fragmentColor.a = fragmentColor.a + (1.0 - fragmentColor.a) * hitColor.a;
+#endif
+#if NUM_NODES >= 5
+    hitColor = payload.node4.color;
+    fragmentColor.rgb = fragmentColor.rgb + (1.0 - fragmentColor.a) * hitColor.rgb;
+    fragmentColor.a = fragmentColor.a + (1.0 - fragmentColor.a) * hitColor.a;
+#endif
+#if NUM_NODES >= 6
+    hitColor = payload.node5.color;
+    fragmentColor.rgb = fragmentColor.rgb + (1.0 - fragmentColor.a) * hitColor.rgb;
+    fragmentColor.a = fragmentColor.a + (1.0 - fragmentColor.a) * hitColor.a;
+#endif
+#if NUM_NODES >= 7
+    hitColor = payload.node6.color;
+    fragmentColor.rgb = fragmentColor.rgb + (1.0 - fragmentColor.a) * hitColor.rgb;
+    fragmentColor.a = fragmentColor.a + (1.0 - fragmentColor.a) * hitColor.a;
+#endif
+#if NUM_NODES >= 8
+    hitColor = payload.node7.color;
     fragmentColor.rgb = fragmentColor.rgb + (1.0 - fragmentColor.a) * hitColor.rgb;
     fragmentColor.a = fragmentColor.a + (1.0 - fragmentColor.a) * hitColor.a;
 #endif

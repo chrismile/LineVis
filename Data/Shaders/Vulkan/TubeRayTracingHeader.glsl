@@ -52,12 +52,18 @@ layout(binding = 3) uniform RayTracerSettingsBuffer {
 
 #ifdef USE_MLAT
 
+#extension GL_EXT_control_flow_attributes : require
+
 #ifndef NUM_NODES
 #error If USE_MLAT is defined, then NUM_NODES must also be defined.
 #endif
 
-#if NUM_NODES >= 1 && NUM_NODES <= 4
-//#define NODES_UNROLLED
+/*
+ * NOTE: On NVIDIA GPUs with driver version 470.86, not unrolling was extremely slow and even buggy if not using
+ * [[unroll]] for for-loops operating on the payload node array.
+ */
+#if NUM_NODES >= 1 && NUM_NODES <= 8
+#define NODES_UNROLLED
 #endif
 
 struct MlatNode {
@@ -77,6 +83,18 @@ struct RayPayload {
 #endif
 #if NUM_NODES >= 4
     MlatNode node3;
+#endif
+#if NUM_NODES >= 5
+    MlatNode node4;
+#endif
+#if NUM_NODES >= 6
+    MlatNode node5;
+#endif
+#if NUM_NODES >= 7
+    MlatNode node6;
+#endif
+#if NUM_NODES >= 8
+    MlatNode node7;
 #endif
 #else
     MlatNode nodes[NUM_NODES];
