@@ -55,7 +55,12 @@ class RayTracingRenderPass;
 
 /**
  * A Vulkan ray tracer using the OpenGL-Vulkan interoperability support of sgl.
- * It supports both fully opaque and transparent rendering.
+ * It supports both fully opaque and transparency rendering.
+ *
+ * Optionally, it also supports using multi-layer alpha tracing (MLAT) for accelerated, approximated order-independent
+ * transparency (OIT) rendering. For more details on MLAT, please refer to:
+ * F. Brüll and T. Grosch. Multi-Layer Alpha Tracing. In J. Krüger, M. Niessner, and J. Stückler, editors, Vision,
+ * Modeling, and Visualization. The Eurographics Association, 2020.
  */
 class VulkanRayTracer : public LineRenderer {
 public:
@@ -87,7 +92,7 @@ public:
     void onHasMoved() override;
 
     /// Returns whether the triangle representation is used by the renderer.
-    bool getIsTriangleRepresentationUsed() const override;
+    [[nodiscard]] bool getIsTriangleRepresentationUsed() const override;
 
     /**
      * Called when whether the simulation mesh hull should be rendered might have changed.
@@ -110,6 +115,10 @@ private:
 
     // Whether to trace rays against a triangle mesh or analytic tubes using line segment AABBs.
     bool useAnalyticIntersections = true;
+
+    // Whether to use multi-layer alpha tracing (MLAT).
+    bool useMlat = false;
+    int mlatNumNodes = 8;
 
     // How many rays should be used per frame?
     uint32_t numSamplesPerFrame = 2;
@@ -142,6 +151,8 @@ public:
     inline void setUseAmbientOcclusion(bool ambientOcclusionOn) { useAmbientOcclusion = ambientOcclusionOn; }
     inline void setAmbientOcclusionBaker(const AmbientOcclusionBakerPtr& baker) { ambientOcclusionBaker = baker; }
     inline void setUseAnalyticIntersections(bool analyticIntersections) { useAnalyticIntersections = analyticIntersections; }
+    inline void setUseMlat(bool mlat) { useMlat = mlat; }
+    inline void setMlatNumNodes(int numNodes) { mlatNumNodes = numNodes; }
 
 private:
     void updateUseJitteredSamples();
@@ -197,9 +208,13 @@ private:
     RayTracerSettings rayTracerSettings{};
     sgl::vk::BufferPtr rayTracerSettingsBuffer;
 
-    bool useAnalyticIntersections = false;
     bool useJitteredSamples = true;
     uint32_t maxNumFrames = 1;
+    bool useAnalyticIntersections = false;
+
+    // Whether to use multi-layer alpha tracing (MLAT).
+    bool useMlat = false;
+    int mlatNumNodes = 8;
 };
 
 #endif //LINEVIS_VULKANRAYTRACER_HPP

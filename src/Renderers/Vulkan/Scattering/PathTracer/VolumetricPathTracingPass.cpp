@@ -166,6 +166,9 @@ void VolumetricPathTracingPass::setLineData(LineDataScatteringPtr& data, bool is
     imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     sgl::vk::ImageSamplerSettings samplerSettings;
+    samplerSettings.addressModeU = samplerSettings.addressModeV = samplerSettings.addressModeW =
+            VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    samplerSettings.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
 
     densityFieldTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);

@@ -423,7 +423,8 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLeve
         return tubeTriangleBottomLevelAS;
     }
 
-    auto asTubeInput = new sgl::vk::TrianglesAccelerationStructureInput(device);
+    auto asTubeInput = new sgl::vk::TrianglesAccelerationStructureInput(
+            device, VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR);
     asTubeInput->setIndexBuffer(tubeTriangleRenderData.indexBuffer);
     asTubeInput->setVertexBuffer(
             tubeTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
@@ -456,7 +457,8 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeAabbBottomLevelAS(
         return tubeAabbBottomLevelAS;
     }
 
-    auto asAabbInput = new sgl::vk::AabbsAccelerationStructureInput(device);
+    auto asAabbInput = new sgl::vk::AabbsAccelerationStructureInput(
+            device, VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR);
     asAabbInput->setAabbsBuffer(tubeAabbRenderData.aabbBuffer);
     auto asAabbInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asAabbInput);
     sgl::Logfile::get()->writeInfo("Building tube AABB bottom level ray tracing acceleration structure...");
@@ -482,7 +484,8 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getHullTriangleBottomLeve
         return hullTriangleBottomLevelAS;
     }
 
-    auto asHullInput = new sgl::vk::TrianglesAccelerationStructureInput(device); // , VkGeometryFlagBitsKHR(0)
+    auto asHullInput = new sgl::vk::TrianglesAccelerationStructureInput(
+            device, VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR);
     asHullInput->setIndexBuffer(hullTriangleRenderData.indexBuffer);
     asHullInput->setVertexBuffer(
             hullTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,

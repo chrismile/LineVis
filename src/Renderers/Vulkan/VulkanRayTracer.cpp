@@ -64,6 +64,8 @@ VulkanRayTracer::VulkanRayTracer(
     rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
     rayTracingRenderPass->setMaxDepthComplexity(maxDepthComplexity);
     rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
+    rayTracingRenderPass->setUseMlat(useMlat);
+    rayTracingRenderPass->setMlatNumNodes(mlatNumNodes);
 
     isVulkanRenderer = true;
     isRasterizer = false;
@@ -215,11 +217,27 @@ void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& property
     if (propertyEditor.addCheckbox("Use Analytic Intersections", &useAnalyticIntersections)) {
         rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
         rayTracingRenderPass->setShaderDirty();
-        rayTracingRenderPass->setLineData(lineData, false);
+        if (lineData) {
+            rayTracingRenderPass->setLineData(lineData, false);
+        }
         accumulatedFramesCounter = 0;
     }
     ImGui::SameLine();
     ImGui::HelpMarker("Whether to trace rays against a triangle mesh or analytic tubes using line segment AABBs.");
+
+    if (propertyEditor.addCheckbox("Use MLAT", &useMlat)) {
+        rayTracingRenderPass->setUseMlat(useMlat);
+        rayTracingRenderPass->setShaderDirty();
+        accumulatedFramesCounter = 0;
+    }
+    ImGui::SameLine();
+    ImGui::HelpMarker("Whether to use multi-layer alpha tracing for accelerated transparency rendering.");
+
+    if (useMlat && propertyEditor.addSliderIntPowerOfTwo("#MLAT Nodes", &mlatNumNodes, 1, 32)) {
+        rayTracingRenderPass->setMlatNumNodes(mlatNumNodes);
+        rayTracingRenderPass->setShaderDirty();
+        accumulatedFramesCounter = 0;
+    }
 }
 
 bool VulkanRayTracer::needsReRender() {
@@ -325,17 +343,36 @@ void RayTracingRenderPass::loadShader() {
         preprocessorDefines.insert(std::make_pair("USE_AMBIENT_OCCLUSION", ""));
         preprocessorDefines.insert(std::make_pair("GEOMETRY_PASS_TUBE", ""));
     }
-    if (useAnalyticIntersections) {
-        shaderStages = sgl::vk::ShaderManager->getShaderStages(
-                {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
-                 "TubeRayTracing.IntersectionTube", "TubeRayTracing.ClosestHitTubeAnalytic",
-                 "TubeRayTracing.ClosestHitHull"},
-                preprocessorDefines);
+    if (useMlat) {
+        preprocessorDefines.insert(std::make_pair("USE_MLAT", ""));
+        preprocessorDefines.insert(std::make_pair("NUM_NODES", std::to_string(mlatNumNodes)));
+    }
+    if (useMlat) {
+        if (useAnalyticIntersections) {
+            shaderStages = sgl::vk::ShaderManager->getShaderStages(
+                    {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
+                     "TubeRayTracing.IntersectionTube", "TubeRayTracing.AnyHitTubeAnalytic",
+                     "TubeRayTracing.AnyHitHull"},
+                    preprocessorDefines);
+        } else {
+            shaderStages = sgl::vk::ShaderManager->getShaderStages(
+                    {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
+                     "TubeRayTracing.AnyHitTubeTriangles", "TubeRayTracing.AnyHitHull"},
+                    preprocessorDefines);
+        }
     } else {
-        shaderStages = sgl::vk::ShaderManager->getShaderStages(
-                {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
-                 "TubeRayTracing.ClosestHitTubeTriangles", "TubeRayTracing.ClosestHitHull"},
-                preprocessorDefines);
+        if (useAnalyticIntersections) {
+            shaderStages = sgl::vk::ShaderManager->getShaderStages(
+                    {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
+                     "TubeRayTracing.IntersectionTube", "TubeRayTracing.ClosestHitTubeAnalytic",
+                     "TubeRayTracing.ClosestHitHull"},
+                    preprocessorDefines);
+        } else {
+            shaderStages = sgl::vk::ShaderManager->getShaderStages(
+                    {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
+                     "TubeRayTracing.ClosestHitTubeTriangles", "TubeRayTracing.ClosestHitHull"},
+                    preprocessorDefines);
+        }
     }
 }
 
@@ -451,15 +488,28 @@ sgl::vk::RayTracingPipelinePtr RayTracingRenderPass::createRayTracingPipeline() 
     sgl::vk::ShaderBindingTable sbt(shaderStages);
     sbt.addRayGenShaderGroup()->setRayGenShader(0);
     sbt.addMissShaderGroup()->setMissShader(1);
-    if (useAnalyticIntersections) {
-        sgl::vk::HitShaderGroup* tubeHitShaderGroup = sbt.addHitShaderGroup(
-                VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR);
-        tubeHitShaderGroup->setIntersectionShader(2);
-        tubeHitShaderGroup->setClosestHitShader(3);
-        sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setClosestHitShader(4);
+    if (useMlat) {
+        if (useAnalyticIntersections) {
+            sgl::vk::HitShaderGroup* tubeHitShaderGroup = sbt.addHitShaderGroup(
+                    VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR);
+            tubeHitShaderGroup->setIntersectionShader(2);
+            tubeHitShaderGroup->setAnyHitShader(3);
+            sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setAnyHitShader(4);
+        } else {
+            sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setAnyHitShader(2);
+            sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setAnyHitShader(3);
+        }
     } else {
-        sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setClosestHitShader(2);
-        sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setClosestHitShader(3);
+        if (useAnalyticIntersections) {
+            sgl::vk::HitShaderGroup* tubeHitShaderGroup = sbt.addHitShaderGroup(
+                    VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR);
+            tubeHitShaderGroup->setIntersectionShader(2);
+            tubeHitShaderGroup->setClosestHitShader(3);
+            sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setClosestHitShader(4);
+        } else {
+            sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setClosestHitShader(2);
+            sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setClosestHitShader(3);
+        }
     }
 
     sgl::vk::RayTracingPipelineInfo rayTracingPipelineInfo(sbt);

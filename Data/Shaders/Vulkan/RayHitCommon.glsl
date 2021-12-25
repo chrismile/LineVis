@@ -27,30 +27,11 @@
  */
 
 #include "TransferFunction.glsl"
+#include "TubeRayTracingHeader.glsl"
 
-layout (binding = 0) uniform CameraSettingsBuffer {
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 inverseViewMatrix;
-    mat4 inverseProjectionMatrix;
-} camera;
-
-layout (binding = 3) uniform RayTracerSettingsBuffer {
-    vec3 cameraPosition;
-    float paddingFlt;
-    vec4 backgroundColor;
-    vec4 foregroundColor;
-
-    // The maximum number of transparent fragments to blend before stopping early.
-    uint maxDepthComplexity;
-    // How many rays should be shot per frame?
-    uint numSamplesPerFrame;
-
-    // The number of this frame (used for accumulation of samples across frames).
-    uint frameNumber;
-
-    uint paddingUint;
-};
+#ifdef USE_MLAT
+#include "MlatInsert.glsl"
+#endif
 
 layout (binding = 4) uniform LineRenderSettingsBuffer {
     float lineWidth;
@@ -89,13 +70,6 @@ layout(std430, binding = 8) readonly buffer TubeLinePointDataBuffer {
     TubeLinePointData tubeLinePointDataBuffer[];
 };
 
-struct RayPayload {
-    vec4 hitColor;
-    float hitT;
-    bool hasHit;
-};
-layout(location = 0) rayPayloadInEXT RayPayload payload;
-
 #define RAYTRACING
 #include "Lighting.glsl"
 
@@ -125,6 +99,18 @@ void computeFragmentColor(
 #endif
         TubeLinePointData linePointData0, TubeLinePointData linePointData1
 ) {
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    vec4 fragmentColor = transferFunction(fragmentAttribute, linePointData0.principalStressIndex);
+#else
+    vec4 fragmentColor = transferFunction(fragmentAttribute);
+#endif
+
+#ifdef USE_MLAT
+    if (fragmentColor.a == 0.0) {
+        ignoreIntersectionEXT;
+    }
+#endif
+
     const vec3 n = normalize(fragmentNormal);
     const vec3 v = normalize(cameraPosition - fragmentPositionWorld);
     const vec3 t = normalize(fragmentTangent);
@@ -299,12 +285,6 @@ void computeFragmentColor(
     }
 #endif
 
-#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
-    vec4 fragmentColor = transferFunction(fragmentAttribute, linePointData0.principalStressIndex);
-#else
-    vec4 fragmentColor = transferFunction(fragmentAttribute);
-#endif
-
 #ifdef USE_DEPTH_CUES
     vec3 screenSpacePosition = (camera.viewMatrix * vec4(fragmentPositionWorld, 1.0)).xyz;
 #endif
@@ -342,7 +322,11 @@ void computeFragmentColor(
     //colorOut = vec4(getAoFactor(fragmentVertexId, phi), 0.0, 0.0, 1.0);
 #endif
 
+#ifdef USE_MLAT
+    insertNodeMlat(colorOut);
+#else
     payload.hitColor = colorOut;
     payload.hitT = length(fragmentPositionWorld - cameraPosition);
     payload.hasHit = true;
+#endif
 }

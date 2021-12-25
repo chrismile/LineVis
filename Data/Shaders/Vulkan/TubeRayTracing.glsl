@@ -31,37 +31,17 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
 
+#define RAY_GEN_SHADER
+
 #ifdef USE_JITTERED_RAYS
 #include "RayTracingUtilities.glsl"
 #endif
 
-layout(binding = 0) uniform CameraSettingsBuffer {
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 inverseViewMatrix;
-    mat4 inverseProjectionMatrix;
-} camera;
+#include "TubeRayTracingHeader.glsl"
 
 layout(binding = 1, rgba8) uniform image2D outputImage;
 
 layout(binding = 2) uniform accelerationStructureEXT topLevelAS;
-
-layout(binding = 3) uniform RayTracerSettingsBuffer {
-    vec3 cameraPosition;
-    float paddingFlt;
-    vec4 backgroundColor;
-    vec4 foregroundColor;
-
-    // The maximum number of transparent fragments to blend before stopping early.
-    uint maxDepthComplexity;
-    // How many rays should be shot per frame?
-    uint numSamplesPerFrame;
-
-    // The number of this frame (used for accumulation of samples across frames).
-    uint frameNumber;
-
-    uint paddingUint;
-};
 
 layout(binding = 4) uniform LineRenderSettingsBuffer {
     float lineWidth;
@@ -82,18 +62,12 @@ layout(binding = 9) uniform HullRenderSettingsBuffer {
     int useShading;
 } hullRenderSettings;
 
-struct RayPayload {
-    vec4 hitColor;
-    float hitT;
-    bool hasHit;
-};
-layout(location = 0) rayPayloadEXT RayPayload payload;
-
 // Minimum distance between two consecutive hits.
 const float HIT_DISTANCE_EPSILON = 1e-4;
 
 #define USE_TRANSPARENCY
 
+#ifndef USE_MLAT
 vec4 traceRayOpaque(vec3 rayOrigin, vec3 rayDirection) {
     float tMin = 0.0001f;
     float tMax = 1000.0f;
@@ -110,7 +84,7 @@ vec4 traceRayTransparent(vec3 rayOrigin, vec3 rayDirection) {
     float tMax = 1000.0f;
 
     for (uint hitIdx = 0; hitIdx < maxDepthComplexity; hitIdx++) {
-        traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, rayOrigin, tMin, rayDirection, tMax, 0); // gl_RayFlagsNoneEXT
+        traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, rayOrigin, tMin, rayDirection, tMax, 0);
 
         tMin = payload.hitT + HIT_DISTANCE_EPSILON;
 
@@ -125,6 +99,77 @@ vec4 traceRayTransparent(vec3 rayOrigin, vec3 rayDirection) {
 
     return fragmentColor;
 }
+
+#else
+
+vec4 traceRayMlat(vec3 rayOrigin, vec3 rayDirection) {
+    vec4 fragmentColor = vec4(0.0);
+
+    // Clear the payload data.
+#ifdef NODES_UNROLLED
+    payload.node0.color = vec4(0.0);
+    payload.node0.transmittance = 1.0;
+    payload.node0.depth = 0.0;
+#if NUM_NODES >= 2
+    payload.node1.color = vec4(0.0);
+    payload.node1.transmittance = 1.0;
+    payload.node1.depth = 0.0;
+#endif
+#if NUM_NODES >= 3
+    payload.node2.color = vec4(0.0);
+    payload.node2.transmittance = 1.0;
+    payload.node2.depth = 0.0;
+#endif
+#if NUM_NODES >= 4
+    payload.node3.color = vec4(0.0);
+    payload.node3.transmittance = 1.0;
+    payload.node3.depth = 0.0;
+#endif
+#else
+    for (int i = 0; i < NUM_NODES; i++) {
+        payload.nodes[i].color = vec4(0.0);
+        payload.nodes[i].transmittance = 1.0;
+        payload.nodes[i].depth = 0.0;
+    }
+#endif
+    payload.depth2 = 0.0;
+
+    float tMin = 0.0001f;
+    float tMax = 1000.0f;
+    traceRayEXT(topLevelAS, gl_RayFlagsNoOpaqueEXT, 0xFF, 0, 0, 0, rayOrigin, tMin, rayDirection, tMax, 0);
+
+    // Front-to-back blending (hitColor and fragmentColor use pre-multiplied alpha).
+    vec4 hitColor;
+#ifdef NODES_UNROLLED
+    hitColor = payload.node0.color;
+    fragmentColor.rgb = fragmentColor.rgb + (1.0 - fragmentColor.a) * hitColor.rgb;
+    fragmentColor.a = fragmentColor.a + (1.0 - fragmentColor.a) * hitColor.a;
+#if NUM_NODES >= 2
+    hitColor = payload.node1.color;
+    fragmentColor.rgb = fragmentColor.rgb + (1.0 - fragmentColor.a) * hitColor.rgb;
+    fragmentColor.a = fragmentColor.a + (1.0 - fragmentColor.a) * hitColor.a;
+#endif
+#if NUM_NODES >= 3
+    hitColor = payload.node2.color;
+    fragmentColor.rgb = fragmentColor.rgb + (1.0 - fragmentColor.a) * hitColor.rgb;
+    fragmentColor.a = fragmentColor.a + (1.0 - fragmentColor.a) * hitColor.a;
+#endif
+#if NUM_NODES >= 4
+    hitColor = payload.node3.color;
+    fragmentColor.rgb = fragmentColor.rgb + (1.0 - fragmentColor.a) * hitColor.rgb;
+    fragmentColor.a = fragmentColor.a + (1.0 - fragmentColor.a) * hitColor.a;
+#endif
+#else
+    for (int i = 0; i < NUM_NODES; ++i) {
+        hitColor = payload.nodes[i].color;
+        fragmentColor.rgb = fragmentColor.rgb + (1.0 - fragmentColor.a) * hitColor.rgb;
+        fragmentColor.a = fragmentColor.a + (1.0 - fragmentColor.a) * hitColor.a;
+    }
+#endif
+
+    return fragmentColor;
+}
+#endif
 
 void main() {
     ivec2 outputImageSize = imageSize(outputImage);
@@ -147,7 +192,9 @@ void main() {
     vec3 rayTarget = (camera.inverseProjectionMatrix * vec4(fragNdc.xy, 1.0, 1.0)).xyz;
     vec3 rayDirection = (camera.inverseViewMatrix * vec4(normalize(rayTarget.xyz), 0.0)).xyz;
 
-#ifdef USE_TRANSPARENCY
+#if defined(USE_MLAT)
+    fragmentColor += traceRayMlat(rayOrigin, rayDirection);
+#elif defined(USE_TRANSPARENCY)
     fragmentColor += traceRayTransparent(rayOrigin, rayDirection);
 #else
     if (hasHullMesh == 1) {
@@ -178,34 +225,22 @@ void main() {
 #version 460
 #extension GL_EXT_ray_tracing : require
 
-layout(binding = 3) uniform RayTracerSettingsBuffer {
-    vec3 cameraPosition;
-    float paddingFlt;
-    vec4 backgroundColor;
-    vec4 foregroundColor;
+#define MISS_SHADER
 
-    // The maximum number of transparent fragments to blend before stopping early.
-    uint maxDepthComplexity;
-    // How many rays should be shot per frame?
-    uint numSamplesPerFrame;
+#include "TubeRayTracingHeader.glsl"
 
-    // The number of this frame (used for accumulation of samples across frames).
-    uint frameNumber;
-
-    uint paddingUint;
-};
-
-struct RayPayload {
-    vec4 hitColor;
-    float hitT;
-    bool hasHit;
-};
-layout(location = 0) rayPayloadInEXT RayPayload payload;
+#ifdef USE_MLAT
+#include "MlatInsert.glsl"
+#endif
 
 void main() {
+#ifdef USE_MLAT
+    insertNodeMlat(backgroundColor);
+#else
     payload.hitColor = backgroundColor;
     payload.hitT = 0.0f;
     payload.hasHit = false;
+#endif
 }
 
 
@@ -310,6 +345,11 @@ void main() {
 }
 
 
+-- AnyHitTubeTriangles
+
+#import ".ClosestHitTubeTriangles"
+
+
 -- ClosestHitHull
 
 #version 460
@@ -317,29 +357,17 @@ void main() {
 #extension GL_EXT_scalar_block_layout : require
 
 #include "BarycentricInterpolation.glsl"
+#include "TubeRayTracingHeader.glsl"
+
+#ifdef USE_MLAT
+#include "MlatInsert.glsl"
+#endif
 
 struct HullVertex {
     vec3 vertexPosition;
     float padding0;
     vec3 vertexNormal;
     float padding1;
-};
-
-layout(binding = 3) uniform RayTracerSettingsBuffer {
-    vec3 cameraPosition;
-    float paddingFlt;
-    vec4 backgroundColor;
-    vec4 foregroundColor;
-
-    // The maximum number of transparent fragments to blend before stopping early.
-    uint maxDepthComplexity;
-    // How many rays should be shot per frame?
-    uint numSamplesPerFrame;
-
-    // The number of this frame (used for accumulation of samples across frames).
-    uint frameNumber;
-
-    uint paddingUint;
 };
 
 layout(binding = 9) uniform HullRenderSettingsBuffer {
@@ -355,13 +383,6 @@ layout(scalar, binding = 10) readonly buffer HullIndexBuffer {
 layout(std430, binding = 11) readonly buffer HullTriangleVertexDataBuffer {
     HullVertex hullVertices[];
 };
-
-struct RayPayload {
-    vec4 hitColor;
-    float hitT;
-    bool hasHit;
-};
-layout(location = 0) rayPayloadInEXT RayPayload payload;
 
 #define RAYTRACING
 #ifdef USE_DEPTH_CUES
@@ -400,10 +421,19 @@ void main() {
     }
     phongColor.a *= 1.0f - cosAngle;
 
+#ifdef USE_MLAT
+    insertNodeMlat(phongColor);
+#else
     payload.hitColor = phongColor;
     payload.hitT = length(fragmentPositionWorld - cameraPosition);
     payload.hasHit = true;
+#endif
 }
+
+
+-- AnyHitHull
+
+#import ".ClosestHitHull"
 
 
 -- IntersectionTube
@@ -574,3 +604,9 @@ void main() {
             linePointData0, linePointData1
     );
 }
+
+
+-- AnyHitTubeAnalytic
+
+#import ".ClosestHitTubeAnalytic"
+
