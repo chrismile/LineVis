@@ -56,7 +56,12 @@ inline uint32_t min(uint32_t a, uint32_t b) {
     return a < b ? a : b;
 }
 
+
 Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_height) {
+    const float search_radius = 0.1f;
+    const float rbf_epsilon = 3.0f;
+
+
     Image out_image;
     out_image.width  = image_height * 2;
     out_image.height = image_height;
@@ -69,7 +74,8 @@ Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_heig
     assert(out_image.height > 0);
 
     std::vector<std::pair<glm::vec3, Empty>> searchCache;
-    int max_hits = 0;
+    float max_rbf_value = 0.0f;
+
     for (uint32_t y = 0; y < out_image.height; ++y) {
         for (uint32_t x = 0; x < out_image.width; ++x) {
             float u = -1.0f + (1.0f * x / (out_image.width - 1)) * 2.0f; // from   -1 to 1
@@ -96,14 +102,28 @@ Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_heig
                     glm::rotate(phi,     Z) *
                     X;
 
-                searchCache.clear();
-                auto num_hits = kd_tree->getNumPointsInSphere(point_on_sphere, 0.025f, searchCache);
 
-                max_hits = std::max(int(num_hits), max_hits);
-                p->s32 = int32_t(num_hits);
+                searchCache.clear();
+                kd_tree->findPointsAndDataInSphere(point_on_sphere, search_radius, searchCache);
+
+                p->f32 = 0.0f;
+
+                for (std::pair<glm::vec3, Empty>& hit : searchCache) {
+                    glm::vec3 pos = hit.first;
+
+                    float dist = glm::length(point_on_sphere - pos);
+
+                    float rbf_param = dist / search_radius;
+
+                    p->f32 += (float)std::exp(-(float)std::pow(rbf_epsilon * rbf_param,2));
+                }
+
+                // auto num_hits = kd_tree->getNumPointsInSphere(point_on_sphere, 0.025f, searchCache);
+
+                max_rbf_value = std::max(p->f32, max_rbf_value);
             } else {
                 // we are outside the ellipse
-                p->s32 = -1;
+                p->f32 = -1.0f;
             }
         }
     }
@@ -111,21 +131,21 @@ Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_heig
     for (uint32_t y = 0; y < out_image.height; ++y) {
         for (uint32_t x = 0; x < out_image.width; ++x) {
             Pixel* p = &out_image.pixels[y*out_image.width+x];
-            if (p->s32 == -1) {
+            if (p->f32 == -1.0f) {
                 p->r = 0;
                 p->g = 0;
                 p->b = 0;
                 p->a = 0;
             } else {
-                auto hits = p->s32;
+                auto rbf_value = p->f32;
                 sgl::Color result;
                 // NOTE(Felix): poor man's transfer function
-                if (hits < max_hits/2) {
+                if (rbf_value < max_rbf_value/2) {
                     // blue to green gradient
-                    result = sgl::colorLerp({0,0,255,255}, {0,255,0,255}, 2.0f*hits/max_hits);
+                    result = sgl::colorLerp({0,0,255,255}, {0,255,0,255}, 2.0f*rbf_value/max_rbf_value);
                 } else {
                     // green to red gradient
-                    result = sgl::colorLerp({0,255,0,255}, {255,0,0,255}, 2.0f*hits/max_hits-1.0f);
+                    result = sgl::colorLerp({0,255,0,255}, {255,0,0,255}, 2.0f*rbf_value/max_rbf_value-1.0f);
                 }
                 p->r = result.getR();
                 p->g = result.getG();

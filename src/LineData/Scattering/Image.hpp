@@ -13,6 +13,7 @@ union Pixel {
     };
     byte     bytes[4];
     int32_t  s32;
+    float    f32;
 };
 
 struct Image {
