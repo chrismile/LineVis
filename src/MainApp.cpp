@@ -922,6 +922,9 @@ void MainApp::renderGui() {
                         if (i == 0 && showFpsOverlay) {
                             renderGuiFpsOverlay();
                         }
+                        if (i == 0 && showCoordinateAxesOverlay) {
+                            renderGuiCoordinateAxesOverlay();
+                        }
 
                         if (i == 0 && dataView->lineRenderer) {
                             dataView->lineRenderer->renderGuiOverlay();
