@@ -923,7 +923,7 @@ void MainApp::renderGui() {
                             renderGuiFpsOverlay();
                         }
                         if (i == 0 && showCoordinateAxesOverlay) {
-                            renderGuiCoordinateAxesOverlay();
+                            renderGuiCoordinateAxesOverlay(dataView->camera);
                         }
 
                         if (i == 0 && dataView->lineRenderer) {
