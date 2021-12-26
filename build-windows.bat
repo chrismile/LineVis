@@ -68,11 +68,11 @@ if not exist .\sgl\install (
    pushd sgl\.build
 
    cmake .. -DCMAKE_TOOLCHAIN_FILE=../../vcpkg/scripts/buildsystems/vcpkg.cmake ^
-            -DCMAKE_INSTALL_PREFIX=../install         || exit /b 1
-   cmake --build . --config Debug   --parallel        || exit /b 1
-   cmake --build . --config Debug   --target install  || exit /b 1
-   cmake --build . --config Release --parallel        || exit /b 1
-   cmake --build . --config Release --target install  || exit /b 1
+            -DCMAKE_INSTALL_PREFIX=../install -DCMAKE_CXX_FLAGS="/MP" || exit /b 1
+   cmake --build . --config Debug   -- /m            || exit /b 1
+   cmake --build . --config Debug   --target install || exit /b 1
+   cmake --build . --config Release -- /m            || exit /b 1
+   cmake --build . --config Release --target install || exit /b 1
 
    popd
 )
@@ -97,12 +97,12 @@ echo ------------------------
 echo       generating
 echo ------------------------
 cmake -DCMAKE_TOOLCHAIN_FILE="third_party/vcpkg/scripts/buildsystems/vcpkg.cmake" -DPYTHONHOME="./python3" ^
-      -Dsgl_DIR="third_party/sgl/install/lib/cmake/sgl/" -S . -B %build_dir%
+      -Dsgl_DIR="third_party/sgl/install/lib/cmake/sgl/" -DCMAKE_CXX_FLAGS="/MP" -S . -B %build_dir%
 
 echo ------------------------
 echo       compiling
 echo ------------------------
-cmake --build %build_dir% --config %cmake_config% --parallel || exit /b 1
+cmake --build %build_dir% --config %cmake_config% -- /m || exit /b 1
 
 echo ------------------------
 echo    copying new files
