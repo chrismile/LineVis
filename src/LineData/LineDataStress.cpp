@@ -157,14 +157,40 @@ bool LineDataStress::setNewSettings(const SettingsMap& settings) {
         }
     }
 
-    // TODO
     if (useBands()) {
-        if (settings.getValueOpt("thick_bands", renderThickBands)) {
-            shallReloadGatherShader = true;
-        }
-
         if (fileFormatVersion >= 3 && settings.getValueOpt("smoothed_bands", useSmoothedBands)) {
             dirty = true;
+        }
+
+#ifdef USE_EIGEN
+        std::string bandRenderingModeName;
+        if (fileFormatVersion >= 3 && settings.getValueOpt("band_render_mode", bandRenderingModeName)) {
+            int i;
+            for (i = 0; i < IM_ARRAYSIZE(bandRenderModeNames); i++) {
+                if (bandRenderingModeName == bandRenderModeNames[i]) {
+                    bandRenderMode = BandRenderMode(i);
+                    dirty = true;
+                    shallReloadGatherShader = true;
+                    break;
+                }
+            }
+            if (i == IM_ARRAYSIZE(bandRenderModeNames)) {
+                sgl::Logfile::get()->writeError(
+                        "Error in LineDataStress::setNewSettings: Unknown band rendering mode name \""
+                        + bandRenderingModeName + "\".");
+            }
+        }
+#endif
+
+
+        if (bandRenderMode == BandRenderMode::RIBBONS) {
+            if (settings.getValueOpt("thick_bands", renderThickBands)) {
+                shallReloadGatherShader = true;
+            }
+
+            if (settings.getValueOpt("min_band_thickness", minBandThickness)) {
+                shallReloadGatherShader = true;
+            }
         }
     }
 
@@ -316,7 +342,7 @@ bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyE
             }
 
 #ifdef USE_EIGEN
-            if (fileFormatVersion >= 3 &&propertyEditor.addCombo(
+            if (fileFormatVersion >= 3 && propertyEditor.addCombo(
                     "Band Rendering Mode", (int*)&bandRenderMode,
                     bandRenderModeNames, IM_ARRAYSIZE(bandRenderModeNames))) {
                 dirty = true;
