@@ -103,7 +103,8 @@ set cmake_args=-DCMAKE_TOOLCHAIN_FILE="third_party/vcpkg/scripts/buildsystems/vc
                -DPYTHONHOME="./python3"                                                    ^
                -DCMAKE_CXX_FLAGS="/MP"                                                     ^
                -Dsgl_DIR="third_party/sgl/install/lib/cmake/sgl/"
-if defined %optix_install_dir% (
+if not %optix_install_dir% == "" (
+   echo using custom optix path
    set cmake_args=%cmake_args% -DOptiX_INSTALL_DIR=%optix_install_dir%
 )
 
