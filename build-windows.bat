@@ -27,6 +27,8 @@
 @echo off
 pushd %~dp0
 
+set optix_install_dir=""
+
 set debug=true
 set build_dir=".build"
 set destination_dir="Shipping"
@@ -96,8 +98,15 @@ if %debug% == true (
 echo ------------------------
 echo       generating
 echo ------------------------
-cmake -DCMAKE_TOOLCHAIN_FILE="third_party/vcpkg/scripts/buildsystems/vcpkg.cmake" -DPYTHONHOME="./python3" ^
-      -Dsgl_DIR="third_party/sgl/install/lib/cmake/sgl/" -S . -B %build_dir%
+
+set cmake_args=-DCMAKE_TOOLCHAIN_FILE="third_party/vcpkg/scripts/buildsystems/vcpkg.cmake" ^
+               -DPYTHONHOME="./python3"                                                    ^
+               -Dsgl_DIR="third_party/sgl/install/lib/cmake/sgl/"
+if defined %optix_install_dir% (
+   set cmake_args=%cmake_args% -DOptiX_INSTALL_DIR=%optix_install_dir%
+)
+
+cmake %cmake_args% -S . -B %build_dir%
 
 echo ------------------------
 echo       compiling
