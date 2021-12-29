@@ -43,7 +43,8 @@
 
 void computePrincipalStresses(
         float xx, float yy, float zz, float xy, float yz, float zx,
-        float& majorStress, float& mediumStress, float& minorStress) {
+        float& majorStress, float& mediumStress, float& minorStress/*,
+        glm::vec3& v0, glm::vec3& v1, glm::vec3& v2*/) {
     Eigen::Matrix3f stressTensor;
     stressTensor.row(0) << xx, xy, zx;
     stressTensor.row(1) << xy, yy, yz;
@@ -52,6 +53,10 @@ void computePrincipalStresses(
     Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> selfAdjointEigenSolver;
     selfAdjointEigenSolver.compute(stressTensor);
     Eigen::Vector3f eigenvalues = selfAdjointEigenSolver.eigenvalues();
+    /*Eigen::Matrix3f eigenvectors = selfAdjointEigenSolver.eigenvectors();
+    v0 = glm::vec3(eigenvectors(0, 0), eigenvectors(1, 0), eigenvectors(2, 0));
+    v1 = glm::vec3(eigenvectors(0, 1), eigenvectors(1, 1), eigenvectors(2, 1));
+    v2 = glm::vec3(eigenvectors(0, 2), eigenvectors(1, 2), eigenvectors(2, 2));*/
 
     minorStress = eigenvalues(0);
     mediumStress = eigenvalues(1);
@@ -570,13 +575,18 @@ void loadStressTrajectoriesFromDat_v3(
                 int zxIdx = 7;
 
                 float majorStress, mediumStress, minorStress;
+                //glm::vec3 v0, v1, v2;
                 for (uint32_t pointIdx = 0; pointIdx < lineLength; pointIdx++) {
                     computePrincipalStresses(
-                            trajectory.attributes.at(xxIdx).at(pointIdx), trajectory.attributes.at(yyIdx).at(pointIdx),
-                            trajectory.attributes.at(zzIdx).at(pointIdx), trajectory.attributes.at(xyIdx).at(pointIdx),
-                            trajectory.attributes.at(yzIdx).at(pointIdx), trajectory.attributes.at(zxIdx).at(pointIdx),
-                            majorStress, mediumStress, minorStress);
-                    float degeneracyMeasure = computeDegeneracyMeasure(minorStress, mediumStress, majorStress);
+                            trajectory.attributes.at(xxIdx).at(pointIdx),
+                            trajectory.attributes.at(yyIdx).at(pointIdx),
+                            trajectory.attributes.at(zzIdx).at(pointIdx),
+                            trajectory.attributes.at(xyIdx).at(pointIdx),
+                            trajectory.attributes.at(yzIdx).at(pointIdx),
+                            trajectory.attributes.at(zxIdx).at(pointIdx),
+                            majorStress, mediumStress, minorStress/*, v0, v1, v2*/);
+                    float degeneracyMeasure = computeDegeneracyMeasure(
+                            minorStress, mediumStress, majorStress);
                     trajectory.attributes.at(9).push_back(majorStress);
                     trajectory.attributes.at(10).push_back(mediumStress);
                     trajectory.attributes.at(11).push_back(minorStress);

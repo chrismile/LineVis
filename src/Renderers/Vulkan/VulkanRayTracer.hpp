@@ -191,9 +191,11 @@ private:
     void updateLineRenderSettings();
     struct RayTracerSettings {
         glm::vec3 cameraPosition{};
-        float paddingFlt = 0.0f;
+        float fieldOfViewY = 0.0f;
         glm::vec4 backgroundColor{};
         glm::vec4 foregroundColor{};
+        glm::ivec2 viewportSize{};
+        glm::ivec2 paddingVec;
 
         // The maximum number of transparent fragments to blend before stopping early.
         uint32_t maxDepthComplexity = 1024;

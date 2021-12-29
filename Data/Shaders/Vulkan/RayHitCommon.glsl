@@ -33,7 +33,7 @@
 #include "MlatInsert.glsl"
 #endif
 
-layout (binding = 4) uniform LineRenderSettingsBuffer {
+layout(binding = 4) uniform LineRenderSettingsBuffer {
     float lineWidth;
     int hasHullMesh;
     float depthCueStrength;
@@ -47,11 +47,13 @@ layout (binding = 4) uniform LineRenderSettingsBuffer {
 };
 
 #ifdef STRESS_LINE_DATA
-layout (binding = 5) uniform StressLineRenderSettingsBuffer {
+layout(binding = 5) uniform StressLineRenderSettingsBuffer {
     vec3 lineHierarchySlider;
     float bandWidth;
     ivec3 psUseBands;
     int currentSeedIdx;
+    vec3 paddingStressLineSettings;
+    float minBandThickness;
 };
 #endif
 
@@ -72,6 +74,7 @@ layout(std430, binding = 8) readonly buffer TubeLinePointDataBuffer {
 
 #define RAYTRACING
 #include "Lighting.glsl"
+#include "Antialiasing.glsl"
 
 #define M_PI 3.14159265358979323846
 
@@ -121,7 +124,7 @@ void computeFragmentColor(
 #else
     bool useBand = psUseBands[linePointData0.principalStressIndex] > 0;
 #endif
-    const float thickness = useBand ? 0.15 : 1.0; // hard-coded
+    const float thickness = useBand ? MIN_THICKNESS : 1.0;
 #endif
 
     float ribbonPosition;
@@ -306,11 +309,13 @@ void computeFragmentColor(
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
     const float WHITE_THRESHOLD = 0.7;
 #ifdef STRESS_LINE_DATA
-    float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / (useBand ? bandWidth : lineWidth), 0.0, 0.49);
-    float EPSILON_WHITE = 1e-5; // TODO
+    //float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / (useBand ? bandWidth : lineWidth), 0.0, 0.49);
+    float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDepth / (useBand ? bandWidth : lineWidth) * 2.0), 0.0, 0.49);
+    float EPSILON_WHITE = clamp(getAntialiasingFactor(fragmentDepth / (useBand ? bandWidth : lineWidth) * 2.0), 0.0, 0.49);
 #else
-    float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / lineWidth, 0.0, 0.49);
-    float EPSILON_WHITE = 1e-5; // TODO
+    //float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / lineWidth, 0.0, 0.49);
+    float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDepth / lineWidth * 2.0), 0.0, 0.49);
+    float EPSILON_WHITE = clamp(getAntialiasingFactor(fragmentDepth / lineWidth * 2.0), 0.0, 0.49);
 #endif
     float coverage = 1.0 - smoothstep(1.0 - EPSILON_OUTLINE, 1.0, absCoords);
     vec4 colorOut = vec4(

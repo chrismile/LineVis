@@ -208,6 +208,18 @@ void LineData::setSelectedAttributeIndex(int attributeIndex) {
     recomputeHistogram();
 }
 
+int LineData::getAttributeNameIndex(const std::string& attributeName) {
+    auto it = std::find(attributeNames.begin(), attributeNames.end(), attributeName);
+    if (it != attributeNames.end()) {
+        return int(it - attributeNames.begin());
+    } else {
+        sgl::Logfile::get()->throwError(
+                "Error in LineData::getAttributeNameIndex: Couldn't find attribute with name \""
+                + attributeName + "\".");
+        return -1;
+    }
+}
+
 void LineData::onTransferFunctionMapRebuilt() {
     recomputeColorLegend();
 }

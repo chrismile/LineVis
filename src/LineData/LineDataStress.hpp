@@ -46,7 +46,7 @@ public:
     explicit LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow);
     ~LineDataStress() override;
     bool settingsDiffer(LineData* other) override;
-    bool getIsSmallDataSet() const override;
+    [[nodiscard]] bool getIsSmallDataSet() const override;
     void update(float dt) override;
 
     /// For changing internal settings programmatically and not over the GUI.
@@ -72,12 +72,12 @@ public:
     /// Can be used to set what principal stress (PS) directions we want to display.
     void setUsedPsDirections(const std::vector<bool>& usedPsDirections);
     static inline bool getUsePrincipalStressDirectionIndex() { return usePrincipalStressDirectionIndex; }
-    inline bool getUseLineHierarchy() const { return useLineHierarchy; }
+    [[nodiscard]] inline bool getUseLineHierarchy() const { return useLineHierarchy; }
     inline bool getHasDegeneratePoints() { return !degeneratePoints.empty(); }
     inline MultiVarTransferFunctionWindow& getMultiVarTransferFunctionWindow() { return multiVarTransferFunctionWindow; }
 
     // Statistics.
-    size_t getNumStressDirections() const { return trajectoriesPs.size(); }
+    [[nodiscard]] size_t getNumStressDirections() const { return trajectoriesPs.size(); }
     size_t getNumAttributes() override;
     size_t getNumLines() override;
     size_t getNumLinePoints() override;
@@ -165,15 +165,15 @@ public:
     static inline void setUseMinorPS(bool val) { useMinorPS = val; }
 
     // The seed process can be rendered for the video.
-    inline bool getHasSeedPoints() const { return !seedPoints.empty(); }
-    inline bool getShallRenderSeedingProcess() const { return shallRenderSeedingProcess; }
+    [[nodiscard]] inline bool getHasSeedPoints() const { return !seedPoints.empty(); }
+    [[nodiscard]] inline bool getShallRenderSeedingProcess() const { return shallRenderSeedingProcess; }
     inline void setShallRenderSeedingProcess(bool shallRenderSeedingProcess) {
         this->shallRenderSeedingProcess = shallRenderSeedingProcess;
     }
-    inline int getNumSeedPoints() const { return int(seedPoints.size()); }
-    inline int getCurrentSeedIdx() const { return currentSeedIdx; }
+    [[nodiscard]] inline int getNumSeedPoints() const { return int(seedPoints.size()); }
+    [[nodiscard]] inline int getCurrentSeedIdx() const { return currentSeedIdx; }
     inline void setCurrentSeedIdx(int currentSeedIdx) { this->currentSeedIdx = currentSeedIdx; }
-    inline const glm::vec3& getCurrentSeedPosition() const { return seedPoints.at(currentSeedIdx); }
+    [[nodiscard]] inline const glm::vec3& getCurrentSeedPosition() const { return seedPoints.at(currentSeedIdx); }
 
 private:
     void recomputeHistogram() override;
@@ -200,8 +200,14 @@ private:
     std::vector<std::vector<std::vector<glm::vec3>>> bandPointsUnsmoothedListLeftPs, bandPointsUnsmoothedListRightPs;
     std::vector<std::vector<std::vector<glm::vec3>>> bandPointsSmoothedListLeftPs, bandPointsSmoothedListRightPs;
     static std::array<bool, 3> psUseBands;
-    static bool renderThickBands;
     static bool useSmoothedBands;
+    enum class BandRenderMode {
+        RIBBONS, EIGENVALUE_RATIO, HYPERSTREAMLINES
+    };
+    static BandRenderMode bandRenderMode;
+    // Settings for BandRenderMode::RIBBONS.
+    static bool renderThickBands;
+    static float minBandThickness;
 
     // Rendering mode settings.
     bool rendererSupportsTransparency = false;
@@ -230,10 +236,12 @@ private:
 
 #ifdef USE_VULKAN_INTEROP
     struct StressLineRenderSettings {
-        glm::vec3 lineHierarchySlider;
-        float bandWidth;
-        glm::ivec3 psUseBands;
-        int currentSeedIdx;
+        glm::vec3 lineHierarchySlider{};
+        float bandWidth{};
+        glm::ivec3 psUseBands{};
+        int currentSeedIdx{};
+        glm::vec3 paddingStressLineSettings{};
+        float minBandThickness{};
     };
 
     // Uniform buffers with settings for rendering.

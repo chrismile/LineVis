@@ -69,6 +69,8 @@ layout (binding = 1) uniform StressLineRenderSettingsBuffer {
     float bandWidth;
     ivec3 psUseBands;
     int currentSeedIdx;
+    vec3 paddingStressLineSettings;
+    float minBandThickness;
 };
 #endif
 
@@ -185,7 +187,7 @@ void main() {
         // Get the ray origin on the tube surface (pushed out by a small epsilon to avoid self intersections).
 #ifdef STRESS_LINE_DATA
         bool useBand = psUseBands[linePoint.principalStressIndex] > 0;
-        const float thickness = useBand ? 0.15 : 1.0;
+        const float thickness = useBand ? minBandThickness : 1.0;
         const float tubeRadius = (useBand ? bandWidth * 0.5 : lineRadius);
         vec3 surfaceNormal = normalize(cosAngle * linePoint.normal + thickness * sinAngle * linePoint.binormal);
         vec3 rayOrigin = linePoint.position

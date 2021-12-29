@@ -345,6 +345,7 @@ MainApp::MainApp()
 
     showFpsOverlay = true;
     sgl::AppSettings::get()->getSettings().getValueOpt("showFpsOverlay", showFpsOverlay);
+    sgl::AppSettings::get()->getSettings().getValueOpt("showCoordinateAxesOverlay", showCoordinateAxesOverlay);
 
     useLinearRGB = false;
     transferFunctionWindow.setClearColor(clearColor);
@@ -400,6 +401,7 @@ MainApp::MainApp()
 
     if (!sgl::AppSettings::get()->getSettings().hasKey("cameraNavigationMode")) {
         cameraNavigationMode = sgl::CameraNavigationMode::TURNTABLE;
+        updateCameraNavigationMode();
     }
 
     addNewDataView();
@@ -459,6 +461,7 @@ MainApp::~MainApp() {
 
     sgl::AppSettings::get()->getSettings().addKeyValue("useDockSpaceMode", useDockSpaceMode);
     sgl::AppSettings::get()->getSettings().addKeyValue("showFpsOverlay", showFpsOverlay);
+    sgl::AppSettings::get()->getSettings().addKeyValue("showCoordinateAxesOverlay", showCoordinateAxesOverlay);
 }
 
 void MainApp::setNewState(const InternalState &newState) {
@@ -922,6 +925,9 @@ void MainApp::renderGui() {
                         if (i == 0 && showFpsOverlay) {
                             renderGuiFpsOverlay();
                         }
+                        if (i == 0 && showCoordinateAxesOverlay) {
+                            renderGuiCoordinateAxesOverlay(dataView->camera);
+                        }
 
                         if (i == 0 && dataView->lineRenderer) {
                             dataView->lineRenderer->renderGuiOverlay();
@@ -1220,6 +1226,9 @@ void MainApp::renderGuiMenuBar() {
             if (ImGui::MenuItem("FPS Overlay", nullptr, showFpsOverlay)) {
                 showFpsOverlay = !showFpsOverlay;
             }
+            if (ImGui::MenuItem("Coordinate Axes Overlay", nullptr, showCoordinateAxesOverlay)) {
+                showFpsOverlay = !showFpsOverlay;
+            }
             if (ImGui::MenuItem("Property Editor", nullptr, showPropertyEditor)) {
                 showPropertyEditor = !showPropertyEditor;
             }
@@ -1337,6 +1346,7 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
                         if (ImGui::Selectable(
                                 RENDERING_MODE_NAMES[int(j)], false,
                                 ImGuiSelectableFlags_::ImGuiSelectableFlags_DontClosePopups)) {
+                            ImGui::CloseCurrentPopup();
                             dataView->renderingMode = RenderingMode(j);
                             setRenderer(
                                     dataView->sceneData, dataView->oldRenderingMode, dataView->renderingMode,

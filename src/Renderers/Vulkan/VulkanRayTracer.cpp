@@ -450,8 +450,10 @@ void RayTracingRenderPass::createRayTracingData(
 }
 
 void RayTracingRenderPass::updateLineRenderSettings() {
-    glm::vec3 cameraPosition = (*camera)->getPosition();
-    rayTracerSettings.cameraPosition = cameraPosition;
+    auto outputImageSettings = sceneImageView->getImage()->getImageSettings();
+    rayTracerSettings.cameraPosition = (*camera)->getPosition();
+    rayTracerSettings.fieldOfViewY = (*camera)->getFOVy();
+    rayTracerSettings.viewportSize = glm::ivec2(outputImageSettings.width, outputImageSettings.height);
 
     rayTracerSettingsBuffer->updateData(
             sizeof(RayTracerSettings), &rayTracerSettings, renderer->getVkCommandBuffer());

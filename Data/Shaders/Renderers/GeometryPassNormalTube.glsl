@@ -43,6 +43,11 @@ layout(location = 5) in float vertexLineHierarchyLevel;
 #ifdef VISUALIZE_SEEDING_PROCESS
 layout(location = 6) in uint vertexLineAppearanceOrder;
 #endif
+#ifdef USE_PRINCIPAL_STRESSES
+layout(location = 7) in float vertexMajorStress;
+layout(location = 8) in float vertexMediumStress;
+layout(location = 9) in float vertexMinorStress;
+#endif
 
 out VertexData {
     vec3 linePosition;
@@ -61,6 +66,11 @@ out VertexData {
 #ifdef USE_AMBIENT_OCCLUSION
     uint lineVertexId;
 #endif
+#ifdef USE_PRINCIPAL_STRESSES
+    float lineMajorStress;
+    float lineMediumStress;
+    float lineMinorStress;
+#endif
 };
 
 #include "TransferFunction.glsl"
@@ -78,6 +88,11 @@ void main() {
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
     lineLineAppearanceOrder = vertexLineAppearanceOrder;
+#endif
+#ifdef USE_PRINCIPAL_STRESSES
+    lineMajorStress = vertexMajorStress;
+    lineMediumStress = vertexMediumStress;
+    lineMinorStress = vertexMinorStress;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
     lineVertexId = uint(gl_VertexID);
@@ -121,7 +136,12 @@ flat out uint fragmentVertexIdUint;
 uniform float bandWidth;
 uniform ivec3 psUseBands;
 flat out int useBand;
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+out float thickness0;
+out float thickness1;
+#else
 out float thickness;
+#endif
 out vec3 lineNormal;
 out vec3 linePosition;
 #endif
@@ -143,6 +163,11 @@ in VertexData {
 #ifdef VISUALIZE_SEEDING_PROCESS
     uint lineLineAppearanceOrder;
 #endif
+#ifdef USE_PRINCIPAL_STRESSES
+    float lineMajorStress;
+    float lineMediumStress;
+    float lineMinorStress;
+#endif
 #ifdef USE_AMBIENT_OCCLUSION
     uint lineVertexId;
 #endif
@@ -156,17 +181,20 @@ void main() {
 
 #ifdef USE_BANDS
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL) || defined(IS_PSL_DATA)
-    useBand = psUseBands[v_in[0].linePrincipalStressIndex];
+    uint principalStressIndex = v_in[0].linePrincipalStressIndex;
+    useBand = psUseBands[principalStressIndex];
 #else
     useBand = 1;
 #endif
 
-#ifdef BAND_RENDERING_THICK
-    const float MIN_THICKNESS = 0.15;
-#else
-    const float MIN_THICKNESS = 1e-2;
-#endif
+#if !defined(USE_NORMAL_STRESS_RATIO_TUBES) && !defined(USE_HYPERSTREAMLINES)
     thickness = useBand != 0 ? MIN_THICKNESS : 1.0f;
+#else
+    float thickness0Current[NUM_TUBE_SUBDIVISIONS];
+    float thickness0Next[NUM_TUBE_SUBDIVISIONS];
+    float thickness1Current[NUM_TUBE_SUBDIVISIONS];
+    float thickness1Next[NUM_TUBE_SUBDIVISIONS];
+#endif
 
     const float lineRadius = (useBand != 0 ? bandWidth : lineWidth) * 0.5;
 #else
@@ -199,12 +227,90 @@ void main() {
         float t = float(i) / float(NUM_TUBE_SUBDIVISIONS) * 2.0 * M_PI;
         float cosAngle = cos(t);
         float sinAngle = sin(t);
+
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES)
+        float stressXCurrent;
+        float stressZCurrent;
+        float stressXNext;
+        float stressZNext;
+        if (principalStressIndex == 0) {
+            stressXCurrent = v_in[0].lineMediumStress;
+            stressZCurrent = v_in[0].lineMinorStress;
+            stressXNext = v_in[1].lineMediumStress;
+            stressZNext = v_in[1].lineMinorStress;
+        } else if (principalStressIndex == 1) {
+            stressXCurrent = v_in[0].lineMinorStress;
+            stressZCurrent = v_in[0].lineMajorStress;
+            stressXNext = v_in[1].lineMinorStress;
+            stressZNext = v_in[1].lineMajorStress;
+        } else {
+            stressXCurrent = v_in[0].lineMediumStress;
+            stressZCurrent = v_in[0].lineMajorStress;
+            stressXNext = v_in[1].lineMediumStress;
+            stressZNext = v_in[1].lineMajorStress;
+        }
+        float factorXCurrent = clamp(abs(stressXCurrent / stressZCurrent), 0.0, 1.0f);
+        float factorZCurrent = clamp(abs(stressZCurrent / stressXCurrent), 0.0, 1.0f);
+        float factorXNext = clamp(abs(stressXNext / stressZNext), 0.0, 1.0f);
+        float factorZNext = clamp(abs(stressZNext / stressXNext), 0.0, 1.0f);
+        vec3 localPositionCurrent = vec3(cosAngle * factorXCurrent, sinAngle * factorZCurrent, 0.0f);
+        vec3 localNormalCurrent = vec3(cosAngle * factorZCurrent, sinAngle * factorXCurrent, 0.0f);
+        vec3 localPositionNext = vec3(cosAngle * factorXNext, sinAngle * factorZNext, 0.0f);
+        vec3 localNormalNext = vec3(cosAngle * factorZNext, sinAngle * factorXNext, 0.0f);
+        circlePointsCurrent[i] = lineRadius * (tangentFrameMatrixCurrent * localPositionCurrent) + linePosition0;
+        circlePointsNext[i] = lineRadius * (tangentFrameMatrixNext * localPositionNext) + linePosition1;
+        vertexNormalsCurrent[i] = normalize(tangentFrameMatrixCurrent * localNormalCurrent);
+        vertexNormalsNext[i] = normalize(tangentFrameMatrixNext * localNormalNext);
+        thickness0Current[i] = factorXCurrent;
+        thickness0Next[i] = factorXNext;
+        thickness1Current[i] = factorZCurrent;
+        thickness1Next[i] = factorZNext;
+#elif defined(USE_HYPERSTREAMLINES)
+        float stressXCurrent;
+        float stressZCurrent;
+        float stressXNext;
+        float stressZNext;
+        if (principalStressIndex == 0) {
+            stressXCurrent = v_in[0].lineMediumStress;
+            stressZCurrent = v_in[0].lineMinorStress;
+            stressXNext = v_in[1].lineMediumStress;
+            stressZNext = v_in[1].lineMinorStress;
+        } else if (principalStressIndex == 1) {
+            stressXCurrent = v_in[0].lineMinorStress;
+            stressZCurrent = v_in[0].lineMajorStress;
+            stressXNext = v_in[1].lineMinorStress;
+            stressZNext = v_in[1].lineMajorStress;
+        } else {
+            stressXCurrent = v_in[0].lineMediumStress;
+            stressZCurrent = v_in[0].lineMajorStress;
+            stressXNext = v_in[1].lineMediumStress;
+            stressZNext = v_in[1].lineMajorStress;
+        }
+        stressXCurrent = abs(stressXCurrent);
+        stressZCurrent = abs(stressZCurrent);
+        stressXNext = abs(stressXNext);
+        stressZNext = abs(stressZNext);
+        vec3 localPositionCurrent = vec3(cosAngle * stressXCurrent, sinAngle * stressZCurrent, 0.0f);
+        vec3 localNormalCurrent = vec3(cosAngle * stressZCurrent, sinAngle * stressXCurrent, 0.0f);
+        vec3 localPositionNext = vec3(cosAngle * stressXNext, sinAngle * stressZNext, 0.0f);
+        vec3 localNormalNext = vec3(cosAngle * stressZNext, sinAngle * stressXNext, 0.0f);
+        circlePointsCurrent[i] = lineRadius * (tangentFrameMatrixCurrent * localPositionCurrent) + linePosition0;
+        circlePointsNext[i] = lineRadius * (tangentFrameMatrixNext * localPositionNext) + linePosition1;
+        vertexNormalsCurrent[i] = normalize(tangentFrameMatrixCurrent * localNormalCurrent);
+        vertexNormalsNext[i] = normalize(tangentFrameMatrixNext * localNormalNext);
+        thickness0Current[i] = stressXCurrent;
+        thickness0Next[i] = stressXNext;
+        thickness1Current[i] = stressZCurrent;
+        thickness1Next[i] = stressZNext;
+#else
+        // Bands with minimum thickness.
         vec3 localPosition = vec3(thickness * cosAngle, sinAngle, 0.0f);
         vec3 localNormal = vec3(cosAngle, thickness * sinAngle, 0.0f);
         circlePointsCurrent[i] = lineRadius * (tangentFrameMatrixCurrent * localPosition) + linePosition0;
         circlePointsNext[i] = lineRadius * (tangentFrameMatrixNext * localPosition) + linePosition1;
         vertexNormalsCurrent[i] = normalize(tangentFrameMatrixCurrent * localNormal);
         vertexNormalsNext[i] = normalize(tangentFrameMatrixNext * localNormal);
+#endif
     }
 #else
     const float theta = 2.0 * M_PI / float(NUM_TUBE_SUBDIVISIONS);
@@ -234,8 +340,14 @@ void main() {
 
     // Emit the tube triangle vertices
     for (int i = 0; i < NUM_TUBE_SUBDIVISIONS; i++) {
+        int iNext = (i+1)%NUM_TUBE_SUBDIVISIONS;
+
 #if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
         phi = float(i) * factor;
+#endif
+#if defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
+        thickness0 = thickness0Current[i];
+        thickness1 = thickness1Current[i];
 #endif
 #ifdef USE_BANDS
         linePosition = linePosition0;
@@ -243,7 +355,7 @@ void main() {
 #endif
 
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
-        fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+        fragmentPrincipalStressIndex = principalStressIndex;
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
         fragmentLineHierarchyLevel = v_in[0].lineLineHierarchyLevel;
@@ -271,12 +383,16 @@ void main() {
 #if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
         phi = float(i + 1) * factor;
 #endif
+#if defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
+        thickness0 = thickness0Current[iNext];
+        thickness1 = thickness1Current[iNext];
+#endif
 
-        gl_Position = pvMatrix * vec4(circlePointsCurrent[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0);
-        fragmentNormal = vertexNormalsCurrent[(i+1)%NUM_TUBE_SUBDIVISIONS];
-        fragmentPositionWorld = (mMatrix * vec4(circlePointsCurrent[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0)).xyz;
+        gl_Position = pvMatrix * vec4(circlePointsCurrent[iNext], 1.0);
+        fragmentNormal = vertexNormalsCurrent[iNext];
+        fragmentPositionWorld = (mMatrix * vec4(circlePointsCurrent[iNext], 1.0)).xyz;
 #ifdef USE_SCREEN_SPACE_POSITION
-        screenSpacePosition = (vMatrix * vec4(circlePointsCurrent[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0)).xyz;
+        screenSpacePosition = (vMatrix * vec4(circlePointsCurrent[iNext], 1.0)).xyz;
 #endif
         EmitVertex();
 
@@ -284,13 +400,17 @@ void main() {
 #if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
         phi = float(i) * factor;
 #endif
+#if defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
+        thickness0 = thickness0Next[i];
+        thickness1 = thickness1Next[i];
+#endif
 #ifdef USE_BANDS
         linePosition = linePosition1;
         lineNormal = normalNext;
 #endif
 
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
-        fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+        fragmentPrincipalStressIndex = principalStressIndex;
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
         fragmentLineHierarchyLevel = v_in[1].lineLineHierarchyLevel;
@@ -316,12 +436,16 @@ void main() {
 #if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
         phi = float(i + 1) * factor;
 #endif
+#if defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
+        thickness0 = thickness0Next[iNext];
+        thickness1 = thickness1Next[iNext];
+#endif
 
-        gl_Position = pvMatrix * vec4(circlePointsNext[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0);
-        fragmentNormal = vertexNormalsNext[(i+1)%NUM_TUBE_SUBDIVISIONS];
-        fragmentPositionWorld = (mMatrix * vec4(circlePointsNext[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0)).xyz;
+        gl_Position = pvMatrix * vec4(circlePointsNext[iNext], 1.0);
+        fragmentNormal = vertexNormalsNext[iNext];
+        fragmentPositionWorld = (mMatrix * vec4(circlePointsNext[iNext], 1.0)).xyz;
 #ifdef USE_SCREEN_SPACE_POSITION
-        screenSpacePosition = (vMatrix * vec4(circlePointsNext[(i+1)%NUM_TUBE_SUBDIVISIONS], 1.0)).xyz;
+        screenSpacePosition = (vMatrix * vec4(circlePointsNext[iNext], 1.0)).xyz;
 #endif
         EmitVertex();
 
@@ -374,7 +498,12 @@ uniform vec3 foregroundColor;
 #ifdef USE_BANDS
 uniform float bandWidth;
 flat in int useBand;
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+in float thickness0;
+in float thickness1;
+#else
 in float thickness;
+#endif
 //in mat3 tangentFrameMatrix;
 in vec3 lineNormal;
 in vec3 linePosition;
@@ -437,15 +566,25 @@ void main() {
 
 #ifdef USE_ORTHOGRAPHIC_TUBE_PROJECTION
     vec2 localV = normalize((transpose(tangentFrameMatrix) * newV).xy);
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+    vec2 p = vec2(thickness0 * cos(phi), thickness1 * sin(phi));
+#else
     vec2 p = vec2(thickness * cos(phi), sin(phi));
+#endif
     float d = length(p);
     p = normalize(p);
     float alpha = acos(dot(localV, p));
 
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+    float phiMax = atan(thickness1 * localV.x, -thickness0 * localV.y);
+    vec2 pointMax0 = vec2(thickness0 * cos(phiMax), thickness1 * sin(phiMax));
+    vec2 pointMax1 = vec2(thickness0 * cos(phiMax + M_PI), thickness1 * sin(phiMax + M_PI));
+#else
     float phiMax = atan(localV.x, -thickness * localV.y);
-
     vec2 pointMax0 = vec2(thickness * cos(phiMax), sin(phiMax));
     vec2 pointMax1 = vec2(thickness * cos(phiMax + M_PI), sin(phiMax + M_PI));
+#endif
+
     vec2 planeDir = pointMax1 - pointMax0;
     float totalDist = length(planeDir);
     planeDir = normalize(planeDir);
@@ -466,7 +605,7 @@ void main() {
 
     // Primal conic section matrix.
     //const mat3 A = mat3(
-    //        1.0 / (thickness*thickness), 0.0, 0.0,
+    //        1.0 / (thickness * thickness), 0.0, 0.0,
     //        0.0, 1.0, 0.0,
     //        0.0, 0.0, -1.0
     //);
@@ -475,17 +614,31 @@ void main() {
     //const vec3 l = A * c;
 
     // Polar of c.
-    const float a = 1.0 / (thickness*thickness);
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+    const float a = 1.0 / (thickness0 * thickness0);
+    const float b = 1.0 / (thickness1 * thickness1);
+    const vec3 l = vec3(a * c.x, b * c.y, -1.0);
+#else
+    const float a = 1.0 / (thickness * thickness);
     const vec3 l = vec3(a * c.x, c.y, -1.0);
+#endif
 
     const mat3 M_l = shearSymmetricMatrix(l);
     //const mat3 B = transpose(M_l) * A * M_l;
 
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+    const mat3 B = mat3(
+        b*l.z*l.z - l.y*l.y, l.x*l.y, -b*l.x*l.z,
+        l.x*l.y, a*l.z*l.z - l.x*l.x, -a*l.y*l.z,
+        -b*l.x*l.z, -a*l.y*l.z, a*l.y*l.y + b*l.x*l.x
+    );
+#else
     const mat3 B = mat3(
         l.z*l.z - l.y*l.y, l.x*l.y, -l.x*l.z,
         l.x*l.y, a*l.z*l.z - l.x*l.x, -a*l.y*l.z,
         -l.x*l.z, -a*l.y*l.z, a*l.y*l.y + l.x*l.x
     );
+#endif
 
     const float EPSILON = 1e-4;
     float alpha = 0.0;
@@ -512,7 +665,11 @@ void main() {
         }
     }
 
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+    vec2 p = vec2(thickness0 * cos(phi), thickness1 * sin(phi));
+#else
     vec2 p = vec2(thickness * cos(phi), sin(phi));
+#endif
 
     vec3 pLineHomogeneous = cross(l, cross(c, vec3(p, 1.0)));
     vec2 pLine = pLineHomogeneous.xy / pLineHomogeneous.z;
@@ -564,7 +721,7 @@ void main() {
     const float WHITE_THRESHOLD = 0.7;
     float EPSILON_OUTLINE = 0.0;
 #ifdef USE_BANDS
-    //float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDistance / (useBand != 0 ? bandWidth : lineWidth) * 4.0), 0.0, 0.49);
+    //float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDistance / (useBand != 0 ? bandWidth : lineWidth) * 2.0), 0.0, 0.49);
     float EPSILON_WHITE = fwidth(ribbonPosition);
 #else
     //float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / lineWidth, 0.0, 0.49);
