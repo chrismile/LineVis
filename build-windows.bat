@@ -31,6 +31,9 @@ set debug=true
 set build_dir=".build"
 set destination_dir="Shipping"
 
+:: Leave empty to let cmake try to find the correct paths
+set optix_install_dir=""
+
 where cmake >NUL 2>&1 || echo cmake was not found but is required to build the program && exit /b 1
 
 if not exist .\third_party\ mkdir .\third_party\
@@ -96,8 +99,17 @@ if %debug% == true (
 echo ------------------------
 echo       generating
 echo ------------------------
-cmake -DCMAKE_TOOLCHAIN_FILE="third_party/vcpkg/scripts/buildsystems/vcpkg.cmake" -DPYTHONHOME="./python3" ^
-      -Dsgl_DIR="third_party/sgl/install/lib/cmake/sgl/" -DCMAKE_CXX_FLAGS="/MP" -S . -B %build_dir%
+
+set cmake_args=-DCMAKE_TOOLCHAIN_FILE="third_party/vcpkg/scripts/buildsystems/vcpkg.cmake" ^
+               -DPYTHONHOME="./python3"                                                    ^
+               -DCMAKE_CXX_FLAGS="/MP"                                                     ^
+               -Dsgl_DIR="third_party/sgl/install/lib/cmake/sgl/"
+if not %optix_install_dir% == "" (
+   echo using custom optix path
+   set cmake_args=%cmake_args% -DOptiX_INSTALL_DIR=%optix_install_dir%
+)
+
+cmake %cmake_args% -S . -B %build_dir%
 
 echo ------------------------
 echo       compiling
