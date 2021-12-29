@@ -82,14 +82,14 @@ public:
     LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType);
     virtual ~LineData();
     virtual void update(float dt) {}
-    inline int getSelectedAttributeIndex() const { return selectedAttributeIndex; }
+    [[nodiscard]] inline int getSelectedAttributeIndex() const { return selectedAttributeIndex; }
     void setSelectedAttributeIndex(int attributeIndex);
     void onTransferFunctionMapRebuilt();
     inline DataSetType getType() { return dataSetType; }
     /// Returns if the visualization mapping needs to be re-generated.
-    inline bool isDirty() const { return dirty; }
+    [[nodiscard]] inline bool isDirty() const { return dirty; }
     /// Returns if the triangle mesh visualization mapping needs to be re-generated.
-    inline bool isTriangleRepresentationDirty() const { return triangleRepresentationDirty; }
+    [[nodiscard]] inline bool isTriangleRepresentationDirty() const { return triangleRepresentationDirty; }
     /// A renderer can signal that the triangle representation has changed.
     inline void setTriangleRepresentationDirty() { triangleRepresentationDirty = true; }
     /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
@@ -97,13 +97,13 @@ public:
     /// Do non-static settings that lead to a gather shader reload differ?
     virtual bool settingsDiffer(LineData* other) { return false; }
     /// Returns whether live visualization mapping updates can be used or whether the data set is too large.
-    virtual bool getCanUseLiveUpdate(LineDataAccessType accessType) const;
+    [[nodiscard]] virtual bool getCanUseLiveUpdate(LineDataAccessType accessType) const;
     /**
      * A small data set has only a little amount of geometric data.
      * For large data sets, changing visualization mapping parameters triggering a rebuild of the internal
      * representation are not feasible to do in real-time and would result in considerable lag.
      */
-    virtual bool getIsSmallDataSet() const=0;
+    [[nodiscard]] virtual bool getIsSmallDataSet() const=0;
 
     /// For changing performance measurement modes.
     virtual bool setNewState(const InternalState& newState) { return false; }
@@ -226,8 +226,8 @@ public:
     /// Set current rendering modes (e.g. for making visible certain UI options only for certain renderers).
     virtual void setLineRenderers(const std::vector<LineRenderer*>& lineRenderers);
     virtual void setRenderingModes(const std::vector<RenderingMode>& renderingModes) {}
-    inline bool getShallRenderSimulationMeshBoundary() { return shallRenderSimulationMeshBoundary; }
-    inline const std::string& getLineDataWindowName() const { return lineDataWindowName; }
+    [[nodiscard]] inline bool getShallRenderSimulationMeshBoundary() const { return shallRenderSimulationMeshBoundary; }
+    [[nodiscard]] inline const std::string& getLineDataWindowName() const { return lineDataWindowName; }
 
 
     enum LinePrimitiveMode {
@@ -238,8 +238,8 @@ public:
         LINE_PRIMITIVES_TUBE_BAND, //< Only for stress lines for now.
         LINE_PRIMITIVES_TRIANGLE_MESH //< Not supported so far.
     };
-    inline LinePrimitiveMode getLinePrimitiveMode() { return linePrimitiveMode; }
-    inline bool useBands() {
+    static inline LinePrimitiveMode getLinePrimitiveMode() { return linePrimitiveMode; }
+    static inline bool useBands() {
         return linePrimitiveMode == LINE_PRIMITIVES_BAND || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND;
     }
 

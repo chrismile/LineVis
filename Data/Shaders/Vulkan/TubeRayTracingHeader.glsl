@@ -35,9 +35,11 @@ layout(binding = 0) uniform CameraSettingsBuffer {
 
 layout(binding = 3) uniform RayTracerSettingsBuffer {
     vec3 cameraPosition;
-    float paddingFlt;
+    float fieldOfViewY;
     vec4 backgroundColor;
     vec4 foregroundColor;
+    ivec2 viewportSize;
+    ivec2 paddingVec;
 
     // The maximum number of transparent fragments to blend before stopping early.
     uint maxDepthComplexity;

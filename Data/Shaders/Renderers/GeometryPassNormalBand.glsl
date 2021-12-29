@@ -172,8 +172,6 @@ void main() {
     offsetDirectionLeft0 = -offsetDirectionRight0;
     offsetDirectionLeft1 = -offsetDirectionRight1;
     if (useBand != 0) {
-        const float MIN_THICKNESS = 0.15;
-
         vec3 helperVec0 = offsetDirectionRight0;
         vec3 viewDirectionNew0 = normalize(cross(helperVec0, tangent0));
 
@@ -411,7 +409,7 @@ void main() {
     float absCoords = abs(fragmentNormalFloat);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
     const float WHITE_THRESHOLD = 0.7;
-    float EPSILON = clamp(getAntialiasingFactor(fragmentDepth / (useBand != 0 ? bandWidth : lineWidth) * 4.0), 0.0, 0.49);
+    float EPSILON = clamp(getAntialiasingFactor(fragmentDepth / (useBand != 0 ? bandWidth : lineWidth) * 2.0), 0.0, 0.49);
     float EPSILON_WHITE = fwidth(absCoords);
     float coverage = 1.0 - smoothstep(1.0 - EPSILON, 1.0, absCoords);
     //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(fragmentNormalFloat));

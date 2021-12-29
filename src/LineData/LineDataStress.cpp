@@ -220,7 +220,7 @@ bool LineDataStress::renderGuiRenderingSettingsPropertyEditor(sgl::PropertyEdito
                 "Band Width", &LineRenderer::bandWidth, LineRenderer::MIN_BAND_WIDTH, LineRenderer::MAX_BAND_WIDTH,
                 "%.4f");
         if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
-            || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
+                || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
             reRender = true;
             setTriangleRepresentationDirty();
         }
@@ -357,6 +357,7 @@ bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyE
 
                 if (renderThickBands && propertyEditor.addSliderFloat(
                         "Min. Band Thickness", &minBandThickness, 0.01f, 1.0f)) {
+                    triangleRepresentationDirty = true;
                     shallReloadGatherShader = true;
                 }
             }
@@ -1092,6 +1093,7 @@ sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
     }
     if (useBands() && bandRenderMode == BandRenderMode::RIBBONS) {
         if (renderThickBands) {
+            sgl::ShaderManager->addPreprocessorDefine("BAND_RENDERING_THICK", "");
             sgl::ShaderManager->addPreprocessorDefine("MIN_THICKNESS", std::to_string(minBandThickness));
         } else {
             sgl::ShaderManager->addPreprocessorDefine("MIN_THICKNESS", std::to_string(1e-2f));
@@ -1127,6 +1129,9 @@ sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
     }
 #endif
     if (useBands() && bandRenderMode == BandRenderMode::RIBBONS) {
+        if (renderThickBands) {
+            sgl::ShaderManager->removePreprocessorDefine("BAND_RENDERING_THICK");
+        }
         sgl::ShaderManager->removePreprocessorDefine("MIN_THICKNESS");
     }
     if (rendererSupportsTransparency) {
@@ -2100,7 +2105,7 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(
             }
 
             float binormalRadius = LineRenderer::getBandWidth() * 0.5f;
-            float normalRadius = binormalRadius * 0.15f;
+            float normalRadius = binormalRadius * minBandThickness;
             if (useCappedTubes) {
                 createCappedTriangleEllipticTubesRenderDataCPU(
                         lineCentersList, bandPointsListRight, normalRadius, binormalRadius, tubeNumSubdivisions,
@@ -2329,6 +2334,11 @@ std::map<std::string, std::string> LineDataStress::getVulkanShaderPreprocessorDe
     if (useLineHierarchy) {
         preprocessorDefines.insert(std::make_pair("USE_LINE_HIERARCHY_LEVEL", ""));
     }
+    if (renderThickBands) {
+        preprocessorDefines.insert(std::make_pair("MIN_THICKNESS", std::to_string(minBandThickness)));
+    } else {
+        preprocessorDefines.insert(std::make_pair("MIN_THICKNESS", std::to_string(1e-2f)));
+    }
     return preprocessorDefines;
 }
 
@@ -2363,6 +2373,7 @@ void LineDataStress::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl:
     stressLineRenderSettings.bandWidth = LineRenderer::getBandWidth();
     stressLineRenderSettings.psUseBands = glm::ivec3(psUseBands[0], psUseBands[1], psUseBands[2]);
     stressLineRenderSettings.currentSeedIdx = int32_t(currentSeedIdx);
+    stressLineRenderSettings.minBandThickness = minBandThickness;
 
     stressLineRenderSettingsBuffer->updateData(
             sizeof(StressLineRenderSettings), &stressLineRenderSettings, renderer->getVkCommandBuffer());
@@ -2421,7 +2432,7 @@ void LineDataStress::getTriangleMesh(
             }
 
             float binormalRadius = LineRenderer::getBandWidth() * 0.5f;
-            float normalRadius = binormalRadius * 0.15f;
+            float normalRadius = binormalRadius * minBandThickness;
             if (useCappedTubes) {
                 createCappedTriangleEllipticTubesRenderDataCPU(
                         lineCentersList, bandPointsListRight, normalRadius, binormalRadius, tubeNumSubdivisions,

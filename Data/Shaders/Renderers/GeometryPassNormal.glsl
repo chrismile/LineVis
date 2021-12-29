@@ -414,7 +414,7 @@ void main() {
     float absCoords = abs(fragmentNormalFloat);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
     const float WHITE_THRESHOLD = 0.7;
-    float EPSILON = clamp(getAntialiasingFactor(fragmentDepth / lineWidth * 4.0), 0.0, 0.49);
+    float EPSILON = clamp(getAntialiasingFactor(fragmentDepth / lineWidth * 2.0), 0.0, 0.49);
     float EPSILON_WHITE = fwidth(absCoords);
     float coverage = 1.0 - smoothstep(1.0 - EPSILON, 1.0, absCoords);
     //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(fragmentNormalFloat));

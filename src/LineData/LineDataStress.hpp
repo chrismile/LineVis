@@ -236,10 +236,12 @@ private:
 
 #ifdef USE_VULKAN_INTEROP
     struct StressLineRenderSettings {
-        glm::vec3 lineHierarchySlider;
-        float bandWidth;
-        glm::ivec3 psUseBands;
-        int currentSeedIdx;
+        glm::vec3 lineHierarchySlider{};
+        float bandWidth{};
+        glm::ivec3 psUseBands{};
+        int currentSeedIdx{};
+        glm::vec3 paddingStressLineSettings{};
+        float minBandThickness{};
     };
 
     // Uniform buffers with settings for rendering.

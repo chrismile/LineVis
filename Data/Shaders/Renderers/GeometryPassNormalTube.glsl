@@ -721,7 +721,7 @@ void main() {
     const float WHITE_THRESHOLD = 0.7;
     float EPSILON_OUTLINE = 0.0;
 #ifdef USE_BANDS
-    //float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDistance / (useBand != 0 ? bandWidth : lineWidth) * 4.0), 0.0, 0.49);
+    //float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDistance / (useBand != 0 ? bandWidth : lineWidth) * 2.0), 0.0, 0.49);
     float EPSILON_WHITE = fwidth(ribbonPosition);
 #else
     //float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / lineWidth, 0.0, 0.49);

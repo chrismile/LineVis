@@ -63,7 +63,7 @@ layout(binding = 9) uniform HullRenderSettingsBuffer {
 } hullRenderSettings;
 
 // Minimum distance between two consecutive hits.
-const float HIT_DISTANCE_EPSILON = 1e-4;
+const float HIT_DISTANCE_EPSILON = 1e-5;
 
 #define USE_TRANSPARENCY
 
