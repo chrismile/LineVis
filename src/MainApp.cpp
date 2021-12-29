@@ -63,6 +63,9 @@
 #include "LineData/LineDataMultiVar.hpp"
 #include "LineData/Filters/LineLengthFilter.hpp"
 #include "LineData/Filters/MaxLineAttributeFilter.hpp"
+#include "LineData/Flow/StreamlineTracingRequester.hpp"
+#include "LineData/Stress/StressLineTracingRequester.hpp"
+#include "LineData/Scattering/ScatteringLineTracingRequester.hpp"
 #include "Renderers/OIT/TilingMode.hpp"
 #include "Renderers/OpaqueLineRenderer.hpp"
 #include "Renderers/OIT/PerPixelLinkedListLineRenderer.hpp"
@@ -132,6 +135,7 @@ MainApp::MainApp()
 #else
           zeromqContext(nullptr),
 #endif
+          streamlineTracingRequester(new StreamlineTracingRequester(transferFunctionWindow)),
           stressLineTracingRequester(new StressLineTracingRequester(zeromqContext)),
           scatteringLineTracingRequester(new ScatteringLineTracingRequester(
                   transferFunctionWindow
@@ -175,9 +179,12 @@ MainApp::MainApp()
         }
 
         if (selectedDataSetIndex == 1) {
-            stressLineTracingRequester->setLineTracerSettings(settings);
+            streamlineTracingRequester->setLineTracerSettings(settings);;
         }
         if (selectedDataSetIndex == 2) {
+            stressLineTracingRequester->setLineTracerSettings(settings);
+        }
+        if (selectedDataSetIndex == 3) {
             scatteringLineTracingRequester->setLineTracerSettings(settings);
         }
     });
@@ -442,6 +449,8 @@ MainApp::~MainApp() {
     lineData = {};
     dataViews.clear();
 
+    delete streamlineTracingRequester;
+    streamlineTracingRequester = nullptr;
     delete stressLineTracingRequester;
     stressLineTracingRequester = nullptr;
     delete scatteringLineTracingRequester;
@@ -781,8 +790,11 @@ void MainApp::renderGui() {
             }
 
             std::string filenameLower = boost::to_lower_copy(filename);
-            if (boost::ends_with(filenameLower, ".xyz")) {
-                selectedDataSetIndex = 2;
+            if (boost::ends_with(filenameLower, ".vtk") || boost::ends_with(filenameLower, ".bin")) {
+                selectedDataSetIndex = 1;
+                streamlineTracingRequester->setDatasetFilename(filename);
+            } else if (boost::ends_with(filenameLower, ".xyz")) {
+                selectedDataSetIndex = 3;
                 scatteringLineTracingRequester->setDatasetFilename(filename);
             } else {
                 selectedDataSetIndex = 0;
@@ -960,9 +972,12 @@ void MainApp::renderGui() {
     }
 
     if (selectedDataSetIndex == 1) {
-        stressLineTracingRequester->renderGui();
+        streamlineTracingRequester->renderGui();
     }
     if (selectedDataSetIndex == 2) {
+        stressLineTracingRequester->renderGui();
+    }
+    if (selectedDataSetIndex == 3) {
         scatteringLineTracingRequester->renderGui();
     }
 
@@ -1063,6 +1078,7 @@ void MainApp::renderGui() {
 void MainApp::loadAvailableDataSetInformation() {
     dataSetNames.clear();
     dataSetNames.emplace_back("Local file...");
+    dataSetNames.emplace_back("Streamline Tracer");
     dataSetNames.emplace_back("Stress Line Tracer");
     dataSetNames.emplace_back("Scattering Line Tracer");
     selectedDataSetIndex = 0;
@@ -1246,7 +1262,9 @@ void MainApp::renderGuiMenuBar() {
 
         }
 
-        if (lineDataRequester.getIsProcessingRequest() || stressLineTracingRequester->getIsProcessingRequest()
+        if (lineDataRequester.getIsProcessingRequest()
+                || streamlineTracingRequester->getIsProcessingRequest()
+                || stressLineTracingRequester->getIsProcessingRequest()
                 || scatteringLineTracingRequester->getIsProcessingRequest()
                 || (ambientOcclusionBaker && ambientOcclusionBaker->getIsComputationRunning())) {
             ImGui::SetCursorPosX(ImGui::GetWindowContentRegionWidth() - ImGui::GetTextLineHeight());
@@ -1271,7 +1289,9 @@ void MainApp::renderGuiPropertyEditorBegin() {
             }
         }
 
-        if (lineDataRequester.getIsProcessingRequest() || stressLineTracingRequester->getIsProcessingRequest()
+        if (lineDataRequester.getIsProcessingRequest()
+                || streamlineTracingRequester->getIsProcessingRequest()
+                || stressLineTracingRequester->getIsProcessingRequest()
                 || scatteringLineTracingRequester->getIsProcessingRequest()
                 || (ambientOcclusionBaker && ambientOcclusionBaker->getIsComputationRunning())) {
             ImGui::SameLine();
@@ -1767,6 +1787,7 @@ void MainApp::checkLoadingRequestFinished() {
     LineDataPtr lineData;
     DataSetInformation loadedDataSetInformation;
 
+    streamlineTracingRequester->getHasNewData(loadedDataSetInformation, lineData);
     if (stressLineTracingRequester->getHasNewData(stressLineTracerDataSetInformation)) {
         dataSetType = stressLineTracerDataSetInformation.type;
         loadLineDataSet(stressLineTracerDataSetInformation.filenames);

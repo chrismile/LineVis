@@ -41,8 +41,6 @@
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
 #include "LineData/LineDataRequester.hpp"
 #include "LineData/Filters/LineFilter.hpp"
-#include "LineData/Stress/StressLineTracingRequester.hpp"
-#include "LineData/Scattering/ScatteringLineTracingRequester.hpp"
 #include "Renderers/SceneData.hpp"
 #include "Renderers/AmbientOcclusion/AmbientOcclusionBaker.hpp"
 
@@ -60,6 +58,9 @@ class LineData;
 typedef std::shared_ptr<LineData> LineDataPtr;
 class DataView;
 typedef std::shared_ptr<DataView> DataViewPtr;
+class StreamlineTracingRequester;
+class StressLineTracingRequester;
+class ScatteringLineTracingRequester;
 
 class MainApp : public sgl::SciVisApp {
 public:
@@ -171,9 +172,10 @@ private:
     bool newMeshLoaded = true;
     sgl::AABB3 modelBoundingBox;
     void* zeromqContext = nullptr;
+    StreamlineTracingRequester* streamlineTracingRequester = nullptr;
     StressLineTracingRequester* stressLineTracingRequester = nullptr;
     ScatteringLineTracingRequester* scatteringLineTracingRequester = nullptr;
-    const int NUM_MANUAL_LOADERS = 3;
+    const int NUM_MANUAL_LOADERS = 4;
     DataSetInformation stressLineTracerDataSetInformation;
 
     AmbientOcclusionBakerPtr ambientOcclusionBaker;

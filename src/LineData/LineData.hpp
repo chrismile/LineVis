@@ -78,6 +78,7 @@ const int NUM_LINE_RASTERIZATION_TECHNIQUES_TOTAL =
         ((int)(sizeof(LINE_RASTERIZATION_ALL_TECHNIQUE_NAMES) / sizeof(*LINE_RASTERIZATION_ALL_TECHNIQUE_NAMES)));
 
 class LineData {
+    friend class StreamlineTracingRequester;
 public:
     LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType);
     virtual ~LineData();

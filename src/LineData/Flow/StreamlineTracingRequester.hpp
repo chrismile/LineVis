@@ -26,50 +26,32 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEVIS_SCATTERINGLINETRACINGREQUESTER_HPP
-#define LINEVIS_SCATTERINGLINETRACINGREQUESTER_HPP
+#ifndef LINEVIS_STREAMLINETRACINGREQUESTER_HPP
+#define LINEVIS_STREAMLINETRACINGREQUESTER_HPP
 
 #include <thread>
 #include <condition_variable>
 #include <json/json.h>
 
 #include "Loaders/DataSetList.hpp"
-#include "LineDataScattering.hpp"
-#include "Texture3d.hpp"
+#include "../LineDataFlow.hpp"
+#include "StreamlineTracingDefines.hpp"
 
-struct ScatteringTracingSettings {
-    bool show_iso_surface         = true;
-    std::string dataset_filename;
+class StreamlineSeeder;
+typedef std::shared_ptr<StreamlineSeeder> StreamlineSeederPtr;
+class StreamlineTracingGrid;
 
-    uint32_t seed;
-    // camera:
-    float camera_fov_deg      = 10;
-    glm::vec3 camera_position = {-0.5f,-0.5f,-0.5f};
-    glm::vec3 camera_look_at  = { 0 ,0, 0};
-
-    uint32_t res_x = 1;
-    uint32_t res_y = 1;
-    uint32_t samples_per_pixel = 10;
-
-    // volume:
-    glm::vec3 extinction        = { 1024, 1024, 1024};
-    glm::vec3 scattering_albedo = {    1,    1,    1};
-    float g                     = 0.2f;
+struct StreamlineTracingSettings {
+    std::string dataSourceFilename{};
+    FlowPrimitives flowPrimitives = FlowPrimitives::STREAMLINES;
+    StreamlineSeedingStrategy streamlineSeedingStrategy = StreamlineSeedingStrategy::PLANE;
+    StreamlineSeederPtr seeder = nullptr;
 };
 
-/**
- * Traces lines inside a scalar field while simulation scattering.
- * A LineDataVolume object is generated containing the scalar field and the lines.
- */
-class ScatteringLineTracingRequester {
+class StreamlineTracingRequester {
 public:
-    ScatteringLineTracingRequester(
-            sgl::TransferFunctionWindow& transferFunctionWindow
-#ifdef USE_VULKAN_INTEROP
-            , sgl::vk::Renderer* rendererMainThread
-#endif
-    );
-    ~ScatteringLineTracingRequester();
+    explicit StreamlineTracingRequester(sgl::TransferFunctionWindow& transferFunctionWindow);
+    ~StreamlineTracingRequester();
 
     void renderGui();
     void setLineTracerSettings(const SettingsMap& settings);
@@ -94,7 +76,7 @@ private:
      * Queues the request for tracing .
      * @param request The message to queue.
      */
-    void queueRequestStruct(const ScatteringTracingSettings& request);
+    void queueRequestStruct(const StreamlineTracingSettings& request);
     /**
      * Checks if a reply was received to a request.
      * @return Whether a reply was received.
@@ -103,13 +85,11 @@ private:
 
     /**
      * @param request Information for the requested tracing of lines scattered in the grid.
+     * @param lineData An object for storing the traced line data.
      */
-    void traceLines(const ScatteringTracingSettings& request, std::shared_ptr<LineDataScattering>& lineData);
+    void traceLines(const StreamlineTracingSettings& request, std::shared_ptr<LineDataFlow>& lineData);
 
     sgl::TransferFunctionWindow& transferFunctionWindow;
-#ifdef USE_VULKAN_INTEROP
-    sgl::vk::Renderer* rendererVk = nullptr;
-#endif
 
     std::thread requesterThread;
     std::condition_variable hasRequestConditionVariable;
@@ -122,27 +102,17 @@ private:
     bool hasReply = false;
     bool isProcessingRequest = false;
 
-    ScatteringTracingSettings workerTracingSettings;
+    StreamlineTracingSettings workerTracingSettings;
     LineDataPtr requestLineData;
     LineDataPtr replyLineData;
 
     // Line tracing settings.
-    ScatteringTracingSettings guiTracingSettings;
+    StreamlineTracingSettings guiTracingSettings;
+    std::map<StreamlineSeedingStrategy, StreamlineSeederPtr> streamlineSeeders;
 
-    // Cache.
-    std::string cachedGridFileName;
-    Texture3D   cachedGrid = {};
-
-    std::vector<uint32_t> outlineTriangleIndices;
-    std::vector<glm::vec3> outlineVertexPositions;
-    std::vector<glm::vec3> outlineVertexNormals;
-
-    void createIsosurface();
-#ifdef USE_VULKAN_INTEROP
-    void createScalarFieldTexture();
-    std::shared_ptr<LineDensityFieldSmoothingPass> lineDensityFieldSmoothingPass;
-    sgl::vk::TexturePtr cachedScalarFieldTexture;
-#endif
+    // Cache for storing the currently selected streamline tracing grid.
+    std::string cachedGridFilename;
+    StreamlineTracingGrid* cachedGrid = nullptr;
 
     // GUI data.
     bool showWindow = true;
@@ -153,4 +123,5 @@ private:
     int selectedGridDataSetIndex = 0;
 };
 
-#endif //LINEVIS_SCATTERINGLINETRACINGREQUESTER_HPP
+
+#endif //LINEVIS_STREAMLINETRACINGREQUESTER_HPP

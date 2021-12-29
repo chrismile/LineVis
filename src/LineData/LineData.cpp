@@ -166,7 +166,7 @@ bool LineData::renderGuiWindowSecondary() {
 bool LineData::renderGuiOverlay() {
     bool shallReloadGatherShader = false;
 
-    if (shallRenderColorLegendWidgets) {
+    if (shallRenderColorLegendWidgets && !colorLegendWidgets.empty()) {
         colorLegendWidgets.at(selectedAttributeIndex).setAttributeMinValue(
                 transferFunctionWindow.getSelectedRangeMin());
         colorLegendWidgets.at(selectedAttributeIndex).setAttributeMaxValue(

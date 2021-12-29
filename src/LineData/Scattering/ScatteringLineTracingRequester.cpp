@@ -77,7 +77,7 @@ ScatteringLineTracingRequester::ScatteringLineTracingRequester(
 
 ScatteringLineTracingRequester::~ScatteringLineTracingRequester() {
     join();
-    cached_grid.delete_maybe();
+    cachedGrid.delete_maybe();
 
     requestLineData = {};
     replyLineData = {};
@@ -138,35 +138,35 @@ void ScatteringLineTracingRequester::renderGui() {
             }
         }
 #ifndef NDEBUG
-        ImGui::Checkbox("Use Isosurface", &gui_tracing_settings.show_iso_surface);
+        ImGui::Checkbox("Use Isosurface", &guiTracingSettings.show_iso_surface);
 #endif
 
         changed |= ImGui::SliderFloatEdit(
-                "Camera FOV", &gui_tracing_settings.camera_fov_deg, 5.0f, 90.0f) == ImGui::EditMode::INPUT_FINISHED;
+                "Camera FOV", &guiTracingSettings.camera_fov_deg, 5.0f, 90.0f) == ImGui::EditMode::INPUT_FINISHED;
         changed |= ImGui::SliderFloat3Edit(
-                "Camera Position", &gui_tracing_settings.camera_position.x, -1, 1) == ImGui::EditMode::INPUT_FINISHED;
+                "Camera Position", &guiTracingSettings.camera_position.x, -1, 1) == ImGui::EditMode::INPUT_FINISHED;
         changed |= ImGui::SliderFloat3Edit(
-                "Camera Look At",  &gui_tracing_settings.camera_look_at.x, -1, 1) == ImGui::EditMode::INPUT_FINISHED;
+                "Camera Look At", &guiTracingSettings.camera_look_at.x, -1, 1) == ImGui::EditMode::INPUT_FINISHED;
 
 
-        changed |= ImGui::InputInt("Res X", (int*)&gui_tracing_settings.res_x);
-        changed |= ImGui::InputInt("Res Y", (int*)&gui_tracing_settings.res_y);
+        changed |= ImGui::InputInt("Res X", (int*)&guiTracingSettings.res_x);
+        changed |= ImGui::InputInt("Res Y", (int*)&guiTracingSettings.res_y);
         changed |= ImGui::InputInt(
-                "Samples per Pixel", (int*)&gui_tracing_settings.samples_per_pixel);
+                "Samples per Pixel", (int*)&guiTracingSettings.samples_per_pixel);
 
         // NOTE(Felix): res_x, res_y and samples should not be smaller than 1
-        gui_tracing_settings.res_x = std::max(gui_tracing_settings.res_x, 1u);
-        gui_tracing_settings.res_y = std::max(gui_tracing_settings.res_y, 1u);
-        gui_tracing_settings.samples_per_pixel
-            = std::max(gui_tracing_settings.samples_per_pixel, 1u);
+        guiTracingSettings.res_x = std::max(guiTracingSettings.res_x, 1u);
+        guiTracingSettings.res_y = std::max(guiTracingSettings.res_y, 1u);
+        guiTracingSettings.samples_per_pixel
+            = std::max(guiTracingSettings.samples_per_pixel, 1u);
 
 
         changed |= ImGui::SliderFloat3Edit(
-                "Extinction", &gui_tracing_settings.extinction.x, 0.0f, 3000.0f) == ImGui::EditMode::INPUT_FINISHED;
+                "Extinction", &guiTracingSettings.extinction.x, 0.0f, 3000.0f) == ImGui::EditMode::INPUT_FINISHED;
         changed |= ImGui::SliderFloat3Edit(
-                "Scattering Albedo", &gui_tracing_settings.scattering_albedo.x, 0.0f, 1.0f) == ImGui::EditMode::INPUT_FINISHED;
+                "Scattering Albedo", &guiTracingSettings.scattering_albedo.x, 0.0f, 1.0f) == ImGui::EditMode::INPUT_FINISHED;
         changed |= ImGui::SliderFloatEdit(
-                "G", &gui_tracing_settings.g, 0.0f, 1.0f) == ImGui::EditMode::INPUT_FINISHED;
+                "G", &guiTracingSettings.g, 0.0f, 1.0f) == ImGui::EditMode::INPUT_FINISHED;
 
         if (changed) {
             requestNewData();
@@ -190,16 +190,16 @@ void ScatteringLineTracingRequester::setLineTracerSettings(const SettingsMap& se
         }
     }
 
-    changed |= settings.getValueOpt("use_isosurface", gui_tracing_settings.show_iso_surface);
-    changed |= settings.getValueOpt("camera_fov", gui_tracing_settings.camera_fov_deg);
-    changed |= settings.getValueOpt("camera_position", gui_tracing_settings.camera_position);
-    changed |= settings.getValueOpt("camera_look_at", gui_tracing_settings.camera_look_at);
-    changed |= settings.getValueOpt("res_x", gui_tracing_settings.res_x);
-    changed |= settings.getValueOpt("res_y", gui_tracing_settings.res_y);
-    changed |= settings.getValueOpt("samples_per_pixel", gui_tracing_settings.samples_per_pixel);
-    changed |= settings.getValueOpt("extinction", gui_tracing_settings.extinction);
-    changed |= settings.getValueOpt("scattering_albedo", gui_tracing_settings.scattering_albedo);
-    changed |= settings.getValueOpt("g", gui_tracing_settings.g);
+    changed |= settings.getValueOpt("use_isosurface", guiTracingSettings.show_iso_surface);
+    changed |= settings.getValueOpt("camera_fov", guiTracingSettings.camera_fov_deg);
+    changed |= settings.getValueOpt("camera_position", guiTracingSettings.camera_position);
+    changed |= settings.getValueOpt("camera_look_at", guiTracingSettings.camera_look_at);
+    changed |= settings.getValueOpt("res_x", guiTracingSettings.res_x);
+    changed |= settings.getValueOpt("res_y", guiTracingSettings.res_y);
+    changed |= settings.getValueOpt("samples_per_pixel", guiTracingSettings.samples_per_pixel);
+    changed |= settings.getValueOpt("extinction", guiTracingSettings.extinction);
+    changed |= settings.getValueOpt("scattering_albedo", guiTracingSettings.scattering_albedo);
+    changed |= settings.getValueOpt("g", guiTracingSettings.g);
 
     if (changed) {
         requestNewData();
@@ -232,7 +232,7 @@ void ScatteringLineTracingRequester::requestNewData() {
         return;
     }
 
-    Tracing_Settings request = gui_tracing_settings;
+    ScatteringTracingSettings request = guiTracingSettings;
     request.dataset_filename = boost::filesystem::absolute(gridDataSetFilename).generic_string();
 
     queueRequestStruct(request);
@@ -247,10 +247,10 @@ bool ScatteringLineTracingRequester::getHasNewData(DataSetInformation& dataSetIn
     return false;
 }
 
-void ScatteringLineTracingRequester::queueRequestStruct(const Tracing_Settings request) {
+void ScatteringLineTracingRequester::queueRequestStruct(const ScatteringTracingSettings& request) {
     {
         std::lock_guard<std::mutex> lock(replyMutex);
-        worker_tracing_settings = request;
+        workerTracingSettings = request;
         requestLineData = LineDataPtr(new LineDataScattering(
                 transferFunctionWindow
 #ifdef USE_VULKAN_INTEROP
@@ -315,7 +315,7 @@ void ScatteringLineTracingRequester::mainLoop() {
         }
 
         if (hasRequest) {
-            Tracing_Settings request = worker_tracing_settings;
+            ScatteringTracingSettings request = workerTracingSettings;
             std::shared_ptr<LineDataScattering> lineData = std::static_pointer_cast<LineDataScattering>(requestLineData);
             hasRequest = false;
             isProcessingRequest = true;
@@ -333,16 +333,16 @@ void ScatteringLineTracingRequester::mainLoop() {
 }
 
 void ScatteringLineTracingRequester::traceLines(
-        Tracing_Settings request, std::shared_ptr<LineDataScattering>& lineData)
+        const ScatteringTracingSettings& request, std::shared_ptr<LineDataScattering>& lineData)
 {
     std::string data_set_filename = request.dataset_filename;
     bool use_iso_surface = request.show_iso_surface;
 
     // if the user changed the file
-    if (data_set_filename != cached_grid_file_name) {
-        cached_grid.delete_maybe();
-        cached_grid_file_name = data_set_filename;
-        cached_grid = load_xyz_file(cached_grid_file_name);
+    if (data_set_filename != cachedGridFileName) {
+        cachedGrid.delete_maybe();
+        cachedGridFileName = data_set_filename;
+        cachedGrid = load_xyz_file(cachedGridFileName);
 
         if (use_iso_surface) {
 #ifdef USE_VULKAN_INTEROP
@@ -357,7 +357,7 @@ void ScatteringLineTracingRequester::traceLines(
     pi.ray_direction = glm::normalize(request.camera_look_at - request.camera_position);
 
     VolumeInfo vi {};
-    vi.grid              = cached_grid;
+    vi.grid              = cachedGrid;
     vi.extinction        = request.extinction;
     vi.scattering_albedo = request.scattering_albedo;
     vi.g                 = request.g;
@@ -437,10 +437,6 @@ void ScatteringLineTracingRequester::traceLines(
 
     lineData->setExitDirections(kd_tree_exit_dirs);
 
-    // TODO: This function normalizes the vertex positions of the trajectories;
-    //   should we also normalize the grid size?
-    //normalizeTrajectoriesVertexPositions(trajectories, nullptr);
-
     lineData->setDataSetInformation(gridDataSetFilename, { "Attribute #1" });
     lineData->setTrajectoryData(trajectories);
     lineData->setGridData(
@@ -448,17 +444,17 @@ void ScatteringLineTracingRequester::traceLines(
             cachedScalarFieldTexture,
 #endif
             outlineTriangleIndices, outlineVertexPositions, outlineVertexNormals,
-            cached_grid.data, cached_grid.size_x, cached_grid.size_y, cached_grid.size_z,
-            cached_grid.voxel_size_x, cached_grid.voxel_size_y, cached_grid.voxel_size_z);
+            cachedGrid.data, cachedGrid.size_x, cachedGrid.size_y, cachedGrid.size_z,
+            cachedGrid.voxel_size_x, cachedGrid.voxel_size_y, cachedGrid.voxel_size_z);
 
 }
 
 #ifdef USE_VULKAN_INTEROP
 void ScatteringLineTracingRequester::createScalarFieldTexture() {
     sgl::vk::ImageSettings imageSettings;
-    imageSettings.width = cached_grid.size_x;
-    imageSettings.height = cached_grid.size_y;
-    imageSettings.depth = cached_grid.size_z;
+    imageSettings.width = cachedGrid.size_x;
+    imageSettings.height = cachedGrid.size_y;
+    imageSettings.depth = cachedGrid.size_z;
     imageSettings.imageType = VK_IMAGE_TYPE_3D;
     imageSettings.format = VK_FORMAT_R32_SFLOAT;
 
@@ -468,7 +464,7 @@ void ScatteringLineTracingRequester::createScalarFieldTexture() {
     cachedScalarFieldTexture = std::make_shared<sgl::vk::Texture>(
             device, imageSettings, samplerSettings);
     cachedScalarFieldTexture->getImage()->uploadData(
-            cached_grid.size_x * cached_grid.size_y * cached_grid.size_z * sizeof(float), cached_grid.data);
+            cachedGrid.size_x * cachedGrid.size_y * cachedGrid.size_z * sizeof(float), cachedGrid.data);
 }
 #endif
 
@@ -481,7 +477,7 @@ void ScatteringLineTracingRequester::createIsosurface() {
 
     sgl::AABB3 gridAabb;
     gridAabb.min = glm::vec3(0.0f, 0.0f, 0.0f);
-    gridAabb.max = glm::vec3(cached_grid.size_x, cached_grid.size_y, cached_grid.size_z);
+    gridAabb.max = glm::vec3(cachedGrid.size_x, cachedGrid.size_y, cachedGrid.size_z);
 
     std::vector<glm::vec3> isosurfaceVertexPositions;
     std::vector<glm::vec3> isosurfaceVertexNormals;
@@ -493,18 +489,18 @@ void ScatteringLineTracingRequester::createIsosurface() {
 #endif
     if (!shallSmoothScalarField) {
         polygonizeSnapMC(
-                cached_grid.data, int(cached_grid.size_x), int(cached_grid.size_y), int(cached_grid.size_z),
+                cachedGrid.data, int(cachedGrid.size_x), int(cachedGrid.size_y), int(cachedGrid.size_z),
                 1e-4f, gamma, isosurfaceVertexPositions, isosurfaceVertexNormals);
 
     }
 #ifdef USE_VULKAN_INTEROP
     else {
         int padding = 4;
-        int smoothedGridSizeX = int(cached_grid.size_x) + 2 * padding;
-        int smoothedGridSizeY = int(cached_grid.size_y) + 2 * padding;
-        int smoothedGridSizeZ = int(cached_grid.size_z) + 2 * padding;
+        int smoothedGridSizeX = int(cachedGrid.size_x) + 2 * padding;
+        int smoothedGridSizeY = int(cachedGrid.size_y) + 2 * padding;
+        int smoothedGridSizeZ = int(cachedGrid.size_z) + 2 * padding;
         gridAabb.min = glm::vec3(padding, padding, padding);
-        gridAabb.max = glm::vec3(cached_grid.size_x, cached_grid.size_y, cached_grid.size_z);
+        gridAabb.max = glm::vec3(cachedGrid.size_x, cachedGrid.size_y, cachedGrid.size_z);
         float* scalarFieldSmoothed = lineDensityFieldSmoothingPass->smoothScalarFieldCpu(
                 cachedScalarFieldTexture, padding);
         polygonizeSnapMC(

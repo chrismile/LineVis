@@ -133,7 +133,12 @@ void LineDataFlow::recomputeHistogram() {
             attributeList.push_back(val);
         }
     }
-    glm::vec2 minMaxAttributes = minMaxAttributeValues.at(selectedAttributeIndex);
+    glm::vec2 minMaxAttributes;
+    if (selectedAttributeIndex < int(minMaxAttributeValues.size())) {
+        minMaxAttributes = minMaxAttributeValues.at(selectedAttributeIndex);
+    } else {
+        minMaxAttributes = glm::vec2(std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest());
+    }
     transferFunctionWindow.computeHistogram(attributeList, minMaxAttributes.x, minMaxAttributes.y);
     selectedAttributeIndex = int(attributeNames.size()) - 1;
     recomputeColorLegend();
