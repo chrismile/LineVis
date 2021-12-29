@@ -86,7 +86,7 @@ vec4 traceRayTransparent(vec3 rayOrigin, vec3 rayDirection) {
     for (uint hitIdx = 0; hitIdx < maxDepthComplexity; hitIdx++) {
         traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, rayOrigin, tMin, rayDirection, tMax, 0);
 
-        tMin = payload.hitT + HIT_DISTANCE_EPSILON;
+        tMin = payload.hitT + payload.hitT * HIT_DISTANCE_EPSILON;
 
         // Front-to-back blending (hitColor uses post-multiplied, fragmentColor uses pre-multiplied alpha).
         fragmentColor.rgb = fragmentColor.rgb + (1.0 - fragmentColor.a) * payload.hitColor.a * payload.hitColor.rgb;
