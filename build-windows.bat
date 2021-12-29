@@ -27,11 +27,12 @@
 @echo off
 pushd %~dp0
 
-set optix_install_dir=""
-
 set debug=true
 set build_dir=".build"
 set destination_dir="Shipping"
+
+:: Leave empty to let cmake try to find the correct paths
+set optix_install_dir=""
 
 where cmake >NUL 2>&1 || echo cmake was not found but is required to build the program && exit /b 1
 
