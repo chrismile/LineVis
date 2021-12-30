@@ -29,11 +29,17 @@
 #ifndef LINEVIS_STREAMLINESEEDER_HPP
 #define LINEVIS_STREAMLINESEEDER_HPP
 
+#include <random>
 #include <memory>
 #include <glm/vec3.hpp>
+#include <Math/Geometry/AABB3.hpp>
 
+struct StreamlineTracingSettings;
 class StreamlineTracingGrid;
 
+/**
+ * Returns seed points for streamline tracing.
+ */
 class StreamlineSeeder {
 public:
     virtual ~StreamlineSeeder() = default;
@@ -45,10 +51,21 @@ public:
     virtual StreamlineSeeder* copy() = 0;
 
     /**
+     * @return Whether regular tracing is used.
+     */
+    [[nodiscard]] virtual bool getIsRegular() const = 0;
+
+    /**
+     * Sets the simulation grid box in the GUI thread.
+     */
+    virtual void setNewGridBox(const sgl::AABB3& gridBox) = 0;
+
+    /**
      * Resets the internal state of the streamline tracer.
+     * @param tracingSettings The settings used for streamline tracing.
      * @param newGrid The grid used for tracing.
      */
-    virtual void reset(StreamlineTracingGrid* newGrid) = 0;
+    virtual void reset(StreamlineTracingSettings& tracingSettings, StreamlineTracingGrid* newGrid) = 0;
 
     /**
      * @return The next seed point.
@@ -64,18 +81,65 @@ public:
 
 typedef std::shared_ptr<StreamlineSeeder> StreamlineSeederPtr;
 
+
+/**
+ * A seeding approach that returns seed points on a plane.
+ */
 class StreamlinePlaneSeeder : public StreamlineSeeder {
 public:
     ~StreamlinePlaneSeeder() override = default;
     StreamlineSeeder* copy() override;
-    void reset(StreamlineTracingGrid* newGrid) override;
+    [[nodiscard]] bool getIsRegular() const override { return regular; }
+    void setNewGridBox(const sgl::AABB3& gridBox) override;
+    void reset(StreamlineTracingSettings& tracingSettings, StreamlineTracingGrid* newGrid) override;
     glm::vec3 getNextPoint() override;
     bool renderGui() override;
 
 private:
+    std::mt19937 generator;
+    std::uniform_real_distribution<float> uniformDistribution = std::uniform_real_distribution<float>(0, 1);
     StreamlineTracingGrid* grid = nullptr;
-    float planeDistance = 0.0f;
+    sgl::AABB3 box;
+    float maxDimension = 0.0f;
+
+    float planeSlice = 0.5f;
+    glm::vec3 direction = glm::vec3(0.0f, 1.0f, 0.0f);
+    float planeOffset = 0.0f;
     glm::vec3 planeNormal = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 axis0, axis1;
+
+    int seed = 2;
+    bool regular = false;
+    int currentSampleIdx = 0;
+    int numSamplesX = 32, numSamplesY = 32;
+    int numSamplesArrayGui[2] = { 32, 32 };
+};
+
+/**
+ * A seeding approach that returns seed points within the whole grid volume.
+ */
+class StreamlineVolumeSeeder : public StreamlineSeeder {
+public:
+    ~StreamlineVolumeSeeder() override = default;
+    StreamlineSeeder* copy() override;
+    [[nodiscard]] bool getIsRegular() const override { return regular; }
+    void setNewGridBox(const sgl::AABB3& gridBox) override;
+    void reset(StreamlineTracingSettings& tracingSettings, StreamlineTracingGrid* newGrid) override;
+    glm::vec3 getNextPoint() override;
+    bool renderGui() override;
+
+private:
+    std::mt19937 generator;
+    std::uniform_real_distribution<float> uniformDistribution = std::uniform_real_distribution<float>(0, 1);
+    StreamlineTracingGrid* grid = nullptr;
+    sgl::AABB3 box, gridBoxUi;
+    float maxDimension = 0.0f;
+
+    int seed = 2;
+    bool regular = false;
+    int currentSampleIdx = 0;
+    int numSamplesX = 1, numSamplesY = 1, numSamplesZ = 1;
+    int numSamplesArrayGui[3] = { 1, 1, 1 };
 };
 
 #endif //LINEVIS_STREAMLINESEEDER_HPP

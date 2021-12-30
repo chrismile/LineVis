@@ -29,6 +29,8 @@
 #ifndef LINEVIS_STREAMLINETRACINGDEFINES_HPP
 #define LINEVIS_STREAMLINETRACINGDEFINES_HPP
 
+#include <memory>
+
 enum class StreamlineTracingDataSource {
     // A .vtk file storing a STRUCTURED_GRID data set.
     VTK_STRUCTURED_GRID_FILE,
@@ -45,17 +47,31 @@ const char* const FLOW_PRIMITIVE_NAMES[] = {
 
 enum class StreamlineSeedingStrategy {
     // Seed the lines in a 3D box.
-    BOX,
+    VOLUME,
     // Seed the lines in a 2D plane.
     PLANE,
     // Seed the lines starting from cells with the highest helicity.
     MAX_HELICITY_FIRST
 };
 const char* const STREAMLINE_SEEDING_STRATEGY_NAMES[] = {
-        "Box", "Planes", "Max. Helicity First"
+        "Volume", "Plane", "Max. Helicity First"
 };
 
 class StreamlineSeeder;
+typedef std::shared_ptr<StreamlineSeeder> StreamlineSeederPtr;
+class StreamlineSeeder;
 class StreamlineTracingGrid;
+
+#define IDXV(x,y,z,c) ((z)*xs*ys*3 + (y)*xs*3 + (x)*3 + (c))
+#define IDXV4(x,y,z,c) ((z)*xs*ys*4 + (y)*xs*4 + (x)*4 + (c))
+#define IDXS(x,y,z) ((z)*xs*ys + (y)*xs + (x))
+
+struct StreamlineTracingSettings {
+    std::string dataSourceFilename{};
+    FlowPrimitives flowPrimitives = FlowPrimitives::STREAMLINES;
+    int numPrimitives = 1024;
+    StreamlineSeedingStrategy streamlineSeedingStrategy = StreamlineSeedingStrategy::VOLUME;
+    StreamlineSeederPtr seeder = nullptr;
+};
 
 #endif //LINEVIS_STREAMLINETRACINGDEFINES_HPP

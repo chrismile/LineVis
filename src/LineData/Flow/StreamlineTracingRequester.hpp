@@ -41,13 +41,6 @@ class StreamlineSeeder;
 typedef std::shared_ptr<StreamlineSeeder> StreamlineSeederPtr;
 class StreamlineTracingGrid;
 
-struct StreamlineTracingSettings {
-    std::string dataSourceFilename{};
-    FlowPrimitives flowPrimitives = FlowPrimitives::STREAMLINES;
-    StreamlineSeedingStrategy streamlineSeedingStrategy = StreamlineSeedingStrategy::PLANE;
-    StreamlineSeederPtr seeder = nullptr;
-};
-
 class StreamlineTracingRequester {
 public:
     explicit StreamlineTracingRequester(sgl::TransferFunctionWindow& transferFunctionWindow);
@@ -87,7 +80,7 @@ private:
      * @param request Information for the requested tracing of lines scattered in the grid.
      * @param lineData An object for storing the traced line data.
      */
-    void traceLines(const StreamlineTracingSettings& request, std::shared_ptr<LineDataFlow>& lineData);
+    void traceLines(StreamlineTracingSettings& request, std::shared_ptr<LineDataFlow>& lineData);
 
     sgl::TransferFunctionWindow& transferFunctionWindow;
 
@@ -96,6 +89,10 @@ private:
     std::condition_variable hasReplyConditionVariable;
     std::mutex requestMutex;
     std::mutex replyMutex;
+
+    std::mutex gridInfoMutex;
+    bool newGridLoaded = false;
+    sgl::AABB3 gridBox;
 
     bool programIsFinished = false;
     bool hasRequest = false;
@@ -122,6 +119,5 @@ private:
     std::vector<std::string> gridDataSetFilenames;
     int selectedGridDataSetIndex = 0;
 };
-
 
 #endif //LINEVIS_STREAMLINETRACINGREQUESTER_HPP

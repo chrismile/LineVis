@@ -46,17 +46,18 @@
 #include "../LineDataFlow.hpp"
 #include "StreamlineSeeder.hpp"
 #include "StreamlineTracingGrid.hpp"
+#include "Loader/StructuredGridVtkLoader.hpp"
+#include "Loader/RbcBinFileLoader.hpp"
 #include "StreamlineTracingRequester.hpp"
 
 StreamlineTracingRequester::StreamlineTracingRequester(sgl::TransferFunctionWindow& transferFunctionWindow)
         : transferFunctionWindow(transferFunctionWindow) {
-    // TODO: Add new types.
     streamlineSeeders.insert(std::make_pair(
-            StreamlineSeedingStrategy::BOX, StreamlineSeederPtr(new StreamlinePlaneSeeder)));
+            StreamlineSeedingStrategy::VOLUME, StreamlineSeederPtr(new StreamlineVolumeSeeder)));
     streamlineSeeders.insert(std::make_pair(
             StreamlineSeedingStrategy::PLANE, StreamlineSeederPtr(new StreamlinePlaneSeeder)));
     streamlineSeeders.insert(std::make_pair(
-            StreamlineSeedingStrategy::MAX_HELICITY_FIRST, StreamlineSeederPtr(new StreamlinePlaneSeeder)));
+            StreamlineSeedingStrategy::MAX_HELICITY_FIRST, StreamlineSeederPtr(new StreamlinePlaneSeeder))); // TODO
     guiTracingSettings.seeder = streamlineSeeders[guiTracingSettings.streamlineSeedingStrategy];
 
     lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
@@ -108,12 +109,35 @@ void StreamlineTracingRequester::loadGridDataSetList() {
 void StreamlineTracingRequester::renderGui() {
     sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(3072, 1146, 760, 628);
     if (ImGui::Begin("Streamline Tracer", &showWindow)) {
+        {
+            std::lock_guard<std::mutex> replyLock(gridInfoMutex);
+            if (newGridLoaded) {
+                newGridLoaded = false;
+                for (auto& it : streamlineSeeders) {
+                    it.second->setNewGridBox(gridBox);
+                }
+            }
+        }
+
         bool changed = false;
         if (ImGui::Combo(
                 "Data Set", &selectedGridDataSetIndex, gridDataSetNames.data(),
                 int(gridDataSetNames.size()))) {
             if (selectedGridDataSetIndex >= 1) {
-                gridDataSetFilename = lineDataSetsDirectory + gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+                const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+#ifdef _WIN32
+                bool isAbsolutePath =
+                    (pathString.size() > 1 && pathString.at(1) == ':')
+                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
+#else
+                bool isAbsolutePath =
+                        boost::starts_with(pathString, "/");
+#endif
+                if (isAbsolutePath) {
+                    gridDataSetFilename = pathString;
+                } else {
+                    gridDataSetFilename = lineDataSetsDirectory + pathString;
+                }
                 changed = true;
             }
         }
@@ -126,14 +150,23 @@ void StreamlineTracingRequester::renderGui() {
         }
 
         if (ImGui::Combo(
-                "Primitives", (int*)&guiTracingSettings.flowPrimitives,
+                "Primitive Type", (int*)&guiTracingSettings.flowPrimitives,
                 FLOW_PRIMITIVE_NAMES, IM_ARRAYSIZE(FLOW_PRIMITIVE_NAMES))) {
             changed = true;
+        }
+
+        if (!guiTracingSettings.seeder->getIsRegular()) {
+            if (ImGui::SliderIntPowerOfTwoEdit(
+                    "#Primitives", &guiTracingSettings.numPrimitives,
+                    1, 1048576) == ImGui::EditMode::INPUT_FINISHED) {
+                changed = true;
+            }
         }
 
         if (ImGui::Combo(
                 "Seeding Strategy", (int*)&guiTracingSettings.streamlineSeedingStrategy,
                 STREAMLINE_SEEDING_STRATEGY_NAMES, IM_ARRAYSIZE(STREAMLINE_SEEDING_STRATEGY_NAMES))) {
+            guiTracingSettings.seeder = streamlineSeeders[guiTracingSettings.streamlineSeedingStrategy];
             changed = true;
         }
 
@@ -157,7 +190,20 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
         for (int i = 0; i < int(gridDataSetNames.size()); i++) {
             if (datasetName == gridDataSetNames.at(i)) {
                 selectedGridDataSetIndex = i + 1;
-                gridDataSetFilename = lineDataSetsDirectory + gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+                const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+#ifdef _WIN32
+                bool isAbsolutePath =
+                    (pathString.size() > 1 && pathString.at(1) == ':')
+                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
+#else
+                bool isAbsolutePath =
+                        boost::starts_with(pathString, "/");
+#endif
+                if (isAbsolutePath) {
+                    gridDataSetFilename = pathString;
+                } else {
+                    gridDataSetFilename = lineDataSetsDirectory + pathString;
+                }
                 changed = true;
                 break;
             }
@@ -184,10 +230,24 @@ void StreamlineTracingRequester::setDatasetFilename(const std::string& newDatase
     bool isDataSetInList = false;
     for (int i = 0; i < int(gridDataSetFilenames.size()); i++) {
         auto newDataSetPath = boost::filesystem::absolute(newDatasetFilename);
-        auto currentDataSetPath = boost::filesystem::absolute(lineDataSetsDirectory + gridDataSetFilenames.at(i));
+        auto currentDataSetPath = boost::filesystem::absolute(
+                lineDataSetsDirectory + gridDataSetFilenames.at(i));
         if (boost::filesystem::equivalent(newDataSetPath, currentDataSetPath)) {
             selectedGridDataSetIndex = i + 1;
-            gridDataSetFilename = lineDataSetsDirectory + gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+            const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+#ifdef _WIN32
+            bool isAbsolutePath =
+                    (pathString.size() > 1 && pathString.at(1) == ':')
+                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
+#else
+            bool isAbsolutePath =
+                    boost::starts_with(pathString, "/");
+#endif
+            if (isAbsolutePath) {
+                gridDataSetFilename = pathString;
+            } else {
+                gridDataSetFilename = lineDataSetsDirectory + pathString;
+            }
             isDataSetInList = true;
             break;
         }
@@ -207,6 +267,7 @@ void StreamlineTracingRequester::requestNewData() {
     }
 
     StreamlineTracingSettings request = guiTracingSettings;
+    request.seeder = StreamlineSeederPtr(guiTracingSettings.seeder->copy());
     request.dataSourceFilename = boost::filesystem::absolute(gridDataSetFilename).generic_string();
 
     queueRequestStruct(request);
@@ -302,11 +363,39 @@ void StreamlineTracingRequester::mainLoop() {
 }
 
 void StreamlineTracingRequester::traceLines(
-        const StreamlineTracingSettings& request, std::shared_ptr<LineDataFlow>& lineData) {
-    // TODO
+        StreamlineTracingSettings& request, std::shared_ptr<LineDataFlow>& lineData) {
+    if (cachedGridFilename != request.dataSourceFilename) {
+        if (cachedGrid) {
+            delete cachedGrid;
+            cachedGrid = nullptr;
+        }
+        cachedGridFilename = request.dataSourceFilename;
+
+        cachedGrid = new StreamlineTracingGrid;
+        if (boost::ends_with(request.dataSourceFilename, ".vtk")) {
+            StructuredGridVtkLoader::load(request.dataSourceFilename, cachedGrid);
+        } else if (boost::ends_with(request.dataSourceFilename, ".bin")) {
+            RbcBinFileLoader::load(request.dataSourceFilename, cachedGrid);
+        }
+
+        {
+            std::lock_guard<std::mutex> replyLock(gridInfoMutex);
+            newGridLoaded = true;
+            gridBox = cachedGrid->getBox();
+        }
+    }
+
+    Trajectories trajectories = cachedGrid->traceStreamlines(request);
+    normalizeTrajectoriesVertexPositions(trajectories, nullptr);
+
+    for (size_t i = 0; i < trajectories.size(); i++) {
+        if (trajectories.at(i).positions.empty()) {
+            trajectories.erase(trajectories.begin() + long(i));
+            i--;
+        }
+    }
 
     lineData->fileNames = { request.dataSourceFilename };
-    lineData->attributeNames = {};
-
-    //lineData->setTrajectoryData(trajectories);
+    lineData->attributeNames = cachedGrid->getScalarAttributeNames();
+    lineData->setTrajectoryData(trajectories);
 }

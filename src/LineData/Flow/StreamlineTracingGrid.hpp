@@ -32,15 +32,44 @@
 #include <string>
 #include <map>
 
+#include "Loaders/TrajectoryFile.hpp"
+
+struct StreamlineTracingSettings;
+class StreamlineSeeder;
+
 /**
- * Stores a Cartesian grid storing, e.g., velocity data, with which streamlines can be traced.
+ * Stores a Cartesian grid. At each grid point, scalar data and velocity data is stored.
+ * The velocity data can be used for streamline and streamribbon tracing.
  */
 class StreamlineTracingGrid {
 public:
-    void traceStreamlines();
+    ~StreamlineTracingGrid();
+    void setVelocityField(float* data, int xs, int ys, int zs, float dx, float dy, float dz);
+    void addScalarField(float* scalarField, const std::string& scalarName);
+    std::vector<std::string> getScalarAttributeNames();
+    [[nodiscard]] inline const sgl::AABB3& getBox() const { return box; }
+
+    Trajectories traceStreamlines(StreamlineTracingSettings& tracingSettings);
 
 private:
-    std::map<std::string, float*> scalarData;
+    float _getScalarFieldAtIdx(const float* scalarField, const glm::ivec3& gridIdx) const;
+    [[nodiscard]] glm::vec3 _getVelocityAtIdx(const glm::ivec3& gridIdx) const;
+    [[nodiscard]] glm::vec3 _getVelocityVectorAt(const glm::vec3& particlePosition) const;
+    static bool _rayBoxIntersection(
+            const glm::vec3& rayOrigin, const glm::vec3& rayDirection, const glm::vec3& lower, const glm::vec3& upper,
+            float& tNear, float& tFar);
+    static bool rayBoxPlaneIntersection(
+            float rayOriginX, float rayDirectionX, float lowerX, float upperX, float& tNear, float& tFar);
+    void _pushTrajectoryAttributes(Trajectory& trajectory);
+    void _traceStreamline(Trajectory& trajectory, const glm::vec3& seedPoint);
+
+    int xs = 0, ys = 0, zs = 0; ///< Size of the grid in data points.
+    float dx = 0.0f, dy = 0.0f, dz = 0.0f; ///< Distance between two neighboring points in x/y/z direction.
+    sgl::AABB3 box; ///< Box encompassing all grid points.
+    float* velocityField = nullptr;
+    glm::vec3* V = nullptr;
+    float maxVelocityMagnitude = 0.0f;
+    std::map<std::string, float*> scalarFields;
 };
 
 #endif //LINEVIS_STREAMLINETRACINGGRID_HPP

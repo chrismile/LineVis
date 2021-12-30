@@ -94,7 +94,7 @@ void ScatteringLineTracingRequester::loadGridDataSetList() {
     gridDataSetFilenames.clear();
     gridDataSetNames.emplace_back("Local file...");
 
-    std::string filename = lineDataSetsDirectory + "grids.json";
+    std::string filename = lineDataSetsDirectory + "scattering_grids.json";
     if (sgl::FileUtils::get()->exists(filename)) {
         // Parse the passed JSON file.
         std::ifstream jsonFileStream(filename.c_str());
@@ -126,7 +126,20 @@ void ScatteringLineTracingRequester::renderGui() {
                 "Data Set", &selectedGridDataSetIndex, gridDataSetNames.data(),
                 int(gridDataSetNames.size()))) {
             if (selectedGridDataSetIndex >= 1) {
-                gridDataSetFilename = lineDataSetsDirectory + gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+                const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+#ifdef _WIN32
+                bool isAbsolutePath =
+                    (pathString.size() > 1 && pathString.at(1) == ':')
+                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
+#else
+                bool isAbsolutePath =
+                        boost::starts_with(pathString, "/");
+#endif
+                if (isAbsolutePath) {
+                    gridDataSetFilename = pathString;
+                } else {
+                    gridDataSetFilename = lineDataSetsDirectory + pathString;
+                }
                 changed = true;
             }
         }
@@ -183,7 +196,20 @@ void ScatteringLineTracingRequester::setLineTracerSettings(const SettingsMap& se
         for (int i = 0; i < int(gridDataSetNames.size()); i++) {
             if (datasetName == gridDataSetNames.at(i)) {
                 selectedGridDataSetIndex = i + 1;
-                gridDataSetFilename = lineDataSetsDirectory + gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+                const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+#ifdef _WIN32
+                bool isAbsolutePath =
+                    (pathString.size() > 1 && pathString.at(1) == ':')
+                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
+#else
+                bool isAbsolutePath =
+                        boost::starts_with(pathString, "/");
+#endif
+                if (isAbsolutePath) {
+                    gridDataSetFilename = pathString;
+                } else {
+                    gridDataSetFilename = lineDataSetsDirectory + pathString;
+                }
                 changed = true;
                 break;
             }
@@ -213,7 +239,20 @@ void ScatteringLineTracingRequester::setDatasetFilename(const std::string& newDa
         auto currentDataSetPath = boost::filesystem::absolute(lineDataSetsDirectory + gridDataSetFilenames.at(i));
         if (boost::filesystem::equivalent(newDataSetPath, currentDataSetPath)) {
             selectedGridDataSetIndex = i + 1;
-            gridDataSetFilename = lineDataSetsDirectory + gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+            const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+#ifdef _WIN32
+            bool isAbsolutePath =
+                    (pathString.size() > 1 && pathString.at(1) == ':')
+                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
+#else
+            bool isAbsolutePath =
+                    boost::starts_with(pathString, "/");
+#endif
+            if (isAbsolutePath) {
+                gridDataSetFilename = pathString;
+            } else {
+                gridDataSetFilename = lineDataSetsDirectory + pathString;
+            }
             isDataSetInList = true;
             break;
         }
