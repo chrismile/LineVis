@@ -48,6 +48,7 @@ private:
     float maxGlobalAttribute = 0.0f;
     std::vector<float> minTrajectoryAttributes;
     std::vector<float> maxTrajectoryAttributes;
+    int selectedAttributeIdx = 0;
 };
 
 #endif //LINEVIS_MAXLINEATTRIBUTEFILTER_HPP

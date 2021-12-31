@@ -48,6 +48,8 @@ private:
     static void _readLines(
             ReadMode readMode, int numObjects, float* fieldData,
             size_t& charPtr, size_t& length, const char* fileBuffer);
+    static void _convertScalarFieldCellToPointMode(
+            const float* scalarFieldCell, float* scalarFieldPoint, int xs, int ys, int zs);
 };
 
 #endif //LINEVIS_STRUCTUREDGRIDVTKLOADER_HPP

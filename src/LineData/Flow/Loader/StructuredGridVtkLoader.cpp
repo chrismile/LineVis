@@ -85,6 +85,30 @@ void StructuredGridVtkLoader::_readLines(
     }
 }
 
+void StructuredGridVtkLoader::_convertScalarFieldCellToPointMode(
+        const float* scalarFieldCell, float* scalarFieldPoint, int xs, int ys, int zs) {
+    #pragma omp parallel for shared(xs, ys, zs, scalarFieldCell, scalarFieldPoint)  default(none)
+    for (int z = 0; z < zs; z++) {
+        for (int y = 0; y < ys; y++) {
+            for (int x = 0; x < xs; x++) {
+                int numNeighboringCells = 0;
+                float valueSum = 0.0f;
+                for (int zc = z - 1; zc <= z; zc++) {
+                    for (int yc = y - 1; yc <= y; yc++) {
+                        for (int xc = x - 1; xc <= x; xc++) {
+                            if (xc >= 0 && yc >= 0 && zc >= 0 && xc < xs - 1 && yc < ys - 1 && zc < zs - 1) {
+                                numNeighboringCells++;
+                                valueSum += scalarFieldCell[IDXS_C(xc, yc, zc)];
+                            }
+                        }
+                    }
+                }
+                scalarFieldPoint[IDXS(x, y, z)] = valueSum / float(numNeighboringCells);
+            }
+        }
+    }
+}
+
 void StructuredGridVtkLoader::load(const std::string& dataSourceFilename, StreamlineTracingGrid* grid) {
     int xs = 0, ys = 0, zs = 0;
 
@@ -323,7 +347,15 @@ void StructuredGridVtkLoader::load(const std::string& dataSourceFilename, Stream
                             "Error in RbcBinFileLoader::load: The scalar field \"" + scalarFieldName
                             + "\" exists more than one time in the file \"" + dataSourceFilename + "\".");
                 }
-                scalarFields.insert(std::make_pair(scalarFieldName, scalarField));
+                if (pointDataMode) {
+                    scalarFields.insert(std::make_pair(scalarFieldName, scalarField));
+                } else {
+                    // Convert cell data to point data.
+                    auto* scalarFieldPoint = new float[numPoints];
+                    _convertScalarFieldCellToPointMode(scalarField, scalarFieldPoint, xs, ys, zs);
+                    scalarFields.insert(std::make_pair(scalarFieldName, scalarFieldPoint));
+                    delete[] scalarField;
+                }
             } else {
                 if (isBinaryMode) {
                     size_t numBytes = nextScalarDataBytesPerElement * numScalars;
@@ -399,7 +431,8 @@ void StructuredGridVtkLoader::load(const std::string& dataSourceFilename, Stream
         std::string scalarDisplayName;
         scalarDisplayName = boost::to_upper_copy(it.first.substr(0, 1)) + it.first.substr(1);
         std::string::size_type magnitudePos = scalarDisplayName.find("Magnitude");
-        if (magnitudePos != std::string::npos && magnitudePos > 0) {
+        if (scalarDisplayName.find(" Magnitude") == std::string::npos
+                && magnitudePos != std::string::npos && magnitudePos > 0) {
             scalarDisplayName =
                     scalarDisplayName.substr(0, magnitudePos) + " " + scalarDisplayName.substr(magnitudePos);
         }

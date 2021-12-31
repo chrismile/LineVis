@@ -40,6 +40,7 @@ void MaxLineAttributeFilter::onDataLoaded(LineDataPtr lineDataIn) {
     maxGlobalAttribute = std::numeric_limits<float>::lowest();
     minTrajectoryAttributes.clear();
     maxTrajectoryAttributes.clear();
+    selectedAttributeIdx = lineDataIn->getSelectedAttributeIndex();
 
     lineDataIn->iterateOverTrajectories([this, lineDataIn](const Trajectory& trajectory) {
         int n = int(trajectory.positions.size());
@@ -65,7 +66,7 @@ void MaxLineAttributeFilter::onDataLoaded(LineDataPtr lineDataIn) {
 }
 
 void MaxLineAttributeFilter::filterData(LineDataPtr lineDataIn) {
-    if (maxTrajectoryAttributes.empty()) {
+    if (maxTrajectoryAttributes.empty() || selectedAttributeIdx != lineDataIn->getSelectedAttributeIndex()) {
         onDataLoaded(lineDataIn);
     }
 

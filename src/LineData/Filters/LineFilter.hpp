@@ -43,12 +43,12 @@ class SettingsMap;
 
 class LineFilter {
 public:
-    virtual ~LineFilter() {}
+    virtual ~LineFilter() = default;
 
     // Returns if the filter is active and should be applied on the input data.
-    inline bool isEnabled() { return enabled; }
+    [[nodiscard]] inline bool isEnabled() const { return enabled; }
     // Returns if the visualization mapping needs to be re-generated.
-    inline bool isDirty() { return dirty; }
+    [[nodiscard]] inline bool isDirty() const { return dirty; }
 
     // Called when a new data set is loaded from a file.
     virtual void onDataLoaded(LineDataPtr lineDataIn) {}

@@ -342,7 +342,12 @@ bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyE
             }
 
 #ifdef USE_EIGEN
-            if (fileFormatVersion >= 3 && propertyEditor.addCombo(
+            bool showBandRenderingMode = std::any_of(
+                    lineRenderersCached.cbegin(), lineRenderersCached.cend(),
+                    [](LineRenderer* lineRenderer) {
+                        return lineRenderer->getIsRasterizer();
+                    });
+            if (showBandRenderingMode && fileFormatVersion >= 3 && propertyEditor.addCombo(
                     "Band Rendering Mode", (int*)&bandRenderMode,
                     bandRenderModeNames, IM_ARRAYSIZE(bandRenderModeNames))) {
                 dirty = true;

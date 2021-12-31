@@ -66,6 +66,7 @@ class StreamlineTracingGrid;
 #define IDXV(x,y,z,c) ((z)*xs*ys*3 + (y)*xs*3 + (x)*3 + (c))
 #define IDXV4(x,y,z,c) ((z)*xs*ys*4 + (y)*xs*4 + (x)*4 + (c))
 #define IDXS(x,y,z) ((z)*xs*ys + (y)*xs + (x))
+#define IDXS_C(x,y,z) ((z)*(xs-1)*(ys-1) + (y)*(xs-1) + (x))
 
 struct StreamlineTracingSettings {
     std::string dataSourceFilename{};
