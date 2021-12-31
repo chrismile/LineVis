@@ -29,6 +29,7 @@
 #ifndef LINEVIS_STREAMLINETRACINGDEFINES_HPP
 #define LINEVIS_STREAMLINETRACINGDEFINES_HPP
 
+#include <string>
 #include <memory>
 
 enum class StreamlineTracingDataSource {
