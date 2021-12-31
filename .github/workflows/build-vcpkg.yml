@@ -75,6 +75,12 @@ jobs:
         vcpkgGitCommitId: 'df9052e29fde61a6306396579762894ba46b85a3'
         #doNotCacheOnWorkflowFailure: true
 
+    # Fix the following warning: "Warning: cache.restoreCache() failed: 'Tar failed with error: The process
+    # 'C:\Windows\System32\tar.exe' failed with exit code 1', skipping restoring from cache."
+    - name: Fix run-vcpkg bug (Windows)
+      if: runner.os == 'Windows'
+      run: attrib -r "${{env.VCPKG_ROOT}}\.git\*.*" /s
+
     - name: Create custom vcpkg triplet
       run: |
         cp "${{env.VCPKG_ROOT}}/triplets/${{env.VCPKG_COPY_TRIPLET}}.cmake" "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"

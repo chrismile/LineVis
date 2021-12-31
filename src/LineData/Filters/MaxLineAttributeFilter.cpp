@@ -48,7 +48,7 @@ void MaxLineAttributeFilter::onDataLoaded(LineDataPtr lineDataIn) {
 
         float minTrajectoryAttribute = std::numeric_limits<float>::max();
         float maxTrajectoryAttribute = std::numeric_limits<float>::lowest();
-        for (int i = 0; i < n - 1; i++) {
+        for (int i = 0; i < n; i++) {
             float attr = trajectory.attributes.at(attributeIdx).at(i);
             minTrajectoryAttribute = std::min(minTrajectoryAttribute, attr);
             maxTrajectoryAttribute = std::max(maxTrajectoryAttribute, attr);
