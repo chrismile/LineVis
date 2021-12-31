@@ -94,7 +94,7 @@ Trajectories StreamlineTracingGrid::traceStreamlines(StreamlineTracingSettings& 
     for (int i = 0; i < numTrajectories; i++) {
         Trajectory& trajectory = trajectories.at(i);
         glm::vec3 seedPoint = seeder->getNextPoint();
-        _traceStreamline(trajectory, seedPoint);
+        _traceStreamline(tracingSettings, trajectory, seedPoint);
     }
 
     return trajectories;
@@ -228,14 +228,18 @@ void StreamlineTracingGrid::_pushTrajectoryAttributes(Trajectory& trajectory) {
     }
 }
 
-void StreamlineTracingGrid::_traceStreamline(Trajectory& trajectory, const glm::vec3& seedPoint) {
-    const float dt = 1.0f / maxVelocityMagnitude * std::min(dx, std::min(dy, dz));
+void StreamlineTracingGrid::_traceStreamline(
+        const StreamlineTracingSettings& tracingSettings, Trajectory& trajectory, const glm::vec3& seedPoint) {
+    float dt = 1.0f / maxVelocityMagnitude * std::min(dx, std::min(dy, dz)) * tracingSettings.timeStepScale;
+    float terminationDistance = 1e-6f * tracingSettings.terminationDistance;
 
     glm::vec3 particlePosition = seedPoint;
     glm::vec3 oldParticlePosition;
 
     int iterationCounter = 0;
-    const int MAX_ITERATIONS = 2000;
+    const int MAX_ITERATIONS = std::min(
+            int(std::round(float(tracingSettings.maxNumIterations) / tracingSettings.timeStepScale)),
+            tracingSettings.maxNumIterations * 10);
     float lineLength = 0.0;
     const float MAX_LINE_LENGTH = glm::length(box.getDimensions());
     while (iterationCounter <= MAX_ITERATIONS && lineLength <= MAX_LINE_LENGTH) {
@@ -246,13 +250,17 @@ void StreamlineTracingGrid::_traceStreamline(Trajectory& trajectory, const glm::
             if (!trajectory.positions.empty()) {
                 // Clamp the position to the boundary.
                 glm::vec3 rayOrigin = trajectory.positions.back();
-                glm::vec3 rayDirection = particlePosition - rayOrigin;
+                glm::vec3 rayDirection = glm::normalize(particlePosition - rayOrigin);
                 float tNear, tFar;
                 _rayBoxIntersection(
                         rayOrigin, rayDirection, box.getMinimum(), box.getMaximum(), tNear, tFar);
-
-                glm::vec3 boundaryParticlePosition = rayOrigin + tNear * rayDirection;
-                trajectory.positions.push_back(boundaryParticlePosition);
+                glm::vec3 boundaryParticlePosition;
+                if (tNear > 0.0f) {
+                    boundaryParticlePosition = rayOrigin + tNear * rayDirection;
+                } else {
+                    boundaryParticlePosition = rayOrigin + tFar * rayDirection;
+                }
+                trajectory.positions.emplace_back(boundaryParticlePosition);
                 _pushTrajectoryAttributes(trajectory);
             }
             break;
@@ -264,50 +272,80 @@ void StreamlineTracingGrid::_traceStreamline(Trajectory& trajectory, const glm::
 
         // Integrate to the new position using Runge-Kutta of 4th order.
 
-        glm::vec3 k1 = dt * _getVelocityVectorAt(particlePosition);
-        glm::vec3 k2 = dt * _getVelocityVectorAt(particlePosition + k1/float(2.0));
-        glm::vec3 k3 = dt * _getVelocityVectorAt(particlePosition + k2/float(2.0));
-        glm::vec3 k4 = dt * _getVelocityVectorAt(particlePosition + k3);
-        particlePosition = particlePosition + k1/float(6.0) + k2/float(3.0) + k3/float(3.0) + k4/float(6.0);
-
-        // Integrate to the new position using the Runge-Kutta-Fehlberg method (RKF45).
-        // For more details see: https://maths.cnam.fr/IMG/pdf/RungeKuttaFehlbergProof.pdf
-        /*const float tol = float(2.0 * 1e-5);
-        glm::vec3 approximationRK4, approximationRK5;
-        bool timestepNeedsAdaptation = false;
-        do {
-            glm::vec3 k1 = dt * _getVelocityVectorAt(particlePosition);
-            glm::vec3 k2 = dt * _getVelocityVectorAt(particlePosition + k1*float(1.0/4.0);
-            glm::vec3 k3 = dt * _getVelocityVectorAt(particlePosition + k1*float(3.0/32.0) + k2*float(9.0/32.0));
-            glm::vec3 k4 = dt * _getVelocityVectorAt(
-                    particlePosition + k1*float(1932.0/2197.0) - k2*float(7200.0/2197.0) + k3*float(7296.0/2197.0));
-            glm::vec3 k5 = dt * _getVelocityVectorAt(
-                    particlePosition + k1*float(439.0/216.0) - k2*float(8.0) + k3*float(3680.0/513.0)
-                    - k4*float(845.0/4104.0));
-            glm::vec3 k6 = dt * _getVelocityVectorAt(
-                    particlePosition - k1*float(8.0/27.0) + k2*float(2.0) - k3*float(3544.0/2565.0)
-                    + k4*float(1859.0/4104.0) - k5*float(11.0/40.0));
-            approximationRK4 = particlePosition + k1*float(25.0/216.0) + k3*float(1408.0/2565.0)
-                    + k4*float(2197.0/4101.0) - k5*float(1.0/5.0);
-            approximationRK5 = particlePosition + k1*float(16.0/135.0) + k3*float(6656.0/12825.0)
-                    + k4*float(28561.0/56430.0) - k5*float(9.0/50.0) + k6*float(2.0/55.0);
-            float s = std::pow(tol*dt / (float(2.0) * glm::length(approximationRK5 - approximationRK4)), float(1.0/4.0));
-            if (s < 0.9 || s > 1.1) {
-                timestepNeedsAdaptation = true;
-            }
-            dt = s*dt;
-        } while(timestepNeedsAdaptation);
-        particlePosition = approximationRK4;*/
+        if (tracingSettings.integrationMethod == StreamlineIntegrationMethod::EXPLICIT_EULER) {
+            _integrationStepExplicitEuler(particlePosition, dt);
+        } else if (tracingSettings.integrationMethod == StreamlineIntegrationMethod::HEUN) {
+            _integrationStepHeun(particlePosition, dt);
+        } else if (tracingSettings.integrationMethod == StreamlineIntegrationMethod::MIDPOINT) {
+            _integrationStepMidpoint(particlePosition, dt);
+        } else if (tracingSettings.integrationMethod == StreamlineIntegrationMethod::RK4) {
+            _integrationStepRK4(particlePosition, dt);
+        } else if (tracingSettings.integrationMethod == StreamlineIntegrationMethod::RKF45) {
+            _integrationStepRKF45(particlePosition, dt);
+        }
 
         float segmentLength = glm::length(particlePosition - oldParticlePosition);
         lineLength += segmentLength;
 
         // Have we reached a singular point?
-        if (segmentLength < float(0.000001)) {
+        if (segmentLength < terminationDistance) {
             break;
         }
 
-        oldParticlePosition = particlePosition;
         iterationCounter++;
     }
+}
+
+void StreamlineTracingGrid::_integrationStepExplicitEuler(glm::vec3& p0, float& dt) {
+    p0 += dt * _getVelocityVectorAt(p0);
+}
+
+void StreamlineTracingGrid::_integrationStepHeun(glm::vec3& p0, float& dt) {
+    glm::vec3 v0 = _getVelocityVectorAt(p0);
+    glm::vec3 p1Euler = p0 + dt * v0;
+    glm::vec3 v1Euler = _getVelocityVectorAt(p1Euler);
+    p0 += dt * float(0.5) * (v0 + v1Euler);
+}
+
+void StreamlineTracingGrid::_integrationStepMidpoint(glm::vec3& p0, float& dt) {
+    glm::vec3 pPrime = p0 + dt * float(0.5) * _getVelocityVectorAt(p0);
+    p0 += dt * _getVelocityVectorAt(pPrime);
+}
+
+void StreamlineTracingGrid::_integrationStepRK4(glm::vec3& p0, float& dt) {
+    glm::vec3 k1 = dt * _getVelocityVectorAt(p0);
+    glm::vec3 k2 = dt * _getVelocityVectorAt(p0 + k1 * float(0.5));
+    glm::vec3 k3 = dt * _getVelocityVectorAt(p0 + k2 * float(0.5));
+    glm::vec3 k4 = dt * _getVelocityVectorAt(p0 + k3);
+    p0 += k1 / float(6.0) + k2 / float(3.0) + k3 / float(3.0) + k4 / float(6.0);
+}
+
+void StreamlineTracingGrid::_integrationStepRKF45(glm::vec3& p0, float& dt) {
+    // Integrate to the new position using the Runge-Kutta-Fehlberg method (RKF45).
+    // For more details see: https://maths.cnam.fr/IMG/pdf/RungeKuttaFehlbergProof.pdf
+    const auto tol = float(2.0 * 1e-5);
+    glm::vec3 approximationRK4, approximationRK5;
+    bool timestepNeedsAdaptation = false;
+    do {
+        glm::vec3 k1 = dt * _getVelocityVectorAt(p0);
+        glm::vec3 k2 = dt * _getVelocityVectorAt(p0 + k1 * float(1.0/4.0));
+        glm::vec3 k3 = dt * _getVelocityVectorAt(p0 + k1 * float(3.0/32.0) + k2 * float(9.0/32.0));
+        glm::vec3 k4 = dt * _getVelocityVectorAt(
+                p0 + k1 * float(1932.0/2197.0) - k2 * float(7200.0/2197.0) + k3 * float(7296.0/2197.0));
+        glm::vec3 k5 = dt * _getVelocityVectorAt(
+                p0 + k1 * float(439.0/216.0) - k2 * float(8.0) + k3 * float(3680.0/513.0)
+                - k4 * float(845.0/4104.0));
+        glm::vec3 k6 = dt * _getVelocityVectorAt(
+                p0 - k1 * float(8.0/27.0) + k2 * float(2.0) - k3 * float(3544.0/2565.0)
+                + k4 * float(1859.0/4104.0) - k5 * float(11.0/40.0));
+        approximationRK4 = p0 + k1 * float(25.0/216.0) + k3 * float(1408.0/2565.0)
+                + k4 * float(2197.0/4101.0) - k5 * float(1.0/5.0);
+        approximationRK5 = p0 + k1 * float(16.0/135.0) + k3 * float(6656.0/12825.0)
+                + k4 * float(28561.0/56430.0) - k5 * float(9.0/50.0) + k6 * float(2.0/55.0);
+        float s = std::pow(
+                tol * dt / (float(2.0) * glm::length(approximationRK5 - approximationRK4)), float(1.0/4.0));
+        timestepNeedsAdaptation = s < 0.9 || s > 1.1;
+        dt = s * dt;
+    } while(timestepNeedsAdaptation);
+    p0 = approximationRK4;
 }

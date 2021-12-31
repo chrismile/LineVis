@@ -174,6 +174,30 @@ void StreamlineTracingRequester::renderGui() {
             changed = true;
         }
 
+        if (ImGui::CollapsingHeader(
+                "Advanced Settings", nullptr, ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (ImGui::SliderFloat(
+                    "Time Step Scale", &guiTracingSettings.timeStepScale, 0.1f, 10.0f,
+                    "%.1f", ImGuiSliderFlags_Logarithmic)) {
+                changed = true;
+            }
+            if (ImGui::SliderInt(
+                    "Max. #Iterations", &guiTracingSettings.maxNumIterations, 10, 10000)) {
+                changed = true;
+            }
+            if (ImGui::SliderFloat(
+                    "Termination Dist. (*1e-6)", &guiTracingSettings.terminationDistance, 0.01f, 100.0f,
+                    "%.2f", ImGuiSliderFlags_Logarithmic)) {
+                changed = true;
+            }
+            if (ImGui::Combo(
+                    "Integration Method", (int*)&guiTracingSettings.integrationMethod,
+                    STREAMLINE_INTEGRATION_METHOD_NAMES,
+                    IM_ARRAYSIZE(STREAMLINE_INTEGRATION_METHOD_NAMES))) {
+                changed = true;
+            }
+        }
+
         if (changed) {
             requestNewData();
         }

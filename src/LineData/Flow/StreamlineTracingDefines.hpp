@@ -58,6 +58,22 @@ const char* const STREAMLINE_SEEDING_STRATEGY_NAMES[] = {
         "Volume", "Plane", "Max. Helicity First"
 };
 
+enum class StreamlineIntegrationMethod {
+    // Euler's method (1st order).
+    EXPLICIT_EULER,
+    // Heun's method (2nd order).
+    HEUN,
+    // Midpoint method (Runge-Kutta of 2nd order).
+    MIDPOINT,
+    // Runge-Kutta of 4th order.
+    RK4,
+    // Runge-Kutta-Fehlberg.
+    RKF45
+};
+const char* const STREAMLINE_INTEGRATION_METHOD_NAMES[] = {
+        "Explicit Euler", "Heun", "Midpoint", "Runge-Kutta 4th Order", "Runge-Kutta-Fehlberg"
+};
+
 class StreamlineSeeder;
 typedef std::shared_ptr<StreamlineSeeder> StreamlineSeederPtr;
 class StreamlineSeeder;
@@ -74,6 +90,10 @@ struct StreamlineTracingSettings {
     int numPrimitives = 1024;
     StreamlineSeedingStrategy streamlineSeedingStrategy = StreamlineSeedingStrategy::VOLUME;
     StreamlineSeederPtr seeder = nullptr;
+    float timeStepScale = 1.0f;
+    int maxNumIterations = 2000;
+    float terminationDistance = 1.0f;
+    StreamlineIntegrationMethod integrationMethod = StreamlineIntegrationMethod::RK4;
 };
 
 #endif //LINEVIS_STREAMLINETRACINGDEFINES_HPP

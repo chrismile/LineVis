@@ -61,7 +61,14 @@ private:
     static bool rayBoxPlaneIntersection(
             float rayOriginX, float rayDirectionX, float lowerX, float upperX, float& tNear, float& tFar);
     void _pushTrajectoryAttributes(Trajectory& trajectory);
-    void _traceStreamline(Trajectory& trajectory, const glm::vec3& seedPoint);
+    void _traceStreamline(
+            const StreamlineTracingSettings& tracingSettings, Trajectory& trajectory, const glm::vec3& seedPoint);
+
+    void _integrationStepExplicitEuler(glm::vec3& p0, float& dt);
+    void _integrationStepHeun(glm::vec3& p0, float& dt);
+    void _integrationStepMidpoint(glm::vec3& p0, float& dt);
+    void _integrationStepRK4(glm::vec3& p0, float& dt);
+    void _integrationStepRKF45(glm::vec3& p0, float& dt);
 
     int xs = 0, ys = 0, zs = 0; ///< Size of the grid in data points.
     float dx = 0.0f, dy = 0.0f, dz = 0.0f; ///< Distance between two neighboring points in x/y/z direction.
