@@ -357,6 +357,7 @@ MainApp::MainApp()
     useLinearRGB = false;
     transferFunctionWindow.setClearColor(clearColor);
     transferFunctionWindow.setUseLinearRGB(useLinearRGB);
+    coordinateAxesOverlayWidget.setClearColor(clearColor);
 
     setNewTilingMode(2, 8);
 
@@ -703,6 +704,11 @@ void MainApp::updateColorSpaceMode() {
     SciVisApp::updateColorSpaceMode();
     transferFunctionWindow.setUseLinearRGB(useLinearRGB);
     lineData->setUseLinearRGB(useLinearRGB);
+    if (useDockSpaceMode) {
+        for (DataViewPtr& dataView : dataViews) {
+            dataView->useLinearRGB = useLinearRGB;
+        }
+    }
 }
 
 void MainApp::render() {
@@ -1119,8 +1125,12 @@ void MainApp::renderGuiGeneralSettingsPropertyEditor() {
         clearColor = sgl::colorFromFloat(
                 clearColorSelection.x, clearColorSelection.y, clearColorSelection.z, clearColorSelection.w);
         transferFunctionWindow.setClearColor(clearColor);
+        coordinateAxesOverlayWidget.setClearColor(clearColor);
         if (lineData) {
             lineData->setClearColor(clearColor);
+        }
+        for (DataViewPtr& dataView : dataViews) {
+            dataView->setClearColor(clearColor);
         }
         reRender = true;
     }
