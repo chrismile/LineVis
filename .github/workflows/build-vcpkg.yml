@@ -35,6 +35,9 @@ jobs:
         elif [ "$RUNNER_OS" == "Windows" ]; then
           echo "VCPKG_COPY_TRIPLET=x64-windows" >> $GITHUB_ENV
           echo "VCPKG_DEFAULT_TRIPLET=x64-windows-release-only" >> $GITHUB_ENV
+          ## Fix the following warning: "Warning: cache.restoreCache() failed: 'Tar failed with error: The process
+          ## 'C:\Windows\System32\tar.exe' failed with exit code 1', skipping restoring from cache."
+          echo "C:\Program Files\Git\usr\bin" >> $GITHUB_PATH
         else
           echo "$RUNNER_OS is not supported."
           exit 1
@@ -49,16 +52,6 @@ jobs:
         repository: chrismile/sgl
         path: sgl-repo
         submodules: true
-
-    ## Fix the following warning: "Warning: cache.restoreCache() failed: 'Tar failed with error: The process
-    ## 'C:\Windows\System32\tar.exe' failed with exit code 1', skipping restoring from cache."
-    #- name: Fix run-vcpkg bug (Windows)
-    #  if: runner.os == 'Windows'
-    #  run: attrib -r "C:\vcpkg\.git\*.*" /s
-    - name: Fix run-vcpkg bug (Windows)
-      if: runner.os == 'Windows'
-      shell: bash
-      run: rm -rf "$VCPKG_INSTALLATION_ROOT"
 
     - uses: lukka/get-cmake@latest
 
