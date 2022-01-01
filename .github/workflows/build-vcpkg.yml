@@ -35,9 +35,6 @@ jobs:
         elif [ "$RUNNER_OS" == "Windows" ]; then
           echo "VCPKG_COPY_TRIPLET=x64-windows" >> $GITHUB_ENV
           echo "VCPKG_DEFAULT_TRIPLET=x64-windows-release-only" >> $GITHUB_ENV
-          ## Fix the following warning: "Warning: cache.restoreCache() failed: 'Tar failed with error: The process
-          ## 'C:\Windows\System32\tar.exe' failed with exit code 1', skipping restoring from cache."
-          echo "C:\Program Files\Git\usr\bin" >> $GITHUB_PATH
         else
           echo "$RUNNER_OS is not supported."
           exit 1
@@ -75,7 +72,7 @@ jobs:
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v10
       with:
-        vcpkgGitCommitId: 'df9052e29fde61a6306396579762894ba46b85a3'
+        vcpkgGitCommitId: '1085a57da0725c19e19586025438e8c16f34c890'
         #doNotCacheOnWorkflowFailure: true
 
     - name: Create custom vcpkg triplet
@@ -111,3 +108,10 @@ jobs:
 
     - name: Build (LineVis)
       run: cmake --build "${{github.workspace}}/build" --config ${{env.BUILD_TYPE}}
+
+    - name: Remove symbolic links before caching (Windows only)
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        find "${{env.VCPKG_ROOT}}/buildtrees" -type l -exec echo {} \;
+        find "${{env.VCPKG_ROOT}}/buildtrees" -type l -exec rm {} \;
