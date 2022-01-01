@@ -61,6 +61,8 @@ const char* const STREAMLINE_SEEDING_STRATEGY_NAMES[] = {
 enum class StreamlineIntegrationMethod {
     // Euler's method (1st order).
     EXPLICIT_EULER,
+    // Backward Euler's method (implicit Euler).
+    IMPLICIT_EULER,
     // Heun's method (2nd order).
     HEUN,
     // Midpoint method (Runge-Kutta of 2nd order).
@@ -71,7 +73,8 @@ enum class StreamlineIntegrationMethod {
     RKF45
 };
 const char* const STREAMLINE_INTEGRATION_METHOD_NAMES[] = {
-        "Explicit Euler", "Heun", "Midpoint", "Runge-Kutta 4th Order", "Runge-Kutta-Fehlberg"
+        "Explicit Euler", "Implicit Euler", "Heun", "Midpoint",
+        "Runge-Kutta 4th Order", "Runge-Kutta-Fehlberg"
 };
 
 class StreamlineSeeder;
