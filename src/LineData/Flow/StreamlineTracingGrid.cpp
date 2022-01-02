@@ -139,7 +139,21 @@ Trajectories StreamlineTracingGrid::traceStreamlines(StreamlineTracingSettings& 
         }
     }
 
-    return trajectories;
+    Trajectories filteredTrajectories;
+    for (auto& trajectory: trajectories) {
+        if (trajectory.positions.empty()) {
+            continue;
+        }
+        float trajectoryLength = 0.0f;
+        for (size_t i = 1; i < trajectory.positions.size(); i++) {
+            trajectoryLength += glm::length(trajectory.positions.at(i) - trajectory.positions.at(i - 1));
+        }
+        if (trajectoryLength > tracingSettings.minimumLength) {
+            filteredTrajectories.push_back(trajectory);
+        }
+    }
+
+    return filteredTrajectories;
 }
 
 

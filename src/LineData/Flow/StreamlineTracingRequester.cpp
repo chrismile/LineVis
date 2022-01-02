@@ -454,14 +454,6 @@ void StreamlineTracingRequester::traceLines(
     Trajectories trajectories = cachedGrid->traceStreamlines(request);
     normalizeTrajectoriesVertexPositions(trajectories, gridBox, nullptr);
 
-    // TODO: Filter by length, not inplace (O(n^2)).
-    for (size_t i = 0; i < trajectories.size(); i++) {
-        if (trajectories.at(i).positions.empty()) {
-            trajectories.erase(trajectories.begin() + long(i));
-            i--;
-        }
-    }
-
     if (guiTracingSettings.showSimulationGridOutline) {
         lineData->shallRenderSimulationMeshBoundary = true;
         lineData->simulationMeshOutlineTriangleIndices = cachedSimulationMeshOutlineTriangleIndices;
