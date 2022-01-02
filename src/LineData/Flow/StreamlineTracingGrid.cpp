@@ -92,10 +92,26 @@ Trajectories StreamlineTracingGrid::traceStreamlines(StreamlineTracingSettings& 
 
     Trajectories trajectories;
     trajectories.resize(numTrajectories);
-    for (int i = 0; i < numTrajectories; i++) {
-        Trajectory& trajectory = trajectories.at(i);
-        glm::vec3 seedPoint = seeder->getNextPoint();
-        _traceStreamline(tracingSettings, trajectory, seedPoint);
+    if (tracingSettings.streamlineSeedingStrategy == StreamlineSeedingStrategy::VOLUME
+            || tracingSettings.streamlineSeedingStrategy == StreamlineSeedingStrategy::PLANE) {
+        std::vector<glm::vec3> seedPoints;
+        seedPoints.resize(numTrajectories);
+        for (glm::vec3& seedPoint : seedPoints) {
+            seedPoint = seeder->getNextPoint();
+        }
+
+        #pragma omp parallel for shared(numTrajectories, trajectories, seedPoints, tracingSettings) default(none)
+        for (int i = 0; i < numTrajectories; i++) {
+            Trajectory& trajectory = trajectories.at(i);
+            const glm::vec3& seedPoint = seedPoints.at(i);
+            _traceStreamline(tracingSettings, trajectory, seedPoint);
+        }
+    } else {
+        for (int i = 0; i < numTrajectories; i++) {
+            Trajectory& trajectory = trajectories.at(i);
+            glm::vec3 seedPoint = seeder->getNextPoint();
+            _traceStreamline(tracingSettings, trajectory, seedPoint);
+        }
     }
 
     return trajectories;
@@ -221,7 +237,7 @@ bool StreamlineTracingGrid::_rayBoxIntersection(
     return true;
 }
 
-void StreamlineTracingGrid::_pushTrajectoryAttributes(Trajectory& trajectory) {
+void StreamlineTracingGrid::_pushTrajectoryAttributes(Trajectory& trajectory) const {
     // Necessary to initialize the data first?
     if (trajectory.attributes.empty()) {
         trajectory.attributes.resize(scalarFields.size());
@@ -255,7 +271,7 @@ void StreamlineTracingGrid::_pushTrajectoryAttributes(Trajectory& trajectory) {
 }
 
 void StreamlineTracingGrid::_traceStreamline(
-        const StreamlineTracingSettings& tracingSettings, Trajectory& trajectory, const glm::vec3& seedPoint) {
+        const StreamlineTracingSettings& tracingSettings, Trajectory& trajectory, const glm::vec3& seedPoint) const {
     float dt = 1.0f / maxVelocityMagnitude * std::min(dx, std::min(dy, dz)) * tracingSettings.timeStepScale;
     float terminationDistance = 1e-6f * tracingSettings.terminationDistance;
 
@@ -324,11 +340,11 @@ void StreamlineTracingGrid::_traceStreamline(
     }
 }
 
-void StreamlineTracingGrid::_integrationStepExplicitEuler(glm::vec3& p0, float& dt) {
+void StreamlineTracingGrid::_integrationStepExplicitEuler(glm::vec3& p0, float& dt) const {
     p0 += dt * _getVelocityVectorAt(p0);
 }
 
-void StreamlineTracingGrid::_integrationStepImplicitEuler(glm::vec3& p0, float& dt) {
+void StreamlineTracingGrid::_integrationStepImplicitEuler(glm::vec3& p0, float& dt) const {
     const float EPSILON = 1e-6f;
     const int MAX_NUM_ITERATIONS = 100;
     int iteration = 0;
@@ -348,19 +364,19 @@ void StreamlineTracingGrid::_integrationStepImplicitEuler(glm::vec3& p0, float& 
     p0 = p_last;
 }
 
-void StreamlineTracingGrid::_integrationStepHeun(glm::vec3& p0, float& dt) {
+void StreamlineTracingGrid::_integrationStepHeun(glm::vec3& p0, float& dt) const {
     glm::vec3 v0 = _getVelocityVectorAt(p0);
     glm::vec3 p1Euler = p0 + dt * v0;
     glm::vec3 v1Euler = _getVelocityVectorAt(p1Euler);
     p0 += dt * float(0.5) * (v0 + v1Euler);
 }
 
-void StreamlineTracingGrid::_integrationStepMidpoint(glm::vec3& p0, float& dt) {
+void StreamlineTracingGrid::_integrationStepMidpoint(glm::vec3& p0, float& dt) const {
     glm::vec3 pPrime = p0 + dt * float(0.5) * _getVelocityVectorAt(p0);
     p0 += dt * _getVelocityVectorAt(pPrime);
 }
 
-void StreamlineTracingGrid::_integrationStepRK4(glm::vec3& p0, float& dt) {
+void StreamlineTracingGrid::_integrationStepRK4(glm::vec3& p0, float& dt) const {
     glm::vec3 k1 = dt * _getVelocityVectorAt(p0);
     glm::vec3 k2 = dt * _getVelocityVectorAt(p0 + k1 * float(0.5));
     glm::vec3 k3 = dt * _getVelocityVectorAt(p0 + k2 * float(0.5));
@@ -369,7 +385,7 @@ void StreamlineTracingGrid::_integrationStepRK4(glm::vec3& p0, float& dt) {
 }
 
 void StreamlineTracingGrid::_integrationStepRKF45(
-        const StreamlineTracingSettings& tracingSettings, glm::vec3& fP0, float& fDt) {
+        const StreamlineTracingSettings& tracingSettings, glm::vec3& fP0, float& fDt) const {
     // Integrate to the new position using the Runge-Kutta-Fehlberg method (RKF45).
     // For more details see:
     // - https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta%E2%80%93Fehlberg_method
