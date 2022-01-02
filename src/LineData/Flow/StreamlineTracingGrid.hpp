@@ -51,6 +51,10 @@ public:
 
     Trajectories traceStreamlines(StreamlineTracingSettings& tracingSettings);
 
+    void computeSimulationBoundaryMesh(
+            std::vector<uint32_t>& cachedSimulationMeshOutlineTriangleIndices,
+            std::vector<glm::vec3>& cachedSimulationMeshOutlineVertexPositions);
+
 private:
     float _getScalarFieldAtIdx(const float* scalarField, const glm::ivec3& gridIdx) const;
     [[nodiscard]] glm::vec3 _getVelocityAtIdx(const glm::ivec3& gridIdx, bool forwardMode) const;

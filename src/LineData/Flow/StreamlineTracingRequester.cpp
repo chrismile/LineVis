@@ -43,6 +43,8 @@
 #endif
 
 #include "Utils/IndexMesh.hpp"
+#include "Utils/MeshSmoothing.hpp"
+#include "Utils/TriangleNormals.hpp"
 #include "../LineDataFlow.hpp"
 #include "StreamlineSeeder.hpp"
 #include "StreamlineTracingGrid.hpp"
@@ -189,6 +191,22 @@ void StreamlineTracingRequester::renderGui() {
                     "Termination Dist.", &guiTracingSettings.terminationDistance, 0.01f, 100.0f,
                     "%.2f", ImGuiSliderFlags_Logarithmic)) {
                 changed = true;
+            }
+            if (ImGui::SliderFloat(
+                    "Min. Line Length", &guiTracingSettings.minimumLength, 0.001f, 1.0f,
+                    "%.3f")) {
+                changed = true;
+            }
+            if (ImGui::Checkbox("Show Boundary Mesh", &guiTracingSettings.showSimulationGridOutline)) {
+                changed = true;
+            }
+            if (guiTracingSettings.showSimulationGridOutline) {
+                if (ImGui::Checkbox("Smooth Boundary", &guiTracingSettings.smoothedSimulationGridOutline)) {
+                    cachedSimulationMeshOutlineTriangleIndices.clear();
+                    cachedSimulationMeshOutlineVertexPositions.clear();
+                    cachedSimulationMeshOutlineVertexNormals.clear();
+                    changed = true;
+                }
             }
             if (ImGui::Combo(
                     "Integration Method", (int*)&guiTracingSettings.integrationMethod,
@@ -413,16 +431,42 @@ void StreamlineTracingRequester::traceLines(
             newGridLoaded = true;
             gridBox = cachedGrid->getBox();
         }
+        cachedSimulationMeshOutlineTriangleIndices.clear();
+        cachedSimulationMeshOutlineVertexPositions.clear();
+        cachedSimulationMeshOutlineVertexNormals.clear();
+    }
+    if (guiTracingSettings.showSimulationGridOutline && cachedSimulationMeshOutlineVertexPositions.empty()) {
+        cachedGrid->computeSimulationBoundaryMesh(
+                cachedSimulationMeshOutlineTriangleIndices,
+                cachedSimulationMeshOutlineVertexPositions);
+        if (guiTracingSettings.smoothedSimulationGridOutline) {
+            laplacianSmoothing(
+                    cachedSimulationMeshOutlineTriangleIndices, cachedSimulationMeshOutlineVertexPositions);
+        }
+        normalizeVertexPositions(
+                cachedSimulationMeshOutlineVertexPositions, gridBox, nullptr);
+        computeSmoothTriangleNormals(
+                cachedSimulationMeshOutlineTriangleIndices,
+                cachedSimulationMeshOutlineVertexPositions,
+                cachedSimulationMeshOutlineVertexNormals);
     }
 
     Trajectories trajectories = cachedGrid->traceStreamlines(request);
-    normalizeTrajectoriesVertexPositions(trajectories, nullptr);
+    normalizeTrajectoriesVertexPositions(trajectories, gridBox, nullptr);
 
+    // TODO: Filter by length, not inplace (O(n^2)).
     for (size_t i = 0; i < trajectories.size(); i++) {
         if (trajectories.at(i).positions.empty()) {
             trajectories.erase(trajectories.begin() + long(i));
             i--;
         }
+    }
+
+    if (guiTracingSettings.showSimulationGridOutline) {
+        lineData->shallRenderSimulationMeshBoundary = true;
+        lineData->simulationMeshOutlineTriangleIndices = cachedSimulationMeshOutlineTriangleIndices;
+        lineData->simulationMeshOutlineVertexPositions = cachedSimulationMeshOutlineVertexPositions;
+        lineData->simulationMeshOutlineVertexNormals = cachedSimulationMeshOutlineVertexNormals;
     }
 
     lineData->fileNames = { request.dataSourceFilename };

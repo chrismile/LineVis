@@ -499,3 +499,242 @@ void StreamlineTracingGrid::_integrationStepRKF45(
     fP0 = p0;
     fDt = float(dt);
 }
+
+void StreamlineTracingGrid::computeSimulationBoundaryMesh(
+        std::vector<uint32_t>& cachedSimulationMeshOutlineTriangleIndices,
+        std::vector<glm::vec3>& cachedSimulationMeshOutlineVertexPositions) {
+    glm::vec3 boxMin = box.getMinimum();
+    glm::vec3 boxDim = box.getDimensions();
+
+    // Back face (vertices).
+    auto backFaceOffset = uint32_t(cachedSimulationMeshOutlineVertexPositions.size());
+    for (int y = 0; y <= ys; y++) {
+        for (int x = 0; x <= xs; x++) {
+            glm::vec3 pt = boxMin + glm::vec3(float(x) / float(xs), float(y) / float(ys), 0.0f) * boxDim;
+            cachedSimulationMeshOutlineVertexPositions.push_back(pt);
+        }
+    }
+    // Front face (vertices).
+    auto frontFaceOffset = uint32_t(cachedSimulationMeshOutlineVertexPositions.size());
+    for (int y = 0; y <= ys; y++) {
+        for (int x = 0; x <= xs; x++) {
+            glm::vec3 pt = boxMin + glm::vec3(float(x) / float(xs), float(y) / float(ys), 1.0f) * boxDim;
+            cachedSimulationMeshOutlineVertexPositions.push_back(pt);
+        }
+    }
+
+    // Bottom face (vertices).
+    auto bottomFaceOffset = uint32_t(cachedSimulationMeshOutlineVertexPositions.size());
+    for (int z = 1; z < zs; z++) {
+        for (int x = 0; x <= xs; x++) {
+            glm::vec3 pt = boxMin + glm::vec3(float(x) / float(xs), 0.0f, float(z) / float(zs)) * boxDim;
+            cachedSimulationMeshOutlineVertexPositions.push_back(pt);
+        }
+    }
+    // Top face (vertices).
+    auto topFaceOffset = uint32_t(cachedSimulationMeshOutlineVertexPositions.size());
+    for (int z = 1; z < zs; z++) {
+        for (int x = 0; x <= xs; x++) {
+            glm::vec3 pt = boxMin + glm::vec3(float(x) / float(xs), 1.0f, float(z) / float(zs)) * boxDim;
+            cachedSimulationMeshOutlineVertexPositions.push_back(pt);
+        }
+    }
+
+    // Left face (vertices).
+    auto leftFaceOffset = uint32_t(cachedSimulationMeshOutlineVertexPositions.size());
+    for (int z = 1; z < zs; z++) {
+        for (int y = 1; y < ys; y++) {
+            glm::vec3 pt = boxMin + glm::vec3(0.0f, float(y) / float(ys), float(z) / float(zs)) * boxDim;
+            cachedSimulationMeshOutlineVertexPositions.push_back(pt);
+        }
+    }
+    // Right face (vertices).
+    auto rightFaceOffset = uint32_t(cachedSimulationMeshOutlineVertexPositions.size());
+    for (int z = 1; z < zs; z++) {
+        for (int y = 1; y < ys; y++) {
+            glm::vec3 pt = boxMin + glm::vec3(1.0f, float(y) / float(ys), float(z) / float(zs)) * boxDim;
+            cachedSimulationMeshOutlineVertexPositions.push_back(pt);
+        }
+    }
+
+    // Back face (indices).
+    for (int y = 0; y < ys; y++) {
+        for (int x = 0; x < xs; x++) {
+            cachedSimulationMeshOutlineTriangleIndices.push_back(backFaceOffset + (x + 0) + (y + 0) * (xs + 1));
+            cachedSimulationMeshOutlineTriangleIndices.push_back(backFaceOffset + (x + 1) + (y + 0) * (xs + 1));
+            cachedSimulationMeshOutlineTriangleIndices.push_back(backFaceOffset + (x + 1) + (y + 1) * (xs + 1));
+            cachedSimulationMeshOutlineTriangleIndices.push_back(backFaceOffset + (x + 0) + (y + 0) * (xs + 1));
+            cachedSimulationMeshOutlineTriangleIndices.push_back(backFaceOffset + (x + 1) + (y + 1) * (xs + 1));
+            cachedSimulationMeshOutlineTriangleIndices.push_back(backFaceOffset + (x + 0) + (y + 1) * (xs + 1));
+        }
+    }
+    // Front face (indices).
+    for (int y = 0; y < ys; y++) {
+        for (int x = 0; x < xs; x++) {
+            cachedSimulationMeshOutlineTriangleIndices.push_back(frontFaceOffset + (x + 1) + (y + 1) * (xs + 1));
+            cachedSimulationMeshOutlineTriangleIndices.push_back(frontFaceOffset + (x + 1) + (y + 0) * (xs + 1));
+            cachedSimulationMeshOutlineTriangleIndices.push_back(frontFaceOffset + (x + 0) + (y + 0) * (xs + 1));
+            cachedSimulationMeshOutlineTriangleIndices.push_back(frontFaceOffset + (x + 0) + (y + 1) * (xs + 1));
+            cachedSimulationMeshOutlineTriangleIndices.push_back(frontFaceOffset + (x + 1) + (y + 1) * (xs + 1));
+            cachedSimulationMeshOutlineTriangleIndices.push_back(frontFaceOffset + (x + 0) + (y + 0) * (xs + 1));
+        }
+    }
+
+    // Bottom face (indices).
+    for (int z = 0; z < zs; z++) {
+        for (int x = 0; x < xs; x++) {
+            uint32_t mxmz;
+            uint32_t pxmz;
+            uint32_t mxpz;
+            uint32_t pxpz;
+            if (z == 0) {
+                mxmz = backFaceOffset + (x + 0) + 0 * (xs + 1);
+                pxmz = backFaceOffset + (x + 1) + 0 * (xs + 1);
+            } else {
+                mxmz = bottomFaceOffset + (x + 0) + (z - 1) * (xs + 1);
+                pxmz = bottomFaceOffset + (x + 1) + (z - 1) * (xs + 1);
+            }
+            if (z == zs - 1) {
+                mxpz = frontFaceOffset + (x + 0) + 0 * (xs + 1);
+                pxpz = frontFaceOffset + (x + 1) + 0 * (xs + 1);
+            } else {
+                mxpz = bottomFaceOffset + (x + 0) + (z + 0) * (xs + 1);
+                pxpz = bottomFaceOffset + (x + 1) + (z + 0) * (xs + 1);
+            }
+
+            cachedSimulationMeshOutlineTriangleIndices.push_back(pxpz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(pxmz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(mxmz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(mxpz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(pxpz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(mxmz);
+        }
+    }
+    // Top face (indices).
+    for (int z = 0; z < zs; z++) {
+        for (int x = 0; x < xs; x++) {
+            uint32_t mxmz;
+            uint32_t pxmz;
+            uint32_t mxpz;
+            uint32_t pxpz;
+            if (z == 0) {
+                mxmz = backFaceOffset + (x + 0) + ys * (xs + 1);
+                pxmz = backFaceOffset + (x + 1) + ys * (xs + 1);
+            } else {
+                mxmz = topFaceOffset + (x + 0) + (z - 1) * (xs + 1);
+                pxmz = topFaceOffset + (x + 1) + (z - 1) * (xs + 1);
+            }
+            if (z == zs - 1) {
+                mxpz = frontFaceOffset + (x + 0) + ys * (xs + 1);
+                pxpz = frontFaceOffset + (x + 1) + ys * (xs + 1);
+            } else {
+                mxpz = topFaceOffset + (x + 0) + (z + 0) * (xs + 1);
+                pxpz = topFaceOffset + (x + 1) + (z + 0) * (xs + 1);
+            }
+
+            cachedSimulationMeshOutlineTriangleIndices.push_back(mxmz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(pxmz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(pxpz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(mxmz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(pxpz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(mxpz);
+        }
+    }
+
+    // Left face (indices).
+    for (int z = 0; z < zs; z++) {
+        for (int y = 0; y < ys; y++) {
+            uint32_t mymz;
+            uint32_t pymz;
+            uint32_t mypz;
+            uint32_t pypz;
+            if (z == 0) {
+                mymz = backFaceOffset + 0 + (y + 0) * (xs + 1);
+                pymz = backFaceOffset + 0 + (y + 1) * (xs + 1);
+            }
+            if (z == zs - 1) {
+                mypz = frontFaceOffset + 0 + (y + 0) * (xs + 1);
+                pypz = frontFaceOffset + 0 + (y + 1) * (xs + 1);
+            }
+            if (z != 0 && y == 0) {
+                mymz = bottomFaceOffset + 0 + (z - 1) * (xs + 1);
+            }
+            if (z != 0 && y == ys - 1) {
+                pymz = topFaceOffset + 0 + (z - 1) * (xs + 1);
+            }
+            if (z != zs - 1 && y == 0) {
+                mypz = bottomFaceOffset + 0 + (z + 0) * (xs + 1);
+            }
+            if (z != zs - 1 && y == ys - 1) {
+                pypz = topFaceOffset + 0 + (z + 0) * (xs + 1);
+            }
+            if (z != 0 && y != 0) {
+                mymz = leftFaceOffset + (y - 1) + (z - 1) * (ys - 1);
+            }
+            if (z != 0 && y != ys - 1) {
+                pymz = leftFaceOffset + (y + 0) + (z - 1) * (ys - 1);
+            }
+            if (z != zs - 1 && y != 0) {
+                mypz = leftFaceOffset + (y - 1) + (z + 0) * (ys - 1);
+            }
+            if (z != zs - 1 && y != ys - 1) {
+                pypz = leftFaceOffset + (y + 0) + (z + 0) * (ys - 1);
+            }
+
+            cachedSimulationMeshOutlineTriangleIndices.push_back(mymz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(pymz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(pypz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(mymz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(pypz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(mypz);
+        }
+    }
+    // Right face (indices).
+    for (int z = 0; z < zs; z++) {
+        for (int y = 0; y < ys; y++) {
+            uint32_t mymz;
+            uint32_t pymz;
+            uint32_t mypz;
+            uint32_t pypz;
+            if (z == 0) {
+                mymz = backFaceOffset + xs + (y + 0) * (xs + 1);
+                pymz = backFaceOffset + xs + (y + 1) * (xs + 1);
+            }
+            if (z == zs - 1) {
+                mypz = frontFaceOffset + xs + (y + 0) * (xs + 1);
+                pypz = frontFaceOffset + xs + (y + 1) * (xs + 1);
+            }
+            if (z != 0 && y == 0) {
+                mymz = bottomFaceOffset + xs + (z - 1) * (xs + 1);
+            }
+            if (z != 0 && y == ys - 1) {
+                pymz = topFaceOffset + xs + (z - 1) * (xs + 1);
+            }
+            if (z != zs - 1 && y == 0) {
+                mypz = bottomFaceOffset + xs + (z + 0) * (xs + 1);
+            }
+            if (z != zs - 1 && y == ys - 1) {
+                pypz = topFaceOffset + xs + (z + 0) * (xs + 1);
+            }
+            if (z != 0 && y != 0) {
+                mymz = rightFaceOffset + (y - 1) + (z - 1) * (ys - 1);
+            }
+            if (z != 0 && y != ys - 1) {
+                pymz = rightFaceOffset + (y + 0) + (z - 1) * (ys - 1);
+            }
+            if (z != zs - 1 && y != 0) {
+                mypz = rightFaceOffset + (y - 1) + (z + 0) * (ys - 1);
+            }
+            if (z != zs - 1 && y != ys - 1) {
+                pypz = rightFaceOffset + (y + 0) + (z + 0) * (ys - 1);
+            }
+
+            cachedSimulationMeshOutlineTriangleIndices.push_back(pypz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(pymz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(mymz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(mypz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(pypz);
+            cachedSimulationMeshOutlineTriangleIndices.push_back(mymz);
+        }
+    }
+}

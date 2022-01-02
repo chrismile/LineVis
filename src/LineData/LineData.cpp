@@ -142,7 +142,7 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
             reRender = true;
         }
         if (lineRenderer && lineRenderer->isVulkanRenderer && !lineRenderer->isRasterizer
-            && editModeHullOpacity == ImGui::EditMode::INPUT_FINISHED) {
+                && editModeHullOpacity == ImGui::EditMode::INPUT_FINISHED) {
             lineRenderer->setRenderSimulationMeshHull(shallRenderSimulationMeshBoundary);
         }
         if (shallRenderSimulationMeshBoundary) {

@@ -37,8 +37,7 @@ out vec3 fragmentPositionWorld;
 out vec3 fragmentNormal;
 out vec4 fragmentColor;
 
-void main()
-{
+void main() {
     fragmentNormal = vertexNormal;
     fragmentPositionWorld = (mMatrix * vec4(vertexPosition, 1.0)).xyz;
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
@@ -69,8 +68,7 @@ uniform int useShading = 1;
 #endif
 #include "Lighting.glsl"
 
-void main()
-{
+void main() {
     vec4 phongColor;
     if (useShading == 1) {
         phongColor = blinnPhongShading(color, fragmentNormal);
@@ -81,9 +79,9 @@ void main()
     vec3 viewDir = normalize(cameraPosition - fragmentPositionWorld);
     float cosAngle = dot(fragmentNormal, viewDir);
     if (cosAngle < 0.0f) {
-        cosAngle *= -1.0f;
+        cosAngle *= -1.0;
     }
-    phongColor.a *= 1.0f - cosAngle;
+    phongColor.a *= 1.0 - cosAngle;
 
 #if defined(DIRECT_BLIT_GATHER)
     // Direct rendering, no transparency.
