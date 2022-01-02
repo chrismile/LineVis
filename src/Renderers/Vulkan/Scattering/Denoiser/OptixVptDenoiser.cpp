@@ -34,11 +34,6 @@
 #include <ImGui/Widgets/PropertyEditor.hpp>
 #include "OptixVptDenoiser.hpp"
 
-#ifndef TOSTRING
-#define STRINGIFY(x) #x
-#define TOSTRING(x) STRINGIFY(x)
-#endif
-
 #include <optix_stubs.h>
 #include <optix_function_table_definition.h>
 
