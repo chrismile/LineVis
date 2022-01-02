@@ -77,6 +77,14 @@ const char* const STREAMLINE_INTEGRATION_METHOD_NAMES[] = {
         "Runge-Kutta 4th Order", "Runge-Kutta-Fehlberg"
 };
 
+enum class StreamlineIntegrationDirection {
+    FORWARD, BACKWARD, BOTH
+};
+const char* const STREAMLINE_INTEGRATION_DIRECTION_NAMES[] = {
+        "Forward", "Backward", "Forward & Backward"
+};
+
+
 class StreamlineSeeder;
 typedef std::shared_ptr<StreamlineSeeder> StreamlineSeederPtr;
 class StreamlineSeeder;
@@ -97,6 +105,7 @@ struct StreamlineTracingSettings {
     int maxNumIterations = 2000;
     float terminationDistance = 1.0f;
     StreamlineIntegrationMethod integrationMethod = StreamlineIntegrationMethod::RK4;
+    StreamlineIntegrationDirection integrationDirection = StreamlineIntegrationDirection::BOTH;
 };
 
 #endif //LINEVIS_STREAMLINETRACINGDEFINES_HPP

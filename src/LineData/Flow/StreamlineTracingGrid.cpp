@@ -26,7 +26,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <algorithm>
+
 #include <Utils/File/Logfile.hpp>
+
 #include "StreamlineTracingDefines.hpp"
 #include "StreamlineSeeder.hpp"
 #include "StreamlineTracingGrid.hpp"
@@ -104,13 +107,35 @@ Trajectories StreamlineTracingGrid::traceStreamlines(StreamlineTracingSettings& 
         for (int i = 0; i < numTrajectories; i++) {
             Trajectory& trajectory = trajectories.at(i);
             const glm::vec3& seedPoint = seedPoints.at(i);
-            _traceStreamline(tracingSettings, trajectory, seedPoint);
+            if (tracingSettings.integrationDirection == StreamlineIntegrationDirection::FORWARD) {
+                _traceStreamline(tracingSettings, trajectory, seedPoint, true);
+            } else if (tracingSettings.integrationDirection == StreamlineIntegrationDirection::BACKWARD) {
+                _traceStreamline(tracingSettings, trajectory, seedPoint, false);
+                _reverseTrajectory(trajectory);
+            } else {
+                Trajectory trajectoryBackward;
+                _traceStreamline(tracingSettings, trajectory, seedPoint, true);
+                _traceStreamline(tracingSettings, trajectoryBackward, seedPoint, false);
+                _reverseTrajectory(trajectoryBackward);
+                _insertBackwardTrajectory(trajectoryBackward, trajectory);
+            }
         }
     } else {
         for (int i = 0; i < numTrajectories; i++) {
             Trajectory& trajectory = trajectories.at(i);
             glm::vec3 seedPoint = seeder->getNextPoint();
-            _traceStreamline(tracingSettings, trajectory, seedPoint);
+            if (tracingSettings.integrationDirection == StreamlineIntegrationDirection::FORWARD) {
+                _traceStreamline(tracingSettings, trajectory, seedPoint, true);
+            } else if (tracingSettings.integrationDirection == StreamlineIntegrationDirection::BACKWARD) {
+                _traceStreamline(tracingSettings, trajectory, seedPoint, false);
+                _reverseTrajectory(trajectory);
+            } else {
+                Trajectory trajectoryBackward;
+                _traceStreamline(tracingSettings, trajectory, seedPoint, true);
+                _traceStreamline(tracingSettings, trajectoryBackward, seedPoint, false);
+                _reverseTrajectory(trajectoryBackward);
+                _insertBackwardTrajectory(trajectoryBackward, trajectory);
+            }
         }
     }
 
@@ -125,53 +150,64 @@ float StreamlineTracingGrid::_getScalarFieldAtIdx(const float* scalarField, cons
     return scalarField[gridIdx.x + gridIdx.y * xs + gridIdx.z * xs * ys];
 }
 
-glm::vec3 StreamlineTracingGrid::_getVelocityAtIdx(const glm::ivec3& gridIdx) const {
+glm::vec3 StreamlineTracingGrid::_getVelocityAtIdx(const glm::ivec3& gridIdx, bool forwardMode) const {
     if (gridIdx.x < 0 || gridIdx.y < 0 || gridIdx.z < 0 || gridIdx.x >= xs || gridIdx.y >= ys || gridIdx.z >= zs) {
         return glm::vec3(0.0f);
     }
-    return V[gridIdx.x + gridIdx.y * xs + gridIdx.z * xs * ys];
+    if (forwardMode) {
+        return V[gridIdx.x + gridIdx.y * xs + gridIdx.z * xs * ys];
+    } else {
+        return -V[gridIdx.x + gridIdx.y * xs + gridIdx.z * xs * ys];
+    }
 }
 
-glm::vec3 StreamlineTracingGrid::_getVelocityVectorAt(const glm::vec3& particlePosition) const {
+glm::vec3 StreamlineTracingGrid::_getVelocityVectorAt(
+        const glm::vec3& particlePosition, bool forwardMode) const {
     glm::vec3 gridPositionFloat = particlePosition - box.getMinimum();
     gridPositionFloat *= glm::vec3(1.0f / dx, 1.0f / dy, 1.0f / dz);
     auto gridPosition = glm::ivec3(gridPositionFloat);
     glm::vec3 frac = glm::fract(gridPositionFloat);
     glm::vec3 invFrac = glm::vec3(1.0) - frac;
     glm::vec3 interpolationValue =
-            invFrac.x * invFrac.y * invFrac.z * _getVelocityAtIdx(gridPosition + glm::ivec3(0,0,0))
-            + frac.x * invFrac.y * invFrac.z * _getVelocityAtIdx(gridPosition + glm::ivec3(1,0,0))
-            + invFrac.x * frac.y * invFrac.z * _getVelocityAtIdx(gridPosition + glm::ivec3(0,1,0))
-            + frac.x * frac.y * invFrac.z * _getVelocityAtIdx(gridPosition + glm::ivec3(1,1,0))
-            + invFrac.x * invFrac.y * frac.z * _getVelocityAtIdx(gridPosition + glm::ivec3(0,0,1))
-            + frac.x * invFrac.y * frac.z * _getVelocityAtIdx(gridPosition + glm::ivec3(1,0,1))
-            + invFrac.x * frac.y * frac.z * _getVelocityAtIdx(gridPosition + glm::ivec3(0,1,1))
-            + frac.x * frac.y * frac.z * _getVelocityAtIdx(gridPosition + glm::ivec3(1,1,1));
+            invFrac.x * invFrac.y * invFrac.z * _getVelocityAtIdx(gridPosition + glm::ivec3(0,0,0), forwardMode)
+            + frac.x * invFrac.y * invFrac.z * _getVelocityAtIdx(gridPosition + glm::ivec3(1,0,0), forwardMode)
+            + invFrac.x * frac.y * invFrac.z * _getVelocityAtIdx(gridPosition + glm::ivec3(0,1,0), forwardMode)
+            + frac.x * frac.y * invFrac.z * _getVelocityAtIdx(gridPosition + glm::ivec3(1,1,0), forwardMode)
+            + invFrac.x * invFrac.y * frac.z * _getVelocityAtIdx(gridPosition + glm::ivec3(0,0,1), forwardMode)
+            + frac.x * invFrac.y * frac.z * _getVelocityAtIdx(gridPosition + glm::ivec3(1,0,1), forwardMode)
+            + invFrac.x * frac.y * frac.z * _getVelocityAtIdx(gridPosition + glm::ivec3(0,1,1), forwardMode)
+            + frac.x * frac.y * frac.z * _getVelocityAtIdx(gridPosition + glm::ivec3(1,1,1), forwardMode);
     return interpolationValue;
 }
 
-glm::dvec3 StreamlineTracingGrid::_getVelocityAtIdxDouble(const glm::ivec3 &gridIdx) const {
+glm::dvec3 StreamlineTracingGrid::_getVelocityAtIdxDouble(
+        const glm::ivec3 &gridIdx, bool forwardMode) const {
     if (gridIdx.x < 0 || gridIdx.y < 0 || gridIdx.z < 0 || gridIdx.x >= xs || gridIdx.y >= ys || gridIdx.z >= zs) {
         return glm::dvec3(0.0);
     }
-    return V[gridIdx.x + gridIdx.y * xs + gridIdx.z * xs * ys];
+    if (forwardMode) {
+        return V[gridIdx.x + gridIdx.y * xs + gridIdx.z * xs * ys];
+    } else {
+        return -V[gridIdx.x + gridIdx.y * xs + gridIdx.z * xs * ys];
+    }
 }
 
-glm::dvec3 StreamlineTracingGrid::_getVelocityVectorAtDouble(const glm::dvec3& particlePosition) const {
+glm::dvec3 StreamlineTracingGrid::_getVelocityVectorAtDouble(
+        const glm::dvec3& particlePosition, bool forwardMode) const {
     glm::dvec3 gridPositionFloat = particlePosition - glm::dvec3(box.getMinimum());
     gridPositionFloat *= glm::dvec3(1.0 / double(dx), 1.0 / double(dy), 1.0 / double(dz));
     auto gridPosition = glm::ivec3(gridPositionFloat);
     glm::dvec3 frac = glm::fract(gridPositionFloat);
     glm::dvec3 invFrac = glm::dvec3(1.0) - frac;
     glm::dvec3 interpolationValue =
-            invFrac.x * invFrac.y * invFrac.z * _getVelocityAtIdxDouble(gridPosition + glm::ivec3(0,0,0))
-            + frac.x * invFrac.y * invFrac.z * _getVelocityAtIdxDouble(gridPosition + glm::ivec3(1,0,0))
-            + invFrac.x * frac.y * invFrac.z * _getVelocityAtIdxDouble(gridPosition + glm::ivec3(0,1,0))
-            + frac.x * frac.y * invFrac.z * _getVelocityAtIdxDouble(gridPosition + glm::ivec3(1,1,0))
-            + invFrac.x * invFrac.y * frac.z * _getVelocityAtIdxDouble(gridPosition + glm::ivec3(0,0,1))
-            + frac.x * invFrac.y * frac.z * _getVelocityAtIdxDouble(gridPosition + glm::ivec3(1,0,1))
-            + invFrac.x * frac.y * frac.z * _getVelocityAtIdxDouble(gridPosition + glm::ivec3(0,1,1))
-            + frac.x * frac.y * frac.z * _getVelocityAtIdxDouble(gridPosition + glm::ivec3(1,1,1));
+            invFrac.x * invFrac.y * invFrac.z * _getVelocityAtIdxDouble(gridPosition + glm::ivec3(0,0,0), forwardMode)
+            + frac.x * invFrac.y * invFrac.z * _getVelocityAtIdxDouble(gridPosition + glm::ivec3(1,0,0), forwardMode)
+            + invFrac.x * frac.y * invFrac.z * _getVelocityAtIdxDouble(gridPosition + glm::ivec3(0,1,0), forwardMode)
+            + frac.x * frac.y * invFrac.z * _getVelocityAtIdxDouble(gridPosition + glm::ivec3(1,1,0), forwardMode)
+            + invFrac.x * invFrac.y * frac.z * _getVelocityAtIdxDouble(gridPosition + glm::ivec3(0,0,1), forwardMode)
+            + frac.x * invFrac.y * frac.z * _getVelocityAtIdxDouble(gridPosition + glm::ivec3(1,0,1), forwardMode)
+            + invFrac.x * frac.y * frac.z * _getVelocityAtIdxDouble(gridPosition + glm::ivec3(0,1,1), forwardMode)
+            + frac.x * frac.y * frac.z * _getVelocityAtIdxDouble(gridPosition + glm::ivec3(1,1,1), forwardMode);
     return interpolationValue;
 }
 
@@ -270,8 +306,35 @@ void StreamlineTracingGrid::_pushTrajectoryAttributes(Trajectory& trajectory) co
     }
 }
 
+void StreamlineTracingGrid::_reverseTrajectory(Trajectory& trajectory) {
+    if (trajectory.positions.size() <= 1) {
+        return;
+    }
+
+    std::reverse(trajectory.positions.begin(), trajectory.positions.end());
+    for (auto& attribute : trajectory.attributes) {
+        std::reverse(attribute.begin(), attribute.end());
+    }
+}
+
+void StreamlineTracingGrid::_insertBackwardTrajectory(const Trajectory& trajectoryBackward, Trajectory& trajectory) {
+    if (trajectoryBackward.positions.size() > 1) {
+        trajectory.positions.insert(
+                trajectory.positions.begin(),
+                trajectoryBackward.positions.begin(),
+                trajectoryBackward.positions.end() - 1);
+        for (size_t attrIdx = 0; attrIdx < trajectoryBackward.attributes.size(); attrIdx++) {
+            trajectory.attributes.at(attrIdx).insert(
+                    trajectory.attributes.at(attrIdx).begin(),
+                    trajectoryBackward.attributes.at(attrIdx).begin(),
+                    trajectoryBackward.attributes.at(attrIdx).end() - 1);
+        }
+    }
+}
+
 void StreamlineTracingGrid::_traceStreamline(
-        const StreamlineTracingSettings& tracingSettings, Trajectory& trajectory, const glm::vec3& seedPoint) const {
+        const StreamlineTracingSettings& tracingSettings, Trajectory& trajectory, const glm::vec3& seedPoint,
+        bool forwardMode) const {
     float dt = 1.0f / maxVelocityMagnitude * std::min(dx, std::min(dy, dz)) * tracingSettings.timeStepScale;
     float terminationDistance = 1e-6f * tracingSettings.terminationDistance;
 
@@ -315,17 +378,17 @@ void StreamlineTracingGrid::_traceStreamline(
         // Integrate to the new position using Runge-Kutta of 4th order.
 
         if (tracingSettings.integrationMethod == StreamlineIntegrationMethod::EXPLICIT_EULER) {
-            _integrationStepExplicitEuler(particlePosition, dt);
+            _integrationStepExplicitEuler(particlePosition, dt, forwardMode);
         } else if (tracingSettings.integrationMethod == StreamlineIntegrationMethod::IMPLICIT_EULER) {
-            _integrationStepImplicitEuler(particlePosition, dt);
+            _integrationStepImplicitEuler(particlePosition, dt, forwardMode);
         } else if (tracingSettings.integrationMethod == StreamlineIntegrationMethod::HEUN) {
-            _integrationStepHeun(particlePosition, dt);
+            _integrationStepHeun(particlePosition, dt, forwardMode);
         } else if (tracingSettings.integrationMethod == StreamlineIntegrationMethod::MIDPOINT) {
-            _integrationStepMidpoint(particlePosition, dt);
+            _integrationStepMidpoint(particlePosition, dt, forwardMode);
         } else if (tracingSettings.integrationMethod == StreamlineIntegrationMethod::RK4) {
-            _integrationStepRK4(particlePosition, dt);
+            _integrationStepRK4(particlePosition, dt, forwardMode);
         } else if (tracingSettings.integrationMethod == StreamlineIntegrationMethod::RKF45) {
-            _integrationStepRKF45(tracingSettings, particlePosition, dt);
+            _integrationStepRKF45(tracingSettings, particlePosition, dt, forwardMode);
         }
 
         float segmentLength = glm::length(particlePosition - oldParticlePosition);
@@ -340,18 +403,18 @@ void StreamlineTracingGrid::_traceStreamline(
     }
 }
 
-void StreamlineTracingGrid::_integrationStepExplicitEuler(glm::vec3& p0, float& dt) const {
-    p0 += dt * _getVelocityVectorAt(p0);
+void StreamlineTracingGrid::_integrationStepExplicitEuler(glm::vec3& p0, float& dt, bool forwardMode) const {
+    p0 += dt * _getVelocityVectorAt(p0, forwardMode);
 }
 
-void StreamlineTracingGrid::_integrationStepImplicitEuler(glm::vec3& p0, float& dt) const {
+void StreamlineTracingGrid::_integrationStepImplicitEuler(glm::vec3& p0, float& dt, bool forwardMode) const {
     const float EPSILON = 1e-6f;
     const int MAX_NUM_ITERATIONS = 100;
     int iteration = 0;
     glm::vec3 p_last = p0;
     float diff;
     do {
-        glm::vec3 p_next = p0 + dt * _getVelocityVectorAt(p_last);
+        glm::vec3 p_next = p0 + dt * _getVelocityVectorAt(p_last, forwardMode);
         diff = glm::length(p_last - p_next);
         p_last = p_next;
         iteration++;
@@ -364,28 +427,28 @@ void StreamlineTracingGrid::_integrationStepImplicitEuler(glm::vec3& p0, float& 
     p0 = p_last;
 }
 
-void StreamlineTracingGrid::_integrationStepHeun(glm::vec3& p0, float& dt) const {
-    glm::vec3 v0 = _getVelocityVectorAt(p0);
+void StreamlineTracingGrid::_integrationStepHeun(glm::vec3& p0, float& dt, bool forwardMode) const {
+    glm::vec3 v0 = _getVelocityVectorAt(p0, forwardMode);
     glm::vec3 p1Euler = p0 + dt * v0;
-    glm::vec3 v1Euler = _getVelocityVectorAt(p1Euler);
+    glm::vec3 v1Euler = _getVelocityVectorAt(p1Euler, forwardMode);
     p0 += dt * float(0.5) * (v0 + v1Euler);
 }
 
-void StreamlineTracingGrid::_integrationStepMidpoint(glm::vec3& p0, float& dt) const {
-    glm::vec3 pPrime = p0 + dt * float(0.5) * _getVelocityVectorAt(p0);
-    p0 += dt * _getVelocityVectorAt(pPrime);
+void StreamlineTracingGrid::_integrationStepMidpoint(glm::vec3& p0, float& dt, bool forwardMode) const {
+    glm::vec3 pPrime = p0 + dt * float(0.5) * _getVelocityVectorAt(p0, forwardMode);
+    p0 += dt * _getVelocityVectorAt(pPrime, forwardMode);
 }
 
-void StreamlineTracingGrid::_integrationStepRK4(glm::vec3& p0, float& dt) const {
-    glm::vec3 k1 = dt * _getVelocityVectorAt(p0);
-    glm::vec3 k2 = dt * _getVelocityVectorAt(p0 + k1 * float(0.5));
-    glm::vec3 k3 = dt * _getVelocityVectorAt(p0 + k2 * float(0.5));
-    glm::vec3 k4 = dt * _getVelocityVectorAt(p0 + k3);
+void StreamlineTracingGrid::_integrationStepRK4(glm::vec3& p0, float& dt, bool forwardMode) const {
+    glm::vec3 k1 = dt * _getVelocityVectorAt(p0, forwardMode);
+    glm::vec3 k2 = dt * _getVelocityVectorAt(p0 + k1 * float(0.5), forwardMode);
+    glm::vec3 k3 = dt * _getVelocityVectorAt(p0 + k2 * float(0.5), forwardMode);
+    glm::vec3 k4 = dt * _getVelocityVectorAt(p0 + k3, forwardMode);
     p0 += k1 / float(6.0) + k2 / float(3.0) + k3 / float(3.0) + k4 / float(6.0);
 }
 
 void StreamlineTracingGrid::_integrationStepRKF45(
-        const StreamlineTracingSettings& tracingSettings, glm::vec3& fP0, float& fDt) const {
+        const StreamlineTracingSettings& tracingSettings, glm::vec3& fP0, float& fDt, bool forwardMode) const {
     // Integrate to the new position using the Runge-Kutta-Fehlberg method (RKF45).
     // For more details see:
     // - https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta%E2%80%93Fehlberg_method
@@ -399,18 +462,19 @@ void StreamlineTracingGrid::_integrationStepRKF45(
     glm::dvec3 approximationRK4, approximationRK5;
     bool timestepNeedsAdaptation;
     do {
-        glm::dvec3 k1 = dt * _getVelocityVectorAtDouble(p0);
-        glm::dvec3 k2 = dt * _getVelocityVectorAtDouble(p0 + k1 * double(1.0/4.0));
+        glm::dvec3 k1 = dt * _getVelocityVectorAtDouble(p0, forwardMode);
+        glm::dvec3 k2 = dt * _getVelocityVectorAtDouble(p0 + k1 * double(1.0/4.0), forwardMode);
         glm::dvec3 k3 = dt * _getVelocityVectorAtDouble(
-                p0 + k1 * double(3.0/32.0) + k2 * double(9.0/32.0));
+                p0 + k1 * double(3.0/32.0) + k2 * double(9.0/32.0), forwardMode);
         glm::dvec3 k4 = dt * _getVelocityVectorAtDouble(
-                p0 + k1 * double(1932.0/2197.0) - k2 * double(7200.0/2197.0) + k3 * double(7296.0/2197.0));
+                p0 + k1 * double(1932.0/2197.0) - k2 * double(7200.0/2197.0) + k3 * double(7296.0/2197.0),
+                forwardMode);
         glm::dvec3 k5 = dt * _getVelocityVectorAtDouble(
                 p0 + k1 * double(439.0/216.0) - k2 * double(8.0) + k3 * double(3680.0/513.0)
-                - k4 * double(845.0/4104.0));
+                - k4 * double(845.0/4104.0), forwardMode);
         glm::dvec3 k6 = dt * _getVelocityVectorAtDouble(
                 p0 - k1 * double(8.0/27.0) + k2 * double(2.0) - k3 * double(3544.0/2565.0)
-                + k4 * double(1859.0/4104.0) - k5 * double(11.0/40.0));
+                + k4 * double(1859.0/4104.0) - k5 * double(11.0/40.0), forwardMode);
         approximationRK4 =
                 p0 + k1 * double(25.0/216.0) + k3 * double(1408.0/2565.0) + k4 * double(2197.0/4101.0)
                 - k5 * double(1.0/5.0);

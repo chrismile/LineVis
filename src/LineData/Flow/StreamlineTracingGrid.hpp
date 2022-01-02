@@ -53,25 +53,29 @@ public:
 
 private:
     float _getScalarFieldAtIdx(const float* scalarField, const glm::ivec3& gridIdx) const;
-    [[nodiscard]] glm::vec3 _getVelocityAtIdx(const glm::ivec3& gridIdx) const;
-    [[nodiscard]] glm::vec3 _getVelocityVectorAt(const glm::vec3& particlePosition) const;
-    [[nodiscard]] glm::dvec3 _getVelocityAtIdxDouble(const glm::ivec3& gridIdx) const;
-    [[nodiscard]] glm::dvec3 _getVelocityVectorAtDouble(const glm::dvec3& particlePosition) const;
+    [[nodiscard]] glm::vec3 _getVelocityAtIdx(const glm::ivec3& gridIdx, bool forwardMode) const;
+    [[nodiscard]] glm::vec3 _getVelocityVectorAt(const glm::vec3& particlePosition, bool forwardMode) const;
+    [[nodiscard]] glm::dvec3 _getVelocityAtIdxDouble(const glm::ivec3& gridIdx, bool forwardMode) const;
+    [[nodiscard]] glm::dvec3 _getVelocityVectorAtDouble(const glm::dvec3& particlePosition, bool forwardMode) const;
     static bool _rayBoxIntersection(
             const glm::vec3& rayOrigin, const glm::vec3& rayDirection, const glm::vec3& lower, const glm::vec3& upper,
             float& tNear, float& tFar);
     static bool rayBoxPlaneIntersection(
             float rayOriginX, float rayDirectionX, float lowerX, float upperX, float& tNear, float& tFar);
     void _pushTrajectoryAttributes(Trajectory& trajectory) const;
+    static void _reverseTrajectory(Trajectory& trajectory);
+    static void _insertBackwardTrajectory(const Trajectory& trajectoryBackward, Trajectory& trajectory);
     void _traceStreamline(
-            const StreamlineTracingSettings& tracingSettings, Trajectory& trajectory, const glm::vec3& seedPoint) const;
+            const StreamlineTracingSettings& tracingSettings, Trajectory& trajectory, const glm::vec3& seedPoint,
+            bool forwardMode) const;
 
-    void _integrationStepExplicitEuler(glm::vec3& p0, float& dt) const;
-    void _integrationStepImplicitEuler(glm::vec3& p0, float& dt) const;
-    void _integrationStepHeun(glm::vec3& p0, float& dt) const;
-    void _integrationStepMidpoint(glm::vec3& p0, float& dt) const;
-    void _integrationStepRK4(glm::vec3& p0, float& dt) const;
-    void _integrationStepRKF45(const StreamlineTracingSettings& tracingSettings, glm::vec3& fP0, float& fDt) const;
+    void _integrationStepExplicitEuler(glm::vec3& p0, float& dt, bool forwardMode) const;
+    void _integrationStepImplicitEuler(glm::vec3& p0, float& dt, bool forwardMode) const;
+    void _integrationStepHeun(glm::vec3& p0, float& dt, bool forwardMode) const;
+    void _integrationStepMidpoint(glm::vec3& p0, float& dt, bool forwardMode) const;
+    void _integrationStepRK4(glm::vec3& p0, float& dt, bool forwardMode) const;
+    void _integrationStepRKF45(
+            const StreamlineTracingSettings& tracingSettings, glm::vec3& fP0, float& fDt, bool forwardMode) const;
 
     int xs = 0, ys = 0, zs = 0; ///< Size of the grid in data points.
     float dx = 0.0f, dy = 0.0f, dz = 0.0f; ///< Distance between two neighboring points in x/y/z direction.

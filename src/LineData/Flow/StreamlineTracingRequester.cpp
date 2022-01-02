@@ -186,7 +186,7 @@ void StreamlineTracingRequester::renderGui() {
                 changed = true;
             }
             if (ImGui::SliderFloat(
-                    "Termination Dist. (*1e-6)", &guiTracingSettings.terminationDistance, 0.01f, 100.0f,
+                    "Termination Dist.", &guiTracingSettings.terminationDistance, 0.01f, 100.0f,
                     "%.2f", ImGuiSliderFlags_Logarithmic)) {
                 changed = true;
             }
@@ -194,6 +194,12 @@ void StreamlineTracingRequester::renderGui() {
                     "Integration Method", (int*)&guiTracingSettings.integrationMethod,
                     STREAMLINE_INTEGRATION_METHOD_NAMES,
                     IM_ARRAYSIZE(STREAMLINE_INTEGRATION_METHOD_NAMES))) {
+                changed = true;
+            }
+            if (ImGui::Combo(
+                    "Integration Direction", (int*)&guiTracingSettings.integrationDirection,
+                    STREAMLINE_INTEGRATION_DIRECTION_NAMES,
+                    IM_ARRAYSIZE(STREAMLINE_INTEGRATION_DIRECTION_NAMES))) {
                 changed = true;
             }
         }
