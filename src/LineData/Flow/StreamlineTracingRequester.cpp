@@ -226,6 +226,17 @@ void StreamlineTracingRequester::renderGui() {
                     IM_ARRAYSIZE(STREAMLINE_INTEGRATION_DIRECTION_NAMES))) {
                 changed = true;
             }
+
+            if (guiTracingSettings.flowPrimitives == FlowPrimitives::STREAMRIBBONS) {
+                if (ImGui::Checkbox("Use Helicity Ribbons", &guiTracingSettings.useHelicity)) {
+                    changed = true;
+                }
+                if (guiTracingSettings.useHelicity && ImGui::SliderFloatEdit(
+                        "Max. Helicity Twist", &guiTracingSettings.maxHelicityTwist,
+                        0.0f, 1.0f) == ImGui::EditMode::INPUT_FINISHED) {
+                    changed = true;
+                }
+            }
         }
 
         if (changed) {

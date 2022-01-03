@@ -110,6 +110,10 @@ struct StreamlineTracingSettings {
     bool smoothedSimulationGridOutline = true;
     StreamlineIntegrationMethod integrationMethod = StreamlineIntegrationMethod::RK4;
     StreamlineIntegrationDirection integrationDirection = StreamlineIntegrationDirection::BOTH;
+
+    // For flowPrimitives == FlowPrimitives::STREAMRIBBONS.
+    bool useHelicity = true;
+    float maxHelicityTwist = 0.5f;
 };
 
 #endif //LINEVIS_STREAMLINETRACINGDEFINES_HPP

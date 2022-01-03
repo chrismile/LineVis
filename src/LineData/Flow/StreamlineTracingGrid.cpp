@@ -27,8 +27,10 @@
  */
 
 #include <algorithm>
+#include <glm/gtx/rotate_vector.hpp>
 
 #include <Utils/File/Logfile.hpp>
+#include <Math/Math.hpp>
 
 #include "StreamlineTracingDefines.hpp"
 #include "StreamlineSeeder.hpp"
@@ -80,6 +82,19 @@ void StreamlineTracingGrid::addScalarField(float* scalarField, const std::string
     scalarFields.insert(std::make_pair(scalarName, scalarField));
     if (scalarName == "Helicity") {
         helicityField = scalarField;
+
+        maxHelicityMagnitude = 0.0f;
+#if _OPENMP >= 201107
+        #pragma omp parallel for shared(xs, ys, zs) reduction(max: maxHelicityMagnitude) default(none)
+#endif
+        for (int z = 0; z < zs; z++) {
+            for (int y = 0; y < ys; y++) {
+                for (int x = 0; x < xs; x++) {
+                    float helicityMagnitude = std::abs(helicityField[IDXS(x, y, z)]);
+                    maxHelicityMagnitude = std::max(maxHelicityMagnitude, helicityMagnitude);
+                }
+            }
+        }
     }
 }
 
@@ -430,6 +445,7 @@ void StreamlineTracingGrid::_pushTrajectoryAttributes(Trajectory& trajectory) co
 }
 
 void StreamlineTracingGrid::_pushRibbonDirections(
+        const StreamlineTracingSettings& tracingSettings,
         const Trajectory& trajectory, std::vector<glm::vec3>& ribbonDirections) const {
     glm::vec3 lastRibbonDirection = glm::vec3(1.0f, 0.0f, 0.0f);
     ribbonDirections.reserve(trajectory.positions.size());
@@ -454,7 +470,6 @@ void StreamlineTracingGrid::_pushRibbonDirections(
         tangent = glm::normalize(tangent);
 
         glm::vec3 particlePosition = trajectory.positions.back();
-        float helicity = _getScalarFieldAtPosition(helicityField, particlePosition); // TODO
 
         glm::vec3 helperAxis = lastRibbonDirection;
         if (glm::length(glm::cross(helperAxis, tangent)) < 1e-2f) {
@@ -465,7 +480,15 @@ void StreamlineTracingGrid::_pushRibbonDirections(
                 helperAxis = glm::vec3(0.0f, 1.0f, 0.0f);
             }
         }
-        glm::vec3 ribbonDirection = glm::normalize(helperAxis - glm::dot(helperAxis, tangent) * tangent); // Gram-Schmidt
+        // Gram-Schmidt
+        glm::vec3 ribbonDirection = glm::normalize(helperAxis - glm::dot(helperAxis, tangent) * tangent);
+
+        if (tracingSettings.useHelicity) {
+            float helicity = _getScalarFieldAtPosition(helicityField, particlePosition);
+            float helicityAngle = helicity / maxHelicityMagnitude * sgl::PI * tracingSettings.maxHelicityTwist;
+            ribbonDirection = glm::rotate(ribbonDirection, helicityAngle, tangent);
+        }
+
         ribbonDirections.push_back(ribbonDirection);
         lastRibbonDirection = ribbonDirection;
     }
@@ -600,7 +623,7 @@ void StreamlineTracingGrid::_trace(
     }
 
     if (tracingSettings.flowPrimitives == FlowPrimitives::STREAMRIBBONS) {
-        _pushRibbonDirections(trajectory, ribbonDirections);
+        _pushRibbonDirections(tracingSettings, trajectory, ribbonDirections);
     }
 }
 

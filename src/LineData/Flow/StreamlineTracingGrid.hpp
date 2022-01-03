@@ -71,7 +71,9 @@ private:
     static bool rayBoxPlaneIntersection(
             float rayOriginX, float rayDirectionX, float lowerX, float upperX, float& tNear, float& tFar);
     void _pushTrajectoryAttributes(Trajectory& trajectory) const;
-    void _pushRibbonDirections(const Trajectory& trajectory, std::vector<glm::vec3>& ribbonDirections) const;
+    void _pushRibbonDirections(
+            const StreamlineTracingSettings& tracingSettings,
+            const Trajectory& trajectory, std::vector<glm::vec3>& ribbonDirections) const;
     static void _reverseTrajectory(Trajectory& trajectory);
     static void _reverseRibbon(Trajectory& trajectory, std::vector<glm::vec3>& ribbonDirections);
     static void _insertBackwardTrajectory(const Trajectory& trajectoryBackward, Trajectory& trajectory);
@@ -108,6 +110,7 @@ private:
     float* helicityField = nullptr;
     glm::vec3* V = nullptr;
     float maxVelocityMagnitude = 0.0f;
+    float maxHelicityMagnitude = 0.0f;
     std::map<std::string, float*> scalarFields;
 };
 
