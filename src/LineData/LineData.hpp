@@ -277,6 +277,8 @@ protected:
     std::vector<LineRenderer*> lineRenderersCached;
     static LinePrimitiveMode linePrimitiveMode;
     static int tubeNumSubdivisions; ///< Number of tube subdivisions for LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER.
+    static bool renderThickBands;
+    static float minBandThickness;
     std::vector<std::string> supportedRenderingModes;
     bool useCappedTubes = true;
     bool showLineDataWindow = true;

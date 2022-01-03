@@ -49,6 +49,8 @@
 
 LineData::LinePrimitiveMode LineData::linePrimitiveMode = LineData::LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER;
 int LineData::tubeNumSubdivisions = 6;
+bool LineData::renderThickBands = true;
+float LineData::minBandThickness = 0.15f;
 
 const char *const LINE_PRIMITIVE_MODE_DISPLAYNAMES[] = {
         "Ribbon (Programmable Fetch)", "Ribbon (Geometry Shader)", "Tube (Geometry Shader)",

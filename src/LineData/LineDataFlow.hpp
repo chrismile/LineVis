@@ -32,6 +32,7 @@
 #include "LineData.hpp"
 
 class LineDataFlow : public LineData {
+    friend class StreamlineTracingRequester;
 public:
     explicit LineDataFlow(sgl::TransferFunctionWindow& transferFunctionWindow);
     ~LineDataFlow() override;
@@ -89,6 +90,7 @@ protected:
     void recomputeHistogram() override;
 
     Trajectories trajectories;
+    std::vector<std::vector<glm::vec3>> ribbonsDirections;
     size_t numTotalTrajectoryPoints = 0;
     std::vector<bool> filteredTrajectories;
 };

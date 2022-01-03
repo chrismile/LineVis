@@ -41,10 +41,6 @@
 
 LineDataFlow::LineDataFlow(sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_FLOW_LINES) {
-    // Bands not supported by flow lines at the moment.
-    if (linePrimitiveMode == LINE_PRIMITIVES_BAND || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND) {
-        linePrimitiveMode = LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
-    }
     lineDataWindowName = "Line Data (Flow)";
 }
 
@@ -70,6 +66,11 @@ bool LineDataFlow::loadFromFile(
 }
 
 void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
+    if (ribbonsDirections.empty()
+            && (linePrimitiveMode == LINE_PRIMITIVES_BAND || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND)) {
+        linePrimitiveMode = LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
+    }
+
     this->trajectories = trajectories;
 
     for (size_t attrIdx = attributeNames.size(); attrIdx < getNumAttributes(); attrIdx++) {

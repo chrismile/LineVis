@@ -197,6 +197,12 @@ void StreamlineTracingRequester::renderGui() {
                     "%.3f")) {
                 changed = true;
             }
+            if (guiTracingSettings.streamlineSeedingStrategy == StreamlineSeedingStrategy::MAX_HELICITY_FIRST
+                && ImGui::SliderFloat(
+                    "Min. Line Length", &guiTracingSettings.minimumSeparationDistance,
+                    0.001f, 1.0f, "%.3f")) {
+                changed = true;
+            }
             if (ImGui::Checkbox("Show Boundary Mesh", &guiTracingSettings.showSimulationGridOutline)) {
                 changed = true;
             }
@@ -451,7 +457,14 @@ void StreamlineTracingRequester::traceLines(
                 cachedSimulationMeshOutlineVertexNormals);
     }
 
-    Trajectories trajectories = cachedGrid->traceStreamlines(request);
+    Trajectories trajectories;
+    if (guiTracingSettings.flowPrimitives == FlowPrimitives::STREAMLINES) {
+        cachedGrid->traceStreamlines(request, trajectories);
+    } else if (guiTracingSettings.flowPrimitives == FlowPrimitives::STREAMRIBBONS) {
+        std::vector<std::vector<glm::vec3>> ribbonsDirections;
+        cachedGrid->traceStreamribbons(request, trajectories, ribbonsDirections);
+        lineData->ribbonsDirections = ribbonsDirections;
+    }
     normalizeTrajectoriesVertexPositions(trajectories, gridBox, nullptr);
 
     if (guiTracingSettings.showSimulationGridOutline) {

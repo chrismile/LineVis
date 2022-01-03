@@ -205,9 +205,6 @@ private:
         RIBBONS, EIGENVALUE_RATIO, HYPERSTREAMLINES
     };
     static BandRenderMode bandRenderMode;
-    // Settings for BandRenderMode::RIBBONS.
-    static bool renderThickBands;
-    static float minBandThickness;
 
     // Rendering mode settings.
     bool rendererSupportsTransparency = false;

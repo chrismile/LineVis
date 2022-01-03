@@ -78,6 +78,9 @@ void StreamlineTracingGrid::setVelocityField(float *data, int xs, int ys, int zs
 
 void StreamlineTracingGrid::addScalarField(float* scalarField, const std::string& scalarName) {
     scalarFields.insert(std::make_pair(scalarName, scalarField));
+    if (scalarName == "Helicity") {
+        helicityField = scalarField;
+    }
 }
 
 std::vector<std::string> StreamlineTracingGrid::getScalarAttributeNames() {
@@ -88,7 +91,8 @@ std::vector<std::string> StreamlineTracingGrid::getScalarAttributeNames() {
     return scalarAttributeNames;
 }
 
-Trajectories StreamlineTracingGrid::traceStreamlines(StreamlineTracingSettings& tracingSettings) {
+void StreamlineTracingGrid::traceStreamlines(
+        StreamlineTracingSettings& tracingSettings, Trajectories& filteredTrajectories) {
     auto seeder = tracingSettings.seeder;
     seeder->reset(tracingSettings, this);
     int numTrajectories = tracingSettings.numPrimitives;
@@ -139,7 +143,6 @@ Trajectories StreamlineTracingGrid::traceStreamlines(StreamlineTracingSettings& 
         }
     }
 
-    Trajectories filteredTrajectories;
     for (auto& trajectory: trajectories) {
         if (trajectory.positions.empty()) {
             continue;
@@ -152,8 +155,93 @@ Trajectories StreamlineTracingGrid::traceStreamlines(StreamlineTracingSettings& 
             filteredTrajectories.push_back(trajectory);
         }
     }
+}
 
-    return filteredTrajectories;
+void StreamlineTracingGrid::traceStreamribbons(
+        StreamlineTracingSettings& tracingSettings, Trajectories& filteredTrajectories,
+        std::vector<std::vector<glm::vec3>>& filteredRibbonsDirections) {
+    if (!helicityField) {
+        sgl::Logfile::get()->writeError(
+                "Error in StreamlineTracingGrid::traceStreamribbons: No helicity field is given!");
+        return;
+    }
+
+    auto seeder = tracingSettings.seeder;
+    seeder->reset(tracingSettings, this);
+    int numTrajectories = tracingSettings.numPrimitives;
+
+    Trajectories trajectories;
+    std::vector<std::vector<glm::vec3>> ribbonsDirections;
+    trajectories.resize(numTrajectories);
+    ribbonsDirections.resize(numTrajectories);
+    if (tracingSettings.streamlineSeedingStrategy == StreamlineSeedingStrategy::VOLUME
+            || tracingSettings.streamlineSeedingStrategy == StreamlineSeedingStrategy::PLANE) {
+        std::vector<glm::vec3> seedPoints;
+        seedPoints.resize(numTrajectories);
+        for (glm::vec3& seedPoint : seedPoints) {
+            seedPoint = seeder->getNextPoint();
+        }
+
+        #pragma omp parallel for shared(numTrajectories, trajectories, ribbonsDirections, seedPoints, tracingSettings) \
+        default(none)
+        for (int i = 0; i < numTrajectories; i++) {
+            Trajectory& trajectory = trajectories.at(i);
+            std::vector<glm::vec3>& ribbonDirections = ribbonsDirections.at(i);
+            const glm::vec3& seedPoint = seedPoints.at(i);
+            if (tracingSettings.integrationDirection == StreamlineIntegrationDirection::FORWARD) {
+                _traceStreamribbon(tracingSettings, trajectory, ribbonDirections, seedPoint, true);
+            } else if (tracingSettings.integrationDirection == StreamlineIntegrationDirection::BACKWARD) {
+                _traceStreamribbon(tracingSettings, trajectory, ribbonDirections, seedPoint, false);
+                _reverseRibbon(trajectory, ribbonDirections);
+            } else {
+                Trajectory trajectoryBackward;
+                std::vector<glm::vec3> ribbonDirectionsBackward;
+                _traceStreamribbon(tracingSettings, trajectory, ribbonDirections, seedPoint, true);
+                _traceStreamribbon(
+                        tracingSettings, trajectoryBackward, ribbonDirectionsBackward, seedPoint,
+                        false);
+                _reverseRibbon(trajectoryBackward, ribbonDirectionsBackward);
+                _insertBackwardRibbon(trajectoryBackward, ribbonDirectionsBackward, trajectory, ribbonDirections);
+            }
+        }
+    } else {
+        for (int i = 0; i < numTrajectories; i++) {
+            Trajectory& trajectory = trajectories.at(i);
+            std::vector<glm::vec3>& ribbonDirections = ribbonsDirections.at(i);
+            glm::vec3 seedPoint = seeder->getNextPoint();
+            if (tracingSettings.integrationDirection == StreamlineIntegrationDirection::FORWARD) {
+                _traceStreamribbon(tracingSettings, trajectory, ribbonDirections, seedPoint, true);
+            } else if (tracingSettings.integrationDirection == StreamlineIntegrationDirection::BACKWARD) {
+                _traceStreamribbon(tracingSettings, trajectory, ribbonDirections, seedPoint, false);
+                _reverseRibbon(trajectory, ribbonDirections);
+            } else {
+                Trajectory trajectoryBackward;
+                std::vector<glm::vec3> ribbonDirectionsBackward;
+                _traceStreamribbon(tracingSettings, trajectory, ribbonDirections, seedPoint, true);
+                _traceStreamribbon(
+                        tracingSettings, trajectoryBackward, ribbonDirectionsBackward, seedPoint,
+                        false);
+                _reverseRibbon(trajectoryBackward, ribbonDirectionsBackward);
+                _insertBackwardRibbon(trajectoryBackward, ribbonDirectionsBackward, trajectory, ribbonDirections);
+            }
+        }
+    }
+
+    for (int trajectoryIdx = 0; trajectoryIdx < numTrajectories; trajectoryIdx++) {
+        Trajectory& trajectory = trajectories.at(trajectoryIdx);
+        std::vector<glm::vec3>& ribbonDirections = ribbonsDirections.at(trajectoryIdx);
+        if (trajectory.positions.empty()) {
+            continue;
+        }
+        float trajectoryLength = 0.0f;
+        for (size_t i = 1; i < trajectory.positions.size(); i++) {
+            trajectoryLength += glm::length(trajectory.positions.at(i) - trajectory.positions.at(i - 1));
+        }
+        if (trajectoryLength > tracingSettings.minimumLength) {
+            filteredTrajectories.push_back(trajectory);
+            filteredRibbonsDirections.push_back(ribbonDirections);
+        }
+    }
 }
 
 
@@ -162,6 +250,27 @@ float StreamlineTracingGrid::_getScalarFieldAtIdx(const float* scalarField, cons
         return 0.0f;
     }
     return scalarField[gridIdx.x + gridIdx.y * xs + gridIdx.z * xs * ys];
+}
+
+float StreamlineTracingGrid::_getScalarFieldAtPosition(
+        const float* scalarField, const glm::vec3& particlePosition) const {
+    glm::vec3 gridPositionFloat = particlePosition - box.getMinimum();
+    gridPositionFloat *= glm::vec3(1.0f / dx, 1.0f / dy, 1.0f / dz);
+    auto gridPosition = glm::ivec3(gridPositionFloat);
+    glm::vec3 frac = glm::fract(gridPositionFloat);
+    glm::vec3 invFrac = glm::vec3(1.0) - frac;
+
+    float interpolationValue =
+            invFrac.x * invFrac.y * invFrac.z * _getScalarFieldAtIdx(scalarField, gridPosition + glm::ivec3(0,0,0))
+            + frac.x * invFrac.y * invFrac.z * _getScalarFieldAtIdx(scalarField, gridPosition + glm::ivec3(1,0,0))
+            + invFrac.x * frac.y * invFrac.z * _getScalarFieldAtIdx(scalarField, gridPosition + glm::ivec3(0,1,0))
+            + frac.x * frac.y * invFrac.z * _getScalarFieldAtIdx(scalarField, gridPosition + glm::ivec3(1,1,0))
+            + invFrac.x * invFrac.y * frac.z * _getScalarFieldAtIdx(scalarField, gridPosition + glm::ivec3(0,0,1))
+            + frac.x * invFrac.y * frac.z * _getScalarFieldAtIdx(scalarField, gridPosition + glm::ivec3(1,0,1))
+            + invFrac.x * frac.y * frac.z * _getScalarFieldAtIdx(scalarField, gridPosition + glm::ivec3(0,1,1))
+            + frac.x * frac.y * frac.z * _getScalarFieldAtIdx(scalarField, gridPosition + glm::ivec3(1,1,1));
+
+    return interpolationValue;
 }
 
 glm::vec3 StreamlineTracingGrid::_getVelocityAtIdx(const glm::ivec3& gridIdx, bool forwardMode) const {
@@ -175,7 +284,7 @@ glm::vec3 StreamlineTracingGrid::_getVelocityAtIdx(const glm::ivec3& gridIdx, bo
     }
 }
 
-glm::vec3 StreamlineTracingGrid::_getVelocityVectorAt(
+glm::vec3 StreamlineTracingGrid::_getVelocityAtPosition(
         const glm::vec3& particlePosition, bool forwardMode) const {
     glm::vec3 gridPositionFloat = particlePosition - box.getMinimum();
     gridPositionFloat *= glm::vec3(1.0f / dx, 1.0f / dy, 1.0f / dz);
@@ -206,7 +315,7 @@ glm::dvec3 StreamlineTracingGrid::_getVelocityAtIdxDouble(
     }
 }
 
-glm::dvec3 StreamlineTracingGrid::_getVelocityVectorAtDouble(
+glm::dvec3 StreamlineTracingGrid::_getVelocityAtPositionDouble(
         const glm::dvec3& particlePosition, bool forwardMode) const {
     glm::dvec3 gridPositionFloat = particlePosition - glm::dvec3(box.getMinimum());
     gridPositionFloat *= glm::dvec3(1.0 / double(dx), 1.0 / double(dy), 1.0 / double(dz));
@@ -320,12 +429,71 @@ void StreamlineTracingGrid::_pushTrajectoryAttributes(Trajectory& trajectory) co
     }
 }
 
+void StreamlineTracingGrid::_pushRibbonDirections(
+        const Trajectory& trajectory, std::vector<glm::vec3>& ribbonDirections) const {
+    glm::vec3 lastRibbonDirection = glm::vec3(1.0f, 0.0f, 0.0f);
+    ribbonDirections.reserve(trajectory.positions.size());
+
+    size_t n = trajectory.positions.size();
+    for (size_t i = 0; i < n; i++) {
+        glm::vec3 tangent;
+        if (i == 0) {
+            tangent = trajectory.positions[i + 1] - trajectory.positions[i];
+        } else if (i == n - 1) {
+            tangent = trajectory.positions[i] - trajectory.positions[i - 1];
+        } else {
+            tangent = trajectory.positions[i + 1] - trajectory.positions[i - 1];
+        }
+
+        float lineSegmentLength = glm::length(tangent);
+        if (lineSegmentLength < 1e-7f) {
+            sgl::Logfile::get()->writeError(
+                    "Warning in StreamlineTracingGrid::_pushRibbonDirections: "
+                    "The line segment length is smaller than 1e-7.");
+        }
+
+        glm::vec3 particlePosition = trajectory.positions.back();
+        float helicity = _getScalarFieldAtPosition(helicityField, particlePosition); // TODO
+
+        if (ribbonDirections.empty()) {
+            lastRibbonDirection = glm::vec3(0.0f, 1.0f, 0.0f);
+        } else {
+            lastRibbonDirection = ribbonDirections.back();
+        }
+
+        glm::vec3 helperAxis = lastRibbonDirection;
+        if (glm::length(glm::cross(helperAxis, tangent)) < 1e-2f) {
+            // If tangent == lastRibbonDirection
+            helperAxis = glm::vec3(0.0f, 0.0f, 1.0f);
+            if (glm::length(glm::cross(helperAxis, tangent)) < 1e-2f) {
+                // If tangent == helperAxis
+                helperAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+            }
+        }
+        glm::vec3 ribbonDirection = glm::normalize(helperAxis - glm::dot(helperAxis, tangent) * tangent); // Gram-Schmidt
+        ribbonDirections.push_back(ribbonDirection);
+        lastRibbonDirection = ribbonDirection;
+    }
+}
+
 void StreamlineTracingGrid::_reverseTrajectory(Trajectory& trajectory) {
     if (trajectory.positions.size() <= 1) {
         return;
     }
 
     std::reverse(trajectory.positions.begin(), trajectory.positions.end());
+    for (auto& attribute : trajectory.attributes) {
+        std::reverse(attribute.begin(), attribute.end());
+    }
+}
+
+void StreamlineTracingGrid::_reverseRibbon(Trajectory& trajectory, std::vector<glm::vec3>& ribbonDirections) {
+    if (trajectory.positions.size() <= 1) {
+        return;
+    }
+
+    std::reverse(trajectory.positions.begin(), trajectory.positions.end());
+    std::reverse(ribbonDirections.begin(), ribbonDirections.end());
     for (auto& attribute : trajectory.attributes) {
         std::reverse(attribute.begin(), attribute.end());
     }
@@ -346,9 +514,30 @@ void StreamlineTracingGrid::_insertBackwardTrajectory(const Trajectory& trajecto
     }
 }
 
-void StreamlineTracingGrid::_traceStreamline(
-        const StreamlineTracingSettings& tracingSettings, Trajectory& trajectory, const glm::vec3& seedPoint,
-        bool forwardMode) const {
+void StreamlineTracingGrid::_insertBackwardRibbon(
+        const Trajectory& trajectoryBackward, const std::vector<glm::vec3>& ribbonDirectionsBackward,
+        Trajectory& trajectory, std::vector<glm::vec3>& ribbonDirections) {
+    if (trajectoryBackward.positions.size() > 1) {
+        trajectory.positions.insert(
+                trajectory.positions.begin(),
+                trajectoryBackward.positions.begin(),
+                trajectoryBackward.positions.end() - 1);
+        ribbonDirections.insert(
+                ribbonDirections.begin(),
+                ribbonDirectionsBackward.begin(),
+                ribbonDirectionsBackward.end() - 1);
+        for (size_t attrIdx = 0; attrIdx < trajectoryBackward.attributes.size(); attrIdx++) {
+            trajectory.attributes.at(attrIdx).insert(
+                    trajectory.attributes.at(attrIdx).begin(),
+                    trajectoryBackward.attributes.at(attrIdx).begin(),
+                    trajectoryBackward.attributes.at(attrIdx).end() - 1);
+        }
+    }
+}
+
+void StreamlineTracingGrid::_trace(
+        const StreamlineTracingSettings& tracingSettings, Trajectory& trajectory,
+        std::vector<glm::vec3>& ribbonDirections, const glm::vec3& seedPoint, bool forwardMode) const {
     float dt = 1.0f / maxVelocityMagnitude * std::min(dx, std::min(dy, dz)) * tracingSettings.timeStepScale;
     float terminationDistance = 1e-6f * tracingSettings.terminationDistance;
 
@@ -363,8 +552,8 @@ void StreamlineTracingGrid::_traceStreamline(
     const float MAX_LINE_LENGTH = glm::length(box.getDimensions());
     while (iterationCounter <= MAX_ITERATIONS && lineLength <= MAX_LINE_LENGTH) {
         oldParticlePosition = particlePosition;
-        // Break if the position is outside of the domain.
 
+        // Break if the position is outside of the domain.
         if (!box.contains(particlePosition)) {
             if (!trajectory.positions.empty()) {
                 // Clamp the position to the boundary.
@@ -389,8 +578,7 @@ void StreamlineTracingGrid::_traceStreamline(
         trajectory.positions.push_back(particlePosition);
         _pushTrajectoryAttributes(trajectory);
 
-        // Integrate to the new position using Runge-Kutta of 4th order.
-
+        // Integrate to the new position using one of the implemented integrators.
         if (tracingSettings.integrationMethod == StreamlineIntegrationMethod::EXPLICIT_EULER) {
             _integrationStepExplicitEuler(particlePosition, dt, forwardMode);
         } else if (tracingSettings.integrationMethod == StreamlineIntegrationMethod::IMPLICIT_EULER) {
@@ -415,10 +603,14 @@ void StreamlineTracingGrid::_traceStreamline(
 
         iterationCounter++;
     }
+
+    if (tracingSettings.flowPrimitives == FlowPrimitives::STREAMRIBBONS) {
+        _pushRibbonDirections(trajectory, ribbonDirections);
+    }
 }
 
 void StreamlineTracingGrid::_integrationStepExplicitEuler(glm::vec3& p0, float& dt, bool forwardMode) const {
-    p0 += dt * _getVelocityVectorAt(p0, forwardMode);
+    p0 += dt * _getVelocityAtPosition(p0, forwardMode);
 }
 
 void StreamlineTracingGrid::_integrationStepImplicitEuler(glm::vec3& p0, float& dt, bool forwardMode) const {
@@ -428,7 +620,7 @@ void StreamlineTracingGrid::_integrationStepImplicitEuler(glm::vec3& p0, float& 
     glm::vec3 p_last = p0;
     float diff;
     do {
-        glm::vec3 p_next = p0 + dt * _getVelocityVectorAt(p_last, forwardMode);
+        glm::vec3 p_next = p0 + dt * _getVelocityAtPosition(p_last, forwardMode);
         diff = glm::length(p_last - p_next);
         p_last = p_next;
         iteration++;
@@ -442,22 +634,22 @@ void StreamlineTracingGrid::_integrationStepImplicitEuler(glm::vec3& p0, float& 
 }
 
 void StreamlineTracingGrid::_integrationStepHeun(glm::vec3& p0, float& dt, bool forwardMode) const {
-    glm::vec3 v0 = _getVelocityVectorAt(p0, forwardMode);
+    glm::vec3 v0 = _getVelocityAtPosition(p0, forwardMode);
     glm::vec3 p1Euler = p0 + dt * v0;
-    glm::vec3 v1Euler = _getVelocityVectorAt(p1Euler, forwardMode);
+    glm::vec3 v1Euler = _getVelocityAtPosition(p1Euler, forwardMode);
     p0 += dt * float(0.5) * (v0 + v1Euler);
 }
 
 void StreamlineTracingGrid::_integrationStepMidpoint(glm::vec3& p0, float& dt, bool forwardMode) const {
-    glm::vec3 pPrime = p0 + dt * float(0.5) * _getVelocityVectorAt(p0, forwardMode);
-    p0 += dt * _getVelocityVectorAt(pPrime, forwardMode);
+    glm::vec3 pPrime = p0 + dt * float(0.5) * _getVelocityAtPosition(p0, forwardMode);
+    p0 += dt * _getVelocityAtPosition(pPrime, forwardMode);
 }
 
 void StreamlineTracingGrid::_integrationStepRK4(glm::vec3& p0, float& dt, bool forwardMode) const {
-    glm::vec3 k1 = dt * _getVelocityVectorAt(p0, forwardMode);
-    glm::vec3 k2 = dt * _getVelocityVectorAt(p0 + k1 * float(0.5), forwardMode);
-    glm::vec3 k3 = dt * _getVelocityVectorAt(p0 + k2 * float(0.5), forwardMode);
-    glm::vec3 k4 = dt * _getVelocityVectorAt(p0 + k3, forwardMode);
+    glm::vec3 k1 = dt * _getVelocityAtPosition(p0, forwardMode);
+    glm::vec3 k2 = dt * _getVelocityAtPosition(p0 + k1 * float(0.5), forwardMode);
+    glm::vec3 k3 = dt * _getVelocityAtPosition(p0 + k2 * float(0.5), forwardMode);
+    glm::vec3 k4 = dt * _getVelocityAtPosition(p0 + k3, forwardMode);
     p0 += k1 / float(6.0) + k2 / float(3.0) + k3 / float(3.0) + k4 / float(6.0);
 }
 
@@ -476,19 +668,19 @@ void StreamlineTracingGrid::_integrationStepRKF45(
     glm::dvec3 approximationRK4, approximationRK5;
     bool timestepNeedsAdaptation;
     do {
-        glm::dvec3 k1 = dt * _getVelocityVectorAtDouble(p0, forwardMode);
-        glm::dvec3 k2 = dt * _getVelocityVectorAtDouble(p0 + k1 * double(1.0/4.0), forwardMode);
-        glm::dvec3 k3 = dt * _getVelocityVectorAtDouble(
-                p0 + k1 * double(3.0/32.0) + k2 * double(9.0/32.0), forwardMode);
-        glm::dvec3 k4 = dt * _getVelocityVectorAtDouble(
-                p0 + k1 * double(1932.0/2197.0) - k2 * double(7200.0/2197.0) + k3 * double(7296.0/2197.0),
+        glm::dvec3 k1 = dt * _getVelocityAtPositionDouble(p0, forwardMode);
+        glm::dvec3 k2 = dt * _getVelocityAtPositionDouble(p0 + k1 * double(1.0 / 4.0), forwardMode);
+        glm::dvec3 k3 = dt * _getVelocityAtPositionDouble(
+                p0 + k1 * double(3.0 / 32.0) + k2 * double(9.0 / 32.0), forwardMode);
+        glm::dvec3 k4 = dt * _getVelocityAtPositionDouble(
+                p0 + k1 * double(1932.0 / 2197.0) - k2 * double(7200.0 / 2197.0) + k3 * double(7296.0 / 2197.0),
                 forwardMode);
-        glm::dvec3 k5 = dt * _getVelocityVectorAtDouble(
-                p0 + k1 * double(439.0/216.0) - k2 * double(8.0) + k3 * double(3680.0/513.0)
-                - k4 * double(845.0/4104.0), forwardMode);
-        glm::dvec3 k6 = dt * _getVelocityVectorAtDouble(
-                p0 - k1 * double(8.0/27.0) + k2 * double(2.0) - k3 * double(3544.0/2565.0)
-                + k4 * double(1859.0/4104.0) - k5 * double(11.0/40.0), forwardMode);
+        glm::dvec3 k5 = dt * _getVelocityAtPositionDouble(
+                p0 + k1 * double(439.0 / 216.0) - k2 * double(8.0) + k3 * double(3680.0 / 513.0)
+                - k4 * double(845.0 / 4104.0), forwardMode);
+        glm::dvec3 k6 = dt * _getVelocityAtPositionDouble(
+                p0 - k1 * double(8.0 / 27.0) + k2 * double(2.0) - k3 * double(3544.0 / 2565.0)
+                + k4 * double(1859.0 / 4104.0) - k5 * double(11.0 / 40.0), forwardMode);
         approximationRK4 =
                 p0 + k1 * double(25.0/216.0) + k3 * double(1408.0/2565.0) + k4 * double(2197.0/4101.0)
                 - k5 * double(1.0/5.0);
