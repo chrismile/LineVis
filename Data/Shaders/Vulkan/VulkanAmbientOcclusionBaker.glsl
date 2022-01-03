@@ -45,6 +45,10 @@ layout(local_size_x = 256) in;
 layout(binding = 0) uniform UniformsBuffer {
     // The radius of the lines.
     float lineRadius;
+    // The radius of the bands.
+    float bandRadius;
+    // The minimum band thickness to use when rendering bands.
+    float minBandThickness;
     // What is the radius to take into account for ambient occlusion?
     float ambientOcclusionRadius;
 
@@ -60,17 +64,18 @@ layout(binding = 0) uniform UniformsBuffer {
     // How many rays should the shader shoot?
     uint numAmbientOcclusionSamples;
     // Should the distance of the AO hits be used?
-    int useDistance;
+    uint useDistance;
+
+    uint aoUniformBufferPadding0;
+    uint aoUniformBufferPadding1;
 };
 
 #ifdef STRESS_LINE_DATA
 layout (binding = 1) uniform StressLineRenderSettingsBuffer {
     vec3 lineHierarchySlider;
-    float bandWidth;
+    float paddingStressLineSettings;
     ivec3 psUseBands;
     int currentSeedIdx;
-    vec3 paddingStressLineSettings;
-    float minBandThickness;
 };
 #endif
 
@@ -185,10 +190,15 @@ void main() {
         float cosAngle = cos(angle);
 
         // Get the ray origin on the tube surface (pushed out by a small epsilon to avoid self intersections).
+#ifdef USE_BANDS
 #ifdef STRESS_LINE_DATA
         bool useBand = psUseBands[linePoint.principalStressIndex] > 0;
         const float thickness = useBand ? minBandThickness : 1.0;
-        const float tubeRadius = (useBand ? bandWidth * 0.5 : lineRadius);
+        const float tubeRadius = (useBand ? bandRadius : lineRadius);
+#else
+        const float thickness = minBandThickness;
+        const float tubeRadius = bandRadius;
+#endif
         vec3 surfaceNormal = normalize(cosAngle * linePoint.normal + thickness * sinAngle * linePoint.binormal);
         vec3 rayOrigin = linePoint.position
                 + (tubeRadius + 1e-3) * (thickness * cosAngle * linePoint.normal + sinAngle * linePoint.binormal);

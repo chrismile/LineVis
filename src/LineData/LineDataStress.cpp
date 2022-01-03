@@ -145,7 +145,7 @@ bool LineDataStress::setNewSettings(const SettingsMap& settings) {
         }
     }
 
-    if (useBands()) {
+    if (getUseBandRendering()) {
         bool usedBandsChanged = false;
         usedBandsChanged |= settings.getValueOpt("major_use_bands", psUseBands[0]);
         usedBandsChanged |= settings.getValueOpt("medium_use_bands", psUseBands[1]);
@@ -155,7 +155,7 @@ bool LineDataStress::setNewSettings(const SettingsMap& settings) {
         }
     }
 
-    if (useBands()) {
+    if (getUseBandRendering()) {
         if (fileFormatVersion >= 3 && settings.getValueOpt("smoothed_bands", useSmoothedBands)) {
             dirty = true;
         }
@@ -209,21 +209,6 @@ bool LineDataStress::renderGuiPropertyEditorNodesRenderer(
         sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer) {
     bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodesRenderer(propertyEditor, lineRenderer);
     return shallReloadGatherShader;
-}
-
-bool LineDataStress::renderGuiRenderingSettingsPropertyEditor(sgl::PropertyEditor& propertyEditor) {
-    bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
-    if (useBands()) {
-        ImGui::EditMode editMode = propertyEditor.addSliderFloatEdit(
-                "Band Width", &LineRenderer::bandWidth, LineRenderer::MIN_BAND_WIDTH, LineRenderer::MAX_BAND_WIDTH,
-                "%.4f");
-        if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
-                || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
-            reRender = true;
-            setTriangleRepresentationDirty();
-        }
-    }
-    return false;
 }
 
 bool LineDataStress::renderGuiWindowSecondary() {
@@ -320,7 +305,7 @@ bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyE
         }
     }
 
-    if (useBands()) {
+    if (getUseBandRendering()) {
         if (propertyEditor.beginNode("Render as Bands")) {
             bool usedBandsChanged = false;
             usedBandsChanged |= propertyEditor.addCheckbox("Major##bandsmajor", &psUseBands[0]);
@@ -334,7 +319,7 @@ bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyE
     }
 
     if (propertyEditor.beginNode("Advanced Settings")) {
-        if (useBands()) {
+        if (getUseBandRendering()) {
             if (fileFormatVersion >= 3 && propertyEditor.addCheckbox("Smoothed Bands", &useSmoothedBands)) {
                 dirty = true;
             }
@@ -476,7 +461,7 @@ bool LineDataStress::loadFromFile(
         if (hasBandsData) {
             linePrimitiveMode = LINE_PRIMITIVES_TUBE_BAND;
             tubeNumSubdivisions = 8;
-        } else if (useBands()) {
+        } else if (getUseBandRendering()) {
             linePrimitiveMode = LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
         }
 
@@ -528,12 +513,12 @@ void LineDataStress::setStressTrajectoryData(
                     maxAttr = std::max(maxAttr, val);
                 }
             }
-            minMaxAttributeValuesPs[psIdx].push_back(glm::vec2(minAttr, maxAttr));
+            minMaxAttributeValuesPs[psIdx].emplace_back(minAttr, maxAttr);
             minAttrTotal = std::min(minAttrTotal, minAttr);
             maxAttrTotal = std::max(maxAttrTotal, maxAttr);
             i++;
         }
-        minMaxAttributeValues.push_back(glm::vec2(minAttrTotal, maxAttrTotal));
+        minMaxAttributeValues.emplace_back(minAttrTotal, maxAttrTotal);
     }
 
     updateLineHierarchyHistogram();
@@ -1094,7 +1079,7 @@ sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
     if (rendererSupportsTransparency) {
         sgl::ShaderManager->addPreprocessorDefine("USE_TRANSPARENCY", "");
     }
-    if (useBands() && bandRenderMode == BandRenderMode::RIBBONS) {
+    if (getUseBandRendering() && bandRenderMode == BandRenderMode::RIBBONS) {
         if (renderThickBands) {
             sgl::ShaderManager->addPreprocessorDefine("BAND_RENDERING_THICK", "");
             sgl::ShaderManager->addPreprocessorDefine("MIN_THICKNESS", std::to_string(minBandThickness));
@@ -1131,7 +1116,7 @@ sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
         sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESSES");
     }
 #endif
-    if (useBands() && bandRenderMode == BandRenderMode::RIBBONS) {
+    if (getUseBandRendering() && bandRenderMode == BandRenderMode::RIBBONS) {
         if (renderThickBands) {
             sgl::ShaderManager->removePreprocessorDefine("BAND_RENDERING_THICK");
         }
@@ -1150,28 +1135,8 @@ sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
     return gatherShader;
 }
 
-//#ifdef USE_EIGEN
-//void computePrincipalStresses(
-//        float xx, float yy, float zz, float xy, float yz, float zx,
-//        float& majorStress, float& mediumStress, float& minorStress) {
-//    Eigen::Matrix3f stressTensor;
-//    stressTensor.row(0) << xx, xy, zx;
-//    stressTensor.row(1) << xy, yy, yz;
-//    stressTensor.row(2) << zx, yz, zz;
-//
-//    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> selfAdjointEigenSolver;
-//    selfAdjointEigenSolver.compute(stressTensor);
-//    Eigen::Vector3f eigenvalues = selfAdjointEigenSolver.eigenvalues();
-//
-//    minorStress = eigenvalues(0);
-//    mediumStress = eigenvalues(1);
-//    majorStress = eigenvalues(2);
-//}
-//#endif
-
 TubeRenderData LineDataStress::getTubeRenderData() {
     rebuildInternalRepresentationIfNecessary();
-    TubeRenderData tubeRenderData;
 
     std::vector<uint32_t> lineIndices;
     std::vector<glm::vec3> vertexPositions;
@@ -1182,8 +1147,8 @@ TubeRenderData LineDataStress::getTubeRenderData() {
     std::vector<float> vertexLineHierarchyLevels;
     std::vector<uint32_t> vertexLineAppearanceOrders;
 
-    std::vector<std::vector<std::vector<glm::vec3>>> *bandPointsListRightPs;
-    if (useBands()) {
+    std::vector<std::vector<std::vector<glm::vec3>>>* bandPointsListRightPs;
+    if (getUseBandRendering()) {
         if (useSmoothedBands) {
             bandPointsListRightPs = &bandPointsSmoothedListRightPs;
         } else {
@@ -1226,7 +1191,7 @@ TubeRenderData LineDataStress::getTubeRenderData() {
         std::vector<std::vector<float>> lineMinorStressesList;
 #endif
 
-        if (useBands() && psUseBands.at(psIdx)) {
+        if (getUseBandRendering() && psUseBands.at(psIdx)) {
             std::vector<std::vector<glm::vec3>> bandRightVectorList;
             std::vector<std::vector<glm::vec3>>& bandPointsListRight = bandPointsListRightPs->at(i);
 
@@ -1279,9 +1244,9 @@ TubeRenderData LineDataStress::getTubeRenderData() {
             size_t numVerticesOld = vertexPositions.size();
 
             for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
-                const std::vector<glm::vec3> &lineCenters = lineCentersList.at(lineId);
-                const std::vector<float> &lineAttributes = lineAttributesList.at(lineId);
-                const std::vector<glm::vec3> &bandRightVectors = bandRightVectorList.at(lineId);
+                const std::vector<glm::vec3>& lineCenters = lineCentersList.at(lineId);
+                const std::vector<float>& lineAttributes = lineAttributesList.at(lineId);
+                const std::vector<glm::vec3>& bandRightVectors = bandRightVectorList.at(lineId);
                 StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(lineId);
                 assert(lineCenters.size() == lineAttributes.size());
                 size_t n = lineCenters.size();
@@ -1424,6 +1389,8 @@ TubeRenderData LineDataStress::getTubeRenderData() {
         }
     }
 
+
+    TubeRenderData tubeRenderData;
 
     // Add the index buffer.
     tubeRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
@@ -1850,8 +1817,8 @@ BandRenderData LineDataStress::getBandRenderData() {
             size_t numVerticesAdded = vertexPositions.size() - numVerticesOld;
             for (size_t i = 0; i < numVerticesAdded; i++) {
                 vertexPrincipalStressIndices.push_back(psIdx);
-                vertexOffsetsLeft.push_back(glm::vec3(0.0f));
-                vertexOffsetsRight.push_back(glm::vec3(0.0f));
+                vertexOffsetsLeft.emplace_back(0.0f);
+                vertexOffsetsRight.emplace_back(0.0f);
             }
         }
     }
@@ -2034,6 +2001,9 @@ void LineDataStress::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gath
         gatherShader->setUniformOptional(
                 "transferFunctionTexture",
                 multiVarTransferFunctionWindow.getTransferFunctionMapTexture(), 0);
+        if (getUseBandRendering()) {
+            gatherShader->setUniform("bandWidth", LineRenderer::bandWidth);
+        }
     }
     gatherShader->setUniformOptional("currentSeedIdx", int32_t(currentSeedIdx));
 
@@ -2047,8 +2017,7 @@ void LineDataStress::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gath
         }
     }
 
-    if (useBands()) {
-        gatherShader->setUniform("bandWidth", LineRenderer::bandWidth);
+    if (getUseBandRendering()) {
         gatherShader->setUniform(
                 "psUseBands", glm::ivec3(psUseBands[0], psUseBands[1], psUseBands[2]));
     }
@@ -2093,7 +2062,7 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(
         std::vector<LinePointReference> linePointReferences;
         std::vector<glm::vec3> lineTangents;
         std::vector<glm::vec3> lineNormals;
-        if (useBands() && psUseBands.at(psIdx)) {
+        if (getUseBandRendering() && psUseBands.at(psIdx)) {
             std::vector<std::vector<glm::vec3>> bandPointsListRight;
             bandPointsListRight.resize(trajectories.size());
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
@@ -2111,24 +2080,28 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(
             float normalRadius = binormalRadius * minBandThickness;
             if (useCappedTubes) {
                 createCappedTriangleEllipticTubesRenderDataCPU(
-                        lineCentersList, bandPointsListRight, normalRadius, binormalRadius, tubeNumSubdivisions,
+                        lineCentersList, bandPointsListRight, normalRadius,
+                        binormalRadius, tubeNumSubdivisions,
                         false, tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
                         uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
             } else {
                 createTriangleEllipticTubesRenderDataCPU(
-                        lineCentersList, bandPointsListRight, normalRadius, binormalRadius, tubeNumSubdivisions,
+                        lineCentersList, bandPointsListRight, normalRadius,
+                        binormalRadius, tubeNumSubdivisions,
                         tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
                         uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
             }
         } else {
             if (useCappedTubes) {
                 createCappedTriangleTubesRenderDataCPU(
-                        lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions,
-                        false, tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                        lineCentersList, LineRenderer::getLineWidth() * 0.5f,
+                        tubeNumSubdivisions, false,
+                        tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
                         uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
             } else {
                 createTriangleTubesRenderDataCPU(
-                        lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions,
+                        lineCentersList, LineRenderer::getLineWidth() * 0.5f,
+                        tubeNumSubdivisions,
                         tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
                         uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
             }
@@ -2199,7 +2172,8 @@ VulkanTubeAabbRenderData LineDataStress::getVulkanTubeAabbRenderData(LineRendere
         return vulkanTubeAabbRenderData;
     }
 
-    glm::vec3 lineWidthOffset(std::max(LineRenderer::getLineWidth() * 0.5f, LineRenderer::getBandWidth() * 0.5f));
+    //glm::vec3 lineWidthOffset(std::max(LineRenderer::getLineWidth() * 0.5f, LineRenderer::getBandWidth() * 0.5f));
+    glm::vec3 lineWidthOffset(LineRenderer::getLineWidth() * 0.5f);
 
     std::vector<uint32_t> lineSegmentPointIndices;
     std::vector<sgl::AABB3> lineSegmentAabbs;
@@ -2331,16 +2305,15 @@ VulkanTubeAabbRenderData LineDataStress::getVulkanTubeAabbRenderData(LineRendere
 std::map<std::string, std::string> LineDataStress::getVulkanShaderPreprocessorDefines() {
     std::map<std::string, std::string> preprocessorDefines = LineData::getVulkanShaderPreprocessorDefines();
     preprocessorDefines.insert(std::make_pair("STRESS_LINE_DATA", ""));
+    if (std::all_of(
+            psUseBands.cbegin(), psUseBands.cend(), [] (bool useBand) { return useBand; })) {
+        preprocessorDefines.insert(std::make_pair("USE_BANDS", ""));
+    }
     if (usePrincipalStressDirectionIndex) {
         preprocessorDefines.insert(std::make_pair("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", ""));
     }
     if (useLineHierarchy) {
         preprocessorDefines.insert(std::make_pair("USE_LINE_HIERARCHY_LEVEL", ""));
-    }
-    if (renderThickBands) {
-        preprocessorDefines.insert(std::make_pair("MIN_THICKNESS", std::to_string(minBandThickness)));
-    } else {
-        preprocessorDefines.insert(std::make_pair("MIN_THICKNESS", std::to_string(1e-2f)));
     }
     return preprocessorDefines;
 }
@@ -2357,7 +2330,8 @@ void LineDataStress::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr
 
     }
 
-    renderData->setStaticBufferOptional(stressLineRenderSettingsBuffer, "StressLineRenderSettingsBuffer");
+    renderData->setStaticBufferOptional(
+            stressLineRenderSettingsBuffer, "StressLineRenderSettingsBuffer");
 
     if (usePrincipalStressDirectionIndex
             && renderData->getShaderStages()->hasDescriptorBinding(0, "transferFunctionTexture")) {
@@ -2373,10 +2347,8 @@ void LineDataStress::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl:
     LineData::updateVulkanUniformBuffers(lineRenderer, renderer);
 
     stressLineRenderSettings.lineHierarchySlider = glm::vec3(1.0f) - lineHierarchySliderValues;
-    stressLineRenderSettings.bandWidth = LineRenderer::getBandWidth();
     stressLineRenderSettings.psUseBands = glm::ivec3(psUseBands[0], psUseBands[1], psUseBands[2]);
     stressLineRenderSettings.currentSeedIdx = int32_t(currentSeedIdx);
-    stressLineRenderSettings.minBandThickness = minBandThickness;
 
     stressLineRenderSettingsBuffer->updateData(
             sizeof(StressLineRenderSettings), &stressLineRenderSettings, renderer->getVkCommandBuffer());
@@ -2420,7 +2392,7 @@ void LineDataStress::getTriangleMesh(
         std::vector<LinePointReference> linePointReferences;
         std::vector<glm::vec3> lineTangents;
         std::vector<glm::vec3> lineNormals;
-        if (useBands() && psUseBands.at(psIdx)) {
+        if (getUseBandRendering() && psUseBands.at(psIdx)) {
             std::vector<std::vector<glm::vec3>> bandPointsListRight;
             bandPointsListRight.resize(trajectories.size());
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
@@ -2438,24 +2410,28 @@ void LineDataStress::getTriangleMesh(
             float normalRadius = binormalRadius * minBandThickness;
             if (useCappedTubes) {
                 createCappedTriangleEllipticTubesRenderDataCPU(
-                        lineCentersList, bandPointsListRight, normalRadius, binormalRadius, tubeNumSubdivisions,
+                        lineCentersList, bandPointsListRight, normalRadius,
+                        binormalRadius, tubeNumSubdivisions,
                         false, triangleIndices, tubeTriangleVertexDataList, linePointReferences,
                         uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
             } else {
                 createTriangleEllipticTubesRenderDataCPU(
-                        lineCentersList, bandPointsListRight, normalRadius, binormalRadius, tubeNumSubdivisions,
+                        lineCentersList, bandPointsListRight, normalRadius,
+                        binormalRadius, tubeNumSubdivisions,
                         triangleIndices, tubeTriangleVertexDataList, linePointReferences,
                         uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
             }
         } else {
             if (useCappedTubes) {
                 createCappedTriangleTubesRenderDataCPU(
-                        lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions,
-                        false, triangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                        lineCentersList, LineRenderer::getLineWidth() * 0.5f,
+                        tubeNumSubdivisions, false,
+                        triangleIndices, tubeTriangleVertexDataList, linePointReferences,
                         uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
             } else {
                 createTriangleTubesRenderDataCPU(
-                        lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions,
+                        lineCentersList, LineRenderer::getLineWidth() * 0.5f,
+                        tubeNumSubdivisions,
                         triangleIndices, tubeTriangleVertexDataList, linePointReferences,
                         uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
             }

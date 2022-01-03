@@ -118,7 +118,7 @@ vec4 blinnPhongShadingTube(
         in float fragmentVertexId,
         in float phi,
 #endif
-#ifdef STRESS_LINE_DATA
+#if defined(STRESS_LINE_DATA) || (defined(USE_BANDS) && defined(VULKAN))
         in int useBand,
 #endif
 #endif

@@ -134,7 +134,9 @@ flat out uint fragmentVertexIdUint;
 
 #ifdef USE_BANDS
 uniform float bandWidth;
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
 uniform ivec3 psUseBands;
+#endif
 flat out int useBand;
 #if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
 out float thickness0;
@@ -180,7 +182,7 @@ void main() {
     vec3 linePosition1 = (mMatrix * vec4(v_in[1].linePosition, 1.0)).xyz;
 
 #ifdef USE_BANDS
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL) || defined(IS_PSL_DATA)
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
     uint principalStressIndex = v_in[0].linePrincipalStressIndex;
     useBand = psUseBands[principalStressIndex];
 #else
@@ -214,13 +216,8 @@ void main() {
     vec3 tangentNext = v_in[1].lineTangent;
     vec3 binormalNext = cross(tangentNext, normalNext);
 
-#ifdef USE_BANDS
     mat3 tangentFrameMatrixCurrent = mat3(normalCurrent, binormalCurrent, tangentCurrent);
     mat3 tangentFrameMatrixNext = mat3(normalNext, binormalNext, tangentNext);
-#else
-    mat3 tangentFrameMatrixCurrent = mat3(normalCurrent, binormalCurrent, tangentCurrent);
-    mat3 tangentFrameMatrixNext = mat3(normalNext, binormalNext, tangentNext);
-#endif
 
 #ifdef USE_BANDS
     for (int i = 0; i < NUM_TUBE_SUBDIVISIONS; i++) {

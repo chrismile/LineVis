@@ -28,6 +28,8 @@
 
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Renderer.hpp>
+#include <Graphics/Shader/ShaderManager.hpp>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #ifdef USE_VULKAN_INTEROP
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
@@ -39,12 +41,44 @@
 
 #include "LineDataFlow.hpp"
 
+bool LineDataFlow::useRibbons = true;
+
 LineDataFlow::LineDataFlow(sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_FLOW_LINES) {
     lineDataWindowName = "Line Data (Flow)";
 }
 
-LineDataFlow::~LineDataFlow() {
+LineDataFlow::~LineDataFlow() = default;
+
+bool LineDataFlow::settingsDiffer(LineData* other) {
+    return hasBandsData != static_cast<LineDataFlow*>(other)->hasBandsData;
+}
+
+bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodes(propertyEditor);
+
+    if (getUseBandRendering()) {
+        if (propertyEditor.addCheckbox("Render as Bands", &useRibbons)) {
+            dirty = true;
+            shallReloadGatherShader = true;
+        }
+
+        if (propertyEditor.beginNode("Advanced Settings")) {
+            if (propertyEditor.addCheckbox("Render Thick Bands", &renderThickBands)) {
+                shallReloadGatherShader = true;
+            }
+
+            if (renderThickBands && propertyEditor.addSliderFloat(
+                    "Min. Band Thickness", &minBandThickness, 0.01f, 1.0f)) {
+                triangleRepresentationDirty = true;
+                shallReloadGatherShader = true;
+            }
+
+            propertyEditor.endNode();
+        }
+    }
+
+    return shallReloadGatherShader;
 }
 
 bool LineDataFlow::loadFromFile(
@@ -66,9 +100,16 @@ bool LineDataFlow::loadFromFile(
 }
 
 void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
+    hasBandsData = !ribbonsDirections.empty();
     if (ribbonsDirections.empty()
             && (linePrimitiveMode == LINE_PRIMITIVES_BAND || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND)) {
         linePrimitiveMode = LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
+    }
+
+    // Use bands if possible.
+    if (hasBandsData) {
+        linePrimitiveMode = LINE_PRIMITIVES_TUBE_BAND;
+        tubeNumSubdivisions = 8;
     }
 
     this->trajectories = trajectories;
@@ -125,6 +166,26 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
 
 bool LineDataFlow::getIsSmallDataSet() const {
     return numTotalTrajectoryPoints <= SMALL_DATASET_LINE_POINTS_MAX;
+}
+
+bool LineDataFlow::setNewSettings(const SettingsMap& settings) {
+    bool shallReloadGatherShader = LineData::setNewSettings(settings);
+
+    if (getUseBandRendering() && settings.getValueOpt("use_ribbons", useRibbons)) {
+        if (settings.getValueOpt("use_ribbons", useRibbons)) {
+            dirty = true;
+        }
+
+        if (settings.getValueOpt("thick_bands", renderThickBands)) {
+            shallReloadGatherShader = true;
+        }
+
+        if (settings.getValueOpt("min_band_thickness", minBandThickness)) {
+            shallReloadGatherShader = true;
+        }
+    }
+
+    return shallReloadGatherShader;
 }
 
 void LineDataFlow::recomputeHistogram() {
@@ -297,6 +358,63 @@ std::vector<std::vector<glm::vec3>> LineDataFlow::getFilteredLines(LineRenderer*
 }
 
 
+// --- Retrieve data for rendering. Preferred way. ---
+sgl::ShaderProgramPtr LineDataFlow::reloadGatherShader() {
+    if (getUseBandRendering()) {
+        if (renderThickBands) {
+            sgl::ShaderManager->addPreprocessorDefine("BAND_RENDERING_THICK", "");
+            sgl::ShaderManager->addPreprocessorDefine("MIN_THICKNESS", std::to_string(minBandThickness));
+        } else {
+            sgl::ShaderManager->addPreprocessorDefine("MIN_THICKNESS", std::to_string(1e-2f));
+        }
+    }
+
+    sgl::ShaderProgramPtr gatherShader = LineData::reloadGatherShader();
+
+    if (getUseBandRendering()) {
+        if (renderThickBands) {
+            sgl::ShaderManager->removePreprocessorDefine("BAND_RENDERING_THICK");
+        }
+        sgl::ShaderManager->removePreprocessorDefine("MIN_THICKNESS");
+    }
+    return gatherShader;
+}
+
+sgl::ShaderAttributesPtr LineDataFlow::getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader) {
+    if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
+        sgl::ShaderAttributesPtr shaderAttributes;
+        BandRenderData tubeRenderData = this->getBandRenderData();
+        linePointDataSSBO = sgl::GeometryBufferPtr();
+
+        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
+
+        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_LINES);
+        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
+        shaderAttributes->addGeometryBuffer(
+                tubeRenderData.vertexPositionBuffer, "vertexPosition",
+                sgl::ATTRIB_FLOAT, 3);
+        shaderAttributes->addGeometryBufferOptional(
+                tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
+                sgl::ATTRIB_FLOAT, 1);
+        shaderAttributes->addGeometryBufferOptional(
+                tubeRenderData.vertexNormalBuffer, "vertexNormal",
+                sgl::ATTRIB_FLOAT, 3);
+        shaderAttributes->addGeometryBufferOptional(
+                tubeRenderData.vertexTangentBuffer, "vertexTangent",
+                sgl::ATTRIB_FLOAT, 3);
+        shaderAttributes->addGeometryBufferOptional(
+                tubeRenderData.vertexOffsetLeftBuffer, "vertexOffsetLeft",
+                sgl::ATTRIB_FLOAT, 3);
+        shaderAttributes->addGeometryBufferOptional(
+                tubeRenderData.vertexOffsetRightBuffer, "vertexOffsetRight",
+                sgl::ATTRIB_FLOAT, 3);
+        return shaderAttributes;
+    } else {
+        return LineData::getGatherShaderAttributes(gatherShader);
+    }
+}
+
+
 // --- Retrieve data for rendering. ---
 
 TubeRenderData LineDataFlow::getTubeRenderData() {
@@ -312,25 +430,107 @@ TubeRenderData LineDataFlow::getTubeRenderData() {
 
     lineCentersList.resize(trajectories.size());
     lineAttributesList.resize(trajectories.size());
-    for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
-        if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
-            continue;
+    if (getUseBandRendering() && useRibbons) {
+        std::vector<std::vector<glm::vec3>> ribbonDirectionsList;
+
+        ribbonDirectionsList.resize(trajectories.size());
+        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+
+            Trajectory& trajectory = trajectories.at(trajectoryIdx);
+            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
+            std::vector<glm::vec3>& ribbonDirections = ribbonsDirections.at(trajectoryIdx);
+            assert(attributes.size() == trajectory.positions.size());
+            std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
+            std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
+            std::vector<glm::vec3>& ribbonDirectionVectors = ribbonDirectionsList.at(trajectoryIdx);
+
+            for (size_t j = 0; j < trajectory.positions.size(); j++) {
+                lineCenters.push_back(trajectory.positions.at(j));
+                lineAttributes.push_back(attributes.at(j));
+                ribbonDirectionVectors.push_back(ribbonDirections.at(j));
+            }
         }
 
-        Trajectory& trajectory = trajectories.at(trajectoryIdx);
-        std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
-        assert(attributes.size() == trajectory.positions.size());
-        std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
-        std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
-        for (size_t i = 0; i < trajectory.positions.size(); i++) {
-            lineCenters.push_back(trajectory.positions.at(i));
-            lineAttributes.push_back(attributes.at(i));
+        for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
+            const std::vector<glm::vec3>& lineCenters = lineCentersList.at(lineId);
+            const std::vector<float>& lineAttributes = lineAttributesList.at(lineId);
+            const std::vector<glm::vec3>& ribbonDirectionVectors = ribbonDirectionsList.at(lineId);
+            assert(lineCenters.size() == lineAttributes.size());
+            size_t n = lineCenters.size();
+            auto indexOffset = uint32_t(vertexPositions.size());
+
+            if (n < 2) {
+                continue;
+            }
+
+            glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
+            int numValidLinePoints = 0;
+            for (size_t i = 0; i < n; i++) {
+                glm::vec3 tangent, normal;
+                if (i == 0) {
+                    tangent = lineCenters[i+1] - lineCenters[i];
+                } else if (i == n - 1) {
+                    tangent = lineCenters[i] - lineCenters[i-1];
+                } else {
+                    tangent = (lineCenters[i+1] - lineCenters[i-1]);
+                }
+                float lineSegmentLength = glm::length(tangent);
+
+                if (lineSegmentLength < 0.0001f) {
+                    // In case the two vertices are almost identical, just skip this path line segment
+                    continue;
+                }
+                tangent = glm::normalize(tangent);
+
+                normal = glm::cross(ribbonDirectionVectors.at(i), tangent);
+
+                vertexPositions.push_back(lineCenters.at(i));
+                vertexNormals.push_back(normal);
+                vertexTangents.push_back(tangent);
+                vertexAttributes.push_back(lineAttributes.at(i));
+                numValidLinePoints++;
+            }
+
+            if (numValidLinePoints == 1) {
+                // Only one vertex left -> Output nothing (tube consisting only of one point).
+                vertexPositions.pop_back();
+                vertexNormals.pop_back();
+                vertexTangents.pop_back();
+                vertexAttributes.pop_back();
+                continue;
+            }
+
+            // Create indices
+            for (int j = 0; j < numValidLinePoints - 1; j++) {
+                lineIndices.push_back(indexOffset + j);
+                lineIndices.push_back(indexOffset + j + 1);
+            }
         }
+    } else {
+        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+
+            Trajectory& trajectory = trajectories.at(trajectoryIdx);
+            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
+            assert(attributes.size() == trajectory.positions.size());
+            std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
+            std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
+            for (size_t i = 0; i < trajectory.positions.size(); i++) {
+                lineCenters.push_back(trajectory.positions.at(i));
+                lineAttributes.push_back(attributes.at(i));
+            }
+        }
+
+        createLineTubesRenderDataCPU(
+                lineCentersList, lineAttributesList,
+                lineIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes);
     }
 
-    createLineTubesRenderDataCPU(
-            lineCentersList, lineAttributesList,
-            lineIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes);
 
     TubeRenderData tubeRenderData;
 
@@ -481,6 +681,154 @@ TubeRenderDataOpacityOptimization LineDataFlow::getTubeRenderDataOpacityOptimiza
     return tubeRenderData;
 }
 
+BandRenderData LineDataFlow::getBandRenderData() {
+    rebuildInternalRepresentationIfNecessary();
+    BandRenderData bandRenderData;
+
+    std::vector<uint32_t> lineIndices;
+    std::vector<glm::vec3> vertexPositions;
+    std::vector<float> vertexAttributes;
+    std::vector<glm::vec3> vertexNormals;
+    std::vector<glm::vec3> vertexTangents;
+    std::vector<glm::vec3> vertexOffsetsLeft;
+    std::vector<glm::vec3> vertexOffsetsRight;
+    std::vector<uint32_t> vertexPrincipalStressIndices;
+    std::vector<float> vertexLineHierarchyLevels;
+    std::vector<uint32_t> vertexLineAppearanceOrders;
+
+    if (useRibbons) {
+        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+
+            Trajectory& trajectory = trajectories.at(trajectoryIdx);
+            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
+            std::vector<glm::vec3>& ribbonDirections = ribbonsDirections.at(trajectoryIdx);
+            assert(attributes.size() == trajectory.positions.size());
+            assert(attributes.size() == ribbonDirections.size());
+
+            if (trajectory.positions.size() < 2) {
+                continue;
+            }
+
+            auto indexStart = uint32_t(vertexPositions.size());
+            int n = int(trajectory.positions.size());
+            int numValidLinePoints = 0;
+            for (int i = 0; i < int(trajectory.positions.size()); i++) {
+                auto ribbonDirection = ribbonDirections.at(i);
+                vertexPositions.push_back(trajectory.positions.at(i));
+                vertexOffsetsLeft.push_back(-ribbonDirection);
+                vertexOffsetsRight.push_back(ribbonDirection);
+
+                glm::vec3 vertexTangent;
+                if (i == 0) {
+                    vertexTangent = trajectory.positions[i+1] - trajectory.positions[i];
+                } else if (i == n - 1) {
+                    vertexTangent = trajectory.positions[i] - trajectory.positions[i-1];
+                } else {
+                    vertexTangent = trajectory.positions[i+1] - trajectory.positions[i-1];
+                }
+                vertexTangent = glm::normalize(vertexTangent);
+                vertexTangents.push_back(vertexTangent);
+
+                glm::vec3 vertexNormal = glm::normalize(glm::cross(vertexTangent, ribbonDirection));
+                vertexNormals.push_back(vertexNormal);
+
+                vertexAttributes.push_back(attributes.at(i));
+                numValidLinePoints++;
+            }
+
+            if (numValidLinePoints == 1) {
+                // Only one vertex left -> Output nothing (tube consisting only of one point).
+                vertexPositions.pop_back();
+                vertexNormals.pop_back();
+                vertexTangents.pop_back();
+                vertexAttributes.pop_back();
+                vertexLineHierarchyLevels.pop_back();
+                vertexLineAppearanceOrders.pop_back();
+                continue;
+            }
+
+            for (int i = 0; i < numValidLinePoints - 1; i++) {
+                lineIndices.push_back(indexStart + i);
+                lineIndices.push_back(indexStart + i + 1);
+            }
+        }
+    } else {
+        // 1. Compute all tangents.
+        std::vector<std::vector<glm::vec3>> lineCentersList;
+        std::vector<std::vector<float>> lineAttributesList;
+
+        lineCentersList.resize(trajectories.size());
+        lineAttributesList.resize(trajectories.size());
+        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+
+            Trajectory& trajectory = trajectories.at(trajectoryIdx);
+            //StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
+            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
+            assert(attributes.size() == trajectory.positions.size());
+            std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
+            std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
+            for (size_t i = 0; i < trajectory.positions.size(); i++) {
+                lineCenters.push_back(trajectory.positions.at(i));
+                lineAttributes.push_back(attributes.at(i));
+            }
+        }
+
+        size_t numVerticesOld = vertexPositions.size();
+        std::vector<uint32_t> validLineIndices;
+        std::vector<uint32_t> numValidLineVertices;
+        createLineTubesRenderDataCPU(
+                lineCentersList, lineAttributesList,
+                lineIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes,
+                validLineIndices, numValidLineVertices);
+        size_t numVerticesAdded = vertexPositions.size() - numVerticesOld;
+        for (size_t i = 0; i < numVerticesAdded; i++) {
+            vertexOffsetsLeft.emplace_back(0.0f);
+            vertexOffsetsRight.emplace_back(0.0f);
+        }
+    }
+
+    // Add the index buffer.
+    bandRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
+            lineIndices.size()*sizeof(uint32_t), lineIndices.data(), sgl::INDEX_BUFFER);
+
+    // Add the position buffer.
+    bandRenderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexPositions.size()*sizeof(glm::vec3), vertexPositions.data(), sgl::VERTEX_BUFFER);
+
+    // Add the attribute buffer.
+    bandRenderData.vertexAttributeBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexAttributes.size()*sizeof(float), vertexAttributes.data(), sgl::VERTEX_BUFFER);
+
+    // Add the normal buffer.
+    bandRenderData.vertexNormalBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexNormals.size()*sizeof(glm::vec3), vertexNormals.data(), sgl::VERTEX_BUFFER);
+
+    // Add the tangent buffer.
+    bandRenderData.vertexTangentBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexTangents.size()*sizeof(glm::vec3), vertexTangents.data(), sgl::VERTEX_BUFFER);
+
+    // Add the left vertex offset buffer.
+    bandRenderData.vertexOffsetLeftBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexOffsetsLeft.size()*sizeof(glm::vec3), vertexOffsetsLeft.data(), sgl::VERTEX_BUFFER);
+
+    // Add the right vertex offset buffer.
+    bandRenderData.vertexOffsetRightBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexOffsetsRight.size()*sizeof(glm::vec3), vertexOffsetsRight.data(), sgl::VERTEX_BUFFER);
+
+    // Add the line appearance order buffer.
+    bandRenderData.vertexLineAppearanceOrderBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexLineAppearanceOrders.size()*sizeof(uint32_t),
+            vertexLineAppearanceOrders.data(), sgl::VERTEX_BUFFER);
+
+    return bandRenderData;
+}
+
 
 #ifdef USE_VULKAN_INTEROP
 VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(
@@ -507,16 +855,45 @@ VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(
         lineCentersList.at(trajectoryIdx) = trajectories.at(trajectoryIdx).positions;
     }
 
-    if (useCappedTubes) {
-        createCappedTriangleTubesRenderDataCPU(
-                lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions, false,
-                tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
-                0, lineTangents, lineNormals);
+    if (getUseBandRendering() && useRibbons) {
+        std::vector<std::vector<glm::vec3>> ribbonDirectionsList;
+        ribbonDirectionsList.resize(trajectories.size());
+        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+            ribbonDirectionsList.at(trajectoryIdx) = ribbonsDirections.at(trajectoryIdx);
+        }
+
+        float binormalRadius = LineRenderer::getBandWidth() * 0.5f;
+        float normalRadius = binormalRadius * minBandThickness;
+        if (useCappedTubes) {
+            createCappedTriangleEllipticTubesRenderDataCPU(
+                    lineCentersList, ribbonDirectionsList, normalRadius,
+                    binormalRadius, tubeNumSubdivisions,
+                    false, tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                    0, lineTangents, lineNormals);
+        } else {
+            createTriangleEllipticTubesRenderDataCPU(
+                    lineCentersList, ribbonDirectionsList, normalRadius,
+                    binormalRadius, tubeNumSubdivisions,
+                    tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                    0, lineTangents, lineNormals);
+        }
     } else {
-        createTriangleTubesRenderDataCPU(
-                lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions,
-                tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
-                0, lineTangents, lineNormals);
+        if (useCappedTubes) {
+            createCappedTriangleTubesRenderDataCPU(
+                    lineCentersList, LineRenderer::getLineWidth() * 0.5f,
+                    tubeNumSubdivisions, false,
+                    tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                    0, lineTangents, lineNormals);
+        } else {
+            createTriangleTubesRenderDataCPU(
+                    lineCentersList, LineRenderer::getLineWidth() * 0.5f,
+                    tubeNumSubdivisions,
+                    tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                    0, lineTangents, lineNormals);
+        }
     }
 
     tubeTriangleLinePointDataList.resize(linePointReferences.size());
@@ -680,6 +1057,14 @@ VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData(LineRenderer*
 
     return vulkanTubeAabbRenderData;
 }
+
+std::map<std::string, std::string> LineDataFlow::getVulkanShaderPreprocessorDefines() {
+    std::map<std::string, std::string> preprocessorDefines = LineData::getVulkanShaderPreprocessorDefines();
+    if (useRibbons) {
+        preprocessorDefines.insert(std::make_pair("USE_BANDS", ""));
+    }
+    return preprocessorDefines;
+}
 #endif
 
 void LineDataFlow::getTriangleMesh(
@@ -703,16 +1088,45 @@ void LineDataFlow::getTriangleMesh(
         lineCentersList.at(trajectoryIdx) = trajectories.at(trajectoryIdx).positions;
     }
 
-    if (useCappedTubes) {
-        createCappedTriangleTubesRenderDataCPU(
-                lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions, false,
-                triangleIndices, tubeTriangleVertexDataList, linePointReferences,
-                0, lineTangents, lineNormals);
+    if (getUseBandRendering() && useRibbons) {
+        std::vector<std::vector<glm::vec3>> ribbonDirectionsList;
+        ribbonDirectionsList.resize(trajectories.size());
+        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+            ribbonDirectionsList.at(trajectoryIdx) = ribbonsDirections.at(trajectoryIdx);
+        }
+
+        float binormalRadius = LineRenderer::getBandWidth() * 0.5f;
+        float normalRadius = binormalRadius * minBandThickness;
+        if (useCappedTubes) {
+            createCappedTriangleEllipticTubesRenderDataCPU(
+                    lineCentersList, ribbonDirectionsList, normalRadius,
+                    binormalRadius, tubeNumSubdivisions,
+                    false, triangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                    0, lineTangents, lineNormals);
+        } else {
+            createTriangleEllipticTubesRenderDataCPU(
+                    lineCentersList, ribbonDirectionsList, normalRadius,
+                    binormalRadius, tubeNumSubdivisions,
+                    triangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                    0, lineTangents, lineNormals);
+        }
     } else {
-        createTriangleTubesRenderDataCPU(
-                lineCentersList, LineRenderer::getLineWidth() * 0.5f, tubeNumSubdivisions,
-                triangleIndices, tubeTriangleVertexDataList, linePointReferences,
-                0, lineTangents, lineNormals);
+        if (useCappedTubes) {
+            createCappedTriangleTubesRenderDataCPU(
+                    lineCentersList, LineRenderer::getLineWidth() * 0.5f,
+                    tubeNumSubdivisions, false,
+                    triangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                    0, lineTangents, lineNormals);
+        } else {
+            createTriangleTubesRenderDataCPU(
+                    lineCentersList, LineRenderer::getLineWidth() * 0.5f,
+                    tubeNumSubdivisions,
+                    triangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                    0, lineTangents, lineNormals);
+        }
     }
 
     vertexPositions.reserve(tubeTriangleVertexDataList.size());

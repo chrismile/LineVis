@@ -36,8 +36,12 @@ class LineDataFlow : public LineData {
 public:
     explicit LineDataFlow(sgl::TransferFunctionWindow& transferFunctionWindow);
     ~LineDataFlow() override;
+    bool settingsDiffer(LineData* other) override;
     virtual void setTrajectoryData(const Trajectories& trajectories);
-    bool getIsSmallDataSet() const override;
+    [[nodiscard]] bool getIsSmallDataSet() const override;
+
+    /// For changing internal settings programmatically and not over the GUI.
+    bool setNewSettings(const SettingsMap& settings) override;
 
     /**
      * Load line data from the selected file(s).
@@ -66,15 +70,21 @@ public:
     Trajectories filterTrajectoryData() override;
     std::vector<std::vector<glm::vec3>> getFilteredLines(LineRenderer* lineRenderer) override;
 
+    // --- Retrieve data for rendering. Preferred way. ---
+    sgl::ShaderProgramPtr reloadGatherShader() override;
+    sgl::ShaderAttributesPtr getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader) override;
+
     // --- Retrieve data for rendering. ---
     TubeRenderData getTubeRenderData() override;
     TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch() override;
     TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization() override;
+    BandRenderData getBandRenderData() override;
 
 #ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---
     VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
     VulkanTubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) override;
+    std::map<std::string, std::string> getVulkanShaderPreprocessorDefines() override;
 #endif
 
     // --- Retrieve triangle mesh on the CPU. ---
@@ -86,13 +96,22 @@ public:
             LineRenderer* lineRenderer,
             std::vector<uint32_t>& triangleIndices, std::vector<glm::vec3>& vertexPositions) override;
 
+    /**
+     * Renders the entries in the property editor.
+     * @return true if the gather shader needs to be reloaded.
+     */
+    bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
+
 protected:
     void recomputeHistogram() override;
 
     Trajectories trajectories;
-    std::vector<std::vector<glm::vec3>> ribbonsDirections;
     size_t numTotalTrajectoryPoints = 0;
     std::vector<bool> filteredTrajectories;
+
+    // Optional ribbon data.
+    static bool useRibbons;
+    std::vector<std::vector<glm::vec3>> ribbonsDirections;
 };
 
 #endif //STRESSLINEVIS_LINEDATAFLOW_HPP

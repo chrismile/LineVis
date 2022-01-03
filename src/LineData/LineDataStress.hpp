@@ -132,10 +132,6 @@ public:
      */
     bool renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer) override;
     /**
-     * For changing other line rendering settings.
-     */
-    bool renderGuiRenderingSettingsPropertyEditor(sgl::PropertyEditor& propertyEditor) override;
-    /**
      * For rendering secondary ImGui windows (e.g., for transfer function widgets).
      * @return true if the gather shader needs to be reloaded.
      */
@@ -195,8 +191,6 @@ private:
     std::vector<glm::vec2> minMaxAttributeValuesPs[3];
     size_t numTotalTrajectoryPoints = 0;
     int fileFormatVersion = 0;
-    // If optional band data is provided:
-    bool hasBandsData = false;
     std::vector<std::vector<std::vector<glm::vec3>>> bandPointsUnsmoothedListLeftPs, bandPointsUnsmoothedListRightPs;
     std::vector<std::vector<std::vector<glm::vec3>>> bandPointsSmoothedListLeftPs, bandPointsSmoothedListRightPs;
     static std::array<bool, 3> psUseBands;
@@ -234,11 +228,9 @@ private:
 #ifdef USE_VULKAN_INTEROP
     struct StressLineRenderSettings {
         glm::vec3 lineHierarchySlider{};
-        float bandWidth{};
+        float paddingStressLineSettings{};
         glm::ivec3 psUseBands{};
         int currentSeedIdx{};
-        glm::vec3 paddingStressLineSettings{};
-        float minBandThickness{};
     };
 
     // Uniform buffers with settings for rendering.

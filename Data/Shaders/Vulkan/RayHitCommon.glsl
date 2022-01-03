@@ -35,25 +35,26 @@
 
 layout(binding = 4) uniform LineRenderSettingsBuffer {
     float lineWidth;
-    int hasHullMesh;
+    float bandWidth;
     float depthCueStrength;
     float ambientOcclusionStrength;
+    vec3 paddingLineRenderSettings;
+    float minBandThickness;
+
+    uint hasHullMesh;
 
     // Ambient occlusion settings.
     uint numAoTubeSubdivisions;
     uint numLineVertices;
     uint numParametrizationVertices;
-    uint paddingLineSettings;
 };
 
 #ifdef STRESS_LINE_DATA
 layout(binding = 5) uniform StressLineRenderSettingsBuffer {
     vec3 lineHierarchySlider;
-    float bandWidth;
+    float paddingStressLineSettings;
     ivec3 psUseBands;
     int currentSeedIdx;
-    vec3 paddingStressLineSettings;
-    float minBandThickness;
 };
 #endif
 
@@ -91,13 +92,13 @@ void computeFragmentColor(
 #ifdef USE_CAPPED_TUBES
         bool isCap,
 #endif
-#if defined (STRESS_LINE_DATA) || defined(USE_AMBIENT_OCCLUSION)
+#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
         float phi,
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
         float fragmentVertexId,
 #endif
-#ifdef STRESS_LINE_DATA
+#ifdef USE_BANDS
         vec3 linePosition, vec3 lineNormal,
 #endif
         TubeLinePointData linePointData0, TubeLinePointData linePointData1
@@ -118,11 +119,18 @@ void computeFragmentColor(
     const vec3 v = normalize(cameraPosition - fragmentPositionWorld);
     const vec3 t = normalize(fragmentTangent);
 
-#ifdef STRESS_LINE_DATA
+
+#ifdef USE_BANDS
 #ifdef ANALYTIC_TUBE_INTERSECTIONS
     bool useBand = false; // Bands not supported (yet) for analytic tube intersections.
 #else
+
+#ifdef STRESS_LINE_DATA
     bool useBand = psUseBands[linePointData0.principalStressIndex] > 0;
+#else
+    bool useBand = true;
+#endif
+
 #endif
     const float thickness = useBand ? MIN_THICKNESS : 1.0;
 #endif
@@ -165,7 +173,7 @@ void computeFragmentColor(
     } else {
 #endif
 
-#ifdef STRESS_LINE_DATA
+#ifdef USE_BANDS
         vec3 lineN = normalize(lineNormal);
         vec3 lineB = cross(t, lineN);
         mat3 tangentFrameMatrix = mat3(lineN, lineB, t);
@@ -300,7 +308,7 @@ void computeFragmentColor(
 #ifdef USE_AMBIENT_OCCLUSION
             fragmentVertexId, phi,
 #endif
-#ifdef STRESS_LINE_DATA
+#ifdef USE_BANDS
             useBand ? 1 : 0,
 #endif
             n, t);
@@ -308,7 +316,7 @@ void computeFragmentColor(
     float absCoords = abs(ribbonPosition);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
     const float WHITE_THRESHOLD = 0.7;
-#ifdef STRESS_LINE_DATA
+#ifdef USE_BANDS
     //float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / (useBand ? bandWidth : lineWidth), 0.0, 0.49);
     float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDepth / (useBand ? bandWidth : lineWidth) * 2.0), 0.0, 0.49);
     float EPSILON_WHITE = clamp(getAntialiasingFactor(fragmentDepth / (useBand ? bandWidth : lineWidth) * 2.0), 0.0, 0.49);

@@ -101,7 +101,9 @@ layout(triangle_strip, max_vertices = 4) out;
 uniform vec3 cameraPosition;
 uniform float lineWidth;
 uniform float bandWidth;
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
 uniform ivec3 psUseBands;
+#endif
 
 out vec3 fragmentPositionWorld;
 #ifdef USE_SCREEN_SPACE_POSITION
@@ -153,7 +155,7 @@ void main() {
     vec3 tangent0 = normalize(v_in[0].lineTangent);
     vec3 tangent1 = normalize(v_in[1].lineTangent);
 
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL) || defined(IS_PSL_DATA)
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
     useBand = psUseBands[v_in[0].linePrincipalStressIndex];
 #else
     useBand = 1;

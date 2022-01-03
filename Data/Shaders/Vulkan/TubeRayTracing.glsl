@@ -45,15 +45,18 @@ layout(binding = 2) uniform accelerationStructureEXT topLevelAS;
 
 layout(binding = 4) uniform LineRenderSettingsBuffer {
     float lineWidth;
-    int hasHullMesh;
+    float bandWidth;
     float depthCueStrength;
     float ambientOcclusionStrength;
+    vec3 paddingLineRenderSettings;
+    float minBandThickness;
+
+    uint hasHullMesh;
 
     // Ambient occlusion settings.
     uint numAoTubeSubdivisions;
     uint numLineVertices;
     uint numParametrizationVertices;
-    uint paddingLineSettings;
 };
 
 layout(binding = 9) uniform HullRenderSettingsBuffer {
@@ -86,7 +89,7 @@ vec4 traceRayTransparent(vec3 rayOrigin, vec3 rayDirection) {
     for (uint hitIdx = 0; hitIdx < maxDepthComplexity; hitIdx++) {
         traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, rayOrigin, tMin, rayDirection, tMax, 0);
 
-        tMin = payload.hitT + payload.hitT * HIT_DISTANCE_EPSILON;
+        tMin = payload.hitT + max(payload.hitT * HIT_DISTANCE_EPSILON, 1e-7);
 
         // Front-to-back blending (hitColor uses post-multiplied, fragmentColor uses pre-multiplied alpha).
         fragmentColor.rgb = fragmentColor.rgb + (1.0 - fragmentColor.a) * payload.hitColor.a * payload.hitColor.rgb;
@@ -348,7 +351,7 @@ void main() {
             linePointData0.lineAttribute, linePointData1.lineAttribute, linePointData2.lineAttribute,
             barycentricCoordinates);
 
-#if defined (STRESS_LINE_DATA) || defined(USE_AMBIENT_OCCLUSION)
+#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
     float phi = interpolateAngle(
             vertexData0.phi, vertexData1.phi, vertexData2.phi, barycentricCoordinates);
 #endif
@@ -358,7 +361,7 @@ void main() {
             barycentricCoordinates);
 #endif
 
-#ifdef STRESS_LINE_DATA
+#ifdef USE_BANDS
     vec3 linePosition = interpolateVec3(
             linePointData0.linePosition, linePointData1.linePosition, linePointData2.linePosition, barycentricCoordinates);
     vec3 lineNormal = interpolateVec3(
@@ -370,13 +373,13 @@ void main() {
 #ifdef USE_CAPPED_TUBES
             isCap,
 #endif
-#if defined (STRESS_LINE_DATA) || defined(USE_AMBIENT_OCCLUSION)
+#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
             phi,
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
             fragmentVertexId,
 #endif
-#ifdef STRESS_LINE_DATA
+#ifdef USE_BANDS
             linePosition, lineNormal,
 #endif
             linePointData0, linePointData1
@@ -485,15 +488,18 @@ void main() {
 
 layout(binding = 4) uniform LineRenderSettingsBuffer {
     float lineWidth;
-    int hasHullMesh;
+    float bandWidth;
     float depthCueStrength;
     float ambientOcclusionStrength;
+    vec3 paddingLineRenderSettings;
+    float minBandThickness;
+
+    uint hasHullMesh;
 
     // Ambient occlusion settings.
     uint numAoTubeSubdivisions;
     uint numLineVertices;
     uint numParametrizationVertices;
-    uint paddingLineSettings;
 };
 
 struct TubeLinePointData {
@@ -613,7 +619,7 @@ void main() {
     bool isCap = gl_HitKindEXT != 0;
 #endif
 
-#if defined (STRESS_LINE_DATA) || defined(USE_AMBIENT_OCCLUSION)
+#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
     vec3 lineNormal = (1.0 - t) * linePointData0.lineNormal + t * linePointData1.lineNormal;
 
     // Compute the angle between the fragment and line normal to get phi.
@@ -632,13 +638,13 @@ void main() {
 #ifdef USE_CAPPED_TUBES
             isCap,
 #endif
-#if defined (STRESS_LINE_DATA) || defined(USE_AMBIENT_OCCLUSION)
+#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
             phi,
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
             fragmentVertexId,
 #endif
-#ifdef STRESS_LINE_DATA
+#ifdef USE_BANDS
             linePointInterpolated, lineNormal,
 #endif
             linePointData0, linePointData1

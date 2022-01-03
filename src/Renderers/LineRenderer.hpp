@@ -121,6 +121,7 @@ public:
     static void setBandWidth(float width) { LineRenderer::bandWidth = width; }
     static inline float getLineWidth() { return LineRenderer::lineWidth; }
     static inline float getBandWidth() { return LineRenderer::bandWidth; }
+    static inline float getMinBandThickness() { return LineData::getMinBandThickness(); }
 
     inline const std::string& getWindowName() { return windowName; }
 
@@ -185,6 +186,7 @@ protected:
     static constexpr float MAX_BAND_WIDTH = 0.020f;
     static float lineWidth;
     static float bandWidth;
+    static float minBandThickness;
 };
 
 #endif // RENDERERS_HEXAHEDRALMESHRENDERER_HPP

@@ -101,7 +101,7 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
 
     if (lineRenderer->getIsRasterizer()) {
         int numPrimitiveModes = IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES);
-        if (getType() != DATA_SET_TYPE_STRESS_LINES) {
+        if (!hasBandsData) {
             numPrimitiveModes -= 2;
         }
         if (lineRenderer->getRenderingMode() != RENDERING_MODE_OPACITY_OPTIMIZATION && propertyEditor.addCombo(
@@ -158,6 +158,17 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
 }
 
 bool LineData::renderGuiRenderingSettingsPropertyEditor(sgl::PropertyEditor& propertyEditor) {
+    if (getUseBandRendering()) {
+        bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
+        ImGui::EditMode editMode = propertyEditor.addSliderFloatEdit(
+                "Band Width", &LineRenderer::bandWidth,
+                LineRenderer::MIN_BAND_WIDTH, LineRenderer::MAX_BAND_WIDTH, "%.4f");
+        if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
+            || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
+            reRender = true;
+            setTriangleRepresentationDirty();
+        }
+    }
     return false;
 }
 
@@ -415,6 +426,10 @@ void LineData::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShad
             transferFunctionWindow.getTransferFunctionMapTexture(), 0);
     gatherShader->setUniformOptional("minAttributeValue", transferFunctionWindow.getSelectedRangeMin());
     gatherShader->setUniformOptional("maxAttributeValue", transferFunctionWindow.getSelectedRangeMax());
+
+    if (getUseBandRendering()) {
+        gatherShader->setUniform("bandWidth", LineRenderer::bandWidth);
+    }
 }
 
 void LineData::setUniformGatherShaderDataHull_Pass(sgl::ShaderProgramPtr& gatherShader) {
@@ -674,6 +689,11 @@ std::map<std::string, std::string> LineData::getVulkanShaderPreprocessorDefines(
     if (useCappedTubes) {
         preprocessorDefines.insert(std::make_pair("USE_CAPPED_TUBES", ""));
     }
+    if (renderThickBands) {
+        preprocessorDefines.insert(std::make_pair("MIN_THICKNESS", std::to_string(minBandThickness)));
+    } else {
+        preprocessorDefines.insert(std::make_pair("MIN_THICKNESS", std::to_string(1e-2f)));
+    }
     return preprocessorDefines;
 }
 
@@ -710,6 +730,8 @@ void LineData::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& rend
 
 void LineData::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::Renderer* renderer) {
     lineRenderSettings.lineWidth = LineRenderer::getLineWidth();
+    lineRenderSettings.bandWidth = LineRenderer::getBandWidth();
+    lineRenderSettings.minBandThickness = minBandThickness;
     lineRenderSettings.hasHullMesh = simulationMeshOutlineTriangleIndices.empty() ? 0 : 1;
     lineRenderSettings.depthCueStrength = lineRenderer ? lineRenderer->depthCueStrength : 0.0f;
     lineRenderSettings.ambientOcclusionStrength = lineRenderer ? lineRenderer->ambientOcclusionStrength : 0.0f;
@@ -721,7 +743,7 @@ void LineData::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::R
     }
 
     hullRenderSettings.color = glm::vec4(hullColor.r, hullColor.g, hullColor.b, hullOpacity);
-    hullRenderSettings.useShading = int(hullUseShading);
+    hullRenderSettings.useShading = uint32_t(hullUseShading);
 
     lineRenderSettingsBuffer->updateData(
             sizeof(LineRenderSettings), &lineRenderSettings, renderer->getVkCommandBuffer());

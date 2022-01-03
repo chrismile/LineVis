@@ -202,23 +202,30 @@ private:
     // Uniform buffer object storing the line rendering settings.
     struct LineRenderSettings {
         // The radius of the lines.
-        float lineRadius;
+        float lineRadius{};
+        // The radius of the bands.
+        float bandRadius{};
+        // The minimum band thickness to use when rendering bands.
+        float minBandThickness{};
         // What is the radius to take into account for ambient occlusion?
-        float ambientOcclusionRadius;
+        float ambientOcclusionRadius{};
 
         // How many line points exist in total (i.e., the number of entries in the buffer "LineGeometry").
-        uint32_t numLinePoints;
+        uint32_t numLinePoints{};
         // How many line points exist in total (i.e., the number of entries in the buffer "LineGeometry").
-        uint32_t numParametrizationVertices;
+        uint32_t numParametrizationVertices{};
         // How often should the tube be subdivided in the normal plane?
-        uint32_t numTubeSubdivisions;
+        uint32_t numTubeSubdivisions{};
         // The number of this frame (used for accumulation of samples across frames).
-        uint32_t frameNumber;
+        uint32_t frameNumber{};
 
         // How many rays should the shader shoot?
-        uint32_t numAmbientOcclusionSamples;
+        uint32_t numAmbientOcclusionSamples{};
         // Should the distance of the AO hits be used?
-        int useDistance;
+        uint32_t useDistance{};
+
+        uint32_t aoUniformBufferPadding0{};
+        uint32_t aoUniformBufferPadding1{};
     };
     LineRenderSettings lineRenderSettings{};
     sgl::vk::BufferPtr lineRenderSettingsBuffer;

@@ -699,12 +699,14 @@ void AmbientOcclusionComputeRenderPass::_render() {
     lineData->updateVulkanUniformBuffers(nullptr, renderer);
 
     lineRenderSettings.lineRadius = LineRenderer::getLineWidth() * 0.5f;
+    lineRenderSettings.bandRadius = LineRenderer::getBandWidth() * 0.5f;
+    lineRenderSettings.minBandThickness = LineRenderer::getMinBandThickness();
     lineRenderSettings.ambientOcclusionRadius = ambientOcclusionRadius;
     lineRenderSettings.numLinePoints = numLineVertices;
     lineRenderSettings.numParametrizationVertices = numParametrizationVertices;
     lineRenderSettings.numTubeSubdivisions = numTubeSubdivisions;
     lineRenderSettings.numAmbientOcclusionSamples = numAmbientOcclusionSamplesPerFrame;
-    lineRenderSettings.useDistance = int(useDistance);
+    lineRenderSettings.useDistance = uint32_t(useDistance);
     lineRenderSettingsBuffer->updateData(
             sizeof(LineRenderSettings), &lineRenderSettings, renderer->getVkCommandBuffer());
 

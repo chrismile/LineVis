@@ -451,15 +451,10 @@ void StreamlineTracingGrid::_pushRibbonDirections(
                     "Warning in StreamlineTracingGrid::_pushRibbonDirections: "
                     "The line segment length is smaller than 1e-7.");
         }
+        tangent = glm::normalize(tangent);
 
         glm::vec3 particlePosition = trajectory.positions.back();
         float helicity = _getScalarFieldAtPosition(helicityField, particlePosition); // TODO
-
-        if (ribbonDirections.empty()) {
-            lastRibbonDirection = glm::vec3(0.0f, 1.0f, 0.0f);
-        } else {
-            lastRibbonDirection = ribbonDirections.back();
-        }
 
         glm::vec3 helperAxis = lastRibbonDirection;
         if (glm::length(glm::cross(helperAxis, tangent)) < 1e-2f) {

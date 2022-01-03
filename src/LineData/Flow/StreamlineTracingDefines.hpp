@@ -97,7 +97,7 @@ class StreamlineTracingGrid;
 
 struct StreamlineTracingSettings {
     std::string dataSourceFilename{};
-    FlowPrimitives flowPrimitives = FlowPrimitives::STREAMLINES;
+    FlowPrimitives flowPrimitives = FlowPrimitives::STREAMRIBBONS;
     int numPrimitives = 1024;
     StreamlineSeedingStrategy streamlineSeedingStrategy = StreamlineSeedingStrategy::VOLUME;
     StreamlineSeederPtr seeder = nullptr;

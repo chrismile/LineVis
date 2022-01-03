@@ -162,7 +162,6 @@ public:
     virtual TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch()=0;
     virtual TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization()=0;
     virtual BandRenderData getBandRenderData() { return {}; }
-    virtual BandRenderData getTubeBandRenderData() { return {}; }
 
 #ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---
@@ -235,14 +234,15 @@ public:
         LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH,
         LINE_PRIMITIVES_RIBBON_GEOMETRY_SHADER,
         LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER,
-        LINE_PRIMITIVES_BAND, //< Only for stress lines for now.
-        LINE_PRIMITIVES_TUBE_BAND, //< Only for stress lines for now.
+        LINE_PRIMITIVES_BAND,
+        LINE_PRIMITIVES_TUBE_BAND,
         LINE_PRIMITIVES_TRIANGLE_MESH //< Not supported so far.
     };
     static inline LinePrimitiveMode getLinePrimitiveMode() { return linePrimitiveMode; }
-    static inline bool useBands() {
+    static inline bool getUseBandRendering() {
         return linePrimitiveMode == LINE_PRIMITIVES_BAND || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND;
     }
+    static inline float getMinBandThickness() { return minBandThickness; }
 
     /// This function should be called by sub-classes before accessing internal rendering data.
     virtual void rebuildInternalRepresentationIfNecessary();
@@ -277,12 +277,15 @@ protected:
     std::vector<LineRenderer*> lineRenderersCached;
     static LinePrimitiveMode linePrimitiveMode;
     static int tubeNumSubdivisions; ///< Number of tube subdivisions for LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER.
-    static bool renderThickBands;
-    static float minBandThickness;
     std::vector<std::string> supportedRenderingModes;
     bool useCappedTubes = true;
     bool showLineDataWindow = true;
     std::string lineDataWindowName;
+
+    // If optional band data is provided.
+    bool hasBandsData = false;
+    static bool renderThickBands;
+    static float minBandThickness;
 
     /// Stores line point data if linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH.
     sgl::GeometryBufferPtr linePointDataSSBO;
@@ -306,20 +309,23 @@ protected:
 
     struct LineRenderSettings {
         float lineWidth = 0.0f;
-        int32_t hasHullMesh = 0;
+        float bandWidth = 0.0f;
         float depthCueStrength = 0.0f;
         float ambientOcclusionStrength = 0.0f;
+        glm::vec3 paddingLineRenderSettings{};
+        float minBandThickness = 0.0f;
+
+        uint32_t hasHullMesh = 0;
 
         // Ambient occlusion settings.
         uint32_t numAoTubeSubdivisions = 0;
         uint32_t numLineVertices = 0;
         uint32_t numParametrizationVertices = 0;
-        uint32_t paddingLineSettings = 0;
     };
     struct HullRenderSettings {
         glm::vec4 color;
         glm::ivec3 padding;
-        int32_t useShading;
+        uint32_t useShading;
     };
 
     // Uniform buffers with settings for rendering.
