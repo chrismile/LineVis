@@ -14,10 +14,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        use-vulkan: [true, false]
+        use-vulkan: [ true, false ]
         os: [ ubuntu-18.04, ubuntu-20.04 ]
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     name: "Build on ${{ matrix.os }} (Vulkan: ${{ matrix.use-vulkan }})"
 
     env:
