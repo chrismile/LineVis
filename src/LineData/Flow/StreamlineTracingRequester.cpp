@@ -29,6 +29,7 @@
 #include <algorithm>
 
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 #include <tracy/Tracy.hpp>
 
 #include <Utils/AppSettings.hpp>
@@ -109,7 +110,7 @@ void StreamlineTracingRequester::loadGridDataSetList() {
 }
 
 void StreamlineTracingRequester::renderGui() {
-    sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(3072, 1146, 760, 628);
+    sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(3030, 1100, 780, 920);
     if (ImGui::Begin("Streamline Tracer", &showWindow)) {
         {
             std::lock_guard<std::mutex> replyLock(gridInfoMutex);
@@ -199,7 +200,7 @@ void StreamlineTracingRequester::renderGui() {
             }
             if (guiTracingSettings.streamlineSeedingStrategy == StreamlineSeedingStrategy::MAX_HELICITY_FIRST
                 && ImGui::SliderFloat(
-                    "Min. Line Length", &guiTracingSettings.minimumSeparationDistance,
+                    "Min. Separation Dist.", &guiTracingSettings.minimumSeparationDistance,
                     0.001f, 1.0f, "%.3f")) {
                 changed = true;
             }
@@ -247,8 +248,7 @@ void StreamlineTracingRequester::renderGui() {
 }
 
 void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settings) {
-    // TODO
-    /*bool changed = false;
+    bool changed = false;
 
     std::string datasetName;
     if (settings.getValueOpt("dataset", datasetName)) {
@@ -275,20 +275,94 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
         }
     }
 
-    changed |= settings.getValueOpt("use_isosurface", gui_StreamlineTracingSettings.show_iso_surface);
-    changed |= settings.getValueOpt("camera_fov", gui_StreamlineTracingSettings.camera_fov_deg);
-    changed |= settings.getValueOpt("camera_position", gui_StreamlineTracingSettings.camera_position);
-    changed |= settings.getValueOpt("camera_look_at", gui_StreamlineTracingSettings.camera_look_at);
-    changed |= settings.getValueOpt("res_x", gui_StreamlineTracingSettings.res_x);
-    changed |= settings.getValueOpt("res_y", gui_StreamlineTracingSettings.res_y);
-    changed |= settings.getValueOpt("samples_per_pixel", gui_StreamlineTracingSettings.samples_per_pixel);
-    changed |= settings.getValueOpt("extinction", gui_StreamlineTracingSettings.extinction);
-    changed |= settings.getValueOpt("scattering_albedo", gui_StreamlineTracingSettings.scattering_albedo);
-    changed |= settings.getValueOpt("g", gui_StreamlineTracingSettings.g);
+    std::string flowPrimitivesName;
+    if (settings.getValueOpt("flow_primitives", flowPrimitivesName)) {
+        int i;
+        for (i = 0; i < IM_ARRAYSIZE(FLOW_PRIMITIVE_NAMES); i++) {
+            if (boost::to_lower_copy(flowPrimitivesName)
+                    == boost::to_lower_copy(std::string(FLOW_PRIMITIVE_NAMES[i]))) {
+                guiTracingSettings.flowPrimitives = FlowPrimitives(i);
+                changed = true;
+                break;
+            }
+        }
+        if (i == IM_ARRAYSIZE(FLOW_PRIMITIVE_NAMES)) {
+            sgl::Logfile::get()->writeError(
+                    "Error in StreamlineTracingRequester::setLineTracerSettings: Unknown flow primitive type \""
+                    + flowPrimitivesName + "\".");
+        }
+    }
+
+    std::string seedingStrategyName;
+    if (settings.getValueOpt("seeding_strategy", seedingStrategyName)) {
+        int i;
+        for (i = 0; i < IM_ARRAYSIZE(STREAMLINE_SEEDING_STRATEGY_NAMES); i++) {
+            if (boost::to_lower_copy(seedingStrategyName)
+                    == boost::to_lower_copy(std::string(STREAMLINE_SEEDING_STRATEGY_NAMES[i]))) {
+                guiTracingSettings.streamlineSeedingStrategy = StreamlineSeedingStrategy(i);
+                changed = true;
+                break;
+            }
+        }
+        if (i == IM_ARRAYSIZE(STREAMLINE_SEEDING_STRATEGY_NAMES)) {
+            sgl::Logfile::get()->writeError(
+                    "Error in StreamlineTracingRequester::setLineTracerSettings: Unknown seeding strategy name \""
+                    + seedingStrategyName + "\".");
+        }
+    }
+
+    std::string integrationMethodName;
+    if (settings.getValueOpt("integration_method", integrationMethodName)) {
+        int i;
+        for (i = 0; i < IM_ARRAYSIZE(STREAMLINE_INTEGRATION_METHOD_NAMES); i++) {
+            if (boost::to_lower_copy(integrationMethodName)
+                    == boost::to_lower_copy(std::string(STREAMLINE_INTEGRATION_METHOD_NAMES[i]))) {
+                guiTracingSettings.integrationMethod = StreamlineIntegrationMethod(i);
+                changed = true;
+                break;
+            }
+        }
+        if (i == IM_ARRAYSIZE(STREAMLINE_INTEGRATION_METHOD_NAMES)) {
+            sgl::Logfile::get()->writeError(
+                    "Error in StreamlineTracingRequester::setLineTracerSettings: Unknown integration method name \""
+                    + integrationMethodName + "\".");
+        }
+    }
+
+    std::string integrationDirectionName;
+    if (settings.getValueOpt("integration_direction", integrationDirectionName)) {
+        int i;
+        for (i = 0; i < IM_ARRAYSIZE(STREAMLINE_INTEGRATION_DIRECTION_NAMES); i++) {
+            if (boost::to_lower_copy(integrationDirectionName)
+                    == boost::to_lower_copy(std::string(STREAMLINE_INTEGRATION_DIRECTION_NAMES[i]))) {
+                guiTracingSettings.integrationDirection = StreamlineIntegrationDirection(i);
+                changed = true;
+                break;
+            }
+        }
+        if (i == IM_ARRAYSIZE(STREAMLINE_INTEGRATION_DIRECTION_NAMES)) {
+            sgl::Logfile::get()->writeError(
+                    "Error in StreamlineTracingRequester::setLineTracerSettings: Unknown integration direction \""
+                    + integrationDirectionName + "\".");
+        }
+    }
+
+    changed |= settings.getValueOpt("num_primitives", guiTracingSettings.numPrimitives);
+    changed |= settings.getValueOpt("time_step_scale", guiTracingSettings.timeStepScale);
+    changed |= settings.getValueOpt("max_num_iterations", guiTracingSettings.maxNumIterations);
+    changed |= settings.getValueOpt("termination_distance", guiTracingSettings.terminationDistance);
+    changed |= settings.getValueOpt("min_line_length", guiTracingSettings.minimumLength);
+    changed |= settings.getValueOpt("min_separation_distance", guiTracingSettings.minimumSeparationDistance);
+    changed |= settings.getValueOpt("show_boundary_mesh", guiTracingSettings.showSimulationGridOutline);
+    changed |= settings.getValueOpt("smooth_boundary", guiTracingSettings.smoothedSimulationGridOutline);
+    changed |= settings.getValueOpt("use_helicity", guiTracingSettings.useHelicity);
+    changed |= settings.getValueOpt("max_helicity_twist", guiTracingSettings.maxHelicityTwist);
+
+    changed |= guiTracingSettings.seeder->setNewSettings(settings);
 
     if (changed) {
         requestNewData();
-    }*/
+    }
 }
 
 void StreamlineTracingRequester::setDatasetFilename(const std::string& newDatasetFilename) {

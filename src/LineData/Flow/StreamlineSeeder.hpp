@@ -33,6 +33,7 @@
 #include <memory>
 #include <glm/vec3.hpp>
 #include <Math/Geometry/AABB3.hpp>
+#include "Utils/InternalState.hpp"
 
 struct StreamlineTracingSettings;
 class StreamlineTracingGrid;
@@ -77,6 +78,11 @@ public:
      * Renders the GUI for changing the internal settings using ImGui.
      */
     virtual bool renderGui() = 0;
+
+    /**
+     * For changing internal settings programmatically and not via the GUI.
+     */
+    virtual bool setNewSettings(const SettingsMap& settings) = 0;
 };
 
 typedef std::shared_ptr<StreamlineSeeder> StreamlineSeederPtr;
@@ -94,6 +100,7 @@ public:
     void reset(StreamlineTracingSettings& tracingSettings, StreamlineTracingGrid* newGrid) override;
     glm::vec3 getNextPoint() override;
     bool renderGui() override;
+    bool setNewSettings(const SettingsMap& settings) override;
 
 private:
     std::mt19937 generator;
@@ -127,6 +134,7 @@ public:
     void reset(StreamlineTracingSettings& tracingSettings, StreamlineTracingGrid* newGrid) override;
     glm::vec3 getNextPoint() override;
     bool renderGui() override;
+    bool setNewSettings(const SettingsMap& settings) override;
 
 private:
     std::mt19937 generator;

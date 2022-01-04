@@ -159,6 +159,32 @@ bool StreamlinePlaneSeeder::renderGui() {
     return changed;
 }
 
+bool StreamlinePlaneSeeder::setNewSettings(const SettingsMap& settings) {
+    bool changed = false;
+
+    changed |= settings.getValueOpt("slice", planeSlice);
+    changed |= settings.getValueOpt("direction", direction);
+    changed |= settings.getValueOpt("regular", regular);
+    if (settings.getValueOpt("num_samples_x", numSamplesX)) {
+        numSamplesArrayGui[0] = numSamplesX;
+        regular = true;
+        changed = true;
+    }
+    if (settings.getValueOpt("num_samples_y", numSamplesY)) {
+        numSamplesArrayGui[1] = numSamplesY;
+        regular = true;
+        changed = true;
+    }
+    if (settings.getValueOpt("random_seed", seed)) {
+        if (seed < 0) {
+            seed = 0;
+        }
+        changed = true;
+    }
+
+    return changed;
+}
+
 
 StreamlineSeeder* StreamlineVolumeSeeder::copy() {
     auto* seederCopy = new StreamlineVolumeSeeder;
@@ -269,6 +295,35 @@ bool StreamlineVolumeSeeder::renderGui() {
     }
 
     if (ImGui::Checkbox("Regular Seeding", &regular)) {
+        changed = true;
+    }
+
+    return changed;
+}
+
+bool StreamlineVolumeSeeder::setNewSettings(const SettingsMap& settings) {
+    bool changed = false;
+
+    changed |= settings.getValueOpt("regular", regular);
+    if (settings.getValueOpt("num_samples_x", numSamplesX)) {
+        numSamplesArrayGui[0] = numSamplesX;
+        regular = true;
+        changed = true;
+    }
+    if (settings.getValueOpt("num_samples_y", numSamplesY)) {
+        numSamplesArrayGui[1] = numSamplesY;
+        regular = true;
+        changed = true;
+    }
+    if (settings.getValueOpt("num_samples_z", numSamplesZ)) {
+        numSamplesArrayGui[2] = numSamplesZ;
+        regular = true;
+        changed = true;
+    }
+    if (settings.getValueOpt("random_seed", seed)) {
+        if (seed < 0) {
+            seed = 0;
+        }
         changed = true;
     }
 

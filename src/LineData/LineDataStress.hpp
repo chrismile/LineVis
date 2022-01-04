@@ -49,7 +49,7 @@ public:
     [[nodiscard]] bool getIsSmallDataSet() const override;
     void update(float dt) override;
 
-    /// For changing internal settings programmatically and not over the GUI.
+    /// For changing internal settings programmatically and not via the GUI.
     bool setNewSettings(const SettingsMap& settings) override;
 
     /**
