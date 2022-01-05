@@ -164,7 +164,6 @@ void MLABBucketRenderer::setUniformData() {
     sgl::ShaderManager->bindShaderStorageBuffer(1, minDepthBuffer);
 
     minDepthPassShader->setUniform("viewportW", paddedWindowWidth);
-    minDepthPassShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
     minDepthPassShader->setUniform("lineWidth", lineWidth);
     if (minDepthPassShader->hasUniform("backgroundColor")) {
         glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();

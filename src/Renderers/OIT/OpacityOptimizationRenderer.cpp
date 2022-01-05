@@ -735,10 +735,12 @@ void OpacityOptimizationRenderer::resolvePpllOpacities() {
     sgl::ShaderManager->bindShaderStorageBuffer(4, segmentVisibilityBuffer);
     GLuint opacityBufferId = static_cast<sgl::GeometryBufferGL*>(segmentOpacityUintBuffer.get())->getBuffer();
     uint32_t opacityClearVal = std::numeric_limits<uint32_t>::max();//0xFFFFFFFFu;
-    glClearNamedBufferData(opacityBufferId, GL_R32UI, GL_RED, GL_UNSIGNED_INT, (const void*)&opacityClearVal);
+    glClearNamedBufferData(
+            opacityBufferId, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, (const void*)&opacityClearVal);
     GLuint visibilityBufferId = static_cast<sgl::GeometryBufferGL*>(segmentVisibilityBuffer.get())->getBuffer();
     uint32_t visibilityClearVal = 0u;
-    glClearNamedBufferData(visibilityBufferId, GL_R32UI, GL_RED, GL_UNSIGNED_INT, (const void*)&visibilityClearVal);
+    glClearNamedBufferData(
+            visibilityBufferId, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, (const void*)&visibilityClearVal);
 
     sgl::Renderer->render(resolvePpllOpacitiesRenderData);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
