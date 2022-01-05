@@ -96,11 +96,14 @@ int main(int argc, char *argv[]) {
             raytracingDeviceExtensions.begin(), raytracingDeviceExtensions.end());
     sgl::AppSettings::get()->initializeVulkanInteropSupport(
             {}, optionalDeviceExtensions);
-    for (const char* deviceExtension : optionalDeviceExtensions) {
-        if (!sgl::AppSettings::get()->getPrimaryDevice()->isDeviceExtensionSupported(deviceExtension)) {
-            sgl::Logfile::get()->writeInfo(
-                    std::string() + "Warning: Vulkan interoperability support was enabled, but the Vulkan device "
-                    "extension " + deviceExtension + " is not supported on this system.");
+    if (sgl::AppSettings::get()->getPrimaryDevice()) {
+        for (const char* deviceExtension : optionalDeviceExtensions) {
+            if (!sgl::AppSettings::get()->getPrimaryDevice()->isDeviceExtensionSupported(deviceExtension)) {
+                sgl::Logfile::get()->writeInfo(
+                        std::string() +
+                        "Warning: Vulkan interoperability support was enabled, but the Vulkan device "
+                        "extension " + deviceExtension + " is not supported on this system.");
+            }
         }
     }
 #endif

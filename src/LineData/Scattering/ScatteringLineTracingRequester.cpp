@@ -66,8 +66,10 @@ ScatteringLineTracingRequester::ScatteringLineTracingRequester(
 #endif
 {
 #ifdef USE_VULKAN_INTEROP
-    rendererVk = new sgl::vk::Renderer(rendererMainThread->getDevice(), 100);
-    lineDensityFieldSmoothingPass = std::make_shared<LineDensityFieldSmoothingPass>(rendererVk);
+    if (sgl::AppSettings::get()->getVulkanInteropCapabilities() == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
+        rendererVk = new sgl::vk::Renderer(rendererMainThread->getDevice(), 100);
+        lineDensityFieldSmoothingPass = std::make_shared<LineDensityFieldSmoothingPass>(rendererVk);
+    }
 #endif
 
     lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
@@ -83,9 +85,12 @@ ScatteringLineTracingRequester::~ScatteringLineTracingRequester() {
     replyLineData = {};
 
 #ifdef USE_VULKAN_INTEROP
-    lineDensityFieldSmoothingPass = {};
-    cachedScalarFieldTexture = {};
-    delete rendererVk;
+    if (rendererVk) {
+        lineDensityFieldSmoothingPass = {};
+        cachedScalarFieldTexture = {};
+        delete rendererVk;
+        rendererVk = nullptr;
+    }
 #endif
 }
 
@@ -385,7 +390,10 @@ void ScatteringLineTracingRequester::traceLines(
 
         if (use_iso_surface) {
 #ifdef USE_VULKAN_INTEROP
-            createScalarFieldTexture();
+            if (sgl::AppSettings::get()->getVulkanInteropCapabilities()
+                    == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
+                createScalarFieldTexture();
+            }
 #endif
             createIsosurface();
         }
@@ -525,6 +533,11 @@ void ScatteringLineTracingRequester::createIsosurface() {
     bool shallSmoothScalarField = true;
 #ifndef USE_VULKAN_INTEROP
     shallSmoothScalarField = false;
+#else
+    if (sgl::AppSettings::get()->getVulkanInteropCapabilities()
+            != sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
+        shallSmoothScalarField = false;
+    }
 #endif
     if (!shallSmoothScalarField) {
         polygonizeSnapMC(

@@ -428,9 +428,14 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
         propertyEditor.endNode();
     }
 
+    int numDenoisersSupported = IM_ARRAYSIZE(DENOISER_NAMES);
+#ifdef SUPPORT_OPTIX
+    if (!OptixVptDenoiser::isOpitEnabled()) {
+        numDenoisersSupported--;
+    }
+#endif
     if (propertyEditor.addCombo(
-            "Denoiser", (int*)&denoiserType,
-            DENOISER_NAMES, IM_ARRAYSIZE(DENOISER_NAMES))) {
+            "Denoiser", (int*)&denoiserType, DENOISER_NAMES, numDenoisersSupported)) {
         createDenoiser();
         reRender = true;
         changedDenoiserSettings = true;

@@ -144,7 +144,9 @@ MainApp::MainApp()
 #endif
           )) {
 #ifdef USE_VULKAN_INTEROP
-    sgl::AppSettings::get()->getVulkanInstance()->setDebugCallback(&vulkanErrorCallback);
+    if (sgl::AppSettings::get()->getVulkanInteropCapabilities() != sgl::VulkanInteropCapabilities::NOT_LOADED) {
+        sgl::AppSettings::get()->getVulkanInstance()->setDebugCallback(&vulkanErrorCallback);
+    }
 #ifdef SUPPORT_OPTIX
     optixInitialized = OptixVptDenoiser::initGlobal();
 #endif
@@ -392,7 +394,8 @@ MainApp::MainApp()
     }
 
 #ifdef USE_VULKAN_INTEROP
-    if (sgl::AppSettings::get()->getPrimaryDevice()->getRayQueriesSupported()) {
+    if (sgl::AppSettings::get()->getVulkanInteropCapabilities() == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY
+            && sgl::AppSettings::get()->getPrimaryDevice()->getRayQueriesSupported()) {
         auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(
                 new VulkanAmbientOcclusionBaker(transferFunctionWindow, renderer));
@@ -625,7 +628,9 @@ void MainApp::setRenderer(
         newLineRenderer = new DepthPeelingRenderer(&sceneDataRef, transferFunctionWindow);
     }
 #ifdef USE_VULKAN_INTEROP
-    else if (newRenderingMode == RENDERING_MODE_VULKAN_RAY_TRACER) {
+    else if (newRenderingMode == RENDERING_MODE_VULKAN_RAY_TRACER
+             && sgl::AppSettings::get()->getVulkanInteropCapabilities()
+                == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
         if (sgl::AppSettings::get()->getPrimaryDevice()->getRayTracingPipelineSupported()) {
             auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
             newLineRenderer = new VulkanRayTracer(&sceneDataRef, transferFunctionWindow, renderer);
@@ -641,7 +646,9 @@ void MainApp::setRenderer(
         newLineRenderer = new VoxelRayCastingRenderer(&sceneDataRef, transferFunctionWindow);
     }
 #ifdef USE_VULKAN_INTEROP
-    else if (newRenderingMode == RENDERING_MODE_VULKAN_TEST) {
+    else if (newRenderingMode == RENDERING_MODE_VULKAN_TEST
+             && sgl::AppSettings::get()->getVulkanInteropCapabilities()
+                == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
         auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
         newLineRenderer = new VulkanTestRenderer(&sceneDataRef, transferFunctionWindow, renderer);
     }
@@ -652,10 +659,14 @@ void MainApp::setRenderer(
     }
 #endif
 #ifdef USE_VULKAN_INTEROP
-    else if (newRenderingMode == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
+    else if (newRenderingMode == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER
+             && sgl::AppSettings::get()->getVulkanInteropCapabilities()
+                == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
         auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
         newLineRenderer = new LineDensityMapRenderer(&sceneDataRef, transferFunctionWindow, renderer);
-    } else if (newRenderingMode == RENDERING_MODE_VOLUMETRIC_PATH_TRACER) {
+    } else if (newRenderingMode == RENDERING_MODE_VOLUMETRIC_PATH_TRACER
+               && sgl::AppSettings::get()->getVulkanInteropCapabilities()
+                  == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
         auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
         newLineRenderer = new VolumetricPathTracingRenderer(&sceneDataRef, transferFunctionWindow, renderer);
     } else if (newRenderingMode == RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER) {
@@ -666,7 +677,8 @@ void MainApp::setRenderer(
         newRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
         newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
         sgl::Logfile::get()->writeError(
-                "Error in MainApp::setRenderer: A renderer unsupported in this build configuration was selected.");
+                "Error in MainApp::setRenderer: A renderer unsupported in this build configuration or "
+                "incompatible with this system was selected.");
     }
     if (ambientOcclusionBaker) {
         newLineRenderer->setAmbientOcclusionBaker(ambientOcclusionBaker);

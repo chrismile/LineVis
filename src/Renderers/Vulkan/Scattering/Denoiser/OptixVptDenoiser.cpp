@@ -85,6 +85,10 @@ bool OptixVptDenoiser::initGlobal() {
     }
 
     CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuInit(0);
+    if (cuResult == CUDA_ERROR_NO_DEVICE) {
+        sgl::Logfile::get()->writeInfo("No CUDA-capable device was found. Disabling OptiX support.");
+        return false;
+    }
     sgl::vk::checkCUresult(cuResult, "Error in cuInit: ");
 
     cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuCtxCreate(&cuContext, CU_CTX_SCHED_SPIN, cuDevice);
@@ -120,6 +124,11 @@ void OptixVptDenoiser::freeGlobal() {
 
     sgl::vk::freeCudaDeviceApiFunctionTable();
 }
+
+bool OptixVptDenoiser::isOpitEnabled() {
+    return optixHandle && cuContext;
+}
+
 
 OptixVptDenoiser::OptixVptDenoiser(sgl::vk::Renderer* renderer) : renderer(renderer) {
     CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuStreamCreate(&stream, CU_STREAM_DEFAULT);
