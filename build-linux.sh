@@ -214,7 +214,7 @@ fi
 params=()
 
 embree_version="3.13.2"
-if ! is_embree_installed && [ ! -d "./embree-${embree_version}.x86_64.linux" ]; then
+if ! $is_embree_installed && [ ! -d "./embree-${embree_version}.x86_64.linux" ]; then
     echo "------------------------"
     echo "   downloading Embree   "
     echo "------------------------"
@@ -224,7 +224,7 @@ if ! is_embree_installed && [ ! -d "./embree-${embree_version}.x86_64.linux" ]; 
 fi
 
 ospray_version="2.8.0"
-if ! is_ospray_installed && [ ! -d "./ospray-${ospray_version}.x86_64.linux" ]; then
+if ! $is_ospray_installed && [ ! -d "./ospray-${ospray_version}.x86_64.linux" ]; then
     echo "------------------------"
     echo "   downloading OSPRay   "
     echo "------------------------"
