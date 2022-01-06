@@ -32,8 +32,7 @@
 
 in vec4 vertexPosition;
 
-void main()
-{
+void main() {
     gl_Position = mvpMatrix * vertexPosition;
 }
 
@@ -41,10 +40,8 @@ void main()
 
 #version 430 core
 
-uniform sampler2D texture;
 out vec4 fragColor;
 
-void main()
-{
+void main() {
     fragColor = vec4(1.0, 1.0, 1.0, 1.0);
 }

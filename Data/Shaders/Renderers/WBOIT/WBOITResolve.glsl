@@ -37,11 +37,11 @@ float maxComponent(vec3 v) {
 
 void main()
 {
-    float revealage = texture2D(revealageTexture, fragTexCoord).r;
+    float revealage = texture(revealageTexture, fragTexCoord).r;
     if (revealage > 0.9999) {
         discard;
     }
-    vec4 accumulatedColor = texture2D(accumulationTexture, fragTexCoord);
+    vec4 accumulatedColor = texture(accumulationTexture, fragTexCoord);
     if (isinf(maxComponent(abs(accumulatedColor.rgb)))) {
         accumulatedColor.rgb = vec3(accumulatedColor.a);
     }

@@ -50,8 +50,7 @@ uint mortonCodeLookupTable[64] = {
 // Address 1D structured buffers as tiled to better data exploit locality
 // "OIT to Volumetric Shadow Mapping, 101 Uses for Raster Ordered Views using DirectX 12",
 // by Leigh Davies (Intel), March 05, 2015
-uint addrGen(uvec2 addr2D)
-{
+uint addrGen(uvec2 addr2D) {
 #if defined(ADRESSING_MORTON_CODE_8x8)
     uint surfaceWidth = viewportW >> 3U; // / 8U
     uvec2 tileAddr2D = addr2D >> 3U; // / 8U
@@ -86,8 +85,7 @@ uint addrGen(uvec2 addr2D)
 }
 
 // For use with Image Load/Store
-ivec2 addrGen2D(ivec2 addr2D)
-{
+ivec2 addrGen2D(ivec2 addr2D) {
     int addr1D = int(addrGen(addr2D));
     return ivec2(addr1D%viewportW, addr1D/viewportW);
 }

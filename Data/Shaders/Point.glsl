@@ -59,8 +59,7 @@ in VertexData {
     vec3 pointPosition;
 } v_in[];
 
-void main()
-{
+void main() {
     vec3 pointPosition = v_in[0].pointPosition;
 
     vec3 quadNormal = normalize(cameraPosition - pointPosition);
@@ -108,8 +107,7 @@ uniform vec4 pointColor;
 uniform vec3 foregroundColor;
 uniform vec3 cameraPosition;
 
-void main()
-{
+void main() {
     float lengthCoords = length(quadCoords);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
     const float WHITE_THRESHOLD = 0.7;
@@ -121,8 +119,10 @@ void main()
         discard;
     }
 
-    fragColor = vec4(mix(pointColor.rgb, foregroundColor,
-            smoothstep(WHITE_THRESHOLD - EPSILON, WHITE_THRESHOLD + EPSILON, lengthCoords)),
+    fragColor = vec4(
+            mix(
+                pointColor.rgb, foregroundColor,
+                smoothstep(WHITE_THRESHOLD - EPSILON, WHITE_THRESHOLD + EPSILON, lengthCoords)),
             pointColor.a * coverage);
 }
 

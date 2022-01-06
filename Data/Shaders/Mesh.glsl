@@ -32,8 +32,7 @@
 
 in vec4 vertexPosition;
 
-void main()
-{
+void main() {
     gl_Position = mvpMatrix * vertexPosition;
 }
 
@@ -44,11 +43,9 @@ void main()
 uniform vec4 color;
 out vec4 fragColor;
 
-void main()
-{
+void main() {
     fragColor = color;
 }
-
 
 
 -- Vertex.Textured
@@ -56,12 +53,11 @@ void main()
 #version 430 core
 
 in vec4 vertexPosition;
-in vec2 texcoord;
+in vec2 vertexTexCoord;
 out vec2 fragTexCoord;
 
-void main()
-{
-    fragTexCoord = texcoord;
+void main() {
+    fragTexCoord = vertexTexCoord;
     gl_Position = mvpMatrix * vertexPosition;
 }
 
@@ -69,12 +65,11 @@ void main()
 
 #version 430 core
 
-uniform sampler2D texture;
+uniform sampler2D albedoTexture;
 uniform vec4 color;
 in vec2 fragTexCoord;
 out vec4 fragColor;
 
-void main()
-{
-    fragColor = color * texture2D(texture, fragTexCoord);
+void main() {
+    fragColor = color * texture(albedoTexture, fragTexCoord);
 }

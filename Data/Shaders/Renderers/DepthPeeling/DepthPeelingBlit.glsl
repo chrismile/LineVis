@@ -30,22 +30,22 @@
 
 #version 430 core
 
-in vec4 position;
-in vec2 texcoord;
+in vec4 vertexPosition;
+in vec2 vertexTexCoord;
 out vec2 fragTexCoord;
 
 void main() {
-    fragTexCoord = texcoord;
-    gl_Position = mvpMatrix * position;
+    fragTexCoord = vertexTexCoord;
+    gl_Position = mvpMatrix * vertexPosition;
 }
 
 -- Fragment
 
 #version 430 core
 
-uniform sampler2D texture;
+uniform sampler2D inputTexture;
 in vec2 fragTexCoord;
 
 void main() {
-    gl_FragColor = texture2D(texture, fragTexCoord);
+    gl_FragColor = texture(inputTexture, fragTexCoord);
 }
