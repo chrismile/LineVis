@@ -239,7 +239,13 @@ void DataViewVulkan::resize(int newWidth, int newHeight) {
 
 void DataViewVulkan::beginRender() {
     DataView::beginRender();
-    renderReadySemaphore->signalSemaphoreGl(sceneTexture, GL_NONE);
+
+    GLenum dstLayout = GL_NONE;
+	sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+	if (device->getDeviceDriverId() == VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS) {
+		dstLayout = GL_LAYOUT_GENERAL_EXT;
+	}
+    renderReadySemaphore->signalSemaphoreGl(sceneTexture, dstLayout);
 }
 
 void DataViewVulkan::endRender() {

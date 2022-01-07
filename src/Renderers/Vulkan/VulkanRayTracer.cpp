@@ -131,13 +131,19 @@ void VulkanRayTracer::onResolutionChanged() {
 }
 
 void VulkanRayTracer::render() {
+    GLenum dstLayout = GL_NONE;
+	sgl::vk::Device* device = rendererVk->getDevice();
+	if (device->getDeviceDriverId() == VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS) {
+		dstLayout = GL_LAYOUT_GENERAL_EXT;
+	}
+
     if (useDepthCues && lineData) {
         computeDepthRange();
         renderReadySemaphore->signalSemaphoreGl(
                 { depthMinMaxBuffers[outputDepthMinMaxBufferIndex] },
-                { renderTextureGl }, { GL_NONE });
+                { renderTextureGl }, { dstLayout });
     } else {
-        renderReadySemaphore->signalSemaphoreGl(renderTextureGl, GL_NONE);
+        renderReadySemaphore->signalSemaphoreGl(renderTextureGl, dstLayout);
     }
 
     //if (accumulatedFramesCounter >= maxNumAccumulatedFrames) {

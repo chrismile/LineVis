@@ -148,7 +148,12 @@ void VolumetricPathTracingRenderer::render() {
         return;
     }
 
-    renderReadySemaphore->signalSemaphoreGl(renderTextureGl, GL_NONE);
+    GLenum dstLayout = GL_NONE;
+	sgl::vk::Device* device = rendererVk->getDevice();
+	if (device->getDeviceDriverId() == VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS) {
+		dstLayout = GL_LAYOUT_GENERAL_EXT;
+	}
+    renderReadySemaphore->signalSemaphoreGl(renderTextureGl, dstLayout);
 
     sgl::vk::SemaphorePtr renderReadySemaphoreVk =
             std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderReadySemaphore);
