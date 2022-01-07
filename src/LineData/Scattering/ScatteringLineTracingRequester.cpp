@@ -67,18 +67,29 @@ ScatteringLineTracingRequester::ScatteringLineTracingRequester(
 {
 #ifdef USE_VULKAN_INTEROP
     if (sgl::AppSettings::get()->getVulkanInteropCapabilities() == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
-        rendererVk = new sgl::vk::Renderer(rendererMainThread->getDevice(), 100);
+        sgl::vk::Device* device = rendererMainThread->getDevice();
+        rendererVk = new sgl::vk::Renderer(device, 100);
         lineDensityFieldSmoothingPass = std::make_shared<LineDensityFieldSmoothingPass>(rendererVk);
+
+        // Turn off multi-threaded loading if no dedicated worker thread queue is available.
+        if (!device->getWorkerThreadGraphicsQueue()
+                || device->getGraphicsQueue() == device->getWorkerThreadGraphicsQueue()) {
+            supportsMultiThreadedLoading = false;
+        }
     }
 #endif
 
     lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
     loadGridDataSetList();
-    requesterThread = std::thread(&ScatteringLineTracingRequester::mainLoop, this);
+    if (supportsMultiThreadedLoading) {
+        requesterThread = std::thread(&ScatteringLineTracingRequester::mainLoop, this);
+    }
 }
 
 ScatteringLineTracingRequester::~ScatteringLineTracingRequester() {
-    join();
+    if (supportsMultiThreadedLoading) {
+        join();
+    }
     cachedGrid.delete_maybe();
 
     requestLineData = {};
@@ -281,6 +292,9 @@ void ScatteringLineTracingRequester::requestNewData() {
 
     queueRequestStruct(request);
     isProcessingRequest = true;
+    if (!supportsMultiThreadedLoading) {
+        mainLoop();
+    }
 }
 
 bool ScatteringLineTracingRequester::getHasNewData(DataSetInformation& dataSetInformation, LineDataPtr& lineData) {
@@ -360,7 +374,8 @@ void ScatteringLineTracingRequester::mainLoop() {
 
         if (hasRequest) {
             ScatteringTracingSettings request = workerTracingSettings;
-            std::shared_ptr<LineDataScattering> lineData = std::static_pointer_cast<LineDataScattering>(requestLineData);
+            std::shared_ptr<LineDataScattering> lineData =
+                    std::static_pointer_cast<LineDataScattering>(requestLineData);
             hasRequest = false;
             isProcessingRequest = true;
             requestLock.unlock();
@@ -372,6 +387,11 @@ void ScatteringLineTracingRequester::mainLoop() {
 
             replyLineData = lineData;
             isProcessingRequest = false;
+        }
+
+        // Only one operation if this function is not run in a separate thread.
+        if (!supportsMultiThreadedLoading) {
+            break;
         }
     }
 }

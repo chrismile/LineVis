@@ -111,6 +111,7 @@ private:
     sgl::vk::Renderer* rendererVk = nullptr;
 #endif
 
+    bool supportsMultiThreadedLoading = true;
     std::thread requesterThread;
     std::condition_variable hasRequestConditionVariable;
     std::condition_variable hasReplyConditionVariable;
