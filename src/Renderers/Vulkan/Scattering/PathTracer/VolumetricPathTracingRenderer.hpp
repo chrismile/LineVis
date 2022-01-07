@@ -93,6 +93,10 @@ private:
     sgl::TexturePtr renderTextureGl;
     sgl::SemaphoreVkGlInteropPtr renderReadySemaphore, renderFinishedSemaphore;
 
+    // For fixing a bug occuring on newer NVIDIA Linux drivers (> 470.xx).
+    bool isFirstFrame = true;
+    bool isLinuxAndNvidia495OrNewer = false;
+
     // Vulkan render data.
     sgl::vk::Renderer* rendererVk = nullptr;
     std::shared_ptr<VolumetricPathTracingPass> vptPass;

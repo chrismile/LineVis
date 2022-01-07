@@ -26,6 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <Utils/StringUtils.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Math/Geometry/MatrixUtil.hpp>
 #include <Graphics/Window.hpp>
@@ -63,6 +64,17 @@ VolumetricPathTracingRenderer::VolumetricPathTracingRenderer(
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     renderReadySemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
     renderFinishedSemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
+
+#ifndef _WIN32
+    if (device->getDeviceDriverId() == VK_DRIVER_ID_NVIDIA_PROPRIETARY) {
+        std::string driverVersionString = device->getDeviceDriverInfo();
+        std::vector<std::string> splitVersionString;
+        sgl::splitString(driverVersionString, '.', splitVersionString);
+        if (splitVersionString.size() >= 2 && sgl::fromString<int>(splitVersionString.at(0)) >= 495) {
+            isLinuxAndNvidia495OrNewer = true;
+        }
+    }
+#endif
 
     onResolutionChanged();
 }
@@ -157,6 +169,15 @@ void VolumetricPathTracingRenderer::render() {
 
     // Submit the rendering operation in Vulkan.
     rendererVk->submitToQueue();
+
+    /*
+     * For some reason, on NVIDIA driver versions > 470.xx, a second frame may not be rendered immediately after the first frame.
+     * Otherwise, the driver will hang.
+     */
+    if (isFirstFrame && isLinuxAndNvidia495OrNewer) {
+        rendererVk->getDevice()->waitGraphicsQueueIdle();
+    }
+    isFirstFrame = false;
 
     // Wait for the rendering to finish on the Vulkan side.
     //renderFinishedSemaphore->waitSemaphoreGl(renderTextureGl, GL_LAYOUT_SHADER_READ_ONLY_EXT);

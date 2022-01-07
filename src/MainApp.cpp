@@ -124,7 +124,7 @@ MainApp::MainApp()
                 &sceneFramebuffer, &sceneTexture, &sceneDepthRBO,
                 &viewportWidth, &viewportHeight, &camera,
                 &clearColor, &screenshotTransparentBackground,
-                &performanceMeasurer, &recording,
+                &performanceMeasurer, &continuousRendering, &recording,
                 &useCameraFlight, &MOVE_SPEED, &MOUSE_ROT_SPEED),
 #ifdef USE_PYTHON
           replayWidget(&sceneData, transferFunctionWindow, checkpointWindow),
@@ -889,7 +889,7 @@ void MainApp::renderGui() {
                     dataView->reRender = false;
                     bool componentOtherThanRendererNeedsReRenderLocal = componentOtherThanRendererNeedsReRender;
                     if (dataView->lineRenderer != nullptr) {
-                        reRenderLocal = reRenderLocal || dataView->lineRenderer->needsReRender();
+                        reRenderLocal |= dataView->lineRenderer->needsReRender();
                         componentOtherThanRendererNeedsReRenderLocal |= dataView->lineRenderer->needsInternalReRender();
                     }
                     if (dataView->lineRenderer && componentOtherThanRendererNeedsReRenderLocal) {
