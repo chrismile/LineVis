@@ -6,8 +6,7 @@ in vec3 vertexPosition;
 in vec2 vertexTexCoord;
 out vec2 fragTexCoord;
 
-void main()
-{
+void main() {
     fragTexCoord = vertexTexCoord;
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
 }
@@ -35,8 +34,7 @@ float maxComponent(vec3 v) {
     return max(max(v.x, v.y), v.z);
 }
 
-void main()
-{
+void main() {
     float revealage = texture(revealageTexture, fragTexCoord).r;
     if (revealage > 0.9999) {
         discard;
