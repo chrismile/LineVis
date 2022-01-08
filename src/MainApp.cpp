@@ -1265,7 +1265,7 @@ void MainApp::renderGuiMenuBar() {
                 showFpsOverlay = !showFpsOverlay;
             }
             if (ImGui::MenuItem("Coordinate Axes Overlay", nullptr, showCoordinateAxesOverlay)) {
-                showFpsOverlay = !showFpsOverlay;
+                showCoordinateAxesOverlay = !showCoordinateAxesOverlay;
             }
             if (ImGui::MenuItem("Property Editor", nullptr, showPropertyEditor)) {
                 showPropertyEditor = !showPropertyEditor;
