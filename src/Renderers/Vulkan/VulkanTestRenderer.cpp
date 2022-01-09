@@ -61,7 +61,7 @@ VulkanTestRenderer::VulkanTestRenderer(
     renderReadySemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
     renderFinishedSemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
 
-    onResolutionChanged();
+    VulkanTestRenderer::onResolutionChanged();
 }
 
 VulkanTestRenderer::~VulkanTestRenderer() {
@@ -236,6 +236,7 @@ void TestRenderPass::recreateSwapchain(uint32_t width, uint32_t height) {
     framebuffer->setDepthStencilAttachment(depthImageView, depthAttachmentState, 1.0f);
 
     framebufferDirty = true;
+    dataDirty = true;
 }
 
 void TestRenderPass::loadShader() {
@@ -260,7 +261,6 @@ void TestRenderPass::_render() {
     renderSettingsData.cameraPosition = cameraPosition;
     renderSettingsBuffer->updateData(
             sizeof(RenderSettingsData), &renderSettingsData, renderer->getVkCommandBuffer());
-
 
     renderer->insertBufferMemoryBarrier(
             VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
