@@ -30,21 +30,33 @@
 #define LINEDENSITYCONTROL_DATASETLIST_HPP
 
 #include <vector>
+#include <memory>
 
 #include <Math/Geometry/MatrixUtil.hpp>
 
 enum DataSetType {
-    DATA_SET_TYPE_NONE, DATA_SET_TYPE_FLOW_LINES, DATA_SET_TYPE_STRESS_LINES, DATA_SET_TYPE_FLOW_LINES_MULTIVAR,
-    DATA_SET_TYPE_SCATTERING_LINES
+    DATA_SET_TYPE_NONE,
+    DATA_SET_TYPE_NODE, //< Hierarchical container.
+    DATA_SET_TYPE_FLOW_LINES, //< Streamlines or streamribbons.
+    DATA_SET_TYPE_STRESS_LINES, //< Principal stress lines (PSLs).
+    DATA_SET_TYPE_FLOW_LINES_MULTIVAR, //< Experimental mode for rendering streamlines with many parameters.
+    DATA_SET_TYPE_SCATTERING_LINES //< Lines created through path scattering in participating media.
 };
 
 const float STANDARD_LINE_WIDTH = 0.002f;
 const float STANDARD_BAND_WIDTH = 0.005f;
 
+struct DataSetInformation;
+typedef std::shared_ptr<DataSetInformation> DataSetInformationPtr;
+
 struct DataSetInformation {
-    DataSetType type = DATA_SET_TYPE_FLOW_LINES;
+    DataSetType type = DATA_SET_TYPE_NODE;
     std::string name;
     std::vector<std::string> filenames;
+
+    // For type DATA_SET_TYPE_NODE.
+    std::vector<DataSetInformationPtr> children;
+    int sequentialIndex = 0;
 
     // Optional attributes.
     bool hasCustomLineWidth = false;
@@ -61,6 +73,6 @@ struct DataSetInformation {
     std::vector<std::string> filenamesStressLineHierarchy;
 };
 
-std::vector<DataSetInformation> loadDataSetList(const std::string& filename);
+DataSetInformationPtr loadDataSetList(const std::string& filename);
 
 #endif //LINEDENSITYCONTROL_DATASETLIST_HPP

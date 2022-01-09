@@ -60,6 +60,18 @@ struct StressTrajectoryData {
 };
 typedef std::vector<StressTrajectoryData> StressTrajectoriesData;
 
+struct BinLinesData {
+    Trajectories trajectories;
+
+    // Optional data.
+    bool verticesNormalized = false;
+    std::vector<std::string> attributeNames;
+    std::vector<std::vector<glm::vec3>> ribbonsDirections;
+    std::vector<uint32_t> simulationMeshOutlineTriangleIndices;
+    std::vector<glm::vec3> simulationMeshOutlineVertexPositions;
+    std::vector<glm::vec3> simulationMeshOutlineVertexNormals;
+};
+
 enum class MeshType {
     CARTESIAN, UNSTRUCTURED
 };
@@ -98,7 +110,7 @@ void normalizeTrajectoriesPsVertexAttributes_PerPs(std::vector<Trajectories>& tr
  * @param vertexTransformationMatrixPtr Can be used to pass a transformation matrix for the vertex positions (optional).
  * @return The trajectories loaded from the file (empty if the file could not be opened).
  */
-Trajectories loadFlowTrajectoriesFromFile(
+BinLinesData loadFlowTrajectoriesFromFile(
         const std::string& filename, std::vector<std::string>& attributeNames,
         bool normalizeVertexPositions = true, bool normalizeAttributes = false,
         const glm::mat4* vertexTransformationMatrixPtr = nullptr);

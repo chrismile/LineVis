@@ -114,6 +114,10 @@ struct StreamlineTracingSettings {
     // For flowPrimitives == FlowPrimitives::STREAMRIBBONS.
     bool useHelicity = true;
     float maxHelicityTwist = 0.5f;
+
+    // For saving to the disk.
+    bool exportToDisk = false;
+    std::string exportPath;
 };
 
 #endif //LINEVIS_STREAMLINETRACINGDEFINES_HPP

@@ -396,30 +396,32 @@ void normalizeTrajectoriesPsVertexAttributes_PerPs(std::vector<Trajectories>& tr
 
 
 
-Trajectories loadFlowTrajectoriesFromFile(
+BinLinesData loadFlowTrajectoriesFromFile(
         const std::string& filename, std::vector<std::string>& attributeNames,
         bool normalizeVertexPositions, bool normalizeAttributes, const glm::mat4* vertexTransformationMatrixPtr) {
-    Trajectories trajectories;
+    BinLinesData binLinesData;
+    binLinesData.attributeNames = attributeNames;
 
     std::string lowerCaseFilename = boost::to_lower_copy(filename);
     if (boost::ends_with(lowerCaseFilename, ".obj")) {
-        trajectories = loadTrajectoriesFromObj(filename, attributeNames);
+        binLinesData.trajectories = loadTrajectoriesFromObj(filename, attributeNames);
     } else if (boost::ends_with(lowerCaseFilename, ".nc")) {
-        trajectories = loadTrajectoriesFromNetCdf(filename, attributeNames);
+        binLinesData = loadTrajectoriesFromNetCdf(filename);
     } else if (boost::ends_with(lowerCaseFilename, ".binlines")) {
-        trajectories = loadTrajectoriesFromBinLines(filename);
+        binLinesData = loadTrajectoriesFromBinLines(filename);
     } else {
         sgl::Logfile::get()->writeError("ERROR in loadFlowTrajectoriesFromFile: Unknown file extension.");
     }
 
-    if (normalizeVertexPositions) {
+    Trajectories& trajectories = binLinesData.trajectories;
+    if (normalizeVertexPositions && !binLinesData.verticesNormalized) {
         normalizeTrajectoriesVertexPositions(trajectories, vertexTransformationMatrixPtr);
     }
     if (normalizeAttributes) {
         normalizeTrajectoriesVertexAttributes(trajectories);
     }
 
-    return trajectories;
+    return binLinesData;
 }
 
 void loadStressTrajectoriesFromFile(

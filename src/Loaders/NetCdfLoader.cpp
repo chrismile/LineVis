@@ -337,8 +337,10 @@ void exportObjFile(Trajectories& trajectories, const std::string& filename) {
     outfile.close();
 }
 
-Trajectories loadTrajectoriesFromNetCdf(const std::string& filename, std::vector<std::string>& attributeNames) {
-    Trajectories trajectories;
+BinLinesData loadTrajectoriesFromNetCdf(const std::string& filename) {
+    BinLinesData binLinesData;
+    std::vector<std::string>& attributeNames = binLinesData.attributeNames;
+    Trajectories& trajectories = binLinesData.trajectories;
 
     // File handle
     int ncid;
@@ -347,7 +349,7 @@ Trajectories loadTrajectoriesFromNetCdf(const std::string& filename, std::vector
     int status = nc_open(filename.c_str(), NC_NOWRITE, &ncid);
     if (status != 0) {
         std::cerr << "Error in loadNetCdfFile: File \"" << filename << "\" couldn't be opened!" << std::endl;
-        return trajectories;
+        return binLinesData;
     }
 
     // Load dimension data
@@ -428,5 +430,5 @@ Trajectories loadTrajectoriesFromNetCdf(const std::string& filename, std::vector
     SAFE_DELETE_ARRAY(lat);
     SAFE_DELETE_ARRAY(pressure);
 
-    return trajectories;
+    return binLinesData;
 }

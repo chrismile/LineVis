@@ -51,6 +51,7 @@
 #include "StreamlineTracingGrid.hpp"
 #include "Loader/StructuredGridVtkLoader.hpp"
 #include "Loader/RbcBinFileLoader.hpp"
+#include "Loaders/BinLinesLoader.hpp"
 #include "StreamlineTracingRequester.hpp"
 
 StreamlineTracingRequester::StreamlineTracingRequester(sgl::TransferFunctionWindow& transferFunctionWindow)
@@ -141,6 +142,8 @@ void StreamlineTracingRequester::renderGui() {
                 } else {
                     gridDataSetFilename = lineDataSetsDirectory + pathString;
                 }
+                guiTracingSettings.exportPath =
+                        sgl::FileUtils::get()->removeExtension(gridDataSetFilename) + ".binlines";
                 changed = true;
             }
         }
@@ -238,6 +241,13 @@ void StreamlineTracingRequester::renderGui() {
                     changed = true;
                 }
             }
+
+            if (ImGui::Checkbox("Export to Disk", &guiTracingSettings.exportToDisk)) {
+                changed = true;
+            }
+            if (guiTracingSettings.exportToDisk) {
+                ImGui::InputText("##linesexportpath", &guiTracingSettings.exportPath);
+            }
         }
 
         if (changed) {
@@ -269,6 +279,8 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
                 } else {
                     gridDataSetFilename = lineDataSetsDirectory + pathString;
                 }
+                guiTracingSettings.exportPath =
+                        sgl::FileUtils::get()->removeExtension(gridDataSetFilename) + ".binlines";
                 changed = true;
                 break;
             }
@@ -334,7 +346,7 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
         int i;
         for (i = 0; i < IM_ARRAYSIZE(STREAMLINE_INTEGRATION_DIRECTION_NAMES); i++) {
             if (boost::to_lower_copy(integrationDirectionName)
-                    == boost::to_lower_copy(std::string(STREAMLINE_INTEGRATION_DIRECTION_NAMES[i]))) {
+                == boost::to_lower_copy(std::string(STREAMLINE_INTEGRATION_DIRECTION_NAMES[i]))) {
                 guiTracingSettings.integrationDirection = StreamlineIntegrationDirection(i);
                 changed = true;
                 break;
@@ -357,6 +369,9 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
     changed |= settings.getValueOpt("smooth_boundary", guiTracingSettings.smoothedSimulationGridOutline);
     changed |= settings.getValueOpt("use_helicity", guiTracingSettings.useHelicity);
     changed |= settings.getValueOpt("max_helicity_twist", guiTracingSettings.maxHelicityTwist);
+
+    settings.getValueOpt("export_to_disk", guiTracingSettings.exportToDisk);
+    settings.getValueOpt("export_path", guiTracingSettings.exportPath);
 
     changed |= guiTracingSettings.seeder->setNewSettings(settings);
 
@@ -387,6 +402,8 @@ void StreamlineTracingRequester::setDatasetFilename(const std::string& newDatase
             } else {
                 gridDataSetFilename = lineDataSetsDirectory + pathString;
             }
+            guiTracingSettings.exportPath =
+                    sgl::FileUtils::get()->removeExtension(gridDataSetFilename) + ".binlines";
             isDataSetInList = true;
             break;
         }
@@ -557,6 +574,18 @@ void StreamlineTracingRequester::traceLines(
         lineData->simulationMeshOutlineTriangleIndices = cachedSimulationMeshOutlineTriangleIndices;
         lineData->simulationMeshOutlineVertexPositions = cachedSimulationMeshOutlineVertexPositions;
         lineData->simulationMeshOutlineVertexNormals = cachedSimulationMeshOutlineVertexNormals;
+    }
+
+    if (workerTracingSettings.exportToDisk) {
+        BinLinesData binLinesData;
+        binLinesData.trajectories = trajectories;
+        binLinesData.verticesNormalized = true;
+        binLinesData.attributeNames = cachedGrid->getScalarAttributeNames();
+        binLinesData.ribbonsDirections = lineData->ribbonsDirections;
+        binLinesData.simulationMeshOutlineTriangleIndices = cachedSimulationMeshOutlineTriangleIndices;
+        binLinesData.simulationMeshOutlineVertexPositions = cachedSimulationMeshOutlineVertexPositions;
+        binLinesData.simulationMeshOutlineVertexNormals = cachedSimulationMeshOutlineVertexNormals;
+        saveTrajectoriesAsBinLines(workerTracingSettings.exportPath, binLinesData);
     }
 
     lineData->fileNames = { request.dataSourceFilename };

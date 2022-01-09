@@ -32,6 +32,7 @@
 #include <string>
 #include "TrajectoryFile.hpp"
 
-Trajectories loadTrajectoriesFromBinLines(const std::string& filename);
+BinLinesData loadTrajectoriesFromBinLines(const std::string& filename);
+void saveTrajectoriesAsBinLines(const std::string& filename, const BinLinesData& binLinesData);
 
 #endif //LINEVIS_BINLINESLOADER_HPP

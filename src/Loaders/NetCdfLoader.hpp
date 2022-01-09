@@ -32,6 +32,6 @@
 #include <string>
 #include "TrajectoryFile.hpp"
 
-Trajectories loadTrajectoriesFromNetCdf(const std::string& filename, std::vector<std::string>& attributeNames);
+BinLinesData loadTrajectoriesFromNetCdf(const std::string& filename);
 
 #endif //NETCDFIMPORTER_NETCDFCONVERTER_HPP

@@ -86,14 +86,20 @@ bool LineDataFlow::loadFromFile(
         glm::mat4* transformationMatrixPtr) {
     this->fileNames = fileNames;
     attributeNames = dataSetInformation.attributeNames;
-    Trajectories trajectories;
-    trajectories = loadFlowTrajectoriesFromFile(
+    BinLinesData binLinesData = loadFlowTrajectoriesFromFile(
             fileNames.front(), attributeNames, true,
             false, transformationMatrixPtr);
+    trajectories = binLinesData.trajectories;
     bool dataLoaded = !trajectories.empty();
 
     if (dataLoaded) {
-        setTrajectoryData(trajectories);
+        attributeNames = binLinesData.attributeNames;
+        ribbonsDirections = binLinesData.ribbonsDirections;
+        shallRenderSimulationMeshBoundary = !binLinesData.simulationMeshOutlineTriangleIndices.empty();
+        simulationMeshOutlineTriangleIndices = binLinesData.simulationMeshOutlineTriangleIndices;
+        simulationMeshOutlineVertexPositions = binLinesData.simulationMeshOutlineVertexPositions;
+        simulationMeshOutlineVertexNormals = binLinesData.simulationMeshOutlineVertexNormals;
+        setTrajectoryData(binLinesData.trajectories);
     }
 
     return dataLoaded;

@@ -46,7 +46,6 @@
 #include "MeshSerializer.hpp"
 
 using namespace std;
-using namespace sgl;
 
 const uint32_t MESH_FORMAT_VERSION = 4u;
 
@@ -54,13 +53,15 @@ void writeMesh3D(const std::string &filename, const BinaryMesh &mesh) {
 #ifndef __MINGW32__
     std::ofstream file(filename.c_str(), std::ofstream::binary);
     if (!file.is_open()) {
-        Logfile::get()->writeError(std::string() + "Error in writeMesh3D: File \"" + filename + "\" not found.");
+        sgl::Logfile::get()->writeError(
+                std::string() + "Error in writeMesh3D: File \"" + filename + "\" could not be opened for writing.");
         return;
     }
  #else
     FILE *fileptr = fopen(filename.c_str(), "wb");
     if (fileptr == NULL) {
-        Logfile::get()->writeError(std::string() + "Error in writeMesh3D: File \"" + filename + "\" not found.");
+        sgl::Logfile::get()->writeError(
+                std::string() + "Error in writeMesh3D: File \"" + filename + "\" could not be opened for writing.");
         return;
     }
  #endif
@@ -106,7 +107,7 @@ void readMesh3D(const std::string &filename, BinaryMesh &mesh) {
 #ifndef __MINGW32__
     std::ifstream file(filename.c_str(), std::ifstream::binary);
     if (!file.is_open()) {
-        Logfile::get()->writeError(std::string() + "Error in readMesh3D: File \"" + filename + "\" not found.");
+        sgl::Logfile::get()->writeError(std::string() + "Error in readMesh3D: File \"" + filename + "\" not found.");
         return;
     }
 
@@ -123,7 +124,7 @@ void readMesh3D(const std::string &filename, BinaryMesh &mesh) {
      */
     FILE *fileptr = fopen(filename.c_str(), "rb");
     if (fileptr == NULL) {
-        Logfile::get()->writeError(std::string() + "Error in readMesh3D: File \"" + filename + "\" not found.");
+        sgl::Logfile::get()->writeError(std::string() + "Error in readMesh3D: File \"" + filename + "\" not found.");
         return;
     }
     fseeko64(fileptr, 0L, SEEK_END);
@@ -140,7 +141,7 @@ void readMesh3D(const std::string &filename, BinaryMesh &mesh) {
     uint32_t version;
     stream.read(version);
     if (version != MESH_FORMAT_VERSION) {
-        Logfile::get()->writeError(std::string() + "Error in readMesh3D: Invalid version in file \""
+        sgl::Logfile::get()->writeError(std::string() + "Error in readMesh3D: Invalid version in file \""
                 + filename + "\".");
         return;
     }
@@ -226,7 +227,7 @@ void MeshRenderer::render(sgl::ShaderProgramPtr passShader, bool isGBufferPass, 
                 passShader->setUniform("opacity", materials.at(i).opacity);
             }
         }
-        Renderer->render(shaderAttributes.at(i), passShader);
+        sgl::Renderer->render(shaderAttributes.at(i), passShader);
     }
 }
 
@@ -239,7 +240,7 @@ void MeshRenderer::setNewShader(sgl::ShaderProgramPtr newShader) {
 
 sgl::AABB3 computeAABB(const std::vector<glm::vec3> &vertices) {
     if (vertices.size() < 1) {
-        Logfile::get()->writeError("computeAABB: vertices.size() < 1");
+        sgl::Logfile::get()->writeError("computeAABB: vertices.size() < 1");
         return sgl::AABB3();
     }
 
@@ -298,7 +299,7 @@ std::vector<uint32_t> shuffleLineOrder(const std::vector<uint32_t> &indices) {
         currentLine.push_back(idx0);
         currentLine.push_back(idx1);
     }
-    if (currentLine.size() > 0) {
+    if (!currentLine.empty()) {
         lines.push_back(currentLine);
     }
 
@@ -357,7 +358,7 @@ MeshRenderer parseMesh3d(const std::string &filename, sgl::ShaderProgramPtr shad
     readMesh3D(filename, mesh);
 
     if (!shader) {
-        shader = ShaderManager->getShaderProgram({"PseudoPhong.Vertex", "PseudoPhong.Fragment"});
+        shader = sgl::ShaderManager->getShaderProgram({"PseudoPhong.Vertex", "PseudoPhong.Fragment"});
     }
 
     std::vector<sgl::ShaderAttributesPtr> &shaderAttributes = meshRenderer.shaderAttributes;
@@ -366,7 +367,7 @@ MeshRenderer parseMesh3d(const std::string &filename, sgl::ShaderProgramPtr shad
     materials.reserve(mesh.submeshes.size());
 
     // Bounding box of all submeshes combined
-    AABB3 totalBoundingBox(glm::vec3(FLT_MAX, FLT_MAX, FLT_MAX), glm::vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX));
+    sgl::AABB3 totalBoundingBox(glm::vec3(FLT_MAX, FLT_MAX, FLT_MAX), glm::vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX));
 
     // Importance criterion attributes are bound to location 3 and onwards in vertex shader
     //int importanceCriterionLocationCounter = 3;
@@ -375,32 +376,36 @@ MeshRenderer parseMesh3d(const std::string &filename, sgl::ShaderProgramPtr shad
     // Iterate over all submeshes and create rendering data
     for (size_t i = 0; i < mesh.submeshes.size(); i++) {
         BinarySubMesh &submesh = mesh.submeshes.at(i);
-        ShaderAttributesPtr renderData = ShaderManager->createShaderAttributes(shader);
+        sgl::ShaderAttributesPtr renderData = sgl::ShaderManager->createShaderAttributes(shader);
         if (!useProgrammableFetch) {
             renderData->setVertexMode(submesh.vertexMode);
         } else {
-            renderData->setVertexMode(VERTEX_MODE_TRIANGLES);
+            renderData->setVertexMode(sgl::VERTEX_MODE_TRIANGLES);
         }
 
         if (submesh.indices.size() > 0 && !useProgrammableFetch) {
-            if (shuffleData && (submesh.vertexMode == VERTEX_MODE_LINES || submesh.vertexMode == VERTEX_MODE_TRIANGLES)) {
+            if (shuffleData && (submesh.vertexMode == sgl::VERTEX_MODE_LINES
+                    || submesh.vertexMode == sgl::VERTEX_MODE_TRIANGLES)) {
                 std::vector<uint32_t> shuffledIndices;
-                if (submesh.vertexMode == VERTEX_MODE_LINES) {
+                if (submesh.vertexMode == sgl::VERTEX_MODE_LINES) {
                     //shuffledIndices = shuffleIndicesLines(submesh.indices);
                     shuffledIndices = shuffleLineOrder(submesh.indices);
-                } else if (submesh.vertexMode == VERTEX_MODE_TRIANGLES) {
+                } else if (submesh.vertexMode == sgl::VERTEX_MODE_TRIANGLES) {
                     shuffledIndices = shuffleIndicesTriangles(submesh.indices);
                 } else {
-                    Logfile::get()->writeError("ERROR in parseMesh3D: shuffleData and unsupported vertex mode!");
+                    sgl::Logfile::get()->writeError(
+                            "ERROR in parseMesh3D: shuffleData and unsupported vertex mode!");
                     shuffledIndices = submesh.indices;
                 }
-                GeometryBufferPtr indexBuffer = Renderer->createGeometryBuffer(
-                        sizeof(uint32_t)*shuffledIndices.size(), shuffledIndices.data(), INDEX_BUFFER);
-                renderData->setIndexGeometryBuffer(indexBuffer, ATTRIB_UNSIGNED_INT);
+                sgl::GeometryBufferPtr indexBuffer = sgl::Renderer->createGeometryBuffer(
+                        sizeof(uint32_t)*shuffledIndices.size(), shuffledIndices.data(),
+                        sgl::INDEX_BUFFER);
+                renderData->setIndexGeometryBuffer(indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
             } else {
-                GeometryBufferPtr indexBuffer = Renderer->createGeometryBuffer(
-                        sizeof(uint32_t)*submesh.indices.size(), submesh.indices.data(), INDEX_BUFFER);
-                renderData->setIndexGeometryBuffer(indexBuffer, ATTRIB_UNSIGNED_INT);
+                sgl::GeometryBufferPtr indexBuffer = sgl::Renderer->createGeometryBuffer(
+                        sizeof(uint32_t)*submesh.indices.size(), submesh.indices.data(),
+                        sgl::INDEX_BUFFER);
+                renderData->setIndexGeometryBuffer(indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
             }
         }
         if (submesh.indices.size() > 0 && useProgrammableFetch) {
@@ -419,9 +424,9 @@ MeshRenderer parseMesh3d(const std::string &filename, sgl::ShaderProgramPtr shad
                 fetchIndices.push_back(base1+1);
                 fetchIndices.push_back(base0+1);
             }
-            GeometryBufferPtr indexBuffer = Renderer->createGeometryBuffer(
-                    sizeof(uint32_t)*fetchIndices.size(), fetchIndices.data(), INDEX_BUFFER);
-            renderData->setIndexGeometryBuffer(indexBuffer, ATTRIB_UNSIGNED_INT);
+            sgl::GeometryBufferPtr indexBuffer = sgl::Renderer->createGeometryBuffer(
+                    sizeof(uint32_t)*fetchIndices.size(), fetchIndices.data(), sgl::INDEX_BUFFER);
+            renderData->setIndexGeometryBuffer(indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
         }
 
         // For programmableFetchUseAoS
@@ -431,7 +436,7 @@ MeshRenderer parseMesh3d(const std::string &filename, sgl::ShaderProgramPtr shad
 
         for (size_t j = 0; j < submesh.attributes.size(); j++) {
             BinaryMeshAttribute &meshAttribute = submesh.attributes.at(j);
-            GeometryBufferPtr attributeBuffer;
+            sgl::GeometryBufferPtr attributeBuffer;
 
             // Assume only one component means importance criterion like vorticity, line width, ...
             if (meshAttribute.numComponents == 1) {
@@ -441,7 +446,9 @@ MeshRenderer parseMesh3d(const std::string &filename, sgl::ShaderProgramPtr shad
                 // Copy values to mesh renderer data structure
                 uint16_t *attributeValuesUnorm = (uint16_t*)meshAttribute.data.data();
                 size_t numAttributeValues = meshAttribute.data.size() / sizeof(uint16_t);
-                unpackUnorm16Array(attributeValuesUnorm, numAttributeValues, importanceCriterionAttribute.attributes);
+                sgl::unpackUnorm16Array(
+                        attributeValuesUnorm, numAttributeValues,
+                        importanceCriterionAttribute.attributes);
 
                 // Compute minimum and maximum value
                 float minValue = FLT_MAX, maxValue = 0.0f;
@@ -460,9 +467,9 @@ MeshRenderer parseMesh3d(const std::string &filename, sgl::ShaderProgramPtr shad
 
                 // SSBOs can't directly perform process uint16_t -> float :(
                 if (useProgrammableFetch && !programmableFetchUseAoS) {
-                    attributeBuffer = Renderer->createGeometryBuffer(
+                    attributeBuffer = sgl::Renderer->createGeometryBuffer(
                             numAttributeValues*sizeof(float), importanceCriterionAttribute.attributes.data(),
-                            SHADER_STORAGE_BUFFER);
+                            sgl::SHADER_STORAGE_BUFFER);
                 } else if (useProgrammableFetch) {
                     int attributeIndex = sgl::fromString<int>(meshAttribute.name.substr(15));
                     if (attributeIndex >= int(vertexAttributeData.size())) {
@@ -475,17 +482,17 @@ MeshRenderer parseMesh3d(const std::string &filename, sgl::ShaderProgramPtr shad
                 }
             }
 
-            BufferType bufferType = useProgrammableFetch ? SHADER_STORAGE_BUFFER : VERTEX_BUFFER;
+            sgl::BufferType bufferType = useProgrammableFetch ? sgl::SHADER_STORAGE_BUFFER : sgl::VERTEX_BUFFER;
 
             if (!(useProgrammableFetch && programmableFetchUseAoS)
                 && !(meshAttribute.numComponents == 1 && useProgrammableFetch)
                 && !(meshAttribute.numComponents == 3 && useProgrammableFetch)) {
-                attributeBuffer = Renderer->createGeometryBuffer(
+                attributeBuffer = sgl::Renderer->createGeometryBuffer(
                         meshAttribute.data.size(), meshAttribute.data.data(), bufferType);
             }
             if (meshAttribute.numComponents == 3 && (useProgrammableFetch && !programmableFetchUseAoS)) {
                 // vec3 problematic in std430 struct
-                glm::vec3 *attributeValues = (glm::vec3*)meshAttribute.data.data();
+                glm::vec3* attributeValues = (glm::vec3*)meshAttribute.data.data();
                 size_t numAttributeValues = meshAttribute.data.size() / sizeof(glm::vec3);
                 std::vector<glm::vec4> vec4AttributeValues;
                 vec4AttributeValues.reserve(numAttributeValues);
@@ -493,7 +500,7 @@ MeshRenderer parseMesh3d(const std::string &filename, sgl::ShaderProgramPtr shad
                     glm::vec3 vec3Value = attributeValues[i];
                     vec4AttributeValues.push_back(glm::vec4(vec3Value.x, vec3Value.y, vec3Value.z, 1.0f));
                 }
-                attributeBuffer = Renderer->createGeometryBuffer(
+                attributeBuffer = sgl::Renderer->createGeometryBuffer(
                         vec4AttributeValues.size()*sizeof(glm::vec4), vec4AttributeValues.data(), bufferType);
             }
 
@@ -501,14 +508,16 @@ MeshRenderer parseMesh3d(const std::string &filename, sgl::ShaderProgramPtr shad
                 if (meshAttribute.numComponents == 1) {
                     // Importance criterion attributes are bound to location 3 and onwards in vertex shader
                     renderData->addGeometryBufferOptional(
-                            attributeBuffer, meshAttribute.name.c_str(), meshAttribute.attributeFormat,
-                            meshAttribute.numComponents, 0, 0, 0, ATTRIB_CONVERSION_FLOAT_NORMALIZED);
+                            attributeBuffer, meshAttribute.name.c_str(),
+                            meshAttribute.attributeFormat, meshAttribute.numComponents,
+                            0, 0, 0, sgl::ATTRIB_CONVERSION_FLOAT_NORMALIZED);
                 } else {
                     bool isNormalizedColor = (meshAttribute.name == "vertexColor");
                     renderData->addGeometryBufferOptional(
-                            attributeBuffer, meshAttribute.name.c_str(), meshAttribute.attributeFormat,
-                            meshAttribute.numComponents, 0, 0, 0,
-                            isNormalizedColor ? ATTRIB_CONVERSION_FLOAT_NORMALIZED : ATTRIB_CONVERSION_FLOAT);
+                            attributeBuffer, meshAttribute.name.c_str(),
+                            meshAttribute.attributeFormat, meshAttribute.numComponents,
+                            0, 0, 0, isNormalizedColor ?
+                            sgl::ATTRIB_CONVERSION_FLOAT_NORMALIZED : sgl::ATTRIB_CONVERSION_FLOAT);
                 }
                 meshRenderer.shaderAttributeNames.insert(meshAttribute.name);
             } else {
@@ -521,7 +530,7 @@ MeshRenderer parseMesh3d(const std::string &filename, sgl::ShaderProgramPtr shad
                             vertexPositionData.push_back(attributeValues[i]);
                         }
                     } else if (meshAttribute.name == "vertexLineTangent") {
-                        glm::vec3 *attributeValues = (glm::vec3*)meshAttribute.data.data();
+                        glm::vec3* attributeValues = (glm::vec3*)meshAttribute.data.data();
                         size_t numAttributeValues = meshAttribute.data.size() / sizeof(glm::vec3);
                         vertexTangentData.reserve(numAttributeValues);
                         for (size_t i = 0; i < numAttributeValues; i++) {
@@ -537,7 +546,8 @@ MeshRenderer parseMesh3d(const std::string &filename, sgl::ShaderProgramPtr shad
                     } else if (boost::starts_with(meshAttribute.name, "vertexAttribute")) {
                         bindingPoint = 4;
                     }
-                    meshRenderer.ssboEntries.push_back(SSBOEntry(bindingPoint, meshAttribute.name, attributeBuffer));
+                    meshRenderer.ssboEntries.emplace_back(
+                            bindingPoint, meshAttribute.name, attributeBuffer);
                 }
             }
 
@@ -561,11 +571,12 @@ MeshRenderer parseMesh3d(const std::string &filename, sgl::ShaderProgramPtr shad
                     linePointData.at(i).padding = 0.0f;
                 }
 
-                GeometryBufferPtr attributeBuffer = Renderer->createGeometryBuffer(
+                sgl::GeometryBufferPtr attributeBuffer = sgl::Renderer->createGeometryBuffer(
                         linePointData.size()*sizeof(LinePointData), linePointData.data(),
-                        SHADER_STORAGE_BUFFER);
-                meshRenderer.ssboEntries.push_back(SSBOEntry(2, "vertexAttribute" + sgl::toString(attributeIndex),
-                        attributeBuffer));
+                        sgl::SHADER_STORAGE_BUFFER);
+                meshRenderer.ssboEntries.emplace_back(
+                        2, "vertexAttribute" + sgl::toString(attributeIndex),
+                        attributeBuffer);
             }
         }
 

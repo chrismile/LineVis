@@ -36,63 +36,55 @@
 
 #include "DataSetList.hpp"
 
-std::vector<DataSetInformation> loadDataSetList(const std::string& filename) {
-    std::vector<DataSetInformation> dataSetList;
-
-    // Parse the passed JSON file.
-    std::ifstream jsonFileStream(filename.c_str());
-    Json::CharReaderBuilder builder;
-    JSONCPP_STRING errorString;
-    Json::Value root;
-    if (!parseFromStream(builder, jsonFileStream, &root, &errorString)) {
-        sgl::Logfile::get()->writeError(errorString);
-        return dataSetList;
-    }
-    jsonFileStream.close();
-
-    Json::Value sources = root["datasets"];
-    for (Json::Value::const_iterator sourceIt = sources.begin(); sourceIt != sources.end(); ++sourceIt) {
-        DataSetInformation dataSetInformation;
-        Json::Value source = *sourceIt;
-
+void processDataSetNodeChildren(Json::Value& childList, DataSetInformation* dataSetInformationParent) {
+    for (Json::Value& source : childList) {
+        auto* dataSetInformation = new DataSetInformation;
         // Get the type information.
         Json::Value type = source["type"];
         std::string typeName = type.asString();
-        if (typeName == "flow") {
-            dataSetInformation.type = DATA_SET_TYPE_FLOW_LINES;
+        if (typeName == "node") {
+            dataSetInformation->type = DATA_SET_TYPE_NODE;
+        } else if (typeName == "flow") {
+            dataSetInformation->type = DATA_SET_TYPE_FLOW_LINES;
         } else if (typeName == "stress") {
-            dataSetInformation.type = DATA_SET_TYPE_STRESS_LINES;
+            dataSetInformation->type = DATA_SET_TYPE_STRESS_LINES;
         } else if (typeName == "multivar") {
-            dataSetInformation.type = DATA_SET_TYPE_FLOW_LINES_MULTIVAR;
+            dataSetInformation->type = DATA_SET_TYPE_FLOW_LINES_MULTIVAR;
         } else {
-            sgl::Logfile::get()->writeError("ERROR in loadDataSetList: Invalid type name \"" + typeName + "\".");
-            return std::vector<DataSetInformation>();
+            sgl::Logfile::get()->writeError(
+                    "Error in processDataSetNodeChildren: Invalid type name \"" + typeName + "\".");
+            return;
         }
 
-        // Get the display name and the associated filenames.
-        dataSetInformation.name = source["name"].asString();
+        dataSetInformation->name = source["name"].asString();
+
+        if (dataSetInformation->type == DATA_SET_TYPE_NODE) {
+            dataSetInformationParent->children.emplace_back(dataSetInformation);
+            processDataSetNodeChildren(source["children"], dataSetInformation);
+            continue;
+        }
+
         Json::Value filenames = source["filenames"];
         const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
         if (filenames.isArray()) {
-            for (Json::Value::const_iterator filenameIt = filenames.begin();
-                 filenameIt != filenames.end(); ++filenameIt) {
-                dataSetInformation.filenames.push_back(lineDataSetsDirectory + filenameIt->asString());
+            for (const auto& filename : filenames) {
+                dataSetInformation->filenames.push_back(lineDataSetsDirectory + filename.asString());
             }
         } else {
-            dataSetInformation.filenames.push_back(lineDataSetsDirectory + filenames.asString());
+            dataSetInformation->filenames.push_back(lineDataSetsDirectory + filenames.asString());
         }
 
         // Optional data: Line width.
-        dataSetInformation.hasCustomLineWidth = source.isMember("linewidth");
-        if (dataSetInformation.hasCustomLineWidth) {
-            dataSetInformation.lineWidth = source["linewidth"].asFloat();
+        dataSetInformation->hasCustomLineWidth = source.isMember("linewidth");
+        if (dataSetInformation->hasCustomLineWidth) {
+            dataSetInformation->lineWidth = source["linewidth"].asFloat();
         }
 
         // Optional data: Transform.
-        dataSetInformation.hasCustomTransform = source.isMember("transform");
-        if (dataSetInformation.hasCustomTransform) {
+        dataSetInformation->hasCustomTransform = source.isMember("transform");
+        if (dataSetInformation->hasCustomTransform) {
             glm::mat4 transformMatrix = parseTransformString(source["transform"].asString());
-            dataSetInformation.transformMatrix = transformMatrix;
+            dataSetInformation->transformMatrix = transformMatrix;
         }
 
         // Optional data: Attribute (importance criteria) display names.
@@ -101,31 +93,31 @@ std::vector<DataSetInformation> loadDataSetList(const std::string& filename) {
             if (attributes.isArray()) {
                 for (Json::Value::const_iterator attributesIt = attributes.begin();
                      attributesIt != attributes.end(); ++attributesIt) {
-                    dataSetInformation.attributeNames.push_back(attributesIt->asString());
+                    dataSetInformation->attributeNames.push_back(attributesIt->asString());
                 }
             } else {
-                dataSetInformation.attributeNames.push_back(attributes.asString());
+                dataSetInformation->attributeNames.push_back(attributes.asString());
             }
         }
 
         // Optional data: The scaling in y direction.
         if (source.isMember("heightscale")) {
-            dataSetInformation.heightScale = source["heightscale"].asFloat();
+            dataSetInformation->heightScale = source["heightscale"].asFloat();
         }
 
         // Optional data: The version of the file format.
         if (source.isMember("version")) {
-            dataSetInformation.version = source["version"].asInt();
+            dataSetInformation->version = source["version"].asInt();
         }
 
         // Optional stress line data: Mesh file.
         if (source.isMember("mesh")) {
-            dataSetInformation.meshFilename = lineDataSetsDirectory + source["mesh"].asString();
+            dataSetInformation->meshFilename = lineDataSetsDirectory + source["mesh"].asString();
         }
 
         // Optional stress line data: Degenerate points file.
         if (source.isMember("degenerate_points")) {
-            dataSetInformation.degeneratePointsFilename =
+            dataSetInformation->degeneratePointsFilename =
                     lineDataSetsDirectory + source["degenerate_points"].asString();
         }
 
@@ -135,16 +127,33 @@ std::vector<DataSetInformation> loadDataSetList(const std::string& filename) {
             if (lineHierarchyFilenames.isArray()) {
                 for (Json::Value::const_iterator filenameIt = lineHierarchyFilenames.begin();
                      filenameIt != lineHierarchyFilenames.end(); ++filenameIt) {
-                    dataSetInformation.filenamesStressLineHierarchy.push_back(
+                    dataSetInformation->filenamesStressLineHierarchy.push_back(
                             lineDataSetsDirectory + filenameIt->asString());
                 }
             } else {
-                dataSetInformation.filenamesStressLineHierarchy.push_back(
+                dataSetInformation->filenamesStressLineHierarchy.push_back(
                         lineDataSetsDirectory + lineHierarchyFilenames.asString());
             }
         }
 
-        dataSetList.push_back(dataSetInformation);
+        dataSetInformationParent->children.emplace_back(dataSetInformation);
     }
-    return dataSetList;
+}
+
+DataSetInformationPtr loadDataSetList(const std::string& filename) {
+    // Parse the passed JSON file.
+    std::ifstream jsonFileStream(filename.c_str());
+    Json::CharReaderBuilder builder;
+    JSONCPP_STRING errorString;
+    Json::Value root;
+    if (!parseFromStream(builder, jsonFileStream, &root, &errorString)) {
+        sgl::Logfile::get()->writeError(errorString);
+        return {};
+    }
+    jsonFileStream.close();
+
+    DataSetInformationPtr dataSetInformationRoot(new DataSetInformation);
+    Json::Value& dataSetNode = root["datasets"];
+    processDataSetNodeChildren(dataSetNode, dataSetInformationRoot.get());
+    return dataSetInformationRoot;
 }

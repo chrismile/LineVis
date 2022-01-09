@@ -542,15 +542,15 @@ void MainApp::setNewState(const InternalState &newState) {
     if (newState.dataSetDescriptor != lastState.dataSetDescriptor) {
         selectedDataSetIndex = 0;
         std::string nameLower = boost::algorithm::to_lower_copy(newState.dataSetDescriptor.name);
-        for (size_t i = 0; i < dataSetInformation.size(); i++) {
-            if (boost::algorithm::to_lower_copy(dataSetInformation.at(i).name) == nameLower) {
+        for (size_t i = 0; i < dataSetInformationList.size(); i++) {
+            if (boost::algorithm::to_lower_copy(dataSetInformationList.at(i)->name) == nameLower) {
                 selectedDataSetIndex = int(i) + NUM_MANUAL_LOADERS;
                 break;
             }
         }
         if (selectedDataSetIndex == 0) {
-            if (dataSetInformation.at(selectedDataSetIndex - NUM_MANUAL_LOADERS).type == DATA_SET_TYPE_STRESS_LINES
-                    && newState.dataSetDescriptor.enabledFileIndices.size() == 3) {
+            if (dataSetInformationList.at(selectedDataSetIndex - NUM_MANUAL_LOADERS)->type
+                    == DATA_SET_TYPE_STRESS_LINES && newState.dataSetDescriptor.enabledFileIndices.size() == 3) {
                 LineDataStress::setUseMajorPS(newState.dataSetDescriptor.enabledFileIndices.at(0));
                 LineDataStress::setUseMediumPS(newState.dataSetDescriptor.enabledFileIndices.at(1));
                 LineDataStress::setUseMinorPS(newState.dataSetDescriptor.enabledFileIndices.at(2));
@@ -1103,9 +1103,29 @@ void MainApp::loadAvailableDataSetInformation() {
 
     const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
     if (sgl::FileUtils::get()->exists(lineDataSetsDirectory + "datasets.json")) {
-        dataSetInformation = loadDataSetList(lineDataSetsDirectory + "datasets.json");
-        for (DataSetInformation& dataSetInfo  : dataSetInformation) {
-            dataSetNames.push_back(dataSetInfo.name);
+        dataSetInformationRoot = loadDataSetList(lineDataSetsDirectory + "datasets.json");
+
+        std::stack<std::pair<DataSetInformationPtr, size_t>> dataSetInformationStack;
+        dataSetInformationStack.push(std::make_pair(dataSetInformationRoot, 0));
+        while (!dataSetInformationStack.empty()) {
+            std::pair<DataSetInformationPtr, size_t> dataSetIdxPair = dataSetInformationStack.top();
+            DataSetInformationPtr dataSetInformationParent = dataSetIdxPair.first;
+            size_t idx = dataSetIdxPair.second;
+            dataSetInformationStack.pop();
+            while (idx < dataSetInformationParent->children.size()) {
+                DataSetInformationPtr dataSetInformationChild =
+                        dataSetInformationParent->children.at(idx);
+                idx++;
+                if (dataSetInformationChild->type == DATA_SET_TYPE_NODE) {
+                    dataSetInformationStack.push(std::make_pair(dataSetInformationRoot, idx));
+                    dataSetInformationStack.push(std::make_pair(dataSetInformationChild, 0));
+                    break;
+                } else {
+                    dataSetInformationChild->sequentialIndex = int(dataSetNames.size());
+                    dataSetInformationList.push_back(dataSetInformationChild);
+                    dataSetNames.push_back(dataSetInformationChild->name);
+                }
+            }
         }
     }
 }
@@ -1125,8 +1145,9 @@ std::vector<std::string> MainApp::getSelectedLineDataSetFilenames() {
         filenames.push_back(customDataSetFileName);
         return filenames;
     }
-    dataSetType = dataSetInformation.at(selectedDataSetIndex - NUM_MANUAL_LOADERS).type;
-    for (const std::string& filename : dataSetInformation.at(selectedDataSetIndex - NUM_MANUAL_LOADERS).filenames) {
+    dataSetType = dataSetInformationList.at(selectedDataSetIndex - NUM_MANUAL_LOADERS)->type;
+    for (const std::string& filename : dataSetInformationList.at(
+            selectedDataSetIndex - NUM_MANUAL_LOADERS)->filenames) {
         filenames.push_back(filename);
     }
     return filenames;
@@ -1230,14 +1251,42 @@ void MainApp::renderGuiMenuBar() {
             }
 
             if (ImGui::BeginMenu("Datasets")) {
-                for (size_t i = 1; i < dataSetNames.size(); i++) {
+                for (int i = 1; i < NUM_MANUAL_LOADERS; i++) {
                     if (ImGui::MenuItem(dataSetNames.at(i).c_str())) {
-                        selectedDataSetIndex = int(i);
-                        if (selectedDataSetIndex >= NUM_MANUAL_LOADERS) {
-                            loadLineDataSet(getSelectedLineDataSetFilenames());
-                        }
+                        selectedDataSetIndex = i;
                     }
                 }
+
+                std::stack<std::pair<DataSetInformationPtr, size_t>> dataSetInformationStack;
+                dataSetInformationStack.push(std::make_pair(dataSetInformationRoot, 0));
+                while (!dataSetInformationStack.empty()) {
+                    std::pair<DataSetInformationPtr, size_t> dataSetIdxPair = dataSetInformationStack.top();
+                    DataSetInformationPtr dataSetInformationParent = dataSetIdxPair.first;
+                    size_t idx = dataSetIdxPair.second;
+                    dataSetInformationStack.pop();
+                    while (idx < dataSetInformationParent->children.size()) {
+                        DataSetInformationPtr dataSetInformationChild =
+                                dataSetInformationParent->children.at(idx);
+                        if (dataSetInformationChild->type == DATA_SET_TYPE_NODE) {
+                            if (ImGui::BeginMenu(dataSetInformationChild->name.c_str())) {
+                                dataSetInformationStack.push(std::make_pair(dataSetInformationRoot, idx + 1));
+                                dataSetInformationStack.push(std::make_pair(dataSetInformationChild, 0));
+                                break;
+                            }
+                        } else {
+                            if (ImGui::MenuItem(dataSetInformationChild->name.c_str())) {
+                                selectedDataSetIndex = int(dataSetInformationChild->sequentialIndex);
+                                loadLineDataSet(getSelectedLineDataSetFilenames());
+                            }
+                        }
+                        idx++;
+                    }
+
+                    if (idx == dataSetInformationParent->children.size() && !dataSetInformationStack.empty()) {
+                        ImGui::EndMenu();
+                    }
+                }
+
                 ImGui::EndMenu();
             }
 
@@ -1706,8 +1755,8 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames, bool bl
     currentlyLoadedDataSetIndex = selectedDataSetIndex;
 
     DataSetInformation selectedDataSetInformation;
-    if (selectedDataSetIndex >= NUM_MANUAL_LOADERS && !dataSetInformation.empty()) {
-        selectedDataSetInformation = dataSetInformation.at(selectedDataSetIndex - NUM_MANUAL_LOADERS);
+    if (selectedDataSetIndex >= NUM_MANUAL_LOADERS && !dataSetInformationList.empty()) {
+        selectedDataSetInformation = *dataSetInformationList.at(selectedDataSetIndex - NUM_MANUAL_LOADERS);
     } else if (selectedDataSetIndex == 1) {
         selectedDataSetInformation = stressLineTracerDataSetInformation;
     } else {

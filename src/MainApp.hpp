@@ -118,7 +118,8 @@ private:
     // Data set GUI information.
     void loadAvailableDataSetInformation();
     std::vector<std::string> getSelectedLineDataSetFilenames();
-    std::vector<DataSetInformation> dataSetInformation;
+    DataSetInformationPtr dataSetInformationRoot;
+    std::vector<DataSetInformationPtr> dataSetInformationList; //< List of all leaves.
     std::vector<std::string> dataSetNames; //< Contains "Local file..." at beginning, thus starts actually at 1.
     int selectedDataSetIndex = 0; //< Contains "Local file..." at beginning, thus starts actually at 1.
     int currentlyLoadedDataSetIndex = -1;
