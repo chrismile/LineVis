@@ -994,19 +994,21 @@ void MultiVarTransferFunctionWindow::rebuildTransferFunctionMap() {
 
 bool MultiVarTransferFunctionWindow::renderGui() {
     sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(2, 1278, 634, 818);
-    if (showWindow && ImGui::Begin("Multi-Var Transfer Function", &showWindow)) {
-        if (ImGui::BeginCombo("Variable", varNames.at(selectedVarIndex).c_str())) {
-            for (size_t i = 0; i < varNames.size(); ++i) {
-                if (ImGui::Selectable(varNames.at(i).c_str(), selectedVarIndex == i)) {
-                    selectedVarIndex = i;
-                    currVarData = &guiVarData.at(selectedVarIndex);
+    if (showWindow) {
+        if (ImGui::Begin("Multi-Var Transfer Function", &showWindow)) {
+            if (ImGui::BeginCombo("Variable", varNames.at(selectedVarIndex).c_str())) {
+                for (size_t i = 0; i < varNames.size(); ++i) {
+                    if (ImGui::Selectable(varNames.at(i).c_str(), selectedVarIndex == i)) {
+                        selectedVarIndex = i;
+                        currVarData = &guiVarData.at(selectedVarIndex);
+                    }
                 }
+                ImGui::EndCombo();
             }
-            ImGui::EndCombo();
-        }
 
-        if (currVarData) {
-            reRender = currVarData->renderGui() || reRender;
+            if (currVarData) {
+                reRender = currVarData->renderGui() || reRender;
+            }
         }
         ImGui::End();
     }

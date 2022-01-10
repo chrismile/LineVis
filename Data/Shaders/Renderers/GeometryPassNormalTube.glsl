@@ -181,9 +181,12 @@ void main() {
     vec3 linePosition0 = (mMatrix * vec4(v_in[0].linePosition, 1.0)).xyz;
     vec3 linePosition1 = (mMatrix * vec4(v_in[1].linePosition, 1.0)).xyz;
 
-#ifdef USE_BANDS
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
     uint principalStressIndex = v_in[0].linePrincipalStressIndex;
+#endif
+
+#ifdef USE_BANDS
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
     useBand = psUseBands[principalStressIndex];
 #else
     useBand = 1;
