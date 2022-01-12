@@ -57,7 +57,7 @@ bool LineDataStress::useMajorPS = true;
 bool LineDataStress::useMediumPS = false;
 bool LineDataStress::useMinorPS = true;
 bool LineDataStress::usePrincipalStressDirectionIndex = true;
-std::array<bool, 3> LineDataStress::psUseBands = {true, true, false};
+std::array<bool, 3> LineDataStress::psUseBands = {false, true, true};
 bool LineDataStress::useSmoothedBands = false;
 LineDataStress::BandRenderMode LineDataStress::bandRenderMode = LineDataStress::BandRenderMode::RIBBONS;
 LineDataStress::LineHierarchyType LineDataStress::lineHierarchyType = LineDataStress::LineHierarchyType::GEO;
@@ -72,7 +72,7 @@ LineDataStress::LineDataStress(sgl::TransferFunctionWindow &transferFunctionWind
           //multiVarTransferFunctionWindow("stress", { "reds.xml", "greens.xml", "blues.xml" }) {
           multiVarTransferFunctionWindow(
                   "stress",
-                  { "qualitative-pale-lilac.xml", "qualitative-emerald.xml", "qualitative-ocher.xml" }) {
+                  { "qualitative-ocher.xml", "qualitative-emerald.xml", "qualitative-pale-lilac.xml" }) {
     colorLegendWidgets.resize(3);
     for (int psIdx = 0; psIdx < 3; psIdx++) {
         colorLegendWidgets[psIdx].setPositionIndex(psIdx, 3);

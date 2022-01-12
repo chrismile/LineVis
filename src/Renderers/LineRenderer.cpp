@@ -354,6 +354,8 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
         }
         shaderProgram->setUniformOptional(
                 "ambientOcclusionStrength", ambientOcclusionStrength);
+        shaderProgram->setUniformOptional(
+                "ambientOcclusionGamma", ambientOcclusionGamma);
     }
 }
 
@@ -391,6 +393,10 @@ bool LineRenderer::setNewSettings(const SettingsMap& settings) {
             updateAmbientOcclusionMode();
             shallReloadGatherShader = true;
         }
+    }
+
+    if (settings.getValueOpt("ambient_occlusion_gamma", ambientOcclusionGamma)) {
+        reRender = false;
     }
 
     return shallReloadGatherShader;
@@ -517,6 +523,12 @@ void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
             }
 
             if (ambientOcclusionStrength > 0.0f) {
+                if (propertyEditor.addSliderFloat(
+                        "AO Gamma", &ambientOcclusionGamma, 0.5f, 3.0f)) {
+                    reRender = true;
+                    internalReRender = true;
+                }
+
                 if (propertyEditor.addCombo(
                         "Ambient Occlusion Mode", (int*)&ambientOcclusionBakerType,
                         AMBIENT_OCCLUSION_BAKER_TYPE_NAMES,

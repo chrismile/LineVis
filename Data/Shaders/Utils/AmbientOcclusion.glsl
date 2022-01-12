@@ -43,6 +43,7 @@ uniform sampler2D ambientOcclusionTexture;
 
 #ifndef VULKAN
 uniform float ambientOcclusionStrength;
+uniform float ambientOcclusionGamma;
 #ifdef STATIC_AMBIENT_OCCLUSION_PREBAKING
 uniform uint numAoTubeSubdivisions;
 uniform uint numLineVertices;
@@ -77,6 +78,7 @@ float getAoFactor(float interpolatedVertexId, float phi) {
     float aoFactor0 = mix(aoFactor00, aoFactor01, interpolationFactorLine);
     float aoFactor1 = mix(aoFactor10, aoFactor11, interpolationFactorLine);
     float aoFactor = mix(aoFactor0, aoFactor1, interpolationFactorCircle);
+    aoFactor = pow(aoFactor, ambientOcclusionGamma);
     return 1.0 - ambientOcclusionStrength + ambientOcclusionStrength * aoFactor;
 }
 #else
@@ -89,6 +91,7 @@ float getAoFactor(vec3 screenSpacePosition) {
 #endif
     ndcPosition.xyz /= ndcPosition.w;
     float aoFactor = texture(ambientOcclusionTexture, ndcPosition.xy * 0.5 + 0.5).x;
+    aoFactor = pow(aoFactor, ambientOcclusionGamma);
     return 1.0 - ambientOcclusionStrength + ambientOcclusionStrength * aoFactor;
     //return ndcPosition.x > 0.0 ? 1.0 : 0.0;
 }

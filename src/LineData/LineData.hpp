@@ -312,8 +312,9 @@ protected:
         float bandWidth = 0.0f;
         float depthCueStrength = 0.0f;
         float ambientOcclusionStrength = 0.0f;
-        glm::vec3 paddingLineRenderSettings{};
+        float ambientOcclusionGamma = 1.0f;
         float minBandThickness = 0.0f;
+        float paddingLineRenderSettings0{}, paddingLineRenderSettings1{};
 
         uint32_t hasHullMesh = 0;
 

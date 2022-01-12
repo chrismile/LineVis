@@ -38,8 +38,9 @@ layout(binding = 4) uniform LineRenderSettingsBuffer {
     float bandWidth;
     float depthCueStrength;
     float ambientOcclusionStrength;
-    vec3 paddingLineRenderSettings;
+    float ambientOcclusionGamma;
     float minBandThickness;
+    float paddingLineRenderSettings0, paddingLineRenderSettings1;
 
     uint hasHullMesh;
 

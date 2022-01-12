@@ -179,6 +179,7 @@ protected:
     AmbientOcclusionBakerPtr ambientOcclusionBaker;
     bool useAmbientOcclusion = false;
     float ambientOcclusionStrength = 0.0f;
+    float ambientOcclusionGamma = 1.0f;
     bool ambientOcclusionBuffersDirty = false;
 
     // Minimum and maximum values in the UI.
