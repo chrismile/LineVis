@@ -27,9 +27,9 @@
  */
 
 #include <Utils/AppSettings.hpp>
-#include <Utils/File/Logfile.hpp>
 #include <Graphics/OpenGL/Texture.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
+#include <Graphics/Vulkan/Render/CommandBuffer.hpp>
 #include <Graphics/Vulkan/Render/RayTracingPipeline.hpp>
 #include <Graphics/Vulkan/Utils/Interop.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
