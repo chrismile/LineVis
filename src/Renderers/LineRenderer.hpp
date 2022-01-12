@@ -66,7 +66,7 @@ public:
     /// Returns if the visualization mapping needs to be re-generated.
     [[nodiscard]] inline bool isDirty() const { return dirty; }
     /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
-    [[nodiscard]] virtual bool needsReRender() { bool tmp = reRender; reRender = false; return tmp; }
+    [[nodiscard]] virtual bool needsReRender();
     /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
     [[nodiscard]] virtual bool needsInternalReRender() { bool tmp = internalReRender; internalReRender = false; return tmp; }
     /// Returns whether the triangle representation is used by the renderer.
@@ -82,9 +82,6 @@ public:
      */
     virtual void setLineData(LineDataPtr& lineData, bool isNewData)=0;
 
-    /// Sets the ambient occlusion baker that can be used for computing the ambient occlusion of the line data.
-    virtual void setAmbientOcclusionBaker(AmbientOcclusionBakerPtr& aoBaker);
-
     /// Renders the object to the scene framebuffer.
     virtual void render()=0;
     /// Renders the entries in the property editor.
@@ -95,13 +92,13 @@ public:
     virtual void update(float dt);
 
     /// Called when the resolution of the application window has changed.
-    virtual void onResolutionChanged() {}
+    virtual void onResolutionChanged();
 
     /// Called when the transfer function was changed.
     virtual void onTransferFunctionMapRebuilt() {}
 
     /// Called when the camera has moved.
-    virtual void onHasMoved() {}
+    virtual void onHasMoved();
     /// If the re-rendering was triggered from an outside source, frame accumulation cannot be used.
     virtual void notifyReRenderTriggeredExternally() { internalReRender = false; }
 
@@ -124,6 +121,8 @@ public:
     static inline float getMinBandThickness() { return LineData::getMinBandThickness(); }
 
     inline const std::string& getWindowName() { return windowName; }
+
+    bool getIsComputationRunning();
 
 protected:
     // Reload the gather shader.
@@ -151,6 +150,7 @@ protected:
     bool dirty = true;
     bool reRender = true;
     bool internalReRender = true; ///< For use in renderers with frame data accumulation.
+    bool ambientOcclusionReRender = false;
 
     // Whether to use depth cues (optionally selected in the UI).
     void updateDepthCueMode();
@@ -173,7 +173,9 @@ protected:
     sgl::ShaderProgramPtr minMaxReduceDepthShaderProgram;
 
     // Whether to use baked ambient occlusion buffers.
+    void setAmbientOcclusionBaker();
     void updateAmbientOcclusionMode();
+    AmbientOcclusionBakerType ambientOcclusionBakerType = AmbientOcclusionBakerType::VULKAN_RTAO;
     AmbientOcclusionBakerPtr ambientOcclusionBaker;
     bool useAmbientOcclusion = false;
     float ambientOcclusionStrength = 0.0f;

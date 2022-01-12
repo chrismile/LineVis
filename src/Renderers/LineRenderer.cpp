@@ -29,12 +29,18 @@
 #include <iostream>
 
 #include <Math/Geometry/MatrixUtil.hpp>
+#include <Utils/File/Logfile.hpp>
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/OpenGL/RendererGL.hpp>
 #include <Graphics/OpenGL/GeometryBuffer.hpp>
 #include <ImGui/imgui_custom.h>
 #include <ImGui/Widgets/PropertyEditor.hpp>
+#ifdef USE_VULKAN_INTEROP
+#include <Graphics/Vulkan/Render/Renderer.hpp>
+#include "Renderers/Vulkan/VulkanAmbientOcclusionBaker.hpp"
+#include "Renderers/Vulkan/VulkanRayTracedAmbientOcclusion.hpp"
+#endif
 
 #include "LineRenderer.hpp"
 
@@ -74,6 +80,19 @@ LineRenderer::~LineRenderer() {
         sgl::ShaderManager->removePreprocessorDefine("USE_AMBIENT_OCCLUSION");
     }
     sgl::ShaderManager->removePreprocessorDefine("COMPUTE_DEPTH_CUES_GPU");
+
+    ambientOcclusionBaker = {};
+}
+
+bool LineRenderer::needsReRender() {
+    if (useAmbientOcclusion && ambientOcclusionBaker) {
+        ambientOcclusionReRender = ambientOcclusionBaker->needsReRender();
+        reRender |= ambientOcclusionReRender;
+    }
+
+    bool tmp = reRender;
+    reRender = false;
+    return tmp;
 }
 
 bool LineRenderer::getIsTriangleRepresentationUsed() const {
@@ -82,6 +101,12 @@ bool LineRenderer::getIsTriangleRepresentationUsed() const {
 }
 
 void LineRenderer::update(float dt) {
+}
+
+void LineRenderer::onResolutionChanged() {
+    if (ambientOcclusionBaker) {
+        ambientOcclusionBaker->onResolutionChanged();
+    }
 }
 
 void LineRenderer::updateDepthCueMode() {
@@ -98,11 +123,81 @@ void LineRenderer::updateDepthCueMode() {
     }
 }
 
+bool LineRenderer::getIsComputationRunning() {
+    if (ambientOcclusionBaker) {
+        return ambientOcclusionBaker->getIsComputationRunning();
+    }
+    return false;
+}
+
+void LineRenderer::onHasMoved() {
+    if (ambientOcclusionBaker) {
+        ambientOcclusionBaker->onHasMoved();
+    }
+}
+
+void LineRenderer::setAmbientOcclusionBaker() {
+    AmbientOcclusionBakerType oldAmbientOcclusionBakerType = AmbientOcclusionBakerType::NONE;
+    if (ambientOcclusionBaker) {
+        oldAmbientOcclusionBakerType = ambientOcclusionBaker->getType();
+    }
+    ambientOcclusionBaker = {};
+
+#ifdef USE_VULKAN_INTEROP
+    if (ambientOcclusionBakerType == AmbientOcclusionBakerType::VULKAN_RTAO_PREBAKER) {
+        if (!sgl::AppSettings::get()->getPrimaryDevice()->getRayQueriesSupported()) {
+            sgl::Logfile::get()->writeError(
+                    "Warning in MainApp::setAmbientOcclusionBaker: Ray queries are not supported by the used GPU. "
+                    "Disabling ambient occlusion.");
+            return;
+        }
+        auto* ambientOcclusionRenderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
+        ambientOcclusionBaker = AmbientOcclusionBakerPtr(
+                new VulkanAmbientOcclusionBaker(ambientOcclusionRenderer));
+    } else if (ambientOcclusionBakerType == AmbientOcclusionBakerType::VULKAN_RTAO) {
+        if (!sgl::AppSettings::get()->getPrimaryDevice()->getRayQueriesSupported()) {
+            sgl::Logfile::get()->writeError(
+                    "Warning in MainApp::setAmbientOcclusionBaker: Ray tracing pipelines are not supported by the "
+                    "used GPU. Disabling ambient occlusion.");
+            return;
+        }
+        auto* ambientOcclusionRenderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
+        ambientOcclusionBaker = AmbientOcclusionBakerPtr(
+                new VulkanRayTracedAmbientOcclusion(sceneData, ambientOcclusionRenderer));
+    }
+#endif
+
+    AmbientOcclusionBakerType newAmbientOcclusionBakerType = AmbientOcclusionBakerType::NONE;
+    if (ambientOcclusionBaker) {
+        newAmbientOcclusionBakerType = ambientOcclusionBaker->getType();
+    }
+
+    if (oldAmbientOcclusionBakerType != newAmbientOcclusionBakerType) {
+        updateAmbientOcclusionMode();
+        reloadGatherShader();
+    }
+    reRender = true;
+
+    if (useAmbientOcclusion && ambientOcclusionBaker && lineData) {
+        ambientOcclusionBaker->startAmbientOcclusionBaking(lineData, true);
+    }
+}
+
 void LineRenderer::updateAmbientOcclusionMode() {
+    if (useAmbientOcclusion && !ambientOcclusionBaker) {
+        setAmbientOcclusionBaker();
+    }
+
     if (useAmbientOcclusion && ambientOcclusionBaker) {
         sgl::ShaderManager->addPreprocessorDefine("USE_AMBIENT_OCCLUSION", "");
+        if (ambientOcclusionBaker->getIsStaticPrebaker()) {
+            sgl::ShaderManager->addPreprocessorDefine("STATIC_AMBIENT_OCCLUSION_PREBAKING", "");
+        } else {
+            sgl::ShaderManager->removePreprocessorDefine("STATIC_AMBIENT_OCCLUSION_PREBAKING");
+        }
     } else {
         sgl::ShaderManager->removePreprocessorDefine("USE_AMBIENT_OCCLUSION");
+        sgl::ShaderManager->removePreprocessorDefine("STATIC_AMBIENT_OCCLUSION_PREBAKING");
     }
 }
 
@@ -240,30 +335,25 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
             "viewportSize",
             glm::ivec2((*sceneData->sceneTexture)->getW(), (*sceneData->sceneTexture)->getH()));
 
-    if (useAmbientOcclusion && ambientOcclusionBaker && ambientOcclusionBaker->getIsDataReady()
-            && ambientOcclusionBaker->getAmbientOcclusionBuffer()) {
-        sgl::GeometryBufferPtr aoBuffer = ambientOcclusionBaker->getAmbientOcclusionBuffer();
-        sgl::GeometryBufferPtr blendingWeightsBuffer = ambientOcclusionBaker->getBlendingWeightsBuffer();
-        sgl::ShaderManager->bindShaderStorageBuffer(13, aoBuffer);
-        sgl::ShaderManager->bindShaderStorageBuffer(14, blendingWeightsBuffer);
+    if (useAmbientOcclusion && ambientOcclusionBaker && ambientOcclusionBaker->getIsDataReady()) {
+        if (ambientOcclusionBaker->getIsStaticPrebaker() && ambientOcclusionBaker->getAmbientOcclusionBuffer()) {
+            sgl::GeometryBufferPtr aoBuffer = ambientOcclusionBaker->getAmbientOcclusionBuffer();
+            sgl::GeometryBufferPtr blendingWeightsBuffer = ambientOcclusionBaker->getBlendingWeightsBuffer();
+            sgl::ShaderManager->bindShaderStorageBuffer(13, aoBuffer);
+            sgl::ShaderManager->bindShaderStorageBuffer(14, blendingWeightsBuffer);
+            shaderProgram->setUniformOptional(
+                    "numAoTubeSubdivisions", ambientOcclusionBaker->getNumTubeSubdivisions());
+            shaderProgram->setUniformOptional(
+                    "numLineVertices", ambientOcclusionBaker->getNumLineVertices());
+            shaderProgram->setUniformOptional(
+                    "numParametrizationVertices", ambientOcclusionBaker->getNumParametrizationVertices());
+        } else if (!ambientOcclusionBaker->getIsStaticPrebaker()) {
+            shaderProgram->setUniform(
+                    "ambientOcclusionTexture", ambientOcclusionBaker->getAmbientOcclusionFrameTexture(),
+                    6);
+        }
         shaderProgram->setUniformOptional(
                 "ambientOcclusionStrength", ambientOcclusionStrength);
-        shaderProgram->setUniformOptional(
-                "numAoTubeSubdivisions", ambientOcclusionBaker->getNumTubeSubdivisions());
-        shaderProgram->setUniformOptional(
-                "numLineVertices", ambientOcclusionBaker->getNumLineVertices());
-        shaderProgram->setUniformOptional(
-                "numParametrizationVertices", ambientOcclusionBaker->getNumParametrizationVertices());
-   }
-}
-
-void LineRenderer::setAmbientOcclusionBaker(AmbientOcclusionBakerPtr& aoBaker) {
-    ambientOcclusionBaker = aoBaker;
-    useAmbientOcclusion = ambientOcclusionStrength > 0.0f;
-    updateAmbientOcclusionMode();
-
-    if (useAmbientOcclusion && ambientOcclusionBaker && lineData && lineData->isTriangleRepresentationDirty()) {
-        ambientOcclusionBaker->startAmbientOcclusionBaking(lineData, true);
     }
 }
 
@@ -327,10 +417,11 @@ bool LineRenderer::getCanUseLiveUpdate(LineDataAccessType accessType) const {
 void LineRenderer::render() {
     if (useAmbientOcclusion && ambientOcclusionBaker) {
         if (ambientOcclusionBaker->getBakingMode() == BakingMode::ITERATIVE_UPDATE
-                && ambientOcclusionBaker->getIsComputationRunning()) {
+                && (ambientOcclusionBaker->getIsComputationRunning() || ambientOcclusionReRender)) {
             ambientOcclusionBaker->updateIterative(isVulkanRenderer);
             reRender = true;
             internalReRender = true;
+            ambientOcclusionReRender = false;
         }
         if (ambientOcclusionBaker->getBakingMode() == BakingMode::MULTI_THREADED
                 && ambientOcclusionBaker->getHasThreadUpdate()) {
@@ -402,8 +493,8 @@ void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
             }
         }
 
-        if (ambientOcclusionBaker.get() != nullptr
-                && mode != RENDERING_MODE_VOXEL_RAY_CASTING
+#ifdef USE_VULKAN_INTEROP
+        if (mode != RENDERING_MODE_VOXEL_RAY_CASTING
                 && mode != RENDERING_MODE_LINE_DENSITY_MAP_RENDERER
                 && mode != RENDERING_MODE_VOLUMETRIC_PATH_TRACER) {
             ImGui::EditMode editModeAo = propertyEditor.addSliderFloatEdit(
@@ -424,14 +515,24 @@ void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                     shallReloadGatherShader = true;
                 }
             }
+
+            if (ambientOcclusionStrength > 0.0f) {
+                if (propertyEditor.addCombo(
+                        "Ambient Occlusion Mode", (int*)&ambientOcclusionBakerType,
+                        AMBIENT_OCCLUSION_BAKER_TYPE_NAMES,
+                        IM_ARRAYSIZE(AMBIENT_OCCLUSION_BAKER_TYPE_NAMES))) {
+                    setAmbientOcclusionBaker();
+                }
+            }
         }
+#endif
     }
 
     if (useAmbientOcclusion && ambientOcclusionBaker) {
         if (ambientOcclusionBaker->renderGuiPropertyEditorNodes(propertyEditor)) {
             reRender = true;
             internalReRender = true;
-            if (isVulkanRenderer) {
+            if (isVulkanRenderer && ambientOcclusionBaker->getIsStaticPrebaker()) {
                 ambientOcclusionBuffersDirty = true;
             }
         }

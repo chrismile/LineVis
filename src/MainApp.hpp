@@ -179,7 +179,6 @@ private:
     const int NUM_MANUAL_LOADERS = 4;
     DataSetInformation stressLineTracerDataSetInformation;
 
-    AmbientOcclusionBakerPtr ambientOcclusionBaker;
     bool optixInitialized = false;
 };
 

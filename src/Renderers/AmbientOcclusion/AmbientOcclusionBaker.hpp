@@ -37,12 +37,16 @@ class TransferFunctionWindow;
 class PropertyEditor;
 class GeometryBuffer;
 typedef std::shared_ptr<GeometryBuffer> GeometryBufferPtr;
+class Texture;
+typedef std::shared_ptr<Texture> TexturePtr;
 
 namespace vk {
 
 class Renderer;
 class Buffer;
 typedef std::shared_ptr<Buffer> BufferPtr;
+class Texture;
+typedef std::shared_ptr<Texture> TexturePtr;
 
 }
 
@@ -64,14 +68,22 @@ const char* const BAKING_MODE_NAMES[] = {
         "Immediate", "Iterative", "Multi-Threaded"
 };
 
+enum class AmbientOcclusionBakerType {
+    NONE = -1, VULKAN_RTAO_PREBAKER = 0, VULKAN_RTAO = 1
+};
+const char* const AMBIENT_OCCLUSION_BAKER_TYPE_NAMES[] = {
+        "RTAO (Prebaker)", "RTAO (Screen Space)"
+};
+
 class AmbientOcclusionBaker {
 public:
-    AmbientOcclusionBaker(sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
-            : transferFunctionWindow(transferFunctionWindow), rendererVk(rendererVk) {}
+    explicit AmbientOcclusionBaker(sgl::vk::Renderer* rendererVk) : rendererVk(rendererVk) {}
     virtual ~AmbientOcclusionBaker();
 
     [[nodiscard]] inline BakingMode getBakingMode() const { return bakingMode; }
 
+    virtual AmbientOcclusionBakerType getType()=0;
+    virtual bool getIsStaticPrebaker()=0;
     virtual void startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData)=0;
     virtual void updateIterative(bool isVulkanRenderer)=0;
     virtual void updateMultiThreaded(bool isVulkanRenderer)=0;
@@ -80,21 +92,34 @@ public:
     virtual bool getHasComputationFinished()=0;
     virtual bool getHasThreadUpdate()=0;
 
-    virtual sgl::GeometryBufferPtr& getAmbientOcclusionBuffer()=0;
-    virtual sgl::GeometryBufferPtr& getBlendingWeightsBuffer()=0;
+    // Ambient occlusion baker type 1: Preprocessing of static ambient occlusion.
+    virtual sgl::GeometryBufferPtr getAmbientOcclusionBuffer()=0;
+    virtual sgl::GeometryBufferPtr getBlendingWeightsBuffer()=0;
 #ifdef USE_VULKAN_INTEROP
-    virtual sgl::vk::BufferPtr& getAmbientOcclusionBufferVulkan()=0;
-    virtual sgl::vk::BufferPtr& getBlendingWeightsBufferVulkan()=0;
+    virtual sgl::vk::BufferPtr getAmbientOcclusionBufferVulkan()=0;
+    virtual sgl::vk::BufferPtr getBlendingWeightsBufferVulkan()=0;
 #endif
     virtual uint32_t getNumTubeSubdivisions()=0;
     virtual uint32_t getNumLineVertices()=0;
     virtual uint32_t getNumParametrizationVertices()=0;
 
+    // Ambient occlusion baker type 2: Compute ambient occlusion per frame.
+    virtual sgl::TexturePtr getAmbientOcclusionFrameTexture()=0;
+#ifdef USE_VULKAN_INTEROP
+    virtual sgl::vk::TexturePtr getAmbientOcclusionFrameTextureVulkan()=0;
+#endif
+
+    /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
+    virtual bool needsReRender() { return false; }
+    /// Called when the camera has moved.
+    virtual void onHasMoved() {}
+    /// Called when the resolution of the application window has changed.
+    virtual void onResolutionChanged() {}
+
     /// Returns whether the baking process was re-run.
     virtual bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) { return false; }
 
 protected:
-    sgl::TransferFunctionWindow& transferFunctionWindow;
     sgl::vk::Renderer* rendererVk;
     BakingMode bakingMode = BakingMode::ITERATIVE_UPDATE;
 };

@@ -49,7 +49,7 @@ public:
     // Initializes/frees CUDA and OptiX. Should be called at the start/end of the program.
     static bool initGlobal();
     static void freeGlobal();
-    static bool isOpitEnabled();
+    static bool isOptixEnabled();
 
     explicit OptixVptDenoiser(sgl::vk::Renderer* renderer);
     ~OptixVptDenoiser() override;

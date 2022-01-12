@@ -98,6 +98,8 @@ void DepthComplexityRenderer::setLineData(LineDataPtr& lineData, bool isNewData)
 }
 
 void DepthComplexityRenderer::onResolutionChanged() {
+    LineRenderer::onResolutionChanged();
+
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
 
@@ -236,6 +238,8 @@ void DepthComplexityRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& 
 }
 
 bool DepthComplexityRenderer::needsReRender() {
+    bool reRender = LineRenderer::needsReRender();
+
     // Update & print statistics if enough time has passed
     static float counterPrintFrags = 0.0f;
     counterPrintFrags += sgl::Timer->getElapsedSeconds();
@@ -243,9 +247,10 @@ bool DepthComplexityRenderer::needsReRender() {
         computeStatistics(true);
         counterPrintFrags = 0.0f;
         firstFrame = false;
-        return true;
+        reRender = true;
     }
-    return false;
+
+    return reRender;
 }
 
 void DepthComplexityRenderer::computeStatistics(bool isReRender) {

@@ -125,7 +125,7 @@ void OptixVptDenoiser::freeGlobal() {
     sgl::vk::freeCudaDeviceApiFunctionTable();
 }
 
-bool OptixVptDenoiser::isOpitEnabled() {
+bool OptixVptDenoiser::isOptixEnabled() {
     return optixHandle && cuContext;
 }
 
@@ -300,9 +300,7 @@ void OptixVptDenoiser::denoise() {
 #ifdef USE_TIMELINE_SEMAPHORES
     renderFinishedSemaphore->setSignalSemaphoreValue(timelineValue);
 #endif
-    if (commandBufferPreDenoise->getSignalSemaphoresVk().empty()) {
-        commandBufferPreDenoise->pushSignalSemaphore(renderFinishedSemaphore);
-    }
+    commandBufferPreDenoise->pushSignalSemaphore(renderFinishedSemaphore);
     renderer->endCommandBuffer();
 
     runOptixDenoiser();
@@ -314,10 +312,8 @@ void OptixVptDenoiser::denoise() {
 #endif
     renderer->pushCommandBuffer(postRenderCommandBuffer);
     renderer->beginCommandBuffer();
-    if (postRenderCommandBuffer->getWaitSemaphoresVk().empty()) {
-        postRenderCommandBuffer->pushWaitSemaphore(
-                denoiseFinishedSemaphore, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
-    }
+    postRenderCommandBuffer->pushWaitSemaphore(
+            denoiseFinishedSemaphore, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
     //renderer->insertBufferMemoryBarrier(
     //        VK_ACCESS_MEMORY_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,

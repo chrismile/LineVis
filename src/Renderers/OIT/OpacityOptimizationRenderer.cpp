@@ -543,6 +543,8 @@ void OpacityOptimizationRenderer::reallocateFragmentBuffer() {
 }
 
 void OpacityOptimizationRenderer::onResolutionChanged() {
+    LineRenderer::onResolutionChanged();
+
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
     viewportWidthOpacity = int(std::round(float(width) * opacityBufferScaleFactor));
@@ -942,12 +944,11 @@ bool OpacityOptimizationRenderer::needsReRender() {
     if (smoothingFramesCounter) {
         reRender = true;
     }
-    bool tmp = reRender;
-    reRender = false;
-    return tmp;
+    return LineRenderer::needsReRender();
 }
 
 void OpacityOptimizationRenderer::onHasMoved() {
+    LineRenderer::onHasMoved();
     smoothingFramesCounter = NUM_SMOOTHING_FRAMES;
 }
 

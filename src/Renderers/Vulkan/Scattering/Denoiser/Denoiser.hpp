@@ -56,8 +56,8 @@ class Denoiser {
 public:
     virtual ~Denoiser() = default;
     virtual DenoiserType getDenoiserType() = 0;
-    virtual const char* getDenoiserName() const = 0;
-    virtual bool getIsEnabled() const { return true; }
+    [[nodiscard]] virtual const char* getDenoiserName() const = 0;
+    [[nodiscard]] virtual bool getIsEnabled() const { return true; }
     virtual void setOutputImage(sgl::vk::ImageViewPtr& outputImage) = 0;
     virtual void setFeatureMap(const std::string& featureMapName, const sgl::vk::TexturePtr& featureTexture) = 0;
     virtual void denoise() = 0;
@@ -65,7 +65,8 @@ public:
 
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
     virtual bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) { return false; }
-
 };
+
+std::shared_ptr<Denoiser> createDenoiserObject(DenoiserType denoiserType, sgl::vk::Renderer* renderer);
 
 #endif //LINEVIS_DENOISER_HPP

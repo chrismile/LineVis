@@ -61,8 +61,7 @@ LineData::LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetT
         : dataSetType(dataSetType), transferFunctionWindow(transferFunctionWindow) {
 }
 
-LineData::~LineData() {
-}
+LineData::~LineData() = default;
 
 bool LineData::setNewSettings(const SettingsMap& settings) {
     std::string attributeName;

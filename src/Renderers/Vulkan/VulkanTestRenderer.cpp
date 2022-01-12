@@ -85,6 +85,8 @@ void VulkanTestRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 }
 
 void VulkanTestRenderer::onResolutionChanged() {
+    LineRenderer::onResolutionChanged();
+
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     uint32_t width = *sceneData->viewportWidth;
     uint32_t height = *sceneData->viewportHeight;

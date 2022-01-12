@@ -41,9 +41,8 @@
 #include "Renderers/LineRenderer.hpp"
 #include "VulkanAmbientOcclusionBaker.hpp"
 
-VulkanAmbientOcclusionBaker::VulkanAmbientOcclusionBaker(
-        sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
-        : AmbientOcclusionBaker(transferFunctionWindow, rendererVk) {
+VulkanAmbientOcclusionBaker::VulkanAmbientOcclusionBaker(sgl::vk::Renderer* rendererVk)
+        : AmbientOcclusionBaker(rendererVk) {
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     renderReadySemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
     renderFinishedSemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
@@ -401,19 +400,19 @@ bool VulkanAmbientOcclusionBaker::getHasComputationFinished() {
     return hasComputationFinished;
 }
 
-sgl::GeometryBufferPtr& VulkanAmbientOcclusionBaker::getAmbientOcclusionBuffer() {
+sgl::GeometryBufferPtr VulkanAmbientOcclusionBaker::getAmbientOcclusionBuffer() {
     return aoComputeRenderPass->getAmbientOcclusionBuffer();
 }
 
-sgl::GeometryBufferPtr& VulkanAmbientOcclusionBaker::getBlendingWeightsBuffer() {
+sgl::GeometryBufferPtr VulkanAmbientOcclusionBaker::getBlendingWeightsBuffer() {
     return aoComputeRenderPass->getBlendingWeightsBuffer();
 }
 
-sgl::vk::BufferPtr& VulkanAmbientOcclusionBaker::getAmbientOcclusionBufferVulkan() {
+sgl::vk::BufferPtr VulkanAmbientOcclusionBaker::getAmbientOcclusionBufferVulkan() {
     return aoComputeRenderPass->getAmbientOcclusionBufferVulkan();
 }
 
-sgl::vk::BufferPtr& VulkanAmbientOcclusionBaker::getBlendingWeightsBufferVulkan() {
+sgl::vk::BufferPtr VulkanAmbientOcclusionBaker::getBlendingWeightsBufferVulkan() {
     return aoComputeRenderPass->getBlendingWeightsBufferVulkan();
 }
 

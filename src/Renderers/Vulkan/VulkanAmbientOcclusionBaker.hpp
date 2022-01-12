@@ -68,9 +68,11 @@ class AmbientOcclusionComputeRenderPass;
 
 class VulkanAmbientOcclusionBaker : public AmbientOcclusionBaker {
 public:
-    VulkanAmbientOcclusionBaker(sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
+    explicit VulkanAmbientOcclusionBaker(sgl::vk::Renderer* rendererVk);
     ~VulkanAmbientOcclusionBaker() override;
 
+    AmbientOcclusionBakerType getType() override { return AmbientOcclusionBakerType::VULKAN_RTAO_PREBAKER; }
+    bool getIsStaticPrebaker() override { return true; }
     void startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData) override;
     void updateIterative(bool isVulkanRenderer) override;
     void updateMultiThreaded(bool isVulkanRenderer) override;
@@ -79,13 +81,16 @@ public:
     bool getHasComputationFinished() override;
     bool getHasThreadUpdate() override { return hasThreadUpdate; }
 
-    sgl::GeometryBufferPtr& getAmbientOcclusionBuffer() override;
-    sgl::GeometryBufferPtr& getBlendingWeightsBuffer() override;
-    sgl::vk::BufferPtr& getAmbientOcclusionBufferVulkan() override;
-    sgl::vk::BufferPtr& getBlendingWeightsBufferVulkan() override;
+    sgl::GeometryBufferPtr getAmbientOcclusionBuffer() override;
+    sgl::GeometryBufferPtr getBlendingWeightsBuffer() override;
+    sgl::vk::BufferPtr getAmbientOcclusionBufferVulkan() override;
+    sgl::vk::BufferPtr getBlendingWeightsBufferVulkan() override;
     uint32_t getNumTubeSubdivisions() override;
     uint32_t getNumLineVertices() override;
     uint32_t getNumParametrizationVertices() override;
+
+    sgl::TexturePtr getAmbientOcclusionFrameTexture() override { return {}; }
+    sgl::vk::TexturePtr getAmbientOcclusionFrameTextureVulkan() override { return {}; }
 
     /// Returns whether the baking process was re-run.
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
@@ -139,9 +144,9 @@ public:
     inline sgl::GeometryBufferPtr& getBlendingWeightsBuffer() { return blendingWeightParametrizationBufferGl; }
     inline sgl::vk::BufferPtr& getAmbientOcclusionBufferVulkan() { return aoBufferVk; }
     inline sgl::vk::BufferPtr& getBlendingWeightsBufferVulkan() { return blendingWeightParametrizationBuffer; }
-    inline uint32_t getNumTubeSubdivisions() const { return numTubeSubdivisions; }
-    inline uint32_t getNumLineVertices() const { return numLineVertices; }
-    inline uint32_t getNumParametrizationVertices() const { return numParametrizationVertices; }
+    [[nodiscard]] inline uint32_t getNumTubeSubdivisions() const { return numTubeSubdivisions; }
+    [[nodiscard]] inline uint32_t getNumLineVertices() const { return numLineVertices; }
+    [[nodiscard]] inline uint32_t getNumParametrizationVertices() const { return numParametrizationVertices; }
 
     // For multi-threading.
     void setRenderer(sgl::vk::Renderer* renderer);

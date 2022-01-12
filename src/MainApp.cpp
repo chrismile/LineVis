@@ -86,7 +86,6 @@
 #include "Renderers/Vulkan/Scattering/LineDensityMapRenderer.hpp"
 #include "Renderers/Vulkan/Scattering/SphericalHeatMapRenderer.hpp"
 #include "Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracingRenderer.hpp"
-#include "Renderers/Vulkan/VulkanAmbientOcclusionBaker.hpp"
 #ifdef SUPPORT_OPTIX
 #include "Renderers/Vulkan/Scattering/Denoiser/OptixVptDenoiser.hpp"
 #endif
@@ -181,7 +180,7 @@ MainApp::MainApp()
         }
 
         if (selectedDataSetIndex == 1) {
-            streamlineTracingRequester->setLineTracerSettings(settings);;
+            streamlineTracingRequester->setLineTracerSettings(settings);
         }
         if (selectedDataSetIndex == 2) {
             stressLineTracingRequester->setLineTracerSettings(settings);
@@ -392,15 +391,6 @@ MainApp::MainApp()
             window->setWindowSize(2186, 1358);
         }
     }
-
-#ifdef USE_VULKAN_INTEROP
-    if (sgl::AppSettings::get()->getVulkanInteropCapabilities() == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY
-            && sgl::AppSettings::get()->getPrimaryDevice()->getRayQueriesSupported()) {
-        auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
-        ambientOcclusionBaker = AmbientOcclusionBakerPtr(
-                new VulkanAmbientOcclusionBaker(transferFunctionWindow, renderer));
-    }
-#endif
 
     if (!useDockSpaceMode) {
         setRenderer(sceneData, oldRenderingMode, renderingMode, lineRenderer, 0);
@@ -680,9 +670,6 @@ void MainApp::setRenderer(
                 "Error in MainApp::setRenderer: A renderer unsupported in this build configuration or "
                 "incompatible with this system was selected.");
     }
-    if (ambientOcclusionBaker) {
-        newLineRenderer->setAmbientOcclusionBaker(ambientOcclusionBaker);
-    }
     newLineRenderer->initialize();
 
     if (lineData) {
@@ -867,6 +854,27 @@ void MainApp::renderGui() {
                 std::string windowName = dataView->getWindowName(i);
                 bool isViewOpen = true;
                 sgl::ImGuiWrapper::get()->setNextWindowStandardSize(800, 600);
+                ImGui::SetNextTabbarMenu([this] {
+                    if (ImGui::BeginPopup("#NewTab")) {
+                        for (int i = 0; i < IM_ARRAYSIZE(RENDERING_MODE_NAMES); i++) {
+                            if (ImGui::Selectable(RENDERING_MODE_NAMES[i])) {
+                                addNewDataView();
+                                DataViewPtr dataView = dataViews.back();
+                                dataView->renderingMode = RenderingMode(i);
+                                dataView->resize(1, 1); // Use arbitrary size for initialization.
+                                setRenderer(
+                                        dataView->sceneData, dataView->oldRenderingMode,
+                                        dataView->renderingMode, dataView->lineRenderer,
+                                        int(dataViews.size()) - 1);
+                                dataView->updateCameraMode();
+                                prepareVisualizationPipeline();
+                            }
+                        }
+                        ImGui::EndPopup();
+                    }
+
+                    return "#NewTab";
+                });
                 if (ImGui::Begin(windowName.c_str(), &isViewOpen)) {
                     if (ImGui::IsWindowFocused()) {
                         focusedWindowIndex = i;
@@ -1132,15 +1140,15 @@ void MainApp::loadAvailableDataSetInformation() {
 
 std::vector<std::string> MainApp::getSelectedLineDataSetFilenames() {
     std::vector<std::string> filenames;
-    if (selectedDataSetIndex == 0) {
+    if (selectedDataSetIndex == 1) {
         dataSetType = DATA_SET_TYPE_FLOW_LINES;
         filenames.push_back(customDataSetFileName);
         return filenames;
-    } else if (selectedDataSetIndex == 1) {
+    } else if (selectedDataSetIndex == 2) {
         dataSetType = DATA_SET_TYPE_STRESS_LINES;
         filenames.push_back(customDataSetFileName);
         return filenames;
-    } else if (selectedDataSetIndex == 2) {
+    } else if (selectedDataSetIndex == 3) {
         dataSetType = DATA_SET_TYPE_SCATTERING_LINES;
         filenames.push_back(customDataSetFileName);
         return filenames;
@@ -1333,11 +1341,20 @@ void MainApp::renderGuiMenuBar() {
 
         }
 
+        bool isRendererComputationRunning = false;
+        for (DataViewPtr& dataView : dataViews) {
+            isRendererComputationRunning =
+                    isRendererComputationRunning || dataView->lineRenderer->getIsComputationRunning();
+            if (isRendererComputationRunning) {
+                break;
+            }
+        }
+
         if (lineDataRequester.getIsProcessingRequest()
                 || streamlineTracingRequester->getIsProcessingRequest()
                 || stressLineTracingRequester->getIsProcessingRequest()
                 || scatteringLineTracingRequester->getIsProcessingRequest()
-                || (ambientOcclusionBaker && ambientOcclusionBaker->getIsComputationRunning())) {
+                || isRendererComputationRunning) {
             ImGui::SetCursorPosX(ImGui::GetWindowContentRegionWidth() - ImGui::GetTextLineHeight());
             ImGui::ProgressSpinner(
                     "##progress-spinner", -1.0f, -1.0f, 4.0f,
@@ -1364,7 +1381,7 @@ void MainApp::renderGuiPropertyEditorBegin() {
                 || streamlineTracingRequester->getIsProcessingRequest()
                 || stressLineTracingRequester->getIsProcessingRequest()
                 || scatteringLineTracingRequester->getIsProcessingRequest()
-                || (ambientOcclusionBaker && ambientOcclusionBaker->getIsComputationRunning())) {
+                || lineRenderer->getIsComputationRunning()) {
             ImGui::SameLine();
             ImGui::ProgressSpinner(
                     "##progress-spinner", -1.0f, -1.0f, 4.0f,
@@ -1757,7 +1774,7 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames, bool bl
     DataSetInformation selectedDataSetInformation;
     if (selectedDataSetIndex >= NUM_MANUAL_LOADERS && !dataSetInformationList.empty()) {
         selectedDataSetInformation = *dataSetInformationList.at(selectedDataSetIndex - NUM_MANUAL_LOADERS);
-    } else if (selectedDataSetIndex == 1) {
+    } else if (selectedDataSetIndex == 2) {
         selectedDataSetInformation = stressLineTracerDataSetInformation;
     } else {
         selectedDataSetInformation.type = dataSetType;

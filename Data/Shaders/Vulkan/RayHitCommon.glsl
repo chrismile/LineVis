@@ -296,13 +296,13 @@ void computeFragmentColor(
     }
 #endif
 
-#ifdef USE_DEPTH_CUES
+#if defined(USE_DEPTH_CUES) || defined(STATIC_AMBIENT_OCCLUSION_PREBAKING)
     vec3 screenSpacePosition = (camera.viewMatrix * vec4(fragmentPositionWorld, 1.0)).xyz;
 #endif
 
     fragmentColor = blinnPhongShadingTube(
             fragmentColor, fragmentPositionWorld,
-#ifdef USE_DEPTH_CUES
+#if defined(USE_DEPTH_CUES) || defined(STATIC_AMBIENT_OCCLUSION_PREBAKING)
             screenSpacePosition,
 #endif
 #ifdef USE_AMBIENT_OCCLUSION

@@ -329,8 +329,8 @@ protected:
     };
 
     // Uniform buffers with settings for rendering.
-    LineRenderSettings lineRenderSettings;
-    HullRenderSettings hullRenderSettings;
+    LineRenderSettings lineRenderSettings = {};
+    HullRenderSettings hullRenderSettings = {};
     sgl::vk::BufferPtr lineRenderSettingsBuffer;
     sgl::vk::BufferPtr hullRenderSettingsBuffer;
 #endif

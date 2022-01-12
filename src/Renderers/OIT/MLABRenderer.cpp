@@ -233,6 +233,8 @@ void MLABRenderer::reallocateFragmentBuffer() {
 }
 
 void MLABRenderer::onResolutionChanged() {
+    LineRenderer::onResolutionChanged();
+
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
     windowWidth = width;

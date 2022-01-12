@@ -94,12 +94,15 @@ void StressLineTracingRequester::renderGui() {
             }
         }
 
-        changed |= ImGui::Checkbox("##customlinedensity", &useCustomLineDensity);ImGui::SameLine();
-        changed |= ImGui::SliderFloatActive("Line Density", &lineDensCtrl, 1, 50, useCustomLineDensity);
-        changed |= ImGui::Checkbox("##customseeddensity", &useCustomSeedDensity);ImGui::SameLine();
-        changed |= ImGui::SliderFloatActive("Seed Density", &seedDensCtrl, 1, 30, useCustomSeedDensity);
-        changed |= ImGui::Checkbox("##customnumlevels", &useCustomNumLevels);ImGui::SameLine();
-        changed |= ImGui::SliderIntActive("#Levels", &numLevels, 1, 5, useCustomNumLevels);
+        //changed |= ImGui::Checkbox("##customlinedensity", &useCustomLineDensity);ImGui::SameLine();
+        //changed |= ImGui::SliderFloatActive("Line Density", &lineDensCtrl, 1, 50, useCustomLineDensity);
+        changed |= ImGui::SliderFloatEdit("Line Density", &lineDensCtrl, 1, 50) == ImGui::EditMode::INPUT_FINISHED;
+        //changed |= ImGui::Checkbox("##customseeddensity", &useCustomSeedDensity);ImGui::SameLine();
+        //changed |= ImGui::SliderFloatActive("Seed Density", &seedDensCtrl, 1, 30, useCustomSeedDensity);
+        changed |= ImGui::SliderFloatEdit("Seed Density", &seedDensCtrl, 1, 30) == ImGui::EditMode::INPUT_FINISHED;
+        //changed |= ImGui::Checkbox("##customnumlevels", &useCustomNumLevels);ImGui::SameLine();
+        //changed |= ImGui::SliderIntActive("#Levels", &numLevels, 1, 5, useCustomNumLevels);
+        changed |= ImGui::SliderIntEdit("#Levels", &numLevels, 1, 5) == ImGui::EditMode::INPUT_FINISHED;
         changed |= ImGui::Checkbox("Major##tracepsmajor", &traceMajorPS); ImGui::SameLine();
         changed |= ImGui::Checkbox("Medium##tracepsmedium", &traceMediumPS); ImGui::SameLine();
         changed |= ImGui::Checkbox("Minor##tracepsminor", &traceMinorPS);
@@ -247,9 +250,8 @@ bool StressLineTracingRequester::getHasNewData(DataSetInformation& dataSetInform
 
         Json::Value filenames = reply["fileName"];
         if (filenames.isArray()) {
-            for (Json::Value::const_iterator filenameIt = filenames.begin();
-                 filenameIt != filenames.end(); ++filenameIt) {
-                dataSetInformation.filenames.push_back(filenameIt->asString());
+            for (const auto& filename : filenames) {
+                dataSetInformation.filenames.push_back(filename.asString());
             }
         } else {
             dataSetInformation.filenames.push_back(filenames.asString());
@@ -259,9 +261,8 @@ bool StressLineTracingRequester::getHasNewData(DataSetInformation& dataSetInform
         if (reply.isMember("attributes")) {
             Json::Value attributes = reply["attributes"];
             if (attributes.isArray()) {
-                for (Json::Value::const_iterator attributesIt = attributes.begin();
-                     attributesIt != attributes.end(); ++attributesIt) {
-                    dataSetInformation.attributeNames.push_back(attributesIt->asString());
+                for (const auto& attribute : attributes) {
+                    dataSetInformation.attributeNames.push_back(attribute.asString());
                 }
             } else {
                 dataSetInformation.attributeNames.push_back(attributes.asString());

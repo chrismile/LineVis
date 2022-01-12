@@ -94,6 +94,8 @@ void LineDensityMapRenderer::setLineData(LineDataPtr& lineData, bool isNewData) 
 }
 
 void LineDensityMapRenderer::onResolutionChanged() {
+    LineRenderer::onResolutionChanged();
+
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     uint32_t width = *sceneData->viewportWidth;
     uint32_t height = *sceneData->viewportHeight;

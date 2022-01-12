@@ -72,8 +72,8 @@ const float HIT_DISTANCE_EPSILON = 1e-5;
 
 #ifndef USE_MLAT
 vec4 traceRayOpaque(vec3 rayOrigin, vec3 rayDirection) {
-    float tMin = 0.0001f;
-    float tMax = 1000.0f;
+    float tMin = 0.0001;
+    float tMax = 1000.0;
 
     traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, rayOrigin, tMin, rayDirection, tMax, 0);
 
@@ -83,8 +83,8 @@ vec4 traceRayOpaque(vec3 rayOrigin, vec3 rayDirection) {
 vec4 traceRayTransparent(vec3 rayOrigin, vec3 rayDirection) {
     vec4 fragmentColor = vec4(0.0);
 
-    float tMin = 0.0001f;
-    float tMax = 1000.0f;
+    float tMin = 0.0001;
+    float tMax = 1000.0;
 
     for (uint hitIdx = 0; hitIdx < maxDepthComplexity; hitIdx++) {
         traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xFF, 0, 0, 0, rayOrigin, tMin, rayDirection, tMax, 0);
@@ -157,8 +157,8 @@ vec4 traceRayMlat(vec3 rayOrigin, vec3 rayDirection) {
 #endif
     payload.depth2 = 0.0;
 
-    float tMin = 0.0001f;
-    float tMax = 1000.0f;
+    float tMin = 0.0001;
+    float tMax = 1000.0;
     traceRayEXT(topLevelAS, gl_RayFlagsNoOpaqueEXT, 0xFF, 0, 0, 0, rayOrigin, tMin, rayDirection, tMax, 0);
 
     // Front-to-back blending (hitColor and fragmentColor use pre-multiplied alpha).
@@ -281,7 +281,7 @@ void main() {
     insertNodeMlat(backgroundColor);
 #else
     payload.hitColor = backgroundColor;
-    payload.hitT = 0.0f;
+    payload.hitT = 0.0;
     payload.hasHit = false;
 #endif
 }
@@ -459,10 +459,10 @@ void main() {
 
     vec3 viewDir = normalize(cameraPosition - fragmentPositionWorld);
     float cosAngle = dot(fragmentNormal, viewDir);
-    if (cosAngle < 0.0f) {
-        cosAngle *= -1.0f;
+    if (cosAngle < 0.0) {
+        cosAngle *= -1.0;
     }
-    phongColor.a *= 1.0f - cosAngle;
+    phongColor.a *= 1.0 - cosAngle;
 
 #ifdef USE_MLAT
     insertNodeMlat(phongColor);
@@ -625,8 +625,8 @@ void main() {
     // Compute the angle between the fragment and line normal to get phi.
     float phi = acos(dot(fragmentNormal, lineNormal));
     float val = dot(lineNormal, cross(fragmentNormal, fragmentTangent));
-    if (val < 0.0f) {
-        phi = 2.0f * float(M_PI) - phi;
+    if (val < 0.0) {
+        phi = 2.0 * float(M_PI) - phi;
     }
 #endif
 #ifdef USE_AMBIENT_OCCLUSION

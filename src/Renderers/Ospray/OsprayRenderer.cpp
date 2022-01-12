@@ -397,6 +397,8 @@ void OsprayRenderer::onLineRadiusChanged() {
 }
 
 void OsprayRenderer::onResolutionChanged() {
+    LineRenderer::onResolutionChanged();
+
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
 
@@ -441,7 +443,7 @@ void OsprayRenderer::onTransferFunctionMapRebuilt() {
 }
 
 bool OsprayRenderer::needsReRender() {
-    return frameParameterChanged
+    return LineRenderer::needsReRender() || frameParameterChanged
             || frameVarianceRelativeChange > FRAME_VARIANCE_RERENDER_THRESHOLD
             || frameVarianceRelativeChangePrev > FRAME_VARIANCE_RERENDER_THRESHOLD
             || currentLineWidth != LineRenderer::getLineWidth();
@@ -453,6 +455,8 @@ void OsprayRenderer::notifyReRenderTriggeredExternally() {
 }
 
 void OsprayRenderer::onHasMoved() {
+    LineRenderer::onHasMoved();
+
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
     glm::mat4 invViewMatrix = glm::inverse((*sceneData->camera)->getViewMatrix());

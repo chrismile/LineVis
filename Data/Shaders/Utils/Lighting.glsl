@@ -111,14 +111,14 @@ vec4 blinnPhongShadingTube(
         in vec4 baseColor,
 #if defined(VULKAN) || defined(VOXEL_RAY_CASTING)
         in vec3 fragmentPositionWorld,
-#ifdef USE_DEPTH_CUES
+#if defined(USE_DEPTH_CUES) || defined(STATIC_AMBIENT_OCCLUSION_PREBAKING)
         in vec3 screenSpacePosition,
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
         in float fragmentVertexId,
         in float phi,
 #endif
-#if defined(STRESS_LINE_DATA) || (defined(USE_BANDS) && defined(VULKAN))
+#if defined(USE_BANDS) && defined(VULKAN)
         in int useBand,
 #endif
 #endif
@@ -145,7 +145,7 @@ vec4 blinnPhongShadingTube(
     vec3 helperVec = normalize(cross(t, l));
     vec3 newL = normalize(cross(helperVec, t));
 
-#if defined(USE_BANDS) || defined(STRESS_LINE_DATA)
+#if defined(USE_BANDS) && defined(VULKAN)
     const float exponent = useBand == 0 ? 1.7 : 1.0;
 #else
     const float exponent = 1.7;
@@ -160,7 +160,11 @@ vec4 blinnPhongShadingTube(
     phongColor = Ia + Id + Is;
 
 #if defined(USE_AMBIENT_OCCLUSION) && defined(GEOMETRY_PASS_TUBE)
+#ifdef STATIC_AMBIENT_OCCLUSION_PREBAKING
     phongColor *= getAoFactor(fragmentVertexId, phi);
+#else
+    phongColor *= getAoFactor(screenSpacePosition);
+#endif
 #endif
 
 #ifdef USE_DEPTH_CUES

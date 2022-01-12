@@ -26,22 +26,33 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef STATIC_AMBIENT_OCCLUSION_PREBAKING
 layout (std430, binding = 13) readonly buffer AmbientOcclusionFactors {
     float ambientOcclusionFactors[];
 };
 layout (std430, binding = 14) readonly buffer AmbientOcclusionBlendingWeights {
     float ambientOcclusionBlendingWeights[];
 };
+#else
+#ifdef VULKAN
+layout(binding = 13) uniform sampler2D ambientOcclusionTexture;
+#else
+uniform sampler2D ambientOcclusionTexture;
+#endif
+#endif
 
 #ifndef VULKAN
 uniform float ambientOcclusionStrength;
+#ifdef STATIC_AMBIENT_OCCLUSION_PREBAKING
 uniform uint numAoTubeSubdivisions;
 uniform uint numLineVertices;
 uniform uint numParametrizationVertices;
 #endif
+#endif
 
 #define M_PI 3.14159265358979323846
 
+#ifdef STATIC_AMBIENT_OCCLUSION_PREBAKING
 float getAoFactor(float interpolatedVertexId, float phi) {
     uint lastLinePointIdx = uint(interpolatedVertexId);
     uint nextLinePointIdx = min(lastLinePointIdx + 1, numLineVertices - 1);
@@ -68,3 +79,17 @@ float getAoFactor(float interpolatedVertexId, float phi) {
     float aoFactor = mix(aoFactor0, aoFactor1, interpolationFactorCircle);
     return 1.0 - ambientOcclusionStrength + ambientOcclusionStrength * aoFactor;
 }
+#else
+float getAoFactor(vec3 screenSpacePosition) {
+#ifdef VULKAN
+    vec4 ndcPosition = camera.projectionMatrix * vec4(screenSpacePosition, 1.0);
+    ndcPosition.y *= -1.0;
+#else
+    vec4 ndcPosition = pMatrix * vec4(screenSpacePosition, 1.0);
+#endif
+    ndcPosition.xyz /= ndcPosition.w;
+    float aoFactor = texture(ambientOcclusionTexture, ndcPosition.xy * 0.5 + 0.5).x;
+    return 1.0 - ambientOcclusionStrength + ambientOcclusionStrength * aoFactor;
+    //return ndcPosition.x > 0.0 ? 1.0 : 0.0;
+}
+#endif

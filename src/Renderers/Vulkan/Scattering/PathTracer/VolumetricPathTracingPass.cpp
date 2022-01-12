@@ -72,21 +72,7 @@ VolumetricPathTracingPass::VolumetricPathTracingPass(sgl::vk::Renderer* renderer
 }
 
 void VolumetricPathTracingPass::createDenoiser() {
-    if (denoiserType == DenoiserType::NONE) {
-        denoiser = {};
-    } else if (denoiserType == DenoiserType::EAW) {
-        denoiser = std::shared_ptr<Denoiser>(new EAWDenoiser(renderer));
-    }
-#ifdef SUPPORT_OPTIX
-    else if (denoiserType == DenoiserType::OPTIX) {
-        denoiser = std::shared_ptr<Denoiser>(new OptixVptDenoiser(renderer));
-    }
-#endif
-    else {
-        denoiser = {};
-        sgl::Logfile::get()->writeError(
-                "Error in VolumetricPathTracingPass::createDenoiser: Invalid denoiser type selected.");
-    }
+    denoiser = createDenoiserObject(denoiserType, renderer);
 
     if (resultImageTexture) {
         setDenoiserFeatureMaps();
@@ -107,7 +93,8 @@ void VolumetricPathTracingPass::setOutputImage(sgl::vk::ImageViewPtr& imageView)
     imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     resultImageView = std::make_shared<sgl::vk::ImageView>(
             std::make_shared<sgl::vk::Image>(device, imageSettings));
-    resultTexture = sgl::vk::TexturePtr(new sgl::vk::Texture(resultImageView, sgl::vk::ImageSamplerSettings()));
+    resultTexture = sgl::vk::TexturePtr(new sgl::vk::Texture(
+            resultImageView, sgl::vk::ImageSamplerSettings()));
     imageSettings.usage =
             VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
             | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -430,7 +417,7 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
 
     int numDenoisersSupported = IM_ARRAYSIZE(DENOISER_NAMES);
 #ifdef SUPPORT_OPTIX
-    if (!OptixVptDenoiser::isOpitEnabled()) {
+    if (!OptixVptDenoiser::isOptixEnabled()) {
         numDenoisersSupported--;
     }
 #endif

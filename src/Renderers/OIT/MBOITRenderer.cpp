@@ -320,6 +320,8 @@ void MBOITRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 }
 
 void MBOITRenderer::onResolutionChanged() {
+    LineRenderer::onResolutionChanged();
+
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
 

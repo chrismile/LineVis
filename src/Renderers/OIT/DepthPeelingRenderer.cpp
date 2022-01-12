@@ -84,6 +84,8 @@ void DepthPeelingRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 }
 
 void DepthPeelingRenderer::onResolutionChanged() {
+    LineRenderer::onResolutionChanged();
+
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
 

@@ -202,6 +202,8 @@ void PerPixelLinkedListLineRenderer::reallocateFragmentBuffer() {
 }
 
 void PerPixelLinkedListLineRenderer::onResolutionChanged() {
+    LineRenderer::onResolutionChanged();
+
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
     paddedWindowWidth = width, paddedWindowHeight = height;

@@ -111,6 +111,8 @@ void VulkanRayTracer::setRenderSimulationMeshHull(bool shallRenderSimulationMesh
 }
 
 void VulkanRayTracer::onResolutionChanged() {
+    LineRenderer::onResolutionChanged();
+
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     uint32_t width = *sceneData->viewportWidth;
     uint32_t height = *sceneData->viewportHeight;
@@ -247,10 +249,11 @@ void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& property
 }
 
 bool VulkanRayTracer::needsReRender() {
+    bool reRender = LineRenderer::needsReRender();
     if (accumulatedFramesCounter < maxNumAccumulatedFrames) {
-        return true;
+        reRender = true;
     }
-    return false;
+    return reRender;
 }
 
 void VulkanRayTracer::notifyReRenderTriggeredExternally() {
@@ -259,6 +262,7 @@ void VulkanRayTracer::notifyReRenderTriggeredExternally() {
 }
 
 void VulkanRayTracer::onHasMoved() {
+    LineRenderer::onHasMoved();
     accumulatedFramesCounter = 0;
 }
 
@@ -437,19 +441,25 @@ void RayTracingRenderPass::createRayTracingData(
         rayTracingData->setStaticBuffer(depthMinMaxBuffer, "DepthMinMaxBuffer");
     }
     if (useAmbientOcclusion && ambientOcclusionBaker) {
-        auto ambientOcclusionBuffer = ambientOcclusionBaker->getAmbientOcclusionBufferVulkan();
-        auto blendingWeightsBuffer = ambientOcclusionBaker->getBlendingWeightsBufferVulkan();
-        if (ambientOcclusionBuffer && blendingWeightsBuffer) {
-            rayTracingData->setStaticBuffer(ambientOcclusionBuffer, "AmbientOcclusionFactors");
-            rayTracingData->setStaticBuffer(blendingWeightsBuffer, "AmbientOcclusionBlendingWeights");
+        if (ambientOcclusionBaker->getIsStaticPrebaker()) {
+            auto ambientOcclusionBuffer = ambientOcclusionBaker->getAmbientOcclusionBufferVulkan();
+            auto blendingWeightsBuffer = ambientOcclusionBaker->getBlendingWeightsBufferVulkan();
+            if (ambientOcclusionBuffer && blendingWeightsBuffer) {
+                rayTracingData->setStaticBuffer(ambientOcclusionBuffer, "AmbientOcclusionFactors");
+                rayTracingData->setStaticBuffer(blendingWeightsBuffer, "AmbientOcclusionBlendingWeights");
+            } else {
+                // Just bind anything in order for sgl to not complain...
+                sgl::vk::BufferPtr buffer =
+                        tubeTriangleRenderData.vertexBuffer
+                        ? tubeTriangleRenderData.vertexBuffer
+                        : hullTriangleRenderData.vertexBuffer;
+                rayTracingData->setStaticBuffer(buffer, "AmbientOcclusionFactors");
+                rayTracingData->setStaticBuffer(buffer, "AmbientOcclusionBlendingWeights");
+            }
         } else {
-            // Just bind anything in order for sgl to not complain...
-            sgl::vk::BufferPtr buffer =
-                    tubeTriangleRenderData.vertexBuffer
-                    ? tubeTriangleRenderData.vertexBuffer
-                    : hullTriangleRenderData.vertexBuffer;
-            rayTracingData->setStaticBuffer(buffer, "AmbientOcclusionFactors");
-            rayTracingData->setStaticBuffer(buffer, "AmbientOcclusionBlendingWeights");
+            auto ambientOcclusionTexture =
+                    ambientOcclusionBaker->getAmbientOcclusionFrameTextureVulkan();
+            rayTracingData->setStaticTexture(ambientOcclusionTexture, "ambientOcclusionTexture");
         }
     }
     lineData->setVulkanRenderDataDescriptors(std::static_pointer_cast<vk::RenderData>(rayTracingData));
