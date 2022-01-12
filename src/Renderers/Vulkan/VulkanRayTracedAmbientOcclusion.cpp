@@ -35,8 +35,12 @@
 #include <ImGui/Widgets/PropertyEditor.hpp>
 #include <ImGui/imgui_custom.h>
 #include "LineData/LineData.hpp"
+
 #include "Renderers/Vulkan/Scattering/Denoiser/EAWDenoiser.hpp"
+#ifdef SUPPORT_OPTIX
 #include "Renderers/Vulkan/Scattering/Denoiser/OptixVptDenoiser.hpp"
+#endif
+
 #include "VulkanRayTracedAmbientOcclusion.hpp"
 
 VulkanRayTracedAmbientOcclusion::VulkanRayTracedAmbientOcclusion(SceneData* sceneData, sgl::vk::Renderer* rendererVk)
