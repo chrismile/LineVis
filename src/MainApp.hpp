@@ -111,6 +111,11 @@ private:
     uint32_t viewportHeight = 0;
     SceneData sceneData;
 
+    // This setting lets all data views use the same viewport resolution.
+    bool useFixedSizeViewport = false;
+    glm::ivec2 fixedViewportSizeEdit{ 2186, 1358 };
+    glm::ivec2 fixedViewportSize{ 2186, 1358 };
+
     /// Scene data used in user interface.
     RenderingMode renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
     RenderingMode oldRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;

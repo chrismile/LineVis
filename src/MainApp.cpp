@@ -348,6 +348,7 @@ MainApp::MainApp()
 
     useDockSpaceMode = true;
     sgl::AppSettings::get()->getSettings().getValueOpt("useDockSpaceMode", useDockSpaceMode);
+    sgl::AppSettings::get()->getSettings().getValueOpt("useFixedSizeViewport", useFixedSizeViewport);
     showPropertyEditor = useDockSpaceMode;
     sgl::ImGuiWrapper::get()->setUseDockSpaceMode(useDockSpaceMode);
 
@@ -463,6 +464,7 @@ MainApp::~MainApp() {
 #endif
 
     sgl::AppSettings::get()->getSettings().addKeyValue("useDockSpaceMode", useDockSpaceMode);
+    sgl::AppSettings::get()->getSettings().addKeyValue("useFixedSizeViewport", useFixedSizeViewport);
     sgl::AppSettings::get()->getSettings().addKeyValue("showFpsOverlay", showFpsOverlay);
     sgl::AppSettings::get()->getSettings().addKeyValue("showCoordinateAxesOverlay", showCoordinateAxesOverlay);
 }
@@ -884,6 +886,9 @@ void MainApp::renderGui() {
                     sgl::ImGuiWrapper::get()->setWindowPosAndSize(i, ImGui::GetWindowPos(), ImGui::GetWindowSize());
 
                     ImVec2 sizeContent = ImGui::GetContentRegionAvail();
+                    if (useFixedSizeViewport) {
+                        sizeContent = ImVec2(float(fixedViewportSize.x), float(fixedViewportSize.y));
+                    }
                     if (int(sizeContent.x) != int(dataView->viewportWidth)
                             || int(sizeContent.y) != int(dataView->viewportHeight)) {
                         dataView->resize(int(sizeContent.x), int(sizeContent.y));
@@ -1179,6 +1184,17 @@ void MainApp::renderGuiGeneralSettingsPropertyEditor() {
     bool newDockSpaceMode = useDockSpaceMode;
     if (propertyEditor.addCheckbox("Use Docking Mode", &newDockSpaceMode)) {
         scheduledDockSpaceModeChange = true;
+    }
+
+    if (propertyEditor.addCheckbox("Fixed Size Viewport", &useFixedSizeViewport)) {
+        reRender = true;
+    }
+    if (useFixedSizeViewport) {
+        if (propertyEditor.addSliderInt2Edit("Viewport Size", &fixedViewportSizeEdit.x, 1, 8192)
+                == ImGui::EditMode::INPUT_FINISHED) {
+            fixedViewportSize = fixedViewportSizeEdit;
+            reRender = true;
+        }
     }
 
     if (lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES && renderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
