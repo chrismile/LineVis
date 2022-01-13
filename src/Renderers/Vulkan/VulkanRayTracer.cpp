@@ -367,6 +367,9 @@ void RayTracingRenderPass::loadShader() {
     }
     if (useAmbientOcclusion) {
         preprocessorDefines.insert(std::make_pair("USE_AMBIENT_OCCLUSION", ""));
+        if (ambientOcclusionBaker->getIsStaticPrebaker()) {
+            preprocessorDefines.insert(std::make_pair("STATIC_AMBIENT_OCCLUSION_PREBAKING", ""));
+        }
         preprocessorDefines.insert(std::make_pair("GEOMETRY_PASS_TUBE", ""));
     }
     if (useMlat) {

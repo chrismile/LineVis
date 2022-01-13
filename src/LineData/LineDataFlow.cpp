@@ -107,6 +107,7 @@ bool LineDataFlow::loadFromFile(
 
 void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
     hasBandsData = !ribbonsDirections.empty();
+    useRibbons = hasBandsData;
     if (ribbonsDirections.empty()
             && (linePrimitiveMode == LINE_PRIMITIVES_BAND || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND)) {
         linePrimitiveMode = LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;

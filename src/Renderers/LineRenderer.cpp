@@ -79,6 +79,7 @@ LineRenderer::~LineRenderer() {
     }
     if (useAmbientOcclusion) {
         sgl::ShaderManager->removePreprocessorDefine("USE_AMBIENT_OCCLUSION");
+        sgl::ShaderManager->removePreprocessorDefine("STATIC_AMBIENT_OCCLUSION_PREBAKING");
     }
     sgl::ShaderManager->removePreprocessorDefine("COMPUTE_DEPTH_CUES_GPU");
 
@@ -444,7 +445,7 @@ void LineRenderer::render() {
             reRender = true;
             internalReRender = true;
         }
-        if (ambientOcclusionBaker->getIsStaticPrebaker()) {
+        if (!ambientOcclusionBaker->getIsStaticPrebaker()) {
             ambientOcclusionTexturesDirty |= ambientOcclusionBaker->getHasTextureResolutionChanged();
         }
     }

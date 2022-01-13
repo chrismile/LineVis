@@ -130,11 +130,25 @@ vec4 blinnPhongShadingTube(
     const vec3 diffuseColor = ambientColor;
     vec3 phongColor = vec3(0.0);
 
+#if defined(USE_AMBIENT_OCCLUSION) && defined(GEOMETRY_PASS_TUBE)
+#ifdef STATIC_AMBIENT_OCCLUSION_PREBAKING
+    float ambientOcclusionFactor = getAoFactor(fragmentVertexId, phi);
+#else
+    float ambientOcclusionFactor = getAoFactor(screenSpacePosition);
+#endif
+    //float ambientFactor = (1.0 - ambientOcclusionStrength) * 0.75;
+    const float kA = 0.2 + (1.0 - ambientOcclusionFactor) * 0.5;
+    const vec3 Ia = kA * ambientColor;
+    const float kD = 0.9 * ambientOcclusionFactor;
+    const float kS = 0.3;
+    const float s = 30;
+#else
     const float kA = 0.1;
     const vec3 Ia = kA * ambientColor;
     const float kD = 0.9;
     const float kS = 0.3;
     const float s = 30;
+#endif
 
     const vec3 n = normalize(fragmentNormal);
     const vec3 t = normalize(fragmentTangent);
@@ -161,9 +175,9 @@ vec4 blinnPhongShadingTube(
 
 #if defined(USE_AMBIENT_OCCLUSION) && defined(GEOMETRY_PASS_TUBE)
 #ifdef STATIC_AMBIENT_OCCLUSION_PREBAKING
-    phongColor *= getAoFactor(fragmentVertexId, phi);
+    phongColor *= ambientOcclusionFactor;
 #else
-    phongColor *= getAoFactor(screenSpacePosition);
+    phongColor *= ambientOcclusionFactor;
 #endif
 #endif
 

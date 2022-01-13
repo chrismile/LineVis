@@ -2169,7 +2169,7 @@ VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(
 
 VulkanTubeAabbRenderData LineDataStress::getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) {
     rebuildInternalRepresentationIfNecessary();
-    if (vulkanTubeTriangleRenderData.vertexBuffer) {
+    if (vulkanTubeAabbRenderData.aabbBuffer) {
         return vulkanTubeAabbRenderData;
     }
 

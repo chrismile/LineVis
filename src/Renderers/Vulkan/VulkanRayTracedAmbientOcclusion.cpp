@@ -76,6 +76,7 @@ void VulkanRayTracedAmbientOcclusion::onResolutionChanged() {
     uint32_t height = *sceneData->viewportHeight;
     hasTextureResolutionChanged = true;
     rtaoRenderPass->recreateSwapchain(width, height);
+    onHasMoved();
 }
 
 void VulkanRayTracedAmbientOcclusion::startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData) {
@@ -250,10 +251,11 @@ void VulkanRayTracedAmbientOcclusionPass::recreateSwapchain(uint32_t width, uint
     blitResultRenderPass->recreateSwapchain(width, height);
 
     setDenoiserFeatureMaps();
-
     if (useDenoiser && denoiser) {
         denoiser->recreateSwapchain(width, height);
     }
+
+    setDataDirty();
 }
 
 void VulkanRayTracedAmbientOcclusionPass::setLineData(LineDataPtr& data, bool isNewData) {

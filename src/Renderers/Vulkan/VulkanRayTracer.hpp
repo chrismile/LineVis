@@ -117,7 +117,7 @@ private:
     std::shared_ptr<RayTracingRenderPass> rayTracingRenderPass;
 
     // Whether to trace rays against a triangle mesh or analytic tubes using line segment AABBs.
-    bool useAnalyticIntersections = true;
+    bool useAnalyticIntersections = false;
 
     // Whether to use multi-layer alpha tracing (MLAT).
     bool useMlat = false;
