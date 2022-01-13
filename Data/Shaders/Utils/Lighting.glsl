@@ -111,7 +111,7 @@ vec4 blinnPhongShadingTube(
         in vec4 baseColor,
 #if defined(VULKAN) || defined(VOXEL_RAY_CASTING)
         in vec3 fragmentPositionWorld,
-#if defined(USE_DEPTH_CUES) || defined(STATIC_AMBIENT_OCCLUSION_PREBAKING)
+#if defined(USE_DEPTH_CUES) || (defined(USE_AMBIENT_OCCLUSION) && !defined(STATIC_AMBIENT_OCCLUSION_PREBAKING))
         in vec3 screenSpacePosition,
 #endif
 #ifdef USE_AMBIENT_OCCLUSION

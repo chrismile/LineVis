@@ -181,6 +181,7 @@ protected:
     float ambientOcclusionStrength = 0.0f;
     float ambientOcclusionGamma = 1.0f;
     bool ambientOcclusionBuffersDirty = false;
+    bool ambientOcclusionTexturesDirty = false;
 
     // Minimum and maximum values in the UI.
     static constexpr float MIN_LINE_WIDTH = 0.001f;

@@ -108,6 +108,7 @@ public:
 #ifdef USE_VULKAN_INTEROP
     virtual sgl::vk::TexturePtr getAmbientOcclusionFrameTextureVulkan()=0;
 #endif
+    virtual bool getHasTextureResolutionChanged() { return false; }
 
     /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
     virtual bool needsReRender() { return false; }

@@ -40,6 +40,7 @@
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include "Renderers/Vulkan/VulkanAmbientOcclusionBaker.hpp"
 #include "Renderers/Vulkan/VulkanRayTracedAmbientOcclusion.hpp"
+#include "Renderers/Vulkan/VulkanRayTracer.hpp"
 #endif
 
 #include "LineRenderer.hpp"
@@ -161,9 +162,17 @@ void LineRenderer::setAmbientOcclusionBaker() {
                     "used GPU. Disabling ambient occlusion.");
             return;
         }
-        auto* ambientOcclusionRenderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
+        sgl::vk::Renderer* ambientOcclusionRenderer;
+        bool isMainRenderer;
+        if (getRenderingMode() == RENDERING_MODE_VULKAN_RAY_TRACER) {
+            isMainRenderer = true;
+            ambientOcclusionRenderer = static_cast<VulkanRayTracer*>(this)->getVulkanRenderer();
+        } else {
+            isMainRenderer = false;
+            ambientOcclusionRenderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
+        }
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(
-                new VulkanRayTracedAmbientOcclusion(sceneData, ambientOcclusionRenderer));
+                new VulkanRayTracedAmbientOcclusion(sceneData, ambientOcclusionRenderer, isMainRenderer));
     }
 #endif
 
@@ -434,6 +443,9 @@ void LineRenderer::render() {
             ambientOcclusionBaker->updateMultiThreaded(isVulkanRenderer);
             reRender = true;
             internalReRender = true;
+        }
+        if (ambientOcclusionBaker->getIsStaticPrebaker()) {
+            ambientOcclusionTexturesDirty |= ambientOcclusionBaker->getHasTextureResolutionChanged();
         }
     }
 }

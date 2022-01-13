@@ -66,7 +66,9 @@ class VulkanRayTracedAmbientOcclusionPass;
 
 class VulkanRayTracedAmbientOcclusion : public AmbientOcclusionBaker {
 public:
-    VulkanRayTracedAmbientOcclusion(SceneData* sceneData, sgl::vk::Renderer* rendererVk);
+    VulkanRayTracedAmbientOcclusion(
+            SceneData* sceneData, sgl::vk::Renderer* rendererVk, bool isMainRenderer);
+    ~VulkanRayTracedAmbientOcclusion();
 
     AmbientOcclusionBakerType getType() override { return AmbientOcclusionBakerType::VULKAN_RTAO; }
     bool getIsStaticPrebaker() override { return false; }
@@ -88,6 +90,7 @@ public:
 
     sgl::TexturePtr getAmbientOcclusionFrameTexture() override;
     sgl::vk::TexturePtr getAmbientOcclusionFrameTextureVulkan() override;
+    bool getHasTextureResolutionChanged() override;
 
     /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
     bool needsReRender() override;
@@ -103,12 +106,16 @@ private:
     // OpenGL-Vulkan interoperability data.
     sgl::SemaphoreVkGlInteropPtr renderReadySemaphore, renderFinishedSemaphore;
 
+    // Whether the stored renderer is the main renderer or a renderer owned by this class.
+    bool isMainRenderer;
+
     std::shared_ptr<VulkanRayTracedAmbientOcclusionPass> rtaoRenderPass;
 
     SceneData* sceneData;
     LineDataPtr lineData;
     bool isDataReady = false;
     bool hasComputationFinished = true;
+    bool hasTextureResolutionChanged = false;
 
     // Multiple frames can be accumulated to achieve a multisampling effect (additionally to using numSamplesPerFrame).
     int maxNumAccumulatedFrames = 64;
@@ -166,7 +173,7 @@ private:
 
     void createDenoiser();
     void setDenoiserFeatureMaps();
-    DenoiserType denoiserType = DenoiserType::EAW;
+    DenoiserType denoiserType = DenoiserType::NONE;
     bool useDenoiser = true;
     std::shared_ptr<Denoiser> denoiser;
 

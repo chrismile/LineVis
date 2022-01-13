@@ -39,6 +39,7 @@
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Shader/ShaderManager.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
+#include <Graphics/Vulkan/Render/CommandBuffer.hpp>
 #include <Graphics/Vulkan/Render/Data.hpp>
 #include <Graphics/Vulkan/Render/RayTracingPipeline.hpp>
 
@@ -55,8 +56,9 @@ VulkanRayTracer::VulkanRayTracer(
         : LineRenderer("Vulkan Ray Tracer", sceneData, transferFunctionWindow),
         rendererVk(rendererVk) {
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    renderReadySemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
-    renderFinishedSemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
+    //renderReadySemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
+    //renderFinishedSemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
+    interopSyncVkGl = std::make_shared<sgl::InteropSyncVkGl>(device);
 
     rayTracingRenderPass = std::make_shared<RayTracingRenderPass>(this, rendererVk, sceneData->camera);
     rayTracingRenderPass->setBackgroundColor(sceneData->clearColor->getFloatColorRGBA());
@@ -77,6 +79,7 @@ VulkanRayTracer::~VulkanRayTracer() {
     sgl::AppSettings::get()->getPrimaryDevice()->waitIdle();
 
     rayTracingRenderPass = {};
+    ambientOcclusionBaker = {};
 
     if (rendererVk) {
         delete rendererVk;
@@ -141,11 +144,11 @@ void VulkanRayTracer::render() {
 
     if (useDepthCues && lineData) {
         computeDepthRange();
-        renderReadySemaphore->signalSemaphoreGl(
+        interopSyncVkGl->getRenderReadySemaphore()->signalSemaphoreGl(
                 { depthMinMaxBuffers[outputDepthMinMaxBufferIndex] },
                 { renderTextureGl }, { dstLayout });
     } else {
-        renderReadySemaphore->signalSemaphoreGl(renderTextureGl, dstLayout);
+        interopSyncVkGl->getRenderReadySemaphore()->signalSemaphoreGl(renderTextureGl, dstLayout);
     }
 
     //if (accumulatedFramesCounter >= maxNumAccumulatedFrames) {
@@ -155,12 +158,22 @@ void VulkanRayTracer::render() {
     //    accumulatedFramesCounter = 0;
     //}
 
+    //sgl::vk::SemaphorePtr renderReadySemaphoreVk =
+    //        std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderReadySemaphore);
+    //sgl::vk::SemaphorePtr renderFinishedSemaphoreVk =
+    //        std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderFinishedSemaphore);
+
     rendererVk->beginCommandBuffer();
+    rendererVk->getCommandBuffer()->pushWaitSemaphore(
+            interopSyncVkGl->getRenderReadySemaphoreVk(), VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
 
     LineRenderer::render();
-    if (ambientOcclusionBuffersDirty) {
+    if (ambientOcclusionBaker
+            && ((ambientOcclusionBaker->getIsStaticPrebaker() && ambientOcclusionBuffersDirty)
+            || (!ambientOcclusionBaker->getIsStaticPrebaker() && ambientOcclusionTexturesDirty))) {
         rayTracingRenderPass->setDataDirty();
         ambientOcclusionBuffersDirty = false;
+        ambientOcclusionTexturesDirty = false;
     }
 
     rayTracingRenderPass->setBackgroundColor(sceneData->clearColor->getFloatColorRGBA());
@@ -168,23 +181,25 @@ void VulkanRayTracer::render() {
     rayTracingRenderPass->setDepthMinMaxBuffer(depthMinMaxBuffersVk[outputDepthMinMaxBufferIndex]);
     rayTracingRenderPass->render();
 
+    rendererVk->getCommandBuffer()->pushSignalSemaphore(interopSyncVkGl->getRenderFinishedSemaphoreVk());
     rendererVk->endCommandBuffer();
 
     // Submit the rendering operation in Vulkan.
-    sgl::vk::FencePtr fence;
-    sgl::vk::SemaphorePtr renderReadySemaphoreVk =
-            std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderReadySemaphore);
-    sgl::vk::SemaphorePtr renderFinishedSemaphoreVk =
-            std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderFinishedSemaphore);
-    rendererVk->submitToQueue(renderReadySemaphoreVk, renderFinishedSemaphoreVk, fence);
+    rendererVk->submitToQueue();
+    if (ambientOcclusionBaker && !ambientOcclusionBaker->getIsStaticPrebaker()) {
+        // For whatever reason, the application can hang in this case on NVIDIA hardware if we don't wait for the queue
+        // to become idle.
+        rendererVk->getDevice()->waitGraphicsQueueIdle();
+    }
 
     // Wait for the rendering to finish on the Vulkan side.
     if (useDepthCues && lineData) {
-        renderFinishedSemaphore->waitSemaphoreGl(
+        interopSyncVkGl->getRenderFinishedSemaphore()->waitSemaphoreGl(
                 { depthMinMaxBuffers[outputDepthMinMaxBufferIndex] },
                 { renderTextureGl }, { GL_LAYOUT_SHADER_READ_ONLY_EXT });
     } else {
-        renderFinishedSemaphore->waitSemaphoreGl(renderTextureGl, GL_LAYOUT_SHADER_READ_ONLY_EXT);
+        interopSyncVkGl->getRenderFinishedSemaphore()->waitSemaphoreGl(
+                renderTextureGl, GL_LAYOUT_SHADER_READ_ONLY_EXT);
     }
 
     // Now, blit the data using OpenGL to the scene texture.
@@ -198,6 +213,7 @@ void VulkanRayTracer::render() {
     sgl::Renderer->blitTexture(
             renderTextureGl, sgl::AABB2(glm::vec2(-1, -1), glm::vec2(1, 1)));
 
+    interopSyncVkGl->frameFinished();
     accumulatedFramesCounter++;
 }
 

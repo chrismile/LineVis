@@ -39,6 +39,8 @@ class Texture;
 typedef std::shared_ptr<Texture> TexturePtr;
 class SemaphoreVkGlInterop;
 typedef std::shared_ptr<SemaphoreVkGlInterop> SemaphoreVkGlInteropPtr;
+class InteropSyncVkGl;
+typedef std::shared_ptr<InteropSyncVkGl> InteropSyncVkGlPtr;
 }
 
 namespace sgl { namespace vk {
@@ -68,6 +70,7 @@ public:
             SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
     ~VulkanRayTracer() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_VULKAN_RAY_TRACER; }
+    inline sgl::vk::Renderer* getVulkanRenderer() { return rendererVk; }
 
     /**
      * Re-generates the visualization mapping.
@@ -107,7 +110,7 @@ private:
     // OpenGL-Vulkan interoperability data.
     sgl::vk::TexturePtr renderTextureVk;
     sgl::TexturePtr renderTextureGl;
-    sgl::SemaphoreVkGlInteropPtr renderReadySemaphore, renderFinishedSemaphore;
+    sgl::InteropSyncVkGlPtr interopSyncVkGl;
 
     // Vulkan render data.
     sgl::vk::Renderer* rendererVk = nullptr;
