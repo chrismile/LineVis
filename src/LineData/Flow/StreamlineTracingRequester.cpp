@@ -131,8 +131,8 @@ void StreamlineTracingRequester::renderGui() {
                 const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
 #ifdef _WIN32
                 bool isAbsolutePath =
-                    (pathString.size() > 1 && pathString.at(1) == ':')
-                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
+                        (pathString.size() > 1 && pathString.at(1) == ':')
+                        || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
 #else
                 bool isAbsolutePath =
                         boost::starts_with(pathString, "/");

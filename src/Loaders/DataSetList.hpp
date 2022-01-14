@@ -64,7 +64,7 @@ struct DataSetInformation {
     bool hasCustomTransform = false;
     glm::mat4 transformMatrix = sgl::matrixIdentity();
     std::vector<std::string> attributeNames; ///< Names of the associated importance criteria.
-    int version = 1;
+    int version = 3;
     float heightScale = 1.0f;
 
     // Stress lines: Additional information (optional).

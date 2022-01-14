@@ -85,6 +85,14 @@ void processDataSetNodeChildren(Json::Value& childList, DataSetInformation* data
         if (dataSetInformation->hasCustomTransform) {
             glm::mat4 transformMatrix = parseTransformString(source["transform"].asString());
             dataSetInformation->transformMatrix = transformMatrix;
+        } else if (dataSetInformation->type == DATA_SET_TYPE_STRESS_LINES) {
+            dataSetInformation->hasCustomTransform = true;
+            dataSetInformation->transformMatrix = parseTransformString("rotate(270°, 1, 0, 0)");
+        }
+
+        // Optional data: The version of the file format.
+        if (source.isMember("version")) {
+            dataSetInformation->version = source["version"].asInt();
         }
 
         // Optional data: Attribute (importance criteria) display names.
@@ -98,16 +106,21 @@ void processDataSetNodeChildren(Json::Value& childList, DataSetInformation* data
             } else {
                 dataSetInformation->attributeNames.push_back(attributes.asString());
             }
+        } else if (dataSetInformation->type == DATA_SET_TYPE_STRESS_LINES && dataSetInformation->version >= 3) {
+            dataSetInformation->attributeNames.emplace_back("Principal Stress");
+            dataSetInformation->attributeNames.emplace_back("Principal Stress Magnitude");
+            dataSetInformation->attributeNames.emplace_back("von Mises Stress");
+            dataSetInformation->attributeNames.emplace_back("Normal Stress (xx)");
+            dataSetInformation->attributeNames.emplace_back("Normal Stress (yy)");
+            dataSetInformation->attributeNames.emplace_back("Normal Stress (zz)");
+            dataSetInformation->attributeNames.emplace_back("Shear Stress (yz)");
+            dataSetInformation->attributeNames.emplace_back("Shear Stress (zx)");
+            dataSetInformation->attributeNames.emplace_back("Shear Stress (xy)");
         }
 
         // Optional data: The scaling in y direction.
         if (source.isMember("heightscale")) {
             dataSetInformation->heightScale = source["heightscale"].asFloat();
-        }
-
-        // Optional data: The version of the file format.
-        if (source.isMember("version")) {
-            dataSetInformation->version = source["version"].asInt();
         }
 
         // Optional stress line data: Mesh file.

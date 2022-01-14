@@ -68,6 +68,7 @@ public:
     explicit StressLineTracingRequester(void* context);
     void renderGui();
     void setLineTracerSettings(const SettingsMap& settings);
+    void setDatasetFilename(const std::string& newDatasetFilename);
     bool getHasNewData(DataSetInformation& dataSetInformation);
 
     /**
@@ -82,8 +83,10 @@ private:
     // ZeroMQ context
     void* context;
     StressLineTracingRequesterSocket worker;
+
     bool showWindow = true;
     bool showAdvancedSettings = false;
+    std::string lineDataSetsDirectory;
 
     // UI settings.
     std::vector<std::string> meshNames;

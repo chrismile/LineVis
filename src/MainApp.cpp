@@ -44,6 +44,7 @@
 #include <Utils/AppSettings.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/FileUtils.hpp>
+#include <Utils/Regex/TransformString.hpp>
 #include <Input/Keyboard.hpp>
 #include <Input/Mouse.hpp>
 #include <Math/Math.hpp>
@@ -812,12 +813,18 @@ void MainApp::renderGui() {
             if (boost::ends_with(filenameLower, ".vtk") || boost::ends_with(filenameLower, ".bin")) {
                 selectedDataSetIndex = 1;
                 streamlineTracingRequester->setDatasetFilename(filename);
+            } else if (boost::ends_with(filenameLower, ".stress")
+                    || boost::ends_with(filenameLower, ".carti")) {
+                selectedDataSetIndex = 2;
+                stressLineTracingRequester->setDatasetFilename(filename);
             } else if (boost::ends_with(filenameLower, ".xyz")) {
                 selectedDataSetIndex = 3;
                 scatteringLineTracingRequester->setDatasetFilename(filename);
             } else {
                 selectedDataSetIndex = 0;
-                if (boost::ends_with(filenameLower, ".obj") || boost::ends_with(filenameLower, ".nc")) {
+                if (boost::ends_with(filenameLower, ".obj")
+                        || boost::ends_with(filenameLower, ".nc")
+                        || boost::ends_with(filenameLower, ".binlines")) {
                     dataSetType = DATA_SET_TYPE_FLOW_LINES;
                 } else if (boost::ends_with(filenameLower, ".dat")) {
                     dataSetType = DATA_SET_TYPE_STRESS_LINES;
@@ -1170,10 +1177,14 @@ std::vector<std::string> MainApp::getSelectedLineDataSetFilenames() {
         filenames.push_back(customDataSetFileName);
         return filenames;
     }
-    dataSetType = dataSetInformationList.at(selectedDataSetIndex - NUM_MANUAL_LOADERS)->type;
-    for (const std::string& filename : dataSetInformationList.at(
-            selectedDataSetIndex - NUM_MANUAL_LOADERS)->filenames) {
-        filenames.push_back(filename);
+    if (selectedDataSetIndex == 0) {
+        filenames.push_back(customDataSetFileName);
+    } else {
+        dataSetType = dataSetInformationList.at(selectedDataSetIndex - NUM_MANUAL_LOADERS)->type;
+        for (const std::string& filename : dataSetInformationList.at(
+                selectedDataSetIndex - NUM_MANUAL_LOADERS)->filenames) {
+            filenames.push_back(filename);
+        }
     }
     return filenames;
 }
@@ -1289,7 +1300,8 @@ void MainApp::renderGuiMenuBar() {
                 selectedDataSetIndex = 0;
                 IGFD_OpenModal(
                         fileDialogInstance,
-                        "ChooseDataSetFile", "Choose a File", ".*,.obj,.nc,.dat",
+                        "ChooseDataSetFile", "Choose a File",
+                        ".*,.obj,.dat,.binlines,.nc,.vtk,.bin,.stress,.carti,.xyz",
                         (sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/").c_str(),
                         "", 1, nullptr,
                         ImGuiFileDialogFlags_ConfirmOverwrite);
@@ -1815,6 +1827,22 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames, bool bl
     } else {
         selectedDataSetInformation.type = dataSetType;
         selectedDataSetInformation.filenames = fileNames;
+
+        // Use standard settings for stress line data sets (assume data format version 3).
+        if (dataSetType == DATA_SET_TYPE_STRESS_LINES) {
+            selectedDataSetInformation.hasCustomTransform = true;
+            selectedDataSetInformation.transformMatrix = parseTransformString("rotate(270°, 1, 0, 0)");
+            selectedDataSetInformation.version = 3;
+            selectedDataSetInformation.attributeNames.emplace_back("Principal Stress");
+            selectedDataSetInformation.attributeNames.emplace_back("Principal Stress Magnitude");
+            selectedDataSetInformation.attributeNames.emplace_back("von Mises Stress");
+            selectedDataSetInformation.attributeNames.emplace_back("Normal Stress (xx)");
+            selectedDataSetInformation.attributeNames.emplace_back("Normal Stress (yy)");
+            selectedDataSetInformation.attributeNames.emplace_back("Normal Stress (zz)");
+            selectedDataSetInformation.attributeNames.emplace_back("Shear Stress (yz)");
+            selectedDataSetInformation.attributeNames.emplace_back("Shear Stress (zx)");
+            selectedDataSetInformation.attributeNames.emplace_back("Shear Stress (xy)");
+        }
     }
 
     glm::mat4 transformationMatrix = sgl::matrixIdentity();
