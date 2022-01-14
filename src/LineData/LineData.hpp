@@ -228,7 +228,9 @@ public:
     virtual void setRenderingModes(const std::vector<RenderingMode>& renderingModes) {}
     [[nodiscard]] inline bool getShallRenderSimulationMeshBoundary() const { return shallRenderSimulationMeshBoundary; }
     [[nodiscard]] inline const std::string& getLineDataWindowName() const { return lineDataWindowName; }
-
+    /// Returns whether the gather shader needs to be reloaded.
+    bool setUseCappedTubes(LineRenderer* lineRenderer, bool cappedTubes);
+    [[nodiscard]] inline bool getUseCappedTubes() const { return useCappedTubes; }
 
     enum LinePrimitiveMode {
         LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH,

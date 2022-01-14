@@ -22,7 +22,7 @@ def init_scene():
         'smoothed_bands': True,
         'use_principal_stress_direction_index': True,
     })
-    g.set_transfer_functions(['qualitative-pale-lilac.xml', 'qualitative-emerald.xml', 'qualitative-ocher.xml'])
+    g.set_transfer_functions(['qualitative-ocher.xml', 'qualitative-emerald.xml', 'qualitative-pale-lilac.xml'])
     g.set_transfer_functions_ranges([(0.0, 1.594), (0.0, 1.594), (0.0, 1.594)])
     #g.set_transfer_functions_ranges([(-0.06, 1.274), (-0.213, 0.157), (-0.96, 0.019)])
     g.set_duration(0.001)
@@ -31,7 +31,7 @@ def init_scene():
 
 def use_principal_stress():
     g.set_duration(0)
-    g.set_transfer_functions(['blues.xml', 'greens.xml', 'reds.xml'])
+    g.set_transfer_functions(['reds.xml', 'greens.xml', 'blues.xml'])
     #g.set_transfer_functions_ranges([(-0.071, 0.551), (-0.213, 0.157), (-0.665, 0.096)])
     #g.set_transfer_functions_ranges([(-0.06, 1.274), (-0.213, 0.157), (-0.96, 0.019)])
     g.set_duration(6)

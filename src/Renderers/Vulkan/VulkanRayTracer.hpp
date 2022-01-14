@@ -103,6 +103,9 @@ public:
      */
     void setRenderSimulationMeshHull(bool shallRenderSimulationMeshHull) override;
 
+    /// For visualizing the seeding order in an animation (called by MainApp).
+    void setVisualizeSeedingProcess(bool visualizeSeeding) override;
+
 protected:
     void reloadGatherShader(bool canCopyShaderAttributes = true) override;
 
@@ -118,6 +121,9 @@ private:
 
     // Whether to trace rays against a triangle mesh or analytic tubes using line segment AABBs.
     bool useAnalyticIntersections = false;
+
+    /// For visualizing the seeding order in an animation.
+    bool visualizeSeedingProcess = false; //< Stress lines only.
 
     // Whether to use multi-layer alpha tracing (MLAT).
     bool useMlat = false;
@@ -150,6 +156,7 @@ public:
     inline void setMaxNumFrames(uint32_t numFrames) { maxNumFrames = numFrames; updateUseJitteredSamples(); }
     inline void setMaxDepthComplexity(uint32_t maxDepth) { rayTracerSettings.maxDepthComplexity = maxDepth; }
     inline void setUseDepthCues(bool depthCuesOn) { useDepthCues = depthCuesOn; }
+    inline void setVisualizeSeedingProcess(bool visualizeSeeding) { visualizeSeedingProcess = visualizeSeeding; }
     inline void setDepthMinMaxBuffer(const sgl::vk::BufferPtr& buffer) { depthMinMaxBuffer = buffer; }
     inline void setUseAmbientOcclusion(bool ambientOcclusionOn) { useAmbientOcclusion = ambientOcclusionOn; }
     inline void setAmbientOcclusionBaker(const AmbientOcclusionBakerPtr& baker) { ambientOcclusionBaker = baker; }
@@ -168,7 +175,11 @@ private:
 
     sgl::CameraPtr* camera;
     LineDataPtr lineData;
+
     sgl::vk::ImageViewPtr sceneImageView;
+
+    /// For visualizing the seeding order in an animation.
+    bool visualizeSeedingProcess = false; //< Stress lines only.
 
     bool useDepthCues = false;
     sgl::vk::BufferPtr depthMinMaxBuffer;

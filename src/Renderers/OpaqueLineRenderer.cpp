@@ -60,9 +60,9 @@ OpaqueLineRenderer::OpaqueLineRenderer(SceneData* sceneData, sgl::TransferFuncti
     onResolutionChanged();
 }
 
-void OpaqueLineRenderer::setVisualizeSeedingProcess(bool visualizeSeedingProcess) {
-    if (this->visualizeSeedingProcess != visualizeSeedingProcess) {
-        this->visualizeSeedingProcess = visualizeSeedingProcess;
+void OpaqueLineRenderer::setVisualizeSeedingProcess(bool visualizeSeeding) {
+    if (this->visualizeSeedingProcess != visualizeSeeding) {
+        this->visualizeSeedingProcess = visualizeSeeding;
         if (lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
             reloadGatherShader();
         }

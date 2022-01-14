@@ -52,8 +52,8 @@ public:
     /// Renders the entries in the property editor.
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
-    // For use in MainApp.cpp.
-    void setVisualizeSeedingProcess(bool visualizeSeedingProcess);
+    /// For visualizing the seeding order in an animation (called by MainApp).
+    void setVisualizeSeedingProcess(bool visualizeSeeding) override;
 
 protected:
     void reloadSphereRenderData();

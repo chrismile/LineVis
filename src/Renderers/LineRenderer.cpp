@@ -157,6 +157,9 @@ void LineRenderer::setAmbientOcclusionBaker() {
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(
                 new VulkanAmbientOcclusionBaker(ambientOcclusionRenderer));
     } else if (ambientOcclusionBakerType == AmbientOcclusionBakerType::VULKAN_RTAO) {
+        if (lineData && lineData->getUseCappedTubes() && (!isVulkanRenderer || isRasterizer)) {
+            lineData->setUseCappedTubes(this, false);
+        }
         if (!sgl::AppSettings::get()->getPrimaryDevice()->getRayQueriesSupported()) {
             sgl::Logfile::get()->writeError(
                     "Warning in MainApp::setAmbientOcclusionBaker: Ray tracing pipelines are not supported by the "

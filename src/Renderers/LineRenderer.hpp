@@ -122,6 +122,9 @@ public:
 
     inline const std::string& getWindowName() { return windowName; }
 
+    /// For visualizing the seeding order in an animation (called by MainApp).
+    virtual void setVisualizeSeedingProcess(bool visualizeSeedingProcess) {}
+
     bool getIsComputationRunning();
 
 protected:

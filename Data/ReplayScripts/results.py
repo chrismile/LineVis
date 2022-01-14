@@ -24,7 +24,7 @@ def init_scene():
         'smoothed_bands': True,
         'use_principal_stress_direction_index': True,
     })
-    g.set_transfer_functions(['qualitative-pale-lilac.xml', 'qualitative-emerald.xml', 'qualitative-ocher.xml'])
+    g.set_transfer_functions(['qualitative-ocher.xml', 'qualitative-emerald.xml', 'qualitative-pale-lilac.xml'])
     g.set_duration(2)
 
 def replay():

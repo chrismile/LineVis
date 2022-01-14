@@ -95,6 +95,18 @@ bool LineData::getCanUseLiveUpdate(LineDataAccessType accessType) const {
     return canUseLiveUpdate;
 }
 
+bool LineData::setUseCappedTubes(LineRenderer* lineRenderer, bool cappedTubes) {
+    bool useCappedTubesOld = useCappedTubes;
+    useCappedTubes = cappedTubes;
+    if (useCappedTubesOld != cappedTubes) {
+        triangleRepresentationDirty = true;
+        if (lineRenderer->isVulkanRenderer && !lineRenderer->isRasterizer) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer) {
     bool shallReloadGatherShader = false;
 

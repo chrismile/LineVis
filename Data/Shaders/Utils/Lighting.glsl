@@ -159,7 +159,7 @@ vec4 blinnPhongShadingTube(
     vec3 helperVec = normalize(cross(t, l));
     vec3 newL = normalize(cross(helperVec, t));
 
-#if defined(USE_BANDS) && defined(VULKAN)
+#if defined(USE_BANDS)
     const float exponent = useBand == 0 ? 1.7 : 1.0;
 #else
     const float exponent = 1.7;

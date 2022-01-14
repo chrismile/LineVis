@@ -720,6 +720,18 @@ void MainApp::render() {
         scheduledRecreateSceneFramebuffer = false;
     }
 
+    if (visualizeSeedingProcess) {
+        if (useDockSpaceMode) {
+            for (DataViewPtr& dataView : dataViews) {
+                if (dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_ALL_LINES_OPAQUE
+                        || dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_VULKAN_RAY_TRACER) {
+                    dataView->lineRenderer->notifyReRenderTriggeredExternally();
+                    dataView->reRender = true;
+                }
+            }
+        }
+    }
+
     SciVisApp::preRender();
     prepareVisualizationPipeline();
 
@@ -1199,16 +1211,15 @@ void MainApp::renderGuiGeneralSettingsPropertyEditor() {
 
     if (lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES && renderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
         if (useDockSpaceMode) {
-            bool hasOpaqueLineRenderer = false;
+            bool rendererSupportsVisualizingSeedingProcess = false;
             for (DataViewPtr& dataView : dataViews) {
-                if (dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_ALL_LINES_OPAQUE) {
-                    hasOpaqueLineRenderer = true;
-                    dataView->lineRenderer->notifyReRenderTriggeredExternally();
-                    dataView->reRender = true;
+                if (dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_ALL_LINES_OPAQUE
+                        || dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_VULKAN_RAY_TRACER) {
+                    rendererSupportsVisualizingSeedingProcess = true;
                 }
             }
 
-            if (hasOpaqueLineRenderer) {
+            if (rendererSupportsVisualizingSeedingProcess) {
                 if (propertyEditor.addCheckbox("Visualize Seeding Process", &visualizeSeedingProcess)) {
                     LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
                     lineDataStress->setShallRenderSeedingProcess(visualizeSeedingProcess);
@@ -1217,12 +1228,17 @@ void MainApp::renderGuiGeneralSettingsPropertyEditor() {
                             OpaqueLineRenderer* opaqueLineRenderer = static_cast<OpaqueLineRenderer*>(
                                     dataView->lineRenderer);
                             opaqueLineRenderer->setVisualizeSeedingProcess(true);
+                        } else if (dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_VULKAN_RAY_TRACER) {
+                            VulkanRayTracer* vulkanRayTracer = static_cast<VulkanRayTracer*>(dataView->lineRenderer);
+                            vulkanRayTracer->setVisualizeSeedingProcess(true);
                         }
                     }
                     recordingTimeStampStart = sgl::Timer->getTicksMicroseconds();
                     recordingTime = 0.0f;
                     customEndTime =
-                            visualizeSeedingProcess ? TIME_PER_SEED_POINT * (lineDataStress->getNumSeedPoints() + 1) : 0.0f;
+                            visualizeSeedingProcess
+                            ? TIME_PER_SEED_POINT * float(lineDataStress->getNumSeedPoints() + 1)
+                            : 0.0f;
                 }
             }
         } else {
@@ -1235,7 +1251,9 @@ void MainApp::renderGuiGeneralSettingsPropertyEditor() {
                     recordingTimeStampStart = sgl::Timer->getTicksMicroseconds();
                     recordingTime = 0.0f;
                     customEndTime =
-                            visualizeSeedingProcess ? TIME_PER_SEED_POINT * (lineDataStress->getNumSeedPoints() + 1) : 0.0f;
+                            visualizeSeedingProcess
+                            ? TIME_PER_SEED_POINT * float(lineDataStress->getNumSeedPoints() + 1)
+                            : 0.0f;
                     reRender = true;
                 }
             }
@@ -1571,10 +1589,9 @@ void MainApp::update(float dt) {
         if (useDockSpaceMode) {
             for (DataViewPtr& dataView : dataViews) {
                 bool reloadGatherShaderLocal = reloadGatherShader;
-                if (lineRenderer) {
-                    // TODO: View index i
+                if (dataView->lineRenderer) {
                     SettingsMap currentRendererSettings = replayWidget.getCurrentRendererSettings();
-                    reloadGatherShaderLocal |= lineRenderer->setNewSettings(currentRendererSettings);
+                    reloadGatherShaderLocal |= dataView->lineRenderer->setNewSettings(currentRendererSettings);
                 }
                 if (dataView->lineRenderer && reloadGatherShaderLocal) {
                     dataView->lineRenderer->reloadGatherShaderExternal();

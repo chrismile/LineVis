@@ -336,6 +336,14 @@ void computeFragmentColor(
     //colorOut = vec4(getAoFactor(fragmentVertexId, phi), 0.0, 0.0, 1.0);
 #endif
 
+#ifdef VISUALIZE_SEEDING_PROCESS
+    // For letting lines appear one after another in an animation showing the used seeding technique.
+    float fragmentLineAppearanceOrder = linePointData0.lineAppearanceOrder;
+    if (int(fragmentLineAppearanceOrder) > currentSeedIdx) {
+        colorOut.a = 0.0;
+    }
+#endif
+
 #ifdef USE_MLAT
     insertNodeMlat(colorOut);
 #else

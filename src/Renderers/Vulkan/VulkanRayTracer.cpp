@@ -90,6 +90,7 @@ VulkanRayTracer::~VulkanRayTracer() {
 void VulkanRayTracer::reloadGatherShader(bool canCopyShaderAttributes) {
     rayTracingRenderPass->setShaderDirty();
     rayTracingRenderPass->setUseDepthCues(useDepthCues);
+    rayTracingRenderPass->setVisualizeSeedingProcess(visualizeSeedingProcess);
     rayTracingRenderPass->setUseAmbientOcclusion(useAmbientOcclusion);
     rayTracingRenderPass->setAmbientOcclusionBaker(ambientOcclusionBaker);
     accumulatedFramesCounter = 0;
@@ -111,6 +112,15 @@ void VulkanRayTracer::setLineData(LineDataPtr& lineData, bool isNewData) {
 
 void VulkanRayTracer::setRenderSimulationMeshHull(bool shallRenderSimulationMeshHull) {
     rayTracingRenderPass->setRenderSimulationMeshHull(shallRenderSimulationMeshHull);
+}
+
+void VulkanRayTracer::setVisualizeSeedingProcess(bool visualizeSeeding) {
+    if (this->visualizeSeedingProcess != visualizeSeeding) {
+        this->visualizeSeedingProcess = visualizeSeeding;
+        if (lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
+            reloadGatherShader();
+        }
+    }
 }
 
 void VulkanRayTracer::onResolutionChanged() {
@@ -364,6 +374,9 @@ void RayTracingRenderPass::loadShader() {
         preprocessorDefines.insert(std::make_pair("USE_DEPTH_CUES", ""));
         preprocessorDefines.insert(std::make_pair("COMPUTE_DEPTH_CUES_GPU", ""));
         preprocessorDefines.insert(std::make_pair("USE_SCREEN_SPACE_POSITION", ""));
+    }
+    if (visualizeSeedingProcess) {
+        preprocessorDefines.insert(std::make_pair("VISUALIZE_SEEDING_PROCESS", ""));
     }
     if (useAmbientOcclusion) {
         preprocessorDefines.insert(std::make_pair("USE_AMBIENT_OCCLUSION", ""));
