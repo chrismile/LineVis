@@ -1228,10 +1228,13 @@ void MainApp::renderGuiGeneralSettingsPropertyEditor() {
                             OpaqueLineRenderer* opaqueLineRenderer = static_cast<OpaqueLineRenderer*>(
                                     dataView->lineRenderer);
                             opaqueLineRenderer->setVisualizeSeedingProcess(true);
-                        } else if (dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_VULKAN_RAY_TRACER) {
+                        }
+#ifdef USE_VULKAN_INTEROP
+                        else if (dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_VULKAN_RAY_TRACER) {
                             VulkanRayTracer* vulkanRayTracer = static_cast<VulkanRayTracer*>(dataView->lineRenderer);
                             vulkanRayTracer->setVisualizeSeedingProcess(true);
                         }
+#endif
                     }
                     recordingTimeStampStart = sgl::Timer->getTicksMicroseconds();
                     recordingTime = 0.0f;
