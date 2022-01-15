@@ -254,7 +254,7 @@ void StressLineTracingRequester::requestNewData() {
     }
 
     Json::Value request;
-    request["fileName"] = boost::filesystem::absolute(lineDataSetsDirectory + meshFilename).generic_string();
+    request["fileName"] = boost::filesystem::absolute(meshFilename).generic_string();
     if (lineDensCtrl > 0 && useCustomLineDensity) {
         request["lineDensCtrl"] = lineDensCtrl;
     } else {

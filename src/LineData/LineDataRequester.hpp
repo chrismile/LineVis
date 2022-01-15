@@ -98,6 +98,7 @@ private:
     std::condition_variable hasReplyConditionVariable;
     LineDataPtr lineData = nullptr;
     DataSetInformation loadedDataSetInformation;
+    bool isDataLoaded = false;
 };
 
 

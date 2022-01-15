@@ -69,12 +69,12 @@ void StressLineTracingRequesterSocket::join() {
     if (!programIsFinished) {
         {
             zmq_send(controllerSocketPub, "KILL", 4, ZMQ_DONTWAIT);
-            std::lock_guard<std::mutex> lock(requestMutex);
+            std::lock_guard<std::mutex> lockRequest(requestMutex);
             programIsFinished = true;
             hasRequest = true;
 
             {
-                std::lock_guard<std::mutex> lock(replyMutex);
+                std::lock_guard<std::mutex> lockReply(replyMutex);
                 this->hasReply = false;
                 this->replyMessage.clear();
             }
@@ -89,7 +89,7 @@ void StressLineTracingRequesterSocket::join() {
 
 void StressLineTracingRequesterSocket::queueRequestString(const std::string& requestMessage) {
     {
-        std::lock_guard<std::mutex> lock(replyMutex);
+        std::lock_guard<std::mutex> lock(requestMutex);
         this->requestMessage = requestMessage;
         hasRequest = true;
     }

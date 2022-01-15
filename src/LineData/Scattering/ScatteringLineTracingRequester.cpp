@@ -307,7 +307,7 @@ bool ScatteringLineTracingRequester::getHasNewData(DataSetInformation& dataSetIn
 
 void ScatteringLineTracingRequester::queueRequestStruct(const ScatteringTracingSettings& request) {
     {
-        std::lock_guard<std::mutex> lock(replyMutex);
+        std::lock_guard<std::mutex> lock(requestMutex);
         workerTracingSettings = request;
         requestLineData = LineDataPtr(new LineDataScattering(
                 transferFunctionWindow
@@ -341,12 +341,12 @@ bool ScatteringLineTracingRequester::getReply(LineDataPtr& lineData) {
 void ScatteringLineTracingRequester::join() {
     if (!programIsFinished) {
         {
-            std::lock_guard<std::mutex> lock(requestMutex);
+            std::lock_guard<std::mutex> lockRequest(requestMutex);
             programIsFinished = true;
             hasRequest = true;
 
             {
-                std::lock_guard<std::mutex> lock(replyMutex);
+                std::lock_guard<std::mutex> lockReply(replyMutex);
                 this->hasReply = false;
                 // this->replyMessage.clear();
             }

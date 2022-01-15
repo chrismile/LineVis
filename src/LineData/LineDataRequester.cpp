@@ -66,7 +66,7 @@ void LineDataRequester::queueRequest(
         LineDataPtr lineData, const std::vector<std::string>& fileNames,
         const DataSetInformation& dataSetInformation, glm::mat4* transformationMatrixPtr) {
     {
-        std::lock_guard<std::mutex> lock(replyMutex);
+        std::lock_guard<std::mutex> lock(requestMutex);
         this->requestedLineData = lineData;
         this->requestedFileNames = fileNames;
         this->requestedDataSetInformation = dataSetInformation;
@@ -86,8 +86,10 @@ LineDataPtr LineDataRequester::getLoadedData(DataSetInformation& loadedDataSetIn
     LineDataPtr lineData;
     {
         std::lock_guard<std::mutex> lock(replyMutex);
-        lineData = this->lineData;
-        loadedDataSetInformation = this->loadedDataSetInformation;
+        if (isDataLoaded) {
+            lineData = this->lineData;
+            loadedDataSetInformation = this->loadedDataSetInformation;
+        }
 
         // Now, new requests can be worked on.
         this->lineData = LineDataPtr();
@@ -123,15 +125,12 @@ void LineDataRequester::mainLoop() {
             requestLock.unlock();
 
             bool dataLoaded = lineData->loadFromFile(fileNames, dataSetInformation, transformationMatrixPtr);
-            if (!dataLoaded) {
-                isProcessingRequest = false;
-                continue;
-            }
 
             std::lock_guard<std::mutex> replyLock(replyMutex);
             this->lineData = lineData;
             this->loadedDataSetInformation = dataSetInformation;
             isProcessingRequest = false;
+            isDataLoaded = dataLoaded;
         }
     }
 }

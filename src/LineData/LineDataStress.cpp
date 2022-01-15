@@ -57,7 +57,7 @@ bool LineDataStress::useMajorPS = true;
 bool LineDataStress::useMediumPS = false;
 bool LineDataStress::useMinorPS = true;
 bool LineDataStress::usePrincipalStressDirectionIndex = true;
-std::array<bool, 3> LineDataStress::psUseBands = {false, true, true};
+std::array<bool, 3> LineDataStress::psUseBands = {false, false, true};
 bool LineDataStress::useSmoothedBands = false;
 LineDataStress::BandRenderMode LineDataStress::bandRenderMode = LineDataStress::BandRenderMode::RIBBONS;
 LineDataStress::LineHierarchyType LineDataStress::lineHierarchyType = LineDataStress::LineHierarchyType::GEO;
@@ -457,6 +457,12 @@ bool LineDataStress::loadFromFile(
             usedPsDirections.at(psIdx) = true;
         }
         setUsedPsDirections(usedPsDirections);
+
+        // Disable bands for minor PSLs if first PS direction is not used.
+        psUseBands = {false, false, true};
+        if (!usedPsDirections.at(0)) {
+            psUseBands.at(2) = false;
+        }
 
         // Use bands if possible.
         if (hasBandsData) {
