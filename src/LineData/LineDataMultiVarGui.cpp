@@ -233,6 +233,10 @@ bool LineDataMultiVar::renderGuiTechniqueSettingsPropertyEditor(sgl::PropertyEdi
         for (size_t v = 0; v < varSelected.size(); ++v) {
             std::vector<std::string> names;
             boost::split(names, varNames[v], [](char c) { return c == '#'; });
+            if (names.size() == 1) {
+                names.push_back(names.front());
+            }
+            assert(names.size() == 2);
 
             if (ImGui::Selectable(
                     names[0].c_str(), reinterpret_cast<bool*>(&varSelected[v]),

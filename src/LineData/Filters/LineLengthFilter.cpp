@@ -42,7 +42,10 @@ void LineLengthFilter::onDataLoaded(LineDataPtr lineDataIn) {
 
         float trajectoryLength = 0.0f;
         for (int i = 0; i < n - 1; i++) {
-            trajectoryLength += glm::length(trajectory.positions.at(i) - trajectory.positions.at(i + 1));
+            float segmentLength = glm::length(trajectory.positions.at(i) - trajectory.positions.at(i + 1));
+            if (!std::isnan(segmentLength)) {
+                trajectoryLength += segmentLength;
+            }
         }
 
         trajectoryLengths.push_back(trajectoryLength);
