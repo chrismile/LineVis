@@ -128,12 +128,16 @@ void readMesh3D(const std::string &filename, BinaryMesh &mesh) {
         return;
     }
     fseeko64(fileptr, 0L, SEEK_END);
-    size_t size = ftello64 (fileptr);
+    uint64_t size = ftello64(fileptr);
     fseeko64(fileptr, 0L, SEEK_SET);
     char *buffer = new char[size];
     fseek(fileptr, 0L, SEEK_SET);
     uint64_t readSize = fread(buffer, 1, size, fileptr);
-    assert(size == readSize);
+    if (size != readSize) {
+        sgl::Logfile::get()->writeError(
+                std::string() + "Error in readMesh3D: Size mismatch in file \"" + filename + "\".");
+        return;
+    }
     fclose(fileptr);
 #endif
 
