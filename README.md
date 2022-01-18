@@ -97,16 +97,17 @@ There are two ways to build the program on Windows.
 - Using [MSYS2](https://www.msys2.org/) to install all dependencies and compile the program using MinGW.
 
 In the project folder, a script called `build-windows.bat` can be found automating this build process using vcpkg and
-Visual Studio. It is recommended to run the script using the `Developer PowerShell for VS 2022`. The build script will
-also launch the program after successfully building it.
+Visual Studio. It is recommended to run the script using the `Developer PowerShell for VS 2022` (or VS 2019 depending on
+your Visual Studio version). The build script will also launch the program after successfully building it.
+Building the program is regularly tested on Windows 10 and 11 with Microsoft Visual Studio 2019 and 2022.
 
 Please note that the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home#windows) needs to be installed beforehand to make
 sure different advanced rendering modes will be enabled in the program.
 
-Building the program is regularly tested using Windows 10 and 11 with Microsoft Visual Studio 2022.
-Building the program using Microsoft Visual Studio 2019 should theoretically also work, but is not guaranteed.
+A script `build-windows-msys2.bat` is also available to build the program using MSYS2/MinGW alternatively to using
+Microsoft Visual Studio.
 
-If you wish to build the program manually (or using MSYS2/MinGW instead of Visual Studio), instructions can be found in
+If you wish to build the program manually using Visual Studio and vcpkg, or using MSYS2, instructions can be found in
 the directory `docs/compilation`.
 
 

@@ -1,0 +1,82 @@
+name: Build using MSYS2
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: windows-2022
+    name: "Build using MSYS2"
+
+    env:
+      sgl_REPO_DIR: ${{ github.workspace }}/sgl-repo
+      sgl_DIR: ${{ github.workspace }}/sgl
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+    - uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        install: >-
+          base-devel
+          make
+          git
+          curl
+          wget
+          mingw64/mingw-w64-x86_64-cmake
+          mingw64/mingw-w64-x86_64-gcc
+          mingw64/mingw-w64-x86_64-gdb
+          mingw64/mingw-w64-x86_64-glm
+          mingw64/mingw-w64-x86_64-libpng
+          mingw64/mingw-w64-x86_64-tinyxml2
+          mingw64/mingw-w64-x86_64-boost
+          mingw64/mingw-w64-x86_64-libarchive
+          mingw64/mingw-w64-x86_64-SDL2
+          mingw64/mingw-w64-x86_64-SDL2_image
+          mingw64/mingw-w64-x86_64-glew
+          mingw64/mingw-w64-x86_64-vulkan-headers
+          mingw64/mingw-w64-x86_64-vulkan-loader
+          mingw64/mingw-w64-x86_64-vulkan-validation-layers
+          mingw64/mingw-w64-x86_64-shaderc
+          mingw64/mingw-w64-x86_64-jsoncpp
+          mingw64/mingw-w64-x86_64-netcdf
+          mingw64/mingw-w64-x86_64-zeromq
+          mingw64/mingw-w64-x86_64-eigen3
+          mingw64/mingw-w64-x86_64-python
+
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    - uses: actions/checkout@v2
+      with:
+        repository: chrismile/sgl
+        path: sgl-repo
+        submodules: true
+
+    - name: Configure CMake (sgl)
+      run: |
+        cmake ${{env.sgl_REPO_DIR}} -B ${{env.sgl_REPO_DIR}}/build -G "MSYS Makefiles" \
+        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{env.sgl_DIR}}
+
+    - name: Build (sgl)
+      run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}}
+
+    - name: Install (sgl)
+      run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --target install
+
+    - name: Configure CMake (LineVis)
+      run: cmake -B ${{github.workspace}}/build -G "MSYS Makefiles" -DPython3_FIND_REGISTRY=NEVER \
+      -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dsgl_DIR=${{env.sgl_DIR}}/lib/cmake/sgl
+
+    - name: Build (LineVis)
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
