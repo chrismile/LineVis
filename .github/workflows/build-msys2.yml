@@ -65,19 +65,19 @@ jobs:
 
     - name: Configure CMake (sgl)
       run: |
-        cmake ${{env.sgl_REPO_DIR}} -B ${{env.sgl_REPO_DIR}}/build -G "MSYS Makefiles" \
-        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{env.sgl_DIR}}
+        cmake "${{env.sgl_REPO_DIR}}" -B "${{env.sgl_REPO_DIR}}/build" -G "MSYS Makefiles" \
+        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX="${{env.sgl_DIR}}"
 
     - name: Build (sgl)
-      run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}}
+      run: cmake --build "${{env.sgl_REPO_DIR}}/build" --config ${{env.BUILD_TYPE}}
 
     - name: Install (sgl)
-      run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --target install
+      run: cmake --build "${{env.sgl_REPO_DIR}}/build" --config ${{env.BUILD_TYPE}} --target install
 
     - name: Configure CMake (LineVis)
       run: |
-        cmake -B ${{github.workspace}}/build -G "MSYS Makefiles" -DPython3_FIND_REGISTRY=NEVER \
-        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dsgl_DIR=${{env.sgl_DIR}}/lib/cmake/sgl
+        cmake -B "${{github.workspace}}/build" -G "MSYS Makefiles" -DPython3_FIND_REGISTRY=NEVER \
+        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dsgl_DIR="${{env.sgl_DIR}}/lib/cmake/sgl"
 
     - name: Build (LineVis)
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      run: cmake --build "${{github.workspace}}/build" --config ${{env.BUILD_TYPE}}
