@@ -75,8 +75,9 @@ jobs:
       run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --target install
 
     - name: Configure CMake (LineVis)
-      run: cmake -B ${{github.workspace}}/build -G "MSYS Makefiles" -DPython3_FIND_REGISTRY=NEVER \
-      -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dsgl_DIR=${{env.sgl_DIR}}/lib/cmake/sgl
+      run: |
+        cmake -B ${{github.workspace}}/build -G "MSYS Makefiles" -DPython3_FIND_REGISTRY=NEVER \
+        -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dsgl_DIR=${{env.sgl_DIR}}/lib/cmake/sgl
 
     - name: Build (LineVis)
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
