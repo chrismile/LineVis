@@ -6,10 +6,6 @@
 
 #include <Utils/Defer.hpp>
 
-#ifdef _WIN32
-#include <corecrt_math.h>
-#endif
-
 #include "../SearchStructures/KdTree.hpp"
 
 #define ERROR(...) printf("ERROR: "  __VA_ARGS__);

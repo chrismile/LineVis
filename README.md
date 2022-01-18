@@ -94,8 +94,7 @@ open a [bug report](https://github.com/Junpeng-Wang-TUM/3D-TSV/issues).
 There are two ways to build the program on Windows.
 - Using [vcpkg](https://github.com/microsoft/vcpkg) to install all dependencies. The program can then be compiled using
   [Microsoft Visual Studio](https://visualstudio.microsoft.com/vs/).
-- Using [MSYS2](https://www.msys2.org/) to install all dependencies and compile the program using MinGW
-  (not tested regularly).
+- Using [MSYS2](https://www.msys2.org/) to install all dependencies and compile the program using MinGW.
 
 In the project folder, a script called `build-windows.bat` can be found automating this build process using vcpkg and
 Visual Studio. It is recommended to run the script using the `Developer PowerShell for VS 2022`. The build script will

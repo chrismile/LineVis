@@ -45,7 +45,7 @@ else()
     find_package(cppzmq QUIET)
 endif()
 
-if (UNIX AND NOT APPLE)
+if ((UNIX AND NOT APPLE) OR MSYS)
     find_package(PkgConfig REQUIRED)
 endif()
 
@@ -360,6 +360,12 @@ if (${SUPPORT_OPTIX})
         if(UNIX AND NOT APPLE)
             target_link_libraries(LineVis PRIVATE dl)
         endif()
+		if (MSYS)
+		    # GetProcAddress in optix_stubs.h performs no function pointer conversion.
+		    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
+			# Compensate for "#pragma comment(lib, "Cfgmgr32.lib")" not working with MinGW.
+            target_link_libraries(LineVis PRIVATE cfgmgr32)
+		endif()
     endif()
 endif()
 

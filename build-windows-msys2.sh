@@ -46,35 +46,34 @@ is_installed_pacman() {
     fi
 }
 
-if command -v pacman &> /dev/null; then
+if command -v pacman &> /dev/null && [ ! -d $build_dir_debug ] && [ ! -d $build_dir_release ]; then
     if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null \
             || ! command -v curl &> /dev/null || ! command -v wget &> /dev/null \
             || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null; then
         echo "------------------------"
         echo "installing build essentials"
         echo "------------------------"
-        sudo pacman -S make git curl wget mingw64/mingw-w64-x86_64-cmake \
+        pacman -S make git curl wget mingw64/mingw-w64-x86_64-cmake \
         mingw64/mingw-w64-x86_64-gcc mingw64/mingw-w64-x86_64-gdb
     fi
 
-    # Dependencies of sgl and LineVis.
-    if ! is_installed_pacman "mingw64/mingw-w64-x86_64-glm" \
-            || ! is_installed_pacman "mingw64/mingw-w64-x86_64-libpng" \
-            || ! is_installed_pacman "mingw64/mingw-w64-x86_64-tinyxml2" \
-            || ! is_installed_pacman "mingw64/mingw-w64-x86_64-boost" \
-            || ! is_installed_pacman "mingw64/mingw-w64-x86_64-libarchive" \
-            || ! is_installed_pacman "mingw64/mingw-w64-x86_64-SDL2" \
-            || ! is_installed_pacman "mingw64/mingw-w64-x86_64-SDL2_image" \
-            || ! is_installed_pacman "mingw64/mingw-w64-x86_64-glew" \
-            || ! is_installed_pacman "mingw64/mingw-w64-x86_64-vulkan-headers" \
-            || ! is_installed_pacman "mingw64/mingw-w64-x86_64-vulkan-loader" \
-            || ! is_installed_pacman "mingw64/mingw-w64-x86_64-vulkan-validation-layers" \
-            || ! is_installed_pacman "mingw64/mingw-w64-x86_64-shaderc" \
-            || ! is_installed_pacman "mingw64/mingw-w64-x86_64-jsoncpp" \
-            || ! is_installed_pacman "mingw64/mingw-w64-x86_64-netcdf" \
-            || ! is_installed_pacman "mingw64/mingw-w64-x86_64-zeromq" \
-            || ! is_installed_pacman "mingw64/mingw-w64-x86_64-eigen3" \
-            || ! is_installed_pacman "mingw64/mingw-w64-x86_64-python"; then
+    if ! is_installed_pacman "mingw-w64-x86_64-glm" \
+            || ! is_installed_pacman "mingw-w64-x86_64-libpng" \
+            || ! is_installed_pacman "mingw-w64-x86_64-tinyxml2" \
+            || ! is_installed_pacman "mingw-w64-x86_64-boost" \
+            || ! is_installed_pacman "mingw-w64-x86_64-libarchive" \
+            || ! is_installed_pacman "mingw-w64-x86_64-SDL2" \
+            || ! is_installed_pacman "mingw-w64-x86_64-SDL2_image" \
+            || ! is_installed_pacman "mingw-w64-x86_64-glew" \
+            || ! is_installed_pacman "mingw-w64-x86_64-vulkan-headers" \
+            || ! is_installed_pacman "mingw-w64-x86_64-vulkan-loader" \
+            || ! is_installed_pacman "mingw-w64-x86_64-vulkan-validation-layers" \
+            || ! is_installed_pacman "mingw-w64-x86_64-shaderc" \
+            || ! is_installed_pacman "mingw-w64-x86_64-jsoncpp" \
+            || ! is_installed_pacman "mingw-w64-x86_64-netcdf" \
+            || ! is_installed_pacman "mingw-w64-x86_64-zeromq" \
+            || ! is_installed_pacman "mingw-w64-x86_64-eigen3" \
+            || ! is_installed_pacman "mingw-w64-x86_64-python"; then
         echo "------------------------"
         echo "installing dependencies "
         echo "------------------------"
@@ -86,8 +85,6 @@ if command -v pacman &> /dev/null; then
         mingw64/mingw-w64-x86_64-jsoncpp mingw64/mingw-w64-x86_64-netcdf mingw64/mingw-w64-x86_64-zeromq \
         mingw64/mingw-w64-x86_64-eigen3 mingw64/mingw-w64-x86_64-python
     fi
-else
-    echo "Warning: Unsupported system package manager detected." >&2
 fi
 
 
@@ -201,9 +198,9 @@ echo "All done!"
 pushd $build_dir >/dev/null
 
 if [[ -z "${PATH+x}" ]]; then
-    export PATH="${PROJECTPATH}/third_party/sgl/install/lib"
-elif [[ ! "${PATH}" == *"${PROJECTPATH}/third_party/sgl/install/lib"* ]]; then
-    export PATH="$PATH:${PROJECTPATH}/third_party/sgl/install/lib"
+    export PATH="${PROJECTPATH}/third_party/sgl/install/bin"
+elif [[ ! "${PATH}" == *"${PROJECTPATH}/third_party/sgl/install/bin"* ]]; then
+    export PATH="$PATH:${PROJECTPATH}/third_party/sgl/install/bin"
 fi
 export PYTHONHOME="/mingw64"
 ./LineVis
