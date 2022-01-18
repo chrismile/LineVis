@@ -9,7 +9,13 @@ dependencies.
 After that, all obligatory dependencies can be installed using the following command with MSYS2 and Pacman.
 
 ```
-pacman -S mingw64/mingw-w64-x86_64-jsoncpp mingw64/mingw-w64-x86_64-netcdf mingw64/mingw-w64-x86_64-zeromq \
+pacman -S make git wget mingw64/mingw-w64-x86_64-gcc mingw64/mingw-w64-x86_64-gdb mingw64/mingw-w64-x86_64-cmake \
+mingw64/mingw-w64-x86_64-glm mingw64/mingw-w64-x86_64-libpng mingw64/mingw-w64-x86_64-tinyxml2 \
+mingw64/mingw-w64-x86_64-boost mingw64/mingw-w64-x86_64-libarchive \
+mingw64/mingw-w64-x86_64-SDL2 mingw64/mingw-w64-x86_64-SDL2_image mingw64/mingw-w64-x86_64-glew \
+mingw64/mingw-w64-x86_64-vulkan-headers mingw64/mingw-w64-x86_64-vulkan-loader \
+mingw64/mingw-w64-x86_64-vulkan-validation-layers mingw64/mingw-w64-x86_64-shaderc \
+mingw64/mingw-w64-x86_64-jsoncpp mingw64/mingw-w64-x86_64-netcdf mingw64/mingw-w64-x86_64-zeromq \
 mingw64/mingw-w64-x86_64-eigen3 mingw64/mingw-w64-x86_64-python
 ```
 

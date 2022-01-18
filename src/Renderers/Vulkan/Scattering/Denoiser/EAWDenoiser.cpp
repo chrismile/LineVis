@@ -38,7 +38,7 @@ EAWDenoiser::EAWDenoiser(sgl::vk::Renderer* renderer) {
 }
 
 bool EAWDenoiser::getIsEnabled() const {
-    return eawBlitPass->getMaxNumIterations();
+    return eawBlitPass->getMaxNumIterations() > 0;
 }
 
 void EAWDenoiser::setOutputImage(sgl::vk::ImageViewPtr& outputImage) {

@@ -70,7 +70,7 @@ public:
     inline void setColorTexture(const sgl::vk::TexturePtr& texture) { colorTexture = texture; setDataDirty(); }
     inline void setPositionTexture(const sgl::vk::TexturePtr& texture) { positionTexture = texture; setDataDirty(); }
     inline void setNormalTexture(const sgl::vk::TexturePtr& texture) { normalTexture = texture; setDataDirty(); }
-    inline int getMaxNumIterations() const { return maxNumIterations; }
+    [[nodiscard]] inline int getMaxNumIterations() const { return maxNumIterations; }
 
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);

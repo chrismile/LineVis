@@ -30,6 +30,7 @@
 #include <Graphics/Scene/Camera.hpp>
 #include <Graphics/Vulkan/Render/Passes/Pass.hpp>
 #include <Graphics/Vulkan/Render/Passes/BlitRenderPass.hpp>
+#include <Graphics/Vulkan/Utils/Timer.hpp>
 #include "../Denoiser/Denoiser.hpp"
 
 namespace sgl {
@@ -40,7 +41,8 @@ class LineDataScattering;
 typedef std::shared_ptr<LineDataScattering> LineDataScatteringPtr;
 
 class BlitMomentTexturePass;
-class SuperVoxelGrid;
+class SuperVoxelGridResidualRatioTracking;
+class SuperVoxelGridDecompositionTracking;
 
 enum class FeatureMapType {
     RESULT, FIRST_X, FIRST_W, PRIMARY_RAY_ABSORPTION_MOMENTS, SCATTER_RAY_ABSORPTION_MOMENTS
@@ -82,13 +84,15 @@ private:
 
     void updateVptMode();
     enum class VptMode {
-        DELTA_TRACKING, SPECTRAL_DELTA_TRACKING, RATIO_TRACKING, RESIDUAL_RATIO_TRACKING
+        DELTA_TRACKING, SPECTRAL_DELTA_TRACKING, RATIO_TRACKING, RESIDUAL_RATIO_TRACKING, DECOMPOSITION_TRACKING
     };
-    const char* const VPT_MODE_NAMES[4] = {
-            "Delta Tracking", "Delta Tracking (Spectral)", "Ratio Tracking", "Residual Ratio Tracking"
+    const char* const VPT_MODE_NAMES[5] = {
+            "Delta Tracking", "Delta Tracking (Spectral)", "Ratio Tracking", "Residual Ratio Tracking",
+            "Decomposition Tracking"
     };
-    VptMode vptMode = VptMode::RATIO_TRACKING;
-    std::shared_ptr<SuperVoxelGrid> superVoxelGrid;
+    VptMode vptMode = VptMode::DECOMPOSITION_TRACKING;
+    std::shared_ptr<SuperVoxelGridResidualRatioTracking> superVoxelGridResidualRatioTracking;
+    std::shared_ptr<SuperVoxelGridDecompositionTracking> superVoxelGridDecompositionTracking;
     int superVoxelSize = 8;
 
     uint32_t lastViewportWidth = 0, lastViewportHeight = 0;
@@ -102,9 +106,13 @@ private:
     sgl::vk::TexturePtr firstXTexture;
     sgl::vk::TexturePtr firstWTexture;
 
+    std::string getCurrentEventName();
     int targetNumSamples = 1024;
     bool reachedTarget = true;
     bool changedDenoiserSettings = false;
+    bool timerStopped = false;
+    bool createNewAccumulationTimer = false;
+    sgl::vk::TimerPtr accumulationTimer;
 
     glm::vec3 sunlightColor = glm::vec3(1.0f, 0.961538462f, 0.884615385f);
     float sunlightIntensity = 2.6f;
@@ -121,6 +129,7 @@ private:
     void setDenoiserFeatureMaps();
     DenoiserType denoiserType = DenoiserType::EAW;
     bool useDenoiser = true;
+    bool denoiserChanged = false;
     std::shared_ptr<Denoiser> denoiser;
 
     // Uniform buffer object storing the camera settings.
@@ -136,7 +145,7 @@ private:
         glm::vec3 sunDirection; float pad3;
         glm::vec3 sunIntensity; float pad4;
 
-        // For residual ratio tracking.
+        // For decomposition and residual ratio tracking.
         glm::ivec3 superVoxelSize; int pad5;
         glm::ivec3 superVoxelGridSize; int pad6;
     };

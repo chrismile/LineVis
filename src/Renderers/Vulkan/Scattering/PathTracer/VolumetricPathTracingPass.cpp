@@ -174,13 +174,20 @@ void VolumetricPathTracingPass::onHasMoved() {
 
 void VolumetricPathTracingPass::updateVptMode() {
     if (vptMode == VptMode::RESIDUAL_RATIO_TRACKING && lineData) {
-        superVoxelGrid = std::make_shared<SuperVoxelGrid>(
+        superVoxelGridResidualRatioTracking = std::make_shared<SuperVoxelGridResidualRatioTracking>(
                 device, lineData->getGridSizeX(), lineData->getGridSizeY(),
                 lineData->getGridSizeZ(), lineData->getScalarFieldData(),
                 superVoxelSize);
-        superVoxelGrid->setExtinction((cloudExtinctionBase * cloudExtinctionScale).x);
+        superVoxelGridResidualRatioTracking->setExtinction((cloudExtinctionBase * cloudExtinctionScale).x);
+    } else if (vptMode == VptMode::DECOMPOSITION_TRACKING && lineData) {
+        superVoxelGridResidualRatioTracking = {};
+        superVoxelGridDecompositionTracking = std::make_shared<SuperVoxelGridDecompositionTracking>(
+                device, lineData->getGridSizeX(), lineData->getGridSizeY(),
+                lineData->getGridSizeZ(), lineData->getScalarFieldData(),
+                superVoxelSize);
     } else {
-        superVoxelGrid = std::shared_ptr<SuperVoxelGrid>();
+        superVoxelGridResidualRatioTracking = {};
+        superVoxelGridDecompositionTracking = {};
     }
 }
 
@@ -208,6 +215,8 @@ void VolumetricPathTracingPass::loadShader() {
         customPreprocessorDefines.insert({ "USE_RATIO_TRACKING", "" });
     } else if (vptMode == VptMode::RESIDUAL_RATIO_TRACKING) {
         customPreprocessorDefines.insert({ "USE_RESIDUAL_RATIO_TRACKING", "" });
+    } else if (vptMode == VptMode::DECOMPOSITION_TRACKING) {
+        customPreprocessorDefines.insert({ "USE_DECOMPOSITION_TRACKING", "" });
     }
     shaderStages = sgl::vk::ShaderManager->getShaderStages({"Clouds.Compute"}, customPreprocessorDefines);
 }
@@ -231,14 +240,57 @@ void VolumetricPathTracingPass::createComputeData(
     computeData->setStaticBuffer(momentUniformDataBuffer, "MomentUniformData");
     if (vptMode == VptMode::RESIDUAL_RATIO_TRACKING) {
         computeData->setStaticTexture(
-                superVoxelGrid->getSuperVoxelGridTexture(), "superVoxelGridImage");
+                superVoxelGridResidualRatioTracking->getSuperVoxelGridTexture(),
+                "superVoxelGridImage");
         computeData->setStaticTexture(
-                superVoxelGrid->getSuperVoxelGridEmptyTexture(), "superVoxelGridEmptyImage");
+                superVoxelGridResidualRatioTracking->getSuperVoxelGridOccupancyTexture(),
+                "superVoxelGridOccupancyImage");
+    } else if (vptMode == VptMode::DECOMPOSITION_TRACKING) {
+        computeData->setStaticTexture(
+                superVoxelGridDecompositionTracking->getSuperVoxelGridTexture(),
+                "superVoxelGridImage");
+        computeData->setStaticTexture(
+                superVoxelGridDecompositionTracking->getSuperVoxelGridOccupancyTexture(),
+                "superVoxelGridOccupancyImage");
     }
 }
 
+std::string VolumetricPathTracingPass::getCurrentEventName() {
+    return std::string() + VPT_MODE_NAMES[int(vptMode)] + " " + std::to_string(targetNumSamples) + "spp";
+}
+
 void VolumetricPathTracingPass::_render() {
-    if (!changedDenoiserSettings) {
+    if (denoiserChanged) {
+        createDenoiser();
+        denoiserChanged = false;
+    }
+
+    std::string eventName = getCurrentEventName();
+    if (createNewAccumulationTimer) {
+        accumulationTimer = std::make_shared<sgl::vk::Timer>(renderer);
+        createNewAccumulationTimer = false;
+    }
+
+    if (!reachedTarget) {
+        if (int(frameInfo.frameCount) > targetNumSamples) {
+            frameInfo.frameCount = 0;
+        }
+        if (int(frameInfo.frameCount) < targetNumSamples) {
+            reRender = true;
+        }
+        if (int(frameInfo.frameCount) == targetNumSamples) {
+            reachedTarget = true;
+            accumulationTimer->finishGPU();
+            accumulationTimer->printTimeMS(eventName);
+            timerStopped = true;
+        }
+    }
+
+    if (!reachedTarget) {
+        accumulationTimer->startGPU(eventName);
+    }
+
+    if (!changedDenoiserSettings && !timerStopped) {
         uniformData.inverseViewProjMatrix = glm::inverse(
                 (*camera)->getProjectionMatrix() * (*camera)->getViewMatrix());
         VkExtent3D gridExtent = {
@@ -255,9 +307,12 @@ void VolumetricPathTracingPass::_render() {
         uniformData.scatteringAlbedo = cloudScatteringAlbedo;
         uniformData.sunDirection = sunlightDirection;
         uniformData.sunIntensity = sunlightIntensity * sunlightColor;
-        if (superVoxelGrid) {
-            uniformData.superVoxelSize = superVoxelGrid->getSuperVoxelSize();
-            uniformData.superVoxelGridSize = superVoxelGrid->getSuperVoxelGridSize();
+        if (superVoxelGridResidualRatioTracking) {
+            uniformData.superVoxelSize = superVoxelGridResidualRatioTracking->getSuperVoxelSize();
+            uniformData.superVoxelGridSize = superVoxelGridResidualRatioTracking->getSuperVoxelGridSize();
+        } else if (superVoxelGridDecompositionTracking) {
+            uniformData.superVoxelSize = superVoxelGridDecompositionTracking->getSuperVoxelSize();
+            uniformData.superVoxelGridSize = superVoxelGridDecompositionTracking->getSuperVoxelGridSize();
         }
         uniformBuffer->updateData(
                 sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
@@ -288,6 +343,7 @@ void VolumetricPathTracingPass::_render() {
                 1);
     }
     changedDenoiserSettings = false;
+    timerStopped = false;
 
     if (featureMapType == FeatureMapType::RESULT) {
         if (useDenoiser && denoiser && denoiser->getIsEnabled()) {
@@ -330,19 +386,26 @@ void VolumetricPathTracingPass::_render() {
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
             VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);*/
+
+    if (!reachedTarget) {
+        accumulationTimer->endGPU(eventName);
+    }
 }
 
 bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
-    sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(2, 14, 735, 564);
-
     bool optionChanged = false;
 
     if (propertyEditor.beginNode("VPT Renderer")) {
-        std::string numSamplesText = "Number of Samples: " + std::to_string(frameInfo.frameCount) + "###numSamplesText";
+        std::string numSamplesText = "#Samples: " + std::to_string(frameInfo.frameCount) + "###numSamplesText";
         propertyEditor.addCustomWidgets(numSamplesText);
         if (ImGui::Button(" = ")) {
+            createNewAccumulationTimer = true;
             reachedTarget = false;
             reRender = true;
+
+            if (int(frameInfo.frameCount) >= targetNumSamples) {
+                frameInfo.frameCount = 0;
+            }
         }
         ImGui::SameLine();
         ImGui::SetNextItemWidth(sgl::ImGuiWrapper::get()->getScaleDependentSize(220.0f));
@@ -423,7 +486,7 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
 #endif
     if (propertyEditor.addCombo(
             "Denoiser", (int*)&denoiserType, DENOISER_NAMES, numDenoisersSupported)) {
-        createDenoiser();
+        denoiserChanged = true;
         reRender = true;
         changedDenoiserSettings = true;
     }
@@ -440,18 +503,6 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
     if (optionChanged) {
         frameInfo.frameCount = 0;
         reRender = true;
-    }
-
-    if (!reachedTarget) {
-        if (int(frameInfo.frameCount) > targetNumSamples) {
-            frameInfo.frameCount = 0;
-        }
-        if (int(frameInfo.frameCount) < targetNumSamples) {
-            reRender = true;
-        }
-        if (int(frameInfo.frameCount) == targetNumSamples) {
-            reachedTarget = true;
-        }
     }
 
     return optionChanged;
@@ -497,14 +548,14 @@ bool BlitMomentTexturePass::renderGuiPropertyEditorNodes(
     if (propertyEditor.beginNode(headerName)) {
         std::string momentTypeName = "Moment Type## (" + prefix + ")";
         if (propertyEditor.addCombo(
-                momentTypeName.c_str(), (int*)&momentType, MOMENT_TYPE_NAMES,
+                momentTypeName, (int*)&momentType, MOMENT_TYPE_NAMES,
                 IM_ARRAYSIZE(MOMENT_TYPE_NAMES))) {
             reRender = true;
             momentTypeChanged = true;
         }
         std::string numMomentName = "#Moments## (" + prefix + ")";
         if (propertyEditor.addCombo(
-                numMomentName.c_str(), &numMomentsIdx, NUM_MOMENTS_NAMES,
+                numMomentName, &numMomentsIdx, NUM_MOMENTS_NAMES,
                 IM_ARRAYSIZE(NUM_MOMENTS_NAMES))) {
             numMoments = NUM_MOMENTS_SUPPORTED[numMomentsIdx];
             reRender = true;
