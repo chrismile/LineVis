@@ -54,6 +54,12 @@ public:
             StreamlineTracingSettings& tracingSettings, Trajectories& filteredTrajectories,
             std::vector<std::vector<glm::vec3>>& filteredRibbonsDirections);
 
+    void traceStreamlinesDecreasingHelicity(
+            StreamlineTracingSettings& tracingSettings, Trajectories& filteredTrajectories);
+    void traceStreamribbonsDecreasingHelicity(
+            StreamlineTracingSettings& tracingSettings, Trajectories& filteredTrajectories,
+            std::vector<std::vector<glm::vec3>>& filteredRibbonsDirections);
+
     void computeSimulationBoundaryMesh(
             std::vector<uint32_t>& cachedSimulationMeshOutlineTriangleIndices,
             std::vector<glm::vec3>& cachedSimulationMeshOutlineVertexPositions);
@@ -80,6 +86,7 @@ private:
     static void _insertBackwardRibbon(
             const Trajectory& trajectoryBackward, const std::vector<glm::vec3>& ribbonDirectionsBackward,
             Trajectory& trajectory, std::vector<glm::vec3>& ribbonDirections);
+
     inline void _traceStreamline(
             const StreamlineTracingSettings& tracingSettings, Trajectory& trajectory, const glm::vec3& seedPoint,
             bool forwardMode) const {
@@ -95,6 +102,17 @@ private:
             const StreamlineTracingSettings& tracingSettings, Trajectory& trajectory,
             std::vector<glm::vec3>& ribbonDirections, const glm::vec3& seedPoint, bool forwardMode) const;
 
+    bool _traceStreamlineDecreasingHelicity(
+            const StreamlineTracingSettings& tracingSettings,
+            Trajectory& currentTrajectory, Trajectories& trajectories,
+            std::vector<glm::vec3>& ribbonDirections, const glm::vec3& seedPoint,
+            float& dt, bool forwardMode);
+    float _computeTrajectoryLength(const Trajectory& trajectory);
+    bool _isTerminated(
+            const StreamlineTracingSettings& tracingSettings,
+            Trajectory& currentTrajectory, const glm::vec3& currentPoint,
+            Trajectories& trajectories, float& segmentLength, int& iterationCounter);
+
     void _integrationStepExplicitEuler(glm::vec3& p0, float& dt, bool forwardMode) const;
     void _integrationStepImplicitEuler(glm::vec3& p0, float& dt, bool forwardMode) const;
     void _integrationStepHeun(glm::vec3& p0, float& dt, bool forwardMode) const;
@@ -102,6 +120,8 @@ private:
     void _integrationStepRK4(glm::vec3& p0, float& dt, bool forwardMode) const;
     void _integrationStepRKF45(
             const StreamlineTracingSettings& tracingSettings, glm::vec3& fP0, float& fDt, bool forwardMode) const;
+    void _integrationStepExplicitEuler(
+            const StreamlineTracingSettings& tracingSettings, glm::vec3& p0, float& dt, bool forwardMode) const;
 
     int xs = 0, ys = 0, zs = 0; ///< Size of the grid in data points.
     float dx = 0.0f, dy = 0.0f, dz = 0.0f; ///< Distance between two neighboring points in x/y/z direction.

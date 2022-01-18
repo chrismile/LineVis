@@ -61,7 +61,8 @@ StreamlineTracingRequester::StreamlineTracingRequester(sgl::TransferFunctionWind
     streamlineSeeders.insert(std::make_pair(
             StreamlineSeedingStrategy::PLANE, StreamlineSeederPtr(new StreamlinePlaneSeeder)));
     streamlineSeeders.insert(std::make_pair(
-            StreamlineSeedingStrategy::MAX_HELICITY_FIRST, StreamlineSeederPtr(new StreamlinePlaneSeeder))); // TODO
+            StreamlineSeedingStrategy::MAX_HELICITY_FIRST, StreamlineSeederPtr(
+                    new StreamlineMaxHelicityFirstSeeder)));
     guiTracingSettings.seeder = streamlineSeeders[guiTracingSettings.streamlineSeedingStrategy];
 
     lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";

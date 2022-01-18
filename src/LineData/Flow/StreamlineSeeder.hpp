@@ -150,4 +150,23 @@ private:
     int numSamplesArrayGui[3] = { 1, 1, 1 };
 };
 
+/**
+ * A seeding approach based on the following paper:
+ *
+ * D. Rees, R. S. Laramee, D. Nguyen, L. Zhang, G. Chen, H. Yeh, and E. Zhang.
+ * A stream ribbon seeding strategy. In Proceedings of the Eurographics/IEEE VGTC Conference on Visualization:
+ * Short Papers, EuroVis '17, page 67-71, Goslar, DEU, 2017. Eurographics Association.
+ */
+class StreamlineMaxHelicityFirstSeeder: public StreamlineSeeder {
+public:
+    ~StreamlineMaxHelicityFirstSeeder() override = default;
+    StreamlineSeeder* copy() override { return new StreamlineMaxHelicityFirstSeeder; }
+    [[nodiscard]] bool getIsRegular() const override { return false; }
+    void setNewGridBox(const sgl::AABB3& gridBox) override {}
+    void reset(StreamlineTracingSettings& tracingSettings, StreamlineTracingGrid* newGrid) override {}
+    glm::vec3 getNextPoint() override { return {}; }
+    bool renderGui() override { return false; }
+    bool setNewSettings(const SettingsMap& settings) override { return false; }
+};
+
 #endif //LINEVIS_STREAMLINESEEDER_HPP

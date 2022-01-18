@@ -575,7 +575,7 @@ float squaredExponentialKernel(const glm::vec3& pt0, const glm::vec3& pt1, float
 void LineDataStress::setDegeneratePoints(
         const std::vector<glm::vec3>& degeneratePoints, std::vector<std::string>& attributeNames) {
     this->degeneratePoints = degeneratePoints;
-    if (degeneratePoints.size() == 0) {
+    if (degeneratePoints.empty()) {
         return;
     }
 

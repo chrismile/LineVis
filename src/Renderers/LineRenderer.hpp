@@ -88,6 +88,8 @@ public:
     virtual void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
     /// Renders GUI overlays. The "dirty" and "reRender" flags might be set depending on the user's actions.
     virtual void renderGuiOverlay();
+    /// For rendering secondary ImGui windows (e.g., for transfer function widgets).
+    virtual void renderGuiWindowSecondary() {}
     /// Updates the internal logic (called once per frame).
     virtual void update(float dt);
 

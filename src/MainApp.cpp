@@ -998,6 +998,10 @@ void MainApp::renderGui() {
                 }
                 ImGui::End();
 
+                if (dataView->lineRenderer) {
+                    dataView->lineRenderer->renderGuiWindowSecondary();
+                }
+
                 if (!isViewOpen) {
                     dataViews.erase(dataViews.begin() + i);
                     i--;

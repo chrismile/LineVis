@@ -52,18 +52,79 @@ The following rendering modes are supported:
 
 ## Building and running the programm
 
-Currently, there are three main ways to compile the program:
-- Linux: Using the system package manager to install all dependencies (tested: apt on Ubuntu, pacman on Arch Linux).
-- Linux & Windows: Installing all dependencies using [vcpkg](https://github.com/microsoft/vcpkg).
-- Windows: Using MSYS2 to install all dependencies.
+### Linux
 
-On Windows, we recommend to use vcpkg if you need to use Microsoft Visual Studio.
-Guides for the different build types can be found in the directory `docs/compilation`.
+There are two ways to build the program on Linux systems.
+- Using the system package manager to install all dependencies (tested: apt on Ubuntu, pacman on Arch Linux).
+- Using [vcpkg](https://github.com/microsoft/vcpkg) to install all dependencies.
+
+In the project root directory, two scripts `build-linux.sh` and `build-linux-vcpkg.sh` can be found. The former uses the
+system package manager to install all dependencies, while the latter uses vcpkg. The build scripts will also launch the
+program after successfully building it. If you wish to build the program manually, instructions can be found in the
+directory `docs/compilation`.
+
+Below, more information concerning different Linux distributions tested can be found.
+
+#### Arch Linux
+
+Arch Linux and its derivative Manjaro are fully supported using both build modes (package manager and vcpkg).
+
+The Vulkan SDK (which is an optional dependency for different advanced rendering modes) will be automatically installed
+using the package manager `pacman` when using the scripts.
+
+#### Ubuntu 18.04 & 20.04
+
+Ubuntu 20.04 is fully supported.
+
+The Vulkan SDK (which is an optional dependency for different advanced rendering modes) will be automatically installed
+using the official PPA.
+
+Please note that Ubuntu 18.04 is only partially supported. It ships an old version of CMake, which causes the build
+process using vcpkg to fail if not updating CMake manually beforehand. Also, an old version of GLEW in the package
+sources causes the Vulkan support to be disabled regardless of whether the Vulkan SDK is installed if the system
+packages are used.
+
+#### Other Linux Distributions
+
+If you are using a different Linux distribution and face difficulties when building the program, please feel free to
+open a [bug report](https://github.com/Junpeng-Wang-TUM/3D-TSV/issues).
+
+### Windows
+
+There are two ways to build the program on Windows.
+- Using [vcpkg](https://github.com/microsoft/vcpkg) to install all dependencies. The program can then be compiled using
+  [Microsoft Visual Studio](https://visualstudio.microsoft.com/vs/).
+- Using [MSYS2](https://www.msys2.org/) to install all dependencies and compile the program using MinGW
+  (not tested regularly).
+
+In the project folder, a script called `build-windows.bat` can be found automating this build process using vcpkg and
+Visual Studio. It is recommended to run the script using the `Developer PowerShell for VS 2022`. The build script will
+also launch the program after successfully building it.
+
+Please note that the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home#windows) needs to be installed beforehand to make
+sure different advanced rendering modes will be enabled in the program.
+
+Building the program is regularly tested using Windows 10 and 11 with Microsoft Visual Studio 2022.
+Building the program using Microsoft Visual Studio 2019 should theoretically also work, but is not guaranteed.
+
+If you wish to build the program manually (or using MSYS2/MinGW instead of Visual Studio), instructions can be found in
+the directory `docs/compilation`.
+
+
+### macOS
+
+Unfortunately, macOS is not supported, and will probably also never be supported, due to not natively supporting Vulkan
+and deprecating OpenGL. MoltenVK, a Vulkan wrapper based on Apple's Metal API, unfortunately neither supports geometry
+shaders (which are used for the non-raytracing renderers) nor OpenGL interoperability, which would be necessary for
+running the program.
 
 
 ## How to add new data sets
 
-Under `Data/LineDataSets/datasets.json`, loadable data sets can be specified. Example:
+Under `Data/LineDataSets/datasets.json`, loadable data sets can be specified. Additionally, the user can also open
+arbitrary data sets using a file explorer via "File > Open Dataset..." (or using Ctrl+O).
+
+Below, an example for a `Data/LineDataSets/datasets.json` file can be found.
 
 ```json
 {
@@ -73,21 +134,20 @@ Under `Data/LineDataSets/datasets.json`, loadable data sets can be specified. Ex
         { "type" : "flow", "name" : "Aneurysm", "filenames": "flow/aneurysm.obj", "attributes": "Vorticity" },
         { "type" : "flow", "name" : "Convection Rolls", "filenames": "flow/convection_rolls.obj", "attributes": "Line Curvature" },
         { "type" : "flow", "name" : "Turbulence", "filenames": "flow/turbulence.obj", "attributes": "Lambda_2 Vortex Measure" },
-        { "type" : "stress", "name" : "Cantilever", "filenames": [
-            "stress/dataset1_majorPSL.dat","stress/dataset1_mediumPSL.dat","stress/dataset1_minorPSL.dat"
-        ], "attributes": "von Mises Stress", "transform": "rotate(270°, 1, 0, 0)" },
-        { "type" : "stress", "name" : "Femur", "filenames": [
-            "stress/dataset2_majorPSL.dat","stress/dataset2_mediumPSL.dat","stress/dataset2_minorPSL.dat"
-        ], "attributes": "von Mises Stress", "transform": "rotate(270°, 1, 0, 0)" }
+        { "type": "stress", "name": "Bearing",
+          "filenames": "stress/bearing_psl.dat", "transform": "rotate(270°, 1, 0, 0)", "version": 3 },
+        { "type": "stress", "name": "Cantilever",
+          "filenames": "stress/cantilever3D_psl.dat", "transform": "rotate(270°, 1, 0, 0)", "version": 3 }
     ]
 }
 ```
 
-All file paths are relative to the folder `Data/LineDataSets/`.
+These files then appear with their specified name in the menu "File > Datasets". All paths must be specified relative to
+the folder `Data/LineDataSets/` (unless they are global, like `C:/path/file.dat` or `/path/file.dat`).
 
 Supported formats currently are:
-- .obj, .ncf (NetCDF format), and the custom .binlines format for flow lines.
-- .dat files for principal stress lines (PSLs).
+- .obj, .ncf (NetCDF format), and the custom .binlines format for flow lines and ribbons.
+- .dat files for principal stress lines (PSLs), stress ribbons and hyperstreamlines.
 
 The format of the .obj files is expected to be as follows.
 
@@ -97,18 +157,35 @@ vt <attribute>
 ...
 g line0
 l <v_idx_1> <v_idx_2> ... <v_idx_n>
+...
 ```
 
 
 ## Principal Stress Line (PSL) tracing
 
 This program can be used as the frontend for 3D-TSV, the 3D Trajectory-based Stress Visualizer.
-For this, select "Stress Line Tracer" in the data set drop-down menu to open the line tracing menu.
-When 3D-TSV is running in the background, this application will then communicate with 3D-TSV over TCP/IP using ZeroMQ.
+For this, select "Stress Line Tracer" in the menu "File > Datasets" to open the line tracing menu.
+When the 3D-TSV script `zeromqReplier.m` is running in the background, this application will then communicate with
+3D-TSV over TCP/IP using ZeroMQ.
 
-https://github.com/Junpeng-Wang-TUM/3D-TSV
+The repository of the backend can be found here: https://github.com/Junpeng-Wang-TUM/3D-TSV
 
 3D-TSV is a visual analysis tool for the exploration of the principal stress directions in 3D solids under load.
+It was created for the paper "3D-TSV: The 3D Trajectory-based Stress Visualizer" by Junpeng Wang, Christoph Neuhauser,
+Jun Wu, Xifeng Gao and Rüdiger Westermann (to be published).
 
-3D-TSV was created for the paper "The 3D Trajectory-based Stress Visualizer" by Junpeng Wang, Christoph Neuhauser,
-Jun Wu, Xifeng Gao and Rüdiger Westermann, which was submitted to IEEE VIS 2021.
+Under `Data/LineDataSets/mesh.json`, available simulation meshes can be specified. For example, when using the sample
+meshes of 3D-TSV, the following file content can be specified:
+
+```json
+{
+  "meshes": [
+    { "name": "Cantilever", "filename": "../../../data/stress/ADES-2022/cantilever3D.carti" },
+    { "name": "Kitten", "filename": "../../../data/stress/ADES-2022/kitten.stress" }
+  ]
+}
+```
+
+Additionally, the user can also open arbitrary simulation meshes (in `.carti` or `.stress` format) and
+principal stress line (PSL) data sets using a file explorer via "File > Open Dataset..." (or using Ctrl+O).
+`.carti` and `.stress` files will then be opened in the stress line tracing dialog.
