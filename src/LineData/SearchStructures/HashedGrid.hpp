@@ -148,6 +148,44 @@ public:
         }
     }
 
+    /**
+     * @param centerPoint The center point.
+     * @param radius The search radius.
+     * @return Whether there is at least one point stored in the hashed grid inside of the search radius.
+     */
+    bool getHasPointCloserThan(const glm::vec3& center, float radius) override {
+        glm::vec3 lower = center - glm::vec3(radius, radius, radius);
+        glm::vec3 upper = center + glm::vec3(radius, radius, radius);
+
+        // Compute lower and upper grid positions.
+        ptrdiff_t lowerGrid[3];
+        ptrdiff_t upperGrid[3];
+        for (int i = 0; i < 3; i++) {
+            convertPointToGridPosition(lower, lowerGrid[0], lowerGrid[1], lowerGrid[2]);
+            convertPointToGridPosition(upper, upperGrid[0], upperGrid[1], upperGrid[2]);
+        }
+
+        // Iterate over all covered cells.
+        float squaredRadius = radius * radius;
+        glm::vec3 differenceVector;
+        for (ptrdiff_t z = lowerGrid[2]; z <= upperGrid[2]; z++) {
+            for (ptrdiff_t y = lowerGrid[1]; y <= upperGrid[1]; y++) {
+                for (ptrdiff_t x = lowerGrid[0]; x <= upperGrid[0]; x++) {
+                    size_t tableIndex = hashFunction(x, y, z);
+                    std::vector<std::pair<glm::vec3, T>>& hashTableEntry = hashTableEntries.at(tableIndex);
+                    for (const std::pair<glm::vec3, T>& pointAndIndex : hashTableEntry) {
+                        differenceVector = pointAndIndex.first - center;
+                        if (differenceVector.x * differenceVector.x + differenceVector.y * differenceVector.y
+                                + differenceVector.z * differenceVector.z <= squaredRadius) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
 
     // ---- Statistical data ----
     std::vector<size_t> getNumberOfElementsPerBucket() {

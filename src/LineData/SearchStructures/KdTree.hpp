@@ -178,6 +178,21 @@ public:
     }
 
     /**
+     * @param centerPoint The center point.
+     * @param radius The search radius.
+     * @return Whether there is at least one point stored in the k-d-tree inside of the search radius.
+     */
+    bool getHasPointCloserThan(const glm::vec3& center, float radius) override {
+        auto closestNeighbor = findNearestNeighbor(center);
+        glm::vec3 differenceVector = closestNeighbor->first - center;
+        if (differenceVector.x * differenceVector.x + differenceVector.y * differenceVector.y
+                + differenceVector.z * differenceVector.z <= radius * radius) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
      * Performs an area search in the k-d-tree and returns the number of points within a certain distance to some
      * center point.
      * @param centerPoint The center point.

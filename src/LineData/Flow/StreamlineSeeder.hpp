@@ -29,12 +29,20 @@
 #ifndef LINEVIS_STREAMLINESEEDER_HPP
 #define LINEVIS_STREAMLINESEEDER_HPP
 
+#include <vector>
+#include <queue>
 #include <random>
 #include <memory>
+
 #include <glm/vec3.hpp>
 #include <Math/Geometry/AABB3.hpp>
-#include "Utils/InternalState.hpp"
 
+#include "Utils/InternalState.hpp"
+#include "LineData/SearchStructures/KdTree.hpp"
+#include "LineData/SearchStructures/HashedGrid.hpp"
+#include "StreamlineTracingDefines.hpp"
+
+struct Trajectory;
 struct StreamlineTracingSettings;
 class StreamlineTracingGrid;
 
@@ -69,6 +77,12 @@ public:
     virtual void reset(StreamlineTracingSettings& tracingSettings, StreamlineTracingGrid* newGrid) = 0;
 
     /**
+     * @return Returns whether a next point can still be queried using @see getNextPoint.
+     * NOTE: @see reset needs to be called before calling this function.
+     */
+    virtual bool hasNextPoint() = 0;
+
+    /**
      * @return The next seed point.
      * NOTE: @see reset needs to be called before calling this function.
      */
@@ -98,6 +112,7 @@ public:
     [[nodiscard]] bool getIsRegular() const override { return regular; }
     void setNewGridBox(const sgl::AABB3& gridBox) override;
     void reset(StreamlineTracingSettings& tracingSettings, StreamlineTracingGrid* newGrid) override;
+    bool hasNextPoint() override;
     glm::vec3 getNextPoint() override;
     bool renderGui() override;
     bool setNewSettings(const SettingsMap& settings) override;
@@ -119,6 +134,7 @@ private:
     bool regular = false;
     int currentSampleIdx = 0;
     int numSamplesX = 32, numSamplesY = 32;
+    int numSamplesRandom = 1024;
     int numSamplesArrayGui[2] = { 32, 32 };
 };
 
@@ -132,6 +148,7 @@ public:
     [[nodiscard]] bool getIsRegular() const override { return regular; }
     void setNewGridBox(const sgl::AABB3& gridBox) override;
     void reset(StreamlineTracingSettings& tracingSettings, StreamlineTracingGrid* newGrid) override;
+    bool hasNextPoint() override;
     glm::vec3 getNextPoint() override;
     bool renderGui() override;
     bool setNewSettings(const SettingsMap& settings) override;
@@ -147,6 +164,7 @@ private:
     bool regular = false;
     int currentSampleIdx = 0;
     int numSamplesX = 1, numSamplesY = 1, numSamplesZ = 1;
+    int numSamplesRandom = 1024;
     int numSamplesArrayGui[3] = { 1, 1, 1 };
 };
 
@@ -163,10 +181,40 @@ public:
     StreamlineSeeder* copy() override { return new StreamlineMaxHelicityFirstSeeder; }
     [[nodiscard]] bool getIsRegular() const override { return true; }
     void setNewGridBox(const sgl::AABB3& gridBox) override {}
-    void reset(StreamlineTracingSettings& tracingSettings, StreamlineTracingGrid* newGrid) override {}
-    glm::vec3 getNextPoint() override { return {}; }
+    void reset(StreamlineTracingSettings& tracingSettings, StreamlineTracingGrid* newGrid) override;
+    bool hasNextPoint() override;
+    glm::vec3 getNextPoint() override;
+    bool isPointTerminated(const glm::vec3& point);
+    void addFinishedTrajectory(const Trajectory& trajectory);
     bool renderGui() override { return false; }
     bool setNewSettings(const SettingsMap& settings) override { return false; }
+
+private:
+    StreamlineTracingGrid* grid = nullptr;
+    sgl::AABB3 box;
+    int xs = 0, ys = 0, zs = 0; ///< Size of the grid in data points.
+    float dx = 0.0f, dy = 0.0f, dz = 0.0f; ///< Distance between two neighboring points in x/y/z direction.
+    float minimumSeparationDistance = 0.0f;
+    TerminationCheckType terminationCheckType = TerminationCheckType::KD_TREE_BASED;
+    KdTree<Empty> kdTree; ///< For terminationCheckType == TerminationCheckType::KD_TREE_BASED.
+    HashedGrid<Empty> hashedGrid; ///< For terminationCheckType == TerminationCheckType::HASHED_GRID_BASED.
+    std::vector<glm::vec3> kdTreePointCache;
+
+    struct GridSample {
+        float attributeValue;
+        glm::vec3 samplePosition;
+
+        GridSample(float attributeValue, glm::vec3 samplePosition)
+                : attributeValue(attributeValue), samplePosition(samplePosition) {}
+
+        bool operator<(const GridSample& other) const {
+            return attributeValue < other.attributeValue;
+        }
+    };
+
+    std::priority_queue<GridSample> samplePriorityQueue;
+    std::vector<bool> cellOccupancyGrid;
+    glm::vec3 nextSamplePoint{};
 };
 
 #endif //LINEVIS_STREAMLINESEEDER_HPP

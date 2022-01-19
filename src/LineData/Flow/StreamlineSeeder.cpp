@@ -26,6 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <Math/Geometry/AABB3.hpp>
+#include <Math/Geometry/Sphere.hpp>
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_custom.h>
 #include "StreamlineTracingDefines.hpp"
@@ -38,6 +40,7 @@ StreamlineSeeder* StreamlinePlaneSeeder::copy() {
     seederCopy->seed = seed;
     seederCopy->numSamplesX = numSamplesX;
     seederCopy->numSamplesY = numSamplesY;
+    seederCopy->numSamplesRandom = numSamplesRandom;
     seederCopy->planeSlice = this->planeSlice;
     seederCopy->direction = this->direction;
     seederCopy->planeOffset = this->planeOffset;
@@ -52,6 +55,7 @@ void StreamlinePlaneSeeder::reset(StreamlineTracingSettings& tracingSettings, St
     grid = newGrid;
     box = grid->getBox();
     generator = std::mt19937(seed);
+    numSamplesRandom = tracingSettings.numPrimitives;
 
     glm::vec3 dimensions = box.getDimensions();
     maxDimension = 0.0f;
@@ -90,6 +94,14 @@ void StreamlinePlaneSeeder::reset(StreamlineTracingSettings& tracingSettings, St
     if (regular) {
         currentSampleIdx = 0;
         tracingSettings.numPrimitives = numSamplesX * numSamplesY;
+    }
+}
+
+bool StreamlinePlaneSeeder::hasNextPoint() {
+    if (regular) {
+        return currentSampleIdx < numSamplesX * numSamplesY;
+    } else {
+        return currentSampleIdx < numSamplesRandom;
     }
 }
 
@@ -196,6 +208,7 @@ StreamlineSeeder* StreamlineVolumeSeeder::copy() {
     seederCopy->numSamplesX = numSamplesX;
     seederCopy->numSamplesY = numSamplesY;
     seederCopy->numSamplesZ = numSamplesZ;
+    seederCopy->numSamplesRandom = numSamplesRandom;
     return seederCopy;
 }
 
@@ -221,6 +234,7 @@ void StreamlineVolumeSeeder::reset(StreamlineTracingSettings& tracingSettings, S
     grid = newGrid;
     box = grid->getBox();
     generator = std::mt19937(seed);
+    numSamplesRandom = tracingSettings.numPrimitives;
 
     if (gridBoxUi.getMinimum() != box.getMinimum() || gridBoxUi.getMaximum() != box.getMaximum()) {
         setNewGridBox(box);
@@ -228,6 +242,14 @@ void StreamlineVolumeSeeder::reset(StreamlineTracingSettings& tracingSettings, S
     if (regular) {
         currentSampleIdx = 0;
         tracingSettings.numPrimitives = numSamplesX * numSamplesY * numSamplesZ;
+    }
+}
+
+bool StreamlineVolumeSeeder::hasNextPoint() {
+    if (regular) {
+        return currentSampleIdx < numSamplesX * numSamplesY * numSamplesZ;
+    } else {
+        return currentSampleIdx < numSamplesRandom;
     }
 }
 
@@ -261,6 +283,7 @@ glm::vec3 StreamlineVolumeSeeder::getNextPoint() {
                 return samplePoint;
             }
         }
+        currentSampleIdx++;
 
         // Fallback if no sample point was found in a reasonable amount of iterations.
         glm::vec3 samplePoint(
@@ -328,4 +351,136 @@ bool StreamlineVolumeSeeder::setNewSettings(const SettingsMap& settings) {
     }
 
     return changed;
+}
+
+
+void StreamlineMaxHelicityFirstSeeder::reset(
+        StreamlineTracingSettings& tracingSettings, StreamlineTracingGrid* newGrid) {
+    grid = newGrid;
+    box = grid->getBox();
+    xs = grid->getGridSizeX();
+    ys = grid->getGridSizeY();
+    zs = grid->getGridSizeZ();
+    dx = grid->getDx();
+    dy = grid->getDy();
+    dz = grid->getDz();
+    minimumSeparationDistance = tracingSettings.minimumSeparationDistance;
+    terminationCheckType = tracingSettings.terminationCheckType;
+
+    if (terminationCheckType == TerminationCheckType::GRID_BASED) {
+        cellOccupancyGrid.resize((xs - 1) * (ys - 1) * (zs - 1), false);
+    } else if (terminationCheckType == TerminationCheckType::HASHED_GRID_BASED) {
+        hashedGrid = HashedGrid<Empty>(
+                std::max(((xs - 1) * (ys - 1) * (zs - 1)) / 4, 1), std::min(dx, std::min(dy, dz)));
+    }
+
+    float* helicityField = grid->getHelicityField();
+    for (int z = 0; z < zs; z++) {
+        for (int y = 0; y < ys; y++) {
+            for (int x = 0; x < xs; x++) {
+                glm::vec3 boxMin = box.getMinimum();
+                glm::vec3 dimensions = box.getDimensions();
+                glm::vec3 samplePoint(
+                        boxMin.x + dimensions.x * (float(x) + 0.5f) / float(xs),
+                        boxMin.y + dimensions.y * (float(y) + 0.5f) / float(ys),
+                        boxMin.z + dimensions.z * (float(z) + 0.5f) / float(zs));
+                samplePriorityQueue.push(GridSample(helicityField[IDXS(x, y, z)], samplePoint));
+            }
+        }
+    }
+}
+
+bool StreamlineMaxHelicityFirstSeeder::hasNextPoint() {
+    while (!samplePriorityQueue.empty()) {
+        nextSamplePoint = samplePriorityQueue.top().samplePosition;
+        samplePriorityQueue.pop();
+
+        if (terminationCheckType == TerminationCheckType::GRID_BASED) {
+            glm::vec3 gridPositionFloat = nextSamplePoint - box.getMinimum();
+            gridPositionFloat *= glm::vec3(1.0f / dx, 1.0f / dy, 1.0f / dz);
+            auto gridPosition = glm::ivec3(gridPositionFloat);
+            gridPosition.x = glm::clamp(gridPosition.x, 0, xs - 2);
+            gridPosition.y = glm::clamp(gridPosition.y, 0, ys - 2);
+            gridPosition.z = glm::clamp(gridPosition.z, 0, zs - 2);
+
+            if (!cellOccupancyGrid.at(IDXS_C(gridPosition.x, gridPosition.y, gridPosition.z))) {
+                return true;
+            }
+        } else {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+glm::vec3 StreamlineMaxHelicityFirstSeeder::getNextPoint() {
+    return nextSamplePoint;
+}
+
+void StreamlineMaxHelicityFirstSeeder::addFinishedTrajectory(const Trajectory& trajectory) {
+    if (terminationCheckType == TerminationCheckType::GRID_BASED) {
+        for (const glm::vec3& position : trajectory.positions) {
+            sgl::AABB3 boundingBox(
+                    position - glm::vec3(minimumSeparationDistance),
+                    position + glm::vec3(minimumSeparationDistance));
+            sgl::Sphere boundingSphere(position, minimumSeparationDistance);
+
+            glm::vec3 minGridPositionFloat = boundingBox.getMinimum() - box.getMinimum();
+            minGridPositionFloat *= glm::vec3(1.0f / dx, 1.0f / dy, 1.0f / dz);
+            auto minGridPosition = glm::ivec3(minGridPositionFloat);
+            minGridPosition.x = glm::clamp(minGridPosition.x, 0, xs - 2);
+            minGridPosition.y = glm::clamp(minGridPosition.y, 0, ys - 2);
+            minGridPosition.z = glm::clamp(minGridPosition.z, 0, zs - 2);
+
+            glm::vec3 maxGridPositionFloat = boundingBox.getMaximum() - box.getMinimum();
+            maxGridPositionFloat *= glm::vec3(1.0f / dx, 1.0f / dy, 1.0f / dz);
+            auto maxGridPosition = glm::ivec3(maxGridPositionFloat);
+            maxGridPosition.x = glm::clamp(maxGridPosition.x, 0, xs - 2);
+            maxGridPosition.y = glm::clamp(maxGridPosition.y, 0, ys - 2);
+            maxGridPosition.z = glm::clamp(maxGridPosition.z, 0, zs - 2);
+
+            for (int z = minGridPosition.z; z <= maxGridPosition.z; ++z) {
+                for (int y = minGridPosition.y; y <= maxGridPosition.y; ++y) {
+                    for (int x = minGridPosition.x; x <= maxGridPosition.x; ++x) {
+                        sgl::AABB3 cellBoundingBox(
+                                glm::vec3(
+                                        float(x) * dx, float(y) * dy, float(z) * dz) + box.getMinimum(),
+                                glm::vec3(
+                                        float(x+1) * dx, float(y+1) * dy, float(z+1) * dz) + box.getMinimum());
+                        if (boundingSphere.contains(cellBoundingBox)
+                                || boundingSphere.intersects(cellBoundingBox)) {
+                            cellOccupancyGrid.at(IDXS_C(x, y, z)) = true;
+                        }
+                    }
+                }
+            }
+        }
+    } else if (terminationCheckType == TerminationCheckType::KD_TREE_BASED) {
+        for (const glm::vec3& position : trajectory.positions) {
+            kdTreePointCache.push_back(position);
+        }
+        kdTree.build(kdTreePointCache);
+    } else if (terminationCheckType == TerminationCheckType::HASHED_GRID_BASED) {
+        for (const glm::vec3& position : trajectory.positions) {
+            hashedGrid.add(std::make_pair(position, Empty{}));
+        }
+    }
+}
+
+bool StreamlineMaxHelicityFirstSeeder::isPointTerminated(const glm::vec3& point) {
+    if (terminationCheckType == TerminationCheckType::GRID_BASED) {
+        glm::vec3 gridPositionFloat = point - box.getMinimum();
+        gridPositionFloat *= glm::vec3(1.0f / dx, 1.0f / dy, 1.0f / dz);
+        auto gridPosition = glm::ivec3(gridPositionFloat);
+        gridPosition.x = glm::clamp(gridPosition.x, 0, xs - 2);
+        gridPosition.y = glm::clamp(gridPosition.y, 0, ys - 2);
+        gridPosition.z = glm::clamp(gridPosition.z, 0, zs - 2);
+        return cellOccupancyGrid.at(IDXS_C(gridPosition.x, gridPosition.y, gridPosition.z));
+    } else if (terminationCheckType == TerminationCheckType::KD_TREE_BASED) {
+        return kdTree.getHasPointCloserThan(point, minimumSeparationDistance);
+    } else if (terminationCheckType == TerminationCheckType::HASHED_GRID_BASED) {
+        return hashedGrid.getHasPointCloserThan(point, minimumSeparationDistance);
+    }
+    return false;
 }

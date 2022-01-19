@@ -84,6 +84,16 @@ const char* const STREAMLINE_INTEGRATION_DIRECTION_NAMES[] = {
         "Forward", "Backward", "Forward & Backward"
 };
 
+enum class TerminationCheckType {
+    NAIVE, //< Searches along all previously traced trajectories.
+    GRID_BASED, //< Stores an occupancy grid.
+    KD_TREE_BASED, //< Searches for nearest neighbors using a kd-tree.
+    HASHED_GRID_BASED //< Searches for nearest neighbors using a hashed grid.
+};
+const char* const TERMINATION_CHECK_TYPE_NAMES[] = {
+        "Naive (O(n^2))", "Grid-based", "k-d Tree-based", "Hashed Grid-based"
+};
+
 
 class StreamlineSeeder;
 typedef std::shared_ptr<StreamlineSeeder> StreamlineSeederPtr;
@@ -106,6 +116,7 @@ struct StreamlineTracingSettings {
     float terminationDistance = 1.0f;
     float minimumLength = 0.7f;
     float minimumSeparationDistance = 0.08f;
+    TerminationCheckType terminationCheckType = TerminationCheckType::KD_TREE_BASED;
     bool showSimulationGridOutline = true;
     bool smoothedSimulationGridOutline = true;
     StreamlineIntegrationMethod integrationMethod = StreamlineIntegrationMethod::RK4;

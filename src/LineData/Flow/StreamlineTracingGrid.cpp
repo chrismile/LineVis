@@ -329,11 +329,18 @@ bool StreamlineTracingGrid::_isTerminated(
         return true;
     }
 
-    for (const Trajectory& trajectory : trajectories) {
-        for (const glm::vec3& point : trajectory.positions) {
-            if (glm::distance(currentPoint, point) < tracingSettings.minimumSeparationDistance) {
-                return true;
+    if (tracingSettings.terminationCheckType == TerminationCheckType::NAIVE) {
+        for (const Trajectory& trajectory : trajectories) {
+            for (const glm::vec3& point : trajectory.positions) {
+                if (glm::distance(currentPoint, point) < tracingSettings.minimumSeparationDistance) {
+                    return true;
+                }
             }
+        }
+    } else {
+        auto* seeder = static_cast<StreamlineMaxHelicityFirstSeeder*>(tracingSettings.seeder.get());
+        if (seeder->isPointTerminated(currentPoint)) {
+            return true;
         }
     }
 
@@ -380,18 +387,6 @@ void StreamlineTracingGrid::_traceStreamlinesDecreasingHelicity(
     _traceStreamribbonsDecreasingHelicity(tracingSettings, filteredTrajectories, filteredRibbonsDirections);
 }
 
-struct GridSample {
-    float attributeValue;
-    glm::vec3 samplePosition;
-
-    GridSample(float attributeValue, glm::vec3 samplePosition)
-        : attributeValue(attributeValue), samplePosition(samplePosition) {}
-
-    bool operator<(const GridSample& other) const {
-        return attributeValue < other.attributeValue;
-    }
-};
-
 /**
  * Uses a seeding approach based on the following paper:
  *
@@ -411,31 +406,13 @@ void StreamlineTracingGrid::_traceStreamribbonsDecreasingHelicity(
         return;
     }
 
-    auto seeder = tracingSettings.seeder;
+    auto seeder = static_cast<StreamlineMaxHelicityFirstSeeder*>(tracingSettings.seeder.get());
     seeder->reset(tracingSettings, this);
-
-    std::priority_queue<GridSample> samplePriorityQueue;
-
-    for (int z = 0; z < zs; z++) {
-        for (int y = 0; y < ys; y++) {
-            for (int x = 0; x < xs; x++) {
-                glm::vec3 boxMin = box.getMinimum();
-                glm::vec3 dimensions = box.getDimensions();
-                glm::vec3 samplePoint(
-                        boxMin.x + dimensions.x * (float(x) + 0.5f) / float(xs),
-                        boxMin.y + dimensions.y * (float(y) + 0.5f) / float(ys),
-                        boxMin.z + dimensions.z * (float(z) + 0.5f) / float(zs));
-                samplePriorityQueue.push(GridSample(helicityField[IDXS(x, y, z)], samplePoint));
-            }
-        }
-    }
 
     float dt = 1.0f / maxVelocityMagnitude * std::min(dx, std::min(dy, dz)) * tracingSettings.timeStepScale;
 
-    while (!samplePriorityQueue.empty()) {
-        auto sample = samplePriorityQueue.top();
-        glm::vec3 seedPoint = sample.samplePosition;
-        samplePriorityQueue.pop();
+    while (seeder->hasNextPoint()) {
+        glm::vec3 seedPoint = seeder->getNextPoint();
 
         Trajectory trajectory;
         std::vector<glm::vec3> ribbonDirections;
@@ -477,6 +454,7 @@ void StreamlineTracingGrid::_traceStreamribbonsDecreasingHelicity(
             if (tracingSettings.flowPrimitives == FlowPrimitives::STREAMRIBBONS) {
                 filteredRibbonsDirections.push_back(ribbonDirections);
             }
+            seeder->addFinishedTrajectory(trajectory);
         }
     }
 }

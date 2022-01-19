@@ -203,11 +203,17 @@ void StreamlineTracingRequester::renderGui() {
                     "%.3f") == ImGui::EditMode::INPUT_FINISHED) {
                 changed = true;
             }
-            if (guiTracingSettings.streamlineSeedingStrategy == StreamlineSeedingStrategy::MAX_HELICITY_FIRST
-                && ImGui::SliderFloatEdit(
-                    "Min. Separation Dist.", &guiTracingSettings.minimumSeparationDistance,
-                    0.001f, 0.2f, "%.3f") == ImGui::EditMode::INPUT_FINISHED) {
-                changed = true;
+            if (guiTracingSettings.streamlineSeedingStrategy == StreamlineSeedingStrategy::MAX_HELICITY_FIRST) {
+                if (ImGui::SliderFloatEdit(
+                        "Min. Separation Dist.", &guiTracingSettings.minimumSeparationDistance,
+                        0.001f, 0.2f, "%.3f") == ImGui::EditMode::INPUT_FINISHED) {
+                    changed = true;
+                }
+                if (ImGui::Combo(
+                        "Distance Check", (int*)&guiTracingSettings.terminationCheckType,
+                        TERMINATION_CHECK_TYPE_NAMES, IM_ARRAYSIZE(TERMINATION_CHECK_TYPE_NAMES))) {
+                    changed = true;
+                }
             }
             if (ImGui::Checkbox("Show Boundary Mesh", &guiTracingSettings.showSimulationGridOutline)) {
                 changed = true;
@@ -358,6 +364,24 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
             sgl::Logfile::get()->writeError(
                     "Error in StreamlineTracingRequester::setLineTracerSettings: Unknown integration direction \""
                     + integrationDirectionName + "\".");
+        }
+    }
+
+    std::string terminationCheckTypeName;
+    if (settings.getValueOpt("termination_check_type", terminationCheckTypeName)) {
+        int i;
+        for (i = 0; i < IM_ARRAYSIZE(TERMINATION_CHECK_TYPE_NAMES); i++) {
+            if (boost::to_lower_copy(terminationCheckTypeName)
+                == boost::to_lower_copy(std::string(TERMINATION_CHECK_TYPE_NAMES[i]))) {
+                guiTracingSettings.terminationCheckType = TerminationCheckType(i);
+                changed = true;
+                break;
+            }
+        }
+        if (i == IM_ARRAYSIZE(TERMINATION_CHECK_TYPE_NAMES)) {
+            sgl::Logfile::get()->writeError(
+                    "Error in StreamlineTracingRequester::setLineTracerSettings: Unknown termination check type \""
+                    + terminationCheckTypeName + "\".");
         }
     }
 

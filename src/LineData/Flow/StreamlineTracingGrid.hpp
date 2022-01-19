@@ -48,6 +48,14 @@ public:
     void addScalarField(float* scalarField, const std::string& scalarName);
     std::vector<std::string> getScalarAttributeNames();
     [[nodiscard]] inline const sgl::AABB3& getBox() const { return box; }
+    [[nodiscard]] inline int getGridSizeX() const { return xs; }
+    [[nodiscard]] inline int getGridSizeY() const { return ys; }
+    [[nodiscard]] inline int getGridSizeZ() const { return zs; }
+    [[nodiscard]] inline float getDx() const { return dx; }
+    [[nodiscard]] inline float getDy() const { return dy; }
+    [[nodiscard]] inline float getDz() const { return dz; }
+    [[nodiscard]] inline float* getVelocityField() const { return velocityField; }
+    [[nodiscard]] inline float* getHelicityField() const { return helicityField; }
 
     void traceStreamlines(StreamlineTracingSettings& tracingSettings, Trajectories& filteredTrajectories);
     void traceStreamribbons(

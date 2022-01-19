@@ -181,6 +181,13 @@ public:
             std::vector<std::pair<glm::vec3, T>>& pointsAndDataInSphere)=0;
 
     /**
+     * @param centerPoint The center point.
+     * @param radius The search radius.
+     * @return Whether there is at least one point stored in the search structure inside of the search radius.
+     */
+    virtual bool getHasPointCloserThan(const glm::vec3& center, float radius)=0;
+
+    /**
      * Performs an area search in the k-d-tree and returns the number of points within a certain distance to some
      * center point.
      * @param centerPoint The center point.
