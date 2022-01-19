@@ -161,7 +161,7 @@ class StreamlineMaxHelicityFirstSeeder: public StreamlineSeeder {
 public:
     ~StreamlineMaxHelicityFirstSeeder() override = default;
     StreamlineSeeder* copy() override { return new StreamlineMaxHelicityFirstSeeder; }
-    [[nodiscard]] bool getIsRegular() const override { return false; }
+    [[nodiscard]] bool getIsRegular() const override { return true; }
     void setNewGridBox(const sgl::AABB3& gridBox) override {}
     void reset(StreamlineTracingSettings& tracingSettings, StreamlineTracingGrid* newGrid) override {}
     glm::vec3 getNextPoint() override { return {}; }

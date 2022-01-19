@@ -104,8 +104,8 @@ struct StreamlineTracingSettings {
     float timeStepScale = 1.0f;
     int maxNumIterations = 2000;
     float terminationDistance = 1.0f;
-    float minimumLength = 0.01f;
-    float minimumSeparationDistance = 0.01f;
+    float minimumLength = 0.7f;
+    float minimumSeparationDistance = 0.08f;
     bool showSimulationGridOutline = true;
     bool smoothedSimulationGridOutline = true;
     StreamlineIntegrationMethod integrationMethod = StreamlineIntegrationMethod::RK4;

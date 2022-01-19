@@ -54,12 +54,6 @@ public:
             StreamlineTracingSettings& tracingSettings, Trajectories& filteredTrajectories,
             std::vector<std::vector<glm::vec3>>& filteredRibbonsDirections);
 
-    void traceStreamlinesDecreasingHelicity(
-            StreamlineTracingSettings& tracingSettings, Trajectories& filteredTrajectories);
-    void traceStreamribbonsDecreasingHelicity(
-            StreamlineTracingSettings& tracingSettings, Trajectories& filteredTrajectories,
-            std::vector<std::vector<glm::vec3>>& filteredRibbonsDirections);
-
     void computeSimulationBoundaryMesh(
             std::vector<uint32_t>& cachedSimulationMeshOutlineTriangleIndices,
             std::vector<glm::vec3>& cachedSimulationMeshOutlineVertexPositions);
@@ -102,6 +96,11 @@ private:
             const StreamlineTracingSettings& tracingSettings, Trajectory& trajectory,
             std::vector<glm::vec3>& ribbonDirections, const glm::vec3& seedPoint, bool forwardMode) const;
 
+    void _traceStreamlinesDecreasingHelicity(
+            StreamlineTracingSettings& tracingSettings, Trajectories& filteredTrajectories);
+    void _traceStreamribbonsDecreasingHelicity(
+            StreamlineTracingSettings& tracingSettings, Trajectories& filteredTrajectories,
+            std::vector<std::vector<glm::vec3>>& filteredRibbonsDirections);
     bool _traceStreamlineDecreasingHelicity(
             const StreamlineTracingSettings& tracingSettings,
             Trajectory& currentTrajectory, Trajectories& trajectories,

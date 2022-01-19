@@ -183,29 +183,30 @@ void StreamlineTracingRequester::renderGui() {
 
         if (ImGui::CollapsingHeader(
                 "Advanced Settings", nullptr, ImGuiTreeNodeFlags_DefaultOpen)) {
-            if (ImGui::SliderFloat(
+            if (ImGui::SliderFloatEdit(
                     "Time Step Scale", &guiTracingSettings.timeStepScale, 0.1f, 10.0f,
-                    "%.1f", ImGuiSliderFlags_Logarithmic)) {
+                    "%.1f", ImGuiSliderFlags_Logarithmic) == ImGui::EditMode::INPUT_FINISHED) {
                 changed = true;
             }
-            if (ImGui::SliderInt(
-                    "Max. #Iterations", &guiTracingSettings.maxNumIterations, 10, 10000)) {
+            if (ImGui::SliderIntEdit(
+                    "Max. #Iterations", &guiTracingSettings.maxNumIterations,
+                    10, 10000) == ImGui::EditMode::INPUT_FINISHED) {
                 changed = true;
             }
-            if (ImGui::SliderFloat(
+            if (ImGui::SliderFloatEdit(
                     "Termination Dist.", &guiTracingSettings.terminationDistance, 0.01f, 100.0f,
-                    "%.2f", ImGuiSliderFlags_Logarithmic)) {
+                    "%.2f", ImGuiSliderFlags_Logarithmic) == ImGui::EditMode::INPUT_FINISHED) {
                 changed = true;
             }
-            if (ImGui::SliderFloat(
-                    "Min. Line Length", &guiTracingSettings.minimumLength, 0.001f, 1.0f,
-                    "%.3f")) {
+            if (ImGui::SliderFloatEdit(
+                    "Min. Line Length", &guiTracingSettings.minimumLength, 0.001f, 2.0f,
+                    "%.3f") == ImGui::EditMode::INPUT_FINISHED) {
                 changed = true;
             }
             if (guiTracingSettings.streamlineSeedingStrategy == StreamlineSeedingStrategy::MAX_HELICITY_FIRST
-                && ImGui::SliderFloat(
+                && ImGui::SliderFloatEdit(
                     "Min. Separation Dist.", &guiTracingSettings.minimumSeparationDistance,
-                    0.001f, 1.0f, "%.3f")) {
+                    0.001f, 0.2f, "%.3f") == ImGui::EditMode::INPUT_FINISHED) {
                 changed = true;
             }
             if (ImGui::Checkbox("Show Boundary Mesh", &guiTracingSettings.showSimulationGridOutline)) {

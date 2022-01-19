@@ -111,6 +111,11 @@ std::vector<std::string> StreamlineTracingGrid::getScalarAttributeNames() {
 
 void StreamlineTracingGrid::traceStreamlines(
         StreamlineTracingSettings& tracingSettings, Trajectories& filteredTrajectories) {
+    if (tracingSettings.streamlineSeedingStrategy == StreamlineSeedingStrategy::MAX_HELICITY_FIRST) {
+        _traceStreamlinesDecreasingHelicity(tracingSettings, filteredTrajectories);
+        return;
+    }
+
     auto seeder = tracingSettings.seeder;
     seeder->reset(tracingSettings, this);
     int numTrajectories = tracingSettings.numPrimitives;
@@ -181,6 +186,10 @@ void StreamlineTracingGrid::traceStreamribbons(
     if (!helicityField) {
         sgl::Logfile::get()->writeError(
                 "Error in StreamlineTracingGrid::traceStreamribbons: No helicity field is given!");
+        return;
+    }
+    if (tracingSettings.streamlineSeedingStrategy == StreamlineSeedingStrategy::MAX_HELICITY_FIRST) {
+        _traceStreamribbonsDecreasingHelicity(tracingSettings, filteredTrajectories, filteredRibbonsDirections);
         return;
     }
 
@@ -278,45 +287,47 @@ bool StreamlineTracingGrid::_isTerminated(
         Trajectories& trajectories, float& segmentLength, int& iterationCounter) {
     const int MAX_ITERATIONS = std::min(
             int(std::round(float(tracingSettings.maxNumIterations) / tracingSettings.timeStepScale)),
-            tracingSettings.maxNumIterations * 10);
+            tracingSettings.maxNumIterations * 10) * 10;
     float terminationDistance = 1e-6f * tracingSettings.terminationDistance;
+
+    // Have we reached a singular point?
+    if (iterationCounter > MAX_ITERATIONS) {
+        return true;
+    }
+    if (!currentTrajectory.positions.empty() && segmentLength < terminationDistance) {
+        return true;
+    }
+
+    // Check if we have left the domain.
+    if (!box.contains(currentPoint)) {
+        if (!currentTrajectory.positions.empty()) {
+            // Clamp the position to the boundary.
+            glm::vec3 rayOrigin = currentTrajectory.positions.back();
+            glm::vec3 rayDirection = glm::normalize(currentPoint - rayOrigin);
+            float tNear, tFar;
+            _rayBoxIntersection(
+                    rayOrigin, rayDirection, box.getMinimum(), box.getMaximum(), tNear, tFar);
+            glm::vec3 boundaryParticlePosition;
+            if (tNear > 0.0f) {
+                boundaryParticlePosition = rayOrigin + tNear * rayDirection;
+            } else {
+                boundaryParticlePosition = rayOrigin + tFar * rayDirection;
+            }
+            currentTrajectory.positions.emplace_back(boundaryParticlePosition);
+            _pushTrajectoryAttributes(currentTrajectory);
+        }
+        return true;
+    }
 
     for (const Trajectory& trajectory : trajectories) {
         for (const glm::vec3& point : trajectory.positions) {
-            if (!box.contains(currentPoint)) {
-                if (!trajectory.positions.empty()) {
-                    // Clamp the position to the boundary.
-                    glm::vec3 rayOrigin = trajectory.positions.back();
-                    glm::vec3 rayDirection = glm::normalize(currentPoint - rayOrigin);
-                    float tNear, tFar;
-                    _rayBoxIntersection(
-                            rayOrigin, rayDirection, box.getMinimum(), box.getMaximum(), tNear, tFar);
-                    glm::vec3 boundaryParticlePosition;
-                    if (tNear > 0.0f) {
-                        boundaryParticlePosition = rayOrigin + tNear * rayDirection;
-                    } else {
-                        boundaryParticlePosition = rayOrigin + tFar * rayDirection;
-                    }
-                    currentTrajectory.positions.emplace_back(boundaryParticlePosition);
-                    _pushTrajectoryAttributes(currentTrajectory);
-                }
-                return true;
-            }
-
             if (glm::distance(currentPoint, point) < tracingSettings.minimumSeparationDistance) {
                 return true;
             }
-
-            // Have we reached a singular point?
-            if (segmentLength < terminationDistance) {
-                break;
-            }
-            if (iterationCounter > MAX_ITERATIONS) {
-                break;
-            }
         }
     }
-    return !trajectories.empty();
+
+    return false;
 }
 
 bool StreamlineTracingGrid::_traceStreamlineDecreasingHelicity(
@@ -351,10 +362,10 @@ bool StreamlineTracingGrid::_traceStreamlineDecreasingHelicity(
     }
 }
 
-void StreamlineTracingGrid::traceStreamlinesDecreasingHelicity(
+void StreamlineTracingGrid::_traceStreamlinesDecreasingHelicity(
         StreamlineTracingSettings& tracingSettings, Trajectories& filteredTrajectories) {
     std::vector<std::vector<glm::vec3>> filteredRibbonsDirections;
-    traceStreamribbonsDecreasingHelicity(tracingSettings, filteredTrajectories, filteredRibbonsDirections);
+    _traceStreamribbonsDecreasingHelicity(tracingSettings, filteredTrajectories, filteredRibbonsDirections);
 }
 
 struct GridSample {
@@ -376,17 +387,16 @@ struct GridSample {
  * A stream ribbon seeding strategy. In Proceedings of the Eurographics/IEEE VGTC Conference on Visualization:
  * Short Papers, EuroVis '17, page 67-71, Goslar, DEU, 2017. Eurographics Association.
  */
-void StreamlineTracingGrid::traceStreamribbonsDecreasingHelicity(
+void StreamlineTracingGrid::_traceStreamribbonsDecreasingHelicity(
         StreamlineTracingSettings& tracingSettings, Trajectories& filteredTrajectories,
         std::vector<std::vector<glm::vec3>>& filteredRibbonsDirections) {
     if (!helicityField) {
         sgl::Logfile::get()->writeError(
-                "Error in StreamlineTracingGrid::traceStreamlinesDecreasingHelicity: "
+                "Error in StreamlineTracingGrid::_traceStreamribbonsDecreasingHelicity: "
                 "No helicity field was found.");
         return;
     }
 
-    // TODO
     auto seeder = tracingSettings.seeder;
     seeder->reset(tracingSettings, this);
 
@@ -398,9 +408,9 @@ void StreamlineTracingGrid::traceStreamribbonsDecreasingHelicity(
                 glm::vec3 boxMin = box.getMinimum();
                 glm::vec3 dimensions = box.getDimensions();
                 glm::vec3 samplePoint(
-                        boxMin.x + dimensions.x * (float(x) * 0.5f) / float(xs),
-                        boxMin.y + dimensions.y * (float(y) * 0.5f) / float(ys),
-                        boxMin.z + dimensions.z * (float(z) * 0.5f) / float(zs));
+                        boxMin.x + dimensions.x * (float(x) + 0.5f) / float(xs),
+                        boxMin.y + dimensions.y * (float(y) + 0.5f) / float(ys),
+                        boxMin.z + dimensions.z * (float(z) + 0.5f) / float(zs));
                 samplePriorityQueue.push(GridSample(helicityField[IDXS(x, y, z)], samplePoint));
             }
         }
@@ -427,14 +437,20 @@ void StreamlineTracingGrid::traceStreamribbonsDecreasingHelicity(
             _reverseTrajectory(trajectory);
         } else {
             Trajectory trajectoryBackward;
+            std::vector<glm::vec3> ribbonDirectionsBackward;
             isValid |= _traceStreamlineDecreasingHelicity(
                     tracingSettings, trajectory, filteredTrajectories, ribbonDirections, seedPoint,
                     dt, true);
             isValid |= _traceStreamlineDecreasingHelicity(
-                    tracingSettings, trajectory, filteredTrajectories, ribbonDirections, seedPoint,
-                    dt, false);
-            _reverseTrajectory(trajectoryBackward);
-            _insertBackwardTrajectory(trajectoryBackward, trajectory);
+                    tracingSettings, trajectoryBackward, filteredTrajectories, ribbonDirectionsBackward,
+                    seedPoint, dt, false);
+            if (tracingSettings.flowPrimitives == FlowPrimitives::STREAMRIBBONS) {
+                _reverseRibbon(trajectoryBackward, ribbonDirectionsBackward);
+                _insertBackwardRibbon(trajectoryBackward, ribbonDirectionsBackward, trajectory, ribbonDirections);
+            } else {
+                _reverseTrajectory(trajectoryBackward);
+                _insertBackwardTrajectory(trajectoryBackward, trajectory);
+            }
             if (!isValid) {
                 if (_computeTrajectoryLength(trajectory) >= tracingSettings.minimumLength) {
                     isValid = true;
