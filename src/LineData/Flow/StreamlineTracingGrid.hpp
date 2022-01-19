@@ -119,7 +119,7 @@ private:
     void _integrationStepRK4(glm::vec3& p0, float& dt, bool forwardMode) const;
     void _integrationStepRKF45(
             const StreamlineTracingSettings& tracingSettings, glm::vec3& fP0, float& fDt, bool forwardMode) const;
-    void _integrationStepExplicitEuler(
+    void _integrationStep(
             const StreamlineTracingSettings& tracingSettings, glm::vec3& p0, float& dt, bool forwardMode) const;
 
     int xs = 0, ys = 0, zs = 0; ///< Size of the grid in data points.
