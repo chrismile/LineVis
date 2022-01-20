@@ -112,6 +112,9 @@ out vec2 fragTexCoord;
 flat out int fragVariableID;
 flat out float fragVariableValue;
 out float fragBorderInterpolant;
+#ifdef SUPPORT_LINE_DESATURATION
+flat out uint desaturateLine;
+#endif
 
 #include "MultiVarGeometryUtils.glsl"
 
@@ -138,13 +141,23 @@ void main() {
 
     vec3 tangent = normalize(nextPoint - currentPoint);
 
+    const int vVariableIDMod = vertexOutput[0].vVariableID % MAX_NUM_VARIABLES; // % maxNumVariables, % numVariables
+
     // 1) Sample variables at each tube roll
     const int instanceID = gl_InvocationID;
-    const float mappedVarIDRatio = mod(float(vertexOutput[0].vVariableID) / float(rollWidth), 1.0);
-    const int mappedVarID = (vertexOutput[0].vVariableID >= 0) ? vertexOutput[0].vVariableID / rollWidth : -1;
+    //const float mappedVarIDRatio = mod(float(vertexOutput[0].vVariableID) / float(rollWidth), 1.0);
+    const float mappedVarIDRatio = mod(float(vVariableIDMod) / float(rollWidth), 1.0);
+    //const int mappedVarID = (vertexOutput[0].vVariableID >= 0) ? vertexOutput[0].vVariableID / rollWidth : -1;
+    //const int mappedVarID = (vertexOutput[0].vVariableID >= 0) ? (vertexOutput[0].vVariableID % maxNumVariables) / rollWidth : -1;
+    //const int mappedVarID = (vertexOutput[0].vVariableID >= 0) ? (vertexOutput[0].vVariableID % numVariables) / rollWidth : -1;
+    const int mappedVarID = (vertexOutput[0].vVariableID >= 0) ? vVariableIDMod / rollWidth : -1;
     const int varID = sampleActualVarID(mappedVarID); // instanceID % numVariables for stripes
     const int elementID = vertexOutput[0].vElementID;
     const int lineID = vertexOutput[0].vLineID;
+
+#ifdef SUPPORT_LINE_DESATURATION
+    desaturateLine = 1 - lineSelectedArray[lineID];
+#endif
 
     //float variableValueOrig = 0;
     float variableValue = 0;
@@ -288,6 +301,9 @@ in vec2 fragTexCoord;
 flat in int fragVariableID;
 flat in float fragVariableValue;
 in float fragBorderInterpolant;
+#ifdef SUPPORT_LINE_DESATURATION
+flat in uint desaturateLine;
+#endif
 
 uniform vec3 cameraPosition; // world space
 
@@ -322,6 +338,12 @@ void main() {
 
     vec4 color = computePhongLighting(
             surfaceColor, occlusionFactor, shadowFactor, fragWorldPos, fragNormal, fragTangent);
+
+#ifdef SUPPORT_LINE_DESATURATION
+    if (desaturateLine == 1) {
+        color = desaturateColor(color);
+    }
+#endif
 
     if (color.a < 1.0/255.0) {
         discard;

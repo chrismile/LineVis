@@ -362,7 +362,7 @@ bool StreamlineTracingGrid::_traceStreamlineDecreasingHelicity(
         if (_isTerminated(
                 tracingSettings, currentTrajectory, currentPoint, trajectories, segmentLength, iterationCounter)) {
             if (tracingSettings.flowPrimitives == FlowPrimitives::STREAMRIBBONS) {
-                _pushRibbonDirections(tracingSettings, currentTrajectory, ribbonDirections);
+                _pushRibbonDirections(tracingSettings, currentTrajectory, ribbonDirections, forwardMode);
             }
             if (_computeTrajectoryLength(currentTrajectory) >= tracingSettings.minimumLength) {
                 return true;
@@ -650,7 +650,7 @@ void StreamlineTracingGrid::_pushTrajectoryAttributes(Trajectory& trajectory) co
 
 void StreamlineTracingGrid::_pushRibbonDirections(
         const StreamlineTracingSettings& tracingSettings,
-        const Trajectory& trajectory, std::vector<glm::vec3>& ribbonDirections) const {
+        const Trajectory& trajectory, std::vector<glm::vec3>& ribbonDirections, bool forwardMode) const {
     ZoneScoped;
 
     glm::vec3 lastRibbonDirection = glm::vec3(1.0f, 0.0f, 0.0f);
@@ -675,7 +675,7 @@ void StreamlineTracingGrid::_pushRibbonDirections(
         }
         tangent = glm::normalize(tangent);
 
-        glm::vec3 particlePosition = trajectory.positions.back();
+        glm::vec3 particlePosition = trajectory.positions.at(i);
 
         glm::vec3 helperAxis = lastRibbonDirection;
         if (glm::length(glm::cross(helperAxis, tangent)) < 1e-2f) {
@@ -691,6 +691,9 @@ void StreamlineTracingGrid::_pushRibbonDirections(
 
         if (tracingSettings.useHelicity) {
             float helicity = _getScalarFieldAtPosition(helicityField, particlePosition);
+            if (!forwardMode) {
+                helicity *= -1.0f;
+            }
             float helicityAngle = helicity / maxHelicityMagnitude * sgl::PI * tracingSettings.maxHelicityTwist;
             ribbonDirection = glm::rotate(ribbonDirection, helicityAngle, tangent);
         }
@@ -827,7 +830,7 @@ void StreamlineTracingGrid::_trace(
     }
 
     if (tracingSettings.flowPrimitives == FlowPrimitives::STREAMRIBBONS) {
-        _pushRibbonDirections(tracingSettings, trajectory, ribbonDirections);
+        _pushRibbonDirections(tracingSettings, trajectory, ribbonDirections, forwardMode);
     }
 }
 

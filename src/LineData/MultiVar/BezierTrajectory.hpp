@@ -46,7 +46,7 @@ struct VarDesc {
 
 class BezierTrajectory {
 public:
-    BezierTrajectory() {}
+    BezierTrajectory() = default;
 
     // Per Bezier point data.
     std::vector<glm::vec3> positions;
@@ -58,12 +58,12 @@ public:
     std::vector<float> multiVarData;
 
     // Information about this line/trajectory.
-    LineDesc lineDesc;
+    LineDesc lineDesc{};
     // Information about all variables.
     std::vector<VarDesc> multiVarDescs;
 };
 typedef std::vector<BezierTrajectory> BezierTrajectories;
 
-BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories& inTrajectories);
+BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories& inTrajectories, bool needsSubdiv);
 
 #endif //STRESSLINEVIS_BEZIERTRAJECTORY_HPP

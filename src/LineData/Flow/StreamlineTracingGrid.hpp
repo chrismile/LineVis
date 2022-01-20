@@ -81,7 +81,7 @@ private:
     void _pushTrajectoryAttributes(Trajectory& trajectory) const;
     void _pushRibbonDirections(
             const StreamlineTracingSettings& tracingSettings,
-            const Trajectory& trajectory, std::vector<glm::vec3>& ribbonDirections) const;
+            const Trajectory& trajectory, std::vector<glm::vec3>& ribbonDirections, bool forwardMode) const;
     static void _reverseTrajectory(Trajectory& trajectory);
     static void _reverseRibbon(Trajectory& trajectory, std::vector<glm::vec3>& ribbonDirections);
     static void _insertBackwardTrajectory(const Trajectory& trajectoryBackward, Trajectory& trajectory);

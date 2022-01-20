@@ -31,7 +31,7 @@
 #include "BezierCurve.hpp"
 #include "BezierTrajectory.hpp"
 
-BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTrajectories) {
+BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTrajectories, bool needsSubdiv) {
     // 1) Determine Bezier segments
     std::vector<std::vector<BezierCurve>> curves(inTrajectories.size());
     // Store the arclength of all segments along a curve
@@ -60,7 +60,12 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
             const glm::vec3 cotangent1 = glm::normalize(pos2 - pos0);
             const glm::vec3 cotangent2 = glm::normalize(pos3 - pos1);
             const glm::vec3 tangent = pos2 - pos1;
-            const float lenTangent = glm::length(tangent);
+            float lenTangent = glm::length(tangent);
+
+            if (std::isnan(lenTangent)) {
+                sgl::Logfile::get()->writeError("ERROR: NaN encountered in trajectory file.");
+                lenTangent = 0.0f;
+            }
 
             avgSegLength += lenTangent;
             minSegLength = std::min(minSegLength, lenTangent);
@@ -71,10 +76,10 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
             glm::vec3 C2 = pos2 - cotangent2 * lenTangent * 0.5f;
             glm::vec3 C3 = pos2;
 
-//            const std::vector<float>& attributes = trajectory.attributes[v];
-
-//            curveSet.emplace_back({{ C0, C1, C2, C3 }}, minT, maxT);
             BezierCurve BCurve({{C0, C1, C2, C3}}, minT, maxT);
+            if (std::isnan(BCurve.totalArcLength)) {
+                BCurve.totalArcLength = 0.0f;
+            }
 
             curveSet.push_back(BCurve);
             curveArcLengths[trajCounter] += BCurve.totalArcLength;
@@ -89,17 +94,15 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
     avgSegLength /= numSegments;
 
     // 2) Compute min max values of all attributes across all trajectories
-    const uint32_t numVariables = uint32_t(inTrajectories[0].attributes.size());
+    const auto numVariables = uint32_t(inTrajectories[0].attributes.size());
     if (numVariables <= 0) {
-        sgl::Logfile::get()->writeError("ERROR: No variable was found in trajectory file.");
-        std::exit(-2);
+        sgl::Logfile::get()->throwError("ERROR: No variable was found in trajectory file.");
     }
 
     std::vector<glm::vec2> attributesMinMax(
             numVariables, glm::vec2(std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest()));
 
-    const uint32_t maxNumVariables = uint32_t(inTrajectories[0].attributes.size());
-    const uint32_t numLines = uint32_t(inTrajectories.size());
+    const auto numLines = uint32_t(inTrajectories.size());
 
     // 2.5) Create buffer array with all variables and statistics
     std::vector<std::vector<float>> multiVarData(numLines);
@@ -112,7 +115,7 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
     for (const auto& trajectory : inTrajectories) {
         uint32_t varOffsetPerLine = 0;
 
-        for (uint32_t v = 0; v < maxNumVariables; ++v) {
+        for (uint32_t v = 0; v < numVariables; ++v) {
             VarDesc varDescPerLine = {0};
             varDescPerLine.minMax = glm::vec2(
                     std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest());
@@ -144,7 +147,18 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
 
     // 3) Compute several equally-distributed / equi-distant points along Bezier curves.
     // Store these points in a new trajectory
-    float rollSegLength = avgSegLength / maxNumVariables;// avgSegLength * 0.2f;
+    bool resetPerSegMode;
+    const float minAvgSegLength = 0.00390625f; // 1/256
+    if (avgSegLength < minAvgSegLength) {
+        resetPerSegMode = !needsSubdiv;
+        if (needsSubdiv) {
+            avgSegLength = minAvgSegLength;
+        }
+    } else {
+        resetPerSegMode = true;
+    }
+    avgSegLength = std::max(avgSegLength, 5e-04f);
+    float rollSegLength = avgSegLength / std::min(numVariables, uint32_t(8));// avgSegLength * 0.2f;
 
     BezierTrajectories newTrajectories(inTrajectories.size());
 
@@ -165,11 +179,9 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
         BCurves[0].evaluate(0, pos, tangent);
 
         newTrajectory.positions.push_back(pos);
-        //newTrajectory.tangents.push_back(tangent);
-        //newTrajectory.segmentID.push_back(lineID);
 
         // Now we store variable, min, and max, and var ID per vertex as new attributes
-        newTrajectory.attributes.resize(8);
+        newTrajectory.attributes.resize(9);
         float varValue = inTrajectories[traj].attributes[varIDPerLine][lineID];
         newTrajectory.attributes[0].push_back(varValue);
         newTrajectory.attributes[1].push_back(attributesMinMax[varIDPerLine].x);
@@ -184,7 +196,8 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
         newTrajectory.attributes[6].push_back(static_cast<float>(std::min(lineID, uint32_t(BCurves.size() - 1))));
         // interpolant t
         newTrajectory.attributes[7].push_back(0.0f);
-
+        // timestep index
+        newTrajectory.attributes[8].push_back(0.0f);
 
         curArcLength += rollSegLength;
 
@@ -193,17 +206,21 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
 
         varIDPerLine++;
 
-
         while (curArcLength <= totalArcLength) {
             // Obtain current Bezier segment index based on arc length
             while (sumArcLengthsNext <= curArcLength) {
-                varIDPerLine = 0;
+                if (resetPerSegMode) {
+                    varIDPerLine = 0;
+                }
                 lineID++;
                 if (lineID >= BCurves.size()) {
                     break;
                 }
                 sumArcLengths = sumArcLengthsNext;
                 sumArcLengthsNext += BCurves[lineID].totalArcLength;
+                if (!resetPerSegMode) {
+                    break;
+                }
             }
             if (lineID >= BCurves.size()) {
                 break;
@@ -211,26 +228,30 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
 
             const auto &BCurve = BCurves[lineID];
 
-            float t = BCurve.solveTForArcLength(curArcLength - sumArcLengths);
+            const float _arcLength = curArcLength - sumArcLengths;
+            if (_arcLength > BCurve.totalArcLength) {
+                continue;
+            }
+            float t = BCurve.solveTForArcLength(_arcLength);
+            t = glm::clamp(t, BCurve.minT, BCurve.maxT);
 
             BCurves[lineID].evaluate(t, pos, tangent);
 
             newTrajectory.positions.push_back(pos);
-            //newTrajectory.tangents.push_back(tangent);
-            //newTrajectory.segmentID.push_back(lineID);
 
             if (varIDPerLine < numVariables) {
                 float varValue = inTrajectories[traj].attributes[varIDPerLine][lineID];
                 newTrajectory.attributes[0].push_back(varValue);
                 newTrajectory.attributes[1].push_back(attributesMinMax[varIDPerLine].x);
                 newTrajectory.attributes[2].push_back(attributesMinMax[varIDPerLine].y);
-                // var ID
-                newTrajectory.attributes[3].push_back(static_cast<float>(varIDPerLine));
-
             } else {
                 newTrajectory.attributes[0].push_back(0.0);
                 newTrajectory.attributes[1].push_back(0.0);
                 newTrajectory.attributes[2].push_back(0.0);
+            }
+            if (varIDPerLine < numVariables || !resetPerSegMode) {
+                newTrajectory.attributes[3].push_back(static_cast<float>(varIDPerLine));
+            } else {
                 newTrajectory.attributes[3].push_back(-1.0);
             }
 
@@ -244,6 +265,8 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
             // interpolant t
             float normalizedT = BCurve.normalizeT(t);
             newTrajectory.attributes[7].push_back(normalizedT);
+            // timestep index
+            newTrajectory.attributes[8].push_back(float(lineID) + normalizedT);
 
             curArcLength += rollSegLength;
             varIDPerLine++;

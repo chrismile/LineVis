@@ -94,6 +94,12 @@ flat out int fragElementID; // Actual per-line vertex index --> required for sam
 flat out int fragElementNextID; // Actual next per-line vertex index --> for linear interpolation
 flat out int fragLineID; // Line index --> required for sampling from global buffer
 out float fragElementInterpolant; // current number of curve parameter t (in [0;1]) within one line segment
+#ifdef TIMESTEP_LENS
+out float fragTimestep;
+#endif
+#ifdef SUPPORT_LINE_DESATURATION
+flat out uint desaturateLine;
+#endif
 
 #if !defined(NUM_SEGMENTS)
     #define NUM_SEGMENTS 10
@@ -226,6 +232,10 @@ void main() {
     fragElementID = vertexOutput[0].vElementID;
     fragLineID = vertexOutput[0].vLineID;
 
+#ifdef SUPPORT_LINE_DESATURATION
+    desaturateLine = 1 - lineSelectedArray[inputs[0].vLineID];
+#endif
+
     for (int i = 0; i < NUM_SEGMENTS; i++) {
         int iN = (i + 1) % NUM_SEGMENTS;
 
@@ -296,6 +306,12 @@ flat in int fragElementID; // Actual per-line vertex index --> required for samp
 flat in int fragElementNextID; // Actual next per-line vertex index --> for linear interpolation
 flat in int fragLineID; // Line index --> required for sampling from global buffer
 in float fragElementInterpolant; // current number of curve parameter t (in [0;1]) within one line segment
+#ifdef TIMESTEP_LENS
+in float fragTimestep;
+#endif
+#ifdef SUPPORT_LINE_DESATURATION
+flat in uint desaturateLine;
+#endif
 
 uniform vec3 cameraPosition; // world space
 
@@ -437,6 +453,12 @@ void main() {
 
     vec4 color = computePhongLighting(
             surfaceColor, occlusionFactor, shadowFactor, fragWorldPos, fragNormal, fragTangent);
+
+#ifdef SUPPORT_LINE_DESATURATION
+    if (desaturateLine == 1) {
+        color = desaturateColor(color);
+    }
+#endif
 
     if (color.a < 1.0/255.0) {
         discard;

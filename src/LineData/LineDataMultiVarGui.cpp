@@ -158,14 +158,17 @@ bool LineDataMultiVar::renderGuiTechniqueSettingsPropertyEditor(sgl::PropertyEdi
     if (propertyEditor.addCombo(
             "Render Technique", (int *) &multiVarRenderMode, MULTIVAR_RENDERTYPE_DISPLAYNAMES,
             IM_ARRAYSIZE(MULTIVAR_RENDERTYPE_DISPLAYNAMES))) {
+        bool needsSubdiv = getMultiVarRenderModeNeedsSubdiv(multiVarRenderMode);
+        bezierTrajectories = convertTrajectoriesToBezierCurves(filterTrajectoryData(), needsSubdiv);
         shallReloadGatherShader = true;
+        dirty = true;
     }
 
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ROLLS
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_COLOR_BANDS
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_TWISTED_ROLLS
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_CHECKERBOARD
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_FIBERS) {
+    if (multiVarRenderMode == MultiVarRenderMode::ROLLS
+        || multiVarRenderMode == MultiVarRenderMode::COLOR_BANDS
+        || multiVarRenderMode == MultiVarRenderMode::TWISTED_ROLLS
+        || multiVarRenderMode == MultiVarRenderMode::CHECKERBOARD
+        || multiVarRenderMode == MultiVarRenderMode::FIBERS) {
         if (propertyEditor.addCheckbox("Map Tube Diameter", &mapTubeDiameter)) {
             reRender = true;
         }
@@ -179,7 +182,7 @@ bool LineDataMultiVar::renderGuiTechniqueSettingsPropertyEditor(sgl::PropertyEdi
         }
     }
 
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_CHECKERBOARD) {
+    if (multiVarRenderMode == MultiVarRenderMode::CHECKERBOARD) {
         if (propertyEditor.addSliderInt("Checkerboard Height", &checkerboardHeight, 1, 10)) {
             reRender = true;
         }
@@ -191,7 +194,7 @@ bool LineDataMultiVar::renderGuiTechniqueSettingsPropertyEditor(sgl::PropertyEdi
         }
     }
 
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_TWISTED_ROLLS) {
+    if (multiVarRenderMode == MultiVarRenderMode::TWISTED_ROLLS) {
         if (propertyEditor.addSliderFloat("Twist Offset", &twistOffset, 0.0, 1.0, "%.2f")) {
             reRender = true;
         }
@@ -201,8 +204,8 @@ bool LineDataMultiVar::renderGuiTechniqueSettingsPropertyEditor(sgl::PropertyEdi
         }
     }
 
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS_RIBBON) {
+    if (multiVarRenderMode == MultiVarRenderMode::ORIENTED_COLOR_BANDS
+        || multiVarRenderMode == MultiVarRenderMode::ORIENTED_COLOR_BANDS_RIBBON) {
         if (propertyEditor.addCombo(
                 "Oriented Ribbon Mode", (int*)&orientedRibbonMode,
                 ORIENTED_RIBBON_MODE_DISPLAYNAMES, IM_ARRAYSIZE(ORIENTED_RIBBON_MODE_DISPLAYNAMES))) {
@@ -282,42 +285,42 @@ bool LineDataMultiVar::renderGuiLineRenderingSettingsPropertyEditor(sgl::Propert
         shallReloadGatherShader = true;
     }
 
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS
-            || multiVarRenderMode == MULTIVAR_RENDERMODE_FIBERS) {
+    if (multiVarRenderMode == MultiVarRenderMode::ORIENTED_COLOR_BANDS
+            || multiVarRenderMode == MultiVarRenderMode::FIBERS) {
         if (propertyEditor.addSliderInt("Num Line Segments", &numLineSegments, 3, 20)) {
             shallReloadGatherShader = true;
         }
     }
 
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_FIBERS) {
+    if (multiVarRenderMode == MultiVarRenderMode::FIBERS) {
         if (propertyEditor.addSliderFloat(
                 "Fiber radius", &fiberRadius, 0.0001f, 0.01f, "%.4f")) {
             reRender = true;
         }
     }
 
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ROLLS
-            || multiVarRenderMode == MULTIVAR_RENDERMODE_COLOR_BANDS
-            || multiVarRenderMode == MULTIVAR_RENDERMODE_TWISTED_ROLLS
-            || multiVarRenderMode == MULTIVAR_RENDERMODE_CHECKERBOARD) {
+    if (multiVarRenderMode == MultiVarRenderMode::ROLLS
+            || multiVarRenderMode == MultiVarRenderMode::COLOR_BANDS
+            || multiVarRenderMode == MultiVarRenderMode::TWISTED_ROLLS
+            || multiVarRenderMode == MultiVarRenderMode::CHECKERBOARD) {
         if (propertyEditor.addSliderInt(
                 "Num Line Segments", &numInstances, 3, 20)) {
             shallReloadGatherShader = true;
         }
     }
 
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ROLLS
-            || multiVarRenderMode == MULTIVAR_RENDERMODE_COLOR_BANDS
-            || multiVarRenderMode == MULTIVAR_RENDERMODE_TWISTED_ROLLS
-            || multiVarRenderMode == MULTIVAR_RENDERMODE_CHECKERBOARD
-            || multiVarRenderMode == MULTIVAR_RENDERMODE_FIBERS) {
+    if (multiVarRenderMode == MultiVarRenderMode::ROLLS
+            || multiVarRenderMode == MultiVarRenderMode::COLOR_BANDS
+            || multiVarRenderMode == MultiVarRenderMode::TWISTED_ROLLS
+            || multiVarRenderMode == MultiVarRenderMode::CHECKERBOARD
+            || multiVarRenderMode == MultiVarRenderMode::FIBERS) {
         if (propertyEditor.addSliderFloat(
                 "Min. Radius Factor", &minRadiusFactor, 0.0f, 1.0f, "%.3f")) {
             reRender = true;
         }
     }
 
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ROLLS) {
+    if (multiVarRenderMode == MultiVarRenderMode::ROLLS) {
         if (propertyEditor.addSliderInt("Roll Width", &rollWidth, 1, 4)) {
             reRender = true;
         }

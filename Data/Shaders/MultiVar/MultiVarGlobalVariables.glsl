@@ -76,6 +76,82 @@ layout (std430, binding = 7) buffer VarSelectedArray {
     uint selectedVars[];
 };
 
+#ifdef SUPPORT_LINE_DESATURATION
+layout (std430, binding = 14) readonly buffer LineSelectedArray {
+    uint lineSelectedArray[];
+};
+
+vec3 rgbToHsv(vec3 color) {
+    float minValue = min(color.r, min(color.g, color.b));
+    float maxValue = max(color.r, max(color.g, color.b));
+
+    float C = maxValue - minValue;
+
+    // 1) Compute hue H
+    float H = 0;
+    if (maxValue == color.r) {
+        H = mod((color.g - color.b) / C, 6.0);
+    } else if (maxValue == color.g) {
+        H = (color.b - color.r) / C + 2.0;
+    } else if (maxValue == color.b) {
+        H = (color.r - color.g) / C + 4.0;
+    } else {
+        H = 0.0;
+    }
+
+    H *= 60.0; // hue is in degree
+
+    // 2) Compute the value V
+    float V = maxValue;
+
+    // 3) Compute saturation S
+    float S = 0;
+    if (V == 0) {
+        S = 0;
+    } else {
+        S = C / V;
+    }
+
+    return vec3(H, S, V);
+}
+
+vec3 hsvToRgb(vec3 color) {
+    const float H = color.r;
+    const float S = color.g;
+    const float V = color.b;
+
+    float h = H / 60.0;
+
+    int hi = int(floor(h));
+    float f = (h - float(hi));
+
+    float p = V * (1.0 - S);
+    float q = V * (1.0 - S * f);
+    float t = V * (1.0 - S * (1.0 - f));
+
+    if (hi == 1) {
+        return vec3(q, V, p);
+    } else if (hi == 2) {
+        return vec3(p, V, t);
+    } else if (hi == 3) {
+        return vec3(p, q, V);
+    } else if (hi == 4) {
+        return vec3(t, p, V);
+    } else if (hi == 5) {
+        return vec3(V, p, q);
+    } else {
+        return vec3(V, t, p);
+    }
+}
+
+vec4 desaturateColor(vec4 inputColor) {
+    vec3 hsvColor = rgbToHsv(inputColor.rgb);
+    hsvColor.g *= 0.0;
+    hsvColor.b *= 0.8;
+    return vec4(hsvToRgb(hsvColor), inputColor.a);
+}
+#endif
+
 // binding 8 belongs to selected color array
 
 

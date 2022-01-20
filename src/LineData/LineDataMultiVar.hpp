@@ -43,6 +43,7 @@ struct TubeRenderDataMultiVar {
     sgl::GeometryBufferPtr vertexTangentBuffer;
     sgl::GeometryBufferPtr vertexMultiVariableBuffer;
     sgl::GeometryBufferPtr vertexVariableDescBuffer;
+    sgl::GeometryBufferPtr vertexTimestepIndexBuffer;
     // SSBOs
     sgl::GeometryBufferPtr variableArrayBuffer;
     sgl::GeometryBufferPtr lineDescArrayBuffer;
@@ -117,15 +118,20 @@ private:
     MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
     sgl::Color clearColor;
 
-    enum MultiVarRenderMode {
-        MULTIVAR_RENDERMODE_ROLLS,
-        MULTIVAR_RENDERMODE_TWISTED_ROLLS,
-        MULTIVAR_RENDERMODE_COLOR_BANDS,
-        MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS,
-        MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS_RIBBON,
-        MULTIVAR_RENDERMODE_CHECKERBOARD,
-        MULTIVAR_RENDERMODE_FIBERS
+    enum class MultiVarRenderMode {
+        ROLLS,
+        TWISTED_ROLLS,
+        COLOR_BANDS,
+        ORIENTED_COLOR_BANDS,
+        ORIENTED_COLOR_BANDS_RIBBON,
+        CHECKERBOARD,
+        FIBERS
     };
+    [[nodiscard]] inline bool getMultiVarRenderModeNeedsSubdiv(MultiVarRenderMode renderMode) const {
+        return renderMode == MultiVarRenderMode::ROLLS
+               || renderMode == MultiVarRenderMode::CHECKERBOARD
+               || renderMode == MultiVarRenderMode::TWISTED_ROLLS;
+    }
 
     enum MultiVarRadiusMappingMode {
         MULTIVAR_RADIUSMODE_GLOBAL,
@@ -168,7 +174,7 @@ private:
     static MultiVarRenderMode multiVarRenderMode;
     static MultiVarRadiusMappingMode multiVarRadiusMappingMode;
 
-    // For MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS, MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS_RIBBON
+    // For MultiVarRenderMode::ORIENTED_COLOR_BANDS, MultiVarRenderMode::ORIENTED_COLOR_BANDS_RIBBON
     enum OrientedRibbonMode {
         ORIENTED_RIBBON_MODE_FIXED_BAND_WIDTH,
         ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH,

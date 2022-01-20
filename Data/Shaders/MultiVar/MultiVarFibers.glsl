@@ -103,6 +103,9 @@ flat out int fragElementNextID; // Actual next per-line vertex index --> for lin
 flat out int fragLineID; // Line index --> required for sampling from global buffer
 flat out int fragVarID;
 out float fragElementInterpolant; // current number of curve parameter t (in [0;1]) within one line segment
+#ifdef SUPPORT_LINE_DESATURATION
+flat out uint desaturateLine;
+#endif
 
 uniform float fiberRadius;
 uniform bool mapTubeDiameter;
@@ -136,6 +139,10 @@ void main() {
     const int varID = sampleActualVarID(instanceID % maxNumVariables); // for stripes
     const int elementID = vertexOutput[0].vElementID;
     const int lineID = vertexOutput[0].vLineID;
+
+#ifdef SUPPORT_LINE_DESATURATION
+    desaturateLine = 1 - lineSelectedArray[lineID];
+#endif
 
     float thetaInc = 2 * 3.1415926 / (NUM_INSTANCES);
     float thetaCur = thetaInc * instanceID;
@@ -272,6 +279,9 @@ flat in int fragElementNextID; // Actual next per-line vertex index --> for line
 flat in int fragLineID; // Line index --> required for sampling from global buffer
 flat in int fragVarID;
 in float fragElementInterpolant; // current number of curve parameter t (in [0;1]) within one line segment
+#ifdef SUPPORT_LINE_DESATURATION
+flat in uint desaturateLine;
+#endif
 
 uniform vec3 cameraPosition; // world space
 
@@ -328,8 +338,14 @@ void main()
     float occlusionFactor = 1.0f;
     float shadowFactor = 1.0f;
 
-    vec4 color = computePhongLighting(surfaceColor, occlusionFactor, shadowFactor,
-    fragWorldPos, fragNormal, fragTangent);
+    vec4 color = computePhongLighting(
+            surfaceColor, occlusionFactor, shadowFactor, fragWorldPos, fragNormal, fragTangent);
+
+#ifdef SUPPORT_LINE_DESATURATION
+    if (desaturateLine == 1) {
+        color = desaturateColor(color);
+    }
+#endif
 
 //    vec4 color = determineColor(fragVarID, 100);
 //    vec4 color = vec4(1, 0, 0, 1);

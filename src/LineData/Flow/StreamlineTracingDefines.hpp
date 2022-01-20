@@ -124,7 +124,7 @@ struct StreamlineTracingSettings {
 
     // For flowPrimitives == FlowPrimitives::STREAMRIBBONS.
     bool useHelicity = true;
-    float maxHelicityTwist = 0.5f;
+    float maxHelicityTwist = 0.25f;
 
     // For saving to the disk.
     bool exportToDisk = false;

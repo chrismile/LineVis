@@ -118,6 +118,9 @@ out float fragBorderInterpolant;
 //flat out int fragVariableNextID;
 flat out float fragVariableNextValue;
 out float fragElementInterpolant;
+#ifdef SUPPORT_LINE_DESATURATION
+flat out uint desaturateLine;
+#endif
 
 #include "MultiVarGeometryUtils.glsl"
 
@@ -151,6 +154,10 @@ void main() {
     const int varID = sampleActualVarID(instanceID % numVariables); // for stripes
     const int elementID = vertexOutput[0].vElementID;
     const int lineID = vertexOutput[0].vLineID;
+
+#ifdef SUPPORT_LINE_DESATURATION
+    desaturateLine = 1 - lineSelectedArray[lineID];
+#endif
 
     //float variableValueOrig = 0;
     float variableValue = 0;
@@ -361,6 +368,9 @@ in float fragBorderInterpolant;
 //flat in int fragVariableNextID;
 flat in float fragVariableNextValue;
 in float fragElementInterpolant;
+#ifdef SUPPORT_LINE_DESATURATION
+flat in uint desaturateLine;
+#endif
 
 uniform vec3 cameraPosition; // world space
 
@@ -397,6 +407,12 @@ void main() {
 
     vec4 color = computePhongLighting(
             surfaceColor, occlusionFactor, shadowFactor, fragWorldPos, fragNormal, fragTangent);
+
+#ifdef SUPPORT_LINE_DESATURATION
+    if (desaturateLine == 1) {
+        color = desaturateColor(color);
+    }
+#endif
 
     if (color.a < 1.0/255.0) {
         discard;

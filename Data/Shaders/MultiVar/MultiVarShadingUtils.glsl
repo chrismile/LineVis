@@ -224,22 +224,29 @@ vec4 determineColorLinearInterpolate(
         return vec4(0.4, 0.4, 0.4, 1);
     }
 
-    float rate = mix(variableValue, variableNextValue, interpolant);
-    float value = rate;
+    float value = mix(variableValue, variableNextValue, interpolant);
     vec4 surfaceColor = transferFunction(value, varID);
     return surfaceColor;
 }
 
+#define USE_SMOOTH_SEPARATOR
 void drawSeparatorBetweenStripes(
         inout vec4 surfaceColor, in float varFraction, in float separatorWidth) {
+#ifdef USE_SMOOTH_SEPARATOR
+    separatorWidth = separatorWidth * 2.0 / 3.0f;
+    if (varFraction > 0.5) { varFraction = 1.0 - varFraction; }
+    float aaf = fwidth(varFraction);
+    float alphaBorder = smoothstep(separatorWidth - aaf, separatorWidth + aaf, varFraction);
+    surfaceColor.rgb = surfaceColor.rgb * alphaBorder;
+#else
     float borderWidth = separatorWidth;
     float alphaBorder = 0.5;
     if (varFraction <= borderWidth || varFraction >= (1.0 - borderWidth))
     {
         if (varFraction > 0.5) { varFraction = 1.0 - varFraction; }
-
         surfaceColor.rgb = surfaceColor.rgb * (alphaBorder + (1 - alphaBorder) * varFraction / borderWidth);
     }
+#endif
 }
 
 
@@ -279,24 +286,43 @@ vec4 computePhongLighting(
     vec3 colorShading = Ia + Id + Is;
 
     if (drawHalo) {
-        //    float haloParameter = 0.5;
-        //    float angle1 = abs( dot( v, n)) * 0.8;
-        //    float angle2 = abs( dot( v, normalize(t))) * 0.2;
-        //    float halo = min(1.0,mix(1.0f,angle1 + angle2,haloParameter));//((angle1)+(angle2)), haloParameter);
-
         vec3 hV = normalize(cross(t, v));
         vec3 vNew = normalize(cross(hV, t));
 
         float angle = pow(abs((dot(vNew, n))), haloFactor); // 1.8 + 1.5
         float angleN = pow(abs((dot(v, n))), haloFactor);
-        //    float EPSILON = 0.8f;
-        //    float coverage = 1.0 - smoothstep(1.0 - 2.0*EPSILON, 1.0, angle);
 
         float haloNew = min(1.0, mix(1.0f, angle + angleN, 0.9)) * 0.9 + 0.1;
         colorShading *= (haloNew) * (haloNew);
     }
 
-    ////////////
+    return vec4(colorShading.rgb, surfaceColor.a);
+}
+
+vec4 computePhongLightingSphere(
+        in vec4 surfaceColor, in float occlusionFactor, in float shadowFactor,
+        in vec3 worldPos, in vec3 normal, in float bandPos, in float separatorWidth) {
+    const vec3 ambientColor = surfaceColor.rgb;
+    const vec3 diffuseColor = surfaceColor.rgb;
+
+    const float kA = materialAmbient * occlusionFactor * shadowFactor;
+    const vec3 Ia = kA * ambientColor;
+    const float kD = materialDiffuse;
+    const float kS = materialSpecular;
+    const float s = materialSpecularExp;
+
+    const vec3 n = normalize(normal);
+    const vec3 v = normalize(cameraPosition - worldPos);
+    const vec3 l = normalize(v);
+    const vec3 h = normalize(v + l);
+
+    vec3 Id = kD * clamp((dot(n, l)), 0.0, 1.0) * diffuseColor;
+    vec3 Is = kS * pow(clamp((dot(n, h)), 0.0, 1.0), s) * diffuseColor;
+    vec3 colorShading = Ia + Id + Is;
+
+    if (drawHalo) {
+        colorShading *= 1.0 - smoothstep(1.0 - separatorWidth - fwidth(bandPos), 1.0 - separatorWidth, bandPos);
+    }
 
     return vec4(colorShading.rgb, surfaceColor.a);
 }

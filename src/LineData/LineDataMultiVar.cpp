@@ -54,7 +54,7 @@ bool LineDataMultiVar::disabledMultiVarRenderingDueToLineRenderer = false;
 
 // Rendering modes.
 LineDataMultiVar::MultiVarRenderMode LineDataMultiVar::multiVarRenderMode =
-        LineDataMultiVar::MULTIVAR_RENDERMODE_ROLLS;
+        LineDataMultiVar::MultiVarRenderMode::ROLLS;
 LineDataMultiVar::MultiVarRadiusMappingMode LineDataMultiVar::multiVarRadiusMappingMode =
         LineDataMultiVar::MULTIVAR_RADIUSMODE_GLOBAL;
 
@@ -62,7 +62,7 @@ LineDataMultiVar::MultiVarRadiusMappingMode LineDataMultiVar::multiVarRadiusMapp
 int32_t LineDataMultiVar::numLineSegments = 8;
 int32_t LineDataMultiVar::numInstances = 12;
 int32_t LineDataMultiVar::rollWidth = 1;
-float LineDataMultiVar::separatorWidth = 0.15f;
+float LineDataMultiVar::separatorWidth = 0.10f;
 bool LineDataMultiVar::mapTubeDiameter = false;
 float LineDataMultiVar::twistOffset = 0.1f;
 bool LineDataMultiVar::constantTwistOffset = false;
@@ -174,15 +174,15 @@ sgl::ShaderProgramPtr LineDataMultiVar::reloadGatherShader() {
 
     sgl::ShaderManager->invalidateShaderCache();
     sgl::ShaderManager->addPreprocessorDefine(
-            "NUM_INSTANCES", static_cast<uint32_t>(numVariablesSelected));
+            "NUM_INSTANCES", static_cast<uint32_t>(std::max(numVariablesSelected, 1)));
     sgl::ShaderManager->addPreprocessorDefine("NUM_SEGMENTS", numLineSegments);
     sgl::ShaderManager->addPreprocessorDefine("NUM_LINESEGMENTS", numInstances);
     sgl::ShaderManager->addPreprocessorDefine("MAX_NUM_VARIABLES", MAX_NUM_VARIABLES);
     sgl::ShaderManager->addPreprocessorDefine("USE_MULTI_VAR_TRANSFER_FUNCTION", "");
     sgl::ShaderManager->addPreprocessorDefine("IS_MULTIVAR_DATA", "");
 
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS
-            || multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS_RIBBON) {
+    if (multiVarRenderMode == MultiVarRenderMode::ORIENTED_COLOR_BANDS
+            || multiVarRenderMode == MultiVarRenderMode::ORIENTED_COLOR_BANDS_RIBBON) {
         if (!mapColorToSaturation) {
             sgl::ShaderManager->addPreprocessorDefine("DIRECT_COLOR_MAPPING", numInstances);
         }
@@ -197,8 +197,8 @@ sgl::ShaderProgramPtr LineDataMultiVar::reloadGatherShader() {
     };
     sgl::ShaderProgramPtr gatherShader = sgl::ShaderManager->getShaderProgram(gatherShaderIDs);
 
-    if (multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS
-        || multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS_RIBBON) {
+    if (multiVarRenderMode == MultiVarRenderMode::ORIENTED_COLOR_BANDS
+        || multiVarRenderMode == MultiVarRenderMode::ORIENTED_COLOR_BANDS_RIBBON) {
         if (!mapColorToSaturation) {
             sgl::ShaderManager->removePreprocessorDefine("DIRECT_COLOR_MAPPING");
         }
@@ -247,6 +247,9 @@ sgl::ShaderAttributesPtr LineDataMultiVar::getGatherShaderAttributes(sgl::Shader
     shaderAttributes->addGeometryBuffer(
             tubeRenderData.vertexVariableDescBuffer, "variableDesc",
             sgl::ATTRIB_FLOAT, 4);
+    shaderAttributes->addGeometryBuffer(
+            tubeRenderData.vertexTimestepIndexBuffer, "variableDesc",
+            sgl::ATTRIB_FLOAT, 1);
 
     variableArrayBuffer = tubeRenderData.variableArrayBuffer;
     lineDescArrayBuffer = tubeRenderData.lineDescArrayBuffer;
@@ -308,8 +311,8 @@ void LineDataMultiVar::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& ga
     gatherShader->setUniformOptional("checkerboardHeight", checkerboardHeight);
     gatherShader->setUniformOptional("checkerboardIterator", checkerboardIterator);
     gatherShader->setUniformOptional("constantTwistOffset", constantTwistOffset);
-    if ((multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS
-            || multiVarRenderMode == MULTIVAR_RENDERMODE_ORIENTED_COLOR_BANDS_RIBBON)
+    if ((multiVarRenderMode == MultiVarRenderMode::ORIENTED_COLOR_BANDS
+            || multiVarRenderMode == MultiVarRenderMode::ORIENTED_COLOR_BANDS_RIBBON)
             && orientedRibbonMode == ORIENTED_RIBBON_MODE_VARYING_BAND_WIDTH) {
         gatherShader->setUniformOptional("bandBackgroundColor", bandBackgroundColor);
     }
@@ -317,7 +320,8 @@ void LineDataMultiVar::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& ga
 
 void LineDataMultiVar::setTrajectoryData(const Trajectories& trajectories) {
     LineDataFlow::setTrajectoryData(trajectories);
-    bezierTrajectories = convertTrajectoriesToBezierCurves(filterTrajectoryData());
+    bool needsSubdiv = getMultiVarRenderModeNeedsSubdiv(multiVarRenderMode);
+    bezierTrajectories = convertTrajectoriesToBezierCurves(filterTrajectoryData(), needsSubdiv);
 
     // Reset selected attributes.
     varSelected = std::vector<uint32_t>(attributeNames.size(), false);
@@ -416,14 +420,17 @@ TubeRenderDataMultiVar LineDataMultiVar::getTubeRenderDataMultiVar() {
 
     std::vector<glm::vec4> vertexMultiVariableArray;
     std::vector<glm::vec4> vertexVariableDescArray;
+    std::vector<float> vertexTimestepIndexArray;
     vertexMultiVariableArray.reserve(vertexAttributes.size());
     vertexVariableDescArray.reserve(vertexAttributes.size());
+    vertexTimestepIndexArray.reserve(vertexAttributes.size());
     for (size_t vertexIdx = 0; vertexIdx < vertexAttributes.size(); vertexIdx++) {
         std::vector<float>& attrList = vertexAttributes.at(vertexIdx);
         vertexMultiVariableArray.push_back(glm::vec4(
                 attrList.at(0), attrList.at(1), attrList.at(2), attrList.at(3)));
         vertexVariableDescArray.push_back(glm::vec4(
                 attrList.at(4), attrList.at(5), attrList.at(6), attrList.at(7)));
+        vertexTimestepIndexArray.push_back(attrList.at(8));
     }
 
 
@@ -451,6 +458,9 @@ TubeRenderDataMultiVar LineDataMultiVar::getTubeRenderDataMultiVar() {
             sgl::VERTEX_BUFFER);
     tubeRenderData.vertexVariableDescBuffer = sgl::Renderer->createGeometryBuffer(
             vertexVariableDescArray.size()*sizeof(glm::vec4), vertexVariableDescArray.data(),
+            sgl::VERTEX_BUFFER);
+    tubeRenderData.vertexTimestepIndexBuffer = sgl::Renderer->createGeometryBuffer(
+            vertexTimestepIndexArray.size()*sizeof(float), vertexTimestepIndexArray.data(),
             sgl::VERTEX_BUFFER);
 
 
