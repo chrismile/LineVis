@@ -369,6 +369,12 @@ void main() {
             linePointData0.lineNormal, linePointData1.lineNormal, linePointData2.lineNormal, barycentricCoordinates);
 #endif
 
+#ifdef USE_ROTATING_HELICITY_BANDS
+    float fragmentRotation = interpolateFloat(
+            linePointData0.lineHierarchyLevel, linePointData1.lineHierarchyLevel, linePointData2.lineHierarchyLevel,
+            barycentricCoordinates);
+#endif
+
     computeFragmentColor(
             fragmentPositionWorld, fragmentNormal, fragmentTangent, fragmentAttribute,
 #ifdef USE_CAPPED_TUBES
@@ -382,6 +388,9 @@ void main() {
 #endif
 #ifdef USE_BANDS
             linePosition, lineNormal,
+#endif
+#ifdef USE_ROTATING_HELICITY_BANDS
+            fragmentRotation,
 #endif
             linePointData0, linePointData1
     );
@@ -634,6 +643,9 @@ void main() {
 #ifdef USE_AMBIENT_OCCLUSION
     float fragmentVertexId = (1.0 - t) * linePointIndices.x + t * linePointIndices.y;
 #endif
+#ifdef USE_ROTATING_HELICITY_BANDS
+    float fragmentRotation = (1.0 - t) * linePointData0.lineHierarchyLevel + t * linePointData1.lineHierarchyLevel;
+#endif
 
     computeFragmentColor(
             fragmentPositionWorld, fragmentNormal, fragmentTangent, fragmentAttribute,
@@ -648,6 +660,9 @@ void main() {
 #endif
 #ifdef USE_BANDS
             linePointInterpolated, lineNormal,
+#endif
+#ifdef USE_ROTATING_HELICITY_BANDS
+            fragmentRotation,
 #endif
             linePointData0, linePointData1
     );

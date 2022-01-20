@@ -1076,6 +1076,9 @@ std::vector<std::vector<std::vector<glm::vec3>>> LineDataStress::getFilteredPrin
 // --- Retrieve data for rendering. ---
 
 sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
+    if (linePrimitiveMode == LINE_PRIMITIVES_BAND || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND) {
+        sgl::ShaderManager->addPreprocessorDefine("USE_BANDS", "");
+    }
     if (usePrincipalStressDirectionIndex) {
         sgl::ShaderManager->addPreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", "");
         sgl::ShaderManager->addPreprocessorDefine("USE_MULTI_VAR_TRANSFER_FUNCTION", "");
@@ -1138,6 +1141,9 @@ sgl::ShaderProgramPtr LineDataStress::reloadGatherShader() {
     if (usePrincipalStressDirectionIndex) {
         sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX");
         sgl::ShaderManager->removePreprocessorDefine("USE_MULTI_VAR_TRANSFER_FUNCTION");
+    }
+    if (linePrimitiveMode == LINE_PRIMITIVES_BAND || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND) {
+        sgl::ShaderManager->removePreprocessorDefine("USE_BANDS");
     }
     return gatherShader;
 }

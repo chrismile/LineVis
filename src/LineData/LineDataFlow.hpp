@@ -112,6 +112,16 @@ protected:
     // Optional ribbon data.
     static bool useRibbons;
     std::vector<std::vector<glm::vec3>> ribbonsDirections;
+
+    /*
+     * If helicity data is stored for the trajectories, then the helicity can be used for drawing rotating bands
+     * on the surface of the rendered tube primitives.
+     */
+    int helicityAttributeIndex = -1;
+    bool hasHelicity = false;
+    bool useRotatingHelicityBands = false;
+    float helicityRotationFactor = 1.0f;
+    float maxHelicity = 0.0f;
 };
 
 #endif //STRESSLINEVIS_LINEDATAFLOW_HPP

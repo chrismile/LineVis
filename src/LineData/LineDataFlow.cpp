@@ -30,6 +30,7 @@
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
+#include <ImGui/imgui_custom.h>
 
 #ifdef USE_VULKAN_INTEROP
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
@@ -57,21 +58,42 @@ bool LineDataFlow::settingsDiffer(LineData* other) {
 bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodes(propertyEditor);
 
-    if (getUseBandRendering()) {
+    if (!useRotatingHelicityBands && getUseBandRendering()) {
         if (propertyEditor.addCheckbox("Render as Bands", &useRibbons)) {
             dirty = true;
             shallReloadGatherShader = true;
         }
+    }
 
+    if (hasHelicity || getUseBandRendering()) {
         if (propertyEditor.beginNode("Advanced Settings")) {
-            if (propertyEditor.addCheckbox("Render Thick Bands", &renderThickBands)) {
-                shallReloadGatherShader = true;
+            if (!useRotatingHelicityBands && getUseBandRendering()) {
+                if (propertyEditor.addCheckbox("Render Thick Bands", &renderThickBands)) {
+                    shallReloadGatherShader = true;
+                }
+
+                if (renderThickBands && propertyEditor.addSliderFloat(
+                        "Min. Band Thickness", &minBandThickness, 0.01f, 1.0f)) {
+                    triangleRepresentationDirty = true;
+                    shallReloadGatherShader = true;
+                }
             }
 
-            if (renderThickBands && propertyEditor.addSliderFloat(
-                    "Min. Band Thickness", &minBandThickness, 0.01f, 1.0f)) {
-                triangleRepresentationDirty = true;
-                shallReloadGatherShader = true;
+            if (hasHelicity) {
+                if (propertyEditor.addCheckbox("Show Helicity Bands", &useRotatingHelicityBands)) {
+                    if (useRotatingHelicityBands) {
+                        useRibbons = false;
+                    }
+                    dirty = true;
+                    shallReloadGatherShader = true;
+                }
+                if (useRotatingHelicityBands) {
+                    if (propertyEditor.addSliderFloatEdit(
+                            "Helicity Factor", &helicityRotationFactor,
+                            0.0f, 2.0f) == ImGui::EditMode::INPUT_FINISHED) {
+                        dirty = true;
+                    }
+                }
             }
 
             propertyEditor.endNode();
@@ -156,6 +178,16 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
     }
     //normalizeTrajectoriesVertexAttributes(this->trajectories);
 
+    auto helicityIt = std::find(attributeNames.begin(), attributeNames.end(), "Helicity");
+    if (helicityIt != attributeNames.end()) {
+        helicityAttributeIndex = int(helicityIt - attributeNames.begin());
+        hasHelicity = true;
+        //useRotatingHelicityBands = true;
+        //useRibbons = false;
+        glm::vec2 minMaxHelicity = minMaxAttributeValues.at(helicityAttributeIndex);
+        maxHelicity = std::max(std::abs(minMaxHelicity.x), std::abs(minMaxHelicity.y));
+    }
+
     numTotalTrajectoryPoints = 0;
 #if _OPENMP >= 201107
     #pragma omp parallel for reduction(+: numTotalTrajectoryPoints) shared(trajectories) default(none)
@@ -188,6 +220,14 @@ bool LineDataFlow::setNewSettings(const SettingsMap& settings) {
         }
 
         if (settings.getValueOpt("min_band_thickness", minBandThickness)) {
+            shallReloadGatherShader = true;
+        }
+
+        if (settings.getValueOpt("rotating_helicity_bands", useRotatingHelicityBands)) {
+            if (useRotatingHelicityBands) {
+                useRibbons = false;
+            }
+            dirty = true;
             shallReloadGatherShader = true;
         }
     }
@@ -367,7 +407,8 @@ std::vector<std::vector<glm::vec3>> LineDataFlow::getFilteredLines(LineRenderer*
 
 // --- Retrieve data for rendering. Preferred way. ---
 sgl::ShaderProgramPtr LineDataFlow::reloadGatherShader() {
-    if (getUseBandRendering()) {
+    if (useRibbons && getUseBandRendering()) {
+        sgl::ShaderManager->addPreprocessorDefine("USE_BANDS", "");
         if (renderThickBands) {
             sgl::ShaderManager->addPreprocessorDefine("BAND_RENDERING_THICK", "");
             sgl::ShaderManager->addPreprocessorDefine("MIN_THICKNESS", std::to_string(minBandThickness));
@@ -375,10 +416,17 @@ sgl::ShaderProgramPtr LineDataFlow::reloadGatherShader() {
             sgl::ShaderManager->addPreprocessorDefine("MIN_THICKNESS", std::to_string(1e-2f));
         }
     }
+    if (useRotatingHelicityBands) {
+        sgl::ShaderManager->addPreprocessorDefine("USE_ROTATING_HELICITY_BANDS", "");
+    }
 
     sgl::ShaderProgramPtr gatherShader = LineData::reloadGatherShader();
 
-    if (getUseBandRendering()) {
+    if (useRotatingHelicityBands) {
+        sgl::ShaderManager->removePreprocessorDefine("USE_ROTATING_HELICITY_BANDS");
+    }
+    if (useRibbons && getUseBandRendering()) {
+        sgl::ShaderManager->removePreprocessorDefine("USE_BANDS");
         if (renderThickBands) {
             sgl::ShaderManager->removePreprocessorDefine("BAND_RENDERING_THICK");
         }
@@ -388,8 +436,8 @@ sgl::ShaderProgramPtr LineDataFlow::reloadGatherShader() {
 }
 
 sgl::ShaderAttributesPtr LineDataFlow::getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader) {
+    sgl::ShaderAttributesPtr shaderAttributes;
     if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
-        sgl::ShaderAttributesPtr shaderAttributes;
         BandRenderData tubeRenderData = this->getBandRenderData();
         linePointDataSSBO = sgl::GeometryBufferPtr();
 
@@ -415,10 +463,37 @@ sgl::ShaderAttributesPtr LineDataFlow::getGatherShaderAttributes(sgl::ShaderProg
         shaderAttributes->addGeometryBufferOptional(
                 tubeRenderData.vertexOffsetRightBuffer, "vertexOffsetRight",
                 sgl::ATTRIB_FLOAT, 3);
-        return shaderAttributes;
+    } else if (linePrimitiveMode != LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
+        TubeRenderData tubeRenderData = this->getTubeRenderData();
+        linePointDataSSBO = sgl::GeometryBufferPtr();
+
+        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
+
+        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_LINES);
+        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
+        shaderAttributes->addGeometryBuffer(
+                tubeRenderData.vertexPositionBuffer, "vertexPosition",
+                sgl::ATTRIB_FLOAT, 3);
+        shaderAttributes->addGeometryBufferOptional(
+                tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
+                sgl::ATTRIB_FLOAT, 1);
+        shaderAttributes->addGeometryBufferOptional(
+                tubeRenderData.vertexNormalBuffer, "vertexNormal",
+                sgl::ATTRIB_FLOAT, 3);
+        shaderAttributes->addGeometryBufferOptional(
+                tubeRenderData.vertexTangentBuffer, "vertexTangent",
+                sgl::ATTRIB_FLOAT, 3);
+
+        if (useRotatingHelicityBands) {
+            shaderAttributes->addGeometryBufferOptional(
+                    tubeRenderData.vertexRotationBuffer, "vertexRotation",
+                    sgl::ATTRIB_FLOAT, 1);
+        }
     } else {
-        return LineData::getGatherShaderAttributes(gatherShader);
+        shaderAttributes = LineData::getGatherShaderAttributes(gatherShader);
     }
+
+    return shaderAttributes;
 }
 
 
@@ -429,15 +504,17 @@ TubeRenderData LineDataFlow::getTubeRenderData() {
 
     std::vector<std::vector<glm::vec3>> lineCentersList;
     std::vector<std::vector<float>> lineAttributesList;
+    std::vector<std::vector<float>> lineRotationsList; //< Used if useRotatingHelicityBands is set to true.
     std::vector<uint32_t> lineIndices;
     std::vector<glm::vec3> vertexPositions;
     std::vector<glm::vec3> vertexNormals;
     std::vector<glm::vec3> vertexTangents;
     std::vector<float> vertexAttributes;
+    std::vector<float> vertexRotations; //< Used if useRotatingHelicityBands is set to true.
 
     lineCentersList.resize(trajectories.size());
     lineAttributesList.resize(trajectories.size());
-    if (getUseBandRendering() && useRibbons) {
+    if (!useRotatingHelicityBands && getUseBandRendering() && useRibbons) {
         std::vector<std::vector<glm::vec3>> ribbonDirectionsList;
 
         ribbonDirectionsList.resize(trajectories.size());
@@ -516,6 +593,97 @@ TubeRenderData LineDataFlow::getTubeRenderData() {
                 lineIndices.push_back(indexOffset + j + 1);
             }
         }
+    } else if (useRotatingHelicityBands) {
+        lineRotationsList.resize(trajectories.size());
+        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+
+            Trajectory& trajectory = trajectories.at(trajectoryIdx);
+            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
+            std::vector<float>& helicities = trajectory.attributes.at(helicityAttributeIndex);
+            assert(attributes.size() == trajectory.positions.size());
+            std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
+            std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
+            std::vector<float>& lineRotations = lineRotationsList.at(trajectoryIdx);
+
+            float rotation = 0.0f;
+            for (size_t j = 0; j < trajectory.positions.size(); j++) {
+                lineCenters.push_back(trajectory.positions.at(j));
+                lineAttributes.push_back(attributes.at(j));
+                lineRotations.push_back(rotation);
+                rotation += helicities.at(j) / maxHelicity * helicityRotationFactor;
+            }
+        }
+
+        for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
+            const std::vector<glm::vec3>& lineCenters = lineCentersList.at(lineId);
+            const std::vector<float>& lineAttributes = lineAttributesList.at(lineId);
+            const std::vector<float>& lineRotations = lineRotationsList.at(lineId);
+            assert(lineCenters.size() == lineAttributes.size());
+            size_t n = lineCenters.size();
+            auto indexOffset = uint32_t(vertexPositions.size());
+
+            if (n < 2) {
+                continue;
+            }
+
+            glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
+            int numValidLinePoints = 0;
+            for (size_t i = 0; i < n; i++) {
+                glm::vec3 tangent, normal;
+                if (i == 0) {
+                    tangent = lineCenters[i+1] - lineCenters[i];
+                } else if (i == n - 1) {
+                    tangent = lineCenters[i] - lineCenters[i-1];
+                } else {
+                    tangent = (lineCenters[i+1] - lineCenters[i-1]);
+                }
+                float lineSegmentLength = glm::length(tangent);
+
+                if (lineSegmentLength < 0.0001f) {
+                    // In case the two vertices are almost identical, just skip this path line segment
+                    continue;
+                }
+                tangent = glm::normalize(tangent);
+
+                glm::vec3 helperAxis = lastLineNormal;
+                if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
+                    // If tangent == lastNormal
+                    helperAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+                    if (glm::length(glm::cross(helperAxis, normal)) < 0.01f) {
+                        // If tangent == helperAxis
+                        helperAxis = glm::vec3(0.0f, 0.0f, 1.0f);
+                    }
+                }
+                normal = glm::normalize(helperAxis - tangent * glm::dot(helperAxis, tangent)); // Gram-Schmidt
+                lastLineNormal = normal;
+
+                vertexPositions.push_back(lineCenters.at(i));
+                vertexNormals.push_back(normal);
+                vertexTangents.push_back(tangent);
+                vertexAttributes.push_back(lineAttributes.at(i));
+                vertexRotations.push_back(lineRotations.at(i));
+                numValidLinePoints++;
+            }
+
+            if (numValidLinePoints == 1) {
+                // Only one vertex left -> Output nothing (tube consisting only of one point).
+                vertexPositions.pop_back();
+                vertexNormals.pop_back();
+                vertexTangents.pop_back();
+                vertexAttributes.pop_back();
+                vertexRotations.pop_back();
+                continue;
+            }
+
+            // Create indices
+            for (int j = 0; j < numValidLinePoints - 1; j++) {
+                lineIndices.push_back(indexOffset + j);
+                lineIndices.push_back(indexOffset + j + 1);
+            }
+        }
     } else {
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
             if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
@@ -560,6 +728,11 @@ TubeRenderData LineDataFlow::getTubeRenderData() {
     // Add the tangent buffer.
     tubeRenderData.vertexTangentBuffer = sgl::Renderer->createGeometryBuffer(
             vertexTangents.size()*sizeof(glm::vec3), vertexTangents.data(), sgl::VERTEX_BUFFER);
+
+    if (useRotatingHelicityBands) {
+        tubeRenderData.vertexRotationBuffer = sgl::Renderer->createGeometryBuffer(
+                vertexRotations.size()*sizeof(float), vertexRotations.data(), sgl::VERTEX_BUFFER);
+    }
 
     return tubeRenderData;
 }
@@ -699,9 +872,6 @@ BandRenderData LineDataFlow::getBandRenderData() {
     std::vector<glm::vec3> vertexTangents;
     std::vector<glm::vec3> vertexOffsetsLeft;
     std::vector<glm::vec3> vertexOffsetsRight;
-    std::vector<uint32_t> vertexPrincipalStressIndices;
-    std::vector<float> vertexLineHierarchyLevels;
-    std::vector<uint32_t> vertexLineAppearanceOrders;
 
     if (useRibbons) {
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
@@ -749,11 +919,11 @@ BandRenderData LineDataFlow::getBandRenderData() {
             if (numValidLinePoints == 1) {
                 // Only one vertex left -> Output nothing (tube consisting only of one point).
                 vertexPositions.pop_back();
+                vertexOffsetsLeft.pop_back();
+                vertexOffsetsRight.pop_back();
                 vertexNormals.pop_back();
                 vertexTangents.pop_back();
                 vertexAttributes.pop_back();
-                vertexLineHierarchyLevels.pop_back();
-                vertexLineAppearanceOrders.pop_back();
                 continue;
             }
 
@@ -828,11 +998,6 @@ BandRenderData LineDataFlow::getBandRenderData() {
     bandRenderData.vertexOffsetRightBuffer = sgl::Renderer->createGeometryBuffer(
             vertexOffsetsRight.size()*sizeof(glm::vec3), vertexOffsetsRight.data(), sgl::VERTEX_BUFFER);
 
-    // Add the line appearance order buffer.
-    bandRenderData.vertexLineAppearanceOrderBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexLineAppearanceOrders.size()*sizeof(uint32_t),
-            vertexLineAppearanceOrders.data(), sgl::VERTEX_BUFFER);
-
     return bandRenderData;
 }
 
@@ -904,6 +1069,7 @@ VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(
     }
 
     tubeTriangleLinePointDataList.resize(linePointReferences.size());
+    float rotation = 0.0f; //< Used if useRotatingHelicityBands is set to true.
     for (size_t i = 0; i < linePointReferences.size(); i++) {
         LinePointReference& linePointReference = linePointReferences.at(i);
         TubeLinePointData& tubeTriangleLinePointData = tubeTriangleLinePointDataList.at(i);
@@ -914,6 +1080,12 @@ VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(
         tubeTriangleLinePointData.lineAttribute = attributes.at(linePointReference.linePointIndex);
         tubeTriangleLinePointData.lineTangent = lineTangents.at(i);
         tubeTriangleLinePointData.lineNormal = lineNormals.at(i);
+        if (useRotatingHelicityBands) {
+            tubeTriangleLinePointData.lineHierarchyLevel = rotation;
+            float helicity = trajectory.attributes.at(helicityAttributeIndex).at(
+                    linePointReference.linePointIndex);
+            rotation += helicity / maxHelicity * helicityRotationFactor;
+        }
     }
 
 
@@ -976,6 +1148,7 @@ VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData(LineRenderer*
 
         glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
         uint32_t numValidLinePoints = 0;
+        float rotation = 0.0f; //< Used if useRotatingHelicityBands is set to true.
         for (size_t i = 0; i < trajectory.positions.size(); i++) {
             glm::vec3 tangent;
             if (i == 0) {
@@ -1010,6 +1183,11 @@ VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData(LineRenderer*
             linePointData.lineAttribute = trajectory.attributes.at(selectedAttributeIndex).at(i);
             linePointData.lineTangent = tangent;
             linePointData.lineNormal = lastLineNormal;
+            if (useRotatingHelicityBands) {
+                linePointData.lineHierarchyLevel = rotation;
+                float helicity = trajectory.attributes.at(helicityAttributeIndex).at(i);
+                rotation += helicity / maxHelicity * helicityRotationFactor;
+            }
             tubeLinePointDataList.push_back(linePointData);
 
             numValidLinePoints++;
@@ -1074,6 +1252,9 @@ std::map<std::string, std::string> LineDataFlow::getVulkanShaderPreprocessorDefi
     std::map<std::string, std::string> preprocessorDefines = LineData::getVulkanShaderPreprocessorDefines();
     if (useRibbons) {
         preprocessorDefines.insert(std::make_pair("USE_BANDS", ""));
+    }
+    if (useRotatingHelicityBands) {
+        preprocessorDefines.insert(std::make_pair("USE_ROTATING_HELICITY_BANDS", ""));
     }
     return preprocessorDefines;
 }

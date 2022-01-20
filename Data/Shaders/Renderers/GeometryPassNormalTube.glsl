@@ -48,6 +48,10 @@ layout(location = 7) in float vertexMajorStress;
 layout(location = 8) in float vertexMediumStress;
 layout(location = 9) in float vertexMinorStress;
 #endif
+#ifdef USE_ROTATING_HELICITY_BANDS
+// Used for flow lines when the helicity should be used for showing rotated bands on the tube surface.
+layout(location = 10) in float vertexRotation;
+#endif
 
 out VertexData {
     vec3 linePosition;
@@ -71,6 +75,9 @@ out VertexData {
     float lineMediumStress;
     float lineMinorStress;
 #endif
+#ifdef USE_ROTATING_HELICITY_BANDS
+    float lineRotation;
+#endif
 };
 
 #include "TransferFunction.glsl"
@@ -93,6 +100,9 @@ void main() {
     lineMajorStress = vertexMajorStress;
     lineMediumStress = vertexMediumStress;
     lineMinorStress = vertexMinorStress;
+#endif
+#ifdef USE_ROTATING_HELICITY_BANDS
+    lineRotation = vertexRotation;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
     lineVertexId = uint(gl_VertexID);
@@ -150,6 +160,9 @@ out vec3 linePosition;
 #if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
 out float phi;
 #endif
+#ifdef USE_ROTATING_HELICITY_BANDS
+out float fragmentRotation;
+#endif
 
 in VertexData {
     vec3 linePosition;
@@ -169,6 +182,9 @@ in VertexData {
     float lineMajorStress;
     float lineMediumStress;
     float lineMinorStress;
+#endif
+#ifdef USE_ROTATING_HELICITY_BANDS
+    float lineRotation;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
     uint lineVertexId;
@@ -368,7 +384,9 @@ void main() {
         fragmentVertexIdUint = v_in[0].lineVertexId;
         //fragmentVertexId = float(v_in[0].lineVertexId);
 #endif
-
+#ifdef USE_ROTATING_HELICITY_BANDS
+        fragmentRotation = v_in[0].lineRotation;
+#endif
         fragmentAttribute = v_in[0].lineAttribute;
         fragmentTangent = tangentCurrent;
 
@@ -421,6 +439,9 @@ void main() {
 #ifdef USE_AMBIENT_OCCLUSION
         interpolationFactorLine = 1.0f;
         //fragmentVertexId = float(v_in[1].lineVertexId);
+#endif
+#ifdef USE_ROTATING_HELICITY_BANDS
+        fragmentRotation = v_in[1].lineRotation;
 #endif
         fragmentAttribute = v_in[1].lineAttribute;
         fragmentTangent = tangentNext;
@@ -511,6 +532,9 @@ in vec3 linePosition;
 #if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
 in float phi;
 #endif
+#ifdef USE_ROTATING_HELICITY_BANDS
+in float fragmentRotation;
+#endif
 
 #define M_PI 3.14159265358979323846
 
@@ -534,6 +558,14 @@ mat3 shearSymmetricMatrix(vec3 p) {
 }
 #endif
 
+
+#ifdef USE_ROTATING_HELICITY_BANDS
+void drawSeparatorStripe(inout vec4 surfaceColor, in float varFraction, in float separatorWidth) {
+    float aaf = fwidth(varFraction);
+    float alphaBorder = smoothstep(separatorWidth - aaf, separatorWidth + aaf, varFraction);
+    surfaceColor.rgb = surfaceColor.rgb * alphaBorder;
+}
+#endif
 
 void main() {
 #if defined(USE_LINE_HIERARCHY_LEVEL) && !defined(USE_TRANSPARENCY)
@@ -716,7 +748,14 @@ void main() {
 
     fragmentColor = blinnPhongShadingTube(fragmentColor, n, t);
 
+#ifdef USE_ROTATING_HELICITY_BANDS
+    float ribbonPositionShifted = fract(ribbonPosition * 0.5 + 0.5 + fract(fragmentRotation));
+    float varFraction = mod(ribbonPositionShifted * 4.0, 1.0);
+    drawSeparatorStripe(fragmentColor, varFraction, 0.1);
+#endif
+
     float absCoords = abs(ribbonPosition);
+
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
     const float WHITE_THRESHOLD = 0.7;
     float EPSILON_OUTLINE = 0.0;

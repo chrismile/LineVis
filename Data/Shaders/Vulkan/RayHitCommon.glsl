@@ -88,6 +88,13 @@ mat3 shearSymmetricMatrix(vec3 p) {
 }
 #endif
 
+#ifdef USE_ROTATING_HELICITY_BANDS
+void drawSeparatorStripe(inout vec4 surfaceColor, in float varFraction, in float separatorWidth, in float aaf) {
+    float alphaBorder = smoothstep(separatorWidth - aaf, separatorWidth + aaf, varFraction);
+    surfaceColor.rgb = surfaceColor.rgb * alphaBorder;
+}
+#endif
+
 void computeFragmentColor(
         vec3 fragmentPositionWorld, vec3 fragmentNormal, vec3 fragmentTangent, float fragmentAttribute,
 #ifdef USE_CAPPED_TUBES
@@ -101,6 +108,9 @@ void computeFragmentColor(
 #endif
 #ifdef USE_BANDS
         vec3 linePosition, vec3 lineNormal,
+#endif
+#ifdef USE_ROTATING_HELICITY_BANDS
+        float fragmentRotation,
 #endif
         TubeLinePointData linePointData0, TubeLinePointData linePointData1
 ) {
@@ -226,9 +236,9 @@ void computeFragmentColor(
         //const mat3 B = transpose(M_l) * A * M_l;
 
         const mat3 B = mat3(
-        l.z*l.z - l.y*l.y, l.x*l.y, -l.x*l.z,
-        l.x*l.y, a*l.z*l.z - l.x*l.x, -a*l.y*l.z,
-        -l.x*l.z, -a*l.y*l.z, a*l.y*l.y + l.x*l.x
+                l.z*l.z - l.y*l.y, l.x*l.y, -l.x*l.z,
+                l.x*l.y, a*l.z*l.z - l.x*l.x, -a*l.y*l.z,
+                -l.x*l.z, -a*l.y*l.z, a*l.y*l.y + l.x*l.x
         );
 
         const float EPSILON = 1e-4;
@@ -314,6 +324,7 @@ void computeFragmentColor(
 #endif
             n, t);
 
+
     float absCoords = abs(ribbonPosition);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
     const float WHITE_THRESHOLD = 0.7;
@@ -326,6 +337,13 @@ void computeFragmentColor(
     float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDepth / lineWidth * 2.0), 0.0, 0.49);
     float EPSILON_WHITE = clamp(getAntialiasingFactor(fragmentDepth / lineWidth * 2.0), 0.0, 0.49);
 #endif
+
+#ifdef USE_ROTATING_HELICITY_BANDS
+    float ribbonPositionShifted = fract(ribbonPosition * 0.5 + 0.5 + fract(fragmentRotation));
+    float varFraction = mod(ribbonPositionShifted * 4.0, 1.0);
+    drawSeparatorStripe(fragmentColor, varFraction, 0.1, EPSILON_OUTLINE);
+#endif
+
     float coverage = 1.0 - smoothstep(1.0 - EPSILON_OUTLINE, 1.0, absCoords);
     vec4 colorOut = vec4(
             mix(fragmentColor.rgb, foregroundColor.rgb,

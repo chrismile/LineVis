@@ -51,12 +51,13 @@ struct TubeRenderData {
     sgl::GeometryBufferPtr vertexAttributeBuffer;
     sgl::GeometryBufferPtr vertexNormalBuffer;
     sgl::GeometryBufferPtr vertexTangentBuffer;
-    sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
-    sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
-    sgl::GeometryBufferPtr vertexLineAppearanceOrderBuffer; ///< Empty for flow lines.
-    sgl::GeometryBufferPtr vertexMajorStressBuffer; ///< Empty for flow lines.
-    sgl::GeometryBufferPtr vertexMediumStressBuffer; ///< Empty for flow lines.
-    sgl::GeometryBufferPtr vertexMinorStressBuffer; ///< Empty for flow lines.
+    sgl::GeometryBufferPtr vertexRotationBuffer; ///< Only for flow lines.
+    sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Only for stress lines.
+    sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Only for stress lines.
+    sgl::GeometryBufferPtr vertexLineAppearanceOrderBuffer; ///< Only for stress lines.
+    sgl::GeometryBufferPtr vertexMajorStressBuffer; ///< Only for stress lines.
+    sgl::GeometryBufferPtr vertexMediumStressBuffer; ///< Only for stress lines.
+    sgl::GeometryBufferPtr vertexMinorStressBuffer; ///< Only for stress lines.
 };
 
 struct BandRenderData {

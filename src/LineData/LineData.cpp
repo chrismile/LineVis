@@ -304,22 +304,18 @@ sgl::ShaderProgramPtr LineData::reloadGatherShader() {
         });
         sgl::ShaderManager->removePreprocessorDefine("NUM_TUBE_SUBDIVISIONS");
     } else if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_BANDS", "");
         shaderProgramPtr = sgl::ShaderManager->getShaderProgram({
                 "GeometryPassNormalBand.VBO.Vertex",
                 "GeometryPassNormalBand.VBO.Geometry",
                 "GeometryPassNormalBand.Fragment"
         });
-        sgl::ShaderManager->removePreprocessorDefine("USE_BANDS");
     } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND) {
         sgl::ShaderManager->addPreprocessorDefine("NUM_TUBE_SUBDIVISIONS", tubeNumSubdivisions);
-        sgl::ShaderManager->addPreprocessorDefine("USE_BANDS", "");
         shaderProgramPtr = sgl::ShaderManager->getShaderProgram({
                 "GeometryPassNormalTube.VBO.Vertex",
                 "GeometryPassNormalTube.VBO.Geometry",
                 "GeometryPassNormalTube.Fragment"
         });
-        sgl::ShaderManager->removePreprocessorDefine("USE_BANDS");
         sgl::ShaderManager->removePreprocessorDefine("NUM_TUBE_SUBDIVISIONS");
     } else {
         sgl::Logfile::get()->writeError("Error in LineData::reloadGatherShader: Invalid line primitive mode.");
@@ -439,7 +435,7 @@ void LineData::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShad
     gatherShader->setUniformOptional("maxAttributeValue", transferFunctionWindow.getSelectedRangeMax());
 
     if (getUseBandRendering()) {
-        gatherShader->setUniform("bandWidth", LineRenderer::bandWidth);
+        gatherShader->setUniformOptional("bandWidth", LineRenderer::bandWidth);
     }
 }
 
