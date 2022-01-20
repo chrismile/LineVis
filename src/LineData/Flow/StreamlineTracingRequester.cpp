@@ -220,6 +220,7 @@ void StreamlineTracingRequester::renderGui() {
             }
             if (guiTracingSettings.showSimulationGridOutline) {
                 if (ImGui::Checkbox("Smooth Boundary", &guiTracingSettings.smoothedSimulationGridOutline)) {
+                    std::lock_guard<std::mutex> lock(cachedGridMetadataMutex);
                     cachedSimulationMeshOutlineTriangleIndices.clear();
                     cachedSimulationMeshOutlineVertexPositions.clear();
                     cachedSimulationMeshOutlineVertexNormals.clear();
@@ -237,6 +238,17 @@ void StreamlineTracingRequester::renderGui() {
                     STREAMLINE_INTEGRATION_DIRECTION_NAMES,
                     IM_ARRAYSIZE(STREAMLINE_INTEGRATION_DIRECTION_NAMES))) {
                 changed = true;
+            }
+            {
+                std::lock_guard<std::mutex> lock(cachedGridMetadataMutex);
+                if (cachedGridVectorFieldNames.size() > 1) {
+                    if (ImGui::Combo(
+                            "Vector Field", (int*)&guiTracingSettings.vectorFieldIndex,
+                            cachedGridVectorFieldNames.data(),
+                            int(cachedGridVectorFieldNames.size()))) {
+                        changed = true;
+                    }
+                }
             }
 
             if (guiTracingSettings.flowPrimitives == FlowPrimitives::STREAMRIBBONS) {
@@ -364,6 +376,25 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
             sgl::Logfile::get()->writeError(
                     "Error in StreamlineTracingRequester::setLineTracerSettings: Unknown integration direction \""
                     + integrationDirectionName + "\".");
+        }
+    }
+
+    std::string vectorFieldName;
+    if (settings.getValueOpt("vector_field", vectorFieldName)) {
+        std::lock_guard<std::mutex> lock(cachedGridMetadataMutex);
+        int i;
+        for (i = 0; i < int(cachedGridVectorFieldNames.size()); i++) {
+            if (boost::to_lower_copy(vectorFieldName)
+                    == boost::to_lower_copy(std::string(STREAMLINE_INTEGRATION_DIRECTION_NAMES[i]))) {
+                guiTracingSettings.vectorFieldIndex = i;
+                changed = true;
+                break;
+            }
+        }
+        if (i == int(cachedGridVectorFieldNames.size())) {
+            sgl::Logfile::get()->writeError(
+                    "Error in StreamlineTracingRequester::setLineTracerSettings: Unknown vector field name \""
+                    + vectorFieldName + "\".");
         }
     }
 
@@ -565,24 +596,36 @@ void StreamlineTracingRequester::traceLines(
             newGridLoaded = true;
             gridBox = cachedGrid->getBox();
         }
+
+        std::lock_guard<std::mutex> lock(cachedGridMetadataMutex);
         cachedSimulationMeshOutlineTriangleIndices.clear();
         cachedSimulationMeshOutlineVertexPositions.clear();
         cachedSimulationMeshOutlineVertexNormals.clear();
+        cachedGridVectorFieldNames = cachedGrid->getVectorFieldNames();
     }
     if (guiTracingSettings.showSimulationGridOutline && cachedSimulationMeshOutlineVertexPositions.empty()) {
+        std::vector<uint32_t> simulationMeshOutlineTriangleIndices;
+        std::vector<glm::vec3> simulationMeshOutlineVertexPositions;
+        std::vector<glm::vec3> simulationMeshOutlineVertexNormals;
+
         cachedGrid->computeSimulationBoundaryMesh(
-                cachedSimulationMeshOutlineTriangleIndices,
-                cachedSimulationMeshOutlineVertexPositions);
+                simulationMeshOutlineTriangleIndices,
+                simulationMeshOutlineVertexPositions);
         if (guiTracingSettings.smoothedSimulationGridOutline) {
             laplacianSmoothing(
-                    cachedSimulationMeshOutlineTriangleIndices, cachedSimulationMeshOutlineVertexPositions);
+                    simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
         }
         normalizeVertexPositions(
-                cachedSimulationMeshOutlineVertexPositions, gridBox, nullptr);
+                simulationMeshOutlineVertexPositions, gridBox, nullptr);
         computeSmoothTriangleNormals(
-                cachedSimulationMeshOutlineTriangleIndices,
-                cachedSimulationMeshOutlineVertexPositions,
-                cachedSimulationMeshOutlineVertexNormals);
+                simulationMeshOutlineTriangleIndices,
+                simulationMeshOutlineVertexPositions,
+                simulationMeshOutlineVertexNormals);
+
+        std::lock_guard<std::mutex> lock(cachedGridMetadataMutex);
+        cachedSimulationMeshOutlineTriangleIndices = simulationMeshOutlineTriangleIndices;
+        cachedSimulationMeshOutlineVertexPositions = simulationMeshOutlineVertexPositions;
+        cachedSimulationMeshOutlineVertexNormals = simulationMeshOutlineVertexNormals;
     }
 
     Trajectories trajectories;
@@ -606,7 +649,7 @@ void StreamlineTracingRequester::traceLines(
         BinLinesData binLinesData;
         binLinesData.trajectories = trajectories;
         binLinesData.verticesNormalized = true;
-        binLinesData.attributeNames = cachedGrid->getScalarAttributeNames();
+        binLinesData.attributeNames = cachedGrid->getScalarFieldNames();
         binLinesData.ribbonsDirections = lineData->ribbonsDirections;
         binLinesData.simulationMeshOutlineTriangleIndices = cachedSimulationMeshOutlineTriangleIndices;
         binLinesData.simulationMeshOutlineVertexPositions = cachedSimulationMeshOutlineVertexPositions;
@@ -615,6 +658,6 @@ void StreamlineTracingRequester::traceLines(
     }
 
     lineData->fileNames = { request.dataSourceFilename };
-    lineData->attributeNames = cachedGrid->getScalarAttributeNames();
+    lineData->attributeNames = cachedGrid->getScalarFieldNames();
     lineData->setTrajectoryData(trajectories);
 }

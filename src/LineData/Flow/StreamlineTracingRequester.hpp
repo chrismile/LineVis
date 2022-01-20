@@ -110,9 +110,11 @@ private:
     // Cache for storing the currently selected streamline tracing grid.
     std::string cachedGridFilename;
     StreamlineTracingGrid* cachedGrid = nullptr;
+    std::mutex cachedGridMetadataMutex;
     std::vector<uint32_t> cachedSimulationMeshOutlineTriangleIndices;
     std::vector<glm::vec3> cachedSimulationMeshOutlineVertexPositions;
     std::vector<glm::vec3> cachedSimulationMeshOutlineVertexNormals;
+    std::vector<std::string> cachedGridVectorFieldNames;
 
     // GUI data.
     bool showWindow = true;

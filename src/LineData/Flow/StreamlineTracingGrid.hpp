@@ -44,9 +44,11 @@ class StreamlineSeeder;
 class StreamlineTracingGrid {
 public:
     ~StreamlineTracingGrid();
-    void setVelocityField(float* data, int xs, int ys, int zs, float dx, float dy, float dz);
+    void setGridMetadata(int xs, int ys, int zs, float dx, float dy, float dz);
+    void addVectorField(float* vectorField, const std::string& vectorName);
     void addScalarField(float* scalarField, const std::string& scalarName);
-    std::vector<std::string> getScalarAttributeNames();
+    std::vector<std::string> getVectorFieldNames();
+    std::vector<std::string> getScalarFieldNames();
     [[nodiscard]] inline const sgl::AABB3& getBox() const { return box; }
     [[nodiscard]] inline int getGridSizeX() const { return xs; }
     [[nodiscard]] inline int getGridSizeY() const { return ys; }
@@ -55,6 +57,7 @@ public:
     [[nodiscard]] inline float getDy() const { return dy; }
     [[nodiscard]] inline float getDz() const { return dz; }
     [[nodiscard]] inline float* getVelocityField() const { return velocityField; }
+    [[nodiscard]] inline float* getVorticityField() const { return vorticityField; }
     [[nodiscard]] inline float* getHelicityField() const { return helicityField; }
 
     void traceStreamlines(StreamlineTracingSettings& tracingSettings, Trajectories& filteredTrajectories);
@@ -67,12 +70,13 @@ public:
             std::vector<glm::vec3>& cachedSimulationMeshOutlineVertexPositions);
 
 private:
+    void _setVectorField(StreamlineTracingSettings& tracingSettings);
     float _getScalarFieldAtIdx(const float* scalarField, const glm::ivec3& gridIdx) const;
     float _getScalarFieldAtPosition(const float* scalarField, const glm::vec3& particlePosition) const;
-    [[nodiscard]] glm::vec3 _getVelocityAtIdx(const glm::ivec3& gridIdx, bool forwardMode) const;
-    [[nodiscard]] glm::vec3 _getVelocityAtPosition(const glm::vec3& particlePosition, bool forwardMode) const;
-    [[nodiscard]] glm::dvec3 _getVelocityAtIdxDouble(const glm::ivec3& gridIdx, bool forwardMode) const;
-    [[nodiscard]] glm::dvec3 _getVelocityAtPositionDouble(const glm::dvec3& particlePosition, bool forwardMode) const;
+    [[nodiscard]] glm::vec3 _getVectorAtIdx(const glm::ivec3& gridIdx, bool forwardMode) const;
+    [[nodiscard]] glm::vec3 _getVectorAtPosition(const glm::vec3& particlePosition, bool forwardMode) const;
+    [[nodiscard]] glm::dvec3 _getVectorAtIdxDouble(const glm::ivec3& gridIdx, bool forwardMode) const;
+    [[nodiscard]] glm::dvec3 _getVectorAtPositionDouble(const glm::dvec3& particlePosition, bool forwardMode) const;
     static bool _rayBoxIntersection(
             const glm::vec3& rayOrigin, const glm::vec3& rayDirection, const glm::vec3& lower, const glm::vec3& upper,
             float& tNear, float& tFar);
@@ -134,10 +138,13 @@ private:
     float dx = 0.0f, dy = 0.0f, dz = 0.0f; ///< Distance between two neighboring points in x/y/z direction.
     sgl::AABB3 box; ///< Box encompassing all grid points.
     float* velocityField = nullptr;
+    float* vorticityField = nullptr;
     float* helicityField = nullptr;
     glm::vec3* V = nullptr;
-    float maxVelocityMagnitude = 0.0f;
+    float maxVectorMagnitude = 0.0f;
     float maxHelicityMagnitude = 0.0f;
+    std::map<std::string, float*> vectorFields;
+    std::map<std::string, float> maxVectorFieldMagnitudes;
     std::map<std::string, float*> scalarFields;
 };
 

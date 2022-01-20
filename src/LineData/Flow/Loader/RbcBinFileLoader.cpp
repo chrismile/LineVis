@@ -80,12 +80,13 @@ void RbcBinFileLoader::load(const std::string& dataSourceFilename, StreamlineTra
     computeVectorMagnitudeField(vorticityField, vorticityMagnitudeField, xs, ys, zs);
     computeHelicityField(velocityField, vorticityField, helicityField, xs, ys, zs);
 
-    grid->setVelocityField(velocityField, xs, ys, zs, cellStep, cellStep, cellStep);
+    grid->setGridMetadata(xs, ys, zs, cellStep, cellStep, cellStep);
+    grid->addVectorField(velocityField, "Velocity");
+    grid->addVectorField(vorticityField, "Vorticity");
     grid->addScalarField(helicityField, "Helicity");
     grid->addScalarField(velocityMagnitudeField, "Velocity Magnitude");
     grid->addScalarField(vorticityMagnitudeField, "Vorticity Magnitude");
     grid->addScalarField(temperatureField, "Temperature");
 
     delete[] dataField;
-    delete[] vorticityField;
 }

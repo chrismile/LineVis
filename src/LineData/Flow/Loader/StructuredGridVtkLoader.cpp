@@ -400,7 +400,8 @@ void StructuredGridVtkLoader::load(const std::string& dataSourceFilename, Stream
                 + "\" does not contain a vector field called 'velocity'.");
     }
     float* velocityField = itVelocity->second;
-    grid->setVelocityField(itVelocity->second, xs, ys, zs, cellStep, cellStep, cellStep);
+
+    grid->setGridMetadata(xs, ys, zs, cellStep, cellStep, cellStep);
 
     if (scalarFields.find("velocityMagnitude") == scalarFields.end()) {
         auto* velocityMagnitudeField = new float[numPoints];
@@ -408,11 +409,18 @@ void StructuredGridVtkLoader::load(const std::string& dataSourceFilename, Stream
         scalarFields.insert(std::make_pair("Velocity Magnitude", velocityMagnitudeField));
     }
 
-    if (scalarFields.find("vorticityMagnitude") == scalarFields.end()
+    if (vectorFields.find("vorticity") == scalarFields.end()
+            || scalarFields.find("vorticityMagnitude") == scalarFields.end()
             || scalarFields.find("helicity") == scalarFields.end()) {
-        auto* vorticityField = new float[numPoints * 3];
-        computeVorticityField(
-                velocityField, vorticityField, xs, ys, zs, cellStep, cellStep, cellStep);
+        float* vorticityField;
+        auto it = vectorFields.find("vorticity");
+        if (it == vectorFields.end()) {
+            vorticityField = new float[numPoints * 3];
+            computeVorticityField(velocityField, vorticityField, xs, ys, zs, cellStep, cellStep, cellStep);
+            vectorFields.insert(std::make_pair("Vorticity", vorticityField));
+        } else {
+            vorticityField = it->second;
+        }
         if (scalarFields.find("vorticityMagnitude") == scalarFields.end()) {
             auto* vorticityMagnitudeField = new float[numPoints];
             computeVectorMagnitudeField(vorticityField, vorticityMagnitudeField, xs, ys, zs);
@@ -424,6 +432,13 @@ void StructuredGridVtkLoader::load(const std::string& dataSourceFilename, Stream
             scalarFields.insert(std::make_pair("Helicity", helicityField));
         }
         delete[] vorticityField;
+    }
+
+    for (auto& it : vectorFields) {
+        // Convert first letter to upper case.
+        std::string vectorDisplayName;
+        vectorDisplayName = boost::to_upper_copy(it.first.substr(0, 1)) + it.first.substr(1);
+        grid->addVectorField(it.second, vectorDisplayName);
     }
 
     for (auto& it : scalarFields) {
@@ -440,15 +455,6 @@ void StructuredGridVtkLoader::load(const std::string& dataSourceFilename, Stream
     }
 
     delete[] gridPoints;
-
-    for (auto& it : vectorFields) {
-        if (it.first == "velocity") {
-            continue;
-        }
-        delete[] it.second;
-    }
-    vectorFields.clear();
-
     delete[] buffer;
     buffer = nullptr;
 }
