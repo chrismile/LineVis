@@ -100,7 +100,7 @@ void computeFragmentColor(
 #ifdef USE_CAPPED_TUBES
         bool isCap,
 #endif
-#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
+#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
         float phi,
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
@@ -327,7 +327,11 @@ void computeFragmentColor(
 
     float absCoords = abs(ribbonPosition);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
+#ifdef USE_ROTATING_HELICITY_BANDS
+    const float WHITE_THRESHOLD = 0.8;
+#else
     const float WHITE_THRESHOLD = 0.7;
+#endif
 #ifdef USE_BANDS
     //float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / (useBand ? bandWidth : lineWidth), 0.0, 0.49);
     float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDepth / (useBand ? bandWidth : lineWidth) * 2.0), 0.0, 0.49);
@@ -339,8 +343,7 @@ void computeFragmentColor(
 #endif
 
 #ifdef USE_ROTATING_HELICITY_BANDS
-    float ribbonPositionShifted = fract(ribbonPosition * 0.5 + 0.5 + fract(fragmentRotation));
-    float varFraction = mod(ribbonPositionShifted * 4.0, 1.0);
+    float varFraction = mod(phi + fragmentRotation, 0.25 * float(M_PI));
     drawSeparatorStripe(fragmentColor, varFraction, 0.1, EPSILON_OUTLINE);
 #endif
 

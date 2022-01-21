@@ -702,8 +702,8 @@ void StreamlineTracingGrid::_pushRibbonDirections(
             tangent = trajectory.positions[i + 1] - trajectory.positions[i - 1];
         }
 
-        float lineSegmentLength = glm::length(tangent);
-        if (lineSegmentLength < 1e-7f) {
+        float tangentLength = glm::length(tangent);
+        if (tangentLength < 1e-7f) {
             sgl::Logfile::get()->writeError(
                     "Warning in StreamlineTracingGrid::_pushRibbonDirections: "
                     "The line segment length is smaller than 1e-7.");
@@ -729,7 +729,13 @@ void StreamlineTracingGrid::_pushRibbonDirections(
             if (!forwardMode) {
                 helicity *= -1.0f;
             }
-            float helicityAngle = helicity / maxHelicityMagnitude * sgl::PI * tracingSettings.maxHelicityTwist;
+            float lineSegmentLength = 0.0f;
+            if (i < trajectory.positions.size() - 1) {
+                lineSegmentLength = glm::length(trajectory.positions.at(i + 1) - trajectory.positions.at(i));
+            }
+            float helicityAngle =
+                    helicity / maxHelicityMagnitude * sgl::PI * tracingSettings.maxHelicityTwist
+                    * lineSegmentLength / 0.005f;
             ribbonDirection = glm::rotate(ribbonDirection, helicityAngle, tangent);
         }
 

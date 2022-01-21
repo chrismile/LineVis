@@ -119,7 +119,7 @@ protected:
      */
     int helicityAttributeIndex = -1;
     bool hasHelicity = false;
-    bool useRotatingHelicityBands = false;
+    static bool useRotatingHelicityBands;
     float helicityRotationFactor = 1.0f;
     float maxHelicity = 0.0f;
 };

@@ -157,7 +157,7 @@ out float thickness;
 out vec3 lineNormal;
 out vec3 linePosition;
 #endif
-#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
 out float phi;
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
@@ -350,7 +350,7 @@ void main() {
 #endif
 
 
-#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
     const float factor = 2.0 * M_PI / float(NUM_TUBE_SUBDIVISIONS);
 #endif
 
@@ -358,7 +358,7 @@ void main() {
     for (int i = 0; i < NUM_TUBE_SUBDIVISIONS; i++) {
         int iNext = (i+1)%NUM_TUBE_SUBDIVISIONS;
 
-#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
         phi = float(i) * factor;
 #endif
 #if defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
@@ -398,7 +398,7 @@ void main() {
 #endif
         EmitVertex();
 
-#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
         phi = float(i + 1) * factor;
 #endif
 #if defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
@@ -415,7 +415,7 @@ void main() {
         EmitVertex();
 
 
-#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
         phi = float(i) * factor;
 #endif
 #if defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
@@ -454,7 +454,7 @@ void main() {
 #endif
         EmitVertex();
 
-#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
         phi = float(i + 1) * factor;
 #endif
 #if defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
@@ -529,7 +529,7 @@ in float thickness;
 in vec3 lineNormal;
 in vec3 linePosition;
 #endif
-#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
 in float phi;
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
@@ -749,15 +749,18 @@ void main() {
     fragmentColor = blinnPhongShadingTube(fragmentColor, n, t);
 
 #ifdef USE_ROTATING_HELICITY_BANDS
-    float ribbonPositionShifted = fract(ribbonPosition * 0.5 + 0.5 + fract(fragmentRotation));
-    float varFraction = mod(ribbonPositionShifted * 4.0, 1.0);
+    float varFraction = mod(phi + fragmentRotation, 0.25 * float(M_PI));
     drawSeparatorStripe(fragmentColor, varFraction, 0.1);
 #endif
 
     float absCoords = abs(ribbonPosition);
 
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
+#ifdef USE_ROTATING_HELICITY_BANDS
+    const float WHITE_THRESHOLD = 0.8;
+#else
     const float WHITE_THRESHOLD = 0.7;
+#endif
     float EPSILON_OUTLINE = 0.0;
 #ifdef USE_BANDS
     //float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDistance / (useBand != 0 ? bandWidth : lineWidth) * 2.0), 0.0, 0.49);

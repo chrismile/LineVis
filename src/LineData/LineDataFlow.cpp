@@ -43,6 +43,7 @@
 #include "LineDataFlow.hpp"
 
 bool LineDataFlow::useRibbons = true;
+bool LineDataFlow::useRotatingHelicityBands = false;
 
 LineDataFlow::LineDataFlow(sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_FLOW_LINES) {
@@ -129,7 +130,7 @@ bool LineDataFlow::loadFromFile(
 
 void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
     hasBandsData = !ribbonsDirections.empty();
-    useRibbons = hasBandsData;
+    useRibbons = !useRotatingHelicityBands && hasBandsData;
     if (ribbonsDirections.empty()
             && (linePrimitiveMode == LINE_PRIMITIVES_BAND || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND)) {
         linePrimitiveMode = LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
@@ -613,7 +614,11 @@ TubeRenderData LineDataFlow::getTubeRenderData() {
                 lineCenters.push_back(trajectory.positions.at(j));
                 lineAttributes.push_back(attributes.at(j));
                 lineRotations.push_back(rotation);
-                rotation += helicities.at(j) / maxHelicity * helicityRotationFactor;
+                float lineSegmentLength = 0.0f;
+                if (j < trajectory.positions.size() - 1) {
+                    lineSegmentLength = glm::length(trajectory.positions.at(j + 1) - trajectory.positions.at(j));
+                }
+                rotation += helicities.at(j) / maxHelicity * sgl::PI * helicityRotationFactor * lineSegmentLength / 0.005f;
             }
         }
 
@@ -1084,7 +1089,16 @@ VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(
             tubeTriangleLinePointData.lineHierarchyLevel = rotation;
             float helicity = trajectory.attributes.at(helicityAttributeIndex).at(
                     linePointReference.linePointIndex);
-            rotation += helicity / maxHelicity * helicityRotationFactor;
+            float lineSegmentLength = 0.0f;
+            if (i < linePointReferences.size() - 1) {
+                LinePointReference& nextLinePointReference = linePointReferences.at(i + 1);
+                if (linePointReference.trajectoryIndex == nextLinePointReference.trajectoryIndex) {
+                    lineSegmentLength = glm::length(
+                            trajectory.positions.at(nextLinePointReference.linePointIndex)
+                            - trajectory.positions.at(linePointReference.linePointIndex));
+                }
+            }
+            rotation += helicity / maxHelicity * sgl::PI * helicityRotationFactor * lineSegmentLength / 0.005f;
         }
     }
 
@@ -1158,9 +1172,9 @@ VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData(LineRenderer*
             } else {
                 tangent = trajectory.positions[i + 1] - trajectory.positions[i - 1];
             }
-            float lineSegmentLength = glm::length(tangent);
+            float tangentLength = glm::length(tangent);
 
-            if (lineSegmentLength < 0.0001f) {
+            if (tangentLength < 0.0001f) {
                 // In case the two vertices are almost identical, just skip this path line segment.
                 continue;
             }
@@ -1186,7 +1200,12 @@ VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData(LineRenderer*
             if (useRotatingHelicityBands) {
                 linePointData.lineHierarchyLevel = rotation;
                 float helicity = trajectory.attributes.at(helicityAttributeIndex).at(i);
-                rotation += helicity / maxHelicity * helicityRotationFactor;
+
+                float lineSegmentLength = 0.0f;
+                if (i < trajectory.positions.size() - 1) {
+                    lineSegmentLength = glm::length(trajectory.positions.at(i + 1) - trajectory.positions.at(i));
+                }
+                rotation += helicity / maxHelicity * sgl::PI * helicityRotationFactor * lineSegmentLength / 0.005f;
             }
             tubeLinePointDataList.push_back(linePointData);
 
@@ -1250,7 +1269,7 @@ VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData(LineRenderer*
 
 std::map<std::string, std::string> LineDataFlow::getVulkanShaderPreprocessorDefines() {
     std::map<std::string, std::string> preprocessorDefines = LineData::getVulkanShaderPreprocessorDefines();
-    if (useRibbons) {
+    if (useRibbons && !useRotatingHelicityBands) {
         preprocessorDefines.insert(std::make_pair("USE_BANDS", ""));
     }
     if (useRotatingHelicityBands) {

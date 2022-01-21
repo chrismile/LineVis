@@ -409,7 +409,7 @@ void StructuredGridVtkLoader::load(const std::string& dataSourceFilename, Stream
         scalarFields.insert(std::make_pair("Velocity Magnitude", velocityMagnitudeField));
     }
 
-    if (vectorFields.find("vorticity") == scalarFields.end()
+    if (vectorFields.find("vorticity") == vectorFields.end()
             || scalarFields.find("vorticityMagnitude") == scalarFields.end()
             || scalarFields.find("helicity") == scalarFields.end()) {
         float* vorticityField;

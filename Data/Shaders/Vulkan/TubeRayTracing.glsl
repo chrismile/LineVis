@@ -352,7 +352,7 @@ void main() {
             linePointData0.lineAttribute, linePointData1.lineAttribute, linePointData2.lineAttribute,
             barycentricCoordinates);
 
-#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
+#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
     float phi = interpolateAngle(
             vertexData0.phi, vertexData1.phi, vertexData2.phi, barycentricCoordinates);
 #endif
@@ -380,7 +380,7 @@ void main() {
 #ifdef USE_CAPPED_TUBES
             isCap,
 #endif
-#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
+#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
             phi,
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
@@ -630,7 +630,7 @@ void main() {
     bool isCap = gl_HitKindEXT != 0;
 #endif
 
-#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
+#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
     vec3 lineNormal = (1.0 - t) * linePointData0.lineNormal + t * linePointData1.lineNormal;
 
     // Compute the angle between the fragment and line normal to get phi.
@@ -652,7 +652,7 @@ void main() {
 #ifdef USE_CAPPED_TUBES
             isCap,
 #endif
-#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION)
+#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
             phi,
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
