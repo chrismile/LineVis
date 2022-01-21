@@ -165,7 +165,7 @@ l <v_idx_1> <v_idx_2> ... <v_idx_n>
 
 This program can be used as the frontend for 3D-TSV, the 3D Trajectory-based Stress Visualizer.
 For this, select "Stress Line Tracer" in the menu "File > Datasets" to open the line tracing menu.
-When the 3D-TSV script `zeromqReplier.m` is running in the background, this application will then communicate with
+When the 3D-TSV script `TSV3D_server.m` is running in the background, this application will then communicate with
 3D-TSV over TCP/IP using ZeroMQ.
 
 The repository of the backend can be found here: https://github.com/Junpeng-Wang-TUM/3D-TSV
