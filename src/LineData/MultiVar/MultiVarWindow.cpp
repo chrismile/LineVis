@@ -119,7 +119,7 @@ void MultiVarWindow::computeHistograms() {
 }
 
 void MultiVarWindow::renderVarChart() {
-    float regionWidth = ImGui::GetContentRegionAvailWidth();
+    float regionWidth = ImGui::GetContentRegionAvail().x;
     float graphHeight = 150;
 
     const auto &histogram = histograms[variableIndex];

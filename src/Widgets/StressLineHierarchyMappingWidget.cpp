@@ -164,7 +164,7 @@ void StressLineHierarchyMappingWidget::update(float dt) {
 void StressLineHierarchyMappingWidget::renderGraphArea(int psIdx) {
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     float scaleFactor = sgl::ImGuiWrapper::get()->getScaleFactor();
-    float regionWidth = ImGui::GetContentRegionAvailWidth();
+    float regionWidth = ImGui::GetContentRegionAvail().x;
     float graphHeight = 200;
     float border = 2 * scaleFactor;
     float areaWidth = regionWidth - 2.0f * border;

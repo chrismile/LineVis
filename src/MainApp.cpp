@@ -781,6 +781,10 @@ void MainApp::renderGui() {
     focusedWindowIndex = -1;
     mouseHoverWindowIndex = -1;
 
+    if (sgl::Keyboard->keyPressed(SDLK_o) && (sgl::Keyboard->getModifier() & (KMOD_LCTRL | KMOD_RCTRL)) != 0) {
+        openFileDialog();
+    }
+
     if (IGFD_DisplayDialog(
             fileDialogInstance,
             "ChooseDataSetFile", ImGuiWindowFlags_NoCollapse,
@@ -1297,18 +1301,22 @@ void MainApp::initializeFirstDataView() {
     prepareVisualizationPipeline();
 }
 
+void MainApp::openFileDialog() {
+    selectedDataSetIndex = 0;
+    IGFD_OpenModal(
+            fileDialogInstance,
+            "ChooseDataSetFile", "Choose a File",
+            ".*,.obj,.dat,.binlines,.nc,.vtk,.bin,.stress,.carti,.xyz",
+            (sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/").c_str(),
+            "", 1, nullptr,
+            ImGuiFileDialogFlags_ConfirmOverwrite);
+}
+
 void MainApp::renderGuiMenuBar() {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Open Dataset...", "CTRL+O")) {
-                selectedDataSetIndex = 0;
-                IGFD_OpenModal(
-                        fileDialogInstance,
-                        "ChooseDataSetFile", "Choose a File",
-                        ".*,.obj,.dat,.binlines,.nc,.vtk,.bin,.stress,.carti,.xyz",
-                        (sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/").c_str(),
-                        "", 1, nullptr,
-                        ImGuiFileDialogFlags_ConfirmOverwrite);
+                openFileDialog();
             }
 
             if (ImGui::BeginMenu("Datasets")) {
@@ -1492,7 +1500,7 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
             bool removeView = false;
             bool beginNode = propertyEditor.beginNode(dataView->getWindowName(i));
             ImGui::SameLine();
-            float indentWidth = ImGui::GetContentRegionAvailWidth();
+            float indentWidth = ImGui::GetContentRegionAvail().x;
             ImGui::Indent(indentWidth);
             if (ImGui::Button("X")) {
                 removeView = true;

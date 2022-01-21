@@ -446,7 +446,7 @@ void GuiVarData::renderFileDialog() {
 void GuiVarData::renderOpacityGraph() {
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     float scaleFactor = sgl::ImGuiWrapper::get()->getScaleFactor();
-    float regionWidth = ImGui::GetContentRegionAvailWidth();
+    float regionWidth = ImGui::GetContentRegionAvail().x;
     float graphHeight = 300 * scaleFactor / 1.875f;
     float border = 2*scaleFactor;
     float areaWidth = regionWidth - 2.0f*border;
@@ -514,7 +514,7 @@ void GuiVarData::renderOpacityGraph() {
 void GuiVarData::renderColorBar() {
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     float scaleFactor = sgl::ImGuiWrapper::get()->getScaleFactor();
-    float regionWidth = ImGui::GetContentRegionAvailWidth() - 2.0f;
+    float regionWidth = ImGui::GetContentRegionAvail().x;
     float barHeight = 30 * scaleFactor / 1.875f;
     colorBarBox.min = glm::vec2(ImGui::GetCursorScreenPos().x + 1, ImGui::GetCursorScreenPos().y + 1);
     colorBarBox.max = colorBarBox.min + glm::vec2(regionWidth - 2, barHeight - 2);

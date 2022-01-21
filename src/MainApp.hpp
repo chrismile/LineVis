@@ -123,6 +123,7 @@ private:
     // Data set GUI information.
     void loadAvailableDataSetInformation();
     std::vector<std::string> getSelectedLineDataSetFilenames();
+    void openFileDialog();
     DataSetInformationPtr dataSetInformationRoot;
     std::vector<DataSetInformationPtr> dataSetInformationList; //< List of all leaves.
     std::vector<std::string> dataSetNames; //< Contains "Local file..." at beginning, thus starts actually at 1.
