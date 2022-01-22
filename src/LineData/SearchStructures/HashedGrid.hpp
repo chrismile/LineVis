@@ -100,6 +100,8 @@ public:
      */
     void findPointsAndDataInAxisAlignedBox(
             const AxisAlignedBox& box, std::vector<std::pair<glm::vec3, T>>& pointsAndData) override {
+        ZoneScoped;
+
         ptrdiff_t lowerGrid[3];
         ptrdiff_t upperGrid[3];
 
@@ -154,6 +156,8 @@ public:
      * @return Whether there is at least one point stored in the hashed grid inside of the search radius.
      */
     bool getHasPointCloserThan(const glm::vec3& center, float radius) override {
+        ZoneScoped;
+
         glm::vec3 lower = center - glm::vec3(radius, radius, radius);
         glm::vec3 upper = center + glm::vec3(radius, radius, radius);
 

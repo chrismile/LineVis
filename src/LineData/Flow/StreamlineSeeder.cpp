@@ -366,6 +366,7 @@ void StreamlineMaxHelicityFirstSeeder::reset(
     dz = grid->getDz();
     minimumSeparationDistance = tracingSettings.minimumSeparationDistance;
     terminationCheckType = tracingSettings.terminationCheckType;
+    gridSubsamplingFactor = tracingSettings.gridSubsamplingFactor;
 
     if (terminationCheckType == TerminationCheckType::GRID_BASED) {
         cellOccupancyGrid.resize((xs - 1) * (ys - 1) * (zs - 1), false);
@@ -375,16 +376,39 @@ void StreamlineMaxHelicityFirstSeeder::reset(
     }
 
     float* helicityField = grid->getHelicityField();
-    for (int z = 0; z < zs; z++) {
-        for (int y = 0; y < ys; y++) {
-            for (int x = 0; x < xs; x++) {
-                glm::vec3 boxMin = box.getMinimum();
-                glm::vec3 dimensions = box.getDimensions();
-                glm::vec3 samplePoint(
-                        boxMin.x + dimensions.x * (float(x) + 0.5f) / float(xs),
-                        boxMin.y + dimensions.y * (float(y) + 0.5f) / float(ys),
-                        boxMin.z + dimensions.z * (float(z) + 0.5f) / float(zs));
-                samplePriorityQueue.push(GridSample(helicityField[IDXS(x, y, z)], samplePoint));
+    if (gridSubsamplingFactor == 1) {
+        for (int z = 1; z < zs - 1; z++) {
+            for (int y = 1; y < ys - 1; y++) {
+                for (int x = 1; x < xs - 1; x++) {
+                    glm::vec3 boxMin = box.getMinimum();
+                    glm::vec3 dimensions = box.getDimensions();
+                    glm::vec3 samplePoint(
+                            boxMin.x + dimensions.x * float(x) / float(xs),
+                            boxMin.y + dimensions.y * float(y) / float(ys),
+                            boxMin.z + dimensions.z * float(z) / float(zs));
+                    samplePriorityQueue.push(GridSample(helicityField[IDXS(x, y, z)], samplePoint));
+                }
+            }
+        }
+    } else {
+        int numCellsX = (xs - 1) / gridSubsamplingFactor;
+        int numCellsY = (ys - 1) / gridSubsamplingFactor;
+        int numCellsZ = (zs - 1) / gridSubsamplingFactor;
+        for (int z = 0; z < numCellsZ; z++) {
+            for (int y = 0; y < numCellsY; y++) {
+                for (int x = 0; x < numCellsX; x++) {
+                    glm::vec3 boxMin = box.getMinimum();
+                    glm::vec3 dimensions = box.getDimensions();
+                    glm::vec3 samplePoint(
+                            boxMin.x + dimensions.x * (float(x) + 0.5f) / float(numCellsX),
+                            boxMin.y + dimensions.y * (float(y) + 0.5f) / float(numCellsY),
+                            boxMin.z + dimensions.z * (float(z) + 0.5f) / float(numCellsZ));
+                    int xgrid = std::min(x * gridSubsamplingFactor, xs - 1);
+                    int ygrid = std::min(y * gridSubsamplingFactor, ys - 1);
+                    int zgrid = std::min(z * gridSubsamplingFactor, zs - 1);
+                    samplePriorityQueue.push(GridSample(
+                            helicityField[IDXS(xgrid, ygrid, zgrid)], samplePoint));
+                }
             }
         }
     }
@@ -404,6 +428,14 @@ bool StreamlineMaxHelicityFirstSeeder::hasNextPoint() {
             gridPosition.z = glm::clamp(gridPosition.z, 0, zs - 2);
 
             if (!cellOccupancyGrid.at(IDXS_C(gridPosition.x, gridPosition.y, gridPosition.z))) {
+                return true;
+            }
+        } else if (terminationCheckType == TerminationCheckType::KD_TREE_BASED) {
+            if (!kdTree.getHasPointCloserThan(nextSamplePoint, minimumSeparationDistance)) {
+                return true;
+            }
+        } else if (terminationCheckType == TerminationCheckType::HASHED_GRID_BASED) {
+            if (!hashedGrid.getHasPointCloserThan(nextSamplePoint, minimumSeparationDistance)) {
                 return true;
             }
         } else {

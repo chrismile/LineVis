@@ -260,6 +260,16 @@ void StreamlineTracingRequester::renderGui() {
                         0.0f, 1.0f) == ImGui::EditMode::INPUT_FINISHED) {
                     changed = true;
                 }
+                if (guiTracingSettings.useHelicity && ImGui::SliderFloat3Edit(
+                        "Init. Ribbon Dir.", &guiTracingSettings.initialRibbonDirection.x,
+                        0.0f, 1.0f) == ImGui::EditMode::INPUT_FINISHED) {
+                    changed = true;
+                }
+                if (guiTracingSettings.useHelicity && ImGui::SliderIntPowerOfTwoEdit(
+                        "Subsampling Factor", &guiTracingSettings.gridSubsamplingFactor,
+                        1, 8) == ImGui::EditMode::INPUT_FINISHED) {
+                    changed = true;
+                }
             }
 
             if (ImGui::Checkbox("Export to Disk", &guiTracingSettings.exportToDisk)) {
@@ -426,6 +436,8 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
     changed |= settings.getValueOpt("smooth_boundary", guiTracingSettings.smoothedSimulationGridOutline);
     changed |= settings.getValueOpt("use_helicity", guiTracingSettings.useHelicity);
     changed |= settings.getValueOpt("max_helicity_twist", guiTracingSettings.maxHelicityTwist);
+    changed |= settings.getValueOpt("initial_ribbon_direction", guiTracingSettings.initialRibbonDirection);
+    changed |= settings.getValueOpt("grid_subsampling_factor", guiTracingSettings.gridSubsamplingFactor);
 
     settings.getValueOpt("export_to_disk", guiTracingSettings.exportToDisk);
     settings.getValueOpt("export_path", guiTracingSettings.exportPath);

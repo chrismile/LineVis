@@ -382,7 +382,7 @@ bool StreamlineTracingGrid::_isTerminated(
     return false;
 }
 
-bool StreamlineTracingGrid::_traceStreamlineDecreasingHelicity(
+void StreamlineTracingGrid::_traceStreamlineDecreasingHelicity(
         const StreamlineTracingSettings& tracingSettings,
         Trajectory& currentTrajectory, Trajectories& trajectories,
         std::vector<glm::vec3>& ribbonDirections, const glm::vec3& seedPoint,
@@ -396,13 +396,7 @@ bool StreamlineTracingGrid::_traceStreamlineDecreasingHelicity(
     while (true) {
         if (_isTerminated(
                 tracingSettings, currentTrajectory, currentPoint, trajectories, segmentLength, iterationCounter)) {
-            if (tracingSettings.flowPrimitives == FlowPrimitives::STREAMRIBBONS) {
-                _pushRibbonDirections(tracingSettings, currentTrajectory, ribbonDirections, forwardMode);
-            }
-            if (_computeTrajectoryLength(currentTrajectory) >= tracingSettings.minimumLength) {
-                return true;
-            }
-            return false;
+            return;
         } else {
             currentTrajectory.positions.push_back(currentPoint);
             _pushTrajectoryAttributes(currentTrajectory);
@@ -453,33 +447,52 @@ void StreamlineTracingGrid::_traceStreamribbonsDecreasingHelicity(
         std::vector<glm::vec3> ribbonDirections;
         bool isValid = false;
         if (tracingSettings.integrationDirection == StreamlineIntegrationDirection::FORWARD) {
-            isValid |= _traceStreamlineDecreasingHelicity(
+            _traceStreamlineDecreasingHelicity(
                     tracingSettings, trajectory, filteredTrajectories, ribbonDirections, seedPoint,
                     dt, true);
+            isValid = _computeTrajectoryLength(trajectory) >= tracingSettings.minimumLength;
+            if (isValid) {
+                if (tracingSettings.flowPrimitives == FlowPrimitives::STREAMRIBBONS) {
+                    _pushRibbonDirections(tracingSettings, trajectory, ribbonDirections, true);
+                }
+            }
         } else if (tracingSettings.integrationDirection == StreamlineIntegrationDirection::BACKWARD) {
-            isValid |= _traceStreamlineDecreasingHelicity(
+            _traceStreamlineDecreasingHelicity(
                     tracingSettings, trajectory, filteredTrajectories, ribbonDirections, seedPoint,
                     dt, false);
-            _reverseTrajectory(trajectory);
+            isValid = _computeTrajectoryLength(trajectory) >= tracingSettings.minimumLength;
+            if (isValid) {
+                if (tracingSettings.flowPrimitives == FlowPrimitives::STREAMRIBBONS) {
+                    _pushRibbonDirections(tracingSettings, trajectory, ribbonDirections, true);
+                    _reverseRibbon(trajectory, ribbonDirections);
+                } else {
+                    _reverseTrajectory(trajectory);
+                }
+            }
         } else {
             Trajectory trajectoryBackward;
             std::vector<glm::vec3> ribbonDirectionsBackward;
-            isValid |= _traceStreamlineDecreasingHelicity(
+            _traceStreamlineDecreasingHelicity(
                     tracingSettings, trajectory, filteredTrajectories, ribbonDirections, seedPoint,
                     dt, true);
-            isValid |= _traceStreamlineDecreasingHelicity(
+            _traceStreamlineDecreasingHelicity(
                     tracingSettings, trajectoryBackward, filteredTrajectories, ribbonDirectionsBackward,
                     seedPoint, dt, false);
-            if (tracingSettings.flowPrimitives == FlowPrimitives::STREAMRIBBONS) {
-                _reverseRibbon(trajectoryBackward, ribbonDirectionsBackward);
-                _insertBackwardRibbon(trajectoryBackward, ribbonDirectionsBackward, trajectory, ribbonDirections);
-            } else {
-                _reverseTrajectory(trajectoryBackward);
-                _insertBackwardTrajectory(trajectoryBackward, trajectory);
-            }
-            if (!isValid) {
-                if (_computeTrajectoryLength(trajectory) >= tracingSettings.minimumLength) {
-                    isValid = true;
+            float totalLength =
+                    _computeTrajectoryLength(trajectory) + _computeTrajectoryLength(trajectoryBackward);
+            isValid = totalLength >= tracingSettings.minimumLength;
+
+            if (isValid) {
+                if (tracingSettings.flowPrimitives == FlowPrimitives::STREAMRIBBONS) {
+                    _pushRibbonDirections(
+                            tracingSettings, trajectory, ribbonDirections, true);
+                    _pushRibbonDirections(
+                            tracingSettings, trajectoryBackward, ribbonDirectionsBackward, true);
+                    _reverseRibbon(trajectoryBackward, ribbonDirectionsBackward);
+                    _insertBackwardRibbon(trajectoryBackward, ribbonDirectionsBackward, trajectory, ribbonDirections);
+                } else {
+                    _reverseTrajectory(trajectoryBackward);
+                    _insertBackwardTrajectory(trajectoryBackward, trajectory);
                 }
             }
         }
@@ -688,7 +701,7 @@ void StreamlineTracingGrid::_pushRibbonDirections(
         const Trajectory& trajectory, std::vector<glm::vec3>& ribbonDirections, bool forwardMode) const {
     ZoneScoped;
 
-    glm::vec3 lastRibbonDirection = glm::vec3(1.0f, 0.0f, 0.0f);
+    glm::vec3 lastRibbonDirection = glm::normalize(tracingSettings.initialRibbonDirection);
     ribbonDirections.reserve(trajectory.positions.size());
 
     size_t n = trajectory.positions.size();

@@ -31,6 +31,7 @@
 
 #include <string>
 #include <memory>
+#include <glm/vec3.hpp>
 
 enum class StreamlineTracingDataSource {
     // A .vtk file storing a STRUCTURED_GRID data set.
@@ -126,6 +127,8 @@ struct StreamlineTracingSettings {
     // For flowPrimitives == FlowPrimitives::STREAMRIBBONS.
     bool useHelicity = true;
     float maxHelicityTwist = 0.25f;
+    glm::vec3 initialRibbonDirection = glm::vec3(0.0f, 1.0f, 0.0f);
+    int gridSubsamplingFactor = 1;
 
     // For saving to the disk.
     bool exportToDisk = false;

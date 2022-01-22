@@ -113,7 +113,7 @@ private:
     void _traceStreamribbonsDecreasingHelicity(
             StreamlineTracingSettings& tracingSettings, Trajectories& filteredTrajectories,
             std::vector<std::vector<glm::vec3>>& filteredRibbonsDirections);
-    bool _traceStreamlineDecreasingHelicity(
+    void _traceStreamlineDecreasingHelicity(
             const StreamlineTracingSettings& tracingSettings,
             Trajectory& currentTrajectory, Trajectories& trajectories,
             std::vector<glm::vec3>& ribbonDirections, const glm::vec3& seedPoint,
