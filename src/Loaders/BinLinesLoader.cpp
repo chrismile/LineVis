@@ -67,7 +67,7 @@ void loadTrajectoriesFromBinLinesV1(
  */
 void loadTrajectoriesFromBinLinesV2(
         const std::string& filename, sgl::BinaryReadStream& stream, BinLinesData& binLinesData) {
-    uint32_t numTrajectories = binLinesData.trajectories.size();
+    auto numTrajectories = uint32_t(binLinesData.trajectories.size());
 
     uint32_t verticesNormalized;
     stream.read(verticesNormalized);
@@ -78,7 +78,7 @@ void loadTrajectoriesFromBinLinesV2(
     stream.read(hasAttributeNames);
     if (hasAttributeNames != 0) {
         uint32_t numAttributes =
-                binLinesData.trajectories.empty() ? 0 : binLinesData.trajectories.front().attributes.size();
+                binLinesData.trajectories.empty() ? 0 : uint32_t(binLinesData.trajectories.front().attributes.size());
         binLinesData.attributeNames.resize(numAttributes);
         for (uint32_t attributeIdx = 0; attributeIdx < numAttributes; attributeIdx++) {
             stream.read(binLinesData.attributeNames.at(attributeIdx));
