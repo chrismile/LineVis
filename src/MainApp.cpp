@@ -1303,11 +1303,15 @@ void MainApp::initializeFirstDataView() {
 
 void MainApp::openFileDialog() {
     selectedDataSetIndex = 0;
+	std::string fileDialogDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
+	if (!sgl::FileUtils::get()->exists(fileDialogDirectory)) {
+	    fileDialogDirectory = sgl::AppSettings::get()->getDataDirectory();
+	}
     IGFD_OpenModal(
             fileDialogInstance,
             "ChooseDataSetFile", "Choose a File",
             ".*,.obj,.dat,.binlines,.nc,.vtk,.bin,.stress,.carti,.xyz",
-            (sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/").c_str(),
+            fileDialogDirectory.c_str(),
             "", 1, nullptr,
             ImGuiFileDialogFlags_ConfirmOverwrite);
 }
@@ -1326,35 +1330,37 @@ void MainApp::renderGuiMenuBar() {
                     }
                 }
 
-                std::stack<std::pair<DataSetInformationPtr, size_t>> dataSetInformationStack;
-                dataSetInformationStack.push(std::make_pair(dataSetInformationRoot, 0));
-                while (!dataSetInformationStack.empty()) {
-                    std::pair<DataSetInformationPtr, size_t> dataSetIdxPair = dataSetInformationStack.top();
-                    DataSetInformationPtr dataSetInformationParent = dataSetIdxPair.first;
-                    size_t idx = dataSetIdxPair.second;
-                    dataSetInformationStack.pop();
-                    while (idx < dataSetInformationParent->children.size()) {
-                        DataSetInformationPtr dataSetInformationChild =
-                                dataSetInformationParent->children.at(idx);
-                        if (dataSetInformationChild->type == DATA_SET_TYPE_NODE) {
-                            if (ImGui::BeginMenu(dataSetInformationChild->name.c_str())) {
-                                dataSetInformationStack.push(std::make_pair(dataSetInformationRoot, idx + 1));
-                                dataSetInformationStack.push(std::make_pair(dataSetInformationChild, 0));
-                                break;
+                if (dataSetInformationRoot) {
+                    std::stack<std::pair<DataSetInformationPtr, size_t>> dataSetInformationStack;
+                    dataSetInformationStack.push(std::make_pair(dataSetInformationRoot, 0));
+                    while (!dataSetInformationStack.empty()) {
+                        std::pair<DataSetInformationPtr, size_t> dataSetIdxPair = dataSetInformationStack.top();
+                        DataSetInformationPtr dataSetInformationParent = dataSetIdxPair.first;
+                        size_t idx = dataSetIdxPair.second;
+                        dataSetInformationStack.pop();
+                        while (idx < dataSetInformationParent->children.size()) {
+                            DataSetInformationPtr dataSetInformationChild =
+                                    dataSetInformationParent->children.at(idx);
+                            if (dataSetInformationChild->type == DATA_SET_TYPE_NODE) {
+                                if (ImGui::BeginMenu(dataSetInformationChild->name.c_str())) {
+                                    dataSetInformationStack.push(std::make_pair(dataSetInformationRoot, idx + 1));
+                                    dataSetInformationStack.push(std::make_pair(dataSetInformationChild, 0));
+                                    break;
+                                }
+                            } else {
+                                if (ImGui::MenuItem(dataSetInformationChild->name.c_str())) {
+                                    selectedDataSetIndex = int(dataSetInformationChild->sequentialIndex);
+                                    loadLineDataSet(getSelectedLineDataSetFilenames());
+                                }
                             }
-                        } else {
-                            if (ImGui::MenuItem(dataSetInformationChild->name.c_str())) {
-                                selectedDataSetIndex = int(dataSetInformationChild->sequentialIndex);
-                                loadLineDataSet(getSelectedLineDataSetFilenames());
-                            }
+                            idx++;
                         }
-                        idx++;
-                    }
 
-                    if (idx == dataSetInformationParent->children.size() && !dataSetInformationStack.empty()) {
-                        ImGui::EndMenu();
+                        if (idx == dataSetInformationParent->children.size() && !dataSetInformationStack.empty()) {
+                            ImGui::EndMenu();
+                        }
                     }
-                }
+				}
 
                 ImGui::EndMenu();
             }
