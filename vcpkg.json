@@ -21,6 +21,7 @@
         "jsoncpp",
         "python3",
         "cppzmq",
-        "netcdf-c"
+        "netcdf-c",
+        "vulkan-headers"
     ]
 }
