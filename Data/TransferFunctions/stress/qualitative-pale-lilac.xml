@@ -1,0 +1,11 @@
+<!-- https://colorbrewer2.org/#type=qualitative&scheme=Set2&n=3 -->
+<TransferFunction colorspace="sRGB" interpolation_colorspace="Linear RGB">
+    <OpacityPoints>
+        <OpacityPoint position="0" opacity="1"/>
+        <OpacityPoint position="1" opacity="1"/>
+    </OpacityPoints>
+    <ColorPoints>
+        <ColorPoint position="0" r="141" g="160" b="203"/>
+        <ColorPoint position="1" r="141" g="160" b="203"/>
+    </ColorPoints>
+</TransferFunction>
