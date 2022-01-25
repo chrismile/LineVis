@@ -99,6 +99,10 @@ bool OptixVptDenoiser::initGlobal() {
         sgl::Logfile::get()->writeInfo("OptiX shared library was not found. Disabling OptiX support.");
         return false;
     }
+    if (result == OPTIX_ERROR_UNSUPPORTED_ABI_VERSION) {
+        sgl::Logfile::get()->writeInfo("Unsupported OptiX ABI version. Disabling OptiX support.");
+        return false;
+    }
     checkOptixResult(result, "Error in optixInitWithHandle: ");
 
     OptixDeviceContextOptions contextOptions{};
