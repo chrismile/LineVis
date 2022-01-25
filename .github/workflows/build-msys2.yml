@@ -52,6 +52,7 @@ jobs:
           mingw64/mingw-w64-x86_64-zeromq
           mingw64/mingw-w64-x86_64-eigen3
           mingw64/mingw-w64-x86_64-python
+          mingw64/mingw-w64-x86_64-python-numpy
 
     - uses: actions/checkout@v2
       with:

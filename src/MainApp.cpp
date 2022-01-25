@@ -353,7 +353,11 @@ MainApp::MainApp()
     showPropertyEditor = useDockSpaceMode;
     sgl::ImGuiWrapper::get()->setUseDockSpaceMode(useDockSpaceMode);
 
+#ifdef NDEBUG
+    showFpsOverlay = false;
+#else
     showFpsOverlay = true;
+#endif
     sgl::AppSettings::get()->getSettings().getValueOpt("showFpsOverlay", showFpsOverlay);
     sgl::AppSettings::get()->getSettings().getValueOpt("showCoordinateAxesOverlay", showCoordinateAxesOverlay);
 
@@ -849,7 +853,7 @@ void MainApp::renderGui() {
         if (isProgramStartup && centralNode->IsEmpty()) {
             ImGuiID dockLeftId, dockMainId;
             ImGui::DockBuilderSplitNode(
-                    dockSpaceId, ImGuiDir_Left, 0.21f, &dockLeftId, &dockMainId);
+                    dockSpaceId, ImGuiDir_Left, 0.29f, &dockLeftId, &dockMainId);
             ImGui::DockBuilderDockWindow("Opaque Line Renderer (1)###data_view_0", dockMainId);
 
             ImGuiID dockLeftUpId, dockLeftDownId;

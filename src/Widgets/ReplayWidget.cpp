@@ -500,7 +500,6 @@ ReplayWidget::ReplayWidget(
 }
 
 ReplayWidget::~ReplayWidget() {
-    ;
 }
 
 bool ReplayWidget::runScript(const std::string& filename) {
@@ -514,10 +513,18 @@ bool ReplayWidget::runScript(const std::string& filename) {
     std::string scriptModuleName = sgl::FileUtils::get()->filenameWithoutExtension(filename);
     PyObject* pythonFileName = PyUnicode_DecodeFSDefault(scriptModuleName.c_str());
     PyObject* moduleOrig = PyImport_Import(pythonFileName);
+    if (!moduleOrig) {
+        if (PyErr_Occurred()) {
+            PyErr_Print();
+        }
+        sgl::Logfile::get()->writeError(
+                std::string() + "ERROR in ReplayWidget::runScript: Couldn't execute script \""
+                + scriptModuleName + "\"!");
+        return false;
+    }
     Py_DECREF(pythonFileName);
-    PyObject* module = PyImport_ReloadModule(moduleOrig);
-    Py_DECREF(moduleOrig);
 
+    PyObject* module = PyImport_ReloadModule(moduleOrig);
     if (!module) {
         if (PyErr_Occurred()) {
             PyErr_Print();
@@ -527,6 +534,7 @@ bool ReplayWidget::runScript(const std::string& filename) {
                 + scriptModuleName + "\"!");
         return false;
     }
+    Py_DECREF(moduleOrig);
 
     PyObject* replayFunc = PyObject_GetAttrString(module, "replay");
     if (replayFunc && PyCallable_Check(replayFunc)) {
@@ -627,13 +635,14 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
             }
             if (!replayState.cameraCheckpointName.empty()) {
                 sgl::Checkpoint checkpoint;
-                checkpointWindow.getCheckpoint(replayState.cameraCheckpointName, checkpoint);
-                replayState.cameraPositionSet = replayState.cameraOrientationSet = replayState.cameraFovySet = true;
-                replayState.cameraPosition = checkpoint.position;
-                replayState.cameraOrientation =
-                        glm::angleAxis(-checkpoint.pitch, glm::vec3(1, 0, 0))
-                        * glm::angleAxis(checkpoint.yaw + sgl::PI / 2.0f, glm::vec3(0, 1, 0));
-                replayState.cameraFovy = checkpoint.fovy;
+                if (checkpointWindow.getCheckpoint(replayState.cameraCheckpointName, checkpoint)) {
+                    replayState.cameraPositionSet = replayState.cameraOrientationSet = replayState.cameraFovySet = true;
+                    replayState.cameraPosition = checkpoint.position;
+                    replayState.cameraOrientation =
+                            glm::angleAxis(-checkpoint.pitch, glm::vec3(1, 0, 0))
+                            * glm::angleAxis(checkpoint.yaw + sgl::PI / 2.0f, glm::vec3(0, 1, 0));
+                    replayState.cameraFovy = checkpoint.fovy;
+                }
             }
 
             replayState.rendererSettings.setStaticSettings(currentRendererSettings);

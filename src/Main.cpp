@@ -111,13 +111,23 @@ int main(int argc, char *argv[]) {
     sgl::AppSettings::get()->initializeSubsystems();
 
 #ifdef USE_PYTHON
-#ifdef PYTHONHOME_PATH
+#ifdef PYTHONHOME
     const char* pythonhomeEnvVar = getenv("PYTHONHOME");
     if (!pythonhomeEnvVar || strlen(pythonhomeEnvVar) == 0) {
-        Py_SetPythonHome(PYTHONHOME_PATH);
+        Py_SetPythonHome(PYTHONHOME);
+        // As of 2022-01-25, "lib-dynload" is not automatically found when using MSYS2 together with MinGW.
+#if defined(__MINGW32__) && defined(PYTHONPATH)
+        Py_SetPath(PYTHONPATH ";" PYTHONPATH "/site-packages;" PYTHONPATH "/lib-dynload");
+#endif
     }
 #endif
+    wchar_t** argvWidestr = (wchar_t**)PyMem_Malloc(sizeof(wchar_t*) * argc);
+    for (int i = 0; i < argc; i++) {
+        wchar_t* argWidestr = Py_DecodeLocale(argv[i], nullptr);
+        argvWidestr[i] = argWidestr;
+    }
     Py_Initialize();
+    PySys_SetArgv(argc, argvWidestr);
 #endif
 
     auto app = new MainApp();
