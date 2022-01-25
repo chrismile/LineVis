@@ -1307,10 +1307,10 @@ void MainApp::initializeFirstDataView() {
 
 void MainApp::openFileDialog() {
     selectedDataSetIndex = 0;
-	std::string fileDialogDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
-	if (!sgl::FileUtils::get()->exists(fileDialogDirectory)) {
-	    fileDialogDirectory = sgl::AppSettings::get()->getDataDirectory();
-	}
+    std::string fileDialogDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
+    if (!sgl::FileUtils::get()->exists(fileDialogDirectory)) {
+        fileDialogDirectory = sgl::AppSettings::get()->getDataDirectory();
+    }
     IGFD_OpenModal(
             fileDialogInstance,
             "ChooseDataSetFile", "Choose a File",
@@ -1364,7 +1364,7 @@ void MainApp::renderGuiMenuBar() {
                             ImGui::EndMenu();
                         }
                     }
-				}
+                }
 
                 ImGui::EndMenu();
             }

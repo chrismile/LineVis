@@ -228,7 +228,7 @@ endif()
 if((${CMAKE_GENERATOR} STREQUAL "MinGW Makefiles") OR (${CMAKE_GENERATOR} STREQUAL "MSYS Makefiles"))
     if (CMAKE_BUILD_TYPE STREQUAL "Debug")
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mconsole")
-	else()
+    else()
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -mwindows")
     endif()
     target_link_libraries(LineVis PUBLIC mingw32)
@@ -375,12 +375,12 @@ if (${SUPPORT_OPTIX})
         if(UNIX AND NOT APPLE)
             target_link_libraries(LineVis PRIVATE dl)
         endif()
-		if (MSYS)
-		    # GetProcAddress in optix_stubs.h performs no function pointer conversion.
-		    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
-			# Compensate for "#pragma comment(lib, "Cfgmgr32.lib")" not working with MinGW.
+        if (MSYS)
+            # GetProcAddress in optix_stubs.h performs no function pointer conversion.
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
+            # Compensate for "#pragma comment(lib, "Cfgmgr32.lib")" not working with MinGW.
             target_link_libraries(LineVis PRIVATE cfgmgr32)
-		endif()
+        endif()
     endif()
 endif()
 
