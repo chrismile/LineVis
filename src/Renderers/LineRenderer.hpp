@@ -103,6 +103,11 @@ public:
     virtual void onHasMoved();
     /// If the re-rendering was triggered from an outside source, frame accumulation cannot be used.
     virtual void notifyReRenderTriggeredExternally() { internalReRender = false; }
+    /**
+     * Sets whether linear RGB or sRGB should be used for rendering. Most renderers won't need to do anything special,
+     * as the transfer function data is automatically updated to use the correct format.
+     */
+    virtual void setUseLinearRGB(bool useLinearRGB) {}
 
     /**
      * Called when whether the simulation mesh hull should be rendered might have changed.

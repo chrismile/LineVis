@@ -29,12 +29,15 @@
 #include <Math/Math.hpp>
 #include <Utils/AppSettings.hpp>
 #include <Utils/File/Logfile.hpp>
+#include <Graphics/Texture/Bitmap.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/RayTracingPipeline.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <Graphics/Vulkan/Render/Passes/BlitRenderPass.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
+#include <ImGui/ImGuiFileDialog/ImGuiFileDialog.h>
+#include <ImGui/imgui_stdlib.h>
 
 #include "../Denoiser/EAWDenoiser.hpp"
 #ifdef SUPPORT_OPTIX
@@ -62,13 +65,33 @@ VolumetricPathTracingPass::VolumetricPathTracingPass(sgl::vk::Renderer* renderer
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
 
+    if (sgl::AppSettings::get()->getSettings().getValueOpt(
+            "vptEnvironmentMapImage", environmentMapFilenameGui)) {
+        useEnvironmentMapImage = true;
+        sgl::AppSettings::get()->getSettings().getValueOpt("vptUseEnvironmentMap", useEnvironmentMapImage);
+        loadEnvironmentMapImage();
+    }
+
     blitResultRenderPass = sgl::vk::BlitRenderPassPtr(new sgl::vk::BlitRenderPass(
             renderer, {"BlitVulkan.Vertex", "BlitVulkan.Fragment"}));
     blitPrimaryRayMomentTexturePass = std::make_shared<BlitMomentTexturePass>(renderer, "Primary");
     blitScatterRayMomentTexturePass = std::make_shared<BlitMomentTexturePass>(renderer, "Scatter");
 
+    fileDialogInstance = IGFD_Create();
+
     createDenoiser();
     updateVptMode();
+}
+
+VolumetricPathTracingPass::~VolumetricPathTracingPass() {
+    if (isEnvironmentMapLoaded) {
+        sgl::AppSettings::get()->getSettings().addKeyValue(
+                "vptEnvironmentMapImage", loadedEnvironmentMapFilename);
+        sgl::AppSettings::get()->getSettings().addKeyValue(
+                "vptUseEnvironmentMap", useEnvironmentMapImage);
+    }
+
+    IGFD_Destroy(fileDialogInstance);
 }
 
 void VolumetricPathTracingPass::createDenoiser() {
@@ -168,6 +191,12 @@ void VolumetricPathTracingPass::setLineData(LineDataScatteringPtr& data, bool is
     updateVptMode();
 }
 
+void VolumetricPathTracingPass::setUseLinearRGB(bool useLinearRGB) {
+    uniformData.useLinearRGB = useLinearRGB;
+    frameInfo.frameCount = 0;
+    setShaderDirty();
+}
+
 void VolumetricPathTracingPass::onHasMoved() {
     frameInfo.frameCount = 0;
 }
@@ -191,6 +220,44 @@ void VolumetricPathTracingPass::updateVptMode() {
     }
 }
 
+void VolumetricPathTracingPass::loadEnvironmentMapImage() {
+    if (!sgl::FileUtils::get()->exists(environmentMapFilenameGui)) {
+        sgl::Logfile::get()->writeError(
+                "Error in VolumetricPathTracingPass::loadEnvironmentMapImage: The file \""
+                + environmentMapFilenameGui + "\" does not exist.");
+    }
+
+    sgl::BitmapPtr bitmap(new sgl::Bitmap);
+    if (sgl::FileUtils::get()->hasExtension(environmentMapFilenameGui.c_str(), ".png")) {
+        bitmap = std::make_shared<sgl::Bitmap>();
+        bitmap->fromFile(environmentMapFilenameGui.c_str());
+    } else {
+        sgl::Logfile::get()->writeError(
+                "Error in VolumetricPathTracingPass::loadEnvironmentMapImage: The file \""
+                + environmentMapFilenameGui + "\" has an unknown file extension.");
+        return;
+    }
+
+    sgl::vk::ImageSettings imageSettings;
+    imageSettings.width = uint32_t(bitmap->getWidth());
+    imageSettings.height = uint32_t(bitmap->getHeight());
+    imageSettings.imageType = VK_IMAGE_TYPE_2D;
+    imageSettings.format = VK_FORMAT_R8G8B8A8_UNORM;
+    imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+    sgl::vk::ImageSamplerSettings samplerSettings;
+    samplerSettings.addressModeU = samplerSettings.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+
+    environmentMapTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
+    environmentMapTexture->getImage()->uploadData(
+            bitmap->getWidth() * bitmap->getHeight() * (bitmap->getBPP() / 8),
+            bitmap->getPixels());
+    loadedEnvironmentMapFilename = environmentMapFilenameGui;
+    isEnvironmentMapLoaded = true;
+    frameInfo.frameCount = 0;
+}
+
 void VolumetricPathTracingPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> customPreprocessorDefines = {
@@ -201,12 +268,6 @@ void VolumetricPathTracingPass::loadShader() {
             { "NUM_SCATTER_RAY_ABSORPTION_MOMENTS",
               std::to_string(blitScatterRayMomentTexturePass->getNumMoments()) },
     };
-    if (blitPrimaryRayMomentTexturePass->getMomentType() == BlitMomentTexturePass::MomentType::POWER) {
-        customPreprocessorDefines.insert({ "USE_POWER_MOMENTS_PRIMARY_RAY", "" });
-    }
-    if (blitScatterRayMomentTexturePass->getMomentType() == BlitMomentTexturePass::MomentType::POWER) {
-        customPreprocessorDefines.insert({ "USE_POWER_MOMENTS_SCATTER_RAY", "" });
-    }
     if (vptMode == VptMode::DELTA_TRACKING) {
         customPreprocessorDefines.insert({ "USE_DELTA_TRACKING", "" });
     } else if (vptMode == VptMode::SPECTRAL_DELTA_TRACKING) {
@@ -217,6 +278,18 @@ void VolumetricPathTracingPass::loadShader() {
         customPreprocessorDefines.insert({ "USE_RESIDUAL_RATIO_TRACKING", "" });
     } else if (vptMode == VptMode::DECOMPOSITION_TRACKING) {
         customPreprocessorDefines.insert({ "USE_DECOMPOSITION_TRACKING", "" });
+    }
+    if (blitPrimaryRayMomentTexturePass->getMomentType() == BlitMomentTexturePass::MomentType::POWER) {
+        customPreprocessorDefines.insert({ "USE_POWER_MOMENTS_PRIMARY_RAY", "" });
+    }
+    if (blitScatterRayMomentTexturePass->getMomentType() == BlitMomentTexturePass::MomentType::POWER) {
+        customPreprocessorDefines.insert({ "USE_POWER_MOMENTS_SCATTER_RAY", "" });
+    }
+    if (useEnvironmentMapImage) {
+        customPreprocessorDefines.insert({ "USE_ENVIRONMENT_MAP_IMAGE", "" });
+    }
+    if (uniformData.useLinearRGB) {
+        customPreprocessorDefines.insert({ "USE_LINEAR_RGB", "" });
     }
     shaderStages = sgl::vk::ShaderManager->getShaderStages({"Clouds.Compute"}, customPreprocessorDefines);
 }
@@ -252,6 +325,9 @@ void VolumetricPathTracingPass::createComputeData(
         computeData->setStaticTexture(
                 superVoxelGridDecompositionTracking->getSuperVoxelGridOccupancyTexture(),
                 "superVoxelGridOccupancyImage");
+    }
+    if (useEnvironmentMapImage) {
+        computeData->setStaticTexture(environmentMapTexture, "environmentMapTexture");
     }
 }
 
@@ -307,6 +383,7 @@ void VolumetricPathTracingPass::_render() {
         uniformData.scatteringAlbedo = cloudScatteringAlbedo;
         uniformData.sunDirection = sunlightDirection;
         uniformData.sunIntensity = sunlightIntensity * sunlightColor;
+        uniformData.environmentMapIntensityFactor = environmentMapIntensityFactor;
         if (superVoxelGridResidualRatioTracking) {
             uniformData.superVoxelSize = superVoxelGridResidualRatioTracking->getSuperVoxelSize();
             uniformData.superVoxelGridSize = superVoxelGridResidualRatioTracking->getSuperVoxelGridSize();
@@ -395,6 +472,42 @@ void VolumetricPathTracingPass::_render() {
 bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool optionChanged = false;
 
+    if (IGFD_DisplayDialog(
+            fileDialogInstance,
+            "ChooseEnvironmentMapImage", ImGuiWindowFlags_NoCollapse,
+            sgl::ImGuiWrapper::get()->getScaleDependentSize(1000, 580),
+            ImVec2(FLT_MAX, FLT_MAX))) {
+        if (IGFD_IsOk(fileDialogInstance)) {
+            std::string filePathName = IGFD_GetFilePathName(fileDialogInstance);
+            std::string filePath = IGFD_GetCurrentPath(fileDialogInstance);
+            std::string filter = IGFD_GetCurrentFilter(fileDialogInstance);
+            std::string userDatas;
+            if (IGFD_GetUserDatas(fileDialogInstance)) {
+                userDatas = std::string((const char*)IGFD_GetUserDatas(fileDialogInstance));
+            }
+            auto selection = IGFD_GetSelection(fileDialogInstance);
+
+            // Is this line data set or a volume data file for the scattering line tracer?
+            const char* currentPath = IGFD_GetCurrentPath(fileDialogInstance);
+            std::string filename = currentPath;
+            if (!filename.empty() && filename.back() != '/' && filename.back() != '\\') {
+                filename += "/";
+            }
+            filename += selection.table[0].fileName;
+            IGFD_Selection_DestroyContent(&selection);
+            if (currentPath) {
+                free((void*)currentPath);
+                currentPath = nullptr;
+            }
+
+            environmentMapFilenameGui = filename;
+            loadEnvironmentMapImage();
+            setShaderDirty();
+            reRender = true;
+        }
+        IGFD_CloseDialog(fileDialogInstance);
+    }
+
     if (propertyEditor.beginNode("VPT Renderer")) {
         std::string numSamplesText = "#Samples: " + std::to_string(frameInfo.frameCount) + "###numSamplesText";
         propertyEditor.addCustomWidgets(numSamplesText);
@@ -448,13 +561,41 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
             setShaderDirty();
             setDataDirty();
         }
-        if (vptMode == VptMode::RESIDUAL_RATIO_TRACKING) {
+        if (vptMode == VptMode::RESIDUAL_RATIO_TRACKING || vptMode == VptMode::DECOMPOSITION_TRACKING) {
             if (propertyEditor.addSliderInt("Super Voxel Size", &superVoxelSize, 1, 64)) {
                 optionChanged = true;
                 updateVptMode();
                 setShaderDirty();
                 setDataDirty();
             }
+        }
+
+        propertyEditor.addInputAction("Environment Map", &environmentMapFilenameGui);
+        if (propertyEditor.addButton("", "Load")) {
+            loadEnvironmentMapImage();
+            setShaderDirty();
+            reRender = true;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Open from Disk...")) {
+            IGFD_OpenModal(
+                    fileDialogInstance,
+                    "ChooseEnvironmentMapImage", "Choose an Environment Map Image",
+                    ".*,.png",
+                    sgl::AppSettings::get()->getDataDirectory().c_str(),
+                    "", 1, nullptr,
+                    ImGuiFileDialogFlags_ConfirmOverwrite);
+        }
+        if (isEnvironmentMapLoaded && propertyEditor.addCheckbox(
+                "Use Env. Map Image", &useEnvironmentMapImage)) {
+            setShaderDirty();
+            reRender = true;
+            frameInfo.frameCount = 0;
+        }
+        if (useEnvironmentMapImage && propertyEditor.addSliderFloat(
+                "Env. Map Intensity", &environmentMapIntensityFactor, 0.0f, 5.0f)) {
+            reRender = true;
+            frameInfo.frameCount = 0;
         }
 
         bool shallRecreateMomentTextureA = false;

@@ -144,6 +144,10 @@ void VolumetricPathTracingRenderer::notifyReRenderTriggeredExternally() {
     vptPass->onHasMoved();
 }
 
+void VolumetricPathTracingRenderer::setUseLinearRGB(bool useLinearRGB) {
+    vptPass->setUseLinearRGB(useLinearRGB);
+}
+
 void VolumetricPathTracingRenderer::render() {
     LineRenderer::render();
 

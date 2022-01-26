@@ -8,7 +8,7 @@ It supports loading both traditional flow lines as well as stress lines from mul
 From left to right:
 - Rayleigh–Bénard convection data set [Pandey et al. 2018] rendered using a Vulkan ray tracer with ray traced ambient
   occlusion (RTAO).
-- Tornado data set [Crawfis 2003] rendered using decoupled opacity optimization.
+- Tornado data set [Crawfis 2003] rendered using decoupled opacity optimization [Günther et al. 2017, see below].
 - Femur data set [Wu et al. 2018]. Principal stress lines generated using [3D-TSV](https://github.com/Junpeng-Wang-TUM/3D-TSV).
 
 [Crawfis 2003]: Roger Crawfis. 2003. Tornado Data set generator. http://web.cse.ohio-state.edu/~crawfis.3/Data/Tornado/

@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2021, Christoph Neuhauser, Ludwig Leonard
+ * Copyright (c) 2021-2022, Christoph Neuhauser, Ludwig Leonard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,10 +29,10 @@ layout (binding = 0, rgba32f) uniform image2D resultImage;
 layout (binding = 1) uniform sampler3D gridImage;
 
 layout (binding = 2) uniform Parameters {
-// Transform from normalized device coordinates to world space.
+    // Transform from normalized device coordinates to world space.
     mat4 inverseViewProjMatrix;
 
-// Cloud properties.
+    // Cloud properties.
     vec3 boxMin;
     vec3 boxMax;
 
@@ -40,13 +40,17 @@ layout (binding = 2) uniform Parameters {
     vec3 scatteringAlbedo;
     float phaseG;
 
-// Sky properties.
+    // Sky properties.
     vec3 sunDirection;
     vec3 sunIntensity;
+    float environmentMapIntensityFactor;
 
-// For residual ratio tracking and decomposition tracking.
+    // For residual ratio tracking and decomposition tracking.
     ivec3 superVoxelSize;
     ivec3 superVoxelGridSize;
+
+    // Whether to use linear RGB or sRGB.
+    int useLinearRGB;
 } parameters;
 
 layout (binding = 3) uniform FrameInfo {
@@ -73,6 +77,10 @@ layout (binding = 9) uniform sampler3D superVoxelGridImage;
 layout (binding = 10) uniform usampler3D superVoxelGridOccupancyImage;
 #endif
 
+#ifdef USE_ENVIRONMENT_MAP_IMAGE
+layout (binding = 11) uniform sampler2D environmentMapTexture;
+#endif
+
 
 /**
  * This code is part of an GLSL port of the HLSL code accompanying the paper "Moment-Based Order-Independent
@@ -82,13 +90,13 @@ layout (binding = 10) uniform usampler3D superVoxelGridOccupancyImage;
  * This port is released under the terms of the MIT License.
  */
 /*! This function implements complex multiplication.*/
-layout(std140, binding = 11) uniform MomentUniformData {
+layout(std140, binding = 12) uniform MomentUniformData {
     vec4 wrapping_zone_parameters;
     //float overestimation;
     //float moment_bias;
 };
 const float ABSORBANCE_MAX_VALUE = 10.0;
 
-vec2 Multiply(vec2 LHS, vec2 RHS){
-    return vec2(LHS.x*RHS.x-LHS.y*RHS.y,LHS.x*RHS.y+LHS.y*RHS.x);
+vec2 Multiply(vec2 LHS, vec2 RHS) {
+    return vec2(LHS.x * RHS.x - LHS.y * RHS.y, LHS.x * RHS.y + LHS.y * RHS.x);
 }

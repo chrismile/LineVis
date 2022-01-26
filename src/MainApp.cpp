@@ -677,7 +677,9 @@ void MainApp::setRenderer(
                 "Error in MainApp::setRenderer: A renderer unsupported in this build configuration or "
                 "incompatible with this system was selected.");
     }
+
     newLineRenderer->initialize();
+    newLineRenderer->setUseLinearRGB(useLinearRGB);
 
     if (lineData) {
         if (useDockSpaceMode) {
@@ -713,6 +715,13 @@ void MainApp::updateColorSpaceMode() {
     if (useDockSpaceMode) {
         for (DataViewPtr& dataView : dataViews) {
             dataView->useLinearRGB = useLinearRGB;
+            if (dataView->lineRenderer) {
+                dataView->lineRenderer->setUseLinearRGB(useLinearRGB);
+            }
+        }
+    } else {
+        if (lineRenderer) {
+            lineRenderer->setUseLinearRGB(useLinearRGB);
         }
     }
 }

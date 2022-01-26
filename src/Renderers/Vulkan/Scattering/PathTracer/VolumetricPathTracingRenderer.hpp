@@ -79,6 +79,8 @@ public:
     void onHasMoved() override;
     /// If the re-rendering was triggered from an outside source, frame accumulation cannot be used.
     void notifyReRenderTriggeredExternally() override;
+    /// Sets whether linear RGB or sRGB should be used for rendering.
+    void setUseLinearRGB(bool useLinearRGB) override;
 
     // Renders the object to the scene framebuffer.
     void render() override;
