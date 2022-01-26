@@ -3,51 +3,22 @@
 LineVis is a visualization tool for rendering dense sets of 3D lines using the graphics APIs OpenGL and Vulkan.
 It supports loading both traditional flow lines as well as stress lines from multiple principal stress directions.
 
-The following rendering modes are supported:
+![Teaser image of different data sets displayed using LineVis.](https://chrismile.net/github/linevis/teaser.png)
 
-- Opaque line rendering with up to 32x MSAA (multisample anti-aliasing).
+From left to right:
+- Rayleigh–Bénard convection data set [Pandey et al. 2018] rendered using a Vulkan ray tracer with ray traced ambient
+  occlusion (RTAO).
+- Tornado data set [Crawfis 2003] rendered using decoupled opacity optimization.
+- Femur data set [Wu et al. 2018]. Principal stress lines generated using [3D-TSV](https://github.com/Junpeng-Wang-TUM/3D-TSV).
 
-- Opaque and transparent line rendering using a ray tracer based on the
-  [Vulkan Ray Tracing](https://www.khronos.org/blog/ray-tracing-in-vulkan) extension.
-  Both ray-triangle and analytic ray-tube intersections can be used.
+[Crawfis 2003]: Roger Crawfis. 2003. Tornado Data set generator. http://web.cse.ohio-state.edu/~crawfis.3/Data/Tornado/
 
-- Opaque line rendering with Voxel Ray Casting (VRC).
-  For more details see: M. Kanzler, M. Rautenhaus, R. Westermann.
-  A Voxel-based Rendering Pipeline for Large 3D Line Sets.
-  IEEE Transactions on Visualization and Computer Graphics 2018.
-  https://www.in.tum.de/cg/research/publications/2018/a-voxel-based-rendering-pipeline-for-large-3d-line-sets/
+[Pandey et al. 2018]: Ambrish Pandey, Janet D. Scheel, and Jörg Schumacher. 2018. Turbulent superstructures in
+Rayleigh-Bénard convection. Nature Communications 9, 1 (May 2018). https://doi.org/10.1038/s41467-018-04478-0
 
-- Opaque and transparent line rendering using [Intel OSPRay](https://www.ospray.org/).
-
-- Transparent line rendering with per-pixel fragment lists (sometimes also called per-pixel linked lists).
-  For more details see: Yang, J. C., Hensley, J., Grün, H. and Thibieroz, N., "Real-Time Concurrent Linked List
-  Construction on the GPU", Computer Graphics Forum, 29, 2010.
-
-- Transparent line rendering with Moment-based Order-Independent Transparency (MBOIT).
-  For more details see: C. Munstermann, S. Krumpen, R. Klein, and C. Peters, "Moment-based order-independent transparency,"
-  Proceedings of the ACM on Computer Graphics and Interactive Techniques, vol. 1, no. 1, pp. 7:1–7:20, May 2018.
-
-- Transparent line rendering with Multi-Layer Alpha Blending (MLAB).
-  For more details see: Marco Salvi and Karthik Vaidyanathan. 2014. Multi-layer Alpha Blending. In Proceedings of the
-  18th Meeting of the ACM SIGGRAPH Symposium on Interactive 3D Graphics and Games (San Francisco, California)
-  (I3D ’14). ACM, New York, NY, USA, 151–158. https://doi.org/10.1145/2556700.2556705
-
-- Transparent line rendering with Multi-Layer Alpha Blending using depth buckets (MLABDB).
-  For more details see: M. Kern, C. Neuhauser, T. Maack, M. Han, W. Usher and R. Westermann, "A Comparison of Rendering
-  Techniques for 3D Line Sets with Transparency," in IEEE Transactions on Visualization and Computer Graphics, 2020.
-  doi: 10.1109/TVCG.2020.2975795 URL: http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9007507&isnumber=4359476
-
-- Transparent line rendering with Weighted Blended Order-Independent Transparency (WBOIT)
-  For more details see: Morgan McGuire and Louis Bavoil. 2013. Weighted Blended Order-Independent Transparency.
-  Journal of Computer Graphics Techniques (JCGT), vol. 2, no. 2, 122-141, 201
-
-- Transparent line rendering with Depth Peeling (DP).
-  For more details see: C. Everitt, "Interactive order-independent transparency", NVIDIA Corporation, vol. 2, 10 2001.
-
-- Decoupled opacity optimization.
-  Implementation of decoupled opacity optimization as described in:
-  Tobias Günther, Holger Theisel, and Markus Gross. 2017. Decoupled Opacity Optimization for Points, Lines and Surfaces.
-  Comput. Graph. Forum 36, 2 (May 2017), 153–162. DOI:https://doi.org/10.1111/cgf.13115
+[Wu et al. 2018]: J. Wu, N. Aage, R. Westermann and O. Sigmund, "Infill Optimization for Additive Manufacturing -
+Approaching Bone-Like Porous Structures," in IEEE Transactions on Visualization and Computer Graphics,
+vol. 24, no. 2, pp. 1127-1140, 1 Feb. 2018, doi: 10.1109/TVCG.2017.2655523.
 
 
 ## Building and running the programm
@@ -88,6 +59,7 @@ packages are used.
 
 If you are using a different Linux distribution and face difficulties when building the program, please feel free to
 open a [bug report](https://github.com/Junpeng-Wang-TUM/3D-TSV/issues).
+
 
 ### Windows
 
@@ -189,3 +161,64 @@ meshes of 3D-TSV, the following file content can be specified:
 Additionally, the user can also open arbitrary simulation meshes (in `.carti` or `.stress` format) and
 principal stress line (PSL) data sets using a file explorer via "File > Open Dataset..." (or using Ctrl+O).
 `.carti` and `.stress` files will then be opened in the stress line tracing dialog.
+
+### Video 1: How to Use LineVis as a Frontend for 3D-TSV
+
+[![3D-TSV System Overview](https://img.youtube.com/vi/h7BzP7Jg_-o/maxresdefault.jpg)](https://youtu.be/h7BzP7Jg_-o)
+
+### Video 2: How to Load External Stress Line Files
+
+[![3D-TSV External PSL File Loading](https://img.youtube.com/vi/zafBOAt9Xvs/maxresdefault.jpg)](https://youtu.be/zafBOAt9Xvs)
+
+
+## Supported Rendering Modes
+
+Below, a list of rendering modes supported in LineVis can be found.
+
+- Opaque line rendering with up to 32x MSAA (multisample anti-aliasing).
+
+- Opaque and transparent line rendering using a ray tracer based on the
+  [Vulkan Ray Tracing](https://www.khronos.org/blog/ray-tracing-in-vulkan) extension.
+  Both ray-triangle and analytic ray-tube intersections can be used.
+
+- Opaque line rendering with Voxel Ray Casting (VRC).
+  For more details see: M. Kanzler, M. Rautenhaus, R. Westermann.
+  A Voxel-based Rendering Pipeline for Large 3D Line Sets.
+  IEEE Transactions on Visualization and Computer Graphics 2018.
+  https://www.in.tum.de/cg/research/publications/2018/a-voxel-based-rendering-pipeline-for-large-3d-line-sets/
+
+- Opaque and transparent line rendering using [Intel OSPRay](https://www.ospray.org/).
+
+- Transparent line rendering with per-pixel fragment lists (sometimes also called per-pixel linked lists).
+  For more details see: Yang, J. C., Hensley, J., Grün, H. and Thibieroz, N., "Real-Time Concurrent Linked List
+  Construction on the GPU", Computer Graphics Forum, 29, 2010.
+
+- Transparent line rendering with Moment-based Order-Independent Transparency (MBOIT).
+  For more details see: C. Munstermann, S. Krumpen, R. Klein, and C. Peters, "Moment-based order-independent transparency,"
+  Proceedings of the ACM on Computer Graphics and Interactive Techniques, vol. 1, no. 1, pp. 7:1–7:20, May 2018.
+
+- Transparent line rendering with Multi-Layer Alpha Blending (MLAB).
+  For more details see: Marco Salvi and Karthik Vaidyanathan. 2014. Multi-layer Alpha Blending. In Proceedings of the
+  18th Meeting of the ACM SIGGRAPH Symposium on Interactive 3D Graphics and Games (San Francisco, California)
+  (I3D ’14). ACM, New York, NY, USA, 151–158. https://doi.org/10.1145/2556700.2556705
+
+- Transparent line rendering with Multi-Layer Alpha Tracing (MLAT).
+  For more details see: F. Brüll and T. Grosch. Multi-Layer Alpha Tracing. In J. Krüger, M. Niessner, and J. Stückler,
+  editors, Vision, Modeling, and Visualization. The Eurographics Association, 2020.
+
+- Transparent line rendering with Multi-Layer Alpha Blending using depth buckets (MLABDB).
+  For more details see: M. Kern, C. Neuhauser, T. Maack, M. Han, W. Usher and R. Westermann, "A Comparison of Rendering
+  Techniques for 3D Line Sets with Transparency," in IEEE Transactions on Visualization and Computer Graphics, 2020.
+  doi: 10.1109/TVCG.2020.2975795 URL: http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9007507&isnumber=4359476
+
+- Transparent line rendering with Weighted Blended Order-Independent Transparency (WBOIT)
+  For more details see: Morgan McGuire and Louis Bavoil. 2013. Weighted Blended Order-Independent Transparency.
+  Journal of Computer Graphics Techniques (JCGT), vol. 2, no. 2, 122-141, 201
+
+- Transparent line rendering with Depth Peeling (DP).
+  For more details see: C. Everitt, "Interactive order-independent transparency", NVIDIA Corporation, vol. 2, 10 2001.
+
+- Decoupled opacity optimization.
+  Implementation of decoupled opacity optimization as described in:
+  Tobias Günther, Holger Theisel, and Markus Gross. 2017. Decoupled Opacity Optimization for Points, Lines and Surfaces.
+  Comput. Graph. Forum 36, 2 (May 2017), 153–162. DOI:https://doi.org/10.1111/cgf.13115
