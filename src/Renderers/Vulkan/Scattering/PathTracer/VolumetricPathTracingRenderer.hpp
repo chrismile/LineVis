@@ -81,6 +81,7 @@ public:
     void notifyReRenderTriggeredExternally() override;
     /// Sets whether linear RGB or sRGB should be used for rendering.
     void setUseLinearRGB(bool useLinearRGB) override;
+    void setFileDialogInstance(ImGuiFileDialog* fileDialogInstance) override;
 
     // Renders the object to the scene framebuffer.
     void render() override;

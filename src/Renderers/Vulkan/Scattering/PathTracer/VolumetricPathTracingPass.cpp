@@ -77,8 +77,6 @@ VolumetricPathTracingPass::VolumetricPathTracingPass(sgl::vk::Renderer* renderer
     blitPrimaryRayMomentTexturePass = std::make_shared<BlitMomentTexturePass>(renderer, "Primary");
     blitScatterRayMomentTexturePass = std::make_shared<BlitMomentTexturePass>(renderer, "Scatter");
 
-    fileDialogInstance = IGFD_Create();
-
     createDenoiser();
     updateVptMode();
 }
@@ -90,8 +88,6 @@ VolumetricPathTracingPass::~VolumetricPathTracingPass() {
         sgl::AppSettings::get()->getSettings().addKeyValue(
                 "vptUseEnvironmentMap", useEnvironmentMapImage);
     }
-
-    IGFD_Destroy(fileDialogInstance);
 }
 
 void VolumetricPathTracingPass::createDenoiser() {
@@ -195,6 +191,10 @@ void VolumetricPathTracingPass::setUseLinearRGB(bool useLinearRGB) {
     uniformData.useLinearRGB = useLinearRGB;
     frameInfo.frameCount = 0;
     setShaderDirty();
+}
+
+void VolumetricPathTracingPass::setFileDialogInstance(ImGuiFileDialog* fileDialogInstance) {
+    this->fileDialogInstance = fileDialogInstance;
 }
 
 void VolumetricPathTracingPass::onHasMoved() {

@@ -148,6 +148,10 @@ void VolumetricPathTracingRenderer::setUseLinearRGB(bool useLinearRGB) {
     vptPass->setUseLinearRGB(useLinearRGB);
 }
 
+void VolumetricPathTracingRenderer::setFileDialogInstance(ImGuiFileDialog* fileDialogInstance) {
+    vptPass->setFileDialogInstance(fileDialogInstance);
+}
+
 void VolumetricPathTracingRenderer::render() {
     LineRenderer::render();
 

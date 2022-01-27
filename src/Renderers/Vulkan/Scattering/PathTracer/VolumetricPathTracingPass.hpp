@@ -66,6 +66,7 @@ public:
     void recreateSwapchain(uint32_t width, uint32_t height) override;
     void setLineData(LineDataScatteringPtr& data, bool isNewData);
     void setUseLinearRGB(bool useLinearRGB);
+    void setFileDialogInstance(ImGuiFileDialog* fileDialogInstance);
 
     // Called when the camera has moved.
     void onHasMoved();

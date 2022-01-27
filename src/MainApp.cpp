@@ -680,6 +680,7 @@ void MainApp::setRenderer(
 
     newLineRenderer->initialize();
     newLineRenderer->setUseLinearRGB(useLinearRGB);
+    newLineRenderer->setFileDialogInstance(fileDialogInstance);
 
     if (lineData) {
         if (useDockSpaceMode) {

@@ -48,6 +48,11 @@ struct InternalState;
 class SettingsMap;
 class LineDataStress;
 
+namespace IGFD {
+class FileDialog;
+}
+typedef IGFD::FileDialog ImGuiFileDialog;
+
 /**
  * Super-class for line renderers.
  */
@@ -108,6 +113,7 @@ public:
      * as the transfer function data is automatically updated to use the correct format.
      */
     virtual void setUseLinearRGB(bool useLinearRGB) {}
+    virtual void setFileDialogInstance(ImGuiFileDialog* fileDialogInstance) {}
 
     /**
      * Called when whether the simulation mesh hull should be rendered might have changed.
