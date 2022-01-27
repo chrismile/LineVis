@@ -185,8 +185,8 @@ vec3 sampleLight(in vec3 dir) {
 
 float sampleCloud(in vec3 pos) {
     ivec3 dim = textureSize(gridImage, 0);
-    vec3 coord = (pos - parameters.boxMin)/(parameters.boxMax - parameters.boxMin);
-    coord += vec3(random() - 0.5, random() - 0.5, random() - 0.5)/ dim;
+    vec3 coord = (pos - parameters.boxMin) / (parameters.boxMax - parameters.boxMin);
+    coord += vec3(random() - 0.5, random() - 0.5, random() - 0.5) / dim;
     return texture(gridImage, coord).x;
 }
 

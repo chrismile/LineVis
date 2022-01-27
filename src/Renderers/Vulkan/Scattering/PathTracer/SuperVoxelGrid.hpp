@@ -53,7 +53,7 @@ class SuperVoxelGridResidualRatioTracking {
 public:
     SuperVoxelGridResidualRatioTracking(
             sgl::vk::Device* device, int voxelGridSizeX, int voxelGridSizeY, int voxelGridSizeZ,
-            const float* voxelGridData, int superVoxelSize1D);
+            const float* voxelGridData, int superVoxelSize1D, bool clampToZeroBorder);
     ~SuperVoxelGridResidualRatioTracking();
 
     [[nodiscard]] inline const glm::ivec3& getSuperVoxelSize() const { return superVoxelSize; }
@@ -73,6 +73,7 @@ private:
 
     int superVoxelGridSizeX = 0, superVoxelGridSizeY = 0, superVoxelGridSizeZ = 0;
     int voxelGridSizeX = 0, voxelGridSizeY = 0, voxelGridSizeZ = 0;
+    bool clampToZeroBorder = true;
 
     float extinction = 1024.0f;
     float scatteringAlbedo = 1.0f;
@@ -98,7 +99,7 @@ class SuperVoxelGridDecompositionTracking {
 public:
     SuperVoxelGridDecompositionTracking(
             sgl::vk::Device* device, int voxelGridSizeX, int voxelGridSizeY, int voxelGridSizeZ,
-            const float* voxelGridData, int superVoxelSize1D);
+            const float* voxelGridData, int superVoxelSize1D, bool clampToZeroBorder);
     ~SuperVoxelGridDecompositionTracking();
 
     [[nodiscard]] inline const glm::ivec3& getSuperVoxelSize() const { return superVoxelSize; }
@@ -113,6 +114,7 @@ private:
 
     int superVoxelGridSizeX = 0, superVoxelGridSizeY = 0, superVoxelGridSizeZ = 0;
     int voxelGridSizeX = 0, voxelGridSizeY = 0, voxelGridSizeZ = 0;
+    bool clampToZeroBorder = true;
 
     uint8_t* superVoxelGridOccupany;
     glm::vec2* superVoxelGridMinMaxDensity = nullptr;

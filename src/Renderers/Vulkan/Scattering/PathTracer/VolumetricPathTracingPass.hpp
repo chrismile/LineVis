@@ -102,6 +102,7 @@ private:
     std::shared_ptr<SuperVoxelGridResidualRatioTracking> superVoxelGridResidualRatioTracking;
     std::shared_ptr<SuperVoxelGridDecompositionTracking> superVoxelGridDecompositionTracking;
     int superVoxelSize = 8;
+    const bool clampToZeroBorder = true; ///< Whether to use a zero valued border for densityFieldTexture.
 
     uint32_t lastViewportWidth = 0, lastViewportHeight = 0;
 

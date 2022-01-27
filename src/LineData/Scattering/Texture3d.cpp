@@ -61,7 +61,7 @@ Texture3D load_xyz_file(std::string file_name) {
 
     // Normalization
     {
-        float min_val = std::numeric_limits<float>::max();
+        float min_val = 0.0f;//std::numeric_limits<float>::max();
         float max_val = std::numeric_limits<float>::lowest();
 
 #   if _OPENMP >= 201107

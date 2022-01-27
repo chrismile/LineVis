@@ -32,8 +32,9 @@
 
 SuperVoxelGridResidualRatioTracking::SuperVoxelGridResidualRatioTracking(
         sgl::vk::Device* device, int voxelGridSizeX, int voxelGridSizeY, int voxelGridSizeZ,
-        const float* voxelGridData, int superVoxelSize1D)
-        : voxelGridSizeX(voxelGridSizeX), voxelGridSizeY(voxelGridSizeY), voxelGridSizeZ(voxelGridSizeZ) {
+        const float* voxelGridData, int superVoxelSize1D, bool clampToZeroBorder)
+        : voxelGridSizeX(voxelGridSizeX), voxelGridSizeY(voxelGridSizeY), voxelGridSizeZ(voxelGridSizeZ),
+          clampToZeroBorder(clampToZeroBorder) {
     superVoxelSize = glm::ivec3(superVoxelSize1D);
 
     superVoxelGridSizeX = sgl::iceil(voxelGridSizeX, superVoxelSize1D);
@@ -80,7 +81,7 @@ void SuperVoxelGridResidualRatioTracking::computeSuperVoxels(const float* voxelG
 
 #if _OPENMP >= 200805
 #pragma omp parallel for firstprivate(superVoxelGridSize) default(none) \
-    shared(voxelGridData, superVoxelGridMinDensity, superVoxelGridMaxDensity, superVoxelGridAvgDensity)
+    shared(voxelGridData, superVoxelGridMinDensity, superVoxelGridMaxDensity, superVoxelGridAvgDensity, clampToZeroBorder)
 #endif
     for (int superVoxelIdx = 0; superVoxelIdx < superVoxelGridSize; superVoxelIdx++) {
         int superVoxelIdxX = superVoxelIdx % superVoxelGridSizeX;
@@ -112,6 +113,18 @@ void SuperVoxelGridResidualRatioTracking::computeSuperVoxels(const float* voxelG
             }
         }
         densityAvg /= float(numValidVoxels);
+
+        /*
+         * If this is a boundary voxel: Per default, we use VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER with the border
+         * color VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK. Thus, we need to set the minimum to zero for boundary super
+         * voxels if they reach outside the grid region.
+         */
+        if (clampToZeroBorder
+                && ((voxelGridSizeX % superVoxelSize.x != 0 && superVoxelIdxX == superVoxelGridSizeX - 1)
+                    || (voxelGridSizeY % superVoxelSize.y != 0 && superVoxelIdxY == superVoxelGridSizeY - 1)
+                    || (voxelGridSizeZ % superVoxelSize.z != 0 && superVoxelIdxZ == superVoxelGridSizeZ - 1))) {
+            densityMin = 0.0f;
+        }
 
         superVoxelGridMinDensity[superVoxelIdx] = densityMin;
         superVoxelGridMaxDensity[superVoxelIdx] = densityMax;
@@ -155,7 +168,7 @@ void SuperVoxelGridResidualRatioTracking::recomputeSuperVoxels() {
         superVoxel.mu_c = mu_c_prime;
         superVoxel.mu_r_bar = mu_r_bar;
 
-        bool isSuperVoxelEmpty = densityMax < 1e-5;
+        bool isSuperVoxelEmpty = densityMax < 1e-5f;
         superVoxelGridOccupany[superVoxelIdx] = isSuperVoxelEmpty ? 0 : 1;
     }
 
@@ -169,8 +182,9 @@ void SuperVoxelGridResidualRatioTracking::recomputeSuperVoxels() {
 
 SuperVoxelGridDecompositionTracking::SuperVoxelGridDecompositionTracking(
         sgl::vk::Device* device, int voxelGridSizeX, int voxelGridSizeY, int voxelGridSizeZ,
-        const float* voxelGridData, int superVoxelSize1D)
-        : voxelGridSizeX(voxelGridSizeX), voxelGridSizeY(voxelGridSizeY), voxelGridSizeZ(voxelGridSizeZ) {
+        const float* voxelGridData, int superVoxelSize1D, bool clampToZeroBorder)
+        : voxelGridSizeX(voxelGridSizeX), voxelGridSizeY(voxelGridSizeY), voxelGridSizeZ(voxelGridSizeZ),
+          clampToZeroBorder(clampToZeroBorder) {
     superVoxelSize = glm::ivec3(superVoxelSize1D);
 
     superVoxelGridSizeX = sgl::iceil(voxelGridSizeX, superVoxelSize1D);
@@ -200,7 +214,7 @@ SuperVoxelGridDecompositionTracking::SuperVoxelGridDecompositionTracking(
 
 #if _OPENMP >= 200805
 #pragma omp parallel for firstprivate(superVoxelGridSize) default(none) \
-    shared(voxelGridSizeX, voxelGridSizeY, voxelGridSizeZ, voxelGridData, superVoxelGridMinMaxDensity)
+    shared(voxelGridSizeX, voxelGridSizeY, voxelGridSizeZ, voxelGridData, superVoxelGridMinMaxDensity, clampToZeroBorder)
 #endif
     for (int superVoxelIdx = 0; superVoxelIdx < superVoxelGridSize; superVoxelIdx++) {
         int superVoxelIdxX = superVoxelIdx % superVoxelGridSizeX;
@@ -226,9 +240,21 @@ SuperVoxelGridDecompositionTracking::SuperVoxelGridDecompositionTracking(
             }
         }
 
+        /*
+         * If this is a boundary voxel: Per default, we use VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER with the border
+         * color VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK. Thus, we need to set the minimum to zero for boundary super
+         * voxels if they reach outside the grid region.
+         */
+        if (clampToZeroBorder
+                && ((voxelGridSizeX % superVoxelSize.x != 0 && superVoxelIdxX == superVoxelGridSizeX - 1)
+                    || (voxelGridSizeY % superVoxelSize.y != 0 && superVoxelIdxY == superVoxelGridSizeY - 1)
+                    || (voxelGridSizeZ % superVoxelSize.z != 0 && superVoxelIdxZ == superVoxelGridSizeZ - 1))) {
+            densityMin = 0.0f;
+        }
+
         superVoxelGridMinMaxDensity[superVoxelIdx] = glm::vec2(densityMin, densityMax);
 
-        bool isSuperVoxelEmpty = densityMax < 1e-5;
+        bool isSuperVoxelEmpty = densityMax < 1e-5f;
         superVoxelGridOccupany[superVoxelIdx] = isSuperVoxelEmpty ? 0 : 1;
     }
 
