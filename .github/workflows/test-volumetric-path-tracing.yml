@@ -35,7 +35,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install git cmake libglm-dev libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
         libpng-dev libboost-filesystem-dev libtinyxml2-dev libarchive-dev libglew-dev  libjsoncpp-dev libeigen3-dev \
-        python3-dev libzmq3-dev libnetcdf-dev googletest
+        python3-dev libzmq3-dev libnetcdf-dev libgtest-dev
 
     - name: Install Vulkan SDK
       shell: bash
