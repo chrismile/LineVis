@@ -139,7 +139,7 @@ if [ ! -d "./sgl/install" ]; then
          -G "MSYS Makefiles" \
          -DCMAKE_BUILD_TYPE=Debug \
          -DCMAKE_INSTALL_PREFIX="../install"
-    make -j
+    make -j $(nproc)
     make install
     popd >/dev/null
 
@@ -148,7 +148,7 @@ if [ ! -d "./sgl/install" ]; then
          -G "MSYS Makefiles" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="../install"
-    make -j
+    make -j $(nproc)
     make install
     popd >/dev/null
 
@@ -193,7 +193,7 @@ echo "------------------------"
 echo "      compiling         "
 echo "------------------------"
 pushd "$build_dir" >/dev/null
-make -j
+make -j $(nproc)
 popd >/dev/null
 
 echo ""

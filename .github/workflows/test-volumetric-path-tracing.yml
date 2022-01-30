@@ -18,6 +18,7 @@ jobs:
       sgl_REPO_DIR: ${{ github.workspace }}/sgl-repo
       sgl_DIR: ${{ github.workspace }}/sgl
       swiftshader_DIR: ${{ github.workspace }}/swiftshader
+      swiftshader_COMMIT_ID: 4db20a80409b207b3e134c93968468b7c3783eb6
 
     steps:
     - uses: actions/checkout@v2
@@ -62,20 +63,33 @@ jobs:
     - name: Build (LineVis)
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel 4
 
+    - name: Cache SwiftShader binaries
+      id: cache-swiftshader
+      uses: actions/cache@v2
+      with:
+        path: ${{env.swiftshader_DIR}}
+        key: ${{runner.os}}-swiftshader-${{env.BUILD_TYPE}}-${{env.swiftshader_COMMIT_ID}}
+
     - name: Build (SwiftShader)
+      if: steps.cache-swiftshader.outputs.cache-hit != 'true'
       run: |
         git clone https://github.com/google/swiftshader.git ${{env.swiftshader_DIR}}
+        git checkout ${{env.swiftshader_COMMIT_ID}}
         cmake ${{env.swiftshader_DIR}} -B ${{env.swiftshader_DIR}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
         cmake --build ${{env.swiftshader_DIR}}/build --config ${{env.BUILD_TYPE}} --parallel 4
 
-    - name: Run Tests
+    - name: Run tests
+      id: tests
       run: |
         #export LD_LIBRARY_PATH="${{env.swiftshader_DIR}}/build/Linux"
         export VK_ICD_FILENAMES="${{env.swiftshader_DIR}}/build/Linux/vk_swiftshader_icd.json"
         ${{github.workspace}}/build/LineVis_test
 
-    - name: Archive failed VPT images
+    - name: Archive failed VPT images and logs
+      if: steps.tests.outcome == 'failure'
       uses: actions/upload-artifact@v2
       with:
         name: vpt-output-images
-        path: ${{github.workspace}}/build/out*.png
+        path: |
+          ${{github.workspace}}/build/out*.png
+          /home/${{env.USER}}/.config/linevis/Logfile.html
