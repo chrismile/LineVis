@@ -86,7 +86,7 @@ jobs:
         ${{github.workspace}}/build/LineVis_test
 
     - name: Archive failed VPT images and logs
-      if: steps.tests.outcome == 'failure'
+      if: always() && steps.tests.outcome == 'failure'
       uses: actions/upload-artifact@v2
       with:
         name: vpt-output-images
