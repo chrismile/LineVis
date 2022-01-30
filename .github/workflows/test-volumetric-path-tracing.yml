@@ -1,4 +1,4 @@
-name: Test Volumetric Path Tracing Renderers
+name: Test volumetric path tracing renderers
 
 on:
   push:
@@ -28,12 +28,6 @@ jobs:
       with:
         repository: chrismile/sgl
         path: sgl-repo
-        submodules: true
-
-    - uses: actions/checkout@v2
-      with:
-        repository: https://swiftshader.googlesource.com/SwiftShader
-        path: swiftshader
         submodules: true
 
     - name: Install system packages
@@ -70,6 +64,7 @@ jobs:
 
     - name: Build (SwiftShader)
       run: |
+        git clone https://github.com/google/swiftshader.git ${{env.swiftshader_DIR}}
         cmake -B ${{env.swiftshader_DIR}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
         cmake --build ${{env.swiftshader_DIR}}/build --config ${{env.BUILD_TYPE}} --parallel
 
