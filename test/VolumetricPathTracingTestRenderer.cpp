@@ -138,7 +138,7 @@ float* VolumetricPathTracingTestRenderer::renderFrame(int numFrames) {
         for (uint32_t x = 0; x < width; x++) {
             uint32_t writeLocation = (x + y * width) * 3;
             // We don't need to add "uint32_t(subresourceLayout.offset)" here, as this is automatically done by VMA.
-            uint32_t readLocation = uint32_t(subresourceLayout.offset) + x * 4 + rowPitch * y;
+            uint32_t readLocation = x * 4 + rowPitch * y;
             for (uint32_t c = 0; c < 3; c++) {
                 imageData[writeLocation + c] = mappedData[readLocation + c];
             }
