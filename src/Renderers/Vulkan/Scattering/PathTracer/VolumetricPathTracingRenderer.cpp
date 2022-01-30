@@ -104,7 +104,7 @@ void VolumetricPathTracingRenderer::setLineData(LineDataPtr& lineData, bool isNe
     }
 
     LineDataScatteringPtr lineDataScattering = std::static_pointer_cast<LineDataScattering>(lineData);
-    vptPass->setLineData(lineDataScattering, isNewData);
+    vptPass->setCloudData(lineDataScattering->getCloudData(), isNewData);
 }
 
 void VolumetricPathTracingRenderer::onResolutionChanged() {

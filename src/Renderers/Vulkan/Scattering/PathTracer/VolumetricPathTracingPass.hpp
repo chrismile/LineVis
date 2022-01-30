@@ -37,8 +37,8 @@ namespace sgl {
 class PropertyEditor;
 }
 
-class LineDataScattering;
-typedef std::shared_ptr<LineDataScattering> LineDataScatteringPtr;
+class CloudData;
+typedef std::shared_ptr<CloudData> CloudDataPtr;
 
 class BlitMomentTexturePass;
 class SuperVoxelGridResidualRatioTracking;
@@ -56,6 +56,14 @@ const char* const FEATURE_MAP_NAMES[] = {
         "Result", "First X", "First W", "Primary Ray Absorption Moments", "Scatter Ray Absorption Moments"
 };
 
+enum class VptMode {
+    DELTA_TRACKING, SPECTRAL_DELTA_TRACKING, RATIO_TRACKING, RESIDUAL_RATIO_TRACKING, DECOMPOSITION_TRACKING
+};
+const char* const VPT_MODE_NAMES[] = {
+        "Delta Tracking", "Delta Tracking (Spectral)", "Ratio Tracking", "Residual Ratio Tracking",
+        "Decomposition Tracking"
+};
+
 class VolumetricPathTracingPass : public sgl::vk::ComputePass {
 public:
     explicit VolumetricPathTracingPass(sgl::vk::Renderer* renderer, sgl::CameraPtr* camera);
@@ -64,7 +72,8 @@ public:
     // Public interface.
     void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
     void recreateSwapchain(uint32_t width, uint32_t height) override;
-    void setLineData(LineDataScatteringPtr& data, bool isNewData);
+    void setCloudData(const CloudDataPtr& data, bool isNewData);
+    void setVptMode(VptMode vptMode);
     void setUseLinearRGB(bool useLinearRGB);
     void setFileDialogInstance(ImGuiFileDialog* fileDialogInstance);
 
@@ -87,17 +96,10 @@ private:
 
     const glm::ivec2 blockSize2D = glm::ivec2(16, 16);
     sgl::vk::ImageViewPtr sceneImageView;
-    LineDataScatteringPtr lineData;
+    CloudDataPtr cloudData;
     FeatureMapType featureMapType = FeatureMapType::RESULT;
 
     void updateVptMode();
-    enum class VptMode {
-        DELTA_TRACKING, SPECTRAL_DELTA_TRACKING, RATIO_TRACKING, RESIDUAL_RATIO_TRACKING, DECOMPOSITION_TRACKING
-    };
-    const char* const VPT_MODE_NAMES[5] = {
-            "Delta Tracking", "Delta Tracking (Spectral)", "Ratio Tracking", "Residual Ratio Tracking",
-            "Decomposition Tracking"
-    };
     VptMode vptMode = VptMode::DECOMPOSITION_TRACKING;
     std::shared_ptr<SuperVoxelGridResidualRatioTracking> superVoxelGridResidualRatioTracking;
     std::shared_ptr<SuperVoxelGridDecompositionTracking> superVoxelGridDecompositionTracking;
@@ -194,7 +196,7 @@ public:
     explicit BlitMomentTexturePass(sgl::vk::Renderer* renderer, std::string prefix);
 
     enum class MomentType {
-        POWER, TRIGONOMETRIC
+        NONE, POWER, TRIGONOMETRIC
     };
 
     // Public interface.
@@ -225,7 +227,7 @@ private:
 
     std::string prefix; ///< What moments - e.g., "primary", "scatter" for primary and scatter ray moments.
     bool visualizeMomentTexture = false;
-    MomentType momentType = MomentType::POWER;
+    MomentType momentType = MomentType::NONE;
     int numMomentsIdx = 2;
     int numMoments = 8;
     int selectedMomentBlitIdx = 0;

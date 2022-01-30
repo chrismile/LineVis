@@ -192,6 +192,32 @@ else()
     add_executable(LineVis ${SOURCES})
 endif()
 
+if (USE_GTEST)
+    include(GoogleTest)
+    enable_testing()
+    add_executable(
+            LineVis_test
+            # Test 1: Kd-tree functionality.
+            test/TestKdTreeNearestNeighbor.cpp
+            src/LineData/SearchStructures/NearestNeighborNaive.cpp
+            # Test 2: Volumetric path tracing.
+            test/VolumetricPathTracingTestData.cpp
+            test/VolumetricPathTracingTestRenderer.cpp
+            test/TestVolumetricPathTracing.cpp
+            src/LineData/Scattering/CloudData.cpp
+            src/Renderers/OIT/MBOITUtils.cpp
+            src/Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracingPass.cpp
+            src/Renderers/Vulkan/Scattering/PathTracer/SuperVoxelGrid.cpp
+            src/Renderers/Vulkan/Scattering/PathTracer/SuperVoxelGrid.cpp
+            src/Renderers/Vulkan/Scattering/Denoiser/Denoiser.cpp
+            src/Renderers/Vulkan/Scattering/Denoiser/EAWDenoiser.cpp
+    )
+    target_link_libraries(LineVis_test PRIVATE gtest gtest_main)
+    target_link_libraries(LineVis_test PRIVATE sgl ${Boost_LIBRARIES})
+    target_include_directories(LineVis_test PRIVATE ${sgl_INCLUDES} ${Boost_INCLUDE_DIR})
+    gtest_add_tests(TARGET LineVis_test)
+endif()
+
 
 # Hide console window in release build on Windows/MSVC.
 # See: https://gitlab.kitware.com/cmake/community/-/wikis/doc/cmake/recipe/VSConfigSpecificSettings
@@ -252,18 +278,33 @@ target_include_directories(LineVis PRIVATE ${sgl_INCLUDES} ${TINYXML2_INCLUDE_DI
 
 if (JSONCPP_LIBRARIES)
     target_link_libraries(LineVis PRIVATE ${JSONCPP_LIBRARIES})
+    if (USE_GTEST)
+        target_link_libraries(LineVis_test PRIVATE ${JSONCPP_LIBRARIES})
+    endif()
 endif()
 if (TARGET jsoncpp_lib)
     get_target_property(jsoncpp_INCLUDES jsoncpp_lib INTERFACE_INCLUDE_DIRECTORIES)
     target_link_libraries(LineVis PRIVATE jsoncpp_lib)
+    if (USE_GTEST)
+        target_link_libraries(LineVis_test PRIVATE jsoncpp_lib)
+    endif()
 elseif(TARGET jsoncpp_static)
     get_target_property(jsoncpp_INCLUDES jsoncpp_static INTERFACE_INCLUDE_DIRECTORIES)
     target_link_libraries(LineVis PRIVATE jsoncpp_static)
+    if (USE_GTEST)
+        target_link_libraries(LineVis_test PRIVATE jsoncpp_static)
+    endif()
 endif()
 if (TARGET jsoncpp_object)
     target_link_libraries(LineVis PRIVATE jsoncpp_object)
+    if (USE_GTEST)
+        target_link_libraries(LineVis_test PRIVATE jsoncpp_object)
+    endif()
 endif()
 target_include_directories(LineVis PRIVATE ${jsoncpp_INCLUDES})
+if (USE_GTEST)
+    target_include_directories(LineVis_test PRIVATE ${jsoncpp_INCLUDES})
+endif()
 
 if(VCPKG_TOOLCHAIN)
     find_package(cppzmq CONFIG QUIET)
@@ -415,14 +456,4 @@ else()
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
     endif()
-endif()
-
-
-if (USE_GTEST)
-    include(GoogleTest)
-    enable_testing()
-    add_executable(LineVis_test test/TestKdTreeNearestNeighbor.cpp
-            src/LineData/SearchStructures/NearestNeighborNaive.cpp)
-    target_link_libraries(LineVis_test gtest gtest_main)
-    gtest_add_tests(TARGET LineVis_test)
 endif()

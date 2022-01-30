@@ -30,6 +30,7 @@
 #define LINEVIS_LINEDATASCATTERING_HPP
 
 #include "../LineDataFlow.hpp"
+#include "CloudData.hpp"
 #include "Texture3d.hpp"
 #include "../SearchStructures/KdTree.hpp"
 
@@ -70,18 +71,19 @@ public:
     ~LineDataScattering() override;
     sgl::ShaderProgramPtr reloadGatherShader() override;
 
-    inline uint32_t getGridSizeX() const { return gridSizeX; }
-    inline uint32_t getGridSizeY() const { return gridSizeY; }
-    inline uint32_t getGridSizeZ() const { return gridSizeZ; }
-    inline float getVoxelSizeX() const { return voxelSizeX; }
-    inline float getVoxelSizeY() const { return voxelSizeY; }
-    inline float getVoxelSizeZ() const { return voxelSizeZ; }
-    inline float* getScalarFieldData() const { return scalarFieldData; }
-    inline const sgl::AABB3& getGridBoundingBox() const { return gridAabb; }
-    inline bool getUseLineSegmentLengthForDensityField() const { return useLineSegmentLengthForDensityField; }
+    [[nodiscard]] inline CloudDataPtr getCloudData() { return cloudData; }
+    [[nodiscard]] inline uint32_t getGridSizeX() const { return gridSizeX; }
+    [[nodiscard]] inline uint32_t getGridSizeY() const { return gridSizeY; }
+    [[nodiscard]] inline uint32_t getGridSizeZ() const { return gridSizeZ; }
+    [[nodiscard]] inline float getVoxelSizeX() const { return voxelSizeX; }
+    [[nodiscard]] inline float getVoxelSizeY() const { return voxelSizeY; }
+    [[nodiscard]] inline float getVoxelSizeZ() const { return voxelSizeZ; }
+    [[nodiscard]] inline float* getScalarFieldData() const { return scalarFieldData; }
+    [[nodiscard]] inline const sgl::AABB3& getGridBoundingBox() const { return gridAabb; }
+    [[nodiscard]] inline bool getUseLineSegmentLengthForDensityField() const { return useLineSegmentLengthForDensityField; }
 
     /// Set current rendering modes (e.g. for making visible certain UI options only for certain renderers).
-    virtual void setLineRenderers(const std::vector<LineRenderer*> lineRenderers);
+    void setLineRenderers(const std::vector<LineRenderer*>& lineRenderers) override;
 
     /**
      * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
@@ -117,6 +119,7 @@ protected:
     void recomputeHistogram() override;
 
 private:
+    CloudDataPtr cloudData{};
     uint32_t gridSizeX = 0, gridSizeY = 0, gridSizeZ = 0;
     float voxelSizeX = 0.0f, voxelSizeY = 0.0f, voxelSizeZ = 0.0f;
     float* scalarFieldData = nullptr;
@@ -138,6 +141,8 @@ private:
     sgl::vk::Renderer* rendererVk = nullptr;
 #endif
 };
+
+typedef std::shared_ptr<LineDataScattering> LineDataScatteringPtr;
 
 #ifdef USE_VULKAN_INTEROP
 class LineDensityFieldImageComputeRenderPass : public sgl::vk::ComputePass {

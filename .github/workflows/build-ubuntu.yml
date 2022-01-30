@@ -74,7 +74,7 @@ jobs:
       run: cmake ${{env.sgl_REPO_DIR}} -B ${{env.sgl_REPO_DIR}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{env.sgl_DIR}}
 
     - name: Build (sgl)
-      run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}}
+      run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --parallel
 
     - name: Install (sgl)
       run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --target install
@@ -83,4 +83,4 @@ jobs:
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dsgl_DIR=${{env.sgl_DIR}}/lib/cmake/sgl -Dembree_DIR=${{github.workspace}}/embree-${{env.EMBREE_VERSION}}.x86_64.linux/lib/cmake/embree-${{env.EMBREE_VERSION}} -Dospray_DIR=${{github.workspace}}/ospray-${{env.OSPRAY_VERSION}}.x86_64.linux/lib/cmake/ospray-${{env.OSPRAY_VERSION}}
 
     - name: Build (LineVis)
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel

@@ -60,10 +60,6 @@ LineDataScattering::LineDataScattering(
 }
 
 LineDataScattering::~LineDataScattering() {
-    if (scalarFieldData) {
-        scalarFieldData = nullptr;
-        delete[] scalarFieldData;
-    }
 }
 
 sgl::ShaderProgramPtr LineDataScattering::reloadGatherShader() {
@@ -100,12 +96,10 @@ void LineDataScattering::setGridData(
     this->voxelSizeY = voxelSizeY;
     this->voxelSizeZ = voxelSizeZ;
 
-    if (this->scalarFieldData) {
-        delete[] this->scalarFieldData;
-        this->scalarFieldData = nullptr;
-    }
     this->scalarFieldData = new float[gridSizeX * gridSizeY * gridSizeZ];
     memcpy(this->scalarFieldData, scalarFieldData, sizeof(float) * gridSizeX * gridSizeY * gridSizeZ);
+    cloudData = std::make_shared<CloudData>();
+    cloudData->setDensityField(gridSizeX, gridSizeY, gridSizeZ, this->scalarFieldData);
 
     uint32_t maxDimSize = std::max(gridSizeX, std::max(gridSizeY, gridSizeZ));
     gridAabb.max = glm::vec3(gridSizeX, gridSizeY, gridSizeZ) * 0.25f / float(maxDimSize);
@@ -173,7 +167,7 @@ void LineDataScattering::recomputeHistogram() {
     histogramNeverComputedBefore = false;
 }
 
-void LineDataScattering::setLineRenderers(const std::vector<LineRenderer*> lineRenderers) {
+void LineDataScattering::setLineRenderers(const std::vector<LineRenderer*>& lineRenderers) {
     LineData::setLineRenderers(lineRenderers);
     lineRenderersUseVolumeRenderer = std::all_of(
             lineRenderers.cbegin(), lineRenderers.cend(), [this](LineRenderer* lineRenderer){

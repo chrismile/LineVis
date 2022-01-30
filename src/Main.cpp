@@ -51,7 +51,7 @@
 #include "MainApp.hpp"
 
 int main(int argc, char *argv[]) {
-    // Initialize the filesystem utilities
+    // Initialize the filesystem utilities.
     sgl::FileUtils::get()->initialize("LineVis", argc, argv);
 
     // Load the file containing the app settings

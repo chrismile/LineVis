@@ -1,0 +1,86 @@
+name: Test Volumetric Path Tracing Renderers
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    name: "${{ github.workflow }}"
+
+    env:
+      sgl_REPO_DIR: ${{ github.workspace }}/sgl-repo
+      sgl_DIR: ${{ github.workspace }}/sgl
+      swiftshader_DIR: ${{ github.workspace }}/swiftshader
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+
+    - uses: actions/checkout@v2
+      with:
+        repository: chrismile/sgl
+        path: sgl-repo
+        submodules: true
+
+    - uses: actions/checkout@v2
+      with:
+        repository: google/swiftshader
+        path: swiftshader
+        submodules: true
+
+    - name: Install system packages
+      run: |
+        sudo apt-get update
+        sudo apt-get install git cmake libglm-dev libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+        libpng-dev libboost-filesystem-dev libtinyxml2-dev libarchive-dev libglew-dev  libjsoncpp-dev libeigen3-dev \
+        python3-dev libzmq3-dev libnetcdf-dev
+
+    - name: Install Vulkan SDK
+      shell: bash
+      run: |
+        distro_code_name=$(lsb_release -c | grep -oP "\:\s+\K\S+")
+        wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
+        sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-${distro_code_name}.list \
+        https://packages.lunarg.com/vulkan/1.2.198/lunarg-vulkan-1.2.198-${distro_code_name}.list
+        sudo apt update
+        sudo apt install vulkan-sdk shaderc
+
+    - name: Configure CMake (sgl)
+      run: cmake ${{env.sgl_REPO_DIR}} -B ${{env.sgl_REPO_DIR}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{env.sgl_DIR}}
+
+    - name: Build (sgl)
+      run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --parallel
+
+    - name: Install (sgl)
+      run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --target install
+
+    - name: Configure CMake (LineVis)
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dsgl_DIR=${{env.sgl_DIR}}/lib/cmake/sgl
+
+    - name: Build (LineVis)
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel
+
+    - name: Build (SwiftShader)
+      run: |
+        cmake -B ${{env.swiftshader_DIR}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        cmake --build ${{env.swiftshader_DIR}}/build --config ${{env.BUILD_TYPE}} --parallel
+
+    - name: Run Tests
+      run: |
+        #export LD_LIBRARY_PATH="${{env.swiftshader_DIR}}/build/Linux"
+        export VK_ICD_FILENAMES="${{env.swiftshader_DIR}}/build/Linux/vk_swiftshader_icd.json"
+        ${{github.workspace}}/build/LineVis_test
+
+    - name: Archive failed VPT images
+      uses: actions/upload-artifact@v2
+      with:
+        name: vpt-output-images
+        path: ${{github.workspace}}/build/out*.png

@@ -29,6 +29,7 @@
 #include <Math/Math.hpp>
 #include <Utils/AppSettings.hpp>
 #include <Utils/File/Logfile.hpp>
+#include <Utils/File/FileUtils.hpp>
 #include <Graphics/Texture/Bitmap.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/RayTracingPipeline.hpp>
@@ -45,7 +46,7 @@
 #endif
 
 #include "Renderers/OIT/MBOITUtils.hpp"
-#include "LineData/Scattering/LineDataScattering.hpp"
+#include "LineData/Scattering/CloudData.hpp"
 #include "SuperVoxelGrid.hpp"
 #include "VolumetricPathTracingPass.hpp"
 
@@ -160,8 +161,8 @@ void VolumetricPathTracingPass::recreateSwapchain(uint32_t width, uint32_t heigh
     }
 }
 
-void VolumetricPathTracingPass::setLineData(LineDataScatteringPtr& data, bool isNewData) {
-    lineData = data;
+void VolumetricPathTracingPass::setCloudData(const CloudDataPtr& data, bool isNewData) {
+    cloudData = data;
 
     sgl::vk::ImageSettings imageSettings;
     imageSettings.width = data->getGridSizeX();
@@ -185,11 +186,18 @@ void VolumetricPathTracingPass::setLineData(LineDataScatteringPtr& data, bool is
     densityFieldTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
     densityFieldTexture->getImage()->uploadData(
             data->getGridSizeX() * data->getGridSizeY() * data->getGridSizeZ() * sizeof(float),
-            data->getScalarFieldData());
+            data->getDensityField());
 
     frameInfo.frameCount = 0;
     setDataDirty();
     updateVptMode();
+}
+
+void VolumetricPathTracingPass::setVptMode(VptMode vptMode) {
+    this->vptMode = vptMode;
+    updateVptMode();
+    setShaderDirty();
+    setDataDirty();
 }
 
 void VolumetricPathTracingPass::setUseLinearRGB(bool useLinearRGB) {
@@ -207,17 +215,17 @@ void VolumetricPathTracingPass::onHasMoved() {
 }
 
 void VolumetricPathTracingPass::updateVptMode() {
-    if (vptMode == VptMode::RESIDUAL_RATIO_TRACKING && lineData) {
+    if (vptMode == VptMode::RESIDUAL_RATIO_TRACKING && cloudData) {
         superVoxelGridResidualRatioTracking = std::make_shared<SuperVoxelGridResidualRatioTracking>(
-                device, lineData->getGridSizeX(), lineData->getGridSizeY(),
-                lineData->getGridSizeZ(), lineData->getScalarFieldData(),
+                device, cloudData->getGridSizeX(), cloudData->getGridSizeY(),
+                cloudData->getGridSizeZ(), cloudData->getDensityField(),
                 superVoxelSize, clampToZeroBorder);
         superVoxelGridResidualRatioTracking->setExtinction((cloudExtinctionBase * cloudExtinctionScale).x);
-    } else if (vptMode == VptMode::DECOMPOSITION_TRACKING && lineData) {
+    } else if (vptMode == VptMode::DECOMPOSITION_TRACKING && cloudData) {
         superVoxelGridResidualRatioTracking = {};
         superVoxelGridDecompositionTracking = std::make_shared<SuperVoxelGridDecompositionTracking>(
-                device, lineData->getGridSizeX(), lineData->getGridSizeY(),
-                lineData->getGridSizeZ(), lineData->getScalarFieldData(),
+                device, cloudData->getGridSizeX(), cloudData->getGridSizeY(),
+                cloudData->getGridSizeZ(), cloudData->getDensityField(),
                 superVoxelSize, clampToZeroBorder);
     } else {
         superVoxelGridResidualRatioTracking = {};
@@ -265,14 +273,7 @@ void VolumetricPathTracingPass::loadEnvironmentMapImage() {
 
 void VolumetricPathTracingPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
-    std::map<std::string, std::string> customPreprocessorDefines = {
-            { "COMPUTE_PRIMARY_RAY_ABSORPTION_MOMENTS", "" },
-            { "COMPUTE_SCATTER_RAY_ABSORPTION_MOMENTS", "" },
-            { "NUM_PRIMARY_RAY_ABSORPTION_MOMENTS",
-              std::to_string(blitPrimaryRayMomentTexturePass->getNumMoments()) },
-            { "NUM_SCATTER_RAY_ABSORPTION_MOMENTS",
-              std::to_string(blitScatterRayMomentTexturePass->getNumMoments()) },
-    };
+    std::map<std::string, std::string> customPreprocessorDefines;
     if (vptMode == VptMode::DELTA_TRACKING) {
         customPreprocessorDefines.insert({ "USE_DELTA_TRACKING", "" });
     } else if (vptMode == VptMode::SPECTRAL_DELTA_TRACKING) {
@@ -284,11 +285,23 @@ void VolumetricPathTracingPass::loadShader() {
     } else if (vptMode == VptMode::DECOMPOSITION_TRACKING) {
         customPreprocessorDefines.insert({ "USE_DECOMPOSITION_TRACKING", "" });
     }
-    if (blitPrimaryRayMomentTexturePass->getMomentType() == BlitMomentTexturePass::MomentType::POWER) {
-        customPreprocessorDefines.insert({ "USE_POWER_MOMENTS_PRIMARY_RAY", "" });
+    if (blitPrimaryRayMomentTexturePass->getMomentType() != BlitMomentTexturePass::MomentType::NONE) {
+        customPreprocessorDefines.insert({ "COMPUTE_PRIMARY_RAY_ABSORPTION_MOMENTS", "" });
+        customPreprocessorDefines.insert(
+                { "NUM_PRIMARY_RAY_ABSORPTION_MOMENTS",
+                  std::to_string(blitPrimaryRayMomentTexturePass->getNumMoments()) });
+        if (blitPrimaryRayMomentTexturePass->getMomentType() == BlitMomentTexturePass::MomentType::POWER) {
+            customPreprocessorDefines.insert({ "USE_POWER_MOMENTS_PRIMARY_RAY", "" });
+        }
     }
-    if (blitScatterRayMomentTexturePass->getMomentType() == BlitMomentTexturePass::MomentType::POWER) {
-        customPreprocessorDefines.insert({ "USE_POWER_MOMENTS_SCATTER_RAY", "" });
+    if (blitScatterRayMomentTexturePass->getMomentType() != BlitMomentTexturePass::MomentType::NONE) {
+        customPreprocessorDefines.insert({ "COMPUTE_SCATTER_RAY_ABSORPTION_MOMENTS", "" });
+        customPreprocessorDefines.insert(
+                { "NUM_SCATTER_RAY_ABSORPTION_MOMENTS",
+                  std::to_string(blitScatterRayMomentTexturePass->getNumMoments()) });
+        if (blitScatterRayMomentTexturePass->getMomentType() == BlitMomentTexturePass::MomentType::POWER) {
+            customPreprocessorDefines.insert({ "USE_POWER_MOMENTS_SCATTER_RAY", "" });
+        }
     }
     if (useEnvironmentMapImage) {
         customPreprocessorDefines.insert({ "USE_ENVIRONMENT_MAP_IMAGE", "" });
@@ -296,6 +309,13 @@ void VolumetricPathTracingPass::loadShader() {
     if (uniformData.useLinearRGB) {
         customPreprocessorDefines.insert({ "USE_LINEAR_RGB", "" });
     }
+
+    if (device->getPhysicalDeviceProperties().limits.maxComputeWorkGroupInvocations >= 1024) {
+        customPreprocessorDefines.insert({ "LOCAL_SIZE", "32" });
+    } else {
+        customPreprocessorDefines.insert({ "LOCAL_SIZE", "16" });
+    }
+
     shaderStages = sgl::vk::ShaderManager->getShaderStages({"Clouds.Compute"}, customPreprocessorDefines);
 }
 
@@ -309,12 +329,16 @@ void VolumetricPathTracingPass::createComputeData(
     computeData->setStaticImageView(accImageTexture->getImageView(), "accImage");
     computeData->setStaticImageView(firstXTexture->getImageView(), "firstX");
     computeData->setStaticImageView(firstWTexture->getImageView(), "firstW");
-    computeData->setStaticImageView(
-            blitPrimaryRayMomentTexturePass->getMomentTexture()->getImageView(),
-            "primaryRayAbsorptionMomentsImage");
-    computeData->setStaticImageView(
-            blitScatterRayMomentTexturePass->getMomentTexture()->getImageView(),
-            "scatterRayAbsorptionMomentsImage");
+    if (blitPrimaryRayMomentTexturePass->getMomentType() != BlitMomentTexturePass::MomentType::NONE) {
+        computeData->setStaticImageView(
+                blitPrimaryRayMomentTexturePass->getMomentTexture()->getImageView(),
+                "primaryRayAbsorptionMomentsImage");
+    }
+    if (blitScatterRayMomentTexturePass->getMomentType() != BlitMomentTexturePass::MomentType::NONE) {
+        computeData->setStaticImageView(
+                blitScatterRayMomentTexturePass->getMomentTexture()->getImageView(),
+                "scatterRayAbsorptionMomentsImage");
+    }
     computeData->setStaticBuffer(momentUniformDataBuffer, "MomentUniformData");
     if (vptMode == VptMode::RESIDUAL_RATIO_TRACKING) {
         computeData->setStaticTexture(
@@ -375,9 +399,9 @@ void VolumetricPathTracingPass::_render() {
         uniformData.inverseViewProjMatrix = glm::inverse(
                 (*camera)->getProjectionMatrix() * (*camera)->getViewMatrix());
         VkExtent3D gridExtent = {
-                lineData->getGridSizeX(),
-                lineData->getGridSizeY(),
-                lineData->getGridSizeZ()
+                cloudData->getGridSizeX(),
+                cloudData->getGridSizeY(),
+                cloudData->getGridSizeZ()
         };
         uint32_t maxDim = std::max(
                 gridExtent.width, std::max(gridExtent.height, gridExtent.depth));

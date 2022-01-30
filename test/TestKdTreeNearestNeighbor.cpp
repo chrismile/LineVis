@@ -28,7 +28,7 @@
 
 #include <random>
 #include <glm/glm.hpp>
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
 #include "LineData/SearchStructures/NearestNeighborNaive.hpp"
 #include "LineData/SearchStructures/KdTree.hpp"
 

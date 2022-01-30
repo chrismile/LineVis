@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+layout (local_size_x = LOCAL_SIZE, local_size_y = LOCAL_SIZE, local_size_z = 1) in;
 
 layout (binding = 0, rgba32f) uniform image2D resultImage;
 
