@@ -32,7 +32,7 @@ jobs:
 
     - uses: actions/checkout@v2
       with:
-        repository: google/swiftshader
+        repository: https://swiftshader.googlesource.com/SwiftShader
         path: swiftshader
         submodules: true
 
