@@ -74,7 +74,8 @@ jobs:
       if: steps.cache-swiftshader.outputs.cache-hit != 'true'
       run: |
         git clone https://github.com/google/swiftshader.git ${{env.swiftshader_DIR}}
-        git checkout ${{env.swiftshader_COMMIT_ID}}
+        git -C ${{env.swiftshader_DIR}} checkout ${{env.swiftshader_COMMIT_ID}}
+        git -C ${{env.swiftshader_DIR}} submodule update --init --recursive
         cmake ${{env.swiftshader_DIR}} -B ${{env.swiftshader_DIR}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
         cmake --build ${{env.swiftshader_DIR}}/build --config ${{env.BUILD_TYPE}} --parallel 4
 
