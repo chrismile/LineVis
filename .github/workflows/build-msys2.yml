@@ -53,6 +53,7 @@ jobs:
           mingw64/mingw-w64-x86_64-eigen3
           mingw64/mingw-w64-x86_64-python
           mingw64/mingw-w64-x86_64-python-numpy
+          mingw64/mingw-w64-x86_64-openexr
 
     - uses: actions/checkout@v2
       with:

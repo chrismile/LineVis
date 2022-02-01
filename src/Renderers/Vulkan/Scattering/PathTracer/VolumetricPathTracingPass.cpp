@@ -45,6 +45,10 @@
 #include "../Denoiser/OptixVptDenoiser.hpp"
 #endif
 
+#ifdef SUPPORT_OPENEXR
+#include "OpenExrLoader.hpp"
+#endif
+
 #include "Renderers/OIT/MBOITUtils.hpp"
 #include "LineData/Scattering/CloudData.hpp"
 #include "SuperVoxelGrid.hpp"
@@ -238,37 +242,71 @@ void VolumetricPathTracingPass::loadEnvironmentMapImage() {
         sgl::Logfile::get()->writeError(
                 "Error in VolumetricPathTracingPass::loadEnvironmentMapImage: The file \""
                 + environmentMapFilenameGui + "\" does not exist.");
+        return;
     }
 
-    sgl::BitmapPtr bitmap(new sgl::Bitmap);
+    sgl::BitmapPtr bitmap;
+    OpenExrImageInfo imageInfo;
     if (sgl::FileUtils::get()->hasExtension(environmentMapFilenameGui.c_str(), ".png")) {
         bitmap = std::make_shared<sgl::Bitmap>();
         bitmap->fromFile(environmentMapFilenameGui.c_str());
-    } else {
+    }
+#ifdef SUPPORT_OPENEXR
+    else if (sgl::FileUtils::get()->hasExtension(environmentMapFilenameGui.c_str(), ".exr")) {
+        bool isLoaded = loadOpenExrImageFile(environmentMapFilenameGui, imageInfo);
+        if (!isLoaded) {
+            sgl::Logfile::get()->writeError(
+                    "Error in VolumetricPathTracingPass::loadEnvironmentMapImage: The file \""
+                    + environmentMapFilenameGui + "\" couldn't be opened using OpenEXR.");
+            return;
+        }
+    }
+#endif
+    else {
         sgl::Logfile::get()->writeError(
                 "Error in VolumetricPathTracingPass::loadEnvironmentMapImage: The file \""
                 + environmentMapFilenameGui + "\" has an unknown file extension.");
         return;
     }
 
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+
     sgl::vk::ImageSettings imageSettings;
-    imageSettings.width = uint32_t(bitmap->getWidth());
-    imageSettings.height = uint32_t(bitmap->getHeight());
     imageSettings.imageType = VK_IMAGE_TYPE_2D;
-    imageSettings.format = VK_FORMAT_R8G8B8A8_UNORM;
     imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     sgl::vk::ImageSamplerSettings samplerSettings;
     samplerSettings.addressModeU = samplerSettings.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+
+    void* pixelData;
+    uint32_t bytesPerPixel;
+    uint32_t width;
+    uint32_t height;
+    if (bitmap) {
+        pixelData = bitmap->getPixels();
+        bytesPerPixel = bitmap->getBPP() / 8;
+        width = uint32_t(bitmap->getWidth());
+        height = uint32_t(bitmap->getHeight());
+        imageSettings.format = VK_FORMAT_R8G8B8A8_UNORM;
+    } else {
+        pixelData = imageInfo.pixelData;
+        bytesPerPixel = 8; // 4 * half
+        width = imageInfo.width;
+        height = imageInfo.height;
+        imageSettings.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    }
+    imageSettings.width = width;
+    imageSettings.height = height;
 
     environmentMapTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
-    environmentMapTexture->getImage()->uploadData(
-            bitmap->getWidth() * bitmap->getHeight() * (bitmap->getBPP() / 8),
-            bitmap->getPixels());
+    environmentMapTexture->getImage()->uploadData(width * height * bytesPerPixel, pixelData);
     loadedEnvironmentMapFilename = environmentMapFilenameGui;
     isEnvironmentMapLoaded = true;
     frameInfo.frameCount = 0;
+
+    if (!bitmap) {
+        delete[] imageInfo.pixelData;
+    }
 }
 
 void VolumetricPathTracingPass::loadShader() {

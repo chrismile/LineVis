@@ -16,12 +16,13 @@
         },
         "tinyxml2",
         "glew",
+        "vulkan-headers",
         "glm",
         "eigen3",
         "jsoncpp",
         "python3",
         "cppzmq",
         "netcdf-c",
-        "vulkan-headers"
+        "openexr"
     ]
 }

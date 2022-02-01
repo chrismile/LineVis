@@ -82,6 +82,7 @@ private:
     OptixDenoiserModelKind denoiserModelKind = OPTIX_DENOISER_MODEL_KIND_HDR;
     int denoiserModelKindIndex = int(denoiserModelKind) - int(OPTIX_DENOISER_MODEL_KIND_LDR);
     bool denoiseAlpha = false;
+    bool recreateDenoiserNextFrame = false;
 
     // Frame size dependent data.
     void _freeBuffers();

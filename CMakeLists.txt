@@ -39,6 +39,26 @@ option(USE_VULKAN_INTEROP "Build with Vulkan interoperability for ray tracing an
 set(DATA_PATH "${CMAKE_SOURCE_DIR}/Data" CACHE PATH "Location of folder 'Data'")
 add_definitions(-DDATA_PATH=\"${DATA_PATH}\")
 
+if (USE_GTEST)
+    set(
+            GTEST_SOURCES
+            # Test 1: Kd-tree functionality.
+            ${CMAKE_CURRENT_SOURCE_DIR}/test/TestKdTreeNearestNeighbor.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/LineData/SearchStructures/NearestNeighborNaive.cpp
+            # Test 2: Volumetric path tracing.
+            ${CMAKE_CURRENT_SOURCE_DIR}/test/VolumetricPathTracingTestData.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/test/VolumetricPathTracingTestRenderer.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/test/TestVolumetricPathTracing.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/LineData/Scattering/CloudData.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/OIT/MBOITUtils.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracingPass.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/PathTracer/SuperVoxelGrid.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/PathTracer/OpenExrLoader.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/Denoiser/Denoiser.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/Denoiser/EAWDenoiser.cpp
+    )
+endif()
+
 if(VCPKG_TOOLCHAIN)
     find_package(cppzmq CONFIG QUIET)
 else()
@@ -115,6 +135,18 @@ if (NOT SUPPORT_VULKAN OR NOT USE_VULKAN_INTEROP)
     list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/PathTracer/SuperVoxelGrid.cpp)
     list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracingPass.cpp)
     list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracingRenderer.cpp)
+
+    if (USE_GTEST)
+        list(REMOVE_ITEM GTEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/test/VolumetricPathTracingTestData.cpp)
+        list(REMOVE_ITEM GTEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/test/VolumetricPathTracingTestRenderer.cpp)
+        list(REMOVE_ITEM GTEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/test/TestVolumetricPathTracing.cpp)
+        list(REMOVE_ITEM GTEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/LineData/Scattering/CloudData.cpp)
+        list(REMOVE_ITEM GTEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/OIT/MBOITUtils.cpp)
+        list(REMOVE_ITEM GTEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracingPass.cpp)
+        list(REMOVE_ITEM GTEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/PathTracer/SuperVoxelGrid.cpp)
+        list(REMOVE_ITEM GTEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/Denoiser/Denoiser.cpp)
+        list(REMOVE_ITEM GTEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/Denoiser/EAWDenoiser.cpp)
+    endif()
 endif()
 
 # Embree version 3.12.1-2 shipped by msys2 seems to be buggy and crashes on rtcCommitScene :(
@@ -185,6 +217,28 @@ if (NOT SUPPORT_OPTIX OR NOT SUPPORT_VULKAN OR NOT USE_VULKAN_INTEROP)
     list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/Denoiser/OptixVptDenoiser.cpp)
 endif()
 
+find_package(Imath CONFIG QUIET)
+if (NOT TARGET Imath::Imath)
+    find_package(IlmBase CONFIG QUIET)
+endif()
+find_package(OpenEXR CONFIG QUIET)
+if (NOT OpenEXR_FOUND AND NOT Imath_FOUND AND UNIX AND NOT APPLE)
+    set(USE_OPENEXR_PKGCONFIG TRUE)
+    pkg_check_modules(OpenEXR OpenEXR QUIET)
+    pkg_check_modules(IlmBase IlmBase QUIET)
+else()
+    set(USE_OPENEXR_PKGCONFIG FALSE)
+endif()
+if (OpenEXR_FOUND AND (Imath_FOUND OR IlmBase_FOUND))
+    MESSAGE(STATUS "OpenEXR found. Enabling OpenEXR image loading support.")
+else()
+    MESSAGE(STATUS "OpenEXR not found. Disabling OpenEXR image loading support.")
+    list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/PathTracer/OpenExrLoader.cpp)
+    if (USE_GTEST)
+        list(REMOVE_ITEM GTEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/PathTracer/OpenExrLoader.cpp)
+    endif()
+endif()
+
 
 if(WIN32)
     add_executable(LineVis WIN32 ${SOURCES})
@@ -195,23 +249,7 @@ endif()
 if (USE_GTEST)
     include(GoogleTest)
     enable_testing()
-    add_executable(
-            LineVis_test
-            # Test 1: Kd-tree functionality.
-            test/TestKdTreeNearestNeighbor.cpp
-            src/LineData/SearchStructures/NearestNeighborNaive.cpp
-            # Test 2: Volumetric path tracing.
-            test/VolumetricPathTracingTestData.cpp
-            test/VolumetricPathTracingTestRenderer.cpp
-            test/TestVolumetricPathTracing.cpp
-            src/LineData/Scattering/CloudData.cpp
-            src/Renderers/OIT/MBOITUtils.cpp
-            src/Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracingPass.cpp
-            src/Renderers/Vulkan/Scattering/PathTracer/SuperVoxelGrid.cpp
-            src/Renderers/Vulkan/Scattering/PathTracer/SuperVoxelGrid.cpp
-            src/Renderers/Vulkan/Scattering/Denoiser/Denoiser.cpp
-            src/Renderers/Vulkan/Scattering/Denoiser/EAWDenoiser.cpp
-    )
+    add_executable(LineVis_test ${GTEST_SOURCES})
     target_link_libraries(LineVis_test PRIVATE gtest gtest_main)
     target_link_libraries(LineVis_test PRIVATE sgl ${Boost_LIBRARIES})
     target_include_directories(LineVis_test PRIVATE ${sgl_INCLUDES} ${Boost_INCLUDE_DIR})
@@ -422,6 +460,56 @@ if (${SUPPORT_OPTIX})
             # Compensate for "#pragma comment(lib, "Cfgmgr32.lib")" not working with MinGW.
             target_link_libraries(LineVis PRIVATE cfgmgr32)
         endif()
+    endif()
+endif()
+
+if (OpenEXR_FOUND AND (Imath_FOUND OR IlmBase_FOUND))
+    if (${USE_OPENEXR_PKGCONFIG})
+        if (OpenEXR_FOUND)
+            target_link_libraries(LineVis PRIVATE ${OpenEXR_LIBRARIES})
+            if (USE_GTEST)
+                target_link_libraries(LineVis_test PRIVATE ${OpenEXR_LIBRARIES})
+            endif()
+        endif()
+        if (IlmBase_FOUND)
+            target_link_libraries(LineVis PRIVATE ${IlmBase_LIBRARIES})
+            if (USE_GTEST)
+                target_link_libraries(LineVis_test PRIVATE ${IlmBase_LIBRARIES})
+            endif()
+        endif()
+    else()
+        target_link_libraries(
+                LineVis PRIVATE
+                # For OpenEXR/Imath 3.x:
+                $<$<TARGET_EXISTS:OpenEXR::OpenEXR>:OpenEXR::OpenEXR>
+                $<$<TARGET_EXISTS:Imath::Imath>:Imath::Imath>
+                $<$<TARGET_EXISTS:Imath::Half>:Imath::Half>
+                # For OpenEXR 2.4/2.5:
+                $<$<TARGET_EXISTS:OpenEXR::IlmImf>:OpenEXR::IlmImf>
+                $<$<TARGET_EXISTS:IlmBase::Imath>:IlmBase::Imath>
+                $<$<TARGET_EXISTS:IlmBase::Half>:IlmBase::Half>
+                $<$<TARGET_EXISTS:IlmBase::IlmThread>:IlmBase::IlmThread>
+                $<$<TARGET_EXISTS:IlmBase::Iex>:IlmBase::Iex>
+        )
+        if (USE_GTEST)
+            target_link_libraries(
+                    LineVis_test PRIVATE
+                    # For OpenEXR/Imath 3.x:
+                    $<$<TARGET_EXISTS:OpenEXR::OpenEXR>:OpenEXR::OpenEXR>
+                    $<$<TARGET_EXISTS:Imath::Imath>:Imath::Imath>
+                    $<$<TARGET_EXISTS:Imath::Half>:Imath::Half>
+                    # For OpenEXR 2.4/2.5:
+                    $<$<TARGET_EXISTS:OpenEXR::IlmImf>:OpenEXR::IlmImf>
+                    $<$<TARGET_EXISTS:IlmBase::Imath>:IlmBase::Imath>
+                    $<$<TARGET_EXISTS:IlmBase::Half>:IlmBase::Half>
+                    $<$<TARGET_EXISTS:IlmBase::IlmThread>:IlmBase::IlmThread>
+                    $<$<TARGET_EXISTS:IlmBase::Iex>:IlmBase::Iex>
+            )
+        endif()
+    endif()
+    target_compile_definitions(LineVis PRIVATE SUPPORT_OPENEXR)
+    if (USE_GTEST)
+        target_compile_definitions(LineVis_test PRIVATE SUPPORT_OPENEXR)
     endif()
 endif()
 
