@@ -29,6 +29,7 @@
 #include <iostream>
 
 #include <Math/Geometry/MatrixUtil.hpp>
+#include <Utils/Dialog.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
@@ -138,6 +139,15 @@ void LineRenderer::onHasMoved() {
     }
 }
 
+void LineRenderer::showRayQueriesUnsupportedWarning() {
+    std::string warningText = "Ray queries are not supported by the used GPU. Disabling ambient occlusion.";
+    sgl::Logfile::get()->writeWarning(
+            "Warning in LineRenderer::showRayQueriesUnsupportedWarning: " + warningText, false);
+    auto handle = sgl::dialog::openMessageBox(
+            "Unsupported Renderer", warningText, sgl::dialog::Icon::WARNING);
+    sceneData->nonBlockingMsgBoxHandles->push_back(handle);
+}
+
 void LineRenderer::setAmbientOcclusionBaker() {
     AmbientOcclusionBakerType oldAmbientOcclusionBakerType = AmbientOcclusionBakerType::NONE;
     if (ambientOcclusionBaker) {
@@ -148,23 +158,19 @@ void LineRenderer::setAmbientOcclusionBaker() {
 #ifdef USE_VULKAN_INTEROP
     if (ambientOcclusionBakerType == AmbientOcclusionBakerType::VULKAN_RTAO_PREBAKER) {
         if (!sgl::AppSettings::get()->getPrimaryDevice()->getRayQueriesSupported()) {
-            sgl::Logfile::get()->writeError(
-                    "Warning in MainApp::setAmbientOcclusionBaker: Ray queries are not supported by the used GPU. "
-                    "Disabling ambient occlusion.");
+            showRayQueriesUnsupportedWarning();
             return;
         }
         auto* ambientOcclusionRenderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(
                 new VulkanAmbientOcclusionBaker(ambientOcclusionRenderer));
     } else if (ambientOcclusionBakerType == AmbientOcclusionBakerType::VULKAN_RTAO) {
+        if (!sgl::AppSettings::get()->getPrimaryDevice()->getRayQueriesSupported()) {
+            showRayQueriesUnsupportedWarning();
+            return;
+        }
         if (lineData && lineData->getUseCappedTubes() && (!isVulkanRenderer || isRasterizer)) {
             lineData->setUseCappedTubes(this, false);
-        }
-        if (!sgl::AppSettings::get()->getPrimaryDevice()->getRayQueriesSupported()) {
-            sgl::Logfile::get()->writeError(
-                    "Warning in MainApp::setAmbientOcclusionBaker: Ray tracing pipelines are not supported by the "
-                    "used GPU. Disabling ambient occlusion.");
-            return;
         }
         sgl::vk::Renderer* ambientOcclusionRenderer;
         bool isMainRenderer;

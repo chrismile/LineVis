@@ -188,7 +188,8 @@ protected:
     sgl::ShaderProgramPtr computeDepthValuesShaderProgram;
     sgl::ShaderProgramPtr minMaxReduceDepthShaderProgram;
 
-    // Whether to use baked ambient occlusion buffers.
+    // Whether to use baked ambient occlusion buffers/images.
+    void showRayQueriesUnsupportedWarning();
     void setAmbientOcclusionBaker();
     void updateAmbientOcclusionMode();
     AmbientOcclusionBakerType ambientOcclusionBakerType = AmbientOcclusionBakerType::VULKAN_RTAO;

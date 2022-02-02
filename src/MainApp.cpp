@@ -126,7 +126,8 @@ MainApp::MainApp()
                 &viewportWidth, &viewportHeight, &camera,
                 &clearColor, &screenshotTransparentBackground,
                 &performanceMeasurer, &continuousRendering, &recording,
-                &useCameraFlight, &MOVE_SPEED, &MOUSE_ROT_SPEED),
+                &useCameraFlight, &MOVE_SPEED, &MOUSE_ROT_SPEED,
+                &nonBlockingMsgBoxHandles),
 #ifdef USE_PYTHON
           replayWidget(&sceneData, transferFunctionWindow, checkpointWindow),
 #endif
@@ -468,6 +469,17 @@ MainApp::~MainApp() {
         OptixVptDenoiser::freeGlobal();
     }
 #endif
+
+    for (int i = 0; i < int(nonBlockingMsgBoxHandles.size()); i++) {
+        auto& handle = nonBlockingMsgBoxHandles.at(i);
+        if (handle->ready(0)) {
+            nonBlockingMsgBoxHandles.erase(nonBlockingMsgBoxHandles.begin() + i);
+            i--;
+        } else {
+            handle->kill();
+        }
+    }
+    nonBlockingMsgBoxHandles.clear();
 
     sgl::AppSettings::get()->getSettings().addKeyValue("useDockSpaceMode", useDockSpaceMode);
     sgl::AppSettings::get()->getSettings().addKeyValue("useFixedSizeViewport", useFixedSizeViewport);
