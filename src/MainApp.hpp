@@ -48,6 +48,11 @@
 #include "Widgets/ReplayWidget.hpp"
 #endif
 
+namespace sgl { namespace dialog {
+class MsgBoxHandle;
+typedef std::shared_ptr<MsgBoxHandle> MsgBoxHandlePtr;
+}}
+
 namespace IGFD {
 class FileDialog;
 }
@@ -134,6 +139,7 @@ private:
     bool visualizeSeedingProcess = false; ///< Only for stress line data.
     const float TIME_PER_SEED_POINT = 0.25f;
     ImGuiFileDialog* fileDialogInstance = nullptr;
+    std::vector<sgl::dialog::MsgBoxHandlePtr> nonBlockingMsgBoxHandles;
 
     // Coloring & filtering dependent on importance criteria.
     sgl::TransferFunctionWindow transferFunctionWindow;

@@ -42,6 +42,7 @@
 
 #include <Utils/Timer.hpp>
 #include <Utils/AppSettings.hpp>
+#include <Utils/Dialog.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/FileUtils.hpp>
 #include <Utils/Regex/TransformString.hpp>
@@ -632,10 +633,16 @@ void MainApp::setRenderer(
             auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
             newLineRenderer = new VulkanRayTracer(&sceneDataRef, transferFunctionWindow, renderer);
         } else {
+            std::string warningText =
+                    std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
+                    + "supported on this hardware due to missing Vulkan ray pipelines.";
+            sgl::Logfile::get()->writeWarning(
+                    "Warning in MainApp::setRenderer: " + warningText, false);
+            auto handle = sgl::dialog::openMessageBox(
+                    "Unsupported Renderer", warningText, sgl::dialog::Icon::WARNING);
+            nonBlockingMsgBoxHandles.push_back(handle);
             newRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
             newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
-            sgl::Logfile::get()->writeError(
-                    "Error in MainApp::setRenderer: Vulkan ray pipelines are not supported on this hardware.");
         }
     }
 #endif
@@ -671,11 +678,15 @@ void MainApp::setRenderer(
     }
 #endif
     else {
+        std::string warningText =
+                std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
+                + "supported in this build configuration or incompatible with this system.";
+        sgl::Logfile::get()->writeWarning("Warning in MainApp::setRenderer: " + warningText, false);
+        auto handle = sgl::dialog::openMessageBox(
+                "Unsupported Renderer", warningText, sgl::dialog::Icon::WARNING);
+        nonBlockingMsgBoxHandles.push_back(handle);
         newRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
         newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
-        sgl::Logfile::get()->writeError(
-                "Error in MainApp::setRenderer: A renderer unsupported in this build configuration or "
-                "incompatible with this system was selected.");
     }
 
     newLineRenderer->initialize();
@@ -1578,6 +1589,14 @@ void MainApp::update(float dt) {
     ZoneScoped;
 
     sgl::SciVisApp::update(dt);
+
+    for (int i = 0; i < int(nonBlockingMsgBoxHandles.size()); i++) {
+        auto& handle = nonBlockingMsgBoxHandles.at(i);
+        if (handle->ready(0)) {
+            nonBlockingMsgBoxHandles.erase(nonBlockingMsgBoxHandles.begin() + i);
+            i--;
+        }
+    }
 
     if (scheduledDockSpaceModeChange) {
         if (useDockSpaceMode) {
