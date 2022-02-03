@@ -80,6 +80,13 @@ void* OptixVptDenoiser::optixHandle = nullptr;
 OptixDeviceContext OptixVptDenoiser::context = {};
 
 bool OptixVptDenoiser::initGlobal() {
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    if (!device || device->getDeviceDriverId() != VK_DRIVER_ID_NVIDIA_PROPRIETARY) {
+        sgl::Logfile::get()->writeInfo(
+                "Using a Vulkan driver that is not the proprietary NVIDIA driver. Disabling OptiX support.");
+        return false;
+    }
+
     if (!sgl::vk::initializeCudaDeviceApiFunctionTable()) {
         return false;
     }
