@@ -157,7 +157,8 @@ void LineRenderer::setAmbientOcclusionBaker() {
 
 #ifdef USE_VULKAN_INTEROP
     if (ambientOcclusionBakerType == AmbientOcclusionBakerType::VULKAN_RTAO_PREBAKER) {
-        if (!sgl::AppSettings::get()->getPrimaryDevice()->getRayQueriesSupported()) {
+        sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+        if (!device || !device->getRayQueriesSupported()) {
             showRayQueriesUnsupportedWarning();
             return;
         }
@@ -165,7 +166,8 @@ void LineRenderer::setAmbientOcclusionBaker() {
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(
                 new VulkanAmbientOcclusionBaker(ambientOcclusionRenderer));
     } else if (ambientOcclusionBakerType == AmbientOcclusionBakerType::VULKAN_RTAO) {
-        if (!sgl::AppSettings::get()->getPrimaryDevice()->getRayQueriesSupported()) {
+        sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+        if (!device || !device->getRayQueriesSupported()) {
             showRayQueriesUnsupportedWarning();
             return;
         }

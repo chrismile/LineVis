@@ -53,9 +53,11 @@ LineDataScattering::LineDataScattering(
     lineDataWindowName = "Line Data (Scattering)";
 
 #ifdef USE_VULKAN_INTEROP
-    lineDensityFieldImageComputeRenderPass = std::make_shared<LineDensityFieldImageComputeRenderPass>(rendererVk);
-    lineDensityFieldMinMaxReduceRenderPass = std::make_shared<LineDensityFieldMinMaxReduceRenderPass>(rendererVk);
-    lineDensityFieldNormalizeRenderPass = std::make_shared<LineDensityFieldNormalizeRenderPass>(rendererVk);
+    if (rendererVk) {
+        lineDensityFieldImageComputeRenderPass = std::make_shared<LineDensityFieldImageComputeRenderPass>(rendererVk);
+        lineDensityFieldMinMaxReduceRenderPass = std::make_shared<LineDensityFieldMinMaxReduceRenderPass>(rendererVk);
+        lineDensityFieldNormalizeRenderPass = std::make_shared<LineDensityFieldNormalizeRenderPass>(rendererVk);
+    }
 #endif
 }
 
@@ -107,36 +109,38 @@ void LineDataScattering::setGridData(
     focusBoundingBox = gridAabb;
 
 #ifdef USE_VULKAN_INTEROP
-    sgl::vk::ImageSettings imageSettings;
-    imageSettings.width = gridSizeX;
-    imageSettings.height = gridSizeY;
-    imageSettings.depth = gridSizeZ;
-    imageSettings.imageType = VK_IMAGE_TYPE_3D;
-    imageSettings.format = VK_FORMAT_R32_SFLOAT;
-
-    sgl::vk::ImageSamplerSettings samplerSettings;
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    vulkanScatteredLinesGridRenderData.scalarFieldTexture = scalarFieldTexture;
-    imageSettings.usage =
-            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT
-            | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    vulkanScatteredLinesGridRenderData.lineDensityFieldTexture = std::make_shared<sgl::vk::Texture>(
-            device, imageSettings, samplerSettings);
+    if (device) {
+        sgl::vk::ImageSettings imageSettings;
+        imageSettings.width = gridSizeX;
+        imageSettings.height = gridSizeY;
+        imageSettings.depth = gridSizeZ;
+        imageSettings.imageType = VK_IMAGE_TYPE_3D;
+        imageSettings.format = VK_FORMAT_R32_SFLOAT;
 
-    lineDensityFieldImageComputeRenderPass->setData(
-            this, vulkanScatteredLinesGridRenderData.lineDensityFieldTexture);
-    lineDensityFieldMinMaxReduceRenderPass->setLineDensityFieldImage(
-            vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImage());
-    lineDensityFieldNormalizeRenderPass->setLineDensityFieldImageView(
-            vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImageView());
-    lineDensityFieldNormalizeRenderPass->setLineDensityFieldImageView(
-            vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImageView());
+        sgl::vk::ImageSamplerSettings samplerSettings;
+        vulkanScatteredLinesGridRenderData.scalarFieldTexture = scalarFieldTexture;
+        imageSettings.usage =
+                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT
+                | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        vulkanScatteredLinesGridRenderData.lineDensityFieldTexture = std::make_shared<sgl::vk::Texture>(
+                device, imageSettings, samplerSettings);
 
-    colorLegendWidgets.resize(colorLegendWidgets.size() + 1);
-    colorLegendWidgets.back().setPositionIndex(0, 1);
-    colorLegendWidgets.back().setAttributeMinValue(0.0f);
-    colorLegendWidgets.back().setAttributeMaxValue(1.0f);
-    colorLegendWidgets.back().setAttributeDisplayName("Line Density");
+        lineDensityFieldImageComputeRenderPass->setData(
+                this, vulkanScatteredLinesGridRenderData.lineDensityFieldTexture);
+        lineDensityFieldMinMaxReduceRenderPass->setLineDensityFieldImage(
+                vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImage());
+        lineDensityFieldNormalizeRenderPass->setLineDensityFieldImageView(
+                vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImageView());
+        lineDensityFieldNormalizeRenderPass->setLineDensityFieldImageView(
+                vulkanScatteredLinesGridRenderData.lineDensityFieldTexture->getImageView());
+
+        colorLegendWidgets.resize(colorLegendWidgets.size() + 1);
+        colorLegendWidgets.back().setPositionIndex(0, 1);
+        colorLegendWidgets.back().setAttributeMinValue(0.0f);
+        colorLegendWidgets.back().setAttributeMaxValue(1.0f);
+        colorLegendWidgets.back().setAttributeDisplayName("Line Density");
+    }
 #endif
 
     if (!outlineTriangleIndices.empty()) {

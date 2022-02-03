@@ -378,7 +378,7 @@ void RayTracingRenderPass::loadShader() {
     if (visualizeSeedingProcess) {
         preprocessorDefines.insert(std::make_pair("VISUALIZE_SEEDING_PROCESS", ""));
     }
-    if (useAmbientOcclusion) {
+    if (useAmbientOcclusion && ambientOcclusionBaker) {
         preprocessorDefines.insert(std::make_pair("USE_AMBIENT_OCCLUSION", ""));
         if (ambientOcclusionBaker->getIsStaticPrebaker()) {
             preprocessorDefines.insert(std::make_pair("STATIC_AMBIENT_OCCLUSION_PREBAKING", ""));
