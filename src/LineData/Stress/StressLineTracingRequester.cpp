@@ -77,8 +77,37 @@ void StressLineTracingRequester::loadMeshList() {
     }
 }
 
+const int LOCATION_LEFT = 0x1;
+const int LOCATION_RIGHT = 0x2;
+const int LOCATION_TOP = 0x4;
+const int LOCATION_BOTTOM = 0x8;
+
+void setNextWindowStandardPosSizeLocation(int location, int offsetX, int offsetY, int width, int height) {
+    float sizeScale = sgl::ImGuiWrapper::get()->getScaleDependentSize(1.0f);
+
+    ImVec2 mainSize = ImGui::GetMainViewport()->Size;
+    ImVec2 position = ImGui::GetMainViewport()->Pos;
+    if ((location & LOCATION_LEFT) != 0) {
+        position.x += float(offsetX) * sizeScale;
+    }
+    if ((location & LOCATION_RIGHT) != 0) {
+        position.x += mainSize.x - float(offsetX + width) * sizeScale;
+    }
+    if ((location & LOCATION_TOP) != 0) {
+        position.y += float(offsetY) * sizeScale;
+    }
+    if ((location & LOCATION_BOTTOM) != 0) {
+        position.y += mainSize.y - float(offsetY + height) * sizeScale;
+    }
+
+    ImGui::SetNextWindowPos(position, ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(
+            float(width) * sizeScale, float(height) * sizeScale), ImGuiCond_FirstUseEver);
+}
+
 void StressLineTracingRequester::renderGui() {
-    sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(3072, 1146, 760, 628);
+    sgl::ImGuiWrapper::get()->setNextWindowStandardPosSizeLocation(
+            sgl::LOCATION_RIGHT | sgl::LOCATION_BOTTOM, 22, 22, 760, 658);
     if (ImGui::Begin("Stress Line Tracing", &showWindow)) {
         bool changed = false;
         if (ImGui::Combo(

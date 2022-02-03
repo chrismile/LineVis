@@ -112,7 +112,8 @@ void StreamlineTracingRequester::loadGridDataSetList() {
 }
 
 void StreamlineTracingRequester::renderGui() {
-    sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(3030, 1100, 780, 920);
+    sgl::ImGuiWrapper::get()->setNextWindowStandardPosSizeLocation(
+            sgl::LOCATION_RIGHT | sgl::LOCATION_BOTTOM, 22, 22, 780, 1020);
     if (ImGui::Begin("Streamline Tracer", &showWindow)) {
         {
             std::lock_guard<std::mutex> replyLock(gridInfoMutex);

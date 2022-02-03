@@ -135,7 +135,8 @@ void ScatteringLineTracingRequester::loadGridDataSetList() {
 }
 
 void ScatteringLineTracingRequester::renderGui() {
-    sgl::ImGuiWrapper::get()->setNextWindowStandardPosSize(3072, 1146, 760, 628);
+    sgl::ImGuiWrapper::get()->setNextWindowStandardPosSizeLocation(
+            sgl::LOCATION_RIGHT | sgl::LOCATION_BOTTOM, 22, 22, 760, 628);
     if (ImGui::Begin("Scattering Line Tracer", &showWindow)) {
         bool changed = false;
         if (ImGui::Combo(
