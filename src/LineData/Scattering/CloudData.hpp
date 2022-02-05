@@ -32,25 +32,76 @@
 #include <memory>
 #include <Graphics/Color.hpp>
 
+#include "Renderers/Vulkan/Scattering/nanovdb/util/GridHandle.h"
+
 class CloudData {
 public:
     ~CloudData();
+
+    /**
+     * @param filename The filename of the .xyz or .nvdb file to load.
+     * @return Whether the file was loaded successfully.
+     */
     bool loadFromFile(const std::string& filename);
+
+    /**
+     * @param _gridSizeX The number of voxels in x direction.
+     * @param _gridSizeY The number of voxels in y direction.
+     * @param _gridSizeZ The number of voxels in z direction.
+     * @param _densityField A dense floating point density field of size gridSizeX*gridSizeY*gridSizeZ.
+     */
     void setDensityField(uint32_t _gridSizeX, uint32_t _gridSizeY, uint32_t _gridSizeZ, float* _densityField);
 
     [[nodiscard]] inline const std::string& getFileName() const { return gridFilename; }
-    [[nodiscard]] inline float* getDensityField() const { return densityField; }
     [[nodiscard]] inline uint32_t getGridSizeX() const { return gridSizeX; }
     [[nodiscard]] inline uint32_t getGridSizeY() const { return gridSizeY; }
     [[nodiscard]] inline uint32_t getGridSizeZ() const { return gridSizeZ; }
 
+    [[nodiscard]] inline const glm::vec3& getWorldSpaceBoxMin() const { return boxMin; }
+    [[nodiscard]] inline const glm::vec3& getWorldSpaceBoxMax() const { return boxMax; }
+
     void setClearColor(const sgl::Color& clearColor) {}
 
+    /**
+     * @return An array of size gridSizeX * gridSizeY * gridSizeZ containing the dense data field.
+     * If the object was loaded using a .nvdb file, the dense field is created when calling this function.
+     */
+    float* getDenseDensityField();
+    [[nodiscard]] inline bool hasDenseData() const { return densityField != nullptr; }
+
+    /**
+     *
+     * @param data
+     * @param size
+     * If the object was loaded using a dense .xyz grid file, the sparse field is created when calling this function.
+     */
+    void getSparseDensityField(uint8_t*& data, uint64_t& size);
+    [[nodiscard]] inline bool hasSparseData() const { return !sparseGridHandle.empty(); }
+    inline void setCacheSparseGrid(bool cache) { cacheSparseGrid = true; }
+
 private:
-    std::string gridFilename;
-    float* densityField = nullptr;
+    std::string gridFilename, gridName;
     uint32_t gridSizeX = 0, gridSizeY = 0, gridSizeZ = 0;
-    float voxelSizeX = 1.0f, voxelSizeY = 1.0f, voxelSizeZ = 1.0f;
+    float voxelSizeX = 0.0f, voxelSizeY = 0.0f, voxelSizeZ = 0.0f;
+    glm::vec3 boxMin{}, boxMax{};
+    void computeGridBounds();
+
+    // --- Dense field. ---
+    /**
+     * @param filename The filename of the .xyz file to load.
+     * @return Whether the file was loaded successfully.
+     */
+    bool loadFromXyzFile(const std::string& filename);
+    float* densityField = nullptr;
+
+    // --- Sparse field. ---
+    /**
+     * @param filename The filename of the .nvdb file to load using NanoVDB.
+     * @return Whether the file was loaded successfully.
+     */
+    bool loadFromNvdbFile(const std::string& filename);
+    nanovdb::GridHandle<nanovdb::HostBuffer> sparseGridHandle;
+    bool cacheSparseGrid = false;
 };
 
 typedef std::shared_ptr<CloudData> CloudDataPtr;

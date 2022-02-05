@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2021, Christoph Neuhauser, Ludwig Leonard
+ * Copyright (c) 2021-2022, Christoph Neuhauser, Ludwig Leonard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -32,6 +32,9 @@
 
 #ifdef USE_RESIDUAL_RATIO_TRACKING
 float residualRatioTrackingEstimator(
+#ifdef USE_NANOVDB
+        pnanovdb_readaccessor_t accessor,
+#endif
         vec3 x, vec3 w, float dStart, float dEnd, float T,
         inout float reservoirWeightSum, out float reservoirT, out float reservoirDist,
         float absorptionAlbedo, float mu_c, float mu_r_bar) {
@@ -52,7 +55,11 @@ float residualRatioTrackingEstimator(
             break;
         }
 
+#ifdef USE_NANOVDB
+        float density = sampleCloud(accessor, x);
+#else
         float density = sampleCloud(x);
+#endif
         float mu = parameters.extinction.x * density;
         //T_r *= (1.0 - absorptionAlbedo * (mu - mu_c) / mu_r_bar);
         //T_r *= (1.0 - density) * (mu - mu_c) / mu_r_bar;
@@ -77,6 +84,10 @@ float residualRatioTrackingEstimator(
 
 vec3 residualRatioTracking(vec3 x, vec3 w, out ScatterEvent firstEvent) {
     firstEvent = ScatterEvent(false, x, 0.0, w, 0.0);
+
+#ifdef USE_NANOVDB
+    pnanovdb_readaccessor_t accessor = createAccessor();
+#endif
 
     float absorptionAlbedo = 1.0 - parameters.scatteringAlbedo.x;
     float scatteringAlbedo = parameters.scatteringAlbedo.x;
@@ -172,6 +183,9 @@ vec3 residualRatioTracking(vec3 x, vec3 w, out ScatterEvent firstEvent) {
 
                 x = oldX + w * tMinVoxel;
                 T *= residualRatioTrackingEstimator(
+#ifdef USE_NANOVDB
+                        accessor,
+#endif
                         x, w, tMinVoxel, tMaxVoxel, T,
                         reservoirWeightSum, reservoirT, reservoirDist,
                         absorptionAlbedo, mu_c, mu_r_bar);

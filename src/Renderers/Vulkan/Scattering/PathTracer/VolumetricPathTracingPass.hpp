@@ -100,11 +100,16 @@ private:
     FeatureMapType featureMapType = FeatureMapType::RESULT;
 
     void updateVptMode();
-    VptMode vptMode = VptMode::DECOMPOSITION_TRACKING;
+    VptMode vptMode = VptMode::DELTA_TRACKING;
     std::shared_ptr<SuperVoxelGridResidualRatioTracking> superVoxelGridResidualRatioTracking;
     std::shared_ptr<SuperVoxelGridDecompositionTracking> superVoxelGridDecompositionTracking;
     int superVoxelSize = 8;
     const bool clampToZeroBorder = true; ///< Whether to use a zero valued border for densityFieldTexture.
+
+    void setGridData();
+    bool useSparseGrid = false; ///< Use NanoVDB or a dense grid texture?
+    sgl::vk::TexturePtr densityFieldTexture; /// < Dense grid texture.
+    sgl::vk::BufferPtr nanoVdbBuffer; /// < Sparse grid buffer.
 
     uint32_t lastViewportWidth = 0, lastViewportHeight = 0;
 
@@ -112,7 +117,6 @@ private:
     sgl::vk::TexturePtr resultImageTexture;
     sgl::vk::TexturePtr resultTexture;
     sgl::vk::ImageViewPtr denoisedImageView;
-    sgl::vk::TexturePtr densityFieldTexture;
     sgl::vk::TexturePtr accImageTexture;
     sgl::vk::TexturePtr firstXTexture;
     sgl::vk::TexturePtr firstWTexture;

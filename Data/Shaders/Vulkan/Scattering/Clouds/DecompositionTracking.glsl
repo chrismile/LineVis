@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2021, Christoph Neuhauser, Ludwig Leonard
+ * Copyright (c) 2021-2022, Christoph Neuhauser, Ludwig Leonard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,10 @@
 #ifdef USE_DECOMPOSITION_TRACKING
 vec3 analogDecompositionTracking(vec3 x, vec3 w, out ScatterEvent firstEvent) {
     firstEvent = ScatterEvent(false, x, 0.0, w, 0.0);
+
+#ifdef USE_NANOVDB
+    pnanovdb_readaccessor_t accessor = createAccessor();
+#endif
 
     int it = 0;
     const vec3 EPSILON_VEC = vec3(1e-6);
@@ -89,7 +93,11 @@ vec3 analogDecompositionTracking(vec3 x, vec3 w, out ScatterEvent firstEvent) {
                     if (t_c <= t_r) {
                         isCollision = true;
                     } else {
+#ifdef USE_NANOVDB
+                        float density = sampleCloud(accessor, xs);
+#else
                         float density = sampleCloud(xs);
+#endif
                         isCollision = random() * majorant_r_local < parameters.extinction.x * density - mu_c_t;
                     }
 

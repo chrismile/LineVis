@@ -26,7 +26,13 @@ layout (local_size_x = LOCAL_SIZE, local_size_y = LOCAL_SIZE, local_size_z = 1) 
 
 layout (binding = 0, rgba32f) uniform image2D resultImage;
 
+#ifdef USE_NANOVDB
+layout (binding = 1) readonly buffer NanoVdbBuffer {
+    uint pnanovdb_buf_data[];
+};
+#else
 layout (binding = 1) uniform sampler3D gridImage;
+#endif
 
 layout (binding = 2) uniform Parameters {
     // Transform from normalized device coordinates to world space.

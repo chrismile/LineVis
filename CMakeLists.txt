@@ -32,7 +32,7 @@ if (${CMAKE_VERSION} VERSION_GREATER "3.11")
     cmake_policy(SET CMP0072 NEW)
 endif()
 
-option(USE_GTEST "USE_GTEST" OFF)
+option(USE_GTEST "Build the GoogleTest test suites." OFF)
 option(USE_PYTHON "Build with Python 3 support for replay scripts." ON)
 option(USE_VULKAN_INTEROP "Build with Vulkan interoperability for ray tracing and ambient occlusion support." ON)
 

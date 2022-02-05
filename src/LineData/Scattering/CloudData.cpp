@@ -26,9 +26,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <boost/algorithm/string/case_conv.hpp>
+
+#include <Utils/AppSettings.hpp>
 #include <Utils/File/Logfile.hpp>
+#include <Utils/File/FileUtils.hpp>
 #include <Utils/File/FileLoader.hpp>
 #include <Utils/Events/Stream/Stream.hpp>
+
+#include "Renderers/Vulkan/Scattering/nanovdb/NanoVDB.h"
+#include "Renderers/Vulkan/Scattering/nanovdb/util/GridBuilder.h"
+#include "Renderers/Vulkan/Scattering/nanovdb/util/IO.h"
 
 #include "CloudData.hpp"
 
@@ -37,11 +45,62 @@ CloudData::~CloudData() {
         delete[] densityField;
         densityField = nullptr;
     }
+    sparseGridHandle = {};
+}
+
+void CloudData::computeGridBounds() {
+    uint32_t maxDim = std::max(gridSizeX, std::max(gridSizeY, gridSizeZ));
+    boxMax = glm::vec3(gridSizeX, gridSizeY, gridSizeZ) * 0.25f / float(maxDim);
+    boxMin = -boxMax;
+}
+
+void CloudData::setDensityField(uint32_t _gridSizeX, uint32_t _gridSizeY, uint32_t _gridSizeZ, float* _densityField) {
+    if (densityField) {
+        delete[] densityField;
+        densityField = nullptr;
+    }
+    sparseGridHandle = {};
+
+    gridSizeX = _gridSizeX;
+    gridSizeY = _gridSizeY;
+    gridSizeZ = _gridSizeZ;
+
+    computeGridBounds();
+
+    densityField = _densityField;
+    gridFilename = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/clouds/tmp.xyz";
+    gridName = "tmp";
 }
 
 bool CloudData::loadFromFile(const std::string& filename) {
-    gridFilename = filename;
+    if (!sgl::FileUtils::get()->exists(filename)) {
+        sgl::Logfile::get()->writeError(
+                "Error in CloudData::loadFromFile: The file \"" + filename + "\" does not exist!");
+        return false;
+    }
 
+    gridFilename = filename;
+    gridName = boost::to_lower_copy(sgl::FileUtils::get()->removeExtension(
+            sgl::FileUtils::get()->getPureFilename(gridFilename)));
+
+    if (densityField) {
+        delete[] densityField;
+        densityField = nullptr;
+    }
+    sparseGridHandle = {};
+
+    if (sgl::FileUtils::get()->hasExtension(filename.c_str(), ".xyz")) {
+        return loadFromXyzFile(filename);
+    } else if (sgl::FileUtils::get()->hasExtension(filename.c_str(), ".nvdb")) {
+        return loadFromNvdbFile(filename);
+    } else {
+        sgl::Logfile::get()->writeError(
+                "Error in CloudData::loadFromFile: The file \"" + filename + "\" has an unknown extension!");
+        return false;
+    }
+}
+
+bool CloudData::loadFromXyzFile(const std::string& filename) {
     uint8_t* fileBuffer = nullptr;
     size_t bufferSize = 0;
     bool loaded = sgl::loadFileFromSource(filename, fileBuffer, bufferSize, true);
@@ -64,6 +123,8 @@ bool CloudData::loadFromFile(const std::string& filename) {
     voxelSizeX = float(voxelSizeXDouble);
     voxelSizeY = float(voxelSizeYDouble);
     voxelSizeZ = float(voxelSizeZDouble);
+
+    computeGridBounds();
 
     if (densityField) {
         delete[] densityField;
@@ -111,13 +172,87 @@ bool CloudData::loadFromFile(const std::string& filename) {
     return true;
 }
 
-void CloudData::setDensityField(uint32_t _gridSizeX, uint32_t _gridSizeY, uint32_t _gridSizeZ, float* _densityField) {
-    if (densityField) {
-        delete[] densityField;
-        densityField = nullptr;
+float* CloudData::getDenseDensityField() {
+    return densityField;
+}
+
+bool CloudData::loadFromNvdbFile(const std::string& filename) {
+    sparseGridHandle = nanovdb::io::readGrid<nanovdb::HostBuffer>(filename, gridName);
+    const auto& grid = sparseGridHandle.grid<nanovdb::HostBuffer>();
+
+    gridSizeX = uint32_t(grid->indexBBox().max()[0] - grid->indexBBox().max()[0] + 1);
+    gridSizeY = uint32_t(grid->indexBBox().max()[1] - grid->indexBBox().max()[1] + 1);
+    gridSizeZ = uint32_t(grid->indexBBox().max()[2] - grid->indexBBox().max()[2] + 1);
+    voxelSizeX = float(grid->voxelSize()[0]);
+    voxelSizeY = float(grid->voxelSize()[1]);
+    voxelSizeZ = float(grid->voxelSize()[2]);
+
+    auto nanoVdbBoundingBox = grid->worldBBox();
+    boxMin = glm::vec3(
+            float(nanoVdbBoundingBox.min()[0]),
+            float(nanoVdbBoundingBox.min()[1]),
+            float(nanoVdbBoundingBox.min()[2]));
+    boxMax = glm::vec3(
+            float(nanoVdbBoundingBox.max()[0]),
+            float(nanoVdbBoundingBox.max()[1]),
+            float(nanoVdbBoundingBox.max()[2]));
+
+    return !sparseGridHandle.empty();
+}
+
+void CloudData::getSparseDensityField(uint8_t*& data, uint64_t& size) {
+    if (!hasSparseData()) {
+        if (!densityField) {
+            sgl::Logfile::get()->throwError(
+                    "Fatal error in CloudData::getSparseDensityField: Neither a dense nor a sparse field are "
+                    "loaded!");
+            return;
+        }
+
+        std::string filenameNvdb = sgl::FileUtils::get()->removeExtension(gridFilename) + ".nvdb";
+        if (cacheSparseGrid && sgl::FileUtils::get()->exists(filenameNvdb)) {
+            bool isLoaded = loadFromNvdbFile(filenameNvdb);
+            if (!isLoaded) {
+                sgl::Logfile::get()->throwError(
+                        "Error in CloudData::getSparseDensityField: Couldn't load data from grid data set file \""
+                        + filenameNvdb + "\".");
+            }
+        } else {
+            nanovdb::GridBuilder builder(0.0f);
+            auto gridSamplingOperation = [this](const nanovdb::Coord& ijk) -> float {
+                auto x = uint32_t(ijk.x());
+                auto y = uint32_t(ijk.y());
+                auto z = uint32_t(ijk.z());
+                return densityField[x + (y + z * gridSizeY) * gridSizeX];
+            };
+            auto maxIdxX = int32_t(gridSizeX - 1);
+            auto maxIdxY = int32_t(gridSizeY - 1);
+            auto maxIdxZ = int32_t(gridSizeZ - 1);
+            builder(gridSamplingOperation, nanovdb::CoordBBox(
+                    nanovdb::Coord(0), nanovdb::Coord(maxIdxX, maxIdxY, maxIdxZ)));
+            double dx = double(boxMax.x - boxMin.x) / double(gridSizeX);
+            sparseGridHandle = builder.getHandle<>(
+                    dx, nanovdb::Vec3d(boxMin.x, boxMin.y, boxMin.z),
+                    gridName, nanovdb::GridClass::FogVolume);
+
+            if (cacheSparseGrid) {
+                auto* gridData = sparseGridHandle.grid<float>();
+                if (!gridData) {
+                    sgl::Logfile::get()->throwError(
+                            "Fatal error in CloudData::getSparseDensityField: The grid handle does not store a grid "
+                            "with value type float.");
+                }
+
+                try {
+                    nanovdb::io::writeGrid<nanovdb::HostBuffer>(filenameNvdb, sparseGridHandle);
+                } catch (const std::exception& e) {
+                    sgl::Logfile::get()->throwError(e.what());
+                }
+            }
+        }
     }
-    gridSizeX = _gridSizeX;
-    gridSizeY = _gridSizeY;
-    gridSizeZ = _gridSizeZ;
-    densityField = _densityField;
+
+    auto& buffer = sparseGridHandle.buffer();
+    data = buffer.data();
+    size = buffer.size();
 }

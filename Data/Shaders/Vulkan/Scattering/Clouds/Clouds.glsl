@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2021, Christoph Neuhauser, Ludwig Leonard
+ * Copyright (c) 2021-2022, Christoph Neuhauser, Ludwig Leonard
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,12 @@
 #version 450
 
 #include "VptHeader.glsl"
+
+#ifdef USE_NANOVDB
+#define PNANOVDB_GLSL
+#include "PNanoVDB.glsl"
+#endif
+
 #include "VptUtils.glsl"
 #include "VptMomentUtils.glsl"
 #include "DeltaTracking.glsl"

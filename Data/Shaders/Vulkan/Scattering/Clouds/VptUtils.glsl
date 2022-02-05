@@ -183,12 +183,33 @@ vec3 sampleLight(in vec3 dir) {
 }
 #endif
 
+#ifdef USE_NANOVDB
+pnanovdb_readaccessor_t createAccessor() {
+    pnanovdb_buf_t buf = pnanovdb_buf_t(0);
+    pnanovdb_readaccessor_t accessor;
+    pnanovdb_grid_handle_t gridHandle;
+    gridHandle.address = pnanovdb_address_null();
+    pnanovdb_root_handle_t root = pnanovdb_tree_get_root(buf, pnanovdb_grid_get_tree(buf, gridHandle));
+    pnanovdb_readaccessor_init(accessor, root);
+    return accessor;
+}
+float sampleCloud(pnanovdb_readaccessor_t accessor, in vec3 pos) {
+    pnanovdb_buf_t buf = pnanovdb_buf_t(0);
+    pnanovdb_grid_handle_t gridHandle = pnanovdb_grid_handle_t(pnanovdb_address_null());
+    vec3 posIndex = pnanovdb_grid_world_to_indexf(buf, gridHandle, pos);
+    posIndex = floor(posIndex + vec3(random() - 0.5, random() - 0.5, random() - 0.5));
+    pnanovdb_address_t address = pnanovdb_readaccessor_get_value_address(
+    PNANOVDB_GRID_TYPE_FLOAT, buf, accessor, ivec3(posIndex));
+    return pnanovdb_read_float(buf, address);
+}
+#else
 float sampleCloud(in vec3 pos) {
     ivec3 dim = textureSize(gridImage, 0);
     vec3 coord = (pos - parameters.boxMin) / (parameters.boxMax - parameters.boxMin);
     coord += vec3(random() - 0.5, random() - 0.5, random() - 0.5) / dim;
     return texture(gridImage, coord).x;
 }
+#endif
 
 void createCameraRay(in vec2 coord, out vec3 x, out vec3 w) {
     vec4 ndcP = vec4(coord, 0, 1);
