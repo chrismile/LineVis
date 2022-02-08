@@ -117,8 +117,8 @@ void VolumetricPathTracingPass::setOutputImage(sgl::vk::ImageViewPtr& imageView)
     imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     resultImageView = std::make_shared<sgl::vk::ImageView>(
             std::make_shared<sgl::vk::Image>(device, imageSettings));
-    resultTexture = sgl::vk::TexturePtr(new sgl::vk::Texture(
-            resultImageView, sgl::vk::ImageSamplerSettings()));
+    resultTexture = std::make_shared<sgl::vk::Texture>(
+            resultImageView, sgl::vk::ImageSamplerSettings());
     imageSettings.usage =
             VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
             | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -177,10 +177,17 @@ void VolumetricPathTracingPass::setGridData() {
         uint8_t* sparseDensityField;
         uint64_t sparseDensityFieldSize;
         cloudData->getSparseDensityField(sparseDensityField, sparseDensityFieldSize);
+
+        uint64_t bufferSize = sizeof(uint32_t) * sgl::iceil(int(sparseDensityFieldSize), sizeof(uint32_t));
+        auto* sparseDensityFieldCopy = new uint8_t[bufferSize];
+        memset(sparseDensityFieldCopy, 0, bufferSize);
+        memcpy(sparseDensityFieldCopy, sparseDensityField, sparseDensityFieldSize);
+
         nanoVdbBuffer = std::make_shared<sgl::vk::Buffer>(
-                device, sparseDensityFieldSize, sparseDensityField,
+                device, bufferSize, sparseDensityFieldCopy,
                 VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                 VMA_MEMORY_USAGE_GPU_ONLY);
+        delete[] sparseDensityFieldCopy;
     } else {
         sgl::vk::ImageSettings imageSettings;
         imageSettings.width = cloudData->getGridSizeX();
@@ -199,6 +206,13 @@ void VolumetricPathTracingPass::setGridData() {
                     VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         }
         samplerSettings.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
+        if (gridInterpolationType == GridInterpolationType::TRILINEAR) {
+            samplerSettings.minFilter = VK_FILTER_LINEAR;
+            samplerSettings.magFilter = VK_FILTER_LINEAR;
+        } else {
+            samplerSettings.minFilter = VK_FILTER_NEAREST;
+            samplerSettings.magFilter = VK_FILTER_NEAREST;
+        }
         sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
 
         densityFieldTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
@@ -206,6 +220,30 @@ void VolumetricPathTracingPass::setGridData() {
                 cloudData->getGridSizeX() * cloudData->getGridSizeY() * cloudData->getGridSizeZ() * sizeof(float),
                 cloudData->getDenseDensityField());
     }
+}
+
+void VolumetricPathTracingPass::updateGridSampler() {
+    if (!densityFieldTexture) {
+        return;
+    }
+
+    sgl::vk::ImageSamplerSettings samplerSettings = densityFieldTexture->getImageSampler()->getImageSamplerSettings();
+    if (clampToZeroBorder) {
+        samplerSettings.addressModeU = samplerSettings.addressModeV = samplerSettings.addressModeW =
+                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    } else {
+        samplerSettings.addressModeU = samplerSettings.addressModeV = samplerSettings.addressModeW =
+                VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    }
+    if (gridInterpolationType == GridInterpolationType::TRILINEAR) {
+        samplerSettings.minFilter = VK_FILTER_LINEAR;
+        samplerSettings.magFilter = VK_FILTER_LINEAR;
+    } else {
+        samplerSettings.minFilter = VK_FILTER_NEAREST;
+        samplerSettings.magFilter = VK_FILTER_NEAREST;
+    }
+    densityFieldTexture = std::make_shared<sgl::vk::Texture>(
+            densityFieldTexture->getImageView(), samplerSettings);
 }
 
 void VolumetricPathTracingPass::setCloudData(const CloudDataPtr& data, bool isNewData) {
@@ -222,6 +260,25 @@ void VolumetricPathTracingPass::setVptMode(VptMode vptMode) {
     updateVptMode();
     setShaderDirty();
     setDataDirty();
+}
+
+void VolumetricPathTracingPass::setUseSparseGrid(bool useSparse) {
+    this->useSparseGrid = useSparse;
+    setGridData();
+    updateVptMode();
+    setShaderDirty();
+    setDataDirty();
+}
+
+void VolumetricPathTracingPass::setSparseGridInterpolationType(GridInterpolationType type) {
+    this->gridInterpolationType = type;
+    updateGridSampler();
+    setShaderDirty();
+}
+
+void VolumetricPathTracingPass::setCustomSeedOffset(uint32_t offset) {
+    customSeedOffset = offset;
+    setShaderDirty();
 }
 
 void VolumetricPathTracingPass::setUseLinearRGB(bool useLinearRGB) {
@@ -244,14 +301,14 @@ void VolumetricPathTracingPass::updateVptMode() {
         superVoxelGridResidualRatioTracking = std::make_shared<SuperVoxelGridResidualRatioTracking>(
                 device, cloudData->getGridSizeX(), cloudData->getGridSizeY(),
                 cloudData->getGridSizeZ(), cloudData->getDenseDensityField(),
-                superVoxelSize, clampToZeroBorder);
+                superVoxelSize, clampToZeroBorder, gridInterpolationType);
         superVoxelGridResidualRatioTracking->setExtinction((cloudExtinctionBase * cloudExtinctionScale).x);
     } else if (vptMode == VptMode::DECOMPOSITION_TRACKING && cloudData && !useSparseGrid) {
         superVoxelGridResidualRatioTracking = {};
         superVoxelGridDecompositionTracking = std::make_shared<SuperVoxelGridDecompositionTracking>(
                 device, cloudData->getGridSizeX(), cloudData->getGridSizeY(),
                 cloudData->getGridSizeZ(), cloudData->getDenseDensityField(),
-                superVoxelSize, clampToZeroBorder);
+                superVoxelSize, clampToZeroBorder, gridInterpolationType);
     } else {
         superVoxelGridResidualRatioTracking = {};
         superVoxelGridDecompositionTracking = {};
@@ -340,6 +397,9 @@ void VolumetricPathTracingPass::loadEnvironmentMapImage() {
 void VolumetricPathTracingPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> customPreprocessorDefines;
+    if (customSeedOffset != 0) {
+        customPreprocessorDefines.insert({ "CUSTOM_SEED_OFFSET", std::to_string(customSeedOffset) });
+    }
     if (vptMode == VptMode::DELTA_TRACKING) {
         customPreprocessorDefines.insert({ "USE_DELTA_TRACKING", "" });
     } else if (vptMode == VptMode::SPECTRAL_DELTA_TRACKING) {
@@ -350,6 +410,13 @@ void VolumetricPathTracingPass::loadShader() {
         customPreprocessorDefines.insert({ "USE_RESIDUAL_RATIO_TRACKING", "" });
     } else if (vptMode == VptMode::DECOMPOSITION_TRACKING) {
         customPreprocessorDefines.insert({ "USE_DECOMPOSITION_TRACKING", "" });
+    }
+    if (gridInterpolationType == GridInterpolationType::NEAREST) {
+        customPreprocessorDefines.insert({ "GRID_INTERPOLATION_NEAREST", "" });
+    } else if (gridInterpolationType == GridInterpolationType::STOCHASTIC) {
+        customPreprocessorDefines.insert({ "GRID_INTERPOLATION_STOCHASTIC", "" });
+    } else if (gridInterpolationType == GridInterpolationType::TRILINEAR) {
+        customPreprocessorDefines.insert({ "GRID_INTERPOLATION_TRILINEAR", "" });
     }
     if (useSparseGrid) {
         customPreprocessorDefines.insert({ "USE_NANOVDB", "" });
@@ -396,12 +463,30 @@ void VolumetricPathTracingPass::createComputeData(
         computeData->setStaticBuffer(nanoVdbBuffer, "NanoVdbBuffer");
     } else {
         computeData->setStaticTexture(densityFieldTexture, "gridImage");
+        if (vptMode == VptMode::RESIDUAL_RATIO_TRACKING) {
+            computeData->setStaticTexture(
+                    superVoxelGridResidualRatioTracking->getSuperVoxelGridTexture(),
+                    "superVoxelGridImage");
+            computeData->setStaticTexture(
+                    superVoxelGridResidualRatioTracking->getSuperVoxelGridOccupancyTexture(),
+                    "superVoxelGridOccupancyImage");
+        } else if (vptMode == VptMode::DECOMPOSITION_TRACKING) {
+            computeData->setStaticTexture(
+                    superVoxelGridDecompositionTracking->getSuperVoxelGridTexture(),
+                    "superVoxelGridImage");
+            computeData->setStaticTexture(
+                    superVoxelGridDecompositionTracking->getSuperVoxelGridOccupancyTexture(),
+                    "superVoxelGridOccupancyImage");
+        }
     }
     computeData->setStaticBuffer(uniformBuffer, "Parameters");
     computeData->setStaticBuffer(frameInfoBuffer, "FrameInfo");
     computeData->setStaticImageView(accImageTexture->getImageView(), "accImage");
     computeData->setStaticImageView(firstXTexture->getImageView(), "firstX");
     computeData->setStaticImageView(firstWTexture->getImageView(), "firstW");
+    if (useEnvironmentMapImage) {
+        computeData->setStaticTexture(environmentMapTexture, "environmentMapTexture");
+    }
     if (blitPrimaryRayMomentTexturePass->getMomentType() != BlitMomentTexturePass::MomentType::NONE) {
         computeData->setStaticImageView(
                 blitPrimaryRayMomentTexturePass->getMomentTexture()->getImageView(),
@@ -413,24 +498,6 @@ void VolumetricPathTracingPass::createComputeData(
                 "scatterRayAbsorptionMomentsImage");
     }
     computeData->setStaticBuffer(momentUniformDataBuffer, "MomentUniformData");
-    if (vptMode == VptMode::RESIDUAL_RATIO_TRACKING) {
-        computeData->setStaticTexture(
-                superVoxelGridResidualRatioTracking->getSuperVoxelGridTexture(),
-                "superVoxelGridImage");
-        computeData->setStaticTexture(
-                superVoxelGridResidualRatioTracking->getSuperVoxelGridOccupancyTexture(),
-                "superVoxelGridOccupancyImage");
-    } else if (vptMode == VptMode::DECOMPOSITION_TRACKING) {
-        computeData->setStaticTexture(
-                superVoxelGridDecompositionTracking->getSuperVoxelGridTexture(),
-                "superVoxelGridImage");
-        computeData->setStaticTexture(
-                superVoxelGridDecompositionTracking->getSuperVoxelGridOccupancyTexture(),
-                "superVoxelGridOccupancyImage");
-    }
-    if (useEnvironmentMapImage) {
-        computeData->setStaticTexture(environmentMapTexture, "environmentMapTexture");
-    }
 }
 
 std::string VolumetricPathTracingPass::getCurrentEventName() {
@@ -486,7 +553,13 @@ void VolumetricPathTracingPass::_render() {
         uniformData.sunDirection = sunlightDirection;
         uniformData.sunIntensity = sunlightIntensity * sunlightColor;
         uniformData.environmentMapIntensityFactor = environmentMapIntensityFactor;
-        if (superVoxelGridResidualRatioTracking) {
+        if (useSparseGrid) {
+            if (cloudData->getGridSizeX() >= 8 && cloudData->getGridSizeY() >= 8 && cloudData->getGridSizeZ() >= 8) {
+                uniformData.superVoxelSize = glm::ivec3(8);
+            } else {
+                uniformData.superVoxelSize = glm::ivec3(1);
+            }
+        } else if (superVoxelGridResidualRatioTracking) {
             uniformData.superVoxelSize = superVoxelGridResidualRatioTracking->getSuperVoxelSize();
             uniformData.superVoxelGridSize = superVoxelGridResidualRatioTracking->getSuperVoxelGridSize();
         } else if (superVoxelGridDecompositionTracking) {
@@ -681,6 +754,17 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
             setDataDirty();
         }
 
+        if (propertyEditor.addCombo(
+                "Grid Interpolation", (int*)&gridInterpolationType,
+                GRID_INTERPOLATION_TYPE_NAMES, IM_ARRAYSIZE(GRID_INTERPOLATION_TYPE_NAMES))) {
+            optionChanged = true;
+            if (vptMode == VptMode::RESIDUAL_RATIO_TRACKING || vptMode == VptMode::DECOMPOSITION_TRACKING) {
+                updateVptMode();
+            }
+            updateGridSampler();
+            setShaderDirty();
+        }
+
         propertyEditor.addInputAction("Environment Map", &environmentMapFilenameGui);
         if (propertyEditor.addButton("", "Load")) {
             loadEnvironmentMapImage();
@@ -697,12 +781,14 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
                     "", 1, nullptr,
                     ImGuiFileDialogFlags_ConfirmOverwrite);
         }
+
         if (isEnvironmentMapLoaded && propertyEditor.addCheckbox(
                 "Use Env. Map Image", &useEnvironmentMapImage)) {
             setShaderDirty();
             reRender = true;
             frameInfo.frameCount = 0;
         }
+
         if (useEnvironmentMapImage && propertyEditor.addSliderFloat(
                 "Env. Map Intensity", &environmentMapIntensityFactor, 0.0f, 5.0f)) {
             reRender = true;

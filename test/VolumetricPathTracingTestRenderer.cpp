@@ -88,8 +88,24 @@ void VolumetricPathTracingTestRenderer::setRenderingResolution(uint32_t width, u
     camera->onResolutionChanged(width, height);
 }
 
+void VolumetricPathTracingTestRenderer::setUseSparseGrid(bool useSparseGrid) {
+    vptPass->setUseSparseGrid(useSparseGrid);
+}
+
+void VolumetricPathTracingTestRenderer::setGridInterpolationType(GridInterpolationType type) {
+    vptPass->setSparseGridInterpolationType(type);
+}
+
+void VolumetricPathTracingTestRenderer::setCustomSeedOffset(uint32_t offset) {
+    vptPass->setCustomSeedOffset(offset);
+}
+
 void VolumetricPathTracingTestRenderer::setUseLinearRGB(bool useLinearRGB) {
     vptPass->setUseLinearRGB(useLinearRGB);
+}
+
+void VolumetricPathTracingTestRenderer::setVptMode(VptMode vptMode) {
+    vptPass->setVptMode(vptMode);
 }
 
 void VolumetricPathTracingTestRenderer::setVptModeFromString(const std::string& vptModeName) {

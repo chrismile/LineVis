@@ -64,6 +64,15 @@ const char* const VPT_MODE_NAMES[] = {
         "Decomposition Tracking"
 };
 
+enum class GridInterpolationType {
+    NEAREST, //< Take sample at voxel closest to (i, j, k)
+    STOCHASTIC, //< Sample within (i - 0.5, j - 0.5, k - 0,5) and (i + 0.5, j + 0.5, k + 0,5).
+    TRILINEAR //< Sample all 8 neighbors and do trilinear interpolation.
+};
+const char* const GRID_INTERPOLATION_TYPE_NAMES[] = {
+        "Nearest", "Stochastic", "Trilinear"
+};
+
 class VolumetricPathTracingPass : public sgl::vk::ComputePass {
 public:
     explicit VolumetricPathTracingPass(sgl::vk::Renderer* renderer, sgl::CameraPtr* camera);
@@ -74,15 +83,18 @@ public:
     void recreateSwapchain(uint32_t width, uint32_t height) override;
     void setCloudData(const CloudDataPtr& data, bool isNewData);
     void setVptMode(VptMode vptMode);
+    void setUseSparseGrid(bool useSparse);
+    void setSparseGridInterpolationType(GridInterpolationType type);
+    void setCustomSeedOffset(uint32_t offset); //< Additive offset for the random seed in the VPT shader.
     void setUseLinearRGB(bool useLinearRGB);
     void setFileDialogInstance(ImGuiFileDialog* fileDialogInstance);
 
     // Called when the camera has moved.
     void onHasMoved();
     /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
-    virtual bool needsReRender() { bool tmp = reRender; reRender = false; return tmp; }
+    bool needsReRender() { bool tmp = reRender; reRender = false; return tmp; }
     /// Renders the GUI. The "reRender" flag might be set depending on the user's actions.
-    virtual bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
+    bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
 
 private:
     void loadShader() override;
@@ -91,7 +103,7 @@ private:
     void _render() override;
 
     sgl::CameraPtr* camera;
-
+    uint32_t customSeedOffset = 0;
     bool reRender = true;
 
     const glm::ivec2 blockSize2D = glm::ivec2(16, 16);
@@ -107,7 +119,9 @@ private:
     const bool clampToZeroBorder = true; ///< Whether to use a zero valued border for densityFieldTexture.
 
     void setGridData();
+    void updateGridSampler();
     bool useSparseGrid = false; ///< Use NanoVDB or a dense grid texture?
+    GridInterpolationType gridInterpolationType = GridInterpolationType::STOCHASTIC;
     sgl::vk::TexturePtr densityFieldTexture; /// < Dense grid texture.
     sgl::vk::BufferPtr nanoVdbBuffer; /// < Sparse grid buffer.
 
@@ -211,7 +225,7 @@ public:
     inline sgl::vk::TexturePtr getMomentTexture() { return momentTexture; }
 
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
-    virtual bool renderGuiPropertyEditorNodes(
+    bool renderGuiPropertyEditorNodes(
             sgl::PropertyEditor& propertyEditor, bool& shallRecreateMomentTexture, bool& momentTypeChanged);
 
 private:

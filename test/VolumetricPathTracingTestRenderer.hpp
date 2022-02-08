@@ -32,10 +32,13 @@
 #include <Graphics/Vulkan/Utils/SyncObjects.hpp>
 #include <Graphics/Vulkan/Image/Image.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
+#include "Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracingPass.hpp"
 
 class CloudData;
 typedef std::shared_ptr<CloudData> CloudDataPtr;
 class VolumetricPathTracingPass;
+enum class VptMode;
+enum class GridInterpolationType;
 
 namespace sgl {
 class Camera;
@@ -55,10 +58,18 @@ public:
     inline uint32_t getFrameWidth() { return renderImageView->getImage()->getImageSettings().width; }
     inline uint32_t getFrameHeight() { return renderImageView->getImage()->getImageSettings().height; }
 
+    /// Sets whether a dense or sparse grid should be used.
+    void setUseSparseGrid(bool useSparseGrid);
+    void setGridInterpolationType(GridInterpolationType type);
+
+    /// Sets an additive offset for the random seed in the VPT shader.
+    void setCustomSeedOffset(uint32_t offset);
+
     /// Sets whether linear RGB or sRGB should be used for rendering.
     void setUseLinearRGB(bool useLinearRGB);
 
     /// Sets the volumetric path tracing mode used for rendering.
+    void setVptMode(VptMode vptMode);
     void setVptModeFromString(const std::string& vptModeName);
 
     /**

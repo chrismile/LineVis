@@ -28,13 +28,29 @@
 
 #include <glm/glm.hpp>
 #include <Math/Math.hpp>
+#include "VolumetricPathTracingPass.hpp"
 #include "SuperVoxelGrid.hpp"
 
 SuperVoxelGridResidualRatioTracking::SuperVoxelGridResidualRatioTracking(
         sgl::vk::Device* device, int voxelGridSizeX, int voxelGridSizeY, int voxelGridSizeZ,
-        const float* voxelGridData, int superVoxelSize1D, bool clampToZeroBorder)
+        const float* voxelGridData, int superVoxelSize1D,
+        bool clampToZeroBorder, GridInterpolationType gridInterpolationType)
         : voxelGridSizeX(voxelGridSizeX), voxelGridSizeY(voxelGridSizeY), voxelGridSizeZ(voxelGridSizeZ),
-          clampToZeroBorder(clampToZeroBorder) {
+          clampToZeroBorder(clampToZeroBorder), interpolationType(gridInterpolationType) {
+    superVoxelSize1D = std::max(superVoxelSize1D, 1);
+    if (voxelGridSizeX < superVoxelSize1D || voxelGridSizeY < superVoxelSize1D || voxelGridSizeZ < superVoxelSize1D) {
+        bool divisible;
+        do {
+            divisible =
+                    voxelGridSizeX % superVoxelSize1D == 0
+                    && voxelGridSizeY % superVoxelSize1D == 0
+                    && voxelGridSizeZ % superVoxelSize1D == 0;
+            if (!divisible) {
+                superVoxelSize1D /= 2;
+            }
+        } while (!divisible);
+    }
+
     superVoxelSize = glm::ivec3(superVoxelSize1D);
 
     superVoxelGridSizeX = sgl::iceil(voxelGridSizeX, superVoxelSize1D);
@@ -93,17 +109,65 @@ void SuperVoxelGridResidualRatioTracking::computeSuperVoxels(const float* voxelG
         float densityAvg = 0.0f;
         int numValidVoxels = 0;
 
-        for (int offsetZ = 0; offsetZ < superVoxelSize.z; offsetZ++) {
-            for (int offsetY = 0; offsetY < superVoxelSize.y; offsetY++) {
-                for (int offsetX = 0; offsetX < superVoxelSize.x; offsetX++) {
-                    int voxelIdxX = superVoxelIdxX * superVoxelSize.x + offsetX;
-                    int voxelIdxY = superVoxelIdxY * superVoxelSize.y + offsetY;
-                    int voxelIdxZ = superVoxelIdxZ * superVoxelSize.z + offsetZ;
+        if (interpolationType == GridInterpolationType::NEAREST) {
+            for (int offsetZ = 0; offsetZ < superVoxelSize.z; offsetZ++) {
+                for (int offsetY = 0; offsetY < superVoxelSize.y; offsetY++) {
+                    for (int offsetX = 0; offsetX < superVoxelSize.x; offsetX++) {
+                        int voxelIdxX = superVoxelIdxX * superVoxelSize.x + offsetX;
+                        int voxelIdxY = superVoxelIdxY * superVoxelSize.y + offsetY;
+                        int voxelIdxZ = superVoxelIdxZ * superVoxelSize.z + offsetZ;
 
-                    if (voxelIdxX >= 0 && voxelIdxY >= 0 && voxelIdxZ >= 0
-                        && voxelIdxX < voxelGridSizeX && voxelIdxY < voxelGridSizeY && voxelIdxZ < voxelGridSizeZ) {
-                        int voxelIdx = voxelIdxX + (voxelIdxY + voxelIdxZ * voxelGridSizeY) * voxelGridSizeX;
-                        float value = voxelGridData[voxelIdx];
+                        float value;
+                        if (voxelIdxX >= 0 && voxelIdxY >= 0 && voxelIdxZ >= 0
+                                && voxelIdxX < voxelGridSizeX && voxelIdxY < voxelGridSizeY && voxelIdxZ < voxelGridSizeZ) {
+                            int voxelIdx = voxelIdxX + (voxelIdxY + voxelIdxZ * voxelGridSizeY) * voxelGridSizeX;
+                            value = voxelGridData[voxelIdx];
+                        } else {
+                            if (!clampToZeroBorder) {
+                                continue;
+                            }
+                            /*
+                             * If this is a boundary voxel: Per default, we use VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER
+                             * with the border color VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK. Thus, we need to set the
+                             * minimum to zero for boundary super voxels, as linear and stochastic blending can lead to
+                             * smearing of boundary values into the domain.
+                             */
+                            value = 0.0f;
+                        }
+
+                        densityMin = std::min(densityMin, value);
+                        densityMax = std::max(densityMax, value);
+                        densityAvg += value;
+                        numValidVoxels++;
+                    }
+                }
+            }
+        } else {
+            for (int offsetZ = -1; offsetZ <= superVoxelSize.z; offsetZ++) {
+                for (int offsetY = -1; offsetY <= superVoxelSize.y; offsetY++) {
+                    for (int offsetX = -1; offsetX <= superVoxelSize.x; offsetX++) {
+                        int voxelIdxX = superVoxelIdxX * superVoxelSize.x + offsetX;
+                        int voxelIdxY = superVoxelIdxY * superVoxelSize.y + offsetY;
+                        int voxelIdxZ = superVoxelIdxZ * superVoxelSize.z + offsetZ;
+
+                        float value;
+                        if (voxelIdxX >= 0 && voxelIdxY >= 0 && voxelIdxZ >= 0
+                                && voxelIdxX < voxelGridSizeX && voxelIdxY < voxelGridSizeY && voxelIdxZ < voxelGridSizeZ) {
+                            int voxelIdx = voxelIdxX + (voxelIdxY + voxelIdxZ * voxelGridSizeY) * voxelGridSizeX;
+                            value = voxelGridData[voxelIdx];
+                        } else {
+                            if (!clampToZeroBorder) {
+                                continue;
+                            }
+                            /*
+                             * If this is a boundary voxel: Per default, we use VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER
+                             * with the border color VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK. Thus, we need to set the
+                             * minimum to zero for boundary super voxels, as linear and stochastic blending can lead to
+                             * smearing of boundary values into the domain.
+                             */
+                            value = 0.0f;
+                        }
+
                         densityMin = std::min(densityMin, value);
                         densityMax = std::max(densityMax, value);
                         densityAvg += value;
@@ -120,9 +184,9 @@ void SuperVoxelGridResidualRatioTracking::computeSuperVoxels(const float* voxelG
          * voxels if they reach outside the grid region.
          */
         if (clampToZeroBorder
-                && ((voxelGridSizeX % superVoxelSize.x != 0 && superVoxelIdxX == superVoxelGridSizeX - 1)
-                    || (voxelGridSizeY % superVoxelSize.y != 0 && superVoxelIdxY == superVoxelGridSizeY - 1)
-                    || (voxelGridSizeZ % superVoxelSize.z != 0 && superVoxelIdxZ == superVoxelGridSizeZ - 1))) {
+            && ((voxelGridSizeX % superVoxelSize.x != 0 && superVoxelIdxX == superVoxelGridSizeX - 1)
+                || (voxelGridSizeY % superVoxelSize.y != 0 && superVoxelIdxY == superVoxelGridSizeY - 1)
+                || (voxelGridSizeZ % superVoxelSize.z != 0 && superVoxelIdxZ == superVoxelGridSizeZ - 1))) {
             densityMin = 0.0f;
         }
 
@@ -182,9 +246,24 @@ void SuperVoxelGridResidualRatioTracking::recomputeSuperVoxels() {
 
 SuperVoxelGridDecompositionTracking::SuperVoxelGridDecompositionTracking(
         sgl::vk::Device* device, int voxelGridSizeX, int voxelGridSizeY, int voxelGridSizeZ,
-        const float* voxelGridData, int superVoxelSize1D, bool clampToZeroBorder)
+        const float* voxelGridData, int superVoxelSize1D,
+        bool clampToZeroBorder, GridInterpolationType gridInterpolationType)
         : voxelGridSizeX(voxelGridSizeX), voxelGridSizeY(voxelGridSizeY), voxelGridSizeZ(voxelGridSizeZ),
-          clampToZeroBorder(clampToZeroBorder) {
+          clampToZeroBorder(clampToZeroBorder), interpolationType(gridInterpolationType) {
+    superVoxelSize1D = std::max(superVoxelSize1D, 1);
+    if (voxelGridSizeX < superVoxelSize1D || voxelGridSizeY < superVoxelSize1D || voxelGridSizeZ < superVoxelSize1D) {
+        bool divisible;
+        do {
+            divisible =
+                    voxelGridSizeX % superVoxelSize1D == 0
+                    && voxelGridSizeY % superVoxelSize1D == 0
+                    && voxelGridSizeZ % superVoxelSize1D == 0;
+            if (!divisible) {
+                superVoxelSize1D /= 2;
+            }
+        } while (!divisible);
+    }
+
     superVoxelSize = glm::ivec3(superVoxelSize1D);
 
     superVoxelGridSizeX = sgl::iceil(voxelGridSizeX, superVoxelSize1D);
@@ -223,33 +302,64 @@ SuperVoxelGridDecompositionTracking::SuperVoxelGridDecompositionTracking(
 
         float densityMin = std::numeric_limits<float>::max();
         float densityMax = std::numeric_limits<float>::lowest();
-        for (int offsetZ = 0; offsetZ < superVoxelSize.z; offsetZ++) {
-            for (int offsetY = 0; offsetY < superVoxelSize.y; offsetY++) {
-                for (int offsetX = 0; offsetX < superVoxelSize.x; offsetX++) {
-                    int voxelIdxX = superVoxelIdxX * superVoxelSize.x + offsetX;
-                    int voxelIdxY = superVoxelIdxY * superVoxelSize.y + offsetY;
-                    int voxelIdxZ = superVoxelIdxZ * superVoxelSize.z + offsetZ;
-                    if (voxelIdxX >= 0 && voxelIdxY >= 0 && voxelIdxZ >= 0
-                        && voxelIdxX < voxelGridSizeX && voxelIdxY < voxelGridSizeY && voxelIdxZ < voxelGridSizeZ) {
-                        int voxelIdx = voxelIdxX + (voxelIdxY + voxelIdxZ * voxelGridSizeY) * voxelGridSizeX;
-                        float value = voxelGridData[voxelIdx];
+        if (interpolationType == GridInterpolationType::NEAREST) {
+            for (int offsetZ = 0; offsetZ < superVoxelSize.z; offsetZ++) {
+                for (int offsetY = 0; offsetY < superVoxelSize.y; offsetY++) {
+                    for (int offsetX = 0; offsetX < superVoxelSize.x; offsetX++) {
+                        int voxelIdxX = superVoxelIdxX * superVoxelSize.x + offsetX;
+                        int voxelIdxY = superVoxelIdxY * superVoxelSize.y + offsetY;
+                        int voxelIdxZ = superVoxelIdxZ * superVoxelSize.z + offsetZ;
+                        float value;
+                        if (voxelIdxX >= 0 && voxelIdxY >= 0 && voxelIdxZ >= 0
+                                && voxelIdxX < voxelGridSizeX && voxelIdxY < voxelGridSizeY && voxelIdxZ < voxelGridSizeZ) {
+                            int voxelIdx = voxelIdxX + (voxelIdxY + voxelIdxZ * voxelGridSizeY) * voxelGridSizeX;
+                            value = voxelGridData[voxelIdx];
+                        } else {
+                            if (!clampToZeroBorder) {
+                                continue;
+                            }
+                            /*
+                             * If this is a boundary voxel: Per default, we use VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER
+                             * with the border color VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK. Thus, we need to set the
+                             * minimum to zero for boundary super voxels, as linear and stochastic blending can lead to
+                             * smearing of boundary values into the domain.
+                             */
+                            value = 0.0f;
+                        }
                         densityMin = std::min(densityMin, value);
                         densityMax = std::max(densityMax, value);
                     }
                 }
             }
-        }
-
-        /*
-         * If this is a boundary voxel: Per default, we use VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER with the border
-         * color VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK. Thus, we need to set the minimum to zero for boundary super
-         * voxels if they reach outside the grid region.
-         */
-        if (clampToZeroBorder
-                && ((voxelGridSizeX % superVoxelSize.x != 0 && superVoxelIdxX == superVoxelGridSizeX - 1)
-                    || (voxelGridSizeY % superVoxelSize.y != 0 && superVoxelIdxY == superVoxelGridSizeY - 1)
-                    || (voxelGridSizeZ % superVoxelSize.z != 0 && superVoxelIdxZ == superVoxelGridSizeZ - 1))) {
-            densityMin = 0.0f;
+        } else {
+            for (int offsetZ = -1; offsetZ <= superVoxelSize.z; offsetZ++) {
+                for (int offsetY = -1; offsetY <= superVoxelSize.y; offsetY++) {
+                    for (int offsetX = -1; offsetX <= superVoxelSize.x; offsetX++) {
+                        int voxelIdxX = superVoxelIdxX * superVoxelSize.x + offsetX;
+                        int voxelIdxY = superVoxelIdxY * superVoxelSize.y + offsetY;
+                        int voxelIdxZ = superVoxelIdxZ * superVoxelSize.z + offsetZ;
+                        float value;
+                        if (voxelIdxX >= 0 && voxelIdxY >= 0 && voxelIdxZ >= 0
+                                && voxelIdxX < voxelGridSizeX && voxelIdxY < voxelGridSizeY && voxelIdxZ < voxelGridSizeZ) {
+                            int voxelIdx = voxelIdxX + (voxelIdxY + voxelIdxZ * voxelGridSizeY) * voxelGridSizeX;
+                            value = voxelGridData[voxelIdx];
+                        } else {
+                            if (!clampToZeroBorder) {
+                                continue;
+                            }
+                            /*
+                             * If this is a boundary voxel: Per default, we use VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER
+                             * with the border color VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK. Thus, we need to set the
+                             * minimum to zero for boundary super voxels, as linear and stochastic blending can lead to
+                             * smearing of boundary values into the domain.
+                             */
+                            value = 0.0f;
+                        }
+                        densityMin = std::min(densityMin, value);
+                        densityMax = std::max(densityMax, value);
+                    }
+                }
+            }
         }
 
         superVoxelGridMinMaxDensity[superVoxelIdx] = glm::vec2(densityMin, densityMax);

@@ -55,6 +55,8 @@ layout (binding = 2) uniform Parameters {
     ivec3 superVoxelSize;
     ivec3 superVoxelGridSize;
 
+    //ivec3 gridResolution;
+
     // Whether to use linear RGB or sRGB.
     int useLinearRGB;
 } parameters;
@@ -70,23 +72,22 @@ layout (binding = 5, rgba32f) uniform image2D firstX;
 
 layout (binding = 6, rgba32f) uniform image2D firstW;
 
-#ifdef COMPUTE_PRIMARY_RAY_ABSORPTION_MOMENTS
-layout (binding = 7, r32f) uniform image2DArray primaryRayAbsorptionMomentsImage;
-#endif
-
-#ifdef COMPUTE_SCATTER_RAY_ABSORPTION_MOMENTS
-layout (binding = 8, r32f) uniform image2DArray scatterRayAbsorptionMomentsImage;
-#endif
-
-#if defined(USE_RESIDUAL_RATIO_TRACKING) || defined(USE_DECOMPOSITION_TRACKING)
-layout (binding = 9) uniform sampler3D superVoxelGridImage;
-layout (binding = 10) uniform usampler3D superVoxelGridOccupancyImage;
+#if !defined(USE_NANOVDB) && (defined(USE_RESIDUAL_RATIO_TRACKING) || defined(USE_DECOMPOSITION_TRACKING))
+layout (binding = 7) uniform sampler3D superVoxelGridImage;
+layout (binding = 8) uniform usampler3D superVoxelGridOccupancyImage;
 #endif
 
 #ifdef USE_ENVIRONMENT_MAP_IMAGE
-layout (binding = 11) uniform sampler2D environmentMapTexture;
+layout (binding = 9) uniform sampler2D environmentMapTexture;
 #endif
 
+#ifdef COMPUTE_PRIMARY_RAY_ABSORPTION_MOMENTS
+layout (binding = 10, r32f) uniform image2DArray primaryRayAbsorptionMomentsImage;
+#endif
+
+#ifdef COMPUTE_SCATTER_RAY_ABSORPTION_MOMENTS
+layout (binding = 11, r32f) uniform image2DArray scatterRayAbsorptionMomentsImage;
+#endif
 
 /**
  * This code is part of an GLSL port of the HLSL code accompanying the paper "Moment-Based Order-Independent

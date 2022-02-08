@@ -29,9 +29,13 @@ Texture3D load_xyz_file(std::string file_name) {
     stream.read(grid.size_x);
     stream.read(grid.size_y);
     stream.read(grid.size_z);
-    stream.read(grid.voxel_size_x);
-    stream.read(grid.voxel_size_y);
-    stream.read(grid.voxel_size_z);
+    double voxel_size_x = 1.0, voxel_size_y = 1.0, voxel_size_z = 1.0;
+    stream.read(voxel_size_x);
+    stream.read(voxel_size_y);
+    stream.read(voxel_size_z);
+    grid.voxel_size_x = float(voxel_size_x);
+    grid.voxel_size_y = float(voxel_size_y);
+    grid.voxel_size_z = float(voxel_size_z);
 
     size_t num_floats =  grid.size_x * grid.size_y * grid.size_z;
 

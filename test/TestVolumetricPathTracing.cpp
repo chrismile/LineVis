@@ -35,42 +35,18 @@
 #include <Graphics/Vulkan/Utils/Instance.hpp>
 #include <Graphics/Vulkan/Utils/Device.hpp>
 
+#include "Renderers/Vulkan/Scattering/nanovdb/NanoVDB.h"
+#include "Renderers/Vulkan/Scattering/nanovdb/util/Primitives.h"
+#include "LineData/Scattering/CloudData.hpp"
 #include "VolumetricPathTracingTestData.hpp"
 #include "VolumetricPathTracingTestRenderer.hpp"
 
-class VolumetricPathTracingTest : public ::testing::TestWithParam<std::string> {
+class VolumetricPathTracingTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Parse the passed JSON settings string.
-        std::string settingsJsonString = GetParam();
-        Json::Reader reader;
-        Json::Value root;
-        ASSERT_EQ(reader.parse(settingsJsonString, root), true);
-
-        std::string mode0 = root["mode0"].asString();
-        std::string mode1 = root["mode1"].asString();
-        if (root.isMember("numSamples")) {
-            numSamples = root["numSamples"].asInt();
-        }
-        if (root.isMember("blockSize")) {
-            blockSize = root["blockSize"].asInt();
-        }
-        if (root.isMember("renderingResolution")) {
-            blockSize = root["renderingResolution"].asInt();
-        }
-
-        CloudDataPtr cloudData = createCloudBlock(blockSize, blockSize, blockSize, 1.0f);
         renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
-
         vptRenderer0 = std::make_shared<VolumetricPathTracingTestRenderer>(renderer);
-        vptRenderer0->setCloudData(cloudData);
-        vptRenderer0->setRenderingResolution(renderingResolution, renderingResolution);
-        vptRenderer0->setVptModeFromString(mode0);
-
         vptRenderer1 = std::make_shared<VolumetricPathTracingTestRenderer>(renderer);
-        vptRenderer1->setCloudData(cloudData);
-        vptRenderer1->setRenderingResolution(renderingResolution, renderingResolution);
-        vptRenderer1->setVptModeFromString(mode1);
     }
 
     void TearDown() override {
@@ -79,6 +55,42 @@ protected:
         if (renderer) {
             delete renderer;
             renderer = nullptr;
+        }
+    }
+
+    void testEqualMean() {
+        vptRenderer0->setRenderingResolution(renderingResolution, renderingResolution);
+        vptRenderer1->setRenderingResolution(renderingResolution, renderingResolution);
+
+        uint32_t width = vptRenderer0->getFrameWidth();
+        uint32_t height = vptRenderer0->getFrameHeight();
+        float* frameData0 = vptRenderer0->renderFrame(numSamples);
+        float* frameData1 = vptRenderer1->renderFrame(numSamples);
+
+        auto numPixelsFlt = float(width * height);
+        float mean0[] = { 0.0f, 0.0f, 0.0f };
+        float mean1[] = { 0.0f, 0.0f, 0.0f };
+        for (uint32_t y = 0; y < height; y++) {
+            for (uint32_t x = 0; x < width; x++) {
+                for (uint32_t c = 0; c < 3; c++) {
+                    mean0[c] += frameData0[(x + y * width) * 3 + c] / numPixelsFlt;
+                    mean1[c] += frameData1[(x + y * width) * 3 + c] / numPixelsFlt;
+                }
+            }
+        }
+
+        for (uint32_t c = 0; c < 3; c++) {
+            if (std::abs(mean0[c] - mean1[c]) > 1e-3f) {
+                debugOutputImage(
+                        std::string() + "out_" + ::testing::UnitTest::GetInstance()->current_test_info()->name()
+                        + "_0.png",
+                        frameData0, width, height);
+                debugOutputImage(
+                        std::string() + "out_" + ::testing::UnitTest::GetInstance()->current_test_info()->name()
+                        + "_1.png",
+                        frameData1, width, height);
+            }
+            ASSERT_NEAR(mean0[c], mean1[c], 1e-3);
         }
     }
 
@@ -98,9 +110,8 @@ protected:
     }
 
     sgl::vk::Renderer* renderer = nullptr;
-    int numSamples = 16;
+    int numSamples = 128;
     int renderingResolution = 256;
-    int blockSize = 1;
     std::shared_ptr<VolumetricPathTracingTestRenderer> vptRenderer0;
     std::shared_ptr<VolumetricPathTracingTestRenderer> vptRenderer1;
 };
@@ -109,37 +120,119 @@ protected:
  * Test whether different volumetric path tracing renderers produce the same image mean when rendering a cube with
  * constant density across the whole volume domain.
  */
-TEST_P(VolumetricPathTracingTest, EqualMeanTest) {
-    uint32_t width = vptRenderer0->getFrameWidth();
-    uint32_t height = vptRenderer0->getFrameHeight();
-    float* frameData0 = vptRenderer0->renderFrame(numSamples);
-    float* frameData1 = vptRenderer1->renderFrame(numSamples);
+TEST_F(VolumetricPathTracingTest, DeltaTrackingRatioTrackingEqualMeanTest) {
+    CloudDataPtr cloudData = createCloudBlock(1, 1, 1, 1.0f);
+    vptRenderer0->setCloudData(cloudData);
+    vptRenderer1->setCloudData(cloudData);
 
-    float numPixelsFlt = float(width * height);
-    float mean0[] = { 0.0f, 0.0f, 0.0f };
-    float mean1[] = { 0.0f, 0.0f, 0.0f };
-    for (uint32_t y = 0; y < height; y++) {
-        for (uint32_t x = 0; x < width; x++) {
-            for (uint32_t c = 0; c < 3; c++) {
-                mean0[c] += frameData0[(x + y * width) * 3 + c] / numPixelsFlt;
-                mean1[c] += frameData1[(x + y * width) * 3 + c] / numPixelsFlt;
-            }
-        }
-    }
+    vptRenderer0->setVptMode(VptMode::DELTA_TRACKING);
+    vptRenderer1->setVptMode(VptMode::RATIO_TRACKING);
+    testEqualMean();
+}
+TEST_F(VolumetricPathTracingTest, DeltaTrackingSeedIndependentEqualMeanTest) {
+    CloudDataPtr cloudData = createCloudBlock(1, 1, 1, 1.0f);
+    vptRenderer0->setCloudData(cloudData);
+    vptRenderer1->setCloudData(cloudData);
 
-    for (uint32_t c = 0; c < 3; c++) {
-        if (std::abs(mean0[c] - mean1[c]) > 1e-5f) {
-            debugOutputImage("out0.png", frameData0, width, height);
-            debugOutputImage("out1.png", frameData1, width, height);
-        }
-        ASSERT_NEAR(mean0[c], mean1[c], 1e-5);
-    }
+    vptRenderer0->setVptMode(VptMode::DELTA_TRACKING);
+    vptRenderer1->setVptMode(VptMode::DELTA_TRACKING);
+    vptRenderer1->setCustomSeedOffset(268435456u);
+    testEqualMean();
+}
+TEST_F(VolumetricPathTracingTest, DeltaTrackingGridTypesGrid1Test) {
+    CloudDataPtr cloudData = createCloudBlock(1, 1, 1, 1.0f);
+    vptRenderer0->setCloudData(cloudData);
+    vptRenderer1->setCloudData(cloudData);
+
+    vptRenderer0->setVptMode(VptMode::DELTA_TRACKING);
+    vptRenderer0->setUseSparseGrid(false);
+    vptRenderer1->setVptMode(VptMode::DELTA_TRACKING);
+    vptRenderer1->setUseSparseGrid(true);
+    testEqualMean();
+}
+TEST_F(VolumetricPathTracingTest, DeltaTrackingGridTypesGrid8Test) {
+    CloudDataPtr cloudData = createCloudBlock(8, 8, 8, 1.0f);
+    vptRenderer0->setCloudData(cloudData);
+    vptRenderer1->setCloudData(cloudData);
+
+    vptRenderer0->setVptMode(VptMode::DELTA_TRACKING);
+    vptRenderer0->setUseSparseGrid(false);
+    vptRenderer1->setVptMode(VptMode::DELTA_TRACKING);
+    vptRenderer1->setUseSparseGrid(true);
+    testEqualMean();
+}
+TEST_F(VolumetricPathTracingTest, DeltaTrackingGridTypesGrid8BoundaryLayerTest) {
+    CloudDataPtr cloudData = createCloudBlock(8, 8, 8, 1.0f, true);
+    vptRenderer0->setCloudData(cloudData);
+    vptRenderer1->setCloudData(cloudData);
+
+    vptRenderer0->setVptMode(VptMode::DELTA_TRACKING);
+    vptRenderer0->setUseSparseGrid(false);
+    vptRenderer1->setVptMode(VptMode::DELTA_TRACKING);
+    vptRenderer1->setUseSparseGrid(true);
+    testEqualMean();
+}
+TEST_F(VolumetricPathTracingTest, DeltaTrackingGridTypesGrid8BoundaryLayerTest2) {
+    CloudDataPtr cloudData = createCloudBlock(8, 8, 8, 1.0f, true);
+    vptRenderer0->setCloudData(cloudData);
+    vptRenderer1->setCloudData(cloudData);
+
+    vptRenderer0->setVptMode(VptMode::DELTA_TRACKING);
+    vptRenderer0->setUseSparseGrid(false);
+    vptRenderer1->setVptMode(VptMode::DELTA_TRACKING);
+    vptRenderer1->setUseSparseGrid(true);
+    vptRenderer1->setGridInterpolationType(GridInterpolationType::TRILINEAR);
+    testEqualMean();
 }
 
-INSTANTIATE_TEST_SUITE_P(
-        EqualityTestSuite, VolumetricPathTracingTest, ::testing::Values(
-        "{ \"mode0\": \"Delta Tracking\", \"mode1\": \"Ratio Tracking\" }"/*,
-        "{ \"mode0\": \"Delta Tracking\", \"mode1\": \"Decomposition Tracking\" }"*/));
+// TODO: Fix this test case.
+/*TEST_F(VolumetricPathTracingTest, DecompositionTrackingGridTypesSphereTest) {
+    CloudDataPtr cloudData = std::make_shared<CloudData>();
+    cloudData->setNanoVdbGridHandle(nanovdb::createFogVolumeSphere<float>(
+            0.25f, nanovdb::Vec3<float>(0), 0.01f));
+    vptRenderer0->setCloudData(cloudData);
+    vptRenderer1->setCloudData(cloudData);
+
+    vptRenderer0->setVptMode(VptMode::DECOMPOSITION_TRACKING);
+    vptRenderer0->setUseSparseGrid(false);
+    vptRenderer1->setVptMode(VptMode::DECOMPOSITION_TRACKING);
+    vptRenderer1->setUseSparseGrid(true);
+    testEqualMean();
+}*/
+
+TEST_F(VolumetricPathTracingTest, DeltaTrackingDecompositionTrackingEqualMeanTest1) {
+    CloudDataPtr cloudData = createCloudBlock(8, 8, 8, 1.0f);
+    vptRenderer0->setCloudData(cloudData);
+    vptRenderer1->setCloudData(cloudData);
+
+    vptRenderer0->setGridInterpolationType(GridInterpolationType::NEAREST);
+    vptRenderer0->setVptMode(VptMode::DELTA_TRACKING);
+    vptRenderer1->setGridInterpolationType(GridInterpolationType::NEAREST);
+    vptRenderer1->setVptMode(VptMode::DECOMPOSITION_TRACKING);
+    testEqualMean();
+}
+
+TEST_F(VolumetricPathTracingTest, DeltaTrackingDecompositionTrackingEqualMeanTest2) {
+    CloudDataPtr cloudData = createCloudBlock(8, 8, 8, 1.0f);
+    vptRenderer0->setCloudData(cloudData);
+    vptRenderer1->setCloudData(cloudData);
+
+    vptRenderer0->setGridInterpolationType(GridInterpolationType::STOCHASTIC);
+    vptRenderer0->setVptMode(VptMode::DELTA_TRACKING);
+    vptRenderer0->setGridInterpolationType(GridInterpolationType::STOCHASTIC);
+    vptRenderer1->setVptMode(VptMode::DECOMPOSITION_TRACKING);
+    testEqualMean();
+}
+
+TEST_F(VolumetricPathTracingTest, DeltaTrackingDecompositionTrackingEqualMeanTest3) {
+    CloudDataPtr cloudData = createCloudBlock(8, 8, 8, 1.0f, true);
+    vptRenderer0->setCloudData(cloudData);
+    vptRenderer1->setCloudData(cloudData);
+
+    vptRenderer0->setVptMode(VptMode::DELTA_TRACKING);
+    vptRenderer1->setVptMode(VptMode::DECOMPOSITION_TRACKING);
+    testEqualMean();
+}
 
 void vulkanErrorCallback() {
     std::cerr << "Application callback" << std::endl;

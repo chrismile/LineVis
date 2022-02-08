@@ -39,6 +39,7 @@
 void processDataSetNodeChildren(Json::Value& childList, DataSetInformation* dataSetInformationParent) {
     for (Json::Value& source : childList) {
         auto* dataSetInformation = new DataSetInformation;
+
         // Get the type information.
         Json::Value type = source["type"];
         std::string typeName = type.asString();

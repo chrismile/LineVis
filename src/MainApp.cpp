@@ -858,7 +858,8 @@ void MainApp::renderGui() {
                     || boost::ends_with(filenameLower, ".carti")) {
                 selectedDataSetIndex = 2;
                 stressLineTracingRequester->setDatasetFilename(filename);
-            } else if (boost::ends_with(filenameLower, ".xyz")) {
+            } else if (boost::ends_with(filenameLower, ".xyz")
+                    || boost::ends_with(filenameLower, ".nvdb")) {
                 selectedDataSetIndex = 3;
                 scatteringLineTracingRequester->setDatasetFilename(filename);
             } else {
@@ -1347,7 +1348,7 @@ void MainApp::openFileDialog() {
     IGFD_OpenModal(
             fileDialogInstance,
             "ChooseDataSetFile", "Choose a File",
-            ".*,.obj,.dat,.binlines,.nc,.vtk,.bin,.stress,.carti,.xyz",
+            ".*,.obj,.dat,.binlines,.nc,.vtk,.bin,.stress,.carti,.xyz,.nvdb",
             fileDialogDirectory.c_str(),
             "", 1, nullptr,
             ImGuiFileDialogFlags_ConfirmOverwrite);
@@ -1493,7 +1494,7 @@ void MainApp::renderGuiPropertyEditorBegin() {
         }
 
         if (selectedDataSetIndex == 0) {
-            ImGui::InputText("##meshfilenamelabel", &customDataSetFileName);
+            ImGui::InputText("##datasetfilenamelabel", &customDataSetFileName);
             ImGui::SameLine();
             if (ImGui::Button("Load File")) {
                 loadLineDataSet(getSelectedLineDataSetFilenames());

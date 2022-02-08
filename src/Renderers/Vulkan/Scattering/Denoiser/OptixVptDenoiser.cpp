@@ -393,13 +393,13 @@ void OptixVptDenoiser::runOptixDenoiser() {
 bool OptixVptDenoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool reRender = false;
 
-        if (propertyEditor.addCombo(
-                "Feature Map", (int*)&denoiserModelKindIndex, OPTIX_DENOISTER_MODEL_KIND_NAME,
-                IM_ARRAYSIZE(OPTIX_DENOISTER_MODEL_KIND_NAME))) {
-            reRender = true;
-            denoiserModelKind = OptixDenoiserModelKind(denoiserModelKindIndex + int(OPTIX_DENOISER_MODEL_KIND_LDR));
-            recreateDenoiserNextFrame = true;
-        }
+    if (propertyEditor.addCombo(
+            "Feature Map", (int*)&denoiserModelKindIndex, OPTIX_DENOISTER_MODEL_KIND_NAME,
+            IM_ARRAYSIZE(OPTIX_DENOISTER_MODEL_KIND_NAME))) {
+        reRender = true;
+        denoiserModelKind = OptixDenoiserModelKind(denoiserModelKindIndex + int(OPTIX_DENOISER_MODEL_KIND_LDR));
+        recreateDenoiserNextFrame = true;
+    }
 
     return reRender;
 }

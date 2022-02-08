@@ -46,7 +46,11 @@ void main() {
     ivec2 dim = imageSize(resultImage);
     ivec2 imageCoord = ivec2(gl_GlobalInvocationID.xy);
 
-    initializeRandom(frame * dim.x * dim.y + gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * dim.x);
+    uint seed = frame * dim.x * dim.y + gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * dim.x;
+#ifdef CUSTOM_SEED_OFFSET
+    seed += CUSTOM_SEED_OFFSET;
+#endif
+    initializeRandom(seed);
 
     vec2 screenCoord = 2.0 * (gl_GlobalInvocationID.xy + vec2(random(), random())) / dim - 1;
 

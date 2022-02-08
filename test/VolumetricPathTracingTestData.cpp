@@ -35,7 +35,7 @@ CloudDataPtr createCloudBlock(
     if (useEmptyBoundaryLayer && xs >= 3 && ys >= 3 && zs >= 3) {
         for (uint32_t z = 0; z < zs; z++) {
             for (uint32_t y = 0; y < ys; y++) {
-                for (uint32_t x = 0; x < xs; xs++) {
+                for (uint32_t x = 0; x < xs; x++) {
                     float value = 0.0f;
                     if (x >= 1 && y >= 1 && z >= 1 && x <= xs - 2 && y <= ys - 2 && z <= zs - 2) {
                         value = 1.0f;

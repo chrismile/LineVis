@@ -52,6 +52,12 @@ public:
      */
     void setDensityField(uint32_t _gridSizeX, uint32_t _gridSizeY, uint32_t _gridSizeZ, float* _densityField);
 
+    /**
+     * Sets the passed grid handle.
+     * @param handle
+     */
+    void setNanoVdbGridHandle(nanovdb::GridHandle<nanovdb::HostBuffer>&& handle);
+
     [[nodiscard]] inline const std::string& getFileName() const { return gridFilename; }
     [[nodiscard]] inline uint32_t getGridSizeX() const { return gridSizeX; }
     [[nodiscard]] inline uint32_t getGridSizeY() const { return gridSizeY; }
@@ -70,9 +76,8 @@ public:
     [[nodiscard]] inline bool hasDenseData() const { return densityField != nullptr; }
 
     /**
-     *
-     * @param data
-     * @param size
+     * @param data A pointer to the raw NanoVDB data.
+     * @param size The size of the NanoVDB data buffer in bytes.
      * If the object was loaded using a dense .xyz grid file, the sparse field is created when calling this function.
      */
     void getSparseDensityField(uint8_t*& data, uint64_t& size);
@@ -100,6 +105,8 @@ private:
      * @return Whether the file was loaded successfully.
      */
     bool loadFromNvdbFile(const std::string& filename);
+    void computeSparseGridMetadata();
+    void printSparseGridMetadata();
     nanovdb::GridHandle<nanovdb::HostBuffer> sparseGridHandle;
     bool cacheSparseGrid = false;
 };

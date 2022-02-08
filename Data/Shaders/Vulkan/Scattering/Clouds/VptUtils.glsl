@@ -193,20 +193,81 @@ pnanovdb_readaccessor_t createAccessor() {
     pnanovdb_readaccessor_init(accessor, root);
     return accessor;
 }
+#if defined(GRID_INTERPOLATION_NEAREST)
+float sampleCloud(pnanovdb_readaccessor_t accessor, in vec3 pos) {
+    pnanovdb_buf_t buf = pnanovdb_buf_t(0);
+    pnanovdb_grid_handle_t gridHandle = pnanovdb_grid_handle_t(pnanovdb_address_null());
+    vec3 posIndex = pnanovdb_grid_world_to_indexf(buf, gridHandle, pos);
+    posIndex = floor(posIndex);
+    pnanovdb_address_t address = pnanovdb_readaccessor_get_value_address(
+            PNANOVDB_GRID_TYPE_FLOAT, buf, accessor, ivec3(posIndex));
+    return pnanovdb_read_float(buf, address);
+}
+#elif defined(GRID_INTERPOLATION_STOCHASTIC)
 float sampleCloud(pnanovdb_readaccessor_t accessor, in vec3 pos) {
     pnanovdb_buf_t buf = pnanovdb_buf_t(0);
     pnanovdb_grid_handle_t gridHandle = pnanovdb_grid_handle_t(pnanovdb_address_null());
     vec3 posIndex = pnanovdb_grid_world_to_indexf(buf, gridHandle, pos);
     posIndex = floor(posIndex + vec3(random() - 0.5, random() - 0.5, random() - 0.5));
     pnanovdb_address_t address = pnanovdb_readaccessor_get_value_address(
-    PNANOVDB_GRID_TYPE_FLOAT, buf, accessor, ivec3(posIndex));
+            PNANOVDB_GRID_TYPE_FLOAT, buf, accessor, ivec3(posIndex));
     return pnanovdb_read_float(buf, address);
 }
+#elif defined(GRID_INTERPOLATION_TRILINEAR)
+float sampleCloud(pnanovdb_readaccessor_t accessor, in vec3 pos) {
+    pnanovdb_buf_t buf = pnanovdb_buf_t(0);
+    pnanovdb_grid_handle_t gridHandle = pnanovdb_grid_handle_t(pnanovdb_address_null());
+    vec3 posIndex = pnanovdb_grid_world_to_indexf(buf, gridHandle, pos) - vec3(0.5);
+    ivec3 posIndexInt = ivec3(floor(posIndex));
+    vec3 posIndexFrac = posIndex - vec3(posIndexInt);
+    posIndex = floor(posIndex + vec3(random(), random(), random()));
+
+    pnanovdb_address_t address000 = pnanovdb_readaccessor_get_value_address(
+            PNANOVDB_GRID_TYPE_FLOAT, buf, accessor, posIndexInt + ivec3(0, 0, 0));
+    float f000 = pnanovdb_read_float(buf, address000);
+    pnanovdb_address_t address100 = pnanovdb_readaccessor_get_value_address(
+            PNANOVDB_GRID_TYPE_FLOAT, buf, accessor, posIndexInt + ivec3(1, 0, 0));
+    float f100 = pnanovdb_read_float(buf, address100);
+    float f00 = mix(f000, f100, posIndexFrac.x);
+
+    pnanovdb_address_t address010 = pnanovdb_readaccessor_get_value_address(
+            PNANOVDB_GRID_TYPE_FLOAT, buf, accessor, posIndexInt + ivec3(0, 1, 0));
+    float f010 = pnanovdb_read_float(buf, address010);
+    pnanovdb_address_t address110 = pnanovdb_readaccessor_get_value_address(
+            PNANOVDB_GRID_TYPE_FLOAT, buf, accessor, posIndexInt + ivec3(1, 1, 0));
+    float f110 = pnanovdb_read_float(buf, address110);
+    float f10 = mix(f010, f110, posIndexFrac.x);
+
+    float f0 = mix(f00, f10, posIndexFrac.y);
+
+    pnanovdb_address_t address001 = pnanovdb_readaccessor_get_value_address(
+            PNANOVDB_GRID_TYPE_FLOAT, buf, accessor, posIndexInt + ivec3(0, 0, 1));
+    float f001 = pnanovdb_read_float(buf, address001);
+    pnanovdb_address_t address101 = pnanovdb_readaccessor_get_value_address(
+            PNANOVDB_GRID_TYPE_FLOAT, buf, accessor, posIndexInt + ivec3(1, 0, 1));
+    float f101 = pnanovdb_read_float(buf, address101);
+    float f01 = mix(f001, f101, posIndexFrac.x);
+
+    pnanovdb_address_t address011 = pnanovdb_readaccessor_get_value_address(
+            PNANOVDB_GRID_TYPE_FLOAT, buf, accessor, posIndexInt + ivec3(0, 1, 1));
+    float f011 = pnanovdb_read_float(buf, address011);
+    pnanovdb_address_t address111 = pnanovdb_readaccessor_get_value_address(
+            PNANOVDB_GRID_TYPE_FLOAT, buf, accessor, posIndexInt + ivec3(1, 1, 1));
+    float f111 = pnanovdb_read_float(buf, address111);
+    float f11 = mix(f011, f111, posIndexFrac.x);
+
+    float f1 = mix(f01, f11, posIndexFrac.y);
+
+    return mix(f0, f1, posIndexFrac.z);
+}
+#endif
 #else
 float sampleCloud(in vec3 pos) {
     ivec3 dim = textureSize(gridImage, 0);
     vec3 coord = (pos - parameters.boxMin) / (parameters.boxMax - parameters.boxMin);
+#if defined(GRID_INTERPOLATION_STOCHASTIC)
     coord += vec3(random() - 0.5, random() - 0.5, random() - 0.5) / dim;
+#endif
     return texture(gridImage, coord).x;
 }
 #endif
