@@ -739,6 +739,8 @@ void MainApp::updateColorSpaceMode() {
     if (useDockSpaceMode) {
         for (DataViewPtr& dataView : dataViews) {
             dataView->useLinearRGB = useLinearRGB;
+            dataView->viewportWidth = 0;
+            dataView->viewportHeight = 0;
             if (dataView->lineRenderer) {
                 dataView->lineRenderer->setUseLinearRGB(useLinearRGB);
             }
@@ -1019,7 +1021,7 @@ void MainApp::renderGui() {
                         if (isViewOpen) {
                             ImGui::Image(
                                     (void*)(intptr_t)static_cast<sgl::TextureGL*>(
-                                            dataView->sceneTexture.get())->getTexture(),
+                                            dataView->getSceneTextureResolved().get())->getTexture(),
                                     sizeContent, ImVec2(0, 1), ImVec2(1, 0));
                             if (ImGui::IsItemHovered()) {
                                 mouseHoverWindowIndex = i;
@@ -1250,7 +1252,7 @@ void MainApp::renderGuiGeneralSettingsPropertyEditor() {
         reRender = true;
     }
 
-    bool newDockSpaceMode = useDockSpaceMode;
+    newDockSpaceMode = useDockSpaceMode;
     if (propertyEditor.addCheckbox("Use Docking Mode", &newDockSpaceMode)) {
         scheduledDockSpaceModeChange = true;
     }

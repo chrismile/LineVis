@@ -296,6 +296,9 @@ void VolumetricPathTracingPass::onHasMoved() {
 }
 
 void VolumetricPathTracingPass::updateVptMode() {
+    if (accumulationTimer && !reachedTarget) {
+        createNewAccumulationTimer = true;
+    }
     if (vptMode == VptMode::RESIDUAL_RATIO_TRACKING && cloudData && !useSparseGrid) {
         superVoxelGridDecompositionTracking = {};
         superVoxelGridResidualRatioTracking = std::make_shared<SuperVoxelGridResidualRatioTracking>(
@@ -512,6 +515,7 @@ void VolumetricPathTracingPass::_render() {
 
     std::string eventName = getCurrentEventName();
     if (createNewAccumulationTimer) {
+        accumulationTimer = {};
         accumulationTimer = std::make_shared<sgl::vk::Timer>(renderer);
         createNewAccumulationTimer = false;
     }
@@ -538,16 +542,8 @@ void VolumetricPathTracingPass::_render() {
     if (!changedDenoiserSettings && !timerStopped) {
         uniformData.inverseViewProjMatrix = glm::inverse(
                 (*camera)->getProjectionMatrix() * (*camera)->getViewMatrix());
-        VkExtent3D gridExtent = {
-                cloudData->getGridSizeX(),
-                cloudData->getGridSizeY(),
-                cloudData->getGridSizeZ()
-        };
-        uint32_t maxDim = std::max(
-                gridExtent.width, std::max(gridExtent.height, gridExtent.depth));
-        uniformData.boxMax = glm::vec3(
-                gridExtent.width, gridExtent.height, gridExtent.depth) * 0.25f / float(maxDim);
-        uniformData.boxMin = -uniformData.boxMax;
+        uniformData.boxMin = cloudData->getWorldSpaceBoxMin();
+        uniformData.boxMax = cloudData->getWorldSpaceBoxMax();
         uniformData.extinction = cloudExtinctionBase * cloudExtinctionScale;
         uniformData.scatteringAlbedo = cloudScatteringAlbedo;
         uniformData.sunDirection = sunlightDirection;

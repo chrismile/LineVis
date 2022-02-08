@@ -95,6 +95,8 @@ private:
     sgl::vk::TexturePtr renderTextureVk;
     sgl::TexturePtr renderTextureGl;
     sgl::SemaphoreVkGlInteropPtr renderReadySemaphore, renderFinishedSemaphore;
+    bool useLinearRGB = false;
+    bool recreateImages = false;
 
     // For fixing a bug occuring on newer NVIDIA Linux drivers (> 470.xx).
     bool isFirstFrame = true;

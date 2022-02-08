@@ -115,6 +115,11 @@ void VolumetricPathTracingRenderer::onResolutionChanged() {
     uint32_t height = *sceneData->viewportHeight;
 
     sgl::vk::ImageSettings imageSettings;
+    if (useLinearRGB) {
+        imageSettings.format = VK_FORMAT_R16G16B16A16_UNORM;
+    } else {
+        imageSettings.format = VK_FORMAT_R8G8B8A8_UNORM;
+    }
     imageSettings.width = width;
     imageSettings.height = height;
     imageSettings.usage =
@@ -145,7 +150,9 @@ void VolumetricPathTracingRenderer::notifyReRenderTriggeredExternally() {
 }
 
 void VolumetricPathTracingRenderer::setUseLinearRGB(bool useLinearRGB) {
+    this->useLinearRGB = useLinearRGB;
     vptPass->setUseLinearRGB(useLinearRGB);
+    recreateImages = true;
 }
 
 void VolumetricPathTracingRenderer::setFileDialogInstance(ImGuiFileDialog* fileDialogInstance) {
@@ -159,8 +166,14 @@ void VolumetricPathTracingRenderer::render() {
         return;
     }
 
+    sgl::vk::Device* device = rendererVk->getDevice();
+    if (recreateImages) {
+        device->waitGraphicsQueueIdle();
+        onResolutionChanged();
+        recreateImages = false;
+    }
+
     GLenum dstLayout = GL_NONE;
-	sgl::vk::Device* device = rendererVk->getDevice();
 	if (device->getDeviceDriverId() == VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS) {
 		dstLayout = GL_LAYOUT_GENERAL_EXT;
 	}

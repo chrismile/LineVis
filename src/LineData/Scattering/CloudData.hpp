@@ -30,6 +30,7 @@
 #define LINEVIS_CLOUDDATA_HPP
 
 #include <memory>
+#include <Math/Geometry/AABB3.hpp>
 #include <Graphics/Color.hpp>
 
 #include "Renderers/Vulkan/Scattering/nanovdb/util/GridHandle.h"
@@ -65,6 +66,7 @@ public:
 
     [[nodiscard]] inline const glm::vec3& getWorldSpaceBoxMin() const { return boxMin; }
     [[nodiscard]] inline const glm::vec3& getWorldSpaceBoxMax() const { return boxMax; }
+    [[nodiscard]] inline sgl::AABB3 getWorldSpaceBoundingBox() const { return sgl::AABB3(boxMin, boxMax); }
 
     void setClearColor(const sgl::Color& clearColor) {}
 
