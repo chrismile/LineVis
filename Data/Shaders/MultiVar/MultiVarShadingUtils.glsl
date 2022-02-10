@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020 - 2021, Christoph Neuhauser, Michael Kern
+ * Copyright (c) 2020 - 2022, Christoph Neuhauser, Michael Kern
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

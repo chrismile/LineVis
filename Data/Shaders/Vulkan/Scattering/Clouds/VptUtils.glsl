@@ -220,7 +220,6 @@ float sampleCloud(pnanovdb_readaccessor_t accessor, in vec3 pos) {
     vec3 posIndex = pnanovdb_grid_world_to_indexf(buf, gridHandle, pos) - vec3(0.5);
     ivec3 posIndexInt = ivec3(floor(posIndex));
     vec3 posIndexFrac = posIndex - vec3(posIndexInt);
-    posIndex = floor(posIndex + vec3(random(), random(), random()));
 
     pnanovdb_address_t address000 = pnanovdb_readaccessor_get_value_address(
             PNANOVDB_GRID_TYPE_FLOAT, buf, accessor, posIndexInt + ivec3(0, 0, 0));
@@ -263,9 +262,9 @@ float sampleCloud(pnanovdb_readaccessor_t accessor, in vec3 pos) {
 #endif
 #else
 float sampleCloud(in vec3 pos) {
-    ivec3 dim = textureSize(gridImage, 0);
     vec3 coord = (pos - parameters.boxMin) / (parameters.boxMax - parameters.boxMin);
 #if defined(GRID_INTERPOLATION_STOCHASTIC)
+    ivec3 dim = textureSize(gridImage, 0);
     coord += vec3(random() - 0.5, random() - 0.5, random() - 0.5) / dim;
 #endif
     return texture(gridImage, coord).x;

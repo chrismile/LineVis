@@ -47,8 +47,9 @@ vec3 ratioTracking(vec3 x, vec3 w, out ScatterEvent firstEvent) {
         while (true) {
             float t = -log(max(0.0000000001, 1 - random()))/majorant;
 
-            if (t > d)
-            break;
+            if (t > d) {
+                break;
+            }
 
             x += w * t;
 

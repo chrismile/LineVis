@@ -159,8 +159,9 @@ vec3 deltaTracking(
 #endif
             float t = -log(max(0.0000000001, 1 - random()))/majorant;
 
-            if (t > d)
-            break;
+            if (t > d) {
+                break;
+            }
 
             x += w * t;
 #ifdef COMPUTE_SCATTER_RAY_ABSORPTION_MOMENTS
