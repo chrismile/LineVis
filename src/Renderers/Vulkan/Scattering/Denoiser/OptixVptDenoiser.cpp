@@ -87,7 +87,7 @@ bool OptixVptDenoiser::initGlobal() {
         return false;
     }
 
-    if (!sgl::vk::initializeCudaDeviceApiFunctionTable()) {
+    if (!sgl::vk::getIsCudaDeviceApiFunctionTableInitialized() && !sgl::vk::initializeCudaDeviceApiFunctionTable()) {
         return false;
     }
 

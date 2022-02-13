@@ -58,7 +58,7 @@ packages are used.
 #### Other Linux Distributions
 
 If you are using a different Linux distribution and face difficulties when building the program, please feel free to
-open a [bug report](https://github.com/Junpeng-Wang-TUM/3D-TSV/issues).
+open a [bug report](https://github.com/chrismile/LineVis/issues).
 
 
 ### Windows
