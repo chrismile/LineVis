@@ -178,7 +178,7 @@ vec3 sampleSkybox(in vec3 dir) {
 }
 vec3 sampleLight(in vec3 dir) {
     int N = 10;
-    float phongNorm = (N + 2) / (2 * 3.14159);
+    float phongNorm = (N + 1) / (2 * 3.14159);
     return parameters.sunIntensity * pow(max(0, dot(dir, parameters.sunDirection)), N) * phongNorm;
 }
 #endif
