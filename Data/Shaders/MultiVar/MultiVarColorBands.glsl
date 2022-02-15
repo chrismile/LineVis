@@ -100,8 +100,6 @@ in VertexData {
     vec4 lineVariable;
 } vertexOutput[];
 
-in int gl_PrimitiveIDIn;
-
 // Output to fragments
 out vec3 fragWorldPos;
 out vec3 fragNormal;

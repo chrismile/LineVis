@@ -274,7 +274,7 @@ vec4 computePhongLighting(
 
     const vec3 n = normalize(normal);
     const vec3 v = normalize(cameraPosition - worldPos);
-    const vec3 l = normalize(-lightDirection);//normalize(v);
+    const vec3 l = normalize(v);
     const vec3 h = normalize(v + l);
     vec3 t = normalize(tangent);
 
@@ -325,7 +325,7 @@ vec4 computePhongLightingSphere(
 
     const vec3 n = normalize(normal);
     const vec3 v = normalize(cameraPosition - worldPos);
-    const vec3 l = normalize(-lightDirection);//normalize(v);
+    const vec3 l = normalize(v);
     const vec3 h = normalize(v + l);
 
     vec3 Id = kD * clamp((dot(n, l)), 0.0, 1.0) * diffuseColor;

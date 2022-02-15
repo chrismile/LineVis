@@ -63,7 +63,7 @@ BezierTrajectories convertTrajectoriesToBezierCurves(const Trajectories &inTraje
             float lenTangent = glm::length(tangent);
 
             if (std::isnan(lenTangent)) {
-                sgl::Logfile::get()->writeError("ERROR: NaN encountered in trajectory file.");
+                sgl::Logfile::get()->writeError("ERROR: NaN encountered in trajectory file.", false);
                 lenTangent = 0.0f;
             }
 

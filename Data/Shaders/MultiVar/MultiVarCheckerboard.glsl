@@ -103,8 +103,6 @@ in VertexData {
     int vVertexID;
 } vertexOutput[];
 
-in int gl_PrimitiveIDIn;
-
 // Output to fragments
 out vec3 fragWorldPos;
 out vec3 fragNormal;
