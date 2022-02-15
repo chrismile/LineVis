@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
     ImFontGlyphRangesBuilder builder;
     builder.AddChar(L'\u03BB'); // lambda
     builder.BuildRanges(&fontRanges);
-    sgl::AppSettings::get()->setLoadGUI(fontRanges.Data);
+    sgl::AppSettings::get()->setLoadGUI(fontRanges.Data, true, false);
 
     sgl::AppSettings::get()->createWindow();
 

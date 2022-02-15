@@ -1451,7 +1451,8 @@ void MainApp::renderGuiMenuBar() {
         bool isRendererComputationRunning = false;
         for (DataViewPtr& dataView : dataViews) {
             isRendererComputationRunning =
-                    isRendererComputationRunning || dataView->lineRenderer->getIsComputationRunning();
+                    isRendererComputationRunning
+                    || (dataView->lineRenderer && dataView->lineRenderer->getIsComputationRunning());
             if (isRendererComputationRunning) {
                 break;
             }
