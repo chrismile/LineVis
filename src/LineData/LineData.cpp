@@ -475,7 +475,9 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLeve
     sgl::Logfile::get()->writeInfo(
             "Input indices size: " + sgl::toString(double(inputIndicesSize) / 1024.0 / 1024.0) + "MiB");
     tubeTriangleBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(
-            asTubeInputPtr, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, true);
+            asTubeInputPtr,
+            VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
+            | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR, true);
 
     return tubeTriangleBottomLevelAS;
 }
@@ -502,7 +504,9 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeAabbBottomLevelAS(
     sgl::Logfile::get()->writeInfo(
             "Input AABBs size: " + sgl::toString(double(inputSize) / 1024.0 / 1024.0) + "MiB");
     tubeAabbBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(
-            asAabbInputPtr, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, true);
+            asAabbInputPtr,
+            VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
+            | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR, true);
 
     return tubeAabbBottomLevelAS;
 }
@@ -537,7 +541,9 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getHullTriangleBottomLeve
     sgl::Logfile::get()->writeInfo(
             "Input indices size: " + sgl::toString(double(inputIndicesSize) / 1024.0 / 1024.0) + "MiB");
     hullTriangleBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(
-            asHullInputPtr, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, true);
+            asHullInputPtr,
+            VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
+            | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR, true);
 
     return hullTriangleBottomLevelAS;
 }
