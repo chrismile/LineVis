@@ -366,7 +366,9 @@ void RayTracingRenderPass::updateUseJitteredSamples() {
 
 void RayTracingRenderPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
-    std::map<std::string, std::string> preprocessorDefines = lineData->getVulkanShaderPreprocessorDefines();
+    std::map<std::string, std::string> preprocessorDefines;
+    lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    vulkanRayTracer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
     if (useJitteredSamples) {
         preprocessorDefines.insert(std::make_pair("USE_JITTERED_RAYS", ""));
     }

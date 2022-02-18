@@ -51,8 +51,8 @@
 #include <Math/Math.hpp>
 #include <Math/Geometry/MatrixUtil.hpp>
 #include <Graphics/Window.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/OpenGL/Texture.hpp>
+#include <Graphics/Vulkan/Utils/Instance.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/ImGuiFileDialog/ImGuiFileDialog.h>
@@ -68,7 +68,6 @@
 #include "LineData/Flow/StreamlineTracingRequester.hpp"
 #include "LineData/Stress/StressLineTracingRequester.hpp"
 #include "LineData/Scattering/ScatteringLineTracingRequester.hpp"
-#include "Renderers/OIT/TilingMode.hpp"
 #include "Renderers/OpaqueLineRenderer.hpp"
 #include "Renderers/OIT/PerPixelLinkedListLineRenderer.hpp"
 #include "Renderers/OIT/MLABRenderer.hpp"
@@ -80,9 +79,6 @@
 #include "Renderers/OIT/DepthPeelingRenderer.hpp"
 #include "Renderers/VRC/VoxelRayCastingRenderer.hpp"
 
-#ifdef USE_VULKAN_INTEROP
-#include <Graphics/Vulkan/Utils/Instance.hpp>
-#include <Graphics/Vulkan/Render/Renderer.hpp>
 #include "Renderers/Vulkan/VulkanRayTracer.hpp"
 #include "Renderers/Vulkan/VulkanTestRenderer.hpp"
 #include "Renderers/Vulkan/Scattering/LineDensityMapRenderer.hpp"
@@ -90,7 +86,6 @@
 #include "Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracingRenderer.hpp"
 #ifdef SUPPORT_OPTIX
 #include "Renderers/Vulkan/Scattering/Denoiser/OptixVptDenoiser.hpp"
-#endif
 #endif
 
 #ifdef USE_OSPRAY
@@ -100,17 +95,10 @@
 #include "Widgets/DataView.hpp"
 #include "MainApp.hpp"
 
-void openglErrorCallback() {
-    SDL_CaptureMouse(SDL_FALSE);
-    std::cerr << "Application callback" << std::endl;
-}
-
-#ifdef USE_VULKAN_INTEROP
 void vulkanErrorCallback() {
     SDL_CaptureMouse(SDL_FALSE);
     std::cerr << "Application callback" << std::endl;
 }
-#endif
 
 #ifdef __linux__
 void signalHandler(int signum) {
@@ -122,7 +110,7 @@ void signalHandler(int signum) {
 
 MainApp::MainApp()
         : sceneData(
-                &sceneFramebuffer, &sceneTexture, &sceneDepthRBO,
+                &rendererVk, &sceneTextureVk, &sceneDepthTextureVk,
                 &viewportWidth, &viewportHeight, &camera,
                 &clearColor, &screenshotTransparentBackground,
                 &performanceMeasurer, &continuousRendering, &recording,
@@ -140,18 +128,12 @@ MainApp::MainApp()
           streamlineTracingRequester(new StreamlineTracingRequester(transferFunctionWindow)),
           stressLineTracingRequester(new StressLineTracingRequester(zeromqContext)),
           scatteringLineTracingRequester(new ScatteringLineTracingRequester(
-                  transferFunctionWindow
-#ifdef USE_VULKAN_INTEROP
-                  , rendererVk
-#endif
+                  transferFunctionWindow, rendererVk
           )) {
-#ifdef USE_VULKAN_INTEROP
-    if (sgl::AppSettings::get()->getVulkanInteropCapabilities() != sgl::VulkanInteropCapabilities::NOT_LOADED) {
-        sgl::AppSettings::get()->getVulkanInstance()->setDebugCallback(&vulkanErrorCallback);
-    }
+    sgl::AppSettings::get()->getVulkanInstance()->setDebugCallback(&vulkanErrorCallback);
+
 #ifdef SUPPORT_OPTIX
     optixInitialized = OptixVptDenoiser::initGlobal();
-#endif
 #endif
 
 #ifdef USE_PYTHON
@@ -368,10 +350,7 @@ MainApp::MainApp()
     transferFunctionWindow.setUseLinearRGB(useLinearRGB);
     coordinateAxesOverlayWidget.setClearColor(clearColor);
 
-    setNewTilingMode(2, 8);
-
-    sgl::Renderer->setErrorCallback(&openglErrorCallback);
-    sgl::Renderer->setDebugVerbosity(sgl::DEBUG_OUTPUT_CRITICAL_ONLY);
+    LineRenderer::setNewTilingMode(2, 8);
     resolutionChanged(sgl::EventPtr());
 
     dataFilters.push_back(new LineLengthFilter);
@@ -388,6 +367,10 @@ MainApp::MainApp()
         renderingMode = RENDERING_MODE_OPACITY_OPTIMIZATION;
     }
 
+    fileDialogInstance = IGFD_Create();
+    customDataSetFileName = sgl::FileUtils::get()->getUserDirectory();
+    loadAvailableDataSetInformation();
+
     if (!recording && !usePerformanceMeasurementMode) {
         // Just for convenience...
         int desktopWidth = 0;
@@ -403,10 +386,6 @@ MainApp::MainApp()
     if (!useDockSpaceMode) {
         setRenderer(sceneData, oldRenderingMode, renderingMode, lineRenderer, 0);
     }
-
-    fileDialogInstance = IGFD_Create();
-    customDataSetFileName = sgl::FileUtils::get()->getUserDirectory();
-    loadAvailableDataSetInformation();
 
     if (!sgl::AppSettings::get()->getSettings().hasKey("cameraNavigationMode")) {
         cameraNavigationMode = sgl::CameraNavigationMode::TURNTABLE;
@@ -434,6 +413,8 @@ MainApp::MainApp()
 }
 
 MainApp::~MainApp() {
+    device->waitIdle();
+
     if (usePerformanceMeasurementMode) {
         delete performanceMeasurer;
         performanceMeasurer = nullptr;
@@ -505,7 +486,9 @@ void MainApp::setNewState(const InternalState &newState) {
     }
 
     // 1.1. Handle the new tiling mode for SSBO accesses.
-    setNewTilingMode(newState.tilingWidth, newState.tilingHeight, newState.useMortonCodeForTiling);
+    LineRenderer::setNewTilingMode(
+            newState.tilingWidth, newState.tilingHeight,
+            newState.useMortonCodeForTiling);
 
     // 1.2. Load the new transfer function if necessary.
     if (!newState.transferFunctionName.empty() && newState.transferFunctionName != lastState.transferFunctionName) {
@@ -593,6 +576,7 @@ void MainApp::setRenderer(
         SceneData& sceneDataRef, RenderingMode& oldRenderingMode, RenderingMode& newRenderingMode,
         LineRenderer*& newLineRenderer, int dataViewIndex) {
     if (newLineRenderer) {
+        device->waitIdle();
         delete newLineRenderer;
         newLineRenderer = nullptr;
     }
@@ -601,17 +585,17 @@ void MainApp::setRenderer(
         // User depth buffer with higher accuracy when rendering lines opaquely.
         if (newRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE
                 || oldRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
-            sgl::RenderbufferType rboType;
+            VkFormat depthFormat;
             if (newRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
-                rboType = sgl::RBO_DEPTH32F_STENCIL8;
+                depthFormat = VK_FORMAT_D32_SFLOAT;
             } else {
-                rboType = sgl::RBO_DEPTH24_STENCIL8;
+                depthFormat = VK_FORMAT_D24_UNORM_S8_UINT;
             }
             if (useDockSpaceMode) {
-                dataViews.at(dataViewIndex)->sceneDepthRBOType = rboType;
-                sceneDepthRBOType = rboType;
+                dataViews.at(dataViewIndex)->sceneDepthTextureVkFormat = depthFormat;
+                sceneDepthTextureVkFormat = depthFormat;
             } else {
-                sceneDepthRBOType = rboType;
+                sceneDepthTextureVkFormat = depthFormat;
             }
             scheduleRecreateSceneFramebuffer();
         }
@@ -636,9 +620,7 @@ void MainApp::setRenderer(
         newLineRenderer = new WBOITRenderer(&sceneDataRef, transferFunctionWindow);
     } else if (newRenderingMode == RENDERING_MODE_DEPTH_PEELING) {
         newLineRenderer = new DepthPeelingRenderer(&sceneDataRef, transferFunctionWindow);
-    }
-#ifdef USE_VULKAN_INTEROP
-    else if (newRenderingMode == RENDERING_MODE_VULKAN_RAY_TRACER
+    } else if (newRenderingMode == RENDERING_MODE_VULKAN_RAY_TRACER
              && sgl::AppSettings::get()->getVulkanInteropCapabilities()
                 == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
         if (sgl::AppSettings::get()->getPrimaryDevice()->getRayTracingPipelineSupported()) {
@@ -656,25 +638,19 @@ void MainApp::setRenderer(
             newRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
             newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
         }
-    }
-#endif
-    else if (newRenderingMode == RENDERING_MODE_VOXEL_RAY_CASTING) {
+    } else if (newRenderingMode == RENDERING_MODE_VOXEL_RAY_CASTING) {
         newLineRenderer = new VoxelRayCastingRenderer(&sceneDataRef, transferFunctionWindow);
-    }
-#ifdef USE_VULKAN_INTEROP
-    else if (newRenderingMode == RENDERING_MODE_VULKAN_TEST
+    } else if (newRenderingMode == RENDERING_MODE_VULKAN_TEST
              && sgl::AppSettings::get()->getVulkanInteropCapabilities()
                 == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
         auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
         newLineRenderer = new VulkanTestRenderer(&sceneDataRef, transferFunctionWindow, renderer);
     }
-#endif
 #ifdef USE_OSPRAY
     else if (newRenderingMode == RENDERING_MODE_OSPRAY_RAY_TRACER) {
         newLineRenderer = new OsprayRenderer(&sceneDataRef, transferFunctionWindow);
     }
 #endif
-#ifdef USE_VULKAN_INTEROP
     else if (newRenderingMode == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER
              && sgl::AppSettings::get()->getVulkanInteropCapabilities()
                 == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
@@ -687,9 +663,7 @@ void MainApp::setRenderer(
         newLineRenderer = new VolumetricPathTracingRenderer(&sceneDataRef, transferFunctionWindow, renderer);
     } else if (newRenderingMode == RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER) {
         newLineRenderer = new SphericalHeatMapRenderer(&sceneDataRef, transferFunctionWindow);
-    }
-#endif
-    else {
+    } else {
         std::string warningText =
                 std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
                 + "supported in this build configuration or incompatible with this system.";
@@ -1019,10 +993,10 @@ void MainApp::renderGui() {
                         }
 
                         if (isViewOpen) {
+                            ImTextureID textureId = dataView->getImGuiTextureId();
                             ImGui::Image(
-                                    (void*)(intptr_t)static_cast<sgl::TextureGL*>(
-                                            dataView->getSceneTextureResolved().get())->getTexture(),
-                                    sizeContent, ImVec2(0, 1), ImVec2(1, 0));
+                                    textureId, sizeContent,
+                                    ImVec2(0, 0), ImVec2(1, 1));
                             if (ImGui::IsItemHovered()) {
                                 mouseHoverWindowIndex = i;
                             }

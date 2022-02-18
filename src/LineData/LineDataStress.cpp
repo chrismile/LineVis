@@ -2320,8 +2320,8 @@ VulkanTubeAabbRenderData LineDataStress::getVulkanTubeAabbRenderData(LineRendere
     return vulkanTubeAabbRenderData;
 }
 
-std::map<std::string, std::string> LineDataStress::getVulkanShaderPreprocessorDefines() {
-    std::map<std::string, std::string> preprocessorDefines = LineData::getVulkanShaderPreprocessorDefines();
+void LineDataStress::getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) {
+    LineData::getVulkanShaderPreprocessorDefines(preprocessorDefines);
     preprocessorDefines.insert(std::make_pair("STRESS_LINE_DATA", ""));
     if (std::any_of(
             psUseBands.cbegin(), psUseBands.cend(), [] (bool useBand) { return useBand; })) {
@@ -2333,7 +2333,6 @@ std::map<std::string, std::string> LineDataStress::getVulkanShaderPreprocessorDe
     if (useLineHierarchy) {
         preprocessorDefines.insert(std::make_pair("USE_LINE_HIERARCHY_LEVEL", ""));
     }
-    return preprocessorDefines;
 }
 
 void LineDataStress::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData) {

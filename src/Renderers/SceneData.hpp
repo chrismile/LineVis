@@ -42,25 +42,24 @@ class AutomaticPerformanceMeasurer;
 
 struct SceneData {
     SceneData(
-            sgl::FramebufferObjectPtr* framebuffer, sgl::TexturePtr* sceneTexture,
-            sgl::RenderbufferObjectPtr* sceneDepthRBO, uint32_t* viewportWidth, uint32_t* viewportHeight,
+            sgl::vk::Renderer** renderer, sgl::vk::TexturePtr* sceneTexture, sgl::vk::TexturePtr* sceneDepthTexture,
+            uint32_t* viewportWidth, uint32_t* viewportHeight,
             sgl::CameraPtr* camera, sgl::Color* clearColor, bool* screenshotTransparentBackground,
             AutomaticPerformanceMeasurer** performanceMeasurer,
             bool* continuousRendering, bool* recordingMode, bool* useCameraFlight,
             float* MOVE_SPEED, float* MOUSE_ROT_SPEED,
             std::vector<sgl::dialog::MsgBoxHandlePtr>* nonBlockingMsgBoxHandles)
-            : framebuffer(framebuffer), sceneTexture(sceneTexture),
-              sceneDepthRBO(sceneDepthRBO), viewportWidth(viewportWidth), viewportHeight(viewportHeight),
+            : renderer(renderer), sceneTexture(sceneTexture), sceneDepthTexture(sceneDepthTexture),
+            viewportWidth(viewportWidth), viewportHeight(viewportHeight),
               camera(camera), clearColor(clearColor), screenshotTransparentBackground(screenshotTransparentBackground),
               performanceMeasurer(performanceMeasurer),
               continuousRendering(continuousRendering), recordingMode(recordingMode), useCameraFlight(useCameraFlight),
               MOVE_SPEED(MOVE_SPEED), MOUSE_ROT_SPEED(MOUSE_ROT_SPEED),
               nonBlockingMsgBoxHandles(nonBlockingMsgBoxHandles)
             {}
-    sgl::FramebufferObjectPtr* framebuffer;
-    sgl::TexturePtr* sceneTexture;
-    sgl::RenderbufferObjectPtr* sceneDepthRBO;
-
+    sgl::vk::Renderer** renderer;
+    sgl::vk::TexturePtr* sceneTexture;
+    sgl::vk::TexturePtr* sceneDepthTexture;
     uint32_t* viewportWidth;
     uint32_t* viewportHeight;
 

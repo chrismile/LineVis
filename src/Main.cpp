@@ -43,10 +43,8 @@
 #include <Utils/AppSettings.hpp>
 #include <Utils/AppLogic.hpp>
 #include <Graphics/Window.hpp>
-
-#ifdef USE_VULKAN_INTEROP
 #include <Graphics/Vulkan/Utils/Device.hpp>
-#endif
+#include <Graphics/Vulkan/Utils/Swapchain.hpp>
 
 #include "MainApp.hpp"
 
@@ -74,9 +72,9 @@ int main(int argc, char *argv[]) {
     builder.BuildRanges(&fontRanges);
     sgl::AppSettings::get()->setLoadGUI(fontRanges.Data, true, false);
 
-    sgl::AppSettings::get()->createWindow();
+    sgl::AppSettings::get()->setRenderSystem(sgl::RenderSystem::VULKAN);
+    sgl::Window* window = sgl::AppSettings::get()->createWindow();
 
-#if defined(USE_VULKAN_INTEROP)
     std::vector<const char*> optionalDeviceExtensions;
 #ifdef SUPPORT_OPTIX
     optionalDeviceExtensions = sgl::vk::Device::getCudaInteropDeviceExtensions();
@@ -88,26 +86,25 @@ int main(int argc, char *argv[]) {
             VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
             VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
             VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-            VK_KHR_RAY_QUERY_EXTENSION_NAME,
-            VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME
+            VK_KHR_RAY_QUERY_EXTENSION_NAME
     };
     optionalDeviceExtensions.insert(
             optionalDeviceExtensions.end(),
             raytracingDeviceExtensions.begin(), raytracingDeviceExtensions.end());
-    sgl::AppSettings::get()->initializeVulkanInteropSupport(
-            {}, optionalDeviceExtensions);
-    if (sgl::AppSettings::get()->getPrimaryDevice()) {
-        for (const char* deviceExtension : optionalDeviceExtensions) {
-            if (!sgl::AppSettings::get()->getPrimaryDevice()->isDeviceExtensionSupported(deviceExtension)) {
-                sgl::Logfile::get()->writeInfo(
-                        std::string() +
-                        "Warning: Vulkan interoperability support was enabled, but the Vulkan device "
-                        "extension " + deviceExtension + " is not supported on this system.");
-            }
-        }
-    }
-#endif
 
+    sgl::vk::Instance* instance = sgl::AppSettings::get()->getVulkanInstance();
+    sgl::vk::Device* device = new sgl::vk::Device;
+    device->createDeviceSwapchain(
+            instance, window,
+            {
+                    VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME,
+                    VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME
+            },
+            optionalDeviceExtensions);
+    sgl::vk::Swapchain* swapchain = new sgl::vk::Swapchain(device);
+    swapchain->create(window);
+    sgl::AppSettings::get()->setPrimaryDevice(device);
+    sgl::AppSettings::get()->setSwapchain(swapchain);
     sgl::AppSettings::get()->initializeSubsystems();
 
 #ifdef USE_PYTHON

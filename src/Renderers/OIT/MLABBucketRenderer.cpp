@@ -36,7 +36,6 @@
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
-#include "TilingMode.hpp"
 #include "MLABBucketRenderer.hpp"
 
 // Opacity threshold for lower back buffer boundary.

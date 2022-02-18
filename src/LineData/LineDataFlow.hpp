@@ -84,7 +84,7 @@ public:
     // --- Retrieve data for rendering for Vulkan. ---
     VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
     VulkanTubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) override;
-    std::map<std::string, std::string> getVulkanShaderPreprocessorDefines() override;
+    void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) override;
 #endif
 
     // --- Retrieve triangle mesh on the CPU. ---

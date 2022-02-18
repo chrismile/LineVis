@@ -39,7 +39,6 @@
 
 #include "Utils/InternalState.hpp"
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
-#include "TilingMode.hpp"
 #include "MLABRenderer.hpp"
 
 // Whether to use stencil buffer to mask unused pixels.
@@ -372,7 +371,7 @@ void MLABRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
         reloadGatherShader();
         reRender = true;
     }
-    if (selectTilingModeUI()) {
+    if (selectTilingModeUI(propertyEditor)) {
         reloadShaders();
         clearBitSet = true;
         reRender = true;

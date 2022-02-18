@@ -172,7 +172,7 @@ public:
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleAndHullTopLevelAS(LineRenderer* lineRenderer);
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbTopLevelAS(LineRenderer* lineRenderer);
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbAndHullTopLevelAS(LineRenderer* lineRenderer);
-    virtual std::map<std::string, std::string> getVulkanShaderPreprocessorDefines();
+    virtual void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines);
     virtual void setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData);
     virtual void updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::Renderer* renderer);
 #endif

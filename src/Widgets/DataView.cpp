@@ -29,29 +29,21 @@
 #include <Utils/AppSettings.hpp>
 #include <Utils/SciVis/Navigation/CameraNavigator2D.hpp>
 #include <Input/Mouse.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Texture/TextureManager.hpp>
 #include <Graphics/Scene/RenderTarget.hpp>
-#include <Graphics/OpenGL/Texture.hpp>
-#include <Graphics/OpenGL/RendererGL.hpp>
-
-#ifdef USE_VULKAN_INTEROP
-#include <Graphics/Vulkan/Image/Image.hpp>
+#include <Graphics/Vulkan/Utils/Device.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
-#include <Graphics/Vulkan/Utils/Interop.hpp>
-#include <utility>
-#endif
+#include <Graphics/Vulkan/Utils/Swapchain.hpp>
+#include <ImGui/ImGuiWrapper.hpp>
+#include <ImGui/imgui_impl_vulkan.h>
 
 #include "LineData/LineData.hpp"
 #include "Renderers/LineRenderer.hpp"
 #include "DataView.hpp"
 
-DataView::DataView(SceneData* parentSceneData, sgl::ShaderProgramPtr gammaCorrectionShader)
-        : parentSceneData(parentSceneData), gammaCorrectionShader(std::move(gammaCorrectionShader)),
-          sceneData(*parentSceneData) {
-    sceneData.framebuffer = &sceneFramebuffer;
-    sceneData.sceneTexture = &sceneTexture;
-    sceneData.sceneDepthRBO = &sceneDepthRBO;
+DataView::DataView(SceneData* parentSceneData)
+        : parentSceneData(parentSceneData), renderer(*parentSceneData->renderer), sceneData(*parentSceneData) {
+    sceneData.sceneTexture = &sceneTextureVk;
+    sceneData.sceneDepthTexture = &sceneDepthTextureVk;
     sceneData.viewportWidth = &viewportWidth;
     sceneData.viewportHeight = &viewportHeight;
 
@@ -69,12 +61,22 @@ DataView::DataView(SceneData* parentSceneData, sgl::ShaderProgramPtr gammaCorrec
 
     camera2dNavigator = std::make_shared<sgl::CameraNavigator2D>(
             *sceneData.MOVE_SPEED, *sceneData.MOUSE_ROT_SPEED);
+
+    sceneTextureBlitPass = std::make_shared<sgl::vk::BlitRenderPass>(renderer);
+    sceneTextureGammaCorrectionPass = sgl::vk::BlitRenderPassPtr(new sgl::vk::BlitRenderPass(
+            renderer, {"GammaCorrection.Vertex", "GammaCorrection.Fragment"}));
+
+    screenshotReadbackHelper = std::make_shared<sgl::vk::ScreenshotReadbackHelper>(renderer);
 }
 
 DataView::~DataView() {
     if (lineRenderer) {
         delete lineRenderer;
         lineRenderer = nullptr;
+    }
+    if (descriptorSetImGui) {
+        sgl::ImGuiWrapper::get()->freeDescriptorSet(descriptorSetImGui);
+        descriptorSetImGui = nullptr;
     }
 }
 
@@ -83,13 +85,65 @@ void DataView::resize(int newWidth, int newHeight) {
     viewportHeight = uint32_t(std::max(newHeight, 0));
 
     if (viewportWidth == 0 || viewportHeight == 0) {
-        sceneFramebuffer = {};
-        sceneTexture = {};
-        resolvedSceneFramebuffer = {};
-        resolvedSceneTexture = {};
-        sceneDepthRBO = {};
+        sceneTextureVk = {};
+        sceneDepthTextureVk = {};
+        compositedTextureVk = {};
         return;
     }
+
+    sgl::vk::ImageSettings imageSettings;
+    imageSettings.width = viewportWidth;
+    imageSettings.height = viewportHeight;
+
+    // Create scene texture.
+    imageSettings.usage =
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
+            | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    if (useLinearRGB) {
+        imageSettings.format = VK_FORMAT_R16G16B16A16_UNORM;
+    } else {
+        imageSettings.format = VK_FORMAT_R8G8B8A8_UNORM;
+    }
+    dataViewTexture = std::make_shared<sgl::vk::Texture>(
+            device, imageSettings, sgl::vk::ImageSamplerSettings(),
+            VK_IMAGE_ASPECT_COLOR_BIT);
+    dataViewTexture->getImage()->transitionImageLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    dataViewTexture->getImageView()->clearColor(
+            clearColor.getFloatColorRGBA(), rendererVk->getVkCommandBuffer());
+
+    // Create composited (gamma-resolved, if VK_FORMAT_R16G16B16A16_UNORM for scene texture) scene texture.
+    imageSettings.usage =
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    imageSettings.format = VK_FORMAT_R8G8B8A8_UNORM;
+    compositedDataViewTexture = std::make_shared<sgl::vk::Texture>(
+            device, imageSettings, sgl::vk::ImageSamplerSettings(),
+            VK_IMAGE_ASPECT_COLOR_BIT);
+
+    // Pass the textures to the render passes.
+    sceneTextureBlitPass->setInputTexture(dataViewTexture);
+    sceneTextureBlitPass->setOutputImage(compositedDataViewTexture->getImageView());
+    sceneTextureBlitPass->recreateSwapchain(viewportWidth, viewportHeight);
+
+    sceneTextureGammaCorrectionPass->setInputTexture(dataViewTexture);
+    sceneTextureGammaCorrectionPass->setOutputImage(compositedDataViewTexture->getImageView());
+    sceneTextureGammaCorrectionPass->recreateSwapchain(viewportWidth, viewportHeight);
+
+    screenshotReadbackHelper->onSwapchainRecreated(viewportWidth, viewportHeight);
+
+    if (descriptorSetImGui) {
+        sgl::ImGuiWrapper::get()->freeDescriptorSet(descriptorSetImGui);
+        descriptorSetImGui = nullptr;
+    }
+    descriptorSetImGui = ImGui_ImplVulkan_AddTexture(
+            compositedDataViewTexture->getImageSampler()->getVkSampler(),
+            compositedDataViewTexture->getImageView()->getVkImageView(),
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    volumetricPathTracingPass->setOutputImage(dataViewTexture->getImageView());
+    volumetricPathTracingPass->recreateSwapchain(viewportWidth, viewportHeight);
+
+    
+
 
     // Buffers for off-screen rendering.
     sceneFramebuffer = sgl::Renderer->createFBO();
@@ -104,7 +158,8 @@ void DataView::resize(int newWidth, int newHeight) {
     sceneFramebuffer->bindTexture(sceneTexture);
     sceneDepthRBO = sgl::Renderer->createRBO(int(viewportWidth), int(viewportHeight), sceneDepthRBOType);
     sceneFramebuffer->bindRenderbuffer(sceneDepthRBO, sgl::DEPTH_STENCIL_ATTACHMENT);
-    auto renderTarget = std::make_shared<sgl::RenderTarget>(sceneFramebuffer);
+    auto renderTarget = std::make_shared<sgl::RenderTarget>(
+            int(viewportWidth), int(viewportHeight));
     camera->setRenderTarget(renderTarget, false);
     camera->onResolutionChanged({});
     camera2d->setRenderTarget(renderTarget, false);
@@ -124,34 +179,40 @@ void DataView::beginRender() {
         camera->copyState(parentCamera);
     }
 
-    //sgl::Renderer->bindFBO(sceneFramebuffer);
-    sgl::Renderer->setCamera(camera, true);
-    sgl::Renderer->clearFramebuffer(
-            GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, clearColor);
-
-    sgl::Renderer->setProjectionMatrix(camera->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix(camera->getViewMatrix());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-    glEnable(GL_DEPTH_TEST);
-    if (!(*sceneData.screenshotTransparentBackground)) {
-        glBlendEquation(GL_FUNC_ADD);
-        glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
-    }
+    renderer->setProjectionMatrix(camera->getProjectionMatrix());
+    renderer->setViewMatrix(camera->getViewMatrix());
+    renderer->setModelMatrix(sgl::matrixIdentity());
 }
 
 void DataView::endRender() {
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-    sgl::Renderer->bindFBO(resolvedSceneFramebuffer);
+    renderer->transitionImageLayout(
+            sceneTextureVk->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     if (useLinearRGB) {
-        sgl::Renderer->blitTexture(
-                sceneTexture, sgl::AABB2(glm::vec2(-1.0f, -1.0f), glm::vec2(1.0f, 1.0f)),
-                gammaCorrectionShader);
+        sceneTextureGammaCorrectionPass->render();
+    } else {
+        sceneTextureBlitPass->render();
     }
-    sgl::Renderer->unbindFBO();
+}
+
+void DataView::saveScreenshot(const std::string& filename) {
+    renderer->transitionImageLayout(
+            compositedTextureVk->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    screenshotReadbackHelper->requestScreenshotReadback(compositedTextureVk->getImage(), filename);
+}
+
+void DataView::saveScreenshotDataIfAvailable() {
+    if (viewportWidth == 0 || viewportHeight == 0) {
+        return;
+    }
+    sgl::vk::Swapchain* swapchain = sgl::AppSettings::get()->getSwapchain();
+    uint32_t imageIndex = swapchain ? swapchain->getImageIndex() : 0;
+    screenshotReadbackHelper->saveDataIfAvailable(imageIndex);
+}
+
+ImTextureID DataView::getImGuiTextureId() const {
+    compositedTextureVk->getImage()->transitionImageLayout(
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, renderer->getVkCommandBuffer());
+    return reinterpret_cast<ImTextureID>(descriptorSetImGui);
 }
 
 void DataView::updateCameraMode() {
@@ -235,21 +296,5 @@ void DataViewVulkan::resize(int newWidth, int newHeight) {
     sceneDepthTextureVk = std::make_shared<sgl::vk::Texture>(
             device, imageSettings, sgl::vk::ImageSamplerSettings(),
             VK_IMAGE_ASPECT_DEPTH_BIT);
-}
-
-void DataViewVulkan::beginRender() {
-    DataView::beginRender();
-
-    GLenum dstLayout = GL_NONE;
-	sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-	if (device->getDeviceDriverId() == VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS) {
-		dstLayout = GL_LAYOUT_GENERAL_EXT;
-	}
-    renderReadySemaphore->signalSemaphoreGl(sceneTexture, dstLayout);
-}
-
-void DataViewVulkan::endRender() {
-    renderFinishedSemaphore->waitSemaphoreGl(sceneTexture, GL_LAYOUT_SHADER_READ_ONLY_EXT);
-    DataView::endRender();
 }
 #endif

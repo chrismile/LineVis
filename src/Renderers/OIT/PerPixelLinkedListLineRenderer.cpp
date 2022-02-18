@@ -39,7 +39,6 @@
 
 #include "Utils/InternalState.hpp"
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
-#include "TilingMode.hpp"
 #include "PerPixelLinkedListLineRenderer.hpp"
 
 // Use stencil buffer to mask unused pixels

@@ -1267,15 +1267,14 @@ VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData(LineRenderer*
     return vulkanTubeAabbRenderData;
 }
 
-std::map<std::string, std::string> LineDataFlow::getVulkanShaderPreprocessorDefines() {
-    std::map<std::string, std::string> preprocessorDefines = LineData::getVulkanShaderPreprocessorDefines();
+void LineDataFlow::getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) {
+    LineData::getVulkanShaderPreprocessorDefines(preprocessorDefines);
     if (useRibbons && !useRotatingHelicityBands) {
         preprocessorDefines.insert(std::make_pair("USE_BANDS", ""));
     }
     if (useRotatingHelicityBands) {
         preprocessorDefines.insert(std::make_pair("USE_ROTATING_HELICITY_BANDS", ""));
     }
-    return preprocessorDefines;
 }
 #endif
 

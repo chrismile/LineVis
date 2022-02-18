@@ -45,7 +45,6 @@
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
 #include "LineData/LineDataStress.hpp"
 #include "Loaders/TrajectoryFile.hpp"
-#include "TilingMode.hpp"
 #include "OpacityOptimizationRenderer.hpp"
 
 // Use stencil buffer to mask unused pixels

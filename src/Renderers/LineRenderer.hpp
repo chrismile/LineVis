@@ -87,6 +87,9 @@ public:
      */
     virtual void setLineData(LineDataPtr& lineData, bool isNewData)=0;
 
+    /// Sets the shader preprocessor defines used by the renderer.
+    virtual void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines);
+
     /// Renders the object to the scene framebuffer.
     virtual void render()=0;
     /// Renders the entries in the property editor.
@@ -134,6 +137,9 @@ public:
     static inline float getMinBandThickness() { return LineData::getMinBandThickness(); }
 
     inline const std::string& getWindowName() { return windowName; }
+
+    // Tiling mode.
+    static void setNewTilingMode(int newTileWidth, int newTileHeight, bool useMortonCode = false);
 
     /// For visualizing the seeding order in an animation (called by MainApp).
     virtual void setVisualizeSeedingProcess(bool visualizeSeedingProcess) {}
@@ -187,6 +193,19 @@ protected:
     size_t outputDepthMinMaxBufferIndex = 0;
     sgl::ShaderProgramPtr computeDepthValuesShaderProgram;
     sgl::ShaderProgramPtr minMaxReduceDepthShaderProgram;
+
+    // Tiling mode.
+    static int tilingModeIndex;
+    static int tileWidth;
+    static int tileHeight;
+    static bool tilingUseMortonCode;
+    /**
+     * Uses ImGui to render a tiling mode selection window.
+     * @return True if a new tiling mode was selected (shaders need to be reloaded in this case).
+     */
+    static bool selectTilingModeUI(sgl::PropertyEditor& propertyEditor);
+    /// Returns screen width and screen height padded for tile size
+    static void getScreenSizeWithTiling(int& screenWidth, int& screenHeight);
 
     // Whether to use baked ambient occlusion buffers/images.
     void showRayQueriesUnsupportedWarning();

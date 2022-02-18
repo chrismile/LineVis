@@ -55,7 +55,6 @@ constexpr size_t BLOCK_SIZE = 256;
 void LineRenderer::initialize() {
     updateDepthCueMode();
     updateAmbientOcclusionMode();
-    sgl::ShaderManager->addPreprocessorDefine("COMPUTE_DEPTH_CUES_GPU", "");
     computeDepthValuesShaderProgram = sgl::ShaderManager->getShaderProgram({"ComputeDepthValues.Compute"});
     minMaxReduceDepthShaderProgram = sgl::ShaderManager->getShaderProgram({"MinMaxReduce.Compute"});
 
@@ -73,16 +72,6 @@ LineRenderer::~LineRenderer() {
         sgl::EventManager::get()->removeListener(
                 ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT, onTransferFunctionMapRebuiltListenerToken);
     }
-
-    if (useDepthCues) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_SCREEN_SPACE_POSITION");
-        sgl::ShaderManager->removePreprocessorDefine("USE_DEPTH_CUES");
-    }
-    if (useAmbientOcclusion) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_AMBIENT_OCCLUSION");
-        sgl::ShaderManager->removePreprocessorDefine("STATIC_AMBIENT_OCCLUSION_PREBAKING");
-    }
-    sgl::ShaderManager->removePreprocessorDefine("COMPUTE_DEPTH_CUES_GPU");
 
     ambientOcclusionBaker = {};
 }
@@ -112,17 +101,54 @@ void LineRenderer::onResolutionChanged() {
     }
 }
 
-void LineRenderer::updateDepthCueMode() {
+void LineRenderer::getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) {
     if (useDepthCues) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_SCREEN_SPACE_POSITION", "");
-        sgl::ShaderManager->addPreprocessorDefine("USE_DEPTH_CUES", "");
-
-        if (lineData && filteredLines.empty()) {
-            updateDepthCueGeometryData();
+        preprocessorDefines.insert(std::make_pair("USE_DEPTH_CUES", ""));
+        preprocessorDefines.insert(std::make_pair("COMPUTE_DEPTH_CUES_GPU", ""));
+        preprocessorDefines.insert(std::make_pair("USE_SCREEN_SPACE_POSITION", ""));
+    }
+    if (useAmbientOcclusion && ambientOcclusionBaker) {
+        preprocessorDefines.insert(std::make_pair("USE_AMBIENT_OCCLUSION", ""));
+        if (ambientOcclusionBaker->getIsStaticPrebaker()) {
+            preprocessorDefines.insert(std::make_pair("STATIC_AMBIENT_OCCLUSION_PREBAKING", ""));
         }
+        preprocessorDefines.insert(std::make_pair("GEOMETRY_PASS_TUBE", ""));
+    }
+
+    if (tileWidth == 1 && tileHeight == 1) {
+        // No tiling
+        tilingModeIndex = 0;
+    } else if (tileWidth == 2 && tileHeight == 2) {
+        tilingModeIndex = 1;
+        preprocessorDefines.insert(std::make_pair("ADDRESSING_TILED_2x2", ""));
+    } else if (tileWidth == 2 && tileHeight == 8) {
+        tilingModeIndex = 2;
+        preprocessorDefines.insert(std::make_pair("ADDRESSING_TILED_2x8", ""));
+    } else if (tileWidth == 8 && tileHeight == 2) {
+        tilingModeIndex = 3;
+        preprocessorDefines.insert(std::make_pair("ADDRESSING_TILED_NxM", ""));
+    } else if (tileWidth == 4 && tileHeight == 4) {
+        tilingModeIndex = 4;
+        preprocessorDefines.insert(std::make_pair("ADDRESSING_TILED_NxM", ""));
+    } else if (tileWidth == 8 && tileHeight == 8 && !tilingUseMortonCode) {
+        tilingModeIndex = 5;
+        preprocessorDefines.insert(std::make_pair("ADDRESSING_TILED_NxM", ""));
+    } else if (tileWidth == 8 && tileHeight == 8 && tilingUseMortonCode) {
+        tilingModeIndex = 6;
+        preprocessorDefines.insert(std::make_pair("ADRESSING_MORTON_CODE_8x8", ""));
     } else {
-        sgl::ShaderManager->removePreprocessorDefine("USE_SCREEN_SPACE_POSITION");
-        sgl::ShaderManager->removePreprocessorDefine("USE_DEPTH_CUES");
+        // Invalid mode, just set to mode 5, too.
+        tilingModeIndex = 5;
+        preprocessorDefines.insert(std::make_pair("ADDRESSING_TILED_NxM", ""));
+    }
+
+    preprocessorDefines.insert(std::make_pair("TILE_N", sgl::toString(tileWidth)));
+    preprocessorDefines.insert(std::make_pair("TILE_M", sgl::toString(tileHeight)));
+}
+
+void LineRenderer::updateDepthCueMode() {
+    if (useDepthCues && lineData && filteredLines.empty()) {
+        updateDepthCueGeometryData();
     }
 }
 
@@ -207,18 +233,6 @@ void LineRenderer::setAmbientOcclusionBaker() {
 void LineRenderer::updateAmbientOcclusionMode() {
     if (useAmbientOcclusion && !ambientOcclusionBaker) {
         setAmbientOcclusionBaker();
-    }
-
-    if (useAmbientOcclusion && ambientOcclusionBaker) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_AMBIENT_OCCLUSION", "");
-        if (ambientOcclusionBaker->getIsStaticPrebaker()) {
-            sgl::ShaderManager->addPreprocessorDefine("STATIC_AMBIENT_OCCLUSION_PREBAKING", "");
-        } else {
-            sgl::ShaderManager->removePreprocessorDefine("STATIC_AMBIENT_OCCLUSION_PREBAKING");
-        }
-    } else {
-        sgl::ShaderManager->removePreprocessorDefine("USE_AMBIENT_OCCLUSION");
-        sgl::ShaderManager->removePreprocessorDefine("STATIC_AMBIENT_OCCLUSION_PREBAKING");
     }
 }
 
@@ -625,5 +639,81 @@ void LineRenderer::renderHull() {
         glDisable(GL_CULL_FACE);
         sgl::Renderer->render(shaderAttributesHull);
         glEnable(GL_CULL_FACE);
+    }
+}
+
+int LineRenderer::tilingModeIndex = 2;
+int LineRenderer::tileWidth = 2;
+int LineRenderer::tileHeight = 8;
+bool LineRenderer::tilingUseMortonCode = false;
+
+bool LineRenderer::selectTilingModeUI(sgl::PropertyEditor& propertyEditor) {
+    const char* indexingModeNames[] = { "1x1", "2x2", "2x8", "8x2", "4x4", "8x8", "8x8 Morton Code" };
+    if (propertyEditor.addCombo(
+            "Tiling Mode", (int*)&tilingModeIndex,
+            indexingModeNames, IM_ARRAYSIZE(indexingModeNames))) {
+        // Select new mode
+        if (tilingModeIndex == 0) {
+            // No tiling
+            tileWidth = 1;
+            tileHeight = 1;
+        } else if (tilingModeIndex == 1) {
+            tileWidth = 2;
+            tileHeight = 2;
+        } else if (tilingModeIndex == 2) {
+            tileWidth = 2;
+            tileHeight = 8;
+        } else if (tilingModeIndex == 3) {
+            tileWidth = 8;
+            tileHeight = 2;
+        } else if (tilingModeIndex == 4) {
+            tileWidth = 4;
+            tileHeight = 4;
+        } else if (tilingModeIndex == 5) {
+            tileWidth = 8;
+            tileHeight = 8;
+        } else if (tilingModeIndex == 6) {
+            tileWidth = 8;
+            tileHeight = 8;
+        }
+
+        return true;
+    }
+    return false;
+}
+
+void LineRenderer::setNewTilingMode(int newTileWidth, int newTileHeight, bool useMortonCode /* = false */) {
+    tileWidth = newTileWidth;
+    tileHeight = newTileHeight;
+    tilingUseMortonCode = useMortonCode;
+
+    // Select new mode.
+    if (tileWidth == 1 && tileHeight == 1) {
+        // No tiling.
+        tilingModeIndex = 0;
+    } else if (tileWidth == 2 && tileHeight == 2) {
+        tilingModeIndex = 1;
+    } else if (tileWidth == 2 && tileHeight == 8) {
+        tilingModeIndex = 2;
+    } else if (tileWidth == 8 && tileHeight == 2) {
+        tilingModeIndex = 3;
+    } else if (tileWidth == 4 && tileHeight == 4) {
+        tilingModeIndex = 4;
+    } else if (tileWidth == 8 && tileHeight == 8 && !useMortonCode) {
+        tilingModeIndex = 5;
+    } else if (tileWidth == 8 && tileHeight == 8 && useMortonCode) {
+        tilingModeIndex = 6;
+    } else {
+        // Invalid mode, just set to mode 5, too.
+        tilingModeIndex = 5;
+    }
+}
+
+void LineRenderer::getScreenSizeWithTiling(int& screenWidth, int& screenHeight) {
+    if (screenWidth % tileWidth != 0) {
+        screenWidth = (screenWidth / tileWidth + 1) * tileWidth;
+    }
+    if (screenHeight % tileHeight != 0) {
+        screenHeight = (screenHeight / tileHeight + 1) * tileHeight;
     }
 }

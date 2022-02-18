@@ -697,8 +697,7 @@ VulkanHullTriangleRenderData LineData::getVulkanHullTriangleRenderData(bool rayt
     return vulkanHullTriangleRenderData;
 }
 
-std::map<std::string, std::string> LineData::getVulkanShaderPreprocessorDefines() {
-    std::map<std::string, std::string> preprocessorDefines;
+void LineData::getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) {
     if (useCappedTubes) {
         preprocessorDefines.insert(std::make_pair("USE_CAPPED_TUBES", ""));
     }
@@ -707,7 +706,6 @@ std::map<std::string, std::string> LineData::getVulkanShaderPreprocessorDefines(
     } else {
         preprocessorDefines.insert(std::make_pair("MIN_THICKNESS", std::to_string(1e-2f)));
     }
-    return preprocessorDefines;
 }
 
 void LineData::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData) {

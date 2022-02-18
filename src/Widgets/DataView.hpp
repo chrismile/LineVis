@@ -29,9 +29,14 @@
 #ifndef LINEVIS_DATAVIEW_HPP
 #define LINEVIS_DATAVIEW_HPP
 
-#include <Graphics/Buffers/FBO.hpp>
-#include <Graphics/Buffers/RBO.hpp>
 #include <Utils/SciVis/Navigation/CameraNavigator.hpp>
+#include <Graphics/Color.hpp>
+#include <Graphics/Scene/Camera.hpp>
+#include <Graphics/Vulkan/Utils/ScreenshotReadbackHelper.hpp>
+#include <Graphics/Vulkan/Image/Image.hpp>
+#include <Graphics/Vulkan/Shader/Shader.hpp>
+#include <Graphics/Vulkan/Render/Passes/BlitRenderPass.hpp>
+#include <ImGui/imgui.h>
 
 namespace sgl { namespace vk {
 class Renderer;
@@ -43,21 +48,20 @@ class LineRenderer;
 
 class DataView {
 public:
-    DataView(SceneData* parentSceneData, sgl::ShaderProgramPtr gammaCorrectionShader);
+    DataView(SceneData* parentSceneData);
     ~DataView();
     virtual void resize(int newWidth, int newHeight);
     virtual void beginRender();
     virtual void endRender();
+    void saveScreenshot(const std::string& filename);
+    void saveScreenshotDataIfAvailable();
+    [[nodiscard]] ImTextureID getImGuiTextureId() const;
 
     /// For data views using 2D cameras. 3D cameras are handled by SciVisApp.
     void updateCameraMode();
     void moveCamera2dKeyboard(float dt);
     void moveCamera2dMouse(float dt);
 
-    inline sgl::TexturePtr& getSceneTextureResolved() { return useLinearRGB ? resolvedSceneTexture : sceneTexture; }
-    inline sgl::FramebufferObjectPtr& getSceneFramebuffer() {
-        return useLinearRGB ? resolvedSceneFramebuffer : sceneFramebuffer;
-    }
     inline void setClearColor(const sgl::Color& color) { clearColor = color; }
     [[nodiscard]] inline std::string getWindowName(int index) const {
         if (lineRenderer) {
@@ -72,18 +76,22 @@ public:
     bool showWindow = true;
     bool useLinearRGB = false;
     sgl::Color clearColor;
-    sgl::ShaderProgramPtr gammaCorrectionShader;
 
     RenderingMode renderingMode = RENDERING_MODE_NONE, oldRenderingMode = RENDERING_MODE_NONE;
     LineRenderer* lineRenderer = nullptr;
     bool reRender = false;
 
-    sgl::FramebufferObjectPtr sceneFramebuffer;
-    sgl::TexturePtr sceneTexture;
-    sgl::FramebufferObjectPtr resolvedSceneFramebuffer;
-    sgl::TexturePtr resolvedSceneTexture;
-    sgl::RenderbufferType sceneDepthRBOType = sgl::RBO_DEPTH24_STENCIL8;
-    sgl::RenderbufferObjectPtr sceneDepthRBO;
+    sgl::vk::Renderer* renderer = nullptr;
+    VkFormat sceneDepthTextureVkFormat = VK_FORMAT_D32_SFLOAT;
+    sgl::vk::TexturePtr sceneTextureVk;
+    sgl::vk::TexturePtr sceneDepthTextureVk;
+    sgl::vk::TexturePtr compositedTextureVk; ///< The final RGBA8 texture.
+    sgl::vk::BlitRenderPassPtr sceneTextureBlitPass;
+    sgl::vk::BlitRenderPassPtr sceneTextureGammaCorrectionPass;
+
+    sgl::vk::ScreenshotReadbackHelperPtr screenshotReadbackHelper; ///< For reading back screenshots from the GPU.
+
+    VkDescriptorSet descriptorSetImGui{};
 
     /// Scene data (e.g., camera, main framebuffer, ...).
     bool syncWithParentCamera = true;
@@ -95,21 +103,5 @@ public:
     SceneData sceneData;
 };
 typedef std::shared_ptr<DataView> DataViewPtr;
-
-#ifdef USE_VULKAN_INTEROP
-class DataViewVulkan : public DataView {
-public:
-    DataViewVulkan(
-            SceneData* parentSceneData, sgl::ShaderProgramPtr gammaCorrectionShader, sgl::vk::Renderer* renderer);
-    void resize(int newWidth, int newHeight) override;
-    void beginRender() override;
-    void endRender() override;
-
-    sgl::vk::Renderer* renderer = nullptr;
-    sgl::vk::TexturePtr sceneTextureVk;
-    sgl::vk::TexturePtr sceneDepthTextureVk;
-    sgl::SemaphoreVkGlInteropPtr renderReadySemaphore, renderFinishedSemaphore;
-};
-#endif
 
 #endif //LINEVIS_DATAVIEW_HPP
