@@ -96,8 +96,11 @@ public:
     std::vector<std::vector<std::vector<glm::vec3>>> getFilteredPrincipalStressLines();
 
     // --- Retrieve data for rendering. Preferred way. ---
-    sgl::ShaderProgramPtr reloadGatherShader() override;
-    sgl::ShaderAttributesPtr getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader) override;
+    void setGraphicsPipelineInfo(
+            sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) override;
+    void setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) override;
+    sgl::ShaderProgramPtr reloadGatherShaderOpenGL() override;
+    sgl::ShaderAttributesPtr getGatherShaderAttributesOpenGL(sgl::ShaderProgramPtr& gatherShader) override;
     void setUniformGatherShaderData_AllPasses() override;
     void setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader) override;
 
@@ -112,7 +115,8 @@ public:
     // --- Retrieve data for rendering for Vulkan. ---
     VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
     VulkanTubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) override;
-    void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) override;
+    void getVulkanShaderPreprocessorDefines(
+            std::map<std::string, std::string>& preprocessorDefines, bool isRasterizer) override;
     void setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData) override;
     void updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::Renderer* renderer) override;
 #endif
@@ -219,23 +223,23 @@ private:
     std::vector<glm::vec3> seedPoints;
 
     /// Stores line point data if useProgrammableFetch is true.
-    sgl::GeometryBufferPtr lineHierarchyLevelsSSBO;
+    sgl::vk::BufferPtr lineHierarchyLevelsSSBO;
 
     // Color legend widgets for different principal stress directions.
     StressLineHierarchyMappingWidget stressLineHierarchyMappingWidget;
     MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
 
 #ifdef USE_VULKAN_INTEROP
-    struct StressLineRenderSettings {
-        glm::vec3 lineHierarchySlider{};
+    struct StressLineUniformData {
+        glm::vec3 lineHierarchySlider{}; // USE_LINE_HIERARCHY_LEVEL && !USE_TRANSPARENCY
         float paddingStressLineSettings{};
         glm::ivec3 psUseBands{};
-        int currentSeedIdx{};
+        int currentSeedIdx{}; // VISUALIZE_SEEDING_PROCESS
     };
 
     // Uniform buffers with settings for rendering.
-    StressLineRenderSettings stressLineRenderSettings;
-    sgl::vk::BufferPtr stressLineRenderSettingsBuffer;
+    StressLineUniformData stressLineUniformData;
+    sgl::vk::BufferPtr stressLineUniformDataBuffer;
 #endif
 
     // For computing distance do degenerate regions.

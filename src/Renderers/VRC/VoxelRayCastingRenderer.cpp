@@ -202,12 +202,12 @@ void VoxelRayCastingRenderer::setUniformData() {
                 "furthestLineHullHitDepthTexture", furthestLineHullHitDepthTexture, 4);
     }
 
-    lineData->setUniformGatherShaderData(renderShader);
+    lineData->setUniformGatherShaderDataOpenGL(renderShader);
     setUniformData_Pass(renderShader);
 }
 
 void VoxelRayCastingRenderer::render() {
-    LineRenderer::render();
+    LineRenderer::renderBase();
 
     setUniformData();
 
@@ -243,7 +243,7 @@ void VoxelRayCastingRenderer::render() {
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
     glDepthMask(GL_FALSE);
     glDisable(GL_DEPTH_TEST);
-    sgl::Renderer->bindFBO(*sceneData->framebuffer);
+    //sgl::Renderer->bindFBO(*sceneData->framebuffer); // TODO
     sgl::Renderer->render(blitRenderData);
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);

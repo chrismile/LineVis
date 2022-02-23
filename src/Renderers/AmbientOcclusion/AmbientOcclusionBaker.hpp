@@ -30,6 +30,7 @@
 #define LINEVIS_AMBIENTOCCLUSIONBAKER_HPP
 
 #include <memory>
+#include <Graphics/Vulkan/Buffers/Buffer.hpp>
 
 namespace sgl {
 
@@ -85,29 +86,22 @@ public:
     virtual AmbientOcclusionBakerType getType()=0;
     virtual bool getIsStaticPrebaker()=0;
     virtual void startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData)=0;
-    virtual void updateIterative(bool isVulkanRenderer)=0;
-    virtual void updateMultiThreaded(bool isVulkanRenderer)=0;
+    virtual void updateIterative(VkPipelineStageFlags pipelineStageFlags)=0;
+    virtual void updateMultiThreaded(VkPipelineStageFlags pipelineStageFlags)=0;
     virtual bool getIsDataReady()=0;
     virtual bool getIsComputationRunning()=0;
     virtual bool getHasComputationFinished()=0;
     virtual bool getHasThreadUpdate()=0;
 
     // Ambient occlusion baker type 1: Preprocessing of static ambient occlusion.
-    virtual sgl::GeometryBufferPtr getAmbientOcclusionBuffer()=0;
-    virtual sgl::GeometryBufferPtr getBlendingWeightsBuffer()=0;
-#ifdef USE_VULKAN_INTEROP
     virtual sgl::vk::BufferPtr getAmbientOcclusionBufferVulkan()=0;
     virtual sgl::vk::BufferPtr getBlendingWeightsBufferVulkan()=0;
-#endif
     virtual uint32_t getNumTubeSubdivisions()=0;
     virtual uint32_t getNumLineVertices()=0;
     virtual uint32_t getNumParametrizationVertices()=0;
 
     // Ambient occlusion baker type 2: Compute ambient occlusion per frame.
-    virtual sgl::TexturePtr getAmbientOcclusionFrameTexture()=0;
-#ifdef USE_VULKAN_INTEROP
     virtual sgl::vk::TexturePtr getAmbientOcclusionFrameTextureVulkan()=0;
-#endif
     virtual bool getHasTextureResolutionChanged() { return false; }
 
     /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.

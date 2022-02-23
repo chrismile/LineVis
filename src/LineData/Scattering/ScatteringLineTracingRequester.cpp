@@ -56,16 +56,9 @@
 #include "DtPathTrace.hpp"
 
 ScatteringLineTracingRequester::ScatteringLineTracingRequester(
-        sgl::TransferFunctionWindow& transferFunctionWindow
-#ifdef USE_VULKAN_INTEROP
-        , sgl::vk::Renderer* rendererMainThread
-#endif
-) : transferFunctionWindow(transferFunctionWindow)
-#ifdef USE_VULKAN_INTEROP
-        , rendererVk(rendererMainThread)
-#endif
+        sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererMainThread)
+        : transferFunctionWindow(transferFunctionWindow) , rendererVk(rendererMainThread)
 {
-#ifdef USE_VULKAN_INTEROP
     if (sgl::AppSettings::get()->getVulkanInteropCapabilities() == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
         sgl::vk::Device* device = rendererMainThread->getDevice();
         rendererVk = new sgl::vk::Renderer(device, 100);
@@ -77,7 +70,6 @@ ScatteringLineTracingRequester::ScatteringLineTracingRequester(
             supportsMultiThreadedLoading = false;
         }
     }
-#endif
 
     lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
     loadGridDataSetList();
@@ -95,14 +87,12 @@ ScatteringLineTracingRequester::~ScatteringLineTracingRequester() {
     requestLineData = {};
     replyLineData = {};
 
-#ifdef USE_VULKAN_INTEROP
     if (rendererVk) {
         lineDensityFieldSmoothingPass = {};
         cachedScalarFieldTexture = {};
-        delete rendererVk;
-        rendererVk = nullptr;
+        //delete rendererVk;
+        //rendererVk = nullptr;
     }
-#endif
 }
 
 void ScatteringLineTracingRequester::loadGridDataSetList() {
@@ -316,10 +306,7 @@ void ScatteringLineTracingRequester::queueRequestStruct(const ScatteringTracingS
         std::lock_guard<std::mutex> lock(requestMutex);
         workerTracingSettings = request;
         requestLineData = LineDataPtr(new LineDataScattering(
-                transferFunctionWindow
-#ifdef USE_VULKAN_INTEROP
-                , rendererVk
-#endif
+                transferFunctionWindow, rendererVk
         ));
         hasRequest = true;
     }

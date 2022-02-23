@@ -9,12 +9,10 @@
 #define DEPTH_HELPER_USE_PROJECTION_MATRIX
 #include "DepthHelper.glsl"
 
-// gl_FragCoord will be used for pixel centers at integer coordinates.
-// See https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/gl_FragCoord.xhtml
-layout(pixel_center_integer) in vec4 gl_FragCoord;
+in vec4 gl_FragCoord;
 
-layout(location=0) out vec4 accumulatedColor;
-layout(location=1) out float revealage;
+layout(location = 0) out vec4 accumulatedColor;
+layout(location = 1) out float revealage;
 
 void gatherFragment(vec4 color) {
     vec4 premultipliedColor = vec4(color.rgb * color.a, color.a);

@@ -32,8 +32,9 @@
 #include <string>
 #include <vector>
 
+#include <Math/Geometry/AABB2.hpp>
 #include <Graphics/Color.hpp>
-#include <Graphics/Texture/Texture.hpp>
+#include <Graphics/Vulkan/Image/Image.hpp>
 
 struct HierarchyMappingPoint {
     HierarchyMappingPoint(float mappedValue, float hierarchyLevel)
@@ -58,7 +59,7 @@ public:
      * @return A texture array containing three 1D textures with STANDARD_MAP_RESOLUTION entries each.
      * Each pixel is a value between 0.0 and 1.0 representing what importance a line hierarchy level is mapped to.
      */
-    sgl::TexturePtr& getHierarchyMappingTexture();
+    sgl::vk::TexturePtr& getHierarchyMappingTexture();
     bool getHierarchyMappingRebuilt();
 
 private:
@@ -74,8 +75,7 @@ private:
 
     // Texture map & data.
     void rebuildHierarchyMappingTexture();
-    sgl::TexturePtr hierarchyMappingTexture;
-    sgl::TextureSettings hierarchyMappingTextureSettings;
+    sgl::vk::TexturePtr hierarchyMappingTexture;
     std::vector<HierarchyMappingPoint> hierarchyMappingPoints[3];
 
     // Drag-and-drop data

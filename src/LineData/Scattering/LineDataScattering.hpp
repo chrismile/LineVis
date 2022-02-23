@@ -69,7 +69,7 @@ public:
 #endif
     );
     ~LineDataScattering() override;
-    sgl::ShaderProgramPtr reloadGatherShader() override;
+    sgl::ShaderProgramPtr reloadGatherShaderOpenGL() override;
 
     [[nodiscard]] inline CloudDataPtr getCloudData() { return cloudData; }
     [[nodiscard]] inline uint32_t getGridSizeX() const { return gridSizeX; }

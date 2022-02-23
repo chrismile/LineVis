@@ -38,14 +38,6 @@
 namespace sgl {
 
 class TransferFunctionWindow;
-class GeometryBuffer;
-typedef std::shared_ptr<GeometryBuffer> GeometryBufferPtr;
-class ShaderProgram;
-typedef std::shared_ptr<ShaderProgram> ShaderProgramPtr;
-class ShaderAttributes;
-typedef std::shared_ptr<ShaderAttributes> ShaderAttributesPtr;
-class SemaphoreVkGlInterop;
-typedef std::shared_ptr<SemaphoreVkGlInterop> SemaphoreVkGlInteropPtr;
 
 namespace vk {
 
@@ -74,22 +66,19 @@ public:
     AmbientOcclusionBakerType getType() override { return AmbientOcclusionBakerType::VULKAN_RTAO_PREBAKER; }
     bool getIsStaticPrebaker() override { return true; }
     void startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData) override;
-    void updateIterative(bool isVulkanRenderer) override;
-    void updateMultiThreaded(bool isVulkanRenderer) override;
+    void updateIterative(VkPipelineStageFlags pipelineStageFlags) override;
+    void updateMultiThreaded(VkPipelineStageFlags pipelineStageFlags) override;
     bool getIsDataReady() override;
     bool getIsComputationRunning() override;
     bool getHasComputationFinished() override;
     bool getHasThreadUpdate() override { return hasThreadUpdate; }
 
-    sgl::GeometryBufferPtr getAmbientOcclusionBuffer() override;
-    sgl::GeometryBufferPtr getBlendingWeightsBuffer() override;
     sgl::vk::BufferPtr getAmbientOcclusionBufferVulkan() override;
     sgl::vk::BufferPtr getBlendingWeightsBufferVulkan() override;
     uint32_t getNumTubeSubdivisions() override;
     uint32_t getNumLineVertices() override;
     uint32_t getNumParametrizationVertices() override;
 
-    sgl::TexturePtr getAmbientOcclusionFrameTexture() override { return {}; }
     sgl::vk::TexturePtr getAmbientOcclusionFrameTextureVulkan() override { return {}; }
 
     /// Returns whether the baking process was re-run.
@@ -104,8 +93,6 @@ private:
 
     // OpenGL-Vulkan interoperability data.
     sgl::vk::BufferPtr aoBufferVk;
-    sgl::GeometryBufferPtr aoBufferGl;
-    sgl::SemaphoreVkGlInteropPtr renderReadySemaphore, renderFinishedSemaphore;
 
     // Vulkan render data.
     void waitCommandBuffersFinished();
@@ -140,8 +127,6 @@ public:
     // Public interface.
     void setLineData(LineDataPtr& lineData);
     inline void setFrameNumber(uint32_t frame) { lineRenderSettings.frameNumber = frame; }
-    inline sgl::GeometryBufferPtr& getAmbientOcclusionBuffer() { return aoBufferGl; }
-    inline sgl::GeometryBufferPtr& getBlendingWeightsBuffer() { return blendingWeightParametrizationBufferGl; }
     inline sgl::vk::BufferPtr& getAmbientOcclusionBufferVulkan() { return aoBufferVk; }
     inline sgl::vk::BufferPtr& getBlendingWeightsBufferVulkan() { return blendingWeightParametrizationBuffer; }
     [[nodiscard]] inline uint32_t getNumTubeSubdivisions() const { return numTubeSubdivisions; }
@@ -185,7 +170,6 @@ private:
     uint32_t numLineVertices = 0;
 
     sgl::vk::BufferPtr aoBufferVk;
-    sgl::GeometryBufferPtr aoBufferGl;
 
     // Data for multi-threading.
     sgl::vk::BufferPtr aoBufferVkTmp;
@@ -198,7 +182,6 @@ private:
     sgl::vk::BufferPtr linePointsBuffer;
 
     sgl::vk::BufferPtr blendingWeightParametrizationBuffer;
-    sgl::GeometryBufferPtr blendingWeightParametrizationBufferGl;
     sgl::vk::BufferPtr lineSegmentVertexConnectivityBuffer;
     sgl::vk::BufferPtr samplingLocationsBuffer;
 

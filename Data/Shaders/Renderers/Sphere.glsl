@@ -37,8 +37,17 @@ out vec3 fragmentPositionWorld;
 out vec3 screenSpacePosition;
 out vec3 fragmentNormal;
 
-uniform vec3 spherePosition;
-uniform float sphereRadius;
+layout(binding = 0) uniform UniformDataBuffer {
+    vec3 cameraPosition;
+    float padding0;
+    vec3 spherePosition;
+    float sphereRadius;
+    vec4 sphereColor;
+    vec3 backgroundColor;
+    float padding1;
+    vec3 foregroundColor;
+    float padding2;
+};
 
 void main() {
     vec4 sphereVertexPosition = vec4(vertexPosition * sphereRadius + spherePosition, 1.0);
@@ -59,11 +68,17 @@ in vec3 fragmentNormal;
 
 out vec4 fragColor;
 
-uniform float sphereRadius;
-uniform vec4 sphereColor;
-uniform vec3 cameraPosition;
-uniform vec3 backgroundColor;
-uniform vec3 foregroundColor;
+layout(binding = 0) uniform UniformDataBuffer {
+    vec3 cameraPosition;
+    float padding0;
+    vec3 spherePosition;
+    float sphereRadius;
+    vec4 sphereColor;
+    vec3 backgroundColor;
+    float padding1;
+    vec3 foregroundColor;
+    float padding2;
+};
 
 #include "Lighting.glsl"
 
@@ -79,7 +94,7 @@ void main() {
     const float WHITE_THRESHOLD = 0.7;
     float EPSILON = clamp(fragmentDepth * 0.0005 / sphereRadius, 0.0, 0.49);
     float coverage = 1.0 - smoothstep(1.0 - 2.0*EPSILON, 1.0, ribbonPosition);
-    vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor,
+    vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor.rgb,
             smoothstep(WHITE_THRESHOLD - EPSILON, WHITE_THRESHOLD + EPSILON, ribbonPosition)),
             fragmentColor.a * coverage);
 

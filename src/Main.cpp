@@ -94,13 +94,17 @@ int main(int argc, char *argv[]) {
 
     sgl::vk::Instance* instance = sgl::AppSettings::get()->getVulkanInstance();
     sgl::vk::Device* device = new sgl::vk::Device;
+    sgl::vk::DeviceFeatures requestedDeviceFeatures{};
+    requestedDeviceFeatures.optionalPhysicalDeviceFeatures.geometryShader = VK_TRUE; // For a rasterizer mode.
+    requestedDeviceFeatures.optionalPhysicalDeviceFeatures.sampleRateShading = VK_TRUE; // For OpaqueLineRenderer.
+    requestedDeviceFeatures.optionalPhysicalDeviceFeatures.independentBlend = VK_TRUE; // For WBOITRenderer.
     device->createDeviceSwapchain(
             instance, window,
             {
                     VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME,
                     VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME
             },
-            optionalDeviceExtensions);
+            optionalDeviceExtensions, requestedDeviceFeatures);
     sgl::vk::Swapchain* swapchain = new sgl::vk::Swapchain(device);
     swapchain->create(window);
     sgl::AppSettings::get()->setPrimaryDevice(device);

@@ -64,11 +64,7 @@ struct ScatteringTracingSettings {
 class ScatteringLineTracingRequester {
 public:
     ScatteringLineTracingRequester(
-            sgl::TransferFunctionWindow& transferFunctionWindow
-#ifdef USE_VULKAN_INTEROP
-            , sgl::vk::Renderer* rendererMainThread
-#endif
-    );
+            sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererMainThread);
     ~ScatteringLineTracingRequester();
 
     void renderGui();
@@ -107,9 +103,7 @@ private:
     void traceLines(const ScatteringTracingSettings& request, std::shared_ptr<LineDataScattering>& lineData);
 
     sgl::TransferFunctionWindow& transferFunctionWindow;
-#ifdef USE_VULKAN_INTEROP
     sgl::vk::Renderer* rendererVk = nullptr;
-#endif
 
     bool supportsMultiThreadedLoading = true;
     std::thread requesterThread;
@@ -139,11 +133,9 @@ private:
     std::vector<glm::vec3> outlineVertexNormals;
 
     void createIsosurface();
-#ifdef USE_VULKAN_INTEROP
     void createScalarFieldTexture();
     std::shared_ptr<LineDensityFieldSmoothingPass> lineDensityFieldSmoothingPass;
     sgl::vk::TexturePtr cachedScalarFieldTexture;
-#endif
 
     // GUI data.
     bool showWindow = true;

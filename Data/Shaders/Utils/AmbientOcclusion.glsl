@@ -27,28 +27,14 @@
  */
 
 #ifdef STATIC_AMBIENT_OCCLUSION_PREBAKING
-layout (std430, binding = 13) readonly buffer AmbientOcclusionFactors {
+layout (std430, binding = AMBIENT_OCCLUSION_FACTORS_BUFFER_BINDING) readonly buffer AmbientOcclusionFactors {
     float ambientOcclusionFactors[];
 };
-layout (std430, binding = 14) readonly buffer AmbientOcclusionBlendingWeights {
+layout (std430, binding = AMBIENT_OCCLUSION_BLENDING_WEIGHTS_BUFFER_BINDING) readonly buffer AmbientOcclusionBlendingWeights {
     float ambientOcclusionBlendingWeights[];
 };
 #else
-#ifdef VULKAN
-layout(binding = 13) uniform sampler2D ambientOcclusionTexture;
-#else
-uniform sampler2D ambientOcclusionTexture;
-#endif
-#endif
-
-#ifndef VULKAN
-uniform float ambientOcclusionStrength;
-uniform float ambientOcclusionGamma;
-#ifdef STATIC_AMBIENT_OCCLUSION_PREBAKING
-uniform uint numAoTubeSubdivisions;
-uniform uint numLineVertices;
-uniform uint numParametrizationVertices;
-#endif
+layout(binding = AMBIENT_OCCLUSION_TEXTURE_BINDING) uniform sampler2D ambientOcclusionTexture;
 #endif
 
 #define M_PI 3.14159265358979323846

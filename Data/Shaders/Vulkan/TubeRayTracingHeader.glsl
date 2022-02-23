@@ -26,21 +26,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-layout(binding = 0) uniform CameraSettingsBuffer {
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 inverseViewMatrix;
-    mat4 inverseProjectionMatrix;
-} camera;
+#define VULKAN_RAY_TRACER
 
-layout(binding = 3) uniform RayTracerSettingsBuffer {
-    vec3 cameraPosition;
-    float fieldOfViewY;
-    vec4 backgroundColor;
-    vec4 foregroundColor;
-    ivec2 viewportSize;
-    ivec2 paddingVec;
+#include "LineUniformData.glsl"
 
+layout(binding = 0) uniform RayTracerSettingsBuffer {
     // The maximum number of transparent fragments to blend before stopping early.
     uint maxDepthComplexity;
     // How many rays should be shot per frame?
@@ -48,7 +38,6 @@ layout(binding = 3) uniform RayTracerSettingsBuffer {
 
     // The number of this frame (used for accumulation of samples across frames).
     uint frameNumber;
-
     uint paddingUint;
 };
 

@@ -43,29 +43,6 @@ layout(binding = 1, rgba8) uniform image2D outputImage;
 
 layout(binding = 2) uniform accelerationStructureEXT topLevelAS;
 
-layout(binding = 4) uniform LineRenderSettingsBuffer {
-    float lineWidth;
-    float bandWidth;
-    float depthCueStrength;
-    float ambientOcclusionStrength;
-    float ambientOcclusionGamma;
-    float minBandThickness;
-    float paddingLineRenderSettings0, paddingLineRenderSettings1;
-
-    uint hasHullMesh;
-
-    // Ambient occlusion settings.
-    uint numAoTubeSubdivisions;
-    uint numLineVertices;
-    uint numParametrizationVertices;
-};
-
-layout(binding = 9) uniform HullRenderSettingsBuffer {
-    vec4 color;
-    ivec3 padding;
-    int useShading;
-} hullRenderSettings;
-
 // Minimum distance between two consecutive hits.
 const float HIT_DISTANCE_EPSILON = 1e-5;
 
@@ -219,7 +196,7 @@ void main() {
     ivec2 outputImageSize = imageSize(outputImage);
     vec4 fragmentColor = vec4(0.0);
 
-    vec3 rayOrigin = (camera.inverseViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+    vec3 rayOrigin = (inverseViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 
 #ifdef USE_JITTERED_RAYS
     for (int sampleIdx = 0; sampleIdx < numSamplesPerFrame; sampleIdx++) {
@@ -233,8 +210,8 @@ void main() {
     vec2 fragNdc = 2.0 * ((vec2(gl_LaunchIDEXT.xy) + vec2(0.5)) / vec2(gl_LaunchSizeEXT.xy)) - 1.0;
 #endif
 
-    vec3 rayTarget = (camera.inverseProjectionMatrix * vec4(fragNdc.xy, 1.0, 1.0)).xyz;
-    vec3 rayDirection = (camera.inverseViewMatrix * vec4(normalize(rayTarget.xyz), 0.0)).xyz;
+    vec3 rayTarget = (inverseProjectionMatrix * vec4(fragNdc.xy, 1.0, 1.0)).xyz;
+    vec3 rayDirection = (inverseViewMatrix * vec4(normalize(rayTarget.xyz), 0.0)).xyz;
 
 #if defined(USE_MLAT)
     fragmentColor += traceRayMlat(rayOrigin, rayDirection);
@@ -255,7 +232,6 @@ void main() {
 #endif
 
     ivec2 writePos = ivec2(gl_LaunchIDEXT.xy);
-    writePos.y = outputImageSize.y - writePos.y - 1;
     if (frameNumber != 0) {
         vec4 fragmentColorPrev = imageLoad(outputImage, writePos);
         fragmentColor = mix(fragmentColorPrev, fragmentColor, 1.0 / float(frameNumber + 1));
@@ -304,11 +280,11 @@ struct TubeTriangleVertexData {
     float phi; ///< Angle.
 };
 
-layout(scalar, binding = 6) readonly buffer TubeIndexBuffer {
+layout(scalar, binding = 3) readonly buffer TubeIndexBuffer {
     uvec3 indexBuffer[];
 };
 
-layout(std430, binding = 7) readonly buffer TubeTriangleVertexDataBuffer {
+layout(std430, binding = 4) readonly buffer TubeTriangleVertexDataBuffer {
     TubeTriangleVertexData tubeTriangleVertexDataBuffer[];
 };
 
@@ -423,17 +399,11 @@ struct HullVertex {
     float padding1;
 };
 
-layout(binding = 9) uniform HullRenderSettingsBuffer {
-    vec4 color;
-    ivec3 padding;
-    int useShading;
-};
-
-layout(scalar, binding = 10) readonly buffer HullIndexBuffer {
+layout(scalar, binding = 6) readonly buffer HullIndexBuffer {
     uvec3 hullIndexBuffer[];
 };
 
-layout(std430, binding = 11) readonly buffer HullTriangleVertexDataBuffer {
+layout(std430, binding = 7) readonly buffer HullTriangleVertexDataBuffer {
     HullVertex hullVertices[];
 };
 
@@ -461,10 +431,10 @@ void main() {
     fragmentNormal = normalize(fragmentNormal);
 
     vec4 phongColor;
-    if (useShading == 1) {
-        phongColor = blinnPhongShading(color, fragmentPositionWorld, fragmentNormal);
+    if (hullUseShading == 1) {
+        phongColor = blinnPhongShading(hullColor, fragmentPositionWorld, fragmentNormal);
     } else {
-        phongColor = color;
+        phongColor = hullColor;
     }
 
     vec3 viewDir = normalize(cameraPosition - fragmentPositionWorld);
@@ -494,24 +464,8 @@ void main() {
 #version 460
 #extension GL_EXT_ray_tracing : require
 
+#include "LineUniformData.glsl"
 #include "RayIntersectionTestsVulkan.glsl"
-
-layout(binding = 4) uniform LineRenderSettingsBuffer {
-    float lineWidth;
-    float bandWidth;
-    float depthCueStrength;
-    float ambientOcclusionStrength;
-    float ambientOcclusionGamma;
-    float minBandThickness;
-    float paddingLineRenderSettings0, paddingLineRenderSettings1;
-
-    uint hasHullMesh;
-
-    // Ambient occlusion settings.
-    uint numAoTubeSubdivisions;
-    uint numLineVertices;
-    uint numParametrizationVertices;
-};
 
 struct TubeLinePointData {
     vec3 linePosition;
@@ -524,11 +478,11 @@ struct TubeLinePointData {
     uint principalStressIndex; ///< Zero for flow lines.
 };
 
-layout(std430, binding = 17) readonly buffer BoundingBoxLinePointIndexBuffer {
+layout(std430, binding = 3) readonly buffer BoundingBoxLinePointIndexBuffer {
     uvec2 boundingBoxLinePointIndices[];
 };
 
-layout(std430, binding = 8) readonly buffer TubeLinePointDataBuffer {
+layout(std430, binding = 5) readonly buffer TubeLinePointDataBuffer {
     TubeLinePointData tubeLinePointDataBuffer[];
 };
 
@@ -587,7 +541,7 @@ void main() {
 #include "RayHitCommon.glsl"
 #include "RayIntersectionTestsVulkan.glsl"
 
-layout(std430, binding = 17) readonly buffer BoundingBoxLinePointIndexBuffer {
+layout(std430, binding = 3) readonly buffer BoundingBoxLinePointIndexBuffer {
     uvec2 boundingBoxLinePointIndices[];
 };
 

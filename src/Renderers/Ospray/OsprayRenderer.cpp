@@ -483,7 +483,7 @@ void OsprayRenderer::onHasMoved() {
 }
 
 void OsprayRenderer::render() {
-    LineRenderer::render();
+    LineRenderer::renderBase();
 
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);

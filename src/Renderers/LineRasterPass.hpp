@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2022, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,12 +26,35 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef STRESSLINEVIS_HSVCOLOR_HPP
-#define STRESSLINEVIS_HSVCOLOR_HPP
+#ifndef LINEVIS_LINERASTERPASS_HPP
+#define LINEVIS_LINERASTERPASS_HPP
 
-#include <glm/vec3.hpp>
+#include <Graphics/Vulkan/Render/Passes/Pass.hpp>
+#include "SceneData.hpp"
 
-glm::vec3 rgbToHsv(const glm::vec3& color);
-glm::vec3 hsvToRgb(const glm::vec3& color);
+class LineRenderer;
+class LineData;
+typedef std::shared_ptr<LineData> LineDataPtr;
 
-#endif //STRESSLINEVIS_HSVCOLOR_HPP
+class LineRasterPass : public sgl::vk::RasterPass {
+public:
+    explicit LineRasterPass(LineRenderer* lineRenderer);
+
+    // Public interface.
+    void setLineData(LineDataPtr& lineData, bool isNewData);
+
+    void recreateSwapchain(uint32_t width, uint32_t height) override;
+
+protected:
+    void loadShader() override;
+    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
+    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
+    void _render() override;
+
+    LineRenderer* lineRenderer = nullptr;
+    SceneData* sceneData;
+    sgl::CameraPtr* camera;
+    LineDataPtr lineData;
+};
+
+#endif //LINEVIS_LINERASTERPASS_HPP

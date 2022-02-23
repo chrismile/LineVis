@@ -29,17 +29,14 @@
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
+#include <Graphics/Vulkan/Buffers/Buffer.hpp>
+#include <Graphics/Vulkan/Render/Data.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 #include <ImGui/imgui_custom.h>
-
-#ifdef USE_VULKAN_INTEROP
-#include <Graphics/Vulkan/Buffers/Buffer.hpp>
-#endif
 
 #include "Loaders/TrajectoryFile.hpp"
 #include "Renderers/LineRenderer.hpp"
 #include "Renderers/Tubes/Tubes.hpp"
-
 #include "LineDataFlow.hpp"
 
 bool LineDataFlow::useRibbons = true;
@@ -407,7 +404,108 @@ std::vector<std::vector<glm::vec3>> LineDataFlow::getFilteredLines(LineRenderer*
 
 
 // --- Retrieve data for rendering. Preferred way. ---
-sgl::ShaderProgramPtr LineDataFlow::reloadGatherShader() {
+void LineDataFlow::setGraphicsPipelineInfo(
+        sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) {
+    if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
+        pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::LINE_LIST);
+
+        uint32_t vertexPositionBinding = shaderStages->getInputVariableLocation("vertexPosition");
+        pipelineInfo.setVertexBufferBinding(vertexPositionBinding, sizeof(glm::vec3));
+        pipelineInfo.setInputAttributeDescription(
+                vertexPositionBinding, 0, "vertexPosition");
+
+        uint32_t vertexAttributeBinding = shaderStages->getInputVariableLocation("vertexAttribute");
+        pipelineInfo.setVertexBufferBinding(vertexAttributeBinding, sizeof(float));
+        pipelineInfo.setInputAttributeDescription(
+                vertexAttributeBinding, 0, "vertexAttribute");
+
+        uint32_t vertexNormalBinding = shaderStages->getInputVariableLocation("vertexNormal");
+        pipelineInfo.setVertexBufferBinding(vertexNormalBinding, sizeof(glm::vec3));
+        pipelineInfo.setInputAttributeDescription(
+                vertexNormalBinding, 0, "vertexNormal");
+
+        uint32_t vertexTangentBinding = shaderStages->getInputVariableLocation("vertexTangent");
+        pipelineInfo.setVertexBufferBinding(vertexTangentBinding, sizeof(glm::vec3));
+        pipelineInfo.setInputAttributeDescription(
+                vertexTangentBinding, 0, "vertexTangent");
+
+        uint32_t vertexOffsetLeftBinding = shaderStages->getInputVariableLocation("vertexOffsetLeft");
+        pipelineInfo.setVertexBufferBinding(vertexOffsetLeftBinding, sizeof(glm::vec3));
+        pipelineInfo.setInputAttributeDescription(
+                vertexOffsetLeftBinding, 0, "vertexOffsetLeft");
+
+        uint32_t vertexOffsetRightBinding = shaderStages->getInputVariableLocation("vertexOffsetRight");
+        pipelineInfo.setVertexBufferBinding(vertexOffsetRightBinding, sizeof(glm::vec3));
+        pipelineInfo.setInputAttributeDescription(
+                vertexOffsetRightBinding, 0, "vertexOffsetRight");
+    } else if (linePrimitiveMode != LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
+        pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::LINE_LIST);
+
+        uint32_t vertexPositionBinding = shaderStages->getInputVariableLocation("vertexPosition");
+        pipelineInfo.setVertexBufferBinding(vertexPositionBinding, sizeof(glm::vec3));
+        pipelineInfo.setInputAttributeDescription(
+                vertexPositionBinding, 0, "vertexPosition");
+
+        //uint32_t vertexAttributeBinding = shaderStages->getInputVariableLocation("vertexAttribute");
+        //pipelineInfo.setVertexBufferBinding(vertexAttributeBinding, sizeof(float));
+        //pipelineInfo.setInputAttributeDescription(
+        //        vertexAttributeBinding, 0, "vertexAttribute");
+        pipelineInfo.setVertexBufferBindingByLocation("vertexAttribute", sizeof(float));
+
+        //if (shaderStages->getHasInputVariableLocation("vertexNormal")) {
+        //    uint32_t vertexNormalBinding = shaderStages->getInputVariableLocation("vertexNormal");
+        //    pipelineInfo.setVertexBufferBinding(vertexNormalBinding, sizeof(glm::vec3));
+        //    pipelineInfo.setInputAttributeDescription(
+        //            vertexNormalBinding, 0, "vertexNormal");
+        //}
+        pipelineInfo.setVertexBufferBindingByLocationOptional("vertexNormal", sizeof(glm::vec3));
+
+        uint32_t vertexTangentBinding = shaderStages->getInputVariableLocation("vertexTangent");
+        pipelineInfo.setVertexBufferBinding(vertexTangentBinding, sizeof(glm::vec3));
+        pipelineInfo.setInputAttributeDescription(
+                vertexTangentBinding, 0, "vertexTangent");
+
+        if (useRotatingHelicityBands) {
+            uint32_t vertexRotationBinding = shaderStages->getInputVariableLocation("vertexRotation");
+            pipelineInfo.setVertexBufferBinding(vertexRotationBinding, sizeof(float));
+            pipelineInfo.setInputAttributeDescription(
+                    vertexRotationBinding, 0, "vertexOffsetLeft");
+        }
+    } else {
+        LineData::setGraphicsPipelineInfo(pipelineInfo, shaderStages);
+    }
+}
+
+void LineDataFlow::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
+    setVulkanRenderDataDescriptors(rasterData);
+
+    if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
+        BandRenderData tubeRenderData = this->getBandRenderData();
+        linePointDataSSBO = {};
+        rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
+        rasterData->setVertexBuffer(tubeRenderData.vertexPositionBuffer, "vertexPosition");
+        rasterData->setVertexBuffer(tubeRenderData.vertexAttributeBuffer, "vertexAttribute");
+        rasterData->setVertexBufferOptional(tubeRenderData.vertexNormalBuffer, "vertexNormal");
+        rasterData->setVertexBuffer(tubeRenderData.vertexTangentBuffer, "vertexTangent");
+        rasterData->setVertexBuffer(tubeRenderData.vertexOffsetLeftBuffer, "vertexOffsetLeft");
+        rasterData->setVertexBuffer(tubeRenderData.vertexOffsetRightBuffer, "vertexOffsetRight");
+    } else if (linePrimitiveMode != LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
+        TubeRenderData tubeRenderData = this->getTubeRenderData();
+        linePointDataSSBO = {};
+        rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
+        rasterData->setVertexBuffer(tubeRenderData.vertexPositionBuffer, "vertexPosition");
+        rasterData->setVertexBuffer(tubeRenderData.vertexAttributeBuffer, "vertexAttribute");
+        rasterData->setVertexBufferOptional(tubeRenderData.vertexNormalBuffer, "vertexNormal");
+        rasterData->setVertexBuffer(tubeRenderData.vertexTangentBuffer, "vertexTangent");
+        if (useRotatingHelicityBands) {
+            rasterData->setVertexBuffer(tubeRenderData.vertexRotationBuffer, "vertexRotation");
+        }
+    } else {
+        LineData::setRasterDataBindings(rasterData);
+    }
+}
+
+sgl::ShaderProgramPtr LineDataFlow::reloadGatherShaderOpenGL() {
     if (useRibbons && getUseBandRendering()) {
         sgl::ShaderManager->addPreprocessorDefine("USE_BANDS", "");
         if (renderThickBands) {
@@ -421,7 +519,7 @@ sgl::ShaderProgramPtr LineDataFlow::reloadGatherShader() {
         sgl::ShaderManager->addPreprocessorDefine("USE_ROTATING_HELICITY_BANDS", "");
     }
 
-    sgl::ShaderProgramPtr gatherShader = LineData::reloadGatherShader();
+    sgl::ShaderProgramPtr gatherShader = LineData::reloadGatherShaderOpenGL();
 
     if (useRotatingHelicityBands) {
         sgl::ShaderManager->removePreprocessorDefine("USE_ROTATING_HELICITY_BANDS");
@@ -436,9 +534,9 @@ sgl::ShaderProgramPtr LineDataFlow::reloadGatherShader() {
     return gatherShader;
 }
 
-sgl::ShaderAttributesPtr LineDataFlow::getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader) {
+sgl::ShaderAttributesPtr LineDataFlow::getGatherShaderAttributesOpenGL(sgl::ShaderProgramPtr& gatherShader) {
     sgl::ShaderAttributesPtr shaderAttributes;
-    if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
+    /*if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
         BandRenderData tubeRenderData = this->getBandRenderData();
         linePointDataSSBO = sgl::GeometryBufferPtr();
 
@@ -491,8 +589,8 @@ sgl::ShaderAttributesPtr LineDataFlow::getGatherShaderAttributes(sgl::ShaderProg
                     sgl::ATTRIB_FLOAT, 1);
         }
     } else {
-        shaderAttributes = LineData::getGatherShaderAttributes(gatherShader);
-    }
+        shaderAttributes = LineData::getGatherShaderAttributesOpenGL(gatherShader);
+    }*/
 
     return shaderAttributes;
 }
@@ -712,31 +810,44 @@ TubeRenderData LineDataFlow::getTubeRenderData() {
     }
 
 
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     TubeRenderData tubeRenderData;
 
     // Add the index buffer.
-    tubeRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t)*lineIndices.size(), lineIndices.data(), sgl::INDEX_BUFFER);
+    tubeRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, lineIndices.size() * sizeof(uint32_t), lineIndices.data(),
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Add the position buffer.
-    tubeRenderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexPositions.size()*sizeof(glm::vec3), vertexPositions.data(), sgl::VERTEX_BUFFER);
+    tubeRenderData.vertexPositionBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexPositions.size() * sizeof(glm::vec3), vertexPositions.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Add the attribute buffer.
-    tubeRenderData.vertexAttributeBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexAttributes.size()*sizeof(float), vertexAttributes.data(), sgl::VERTEX_BUFFER);
+    tubeRenderData.vertexAttributeBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexAttributes.size() * sizeof(float), vertexAttributes.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Add the normal buffer.
-    tubeRenderData.vertexNormalBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexNormals.size()*sizeof(glm::vec3), vertexNormals.data(), sgl::VERTEX_BUFFER);
+    tubeRenderData.vertexNormalBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexNormals.size() * sizeof(glm::vec3), vertexNormals.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Add the tangent buffer.
-    tubeRenderData.vertexTangentBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexTangents.size()*sizeof(glm::vec3), vertexTangents.data(), sgl::VERTEX_BUFFER);
+    tubeRenderData.vertexTangentBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexTangents.size() * sizeof(glm::vec3), vertexTangents.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     if (useRotatingHelicityBands) {
-        tubeRenderData.vertexRotationBuffer = sgl::Renderer->createGeometryBuffer(
-                vertexRotations.size()*sizeof(float), vertexRotations.data(), sgl::VERTEX_BUFFER);
+        tubeRenderData.vertexRotationBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, vertexRotations.size() * sizeof(float), vertexRotations.data(),
+                VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VMA_MEMORY_USAGE_GPU_ONLY);
     }
 
     return tubeRenderData;
@@ -744,6 +855,7 @@ TubeRenderData LineDataFlow::getTubeRenderData() {
 
 TubeRenderDataProgrammableFetch LineDataFlow::getTubeRenderDataProgrammableFetch() {
     rebuildInternalRepresentationIfNecessary();
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     TubeRenderDataProgrammableFetch tubeRenderData;
 
     // 1. Compute all tangents.
@@ -792,8 +904,10 @@ TubeRenderDataProgrammableFetch LineDataFlow::getTubeRenderDataProgrammableFetch
         fetchIndices.push_back(base1+1);
         fetchIndices.push_back(base0+1);
     }
-    tubeRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t) * fetchIndices.size(), fetchIndices.data(), sgl::INDEX_BUFFER);
+    tubeRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, fetchIndices.size() * sizeof(uint32_t), fetchIndices.data(),
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     // 3. Add the point data for all line points.
     std::vector<LinePointDataProgrammableFetch> linePointData;
@@ -805,9 +919,10 @@ TubeRenderDataProgrammableFetch LineDataFlow::getTubeRenderDataProgrammableFetch
         linePointData.at(i).principalStressIndex = 0;
     }
 
-    tubeRenderData.linePointsBuffer = sgl::Renderer->createGeometryBuffer(
-            linePointData.size() * sizeof(LinePointDataProgrammableFetch), linePointData.data(),
-            sgl::SHADER_STORAGE_BUFFER);
+    tubeRenderData.linePointsBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, linePointData.size() * sizeof(LinePointDataProgrammableFetch), linePointData.data(),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     return tubeRenderData;
 }
@@ -846,28 +961,38 @@ TubeRenderDataOpacityOptimization LineDataFlow::getTubeRenderDataOpacityOptimiza
             lineIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes);
 
     TubeRenderDataOpacityOptimization tubeRenderData;
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
 
     // Add the index buffer.
-    tubeRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t)*lineIndices.size(), lineIndices.data(), sgl::INDEX_BUFFER);
+    tubeRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, lineIndices.size() * sizeof(uint32_t), lineIndices.data(),
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Add the position buffer.
-    tubeRenderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexPositions.size()*sizeof(glm::vec3), vertexPositions.data(), sgl::VERTEX_BUFFER);
+    tubeRenderData.vertexPositionBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexPositions.size() * sizeof(glm::vec3), vertexPositions.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Add the attribute buffer.
-    tubeRenderData.vertexAttributeBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexAttributes.size()*sizeof(float), vertexAttributes.data(), sgl::VERTEX_BUFFER);
+    tubeRenderData.vertexAttributeBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexAttributes.size() * sizeof(float), vertexAttributes.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Add the tangent buffer.
-    tubeRenderData.vertexTangentBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexTangents.size()*sizeof(glm::vec3), vertexTangents.data(), sgl::VERTEX_BUFFER);
+    tubeRenderData.vertexTangentBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexTangents.size() * sizeof(glm::vec3), vertexTangents.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     return tubeRenderData;
 }
 
 BandRenderData LineDataFlow::getBandRenderData() {
     rebuildInternalRepresentationIfNecessary();
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     BandRenderData bandRenderData;
 
     std::vector<uint32_t> lineIndices;
@@ -975,39 +1100,53 @@ BandRenderData LineDataFlow::getBandRenderData() {
         }
     }
 
+
     // Add the index buffer.
-    bandRenderData.indexBuffer = sgl::Renderer->createGeometryBuffer(
-            lineIndices.size()*sizeof(uint32_t), lineIndices.data(), sgl::INDEX_BUFFER);
+    bandRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, lineIndices.size() * sizeof(uint32_t), lineIndices.data(),
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Add the position buffer.
-    bandRenderData.vertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexPositions.size()*sizeof(glm::vec3), vertexPositions.data(), sgl::VERTEX_BUFFER);
+    bandRenderData.vertexPositionBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexPositions.size() * sizeof(glm::vec3), vertexPositions.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Add the attribute buffer.
-    bandRenderData.vertexAttributeBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexAttributes.size()*sizeof(float), vertexAttributes.data(), sgl::VERTEX_BUFFER);
+    bandRenderData.vertexAttributeBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexAttributes.size() * sizeof(float), vertexAttributes.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Add the normal buffer.
-    bandRenderData.vertexNormalBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexNormals.size()*sizeof(glm::vec3), vertexNormals.data(), sgl::VERTEX_BUFFER);
+    bandRenderData.vertexNormalBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexNormals.size() * sizeof(glm::vec3), vertexNormals.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Add the tangent buffer.
-    bandRenderData.vertexTangentBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexTangents.size()*sizeof(glm::vec3), vertexTangents.data(), sgl::VERTEX_BUFFER);
+    bandRenderData.vertexTangentBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexTangents.size() * sizeof(glm::vec3), vertexTangents.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
-    // Add the left vertex offset buffer.
-    bandRenderData.vertexOffsetLeftBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexOffsetsLeft.size()*sizeof(glm::vec3), vertexOffsetsLeft.data(), sgl::VERTEX_BUFFER);
+    // Add the vertex offset left buffer.
+    bandRenderData.vertexOffsetLeftBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexOffsetsLeft.size() * sizeof(glm::vec3), vertexOffsetsLeft.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
-    // Add the right vertex offset buffer.
-    bandRenderData.vertexOffsetRightBuffer = sgl::Renderer->createGeometryBuffer(
-            vertexOffsetsRight.size()*sizeof(glm::vec3), vertexOffsetsRight.data(), sgl::VERTEX_BUFFER);
+    // Add the vertex offset right buffer.
+    bandRenderData.vertexOffsetRightBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexOffsetsRight.size() * sizeof(glm::vec3), vertexOffsetsRight.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     return bandRenderData;
 }
 
 
-#ifdef USE_VULKAN_INTEROP
 VulkanTubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(
         LineRenderer* lineRenderer, bool raytracing) {
     rebuildInternalRepresentationIfNecessary();
@@ -1267,16 +1406,22 @@ VulkanTubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData(LineRenderer*
     return vulkanTubeAabbRenderData;
 }
 
-void LineDataFlow::getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) {
-    LineData::getVulkanShaderPreprocessorDefines(preprocessorDefines);
-    if (useRibbons && !useRotatingHelicityBands) {
+void LineDataFlow::getVulkanShaderPreprocessorDefines(
+        std::map<std::string, std::string>& preprocessorDefines, bool isRasterizer) {
+    LineData::getVulkanShaderPreprocessorDefines(preprocessorDefines, isRasterizer);
+    if (useRibbons && !useRotatingHelicityBands && (!isRasterizer || getUseBandRendering())) {
         preprocessorDefines.insert(std::make_pair("USE_BANDS", ""));
+        if (renderThickBands) {
+            preprocessorDefines.insert(std::make_pair("BAND_RENDERING_THICK", ""));
+            preprocessorDefines.insert(std::make_pair("MIN_THICKNESS", std::to_string(minBandThickness)));
+        } else {
+            preprocessorDefines.insert(std::make_pair("MIN_THICKNESS", std::to_string(1e-2f)));
+        }
     }
     if (useRotatingHelicityBands) {
         preprocessorDefines.insert(std::make_pair("USE_ROTATING_HELICITY_BANDS", ""));
     }
 }
-#endif
 
 void LineDataFlow::getTriangleMesh(
         LineRenderer* lineRenderer,

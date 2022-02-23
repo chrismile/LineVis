@@ -27,21 +27,10 @@
  */
 
 #ifdef USE_DEPTH_CUES
-
-#ifdef COMPUTE_DEPTH_CUES_GPU
-layout (std430, binding = 12) readonly buffer DepthMinMaxBuffer {
+layout (std430, binding = DEPTH_MIN_MAX_BUFFER_BINDING) readonly buffer DepthMinMaxBuffer {
     float minDepth;
     float maxDepth;
 };
-#else
-uniform float minDepth = 0.0f;
-uniform float maxDepth = 1.0f;
-#endif
-
-#ifndef VULKAN
-uniform float depthCueStrength = 0.8f;
-#endif
-
 #endif
 
 #if defined(USE_AMBIENT_OCCLUSION) && defined(GEOMETRY_PASS_TUBE)
@@ -109,7 +98,7 @@ vec4 blinnPhongShading(
 */
 vec4 blinnPhongShadingTube(
         in vec4 baseColor,
-#if defined(VULKAN) || defined(VOXEL_RAY_CASTING)
+#if defined(VULKAN_RAY_TRACER) || defined(VOXEL_RAY_CASTING)
         in vec3 fragmentPositionWorld,
 #if defined(USE_DEPTH_CUES) || (defined(USE_AMBIENT_OCCLUSION) && !defined(STATIC_AMBIENT_OCCLUSION_PREBAKING))
         in vec3 screenSpacePosition,
@@ -118,7 +107,7 @@ vec4 blinnPhongShadingTube(
         in float fragmentVertexId,
         in float phi,
 #endif
-#if defined(USE_BANDS) && defined(VULKAN)
+#if defined(USE_BANDS) && defined(VULKAN_RAY_TRACER)
         in int useBand,
 #endif
 #endif

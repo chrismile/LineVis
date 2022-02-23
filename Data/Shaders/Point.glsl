@@ -49,8 +49,13 @@ void main() {
 layout(points) in;
 layout(triangle_strip, max_vertices = 4) out;
 
-uniform vec3 cameraPosition;
-uniform float pointWidth;
+layout(binding = 0) uniform UniformDataBuffer {
+    vec3 cameraPosition;
+    float pointWidth;
+    vec4 pointColor;
+    vec3 foregroundColor;
+    float padding;
+};
 
 out vec3 fragmentPositionWorld;
 out vec2 quadCoords; // Between -1 and 1
@@ -103,9 +108,13 @@ in vec3 fragmentPositionWorld;
 in vec2 quadCoords; // Between -1 and 1
 out vec4 fragColor;
 
-uniform vec4 pointColor;
-uniform vec3 foregroundColor;
-uniform vec3 cameraPosition;
+layout(binding = 0) uniform RenderSettingsBuffer {
+    vec3 cameraPosition;
+    float pointWidth;
+    vec4 pointColor;
+    vec3 foregroundColor;
+    float padding;
+};
 
 void main() {
     float lengthCoords = length(quadCoords);

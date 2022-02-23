@@ -26,14 +26,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Graphics/Window.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Shader/ShaderManager.hpp>
-#include <Graphics/Texture/TextureManager.hpp>
-#include <Graphics/OpenGL/RendererGL.hpp>
 #include <Math/Math.hpp>
 #include <Math/Geometry/MatrixUtil.hpp>
 #include <Utils/AppSettings.hpp>
+#include <Graphics/Window.hpp>
+#include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
@@ -46,17 +44,20 @@
 OpaqueLineRenderer::OpaqueLineRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Opaque Line Renderer", sceneData, transferFunctionWindow) {
     // Get all available multisampling modes.
-    glGetIntegerv(GL_MAX_SAMPLES, &maximumNumberOfSamples);
+    maximumNumberOfSamples = (*sceneData->renderer)->getDevice()->getMaxUsableSampleCount();
     if (maximumNumberOfSamples <= 1) {
         useMultisampling = false;
     }
+    supportsSampleShadingRate = renderer->getDevice()->getPhysicalDeviceFeatures().sampleRateShading;
     numSampleModes = sgl::intlog2(maximumNumberOfSamples) + 1;
     sampleModeSelection = std::min(sgl::intlog2(numSamples), numSampleModes - 1);
     for (int i = 1; i <= maximumNumberOfSamples; i *= 2) {
         sampleModeNames.push_back(std::to_string(i));
     }
 
-    reloadSphereRenderData();
+    lineRasterPass = std::make_shared<MultisampledLineRasterPass>(this);
+    sphereRasterPass = std::make_shared<SphereRasterPass>(sceneData);
+
     onResolutionChanged();
 }
 
@@ -69,219 +70,358 @@ void OpaqueLineRenderer::setVisualizeSeedingProcess(bool visualizeSeeding) {
     }
 }
 
-void OpaqueLineRenderer::reloadSphereRenderData() {
-    std::vector<glm::vec3> sphereVertexPositions;
-    std::vector<glm::vec3> sphereVertexNormals;
-    std::vector<uint32_t> sphereIndices;
-    getSphereSurfaceRenderData(
-            glm::vec3(0,0,0), 1.0f, 32, 32,
-            sphereVertexPositions, sphereVertexNormals, sphereIndices);
-
-    gatherShaderSphere = sgl::ShaderManager->getShaderProgram({
-            "Sphere.Vertex", "Sphere.Fragment"
-    });
-
-    shaderAttributesSphere = sgl::ShaderManager->createShaderAttributes(gatherShaderSphere);
-    shaderAttributesSphere->setVertexMode(sgl::VERTEX_MODE_TRIANGLES);
-    sgl::GeometryBufferPtr focusPointVertexPositionBuffer = sgl::Renderer->createGeometryBuffer(
-            sphereVertexPositions.size() * sizeof(glm::vec3), sphereVertexPositions.data(), sgl::VERTEX_BUFFER);
-    shaderAttributesSphere->addGeometryBuffer(
-            focusPointVertexPositionBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
-    sgl::GeometryBufferPtr focusPointVertexNormalBuffer = sgl::Renderer->createGeometryBuffer(
-            sphereVertexNormals.size() * sizeof(glm::vec3), sphereVertexNormals.data(), sgl::VERTEX_BUFFER);
-    shaderAttributesSphere->addGeometryBuffer(
-            focusPointVertexNormalBuffer, "vertexNormal", sgl::ATTRIB_FLOAT, 3);
-    sgl::GeometryBufferPtr focusPointIndexBuffer = sgl::Renderer->createGeometryBuffer(
-            sphereIndices.size() * sizeof(uint32_t), sphereIndices.data(), sgl::INDEX_BUFFER);
-    shaderAttributesSphere->setIndexGeometryBuffer(focusPointIndexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-}
-
 void OpaqueLineRenderer::renderSphere(const glm::vec3& position, float radius, const sgl::Color& color) {
-    gatherShaderSphere->setUniform("spherePosition", position);
-    gatherShaderSphere->setUniform("sphereRadius", radius);
-    gatherShaderSphere->setUniform("sphereColor", color);
-    gatherShaderSphere->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
-    if (gatherShaderSphere->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        gatherShaderSphere->setUniform("backgroundColor", backgroundColor);
-    }
-    glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-    glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
-    if (gatherShaderSphere->hasUniform("foregroundColor")) {
-        gatherShaderSphere->setUniform("foregroundColor", foregroundColor);
-    }
-    sgl::Renderer->render(shaderAttributesSphere);
+    sphereRasterPass->setSpherePosition(position);
+    sphereRasterPass->setSphereRadius(radius);
+    sphereRasterPass->setSphereColor(color.getFloatColorRGBA());
+    sphereRasterPass->render();
 }
 
 void OpaqueLineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
-    sgl::ShaderManager->invalidateShaderCache();
-    sgl::ShaderManager->addPreprocessorDefine("DIRECT_BLIT_GATHER", "");
-    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "GatherDummy.glsl");
-    if (visualizeSeedingProcess) {
-        sgl::ShaderManager->addPreprocessorDefine("VISUALIZE_SEEDING_PROCESS", "");
-    }
     LineRenderer::reloadGatherShader();
-    gatherShader = lineData->reloadGatherShader();
-    gatherShaderPoints = sgl::ShaderManager->getShaderProgram({
-            "Point.Vertex", "Point.Geometry", "Point.Fragment"
-    });
-    sgl::ShaderManager->removePreprocessorDefine("DIRECT_BLIT_GATHER");
-
-    if (visualizeSeedingProcess) {
-        sgl::ShaderManager->removePreprocessorDefine("VISUALIZE_SEEDING_PROCESS");
+    lineRasterPass->setShaderDirty();
+    if (degeneratePointsRasterPass) {
+        degeneratePointsRasterPass->setShaderDirty();
     }
-    if (canCopyShaderAttributes && shaderAttributes) {
-        shaderAttributes = shaderAttributes->copy(gatherShader);
-    }
-    if (canCopyShaderAttributes && shaderAttributesDegeneratePoints) {
-        shaderAttributesDegeneratePoints = shaderAttributesDegeneratePoints->copy(gatherShaderPoints);
-    }
-    if (canCopyShaderAttributes && shaderAttributesSphere) {
-        shaderAttributesSphere = shaderAttributesSphere->copy(gatherShaderSphere);
+    if (sphereRasterPass) {
+        sphereRasterPass->setShaderDirty();
     }
 }
 
 void OpaqueLineRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
+    lineRasterPass->setLineData(lineData, isNewData);
 
-    // Unload old data.
-    shaderAttributes = sgl::ShaderAttributesPtr();
-    shaderAttributesDegeneratePoints = sgl::ShaderAttributesPtr();
-
-    shaderAttributes = lineData->getGatherShaderAttributes(gatherShader);
     hasDegeneratePoints =
             lineData->getType() == DATA_SET_TYPE_STRESS_LINES &&
             static_cast<LineDataStress*>(lineData.get())->getHasDegeneratePoints();
     if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES && hasDegeneratePoints) {
-        PointRenderData pointRenderData = static_cast<LineDataStress*>(lineData.get())->getDegeneratePointsRenderData();
-        shaderAttributesDegeneratePoints = sgl::ShaderManager->createShaderAttributes(gatherShaderPoints);
-        shaderAttributesDegeneratePoints->setVertexMode(sgl::VERTEX_MODE_POINTS);
-        shaderAttributesDegeneratePoints->addGeometryBuffer(
-                pointRenderData.vertexPositionBuffer, "vertexPosition",
-                sgl::ATTRIB_FLOAT, 3);
+        degeneratePointsRasterPass = std::make_shared<BilldboardSpheresRasterPass>(sceneData);
+        degeneratePointsRasterPass->setLineData(lineData, isNewData);
     }
 
     dirty = false;
     reRender = true;
 }
 
-void OpaqueLineRenderer::onResolutionChanged() {
-    LineRenderer::onResolutionChanged();
-
-    int width = int(*sceneData->viewportWidth);
-    int height = int(*sceneData->viewportHeight);
-
-    if (useMultisampling) {
-        msaaSceneFBO = sgl::Renderer->createFBO();
-        msaaRenderTexture = sgl::TextureManager->createMultisampledTexture(
-                width, height, numSamples,
-                (*sceneData->sceneTexture)->getSettings().internalFormat, true);
-        msaaDepthRBO = sgl::Renderer->createRBO(width, height, sgl::RBO_DEPTH24_STENCIL8, numSamples);
-        msaaSceneFBO->bindTexture(msaaRenderTexture);
-        msaaSceneFBO->bindRenderbuffer(msaaDepthRBO, sgl::DEPTH_STENCIL_ATTACHMENT);
-    } else {
-        msaaSceneFBO = sgl::FramebufferObjectPtr();
-        msaaRenderTexture = sgl::TexturePtr();
-        msaaDepthRBO = sgl::RenderbufferObjectPtr();
+void OpaqueLineRenderer::getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) {
+    LineRenderer::getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    preprocessorDefines.insert(std::make_pair("DIRECT_BLIT_GATHER", ""));
+    preprocessorDefines.insert(std::make_pair("OIT_GATHER_HEADER", "GatherDummy.glsl"));
+    if (visualizeSeedingProcess) {
+        preprocessorDefines.insert(std::make_pair("VISUALIZE_SEEDING_PROCESS", ""));
     }
 }
 
+void OpaqueLineRenderer::onResolutionChanged() {
+    LineRenderer::onResolutionChanged();
+
+    sgl::vk::Device* device = renderer->getDevice();
+    uint32_t width = *sceneData->viewportWidth;
+    uint32_t height = *sceneData->viewportHeight;
+
+    if (numSamples > 1) {
+        sgl::vk::ImageSettings imageSettings = (*sceneData->sceneTexture)->getImage()->getImageSettings();
+        imageSettings.numSamples = VkSampleCountFlagBits(numSamples);
+        imageSettings.usage =
+                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        colorRenderTargetImage = std::make_shared<sgl::vk::ImageView>(
+                std::make_shared<sgl::vk::Image>(device, imageSettings), VK_IMAGE_ASPECT_COLOR_BIT);
+        //colorRenderTargetImage->getImage()->transitionImageLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+        imageSettings = (*sceneData->sceneDepthTexture)->getImage()->getImageSettings();
+        imageSettings.numSamples = VkSampleCountFlagBits(numSamples);
+        imageSettings.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        depthRenderTargetImage = std::make_shared<sgl::vk::ImageView>(
+                std::make_shared<sgl::vk::Image>(device, imageSettings), VK_IMAGE_ASPECT_DEPTH_BIT);
+        //depthRenderTargetImage->getImage()->transitionImageLayout(VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL);
+    } else {
+        colorRenderTargetImage = (*sceneData->sceneTexture)->getImageView();
+        depthRenderTargetImage = (*sceneData->sceneDepthTexture)->getImageView();
+    }
+
+    lineRasterPass->setRenderTarget(colorRenderTargetImage, depthRenderTargetImage);
+    lineRasterPass->recreateSwapchain(width, height);
+    if (degeneratePointsRasterPass) {
+        degeneratePointsRasterPass->setRenderTarget(colorRenderTargetImage, depthRenderTargetImage);
+        degeneratePointsRasterPass->recreateSwapchain(width, height);
+    }
+    if (sphereRasterPass) {
+        sphereRasterPass->setRenderTarget(colorRenderTargetImage, depthRenderTargetImage);
+        sphereRasterPass->recreateSwapchain(width, height);
+    }
+    sphereRasterPass->setRenderTarget(colorRenderTargetImage, depthRenderTargetImage);
+}
+
 void OpaqueLineRenderer::render() {
-    LineRenderer::render();
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
+    LineRenderer::renderBase();
 
-    gatherShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
-    gatherShader->setUniform("lineWidth", lineWidth);
-    if (gatherShader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        gatherShader->setUniform("backgroundColor", backgroundColor);
-    }
-    glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-    glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
-    if (gatherShader->hasUniform("foregroundColor")) {
-        gatherShader->setUniform("foregroundColor", foregroundColor);
-    }
-    lineData->setUniformGatherShaderData(gatherShader);
-    setUniformData_Pass(gatherShader);
+    lineRasterPass->render();
 
-    if (useMultisampling) {
-        sgl::Renderer->bindFBO(msaaSceneFBO);
-        sgl::Renderer->clearFramebuffer(
-                GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, *sceneData->clearColor);
+    if (showDegeneratePoints && hasDegeneratePoints) {
+        degeneratePointsRasterPass->setPointWidth(pointWidth);
+        degeneratePointsRasterPass->setPointColor(glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+        degeneratePointsRasterPass->render();
     }
 
-    //if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
-        glDisable(GL_CULL_FACE);
-    //}
-    sgl::Renderer->render(shaderAttributes);
-    //if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
-        glEnable(GL_CULL_FACE);
-    //}
     if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
         LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
         if (lineDataStress->getShallRenderSeedingProcess()) {
             int currentSeedIdx = lineDataStress->getCurrentSeedIdx();
             if (currentSeedIdx >= 0) {
                 renderSphere(
-                        lineDataStress->getCurrentSeedPosition(), 0.006f, sgl::Color(255, 40, 0));
+                        lineDataStress->getCurrentSeedPosition(), 0.006f,
+                        sgl::Color(255, 40, 0));
             }
         }
     }
 
-    if (shaderAttributesDegeneratePoints && showDegeneratePoints && hasDegeneratePoints) {
-        gatherShaderPoints->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
-        gatherShaderPoints->setUniform("pointWidth", pointWidth);
-        gatherShaderPoints->setUniform("foregroundColor", foregroundColor);
-        gatherShaderPoints->setUniform("pointColor", glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
-        sgl::Renderer->render(shaderAttributesDegeneratePoints);
-    }
-
-    glDisable(GL_CULL_FACE);
-    glDepthMask(GL_FALSE);
-    renderHull();
-    glDepthMask(GL_TRUE);
-    glEnable(GL_CULL_FACE);
+    //renderHull(); // TODO
 
     if (useMultisampling) {
-        glDisable(GL_DEPTH_TEST);
-        glDepthMask(GL_FALSE);
-        sgl::Renderer->bindFBO(*sceneData->framebuffer);
-        sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-        sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-        sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-        sgl::Renderer->blitTexture(
-                msaaRenderTexture, sgl::AABB2(glm::vec2(-1, -1), glm::vec2(1, 1)));
-        glDepthMask(GL_TRUE);
-        glEnable(GL_DEPTH_TEST);
+        renderer->transitionImageLayout(
+                colorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        renderer->transitionImageLayout(
+                (*sceneData->sceneTexture)->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        renderer->resolveImage(
+                colorRenderTargetImage, (*sceneData->sceneTexture)->getImageView());
     }
+
+    //lineData->setUniformGatherShaderDataOpenGL(gatherShader);
+    //setUniformData_Pass(gatherShader);
 }
 
 void OpaqueLineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 
-    if (shaderAttributesDegeneratePoints && hasDegeneratePoints
+    if (degeneratePointsRasterPass && hasDegeneratePoints
             && propertyEditor.addCheckbox("Show Degenerate Points", &showDegeneratePoints)) {
         reRender = true;
     }
-    if (shaderAttributesDegeneratePoints && showDegeneratePoints && hasDegeneratePoints) {
-        if (shaderAttributesDegeneratePoints && propertyEditor.addSliderFloat(
+    if (degeneratePointsRasterPass && showDegeneratePoints && hasDegeneratePoints) {
+        if (propertyEditor.addSliderFloat(
                 "Point Width", &pointWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH)) {
+            degeneratePointsRasterPass->setPointWidth(pointWidth);
             reRender = true;
         }
     }
     if (maximumNumberOfSamples > 1) {
-        if (propertyEditor.addCheckbox("Multisampling", &useMultisampling)) {
+        if (propertyEditor.addCombo(
+                "Samples", &sampleModeSelection, sampleModeNames.data(), numSampleModes)) {
+            numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
+            useMultisampling = numSamples > 1;
             onResolutionChanged();
             reRender = true;
         }
-        if (useMultisampling) {
-            if (propertyEditor.addCombo(
-                    "Samples", &sampleModeSelection, sampleModeNames.data(), numSampleModes)) {
+        if (useMultisampling && supportsSampleShadingRate) {
+            if (propertyEditor.addCheckbox("Use Sample Shading", &useSamplingShading)) {
                 numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
+                useMultisampling = numSamples > 1;
+                onResolutionChanged();
+                reRender = true;
+            }
+            if (propertyEditor.addSliderFloatEdit(
+                    "Min. Sample Shading", &minSampleShading,
+                    0.0f, 1.0f) == ImGui::EditMode::INPUT_FINISHED) {
+                numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
+                useMultisampling = numSamples > 1;
                 onResolutionChanged();
                 reRender = true;
             }
         }
     }
+}
+
+
+
+MultisampledLineRasterPass::MultisampledLineRasterPass(LineRenderer* lineRenderer) : LineRasterPass(lineRenderer) {
+}
+
+void MultisampledLineRasterPass::setRenderTarget(
+        const sgl::vk::ImageViewPtr& colorImage, const sgl::vk::ImageViewPtr& depthImage) {
+    colorRenderTargetImage = colorImage;
+    depthRenderTargetImage = depthImage;
+    setDataDirty();
+}
+
+void MultisampledLineRasterPass::recreateSwapchain(uint32_t width, uint32_t height) {
+    framebuffer = std::make_shared<sgl::vk::Framebuffer>(device, width, height);
+
+    sgl::vk::AttachmentState attachmentState;
+    attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    framebuffer->setColorAttachment(
+            colorRenderTargetImage, 0, attachmentState,
+            sceneData->clearColor->getFloatColorRGBA());
+
+    sgl::vk::AttachmentState depthAttachmentState;
+    depthAttachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    framebuffer->setDepthStencilAttachment(
+            depthRenderTargetImage, depthAttachmentState, 1.0f);
+
+    framebufferDirty = true;
+    dataDirty = true;
+}
+
+void MultisampledLineRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
+    LineRasterPass::setGraphicsPipelineInfo(pipelineInfo);
+    pipelineInfo.setMinSampleShading(useSamplingShading, minSampleShading);
+}
+
+
+
+BilldboardSpheresRasterPass::BilldboardSpheresRasterPass(SceneData* sceneData)
+        : RasterPass(*sceneData->renderer), sceneData(sceneData), camera(sceneData->camera) {
+    uniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(UniformData), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+}
+
+void BilldboardSpheresRasterPass::setLineData(LineDataPtr& lineData, bool isNewData) {
+    PointRenderData pointRenderData = static_cast<LineDataStress*>(lineData.get())->getDegeneratePointsRenderData();
+    vertexBuffer = pointRenderData.vertexPositionBuffer;
+    setDataDirty();
+}
+
+void BilldboardSpheresRasterPass::setRenderTarget(
+        const sgl::vk::ImageViewPtr& colorImage, const sgl::vk::ImageViewPtr& depthImage) {
+    colorRenderTargetImage = colorImage;
+    depthRenderTargetImage = depthImage;
+    setDataDirty();
+}
+
+void BilldboardSpheresRasterPass::recreateSwapchain(uint32_t width, uint32_t height) {
+    framebuffer = std::make_shared<sgl::vk::Framebuffer>(device, width, height);
+
+    sgl::vk::AttachmentState attachmentState;
+    attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    attachmentState.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    framebuffer->setColorAttachment(
+            colorRenderTargetImage, 0, attachmentState,
+            sceneData->clearColor->getFloatColorRGBA());
+
+    sgl::vk::AttachmentState depthAttachmentState;
+    depthAttachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    depthAttachmentState.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    framebuffer->setDepthStencilAttachment(
+            depthRenderTargetImage, depthAttachmentState, 1.0f);
+
+    framebufferDirty = true;
+    dataDirty = true;
+}
+
+void BilldboardSpheresRasterPass::loadShader() {
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            {"Point.Vertex", "Point.Geometry", "Point.Fragment"});
+}
+
+void BilldboardSpheresRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
+    pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::POINT_LIST);
+    pipelineInfo.setVertexBufferBinding(0, sizeof(glm::vec3));
+    pipelineInfo.setInputAttributeDescription(0, 0, "vertexPosition");
+    pipelineInfo.setMinSampleShading(useSamplingShading, minSampleShading);
+}
+
+void BilldboardSpheresRasterPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
+    rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
+    rasterData->setVertexBuffer(vertexBuffer, "vertexPosition");
+    rasterData->setStaticBuffer(uniformDataBuffer, "UniformDataBuffer");
+}
+
+void BilldboardSpheresRasterPass::_render() {
+    glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
+    glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
+
+    glm::vec3 cameraPosition = (*camera)->getPosition();
+    uniformData.cameraPosition = cameraPosition;
+    uniformData.foregroundColor = foregroundColor;
+    uniformDataBuffer->updateData(
+            sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
+
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT);
+
+    RasterPass::_render();
+}
+
+
+
+SphereRasterPass::SphereRasterPass(SceneData* sceneData)
+        : RasterPass(*sceneData->renderer), sceneData(sceneData), camera(sceneData->camera) {
+    uniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(UniformData), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+    std::vector<glm::vec3> sphereVertexPositions;
+    std::vector<glm::vec3> sphereVertexNormals;
+    std::vector<uint32_t> sphereIndices;
+    getSphereSurfaceRenderData(
+            glm::vec3(0,0,0), 1.0f, 32, 32,
+            sphereVertexPositions, sphereVertexNormals, sphereIndices);
+}
+
+void SphereRasterPass::setRenderTarget(
+        const sgl::vk::ImageViewPtr& colorImage, const sgl::vk::ImageViewPtr& depthImage) {
+    colorRenderTargetImage = colorImage;
+    depthRenderTargetImage = depthImage;
+    setDataDirty();
+}
+
+void SphereRasterPass::recreateSwapchain(uint32_t width, uint32_t height) {
+    framebuffer = std::make_shared<sgl::vk::Framebuffer>(device, width, height);
+
+    sgl::vk::AttachmentState attachmentState;
+    attachmentState.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    framebuffer->setColorAttachment(
+            colorRenderTargetImage, 0, attachmentState,
+            sceneData->clearColor->getFloatColorRGBA());
+
+    sgl::vk::AttachmentState depthAttachmentState;
+    depthAttachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    depthAttachmentState.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    framebuffer->setDepthStencilAttachment(
+            depthRenderTargetImage, depthAttachmentState, 1.0f);
+
+    framebufferDirty = true;
+    dataDirty = true;
+}
+
+void SphereRasterPass::loadShader() {
+    shaderStages = sgl::vk::ShaderManager->getShaderStages({"Sphere.Vertex", "Sphere.Fragment"});
+}
+
+void SphereRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
+    pipelineInfo.setVertexBufferBinding(0, sizeof(glm::vec3));
+    pipelineInfo.setInputAttributeDescription(0, 0, "vertexPosition");
+    pipelineInfo.setInputAttributeDescription(1, 0, "vertexNormal");
+    pipelineInfo.setMinSampleShading(useSamplingShading, minSampleShading);
+}
+
+void SphereRasterPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
+    rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
+    rasterData->setIndexBuffer(indexBuffer);
+    rasterData->setVertexBuffer(vertexPositionBuffer, "vertexPosition");
+    rasterData->setVertexBuffer(vertexNormalBuffer, "vertexNormal");
+    rasterData->setStaticBuffer(uniformDataBuffer, "UniformDataBuffer");
+}
+
+void SphereRasterPass::_render() {
+    glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
+    glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
+
+    glm::vec3 cameraPosition = (*camera)->getPosition();
+    uniformData.cameraPosition = cameraPosition;
+    uniformData.backgroundColor = backgroundColor;
+    uniformData.foregroundColor = foregroundColor;
+    uniformDataBuffer->updateData(sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
+
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT);
+
+    RasterPass::_render();
 }

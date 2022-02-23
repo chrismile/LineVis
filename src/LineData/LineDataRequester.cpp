@@ -30,7 +30,6 @@
 
 #include "LineDataFlow.hpp"
 #include "LineDataStress.hpp"
-#include "LineDataMultiVar.hpp"
 #include "LineDataRequester.hpp"
 
 LineDataRequester::LineDataRequester(sgl::TransferFunctionWindow& transferFunctionWindow)

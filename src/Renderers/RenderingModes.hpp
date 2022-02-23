@@ -29,25 +29,44 @@
 #ifndef LINEVIS_RENDERINGMODES_HPP
 #define LINEVIS_RENDERINGMODES_HPP
 
-enum RenderingMode : int {
+enum RenderingMode : int32_t {
     RENDERING_MODE_NONE = -1,
-    RENDERING_MODE_ALL_LINES_OPAQUE = 0, RENDERING_MODE_PER_PIXEL_LINKED_LIST, RENDERING_MODE_MLAB,
-    RENDERING_MODE_OPACITY_OPTIMIZATION, RENDERING_MODE_DEPTH_COMPLEXITY, RENDERING_MODE_MBOIT,
-    RENDERING_MODE_MLAB_BUCKETS, RENDERING_MODE_WBOIT, RENDERING_MODE_DEPTH_PEELING,
-    RENDERING_MODE_VULKAN_RAY_TRACER, RENDERING_MODE_VOXEL_RAY_CASTING, RENDERING_MODE_VULKAN_TEST,
-    RENDERING_MODE_OSPRAY_RAY_TRACER,
+    RENDERING_MODE_ALL_LINES_OPAQUE = 0,
+    RENDERING_MODE_PER_PIXEL_LINKED_LIST = 1,
+    RENDERING_MODE_MLAB = 2,
+    RENDERING_MODE_OPACITY_OPTIMIZATION = 3,
+    RENDERING_MODE_DEPTH_COMPLEXITY = 4,
+    RENDERING_MODE_MBOIT = 5,
+    RENDERING_MODE_MLAB_BUCKETS = 6,
+    RENDERING_MODE_WBOIT = 7,
+    RENDERING_MODE_DEPTH_PEELING = 8,
+    RENDERING_MODE_VULKAN_RAY_TRACER = 9,
+    RENDERING_MODE_VOXEL_RAY_CASTING = 10,
+    RENDERING_MODE_OSPRAY_RAY_TRACER = 11,
 
     // For LineDataScattering:
-    RENDERING_MODE_LINE_DENSITY_MAP_RENDERER, RENDERING_MODE_VOLUMETRIC_PATH_TRACER,
-    RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER
+    RENDERING_MODE_LINE_DENSITY_MAP_RENDERER = 12,
+    RENDERING_MODE_VOLUMETRIC_PATH_TRACER = 13,
+    RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER = 14
 };
 const char* const RENDERING_MODE_NAMES[] = {
-        "Opaque", "Per-Pixel Linked Lists", "Multi-Layer Alpha Blending", "Opacity Optimization", "Depth Complexity",
-        "Moment-Based OIT", "MLAB (Buckets)", "WBOIT", "Depth Peeling", "Vulkan Ray Tracer", "Voxel Ray Casting",
-        "Vulkan Test", "OSPRay Ray Tracer",
+        "Opaque",
+        "Per-Pixel Linked Lists",
+        "Multi-Layer Alpha Blending",
+        "Opacity Optimization",
+        "Depth Complexity",
+        "Moment-Based OIT",
+        "MLAB (Buckets)",
+        "WBOIT",
+        "Depth Peeling",
+        "Vulkan Ray Tracer",
+        "Voxel Ray Casting",
+        "OSPRay Ray Tracer",
 
         // For LineDataScattering:
-        "Line Density Map Renderer", "Volumetric Path Tracer", "Spherical Heat Map Renderer"
+        "Line Density Map Renderer",
+        "Volumetric Path Tracer",
+        "Spherical Heat Map Renderer"
 };
 const int NUM_RENDERING_MODES = ((int)(sizeof(RENDERING_MODE_NAMES) / sizeof(*RENDERING_MODE_NAMES)));
 

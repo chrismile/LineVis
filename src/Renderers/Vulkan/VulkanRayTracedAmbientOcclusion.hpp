@@ -66,29 +66,25 @@ class VulkanRayTracedAmbientOcclusionPass;
 
 class VulkanRayTracedAmbientOcclusion : public AmbientOcclusionBaker {
 public:
-    VulkanRayTracedAmbientOcclusion(
-            SceneData* sceneData, sgl::vk::Renderer* rendererVk, bool isMainRenderer);
+    VulkanRayTracedAmbientOcclusion(SceneData* sceneData, sgl::vk::Renderer* rendererVk);
     ~VulkanRayTracedAmbientOcclusion();
 
     AmbientOcclusionBakerType getType() override { return AmbientOcclusionBakerType::VULKAN_RTAO; }
     bool getIsStaticPrebaker() override { return false; }
     void startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData) override;
-    void updateIterative(bool isVulkanRenderer) override;
-    void updateMultiThreaded(bool isVulkanRenderer) override {}
+    void updateIterative(VkPipelineStageFlags pipelineStageFlags) override;
+    void updateMultiThreaded(VkPipelineStageFlags pipelineStageFlags) override {}
     bool getIsDataReady() override { return isDataReady; }
     bool getIsComputationRunning() override { return accumulatedFramesCounter < maxNumAccumulatedFrames; }
     bool getHasComputationFinished() override { return hasComputationFinished; }
     bool getHasThreadUpdate() override { return false; }
 
-    sgl::GeometryBufferPtr getAmbientOcclusionBuffer() override { return {}; }
-    sgl::GeometryBufferPtr getBlendingWeightsBuffer() override { return {}; }
     sgl::vk::BufferPtr getAmbientOcclusionBufferVulkan() override { return {}; }
     sgl::vk::BufferPtr getBlendingWeightsBufferVulkan() override { return {}; }
     uint32_t getNumTubeSubdivisions() override { return 0; }
     uint32_t getNumLineVertices() override { return 0; }
     uint32_t getNumParametrizationVertices() override { return 0; }
 
-    sgl::TexturePtr getAmbientOcclusionFrameTexture() override;
     sgl::vk::TexturePtr getAmbientOcclusionFrameTextureVulkan() override;
     bool getHasTextureResolutionChanged() override;
 
@@ -103,12 +99,6 @@ public:
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
 private:
-    // OpenGL-Vulkan interoperability data.
-    sgl::SemaphoreVkGlInteropPtr renderReadySemaphore, renderFinishedSemaphore;
-
-    // Whether the stored renderer is the main renderer or a renderer owned by this class.
-    bool isMainRenderer;
-
     std::shared_ptr<VulkanRayTracedAmbientOcclusionPass> rtaoRenderPass;
 
     SceneData* sceneData;
@@ -133,7 +123,6 @@ public:
     inline void setFrameNumber(uint32_t frameNumber) { uniformData.frameNumber = frameNumber; }
 
     sgl::vk::TexturePtr getAmbientOcclusionTextureVk() { return resultTextureVk; }
-    sgl::TexturePtr getAmbientOcclusionTextureGl() { return resultTextureGl; }
 
     // Called when the camera has moved.
     void onHasMoved();
@@ -162,7 +151,6 @@ private:
     sgl::vk::TexturePtr accumulationTexture;
     sgl::vk::TexturePtr denoisedTexture;
     sgl::vk::TexturePtr resultTextureVk;
-    sgl::TexturePtr resultTextureGl;
 
     bool changedDenoiserSettings = false;
 

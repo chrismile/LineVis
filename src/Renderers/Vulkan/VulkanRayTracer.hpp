@@ -56,8 +56,7 @@ class Renderer;
 class RayTracingRenderPass;
 
 /**
- * A Vulkan ray tracer using the OpenGL-Vulkan interoperability support of sgl.
- * It supports both fully opaque and transparency rendering.
+ * A Vulkan ray tracer supporting both fully opaque and transparency rendering.
  *
  * Optionally, it also supports using multi-layer alpha tracing (MLAT) for accelerated, approximated order-independent
  * transparency (OIT) rendering. For more details on MLAT, please refer to:
@@ -66,11 +65,9 @@ class RayTracingRenderPass;
  */
 class VulkanRayTracer : public LineRenderer {
 public:
-    VulkanRayTracer(
-            SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
+    VulkanRayTracer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~VulkanRayTracer() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_VULKAN_RAY_TRACER; }
-    inline sgl::vk::Renderer* getVulkanRenderer() { return rendererVk; }
 
     /**
      * Re-generates the visualization mapping.
@@ -110,13 +107,7 @@ protected:
     void reloadGatherShader(bool canCopyShaderAttributes = true) override;
 
 private:
-    // OpenGL-Vulkan interoperability data.
-    sgl::vk::TexturePtr renderTextureVk;
-    sgl::TexturePtr renderTextureGl;
-    sgl::InteropSyncVkGlPtr interopSyncVkGl;
-
     // Vulkan render data.
-    sgl::vk::Renderer* rendererVk = nullptr;
     std::shared_ptr<RayTracingRenderPass> rayTracingRenderPass;
 
     // Whether to trace rays against a triangle mesh or analytic tubes using line segment AABBs.
@@ -145,7 +136,6 @@ public:
 
     // Public interface.
     void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
-    void setBackgroundColor(const glm::vec4& color);
     void setLineData(LineDataPtr& lineData, bool isNewData);
     void setRenderSimulationMeshHull(bool shallRenderSimulationMeshHull);
     inline void setNumSamplesPerFrame(uint32_t numSamples) {
@@ -191,26 +181,9 @@ private:
     VulkanHullTriangleRenderData hullTriangleRenderData;
     sgl::vk::TopLevelAccelerationStructurePtr topLevelAS;
 
-    // Uniform buffer object storing the camera settings.
-    struct CameraSettings {
-        glm::mat4 viewMatrix;
-        glm::mat4 projectionMatrix;
-        glm::mat4 inverseViewMatrix;
-        glm::mat4 inverseProjectionMatrix;
-    };
-    CameraSettings cameraSettings{};
-    sgl::vk::BufferPtr cameraSettingsBuffer;
-
     // Uniform buffer object storing the line rendering settings.
     void updateLineRenderSettings();
     struct RayTracerSettings {
-        glm::vec3 cameraPosition{};
-        float fieldOfViewY = 0.0f;
-        glm::vec4 backgroundColor{};
-        glm::vec4 foregroundColor{};
-        glm::ivec2 viewportSize{};
-        glm::ivec2 paddingVec;
-
         // The maximum number of transparent fragments to blend before stopping early.
         uint32_t maxDepthComplexity = 1024;
         // How many rays should be shot per frame?

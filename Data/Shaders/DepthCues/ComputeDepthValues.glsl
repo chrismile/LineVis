@@ -34,21 +34,24 @@
 
 layout (local_size_x = BLOCK_SIZE, local_size_y = 1, local_size_z = 1) in;
 
+layout (binding = 0) uniform UniformDataBuffer {
+    float nearDist; ///< The distance of the near plane.
+    float farDist; ///< The distance of the far plane.
+    uint numVertices; ///< Number of entries in VertexPositionBuffer.
+    uint padding;
+    mat4 cameraViewMatrix;
+    mat4 cameraProjectionMatrix;
+};
+
 // Size: numVertices
-layout (std430, binding = 12) readonly buffer VertexPositionBuffer {
+layout (std430, binding = 1) readonly buffer VertexPositionBuffer {
     vec4 vertexPositions[];
 };
 
 // Size: iceil(numVertices, BLOCK_SIZE)
-layout (std430, binding = 11) writeonly buffer DepthMinMaxOutBuffer {
-    vec2 depthMinMaxOutBuffer[];
+layout (std430, binding = 2) writeonly buffer DepthMinMaxOutBuffer {
+    vec4 depthMinMaxOutBuffer[];
 };
-
-uniform uint numVertices; ///< Number of entries in VertexPositionBuffer.
-uniform float nearDist; ///< The distance of the near plane.
-uniform float farDist; ///< The distance of the far plane.
-uniform mat4 cameraViewMatrix;
-uniform mat4 cameraProjectionMatrix;
 
 shared vec2 sharedMemoryMinMaxDepth[BLOCK_SIZE];
 
@@ -90,6 +93,6 @@ void main() {
     }
 
     if (localIdx == 0) {
-        depthMinMaxOutBuffer[reductionIdx] = sharedMemoryMinMaxDepth[0];
+        depthMinMaxOutBuffer[reductionIdx] = vec4(sharedMemoryMinMaxDepth[0], 0.0, 0.0);
     }
 }

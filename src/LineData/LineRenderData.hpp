@@ -46,31 +46,31 @@ typedef std::shared_ptr<Buffer> BufferPtr;
 }
 
 struct TubeRenderData {
-    sgl::GeometryBufferPtr indexBuffer;
-    sgl::GeometryBufferPtr vertexPositionBuffer;
-    sgl::GeometryBufferPtr vertexAttributeBuffer;
-    sgl::GeometryBufferPtr vertexNormalBuffer;
-    sgl::GeometryBufferPtr vertexTangentBuffer;
-    sgl::GeometryBufferPtr vertexRotationBuffer; ///< Only for flow lines.
-    sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Only for stress lines.
-    sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Only for stress lines.
-    sgl::GeometryBufferPtr vertexLineAppearanceOrderBuffer; ///< Only for stress lines.
-    sgl::GeometryBufferPtr vertexMajorStressBuffer; ///< Only for stress lines.
-    sgl::GeometryBufferPtr vertexMediumStressBuffer; ///< Only for stress lines.
-    sgl::GeometryBufferPtr vertexMinorStressBuffer; ///< Only for stress lines.
+    sgl::vk::BufferPtr indexBuffer;
+    sgl::vk::BufferPtr vertexPositionBuffer;
+    sgl::vk::BufferPtr vertexAttributeBuffer;
+    sgl::vk::BufferPtr vertexNormalBuffer;
+    sgl::vk::BufferPtr vertexTangentBuffer;
+    sgl::vk::BufferPtr vertexRotationBuffer; ///< Only for flow lines.
+    sgl::vk::BufferPtr vertexPrincipalStressIndexBuffer; ///< Only for stress lines.
+    sgl::vk::BufferPtr vertexLineHierarchyLevelBuffer; ///< Only for stress lines.
+    sgl::vk::BufferPtr vertexLineAppearanceOrderBuffer; ///< Only for stress lines.
+    sgl::vk::BufferPtr vertexMajorStressBuffer; ///< Only for stress lines.
+    sgl::vk::BufferPtr vertexMediumStressBuffer; ///< Only for stress lines.
+    sgl::vk::BufferPtr vertexMinorStressBuffer; ///< Only for stress lines.
 };
 
 struct BandRenderData {
-    sgl::GeometryBufferPtr indexBuffer;
-    sgl::GeometryBufferPtr vertexPositionBuffer;
-    sgl::GeometryBufferPtr vertexAttributeBuffer;
-    sgl::GeometryBufferPtr vertexNormalBuffer;
-    sgl::GeometryBufferPtr vertexTangentBuffer;
-    sgl::GeometryBufferPtr vertexOffsetLeftBuffer;
-    sgl::GeometryBufferPtr vertexOffsetRightBuffer;
-    sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
-    sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
-    sgl::GeometryBufferPtr vertexLineAppearanceOrderBuffer; ///< Empty for flow lines.
+    sgl::vk::BufferPtr indexBuffer;
+    sgl::vk::BufferPtr vertexPositionBuffer;
+    sgl::vk::BufferPtr vertexAttributeBuffer;
+    sgl::vk::BufferPtr vertexNormalBuffer;
+    sgl::vk::BufferPtr vertexTangentBuffer;
+    sgl::vk::BufferPtr vertexOffsetLeftBuffer;
+    sgl::vk::BufferPtr vertexOffsetRightBuffer;
+    sgl::vk::BufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
+    sgl::vk::BufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
+    sgl::vk::BufferPtr vertexLineAppearanceOrderBuffer; ///< Empty for flow lines.
 };
 
 /// For internal use of subclasses.
@@ -82,28 +82,28 @@ struct LinePointDataProgrammableFetch {
 };
 
 struct TubeRenderDataProgrammableFetch {
-    sgl::GeometryBufferPtr indexBuffer;
-    sgl::GeometryBufferPtr linePointsBuffer;
-    sgl::GeometryBufferPtr lineHierarchyLevelsBuffer; ///< Empty for flow lines.
+    sgl::vk::BufferPtr indexBuffer;
+    sgl::vk::BufferPtr linePointsBuffer;
+    sgl::vk::BufferPtr lineHierarchyLevelsBuffer; ///< Empty for flow lines.
 };
 
 struct TubeRenderDataOpacityOptimization {
-    sgl::GeometryBufferPtr indexBuffer;
-    sgl::GeometryBufferPtr vertexPositionBuffer;
-    sgl::GeometryBufferPtr vertexAttributeBuffer;
-    sgl::GeometryBufferPtr vertexTangentBuffer;
-    sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
-    sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
+    sgl::vk::BufferPtr indexBuffer;
+    sgl::vk::BufferPtr vertexPositionBuffer;
+    sgl::vk::BufferPtr vertexAttributeBuffer;
+    sgl::vk::BufferPtr vertexTangentBuffer;
+    sgl::vk::BufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
+    sgl::vk::BufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
 };
 
 struct PointRenderData {
-    sgl::GeometryBufferPtr vertexPositionBuffer;
+    sgl::vk::BufferPtr vertexPositionBuffer;
 };
 
 struct SimulationMeshOutlineRenderData {
-    sgl::GeometryBufferPtr indexBuffer;
-    sgl::GeometryBufferPtr vertexPositionBuffer;
-    sgl::GeometryBufferPtr vertexNormalBuffer;
+    sgl::vk::BufferPtr indexBuffer;
+    sgl::vk::BufferPtr vertexPositionBuffer;
+    sgl::vk::BufferPtr vertexNormalBuffer;
 };
 
 struct TubeTriangleVertexData {

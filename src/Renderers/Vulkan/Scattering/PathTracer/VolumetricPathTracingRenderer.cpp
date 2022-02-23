@@ -160,7 +160,7 @@ void VolumetricPathTracingRenderer::setFileDialogInstance(ImGuiFileDialog* fileD
 }
 
 void VolumetricPathTracingRenderer::render() {
-    LineRenderer::render();
+    LineRenderer::renderBase();
 
     if (lineData && lineData->getType() != DATA_SET_TYPE_SCATTERING_LINES) {
         return;
@@ -216,7 +216,7 @@ void VolumetricPathTracingRenderer::render() {
     glDisable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
 
-    sgl::Renderer->bindFBO(*sceneData->framebuffer);
+    //sgl::Renderer->bindFBO(*sceneData->framebuffer); // TODO
     sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
     sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());

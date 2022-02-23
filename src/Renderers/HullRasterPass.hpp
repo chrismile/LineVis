@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser, Michael Kern
+ * Copyright (c) 2022, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,49 +26,37 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef STRESSLINEVIS_MULTIVARWINDOW_HPP
-#define STRESSLINEVIS_MULTIVARWINDOW_HPP
+#ifndef LINEVIS_HULLRASTERPASS_HPP
+#define LINEVIS_HULLRASTERPASS_HPP
 
-#include <string>
-#include <vector>
+#include <Graphics/Vulkan/Render/Passes/Pass.hpp>
+#include "SceneData.hpp"
 
-#include <glm/glm.hpp>
-#include <Graphics/Color.hpp>
-#include <ImGui/ImGuiWrapper.hpp>
+class LineRenderer;
+class LineData;
+typedef std::shared_ptr<LineData> LineDataPtr;
 
-class MultiVarWindow {
+class HullRasterPass : public sgl::vk::RasterPass {
 public:
-    MultiVarWindow();
+    explicit HullRasterPass(LineRenderer* lineRenderer);
 
-    /// Render GUI elements.
-    bool renderGui();
-
-    void setAttributes(
-            const std::vector<std::vector<float>>& _variables,
-            const std::vector<std::string>& _names);
-
-    inline void setClearColor(const sgl::Color& _clearColor) {
-        clearColor = _clearColor;
-    }
-    inline void setShowWindow(const bool _showWindow ) {
-        showWindow = _showWindow ;
-    }
+    // Public interface.
+    void setLineData(LineDataPtr& lineData, bool isNewData);
+    void setCustomRenderTarget(const sgl::vk::ImageViewPtr& colorImage, const sgl::vk::ImageViewPtr& depthImage);
+    void recreateSwapchain(uint32_t width, uint32_t height) override;
 
 protected:
-    bool showWindow;
-    int32_t variableIndex;
-    sgl::Color clearColor;
-    int32_t histogramRes;
-    std::vector<std::vector<float>> attributes;
-    std::vector<std::string> names;
-    std::vector<std::vector<float>> histograms;
-    std::vector<glm::vec2> variablesMinMax;
+    void loadShader() override;
+    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
+    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
+    void _render() override;
 
-    void computeHistograms();
-    // Render a VIS graph for the currently selected variable
-    void renderVarChart();
-    // Render the settings to control the information plots
-    void renderSettings();
+    LineRenderer* lineRenderer = nullptr;
+    SceneData* sceneData;
+    sgl::CameraPtr* camera;
+    LineDataPtr lineData;
+    sgl::vk::ImageViewPtr colorRenderTargetImage;
+    sgl::vk::ImageViewPtr depthRenderTargetImage;
 };
 
-#endif //STRESSLINEVIS_MULTIVARWINDOW_HPP
+#endif //LINEVIS_HULLRASTERPASS_HPP

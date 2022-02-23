@@ -99,7 +99,7 @@ void PerPixelLinkedListLineRenderer::reloadResolveShader() {
 
 void PerPixelLinkedListLineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     LineRenderer::reloadGatherShader();
-    gatherShader = lineData->reloadGatherShader();
+    gatherShader = lineData->reloadGatherShaderOpenGL();
     if (canCopyShaderAttributes && shaderAttributes) {
         shaderAttributes = shaderAttributes->copy(gatherShader);
     }
@@ -166,7 +166,7 @@ void PerPixelLinkedListLineRenderer::setLineData(LineDataPtr& lineData, bool isN
     shaderAttributes = sgl::ShaderAttributesPtr();
     updateLargeMeshMode();
 
-    shaderAttributes = lineData->getGatherShaderAttributes(gatherShader);
+    shaderAttributes = lineData->getGatherShaderAttributesOpenGL(gatherShader);
 
     dirty = false;
     reRender = true;
@@ -221,7 +221,7 @@ void PerPixelLinkedListLineRenderer::onResolutionChanged() {
 }
 
 void PerPixelLinkedListLineRenderer::render() {
-    LineRenderer::render();
+    LineRenderer::renderBase();
 
     setUniformData();
     if ((*sceneData->performanceMeasurer)) {
@@ -260,7 +260,7 @@ void PerPixelLinkedListLineRenderer::setUniformData() {
         glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
         gatherShader->setUniform("foregroundColor", foregroundColor);
     }
-    lineData->setUniformGatherShaderData(gatherShader);
+    lineData->setUniformGatherShaderDataOpenGL(gatherShader);
     setUniformData_Pass(gatherShader);
 
     if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {

@@ -139,7 +139,7 @@ void MLABRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"MLABGather.glsl\"");
 
     LineRenderer::reloadGatherShader();
-    gatherShader = lineData->reloadGatherShader();
+    gatherShader = lineData->reloadGatherShaderOpenGL();
     if (canCopyShaderAttributes && shaderAttributes) {
         shaderAttributes = shaderAttributes->copy(gatherShader);
     }
@@ -193,7 +193,7 @@ void MLABRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 
     // Unload old data.
     shaderAttributes = sgl::ShaderAttributesPtr();
-    shaderAttributes = lineData->getGatherShaderAttributes(gatherShader);
+    shaderAttributes = lineData->getGatherShaderAttributesOpenGL(gatherShader);
 
     dirty = false;
     reRender = true;
@@ -245,7 +245,7 @@ void MLABRenderer::onResolutionChanged() {
 }
 
 void MLABRenderer::render() {
-    LineRenderer::render();
+    LineRenderer::renderBase();
 
     setUniformData();
     clear();
@@ -271,7 +271,7 @@ void MLABRenderer::setUniformData() {
         glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
         gatherShader->setUniform("foregroundColor", foregroundColor);
     }
-    lineData->setUniformGatherShaderData(gatherShader);
+    lineData->setUniformGatherShaderDataOpenGL(gatherShader);
     setUniformData_Pass(gatherShader);
 
     if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {

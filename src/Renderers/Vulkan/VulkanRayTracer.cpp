@@ -51,17 +51,9 @@
 
 using namespace sgl;
 
-VulkanRayTracer::VulkanRayTracer(
-        SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
-        : LineRenderer("Vulkan Ray Tracer", sceneData, transferFunctionWindow),
-        rendererVk(rendererVk) {
-    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    //renderReadySemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
-    //renderFinishedSemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
-    interopSyncVkGl = std::make_shared<sgl::InteropSyncVkGl>(device);
-
-    rayTracingRenderPass = std::make_shared<RayTracingRenderPass>(this, rendererVk, sceneData->camera);
-    rayTracingRenderPass->setBackgroundColor(sceneData->clearColor->getFloatColorRGBA());
+VulkanRayTracer::VulkanRayTracer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
+        : LineRenderer("Vulkan Ray Tracer", sceneData, transferFunctionWindow) {
+    rayTracingRenderPass = std::make_shared<RayTracingRenderPass>(this, renderer, sceneData->camera);
     rayTracingRenderPass->setNumSamplesPerFrame(numSamplesPerFrame);
     rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
     rayTracingRenderPass->setMaxDepthComplexity(maxDepthComplexity);
@@ -80,11 +72,6 @@ VulkanRayTracer::~VulkanRayTracer() {
 
     rayTracingRenderPass = {};
     ambientOcclusionBaker = {};
-
-    if (rendererVk) {
-        delete rendererVk;
-        rendererVk = nullptr;
-    }
 }
 
 void VulkanRayTracer::reloadGatherShader(bool canCopyShaderAttributes) {
@@ -126,58 +113,17 @@ void VulkanRayTracer::setVisualizeSeedingProcess(bool visualizeSeeding) {
 void VulkanRayTracer::onResolutionChanged() {
     LineRenderer::onResolutionChanged();
 
-    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     uint32_t width = *sceneData->viewportWidth;
     uint32_t height = *sceneData->viewportHeight;
 
-    sgl::vk::ImageSettings imageSettings;
-    imageSettings.width = width;
-    imageSettings.height = height;
-    imageSettings.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    imageSettings.exportMemory = true;
-    sgl::vk::ImageSamplerSettings samplerSettings;
-    renderTextureVk = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
-    renderTextureGl = sgl::TexturePtr(new sgl::TextureGLExternalMemoryVk(renderTextureVk));
-
-    rayTracingRenderPass->setOutputImage(renderTextureVk->getImageView());
+    rayTracingRenderPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
     rayTracingRenderPass->recreateSwapchain(width, height);
 
     accumulatedFramesCounter = 0;
 }
 
 void VulkanRayTracer::render() {
-    GLenum dstLayout = GL_NONE;
-	sgl::vk::Device* device = rendererVk->getDevice();
-	if (device->getDeviceDriverId() == VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS) {
-		dstLayout = GL_LAYOUT_GENERAL_EXT;
-	}
-
-    if (useDepthCues && lineData) {
-        computeDepthRange();
-        interopSyncVkGl->getRenderReadySemaphore()->signalSemaphoreGl(
-                { depthMinMaxBuffers[outputDepthMinMaxBufferIndex] },
-                { renderTextureGl }, { dstLayout });
-    } else {
-        interopSyncVkGl->getRenderReadySemaphore()->signalSemaphoreGl(renderTextureGl, dstLayout);
-    }
-
-    //if (accumulatedFramesCounter >= maxNumAccumulatedFrames) {
-    //    Logfile::get()->throwError(
-    //            "Error in VulkanRayTracer::render: accumulatedFramesCounter >= maxNumAccumulatedFrames. "
-    //            "This should never happen!");
-    //    accumulatedFramesCounter = 0;
-    //}
-
-    //sgl::vk::SemaphorePtr renderReadySemaphoreVk =
-    //        std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderReadySemaphore);
-    //sgl::vk::SemaphorePtr renderFinishedSemaphoreVk =
-    //        std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderFinishedSemaphore);
-
-    rendererVk->beginCommandBuffer();
-    rendererVk->getCommandBuffer()->pushWaitSemaphore(
-            interopSyncVkGl->getRenderReadySemaphoreVk(), VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
-
-    LineRenderer::render();
+    LineRenderer::renderBase(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
     if (ambientOcclusionBaker
             && ((ambientOcclusionBaker->getIsStaticPrebaker() && ambientOcclusionBuffersDirty)
             || (!ambientOcclusionBaker->getIsStaticPrebaker() && ambientOcclusionTexturesDirty))) {
@@ -186,44 +132,10 @@ void VulkanRayTracer::render() {
         ambientOcclusionTexturesDirty = false;
     }
 
-    rayTracingRenderPass->setBackgroundColor(sceneData->clearColor->getFloatColorRGBA());
     rayTracingRenderPass->setFrameNumber(accumulatedFramesCounter);
-    rayTracingRenderPass->setDepthMinMaxBuffer(depthMinMaxBuffersVk[outputDepthMinMaxBufferIndex]);
+    rayTracingRenderPass->setDepthMinMaxBuffer(depthMinMaxBuffers[outputDepthMinMaxBufferIndex]);
     rayTracingRenderPass->render();
 
-    rendererVk->getCommandBuffer()->pushSignalSemaphore(interopSyncVkGl->getRenderFinishedSemaphoreVk());
-    rendererVk->endCommandBuffer();
-
-    // Submit the rendering operation in Vulkan.
-    rendererVk->submitToQueue();
-    if (ambientOcclusionBaker && !ambientOcclusionBaker->getIsStaticPrebaker()) {
-        // For whatever reason, the application can hang in this case on NVIDIA hardware if we don't wait for the queue
-        // to become idle.
-        rendererVk->getDevice()->waitGraphicsQueueIdle();
-    }
-
-    // Wait for the rendering to finish on the Vulkan side.
-    if (useDepthCues && lineData) {
-        interopSyncVkGl->getRenderFinishedSemaphore()->waitSemaphoreGl(
-                { depthMinMaxBuffers[outputDepthMinMaxBufferIndex] },
-                { renderTextureGl }, { GL_LAYOUT_SHADER_READ_ONLY_EXT });
-    } else {
-        interopSyncVkGl->getRenderFinishedSemaphore()->waitSemaphoreGl(
-                renderTextureGl, GL_LAYOUT_SHADER_READ_ONLY_EXT);
-    }
-
-    // Now, blit the data using OpenGL to the scene texture.
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-
-    sgl::Renderer->bindFBO(*sceneData->framebuffer);
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-    sgl::Renderer->blitTexture(
-            renderTextureGl, sgl::AABB2(glm::vec2(-1, -1), glm::vec2(1, 1)));
-
-    interopSyncVkGl->frameFinished();
     accumulatedFramesCounter++;
 }
 
@@ -300,10 +212,6 @@ void VulkanRayTracer::update(float dt) {
 RayTracingRenderPass::RayTracingRenderPass(
         VulkanRayTracer* vulkanRayTracer, sgl::vk::Renderer* renderer, sgl::CameraPtr* camera)
         : RayTracingPass(renderer), vulkanRayTracer(vulkanRayTracer), camera(camera) {
-    cameraSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, sizeof(CameraSettings),
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY);
     rayTracerSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(RayTracerSettings),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -316,14 +224,6 @@ void RayTracingRenderPass::setOutputImage(sgl::vk::ImageViewPtr& imageView) {
     if (rayTracingData) {
         rayTracingData->setStaticImageView(sceneImageView, 1);
     }
-}
-
-void RayTracingRenderPass::setBackgroundColor(const glm::vec4& color) {
-    rayTracerSettings.backgroundColor = color;
-    rayTracerSettings.foregroundColor.x = 1.0f - color.x;
-    rayTracerSettings.foregroundColor.y = 1.0f - color.y;
-    rayTracerSettings.foregroundColor.z = 1.0f - color.z;
-    rayTracerSettings.foregroundColor.w = color.w;
 }
 
 void RayTracingRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
@@ -367,7 +267,7 @@ void RayTracingRenderPass::updateUseJitteredSamples() {
 void RayTracingRenderPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
-    lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines, false);
     vulkanRayTracer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
     if (useJitteredSamples) {
         preprocessorDefines.insert(std::make_pair("USE_JITTERED_RAYS", ""));
@@ -423,7 +323,6 @@ void RayTracingRenderPass::loadShader() {
 void RayTracingRenderPass::createRayTracingData(
         sgl::vk::Renderer* renderer, sgl::vk::RayTracingPipelinePtr& rayTracingPipeline) {
     rayTracingData = std::make_shared<sgl::vk::RayTracingData>(renderer, rayTracingPipeline);
-    rayTracingData->setStaticBuffer(cameraSettingsBuffer, "CameraSettingsBuffer");
     rayTracingData->setStaticImageView(sceneImageView, "outputImage");
     rayTracingData->setTopLevelAccelerationStructure(topLevelAS, "topLevelAS");
     rayTracingData->setStaticBuffer(rayTracerSettingsBuffer, "RayTracerSettingsBuffer");
@@ -471,58 +370,21 @@ void RayTracingRenderPass::createRayTracingData(
         rayTracingData->setStaticBuffer(indexBuffer, "HullIndexBuffer");
         rayTracingData->setStaticBuffer(vertexBuffer, "HullTriangleVertexDataBuffer");
     }
-    if (useDepthCues) {
-        rayTracingData->setStaticBuffer(depthMinMaxBuffer, "DepthMinMaxBuffer");
-    }
-    if (useAmbientOcclusion && ambientOcclusionBaker) {
-        if (ambientOcclusionBaker->getIsStaticPrebaker()) {
-            auto ambientOcclusionBuffer = ambientOcclusionBaker->getAmbientOcclusionBufferVulkan();
-            auto blendingWeightsBuffer = ambientOcclusionBaker->getBlendingWeightsBufferVulkan();
-            if (ambientOcclusionBuffer && blendingWeightsBuffer) {
-                rayTracingData->setStaticBuffer(ambientOcclusionBuffer, "AmbientOcclusionFactors");
-                rayTracingData->setStaticBuffer(blendingWeightsBuffer, "AmbientOcclusionBlendingWeights");
-            } else {
-                // Just bind anything in order for sgl to not complain...
-                sgl::vk::BufferPtr buffer =
-                        tubeTriangleRenderData.vertexBuffer
-                        ? tubeTriangleRenderData.vertexBuffer
-                        : hullTriangleRenderData.vertexBuffer;
-                rayTracingData->setStaticBuffer(buffer, "AmbientOcclusionFactors");
-                rayTracingData->setStaticBuffer(buffer, "AmbientOcclusionBlendingWeights");
-            }
-        } else {
-            auto ambientOcclusionTexture =
-                    ambientOcclusionBaker->getAmbientOcclusionFrameTextureVulkan();
-            rayTracingData->setStaticTexture(ambientOcclusionTexture, "ambientOcclusionTexture");
-        }
-    }
+    vulkanRayTracer->setRenderDataBindings(rayTracingData);
     lineData->setVulkanRenderDataDescriptors(std::static_pointer_cast<vk::RenderData>(rayTracingData));
 }
 
 void RayTracingRenderPass::updateLineRenderSettings() {
-    auto outputImageSettings = sceneImageView->getImage()->getImageSettings();
-    rayTracerSettings.cameraPosition = (*camera)->getPosition();
-    rayTracerSettings.fieldOfViewY = (*camera)->getFOVy();
-    rayTracerSettings.viewportSize = glm::ivec2(outputImageSettings.width, outputImageSettings.height);
-
     rayTracerSettingsBuffer->updateData(
             sizeof(RayTracerSettings), &rayTracerSettings, renderer->getVkCommandBuffer());
 
-    renderer->insertBufferMemoryBarrier(
+    renderer->insertMemoryBarrier(
             VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-            rayTracerSettingsBuffer);
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
 }
 
 void RayTracingRenderPass::_render() {
     updateLineRenderSettings();
-
-    cameraSettings.viewMatrix = (*camera)->getViewMatrix();
-    cameraSettings.projectionMatrix = (*camera)->getProjectionMatrixVulkan();
-    cameraSettings.inverseViewMatrix = glm::inverse((*camera)->getViewMatrix());
-    cameraSettings.inverseProjectionMatrix = glm::inverse((*camera)->getProjectionMatrixVulkan());
-    cameraSettingsBuffer->updateData(
-            sizeof(CameraSettings), &cameraSettings, renderer->getVkCommandBuffer());
 
     vk::ShaderGroupSettings shaderGroupSettings{};
     shaderGroupSettings.hitShaderGroupSize = lineData->getShallRenderSimulationMeshBoundary() ? 2 : 1;

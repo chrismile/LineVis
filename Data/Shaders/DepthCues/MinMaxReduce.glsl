@@ -34,28 +34,28 @@
 
 layout (local_size_x = BLOCK_SIZE) in;
 
+layout(push_constant) uniform PushConstants {
+    uint sizeOfInput; ///< Number of entries in MinMaxInBuffer.
+};
+
+layout (binding = 0) uniform UniformDataBuffer {
+    float nearDist; ///< The distance of the near plane.
+    float farDist; ///< The distance of the far plane.
+    uint numVertices; ///< Number of entries in VertexPositionBuffer.
+    uint padding;
+    mat4 cameraViewMatrix;
+    mat4 cameraProjectionMatrix;
+};
+
 // Size: sizeOfInput
-layout (std430, binding = 11) readonly buffer MinMaxInBuffer {
-    vec2 minMaxInBuffer[];
+layout (std430, binding = 1) readonly buffer MinMaxInBuffer {
+    vec4 minMaxInBuffer[];
 };
 
 // Size: iceil(sizeOfInput, BLOCK_SIZE*2))
-layout (std430, binding = 12) writeonly buffer MinMaxOutBuffer {
-    vec2 minMaxOutBuffer[];
+layout (std430, binding = 2) writeonly buffer MinMaxOutBuffer {
+    vec4 minMaxOutBuffer[];
 };
-
-#ifdef VULKAN
-layout (binding = 10) uniform UniformBuffer {
-    uint sizeOfInput; ///< Number of entries in MinMaxInBuffer.
-    uint padding;
-    float nearDist; ///< The distance of the near plane.
-    float farDist; ///< The distance of the far plane.
-};
-#else
-uniform uint sizeOfInput; ///< Number of entries in MinMaxInBuffer.
-uniform float nearDist; ///< The distance of the near plane.
-uniform float farDist; ///< The distance of the far plane.
-#endif
 
 shared vec2 sharedMemoryMinMax[BLOCK_SIZE];
 
@@ -68,14 +68,14 @@ void main() {
 
     // Copy the data to the shared memory and do the first reduction step.
     if (i + gl_WorkGroupSize.x < sizeOfInput){
-        vec2 minMax0 = minMaxInBuffer[i];
-        vec2 minMax1 = minMaxInBuffer[i + gl_WorkGroupSize.x];
+        vec2 minMax0 = minMaxInBuffer[i].xy;
+        vec2 minMax1 = minMaxInBuffer[i + gl_WorkGroupSize.x].xy;
         sharedMemoryMinMax[threadId] = vec2(
                 min(minMax0.x, minMax1.x),
                 max(minMax0.y, minMax1.y)
         );
     } else if (i < sizeOfInput){
-        sharedMemoryMinMax[threadId] = minMaxInBuffer[i];
+        sharedMemoryMinMax[threadId] = minMaxInBuffer[i].xy;
     } else{
         sharedMemoryMinMax[threadId] = vec2(farDist, nearDist);
     }
@@ -98,6 +98,6 @@ void main() {
 
     // Write the result for this block to global memory.
     if (threadId == 0) {
-        minMaxOutBuffer[gl_WorkGroupID.x] = sharedMemoryMinMax[0];
+        minMaxOutBuffer[gl_WorkGroupID.x] = vec4(sharedMemoryMinMax[0], 0.0, 0.0);
     }
 }

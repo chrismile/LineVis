@@ -30,12 +30,13 @@
 
 #version 450 core
 
+#include "LineUniformData.glsl"
+
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in vec3 vertexNormal;
 
-out vec3 fragmentPositionWorld;
-out vec3 fragmentNormal;
-out vec4 fragmentColor;
+layout(location = 0) out vec3 fragmentPositionWorld;
+layout(location = 1) out vec3 fragmentNormal;
 
 void main() {
     fragmentNormal = vertexNormal;
@@ -47,17 +48,14 @@ void main() {
 
 #version 450 core
 
-uniform vec4 color;
+#include "LineUniformData.glsl"
 
-in vec3 fragmentPositionWorld;
-in vec3 fragmentNormal;
+layout(location = 0) in vec3 fragmentPositionWorld;
+layout(location = 1) in vec3 fragmentNormal;
 
 #if defined(DIRECT_BLIT_GATHER)
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 #endif
-
-uniform vec3 cameraPosition; // in world space
-uniform int useShading = 1;
 
 #if !defined(DIRECT_BLIT_GATHER)
 #include OIT_GATHER_HEADER
@@ -70,10 +68,10 @@ uniform int useShading = 1;
 
 void main() {
     vec4 phongColor;
-    if (useShading == 1) {
-        phongColor = blinnPhongShading(color, fragmentNormal);
+    if (hullUseShading == 1) {
+        phongColor = blinnPhongShading(hullColor, fragmentNormal);
     } else {
-        phongColor = color;
+        phongColor = hullColor;
     }
 
     vec3 viewDir = normalize(cameraPosition - fragmentPositionWorld);

@@ -62,7 +62,6 @@
 
 #include "LineData/LineDataFlow.hpp"
 #include "LineData/LineDataStress.hpp"
-#include "LineData/LineDataMultiVar.hpp"
 #include "LineData/Filters/LineLengthFilter.hpp"
 #include "LineData/Filters/MaxLineAttributeFilter.hpp"
 #include "LineData/Flow/StreamlineTracingRequester.hpp"
@@ -80,7 +79,6 @@
 #include "Renderers/VRC/VoxelRayCastingRenderer.hpp"
 
 #include "Renderers/Vulkan/VulkanRayTracer.hpp"
-#include "Renderers/Vulkan/VulkanTestRenderer.hpp"
 #include "Renderers/Vulkan/Scattering/LineDensityMapRenderer.hpp"
 #include "Renderers/Vulkan/Scattering/SphericalHeatMapRenderer.hpp"
 #include "Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracingRenderer.hpp"
@@ -238,9 +236,6 @@ MainApp::MainApp()
             if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
                 LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
                 multiVarTransferFunctionWindow = &lineDataStress->getMultiVarTransferFunctionWindow();
-            } else if (lineData->getType() == DATA_SET_TYPE_FLOW_LINES_MULTIVAR) {
-                LineDataMultiVar* lineDataMultiVar = static_cast<LineDataMultiVar*>(lineData.get());
-                multiVarTransferFunctionWindow = &lineDataMultiVar->getMultiVarTransferFunctionWindow();
             } else {
                 sgl::Logfile::get()->writeError(
                         "ERROR in replay widget load multi-var transfer functions callback: Invalid data type .");
@@ -259,9 +254,6 @@ MainApp::MainApp()
             if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
                 LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
                 multiVarTransferFunctionWindow = &lineDataStress->getMultiVarTransferFunctionWindow();
-            } else if (lineData->getType() == DATA_SET_TYPE_FLOW_LINES_MULTIVAR) {
-                LineDataMultiVar* lineDataMultiVar = static_cast<LineDataMultiVar*>(lineData.get());
-                multiVarTransferFunctionWindow = &lineDataMultiVar->getMultiVarTransferFunctionWindow();
             } else {
                 sgl::Logfile::get()->writeError(
                         "ERROR in replay widget multi-var transfer functions ranges callback: Invalid data type .");
@@ -393,9 +385,6 @@ MainApp::MainApp()
     }
 
     addNewDataView();
-    if (dataViews.size() == 1) {
-        initializeFirstDataView();
-    }
 
     recordingTimeStampStart = sgl::Timer->getTicksMicroseconds();
     usesNewState = true;
@@ -617,15 +606,25 @@ void MainApp::setRenderer(
     } else if (newRenderingMode == RENDERING_MODE_MLAB_BUCKETS) {
         newLineRenderer = new MLABBucketRenderer(&sceneDataRef, transferFunctionWindow);
     } else if (newRenderingMode == RENDERING_MODE_WBOIT) {
-        newLineRenderer = new WBOITRenderer(&sceneDataRef, transferFunctionWindow);
+        if (sgl::AppSettings::get()->getPrimaryDevice()->getPhysicalDeviceFeatures().independentBlend) {
+            newLineRenderer = new WBOITRenderer(&sceneDataRef, transferFunctionWindow);
+        } else {
+            std::string warningText =
+                    std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
+                    + "supported on this hardware due to the missing independentBlend physical device feature.";
+            sgl::Logfile::get()->writeWarning(
+                    "Warning in MainApp::setRenderer: " + warningText, false);
+            auto handle = sgl::dialog::openMessageBox(
+                    "Unsupported Renderer", warningText, sgl::dialog::Icon::WARNING);
+            nonBlockingMsgBoxHandles.push_back(handle);
+            newRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+            newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
+        }
     } else if (newRenderingMode == RENDERING_MODE_DEPTH_PEELING) {
         newLineRenderer = new DepthPeelingRenderer(&sceneDataRef, transferFunctionWindow);
-    } else if (newRenderingMode == RENDERING_MODE_VULKAN_RAY_TRACER
-             && sgl::AppSettings::get()->getVulkanInteropCapabilities()
-                == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
+    } else if (newRenderingMode == RENDERING_MODE_VULKAN_RAY_TRACER) {
         if (sgl::AppSettings::get()->getPrimaryDevice()->getRayTracingPipelineSupported()) {
-            auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
-            newLineRenderer = new VulkanRayTracer(&sceneDataRef, transferFunctionWindow, renderer);
+            newLineRenderer = new VulkanRayTracer(&sceneDataRef, transferFunctionWindow);
         } else {
             std::string warningText =
                     std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
@@ -640,32 +639,24 @@ void MainApp::setRenderer(
         }
     } else if (newRenderingMode == RENDERING_MODE_VOXEL_RAY_CASTING) {
         newLineRenderer = new VoxelRayCastingRenderer(&sceneDataRef, transferFunctionWindow);
-    } else if (newRenderingMode == RENDERING_MODE_VULKAN_TEST
-             && sgl::AppSettings::get()->getVulkanInteropCapabilities()
-                == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
-        auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
-        newLineRenderer = new VulkanTestRenderer(&sceneDataRef, transferFunctionWindow, renderer);
     }
 #ifdef USE_OSPRAY
     else if (newRenderingMode == RENDERING_MODE_OSPRAY_RAY_TRACER) {
         newLineRenderer = new OsprayRenderer(&sceneDataRef, transferFunctionWindow);
     }
 #endif
-    else if (newRenderingMode == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER
-             && sgl::AppSettings::get()->getVulkanInteropCapabilities()
-                == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
+    else if (newRenderingMode == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
         auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
         newLineRenderer = new LineDensityMapRenderer(&sceneDataRef, transferFunctionWindow, renderer);
-    } else if (newRenderingMode == RENDERING_MODE_VOLUMETRIC_PATH_TRACER
-               && sgl::AppSettings::get()->getVulkanInteropCapabilities()
-                  == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
+    } else if (newRenderingMode == RENDERING_MODE_VOLUMETRIC_PATH_TRACER) {
         auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
         newLineRenderer = new VolumetricPathTracingRenderer(&sceneDataRef, transferFunctionWindow, renderer);
     } else if (newRenderingMode == RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER) {
         newLineRenderer = new SphericalHeatMapRenderer(&sceneDataRef, transferFunctionWindow);
     } else {
+        int idx = std::clamp(int(newRenderingMode), 0, IM_ARRAYSIZE(RENDERING_MODE_NAMES) - 1);
         std::string warningText =
-                std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
+                std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[idx] + "\" is not "
                 + "supported in this build configuration or incompatible with this system.";
         sgl::Logfile::get()->writeWarning("Warning in MainApp::setRenderer: " + warningText, false);
         auto handle = sgl::dialog::openMessageBox(
@@ -730,6 +721,7 @@ void MainApp::render() {
     ZoneScoped;
 
     if (scheduledRecreateSceneFramebuffer) {
+        device->waitIdle();
         createSceneFramebuffer();
         scheduledRecreateSceneFramebuffer = false;
     }
@@ -786,6 +778,19 @@ void MainApp::render() {
     }
 
     SciVisApp::postRender();
+
+    if (useDockSpaceMode && !dataViews.empty() && !uiOnScreenshot && recording && !isFirstRecordingFrame) {
+        auto dataView = dataViews.at(0);
+        if (dataView->viewportWidth > 0 && dataView->viewportHeight > 0) {
+            rendererVk->transitionImageLayout(
+                    dataView->compositedTextureVk->getImage(),
+                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            videoWriter->pushFramebufferImage(dataView->compositedTextureVk->getImage());
+            rendererVk->transitionImageLayout(
+                    dataView->compositedTextureVk->getImage(),
+                    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        }
+    }
 }
 
 void MainApp::renderGui() {
@@ -857,6 +862,10 @@ void MainApp::renderGui() {
     }
 
     if (useDockSpaceMode) {
+        if (isFirstFrame && dataViews.size() == 1) {
+            //initializeFirstDataView(); // TODO
+        }
+
         ImGuiID dockSpaceId = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
         ImGuiDockNode* centralNode = ImGui::DockBuilderGetNode(dockSpaceId);
         static bool isProgramStartup = true;
@@ -928,6 +937,7 @@ void MainApp::renderGui() {
                     }
                     if (int(sizeContent.x) != int(dataView->viewportWidth)
                             || int(sizeContent.y) != int(dataView->viewportHeight)) {
+                        rendererVk->getDevice()->waitIdle();
                         dataView->resize(int(sizeContent.x), int(sizeContent.y));
                         if (dataView->lineRenderer && dataView->viewportWidth > 0 && dataView->viewportHeight > 0) {
                             dataView->lineRenderer->onResolutionChanged();
@@ -971,25 +981,18 @@ void MainApp::renderGui() {
                     if (dataView->viewportWidth > 0 && dataView->viewportHeight > 0) {
                         if (!uiOnScreenshot && screenshot) {
                             printNow = true;
-                            sgl::Renderer->bindFBO(dataView->getSceneFramebuffer());
-                            customScreenshotWidth = int(dataView->viewportWidth);
-                            customScreenshotHeight = int(dataView->viewportHeight);
                             std::string screenshotFilename =
                                     saveDirectoryScreenshots + saveFilenameScreenshots
                                     + "_" + sgl::toString(screenshotNumber);
-                            if (dataViews.size() > 1) {
-                                screenshotFilename += "_" + std::to_string(i);
-                            }
                             screenshotFilename += ".png";
-                            saveScreenshot(screenshotFilename);
-                            customScreenshotWidth = -1;
-                            customScreenshotHeight = -1;
-                            sgl::Renderer->unbindFBO();
+
+                            dataView->screenshotReadbackHelper->setScreenshotTransparentBackground(
+                                    screenshotTransparentBackground);
+                            dataView->saveScreenshot(screenshotFilename);
+                            screenshot = false;
+
                             printNow = false;
                             screenshot = true;
-                        }
-                        if (!uiOnScreenshot && recording && !isFirstRecordingFrame && i == 0) {
-                            videoWriter->pushFramebuffer(dataView->getSceneFramebuffer());
                         }
 
                         if (isViewOpen) {
@@ -1029,12 +1032,6 @@ void MainApp::renderGui() {
         if (!uiOnScreenshot && screenshot) {
             screenshot = false;
             screenshotNumber++;
-        }
-        if (!dataViews.empty()) {
-            sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-            int width = window->getWidth();
-            int height = window->getHeight();
-            glViewport(0, 0, width, height);
         }
         reRender = false;
     } else {
@@ -1298,7 +1295,7 @@ void MainApp::renderGuiGeneralSettingsPropertyEditor() {
 }
 
 void MainApp::addNewDataView() {
-    DataViewPtr dataView = std::make_shared<DataView>(&sceneData, gammaCorrectionShader);
+    DataViewPtr dataView = std::make_shared<DataView>(&sceneData);
     dataView->useLinearRGB = useLinearRGB;
     dataView->clearColor = clearColor;
     dataViews.push_back(dataView);
@@ -1494,6 +1491,7 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
         if (propertyEditor.beginNode(lineData->getLineDataWindowName())) {
             bool reloadGatherShader = lineData->renderGuiPropertyEditorNodes(propertyEditor);
             if (reloadGatherShader) {
+                rendererVk->getDevice()->waitIdle();
                 if (useDockSpaceMode) {
                     for (DataViewPtr& dataView : dataViews) {
                         dataView->lineRenderer->reloadGatherShaderExternal();
@@ -1909,9 +1907,6 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames, bool bl
     } else if (dataSetType == DATA_SET_TYPE_STRESS_LINES) {
         LineDataStress* lineDataStress = new LineDataStress(transferFunctionWindow);
         lineData = LineDataPtr(lineDataStress);
-    } else if (dataSetType == DATA_SET_TYPE_FLOW_LINES_MULTIVAR) {
-        LineDataMultiVar* lineDataMultiVar = new LineDataMultiVar(transferFunctionWindow);
-        lineData = LineDataPtr(lineDataMultiVar);
     } else {
         sgl::Logfile::get()->writeError("Error in MainApp::loadLineDataSet: Invalid data set type.");
         return;
@@ -2066,6 +2061,7 @@ void MainApp::prepareVisualizationPipeline() {
                 bool isTriangleRepresentationDirtyLocal =
                         isTriangleRepresentationDirty && dataView->lineRenderer->getIsTriangleRepresentationUsed();
                 if (dataView->lineRenderer->isDirty() || isPreviousNodeDirty || isTriangleRepresentationDirtyLocal) {
+                    rendererVk->getDevice()->waitIdle();
                     dataView->lineRenderer->setLineData(lineData, newMeshLoaded);
                 }
             }
@@ -2080,20 +2076,9 @@ void MainApp::prepareVisualizationPipeline() {
                 lineData->setTriangleRepresentationDirty();
             }
             if (lineRenderer->isDirty() || isPreviousNodeDirty || isTriangleRepresentationDirty) {
+                rendererVk->getDevice()->waitIdle();
                 lineRenderer->setLineData(lineData, newMeshLoaded);
             }
-        }
-    }
-    if (lineData && lineRenderer) {
-        bool isPreviousNodeDirty = lineData->isDirty();
-        bool isTriangleRepresentationDirty =
-                lineData->isTriangleRepresentationDirty() && lineRenderer->getIsTriangleRepresentationUsed();
-        filterData(isPreviousNodeDirty);
-        if (isPreviousNodeDirty) {
-            lineData->setTriangleRepresentationDirty();
-        }
-        if (lineRenderer->isDirty() || isPreviousNodeDirty || isTriangleRepresentationDirty) {
-            lineRenderer->setLineData(lineData, newMeshLoaded);
         }
     }
     newMeshLoaded = false;

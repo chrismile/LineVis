@@ -30,6 +30,8 @@
 
 #version 430 core
 
+#include "LineUniformData.glsl"
+
 struct LinePointData {
     vec3 vertexPosition;
     float vertexAttribute;
@@ -37,42 +39,39 @@ struct LinePointData {
     uint vertexPrincipalStressIndex;
 };
 
-layout (std430, binding = 2) buffer LinePoints {
+layout (std430, binding = LINE_POINTS_BUFFER_BINDING) buffer LinePoints {
     LinePointData linePoints[];
 };
 #ifdef USE_LINE_HIERARCHY_LEVEL
-layout (std430, binding = 3) buffer LineHierarchyLevels {
+layout (std430, binding = LINE_HIERARCHY_LEVELS_BUFFER_BINDING) buffer LineHierarchyLevels {
     float lineHierarchyLevels[];
 };
 #endif
 
-out vec3 fragmentPositionWorld;
+layout(location = 0) out vec3 fragmentPositionWorld;
 #ifdef USE_SCREEN_SPACE_POSITION
-out vec3 screenSpacePosition;
+layout(location = 1) out vec3 screenSpacePosition;
 #endif
-out float fragmentAttribute;
-out vec3 fragmentTangent;
-out float fragmentNormalFloat; // Between -1 and 1
-out vec3 normal0;
-out vec3 normal1;
+layout(location = 2) out float fragmentAttribute;
+layout(location = 3) out vec3 fragmentTangent;
+layout(location = 4) out float fragmentNormalFloat; // Between -1 and 1
+layout(location = 5) out vec3 normal0;
+layout(location = 6) out vec3 normal1;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
-flat out uint fragmentPrincipalStressIndex;
+layout(location = 7) flat out uint fragmentPrincipalStressIndex;
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
-flat out float fragmentLineHierarchyLevel;
+layout(location = 8) flat out float fragmentLineHierarchyLevel;
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
-flat out uint fragmentLineAppearanceOrder;
+layout(location = 9) flat out uint fragmentLineAppearanceOrder;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-out float fragmentVertexId;
+layout(location = 10) out float fragmentVertexId;
 #endif
 
-uniform vec3 cameraPosition;
-uniform float lineWidth;
-
 void main() {
-    uint pointIndex = gl_VertexID/2;
+    uint pointIndex = gl_VertexIndex / 2;
     LinePointData linePointData = linePoints[pointIndex];
     vec3 linePoint = (mMatrix * vec4(linePointData.vertexPosition, 1.0)).xyz;
     vec3 tangent = normalize(linePointData.vertexTangent);
@@ -81,7 +80,7 @@ void main() {
     vec3 offsetDirection = normalize(cross(viewDirection, tangent));
     vec3 vertexPosition;
     float shiftSign = 1.0f;
-    if (gl_VertexID % 2 == 0) {
+    if (gl_VertexIndex % 2 == 0) {
         shiftSign = -1.0;
     }
     vertexPosition = linePoint + shiftSign * lineWidth * 0.5 * offsetDirection;
@@ -130,24 +129,23 @@ layout(location = 5) in float vertexLineHierarchyLevel;
 layout(location = 6) in uint vertexLineAppearanceOrder;
 #endif
 
-out VertexData {
-    vec3 linePosition;
-    float lineAttribute;
-    vec3 lineTangent;
+layout(location = 0) out vec3 linePosition;
+layout(location = 1) out float lineAttribute;
+layout(location = 2) out vec3 lineTangent;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
-    uint linePrincipalStressIndex;
+layout(location = 3) out uint linePrincipalStressIndex;
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
-    float lineLineHierarchyLevel;
+layout(location = 4) out float lineLineHierarchyLevel;
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
-    uint lineLineAppearanceOrder;
+layout(location = 5) out uint lineLineAppearanceOrder;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-    uint lineVertexId;
+layout(location = 6) out uint lineVertexId;
 #endif
-};
 
+#include "LineUniformData.glsl"
 #include "TransferFunction.glsl"
 
 void main() {
@@ -164,7 +162,7 @@ void main() {
     lineLineAppearanceOrder = vertexLineAppearanceOrder;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-    lineVertexId = uint(gl_VertexID);
+    lineVertexId = uint(gl_VertexIndex);
 #endif
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
 }
@@ -176,55 +174,51 @@ void main() {
 layout(lines) in;
 layout(triangle_strip, max_vertices = 4) out;
 
-uniform vec3 cameraPosition;
-uniform float lineWidth;
+#include "LineUniformData.glsl"
 
-out vec3 fragmentPositionWorld;
+layout(location = 0) in vec3 linePosition[];
+layout(location = 1) in float lineAttribute[];
+layout(location = 2) in vec3 lineTangent[];
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
+layout(location = 3) in uint linePrincipalStressIndex[];
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+layout(location = 4) in float lineLineHierarchyLevel[];
+#endif
+#ifdef VISUALIZE_SEEDING_PROCESS
+layout(location = 5) in uint lineLineAppearanceOrder[];
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+layout(location = 6) in uint lineVertexId[];
+#endif
+
+layout(location = 0) out vec3 fragmentPositionWorld;
 #ifdef USE_SCREEN_SPACE_POSITION
-out vec3 screenSpacePosition;
+layout(location = 1) out vec3 screenSpacePosition;
 #endif
-out float fragmentAttribute;
-out vec3 fragmentTangent;
-out float fragmentNormalFloat; // Between -1 and 1
-out vec3 normal0;
-out vec3 normal1;
+layout(location = 2) out float fragmentAttribute;
+layout(location = 3) out vec3 fragmentTangent;
+layout(location = 4) out float fragmentNormalFloat; // Between -1 and 1
+layout(location = 5) out vec3 normal0;
+layout(location = 6) out vec3 normal1;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
-flat out uint fragmentPrincipalStressIndex;
+layout(location = 7) flat out uint fragmentPrincipalStressIndex;
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
-flat out float fragmentLineHierarchyLevel;
+layout(location = 8) flat out float fragmentLineHierarchyLevel;
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
-flat out uint fragmentLineAppearanceOrder;
+layout(location = 9) flat out uint fragmentLineAppearanceOrder;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-out float fragmentVertexId;
-out vec3 fragmentLineNormal;
+layout(location = 10) out float fragmentVertexId;
 #endif
-
-in VertexData {
-    vec3 linePosition;
-    float lineAttribute;
-    vec3 lineTangent;
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
-    uint linePrincipalStressIndex;
-#endif
-#ifdef USE_LINE_HIERARCHY_LEVEL
-    float lineLineHierarchyLevel;
-#endif
-#ifdef VISUALIZE_SEEDING_PROCESS
-    uint lineLineAppearanceOrder;
-#endif
-#ifdef USE_AMBIENT_OCCLUSION
-    uint lineVertexId;
-#endif
-} v_in[];
 
 void main() {
-    vec3 linePosition0 = (mMatrix * vec4(v_in[0].linePosition, 1.0)).xyz;
-    vec3 linePosition1 = (mMatrix * vec4(v_in[1].linePosition, 1.0)).xyz;
-    vec3 tangent0 = normalize(v_in[0].lineTangent);
-    vec3 tangent1 = normalize(v_in[1].lineTangent);
+    vec3 linePosition0 = (mMatrix * vec4(linePosition[0], 1.0)).xyz;
+    vec3 linePosition1 = (mMatrix * vec4(linePosition[1], 1.0)).xyz;
+    vec3 tangent0 = normalize(lineTangent[0]);
+    vec3 tangent1 = normalize(lineTangent[1]);
 
     vec3 viewDirection0 = normalize(cameraPosition - linePosition0);
     vec3 viewDirection1 = normalize(cameraPosition - linePosition1);
@@ -236,21 +230,22 @@ void main() {
     const mat4 pvMatrix = pMatrix * vMatrix;
 
     // Vertex 0
-    fragmentAttribute = v_in[0].lineAttribute;
+    vec3 v0Normal0 = normalize(cross(tangent0, offsetDirection0));
+    fragmentAttribute = lineAttribute[0];
     fragmentTangent = tangent0;
-    normal0 = normalize(cross(tangent0, offsetDirection0));
+    normal0 = v0Normal0;
     normal1 = offsetDirection0;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
-    fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[0];
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
-    fragmentLineHierarchyLevel = v_in[0].lineLineHierarchyLevel;
+    fragmentLineHierarchyLevel = lineLineHierarchyLevel[0];
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
-    fragmentLineAppearanceOrder = v_in[0].lineLineAppearanceOrder;
+    fragmentLineAppearanceOrder = lineLineAppearanceOrder[0];
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-    fragmentVertexId = float(v_in[0].lineVertexId);
+    fragmentVertexId = float(lineVertexId[0]);
 #endif
 
     vertexPosition = linePosition0 - lineRadius * offsetDirection0;
@@ -262,6 +257,23 @@ void main() {
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
+    fragmentAttribute = lineAttribute[0];
+    fragmentTangent = tangent0;
+    normal0 = v0Normal0;
+    normal1 = offsetDirection0;
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[0];
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    fragmentLineHierarchyLevel = lineLineHierarchyLevel[0];
+#endif
+#ifdef VISUALIZE_SEEDING_PROCESS
+    fragmentLineAppearanceOrder = lineLineAppearanceOrder[0];
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    fragmentVertexId = float(lineVertexId[0]);
+#endif
+
     vertexPosition = linePosition0 + lineRadius * offsetDirection0;
     fragmentPositionWorld = vertexPosition;
 #ifdef USE_SCREEN_SPACE_POSITION
@@ -272,21 +284,22 @@ void main() {
     EmitVertex();
 
     // Vertex 1
-    fragmentAttribute = v_in[1].lineAttribute;
+    vec3 v1Normal0 = normalize(cross(tangent1, offsetDirection1));
+    fragmentAttribute = lineAttribute[1];
     fragmentTangent = tangent1;
-    normal0 = normalize(cross(tangent1, offsetDirection1));
+    normal0 = v1Normal0;
     normal1 = offsetDirection1;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
-    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[1];
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
-    fragmentLineHierarchyLevel = v_in[1].lineLineHierarchyLevel;
+    fragmentLineHierarchyLevel = lineLineHierarchyLevel[1];
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
-    fragmentLineAppearanceOrder = v_in[1].lineLineAppearanceOrder;
+    fragmentLineAppearanceOrder = lineLineAppearanceOrder[1];
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-    fragmentVertexId = float(v_in[1].lineVertexId);
+    fragmentVertexId = float(lineVertexId[1]);
 #endif
 
     vertexPosition = linePosition1 - lineRadius * offsetDirection1;
@@ -297,6 +310,23 @@ void main() {
     fragmentNormalFloat = -1.0;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
+
+    fragmentAttribute = lineAttribute[1];
+    fragmentTangent = tangent1;
+    normal0 = v1Normal0;
+    normal1 = offsetDirection1;
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[1];
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    fragmentLineHierarchyLevel = lineLineHierarchyLevel[1];
+#endif
+#ifdef VISUALIZE_SEEDING_PROCESS
+    fragmentLineAppearanceOrder = lineLineAppearanceOrder[1];
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    fragmentVertexId = float(lineVertexId[1]);
+#endif
 
     vertexPosition = linePosition1 + lineRadius * offsetDirection1;
 #ifdef USE_SCREEN_SPACE_POSITION
@@ -314,45 +344,37 @@ void main() {
 
 #version 450 core
 
-in vec3 fragmentPositionWorld;
+#include "LineUniformData.glsl"
+
+layout(location = 0) in vec3 fragmentPositionWorld;
 #ifdef USE_SCREEN_SPACE_POSITION
-in vec3 screenSpacePosition;
+layout(location = 1) in vec3 screenSpacePosition;
 #endif
-in float fragmentAttribute;
-in vec3 fragmentTangent;
-in float fragmentNormalFloat;
-in vec3 normal0;
-in vec3 normal1;
+layout(location = 2) in float fragmentAttribute;
+layout(location = 3) in vec3 fragmentTangent;
+layout(location = 4) in float fragmentNormalFloat;
+layout(location = 5) in vec3 normal0;
+layout(location = 6) in vec3 normal1;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
-flat in uint fragmentPrincipalStressIndex;
+layout(location = 7) flat in uint fragmentPrincipalStressIndex;
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
-flat in float fragmentLineHierarchyLevel;
+layout(location = 8) flat in float fragmentLineHierarchyLevel;
 #ifdef USE_TRANSPARENCY
-//uniform vec3 lineHierarchySliderLower;
-//uniform vec3 lineHierarchySliderUpper;
-uniform sampler1DArray lineHierarchyImportanceMap;
-#else
-uniform vec3 lineHierarchySlider;
+layout(binding = LINE_HIERARCHY_IMPORTANCE_MAP_BINDING) uniform sampler1DArray lineHierarchyImportanceMap;
 #endif
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
-flat in uint fragmentLineAppearanceOrder;
-uniform int currentSeedIdx;
+layout(location = 9) flat in uint fragmentLineAppearanceOrder;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-in float fragmentVertexId;
+layout(location = 10) in float fragmentVertexId;
 float phi;
 #endif
 
 #if defined(DIRECT_BLIT_GATHER)
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 #endif
-
-uniform vec3 cameraPosition;
-uniform float lineWidth;
-uniform vec3 backgroundColor;
-uniform vec3 foregroundColor;
 
 #define M_PI 3.14159265358979323846
 
@@ -418,7 +440,7 @@ void main() {
     float EPSILON_WHITE = fwidth(absCoords);
     float coverage = 1.0 - smoothstep(1.0 - EPSILON, 1.0, absCoords);
     //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(fragmentNormalFloat));
-    vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor,
+    vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor.rgb,
             smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),
             fragmentColor.a * coverage);
 

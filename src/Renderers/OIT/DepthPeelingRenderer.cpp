@@ -53,7 +53,7 @@ DepthPeelingRenderer::DepthPeelingRenderer(
 void DepthPeelingRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     sgl::ShaderManager->invalidateShaderCache();
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"DepthPeelingGather.glsl\"");
-    gatherShader = lineData->reloadGatherShader();
+    gatherShader = lineData->reloadGatherShaderOpenGL();
     LineRenderer::reloadGatherShader();
     if (canCopyShaderAttributes && shaderAttributes) {
         shaderAttributes = shaderAttributes->copy(gatherShader);
@@ -61,7 +61,7 @@ void DepthPeelingRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
 
     sgl::ShaderManager->invalidateShaderCache();
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"DepthComplexityGatherInc.glsl\"");
-    depthComplexityGatherShader = lineData->reloadGatherShader();
+    depthComplexityGatherShader = lineData->reloadGatherShaderOpenGL();
     if (canCopyShaderAttributes && depthComplexityShaderAttributes) {
         depthComplexityShaderAttributes = depthComplexityShaderAttributes->copy(depthComplexityGatherShader);
     }
@@ -76,8 +76,8 @@ void DepthPeelingRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     // Unload old data.
     shaderAttributes = sgl::ShaderAttributesPtr();
     depthComplexityShaderAttributes = sgl::ShaderAttributesPtr();
-    shaderAttributes = lineData->getGatherShaderAttributes(gatherShader);
-    depthComplexityShaderAttributes = lineData->getGatherShaderAttributes(depthComplexityGatherShader);
+    shaderAttributes = lineData->getGatherShaderAttributesOpenGL(gatherShader);
+    depthComplexityShaderAttributes = lineData->getGatherShaderAttributesOpenGL(depthComplexityGatherShader);
 
     dirty = false;
     reRender = true;
@@ -149,7 +149,7 @@ void DepthPeelingRenderer::setUniformData() {
 }
 
 void DepthPeelingRenderer::render() {
-    LineRenderer::render();
+    LineRenderer::renderBase();
 
     setUniformData();
     gather();
@@ -236,7 +236,7 @@ void DepthPeelingRenderer::resolve() {
     sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
-    sgl::Renderer->bindFBO(*sceneData->framebuffer);
+    //sgl::Renderer->bindFBO(*sceneData->framebuffer); // TODO
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // Pre-multiplied alpha
     sgl::Renderer->blitTexture(
             colorAccumulatorTexture,

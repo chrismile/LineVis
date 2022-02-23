@@ -71,8 +71,11 @@ public:
     std::vector<std::vector<glm::vec3>> getFilteredLines(LineRenderer* lineRenderer) override;
 
     // --- Retrieve data for rendering. Preferred way. ---
-    sgl::ShaderProgramPtr reloadGatherShader() override;
-    sgl::ShaderAttributesPtr getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader) override;
+    void setGraphicsPipelineInfo(
+            sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) override;
+    void setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) override;
+    sgl::ShaderProgramPtr reloadGatherShaderOpenGL() override;
+    sgl::ShaderAttributesPtr getGatherShaderAttributesOpenGL(sgl::ShaderProgramPtr& gatherShader) override;
 
     // --- Retrieve data for rendering. ---
     TubeRenderData getTubeRenderData() override;
@@ -80,12 +83,11 @@ public:
     TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization() override;
     BandRenderData getBandRenderData() override;
 
-#ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---
     VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
     VulkanTubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) override;
-    void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) override;
-#endif
+    void getVulkanShaderPreprocessorDefines(
+            std::map<std::string, std::string>& preprocessorDefines, bool isRasterizer) override;
 
     // --- Retrieve triangle mesh on the CPU. ---
     void getTriangleMesh(

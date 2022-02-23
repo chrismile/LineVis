@@ -2,9 +2,9 @@
 
 #version 430 core
 
-in vec3 vertexPosition;
-in vec2 vertexTexCoord;
-out vec2 fragTexCoord;
+layout(location = 0) in vec3 vertexPosition;
+layout(location = 1) in vec2 vertexTexCoord;
+layout(location = 0) out vec2 fragTexCoord;
 
 void main() {
     fragTexCoord = vertexTexCoord;
@@ -23,10 +23,11 @@ void main() {
  * http://casual-effects.blogspot.com/2015/03/implemented-weighted-blended-order.html
  */
 
-uniform sampler2D accumulationTexture;
-uniform sampler2D revealageTexture;
-in vec2 fragTexCoord;
-out vec4 fragmentColor;
+layout(binding = 0) uniform sampler2D accumulationTexture;
+layout(binding = 1) uniform sampler2D revealageTexture;
+
+layout(location = 0) in vec2 fragTexCoord;
+layout(location = 0) out vec4 fragmentColor;
 
 const float EPSILON = 1e-5;
 

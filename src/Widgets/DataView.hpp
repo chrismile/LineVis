@@ -82,6 +82,7 @@ public:
     bool reRender = false;
 
     sgl::vk::Renderer* renderer = nullptr;
+    sgl::vk::Device* device = nullptr;
     VkFormat sceneDepthTextureVkFormat = VK_FORMAT_D32_SFLOAT;
     sgl::vk::TexturePtr sceneTextureVk;
     sgl::vk::TexturePtr sceneDepthTextureVk;

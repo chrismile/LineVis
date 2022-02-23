@@ -291,7 +291,7 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewD
     sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
     sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
 
-    if (lineData->getUseBandRendering()) {
+    /*if (lineData->getUseBandRendering()) {
         BandRenderData tubeRenderData = lineData->getBandRenderData();
         indexBuffer = tubeRenderData.indexBuffer;
         vertexPositionBuffer = tubeRenderData.vertexPositionBuffer;
@@ -310,7 +310,7 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewD
         vertexTangentBuffer = tubeRenderData.vertexTangentBuffer;
         vertexPrincipalStressIndexBuffer = tubeRenderData.vertexPrincipalStressIndexBuffer;
         vertexLineHierarchyLevelBuffer = tubeRenderData.vertexLineHierarchyLevelBuffer;
-    }
+    }*/
 
     gatherPpllOpacitiesRenderData = sgl::ShaderManager->createShaderAttributes(gatherPpllOpacitiesShader);
     gatherPpllFinalRenderData = sgl::ShaderManager->createShaderAttributes(gatherPpllFinalShader);
@@ -579,9 +579,9 @@ void OpacityOptimizationRenderer::onResolutionChanged() {
 
     if (useMultisampling) {
         msaaSceneFBO = sgl::Renderer->createFBO();
-        msaaRenderTexture = sgl::TextureManager->createMultisampledTexture(
-                viewportWidthFinal, viewportHeightFinal, numSamples,
-                (*sceneData->sceneTexture)->getSettings().internalFormat, true);
+        //msaaRenderTexture = sgl::TextureManager->createMultisampledTexture(
+        //        viewportWidthFinal, viewportHeightFinal, numSamples,
+        //        (*sceneData->sceneTexture)->getSettings().internalFormat, true); // TODO
         msaaDepthRBO = sgl::Renderer->createRBO(
                 viewportWidthFinal, viewportHeightFinal, sgl::RBO_DEPTH24_STENCIL8, numSamples);
         msaaSceneFBO->bindTexture(msaaRenderTexture);
@@ -596,7 +596,7 @@ void OpacityOptimizationRenderer::onResolutionChanged() {
 }
 
 void OpacityOptimizationRenderer::render() {
-    LineRenderer::render();
+    LineRenderer::renderBase();
 
     setUniformData();
     clearPpllOpacities();
@@ -862,7 +862,7 @@ void OpacityOptimizationRenderer::gatherPpllFinal() {
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
     if (useMultisampling) {
-        sgl::Renderer->bindFBO(*sceneData->framebuffer);
+        //sgl::Renderer->bindFBO(*sceneData->framebuffer); // TODO
     }
 }
 

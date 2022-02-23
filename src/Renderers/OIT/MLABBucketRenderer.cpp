@@ -77,7 +77,7 @@ void MLABBucketRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
 
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"MinDepthPass.glsl\"");
 
-    minDepthPassShader = lineData->reloadGatherShader();
+    minDepthPassShader = lineData->reloadGatherShaderOpenGL();
     if (canCopyShaderAttributes && minDepthPassShaderAttributes) {
         minDepthPassShaderAttributes = minDepthPassShaderAttributes->copy(minDepthPassShader);
     }
@@ -106,7 +106,7 @@ void MLABBucketRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 
     // Unload old data.
     minDepthPassShaderAttributes = sgl::ShaderAttributesPtr();
-    minDepthPassShaderAttributes = lineData->getGatherShaderAttributes(minDepthPassShader);
+    minDepthPassShaderAttributes = lineData->getGatherShaderAttributesOpenGL(minDepthPassShader);
 }
 
 void MLABBucketRenderer::reallocateFragmentBuffer() {
@@ -149,7 +149,7 @@ void MLABBucketRenderer::reallocateFragmentBuffer() {
 }
 
 void MLABBucketRenderer::render() {
-    LineRenderer::render();
+    LineRenderer::renderBase();
 
     setUniformData();
     computeDepthRange();
@@ -175,7 +175,7 @@ void MLABBucketRenderer::setUniformData() {
     }
     minDepthPassShader->setUniform("lowerBackBufferOpacity", lowerBackBufferOpacity);
     minDepthPassShader->setUniform("upperBackBufferOpacity", upperBackBufferOpacity);
-    lineData->setUniformGatherShaderData(minDepthPassShader);
+    lineData->setUniformGatherShaderDataOpenGL(minDepthPassShader);
 }
 
 void MLABBucketRenderer::gather() {

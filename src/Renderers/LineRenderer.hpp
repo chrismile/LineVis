@@ -47,6 +47,10 @@ typedef std::shared_ptr<Buffer> BufferPtr;
 struct InternalState;
 class SettingsMap;
 class LineDataStress;
+class HullRasterPass;
+
+class ComputeDepthValuesPass;
+class MinMaxDepthReductionPass;
 
 namespace IGFD {
 class FileDialog;
@@ -63,10 +67,12 @@ class LineRenderer {
 public:
     LineRenderer(
             std::string windowName, SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
-        : windowName(std::move(windowName)), sceneData(sceneData), transferFunctionWindow(transferFunctionWindow) {}
+        : windowName(std::move(windowName)), sceneData(sceneData), renderer(*sceneData->renderer),
+        transferFunctionWindow(transferFunctionWindow) {}
     virtual void initialize();
     virtual ~LineRenderer();
     virtual RenderingMode getRenderingMode()=0;
+    virtual bool getIsTransparencyUsed() { return true; }
 
     /// Returns if the visualization mapping needs to be re-generated.
     [[nodiscard]] inline bool isDirty() const { return dirty; }
@@ -89,7 +95,14 @@ public:
 
     /// Sets the shader preprocessor defines used by the renderer.
     virtual void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines);
+    virtual void setGraphicsPipelineInfo(
+            sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages);
+    virtual void setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData);
+    virtual void updateVulkanUniformBuffers();
 
+    /// Prepares the depth cues buffer and ambient occlusion buffer/texture for the passed pipeline stage.
+    virtual void renderBase(VkPipelineStageFlags pipelineStageFlags);
+    virtual void renderBase() { renderBase(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT); }
     /// Renders the object to the scene framebuffer.
     virtual void render()=0;
     /// Renders the entries in the property editor.
@@ -137,6 +150,7 @@ public:
     static inline float getMinBandThickness() { return LineData::getMinBandThickness(); }
 
     inline const std::string& getWindowName() { return windowName; }
+    inline SceneData* getSceneData() { return sceneData; }
 
     // Tiling mode.
     static void setNewTilingMode(int newTileWidth, int newTileHeight, bool useMortonCode = false);
@@ -165,8 +179,10 @@ protected:
     // For rendering the simulation mesh hull.
     sgl::ShaderProgramPtr gatherShaderHull;
     sgl::ShaderAttributesPtr shaderAttributesHull;
+    std::shared_ptr<HullRasterPass> hullRasterPass;
 
     SceneData* sceneData;
+    sgl::vk::Renderer* renderer = nullptr;
     LineDataPtr lineData;
     sgl::TransferFunctionWindow& transferFunctionWindow;
     bool dirty = true;
@@ -181,18 +197,14 @@ protected:
     void setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram);
     bool useDepthCues = true;
     float depthCueStrength = 0.8f;
-    bool computeDepthCuesOnGpu = true;
     float minDepth = 0.0f;
     float maxDepth = 1.0f;
     std::vector<std::vector<glm::vec3>> filteredLines;
-#ifdef USE_VULKAN_INTEROP
-    sgl::vk::BufferPtr depthMinMaxBuffersVk[2];
-#endif
-    sgl::GeometryBufferPtr filteredLinesVerticesBuffer;
-    sgl::GeometryBufferPtr depthMinMaxBuffers[2];
+    sgl::vk::BufferPtr filteredLinesVerticesBuffer;
+    sgl::vk::BufferPtr depthMinMaxBuffers[2];
     size_t outputDepthMinMaxBufferIndex = 0;
-    sgl::ShaderProgramPtr computeDepthValuesShaderProgram;
-    sgl::ShaderProgramPtr minMaxReduceDepthShaderProgram;
+    std::shared_ptr<ComputeDepthValuesPass> computeDepthValuesPass;
+    std::shared_ptr<MinMaxDepthReductionPass> minMaxDepthReductionPass[2];
 
     // Tiling mode.
     static int tilingModeIndex;

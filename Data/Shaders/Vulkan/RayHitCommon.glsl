@@ -26,37 +26,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "TransferFunction.glsl"
 #include "TubeRayTracingHeader.glsl"
+#include "TransferFunction.glsl"
 
 #ifdef USE_MLAT
 #include "MlatInsert.glsl"
-#endif
-
-layout(binding = 4) uniform LineRenderSettingsBuffer {
-    float lineWidth;
-    float bandWidth;
-    float depthCueStrength;
-    float ambientOcclusionStrength;
-    float ambientOcclusionGamma;
-    float minBandThickness;
-    float paddingLineRenderSettings0, paddingLineRenderSettings1;
-
-    uint hasHullMesh;
-
-    // Ambient occlusion settings.
-    uint numAoTubeSubdivisions;
-    uint numLineVertices;
-    uint numParametrizationVertices;
-};
-
-#ifdef STRESS_LINE_DATA
-layout(binding = 5) uniform StressLineRenderSettingsBuffer {
-    vec3 lineHierarchySlider;
-    float paddingStressLineSettings;
-    ivec3 psUseBands;
-    int currentSeedIdx;
-};
 #endif
 
 struct TubeLinePointData {
@@ -70,7 +44,7 @@ struct TubeLinePointData {
     uint principalStressIndex; ///< Zero for flow lines.
 };
 
-layout(std430, binding = 8) readonly buffer TubeLinePointDataBuffer {
+layout(std430, binding = 5) readonly buffer TubeLinePointDataBuffer {
     TubeLinePointData tubeLinePointDataBuffer[];
 };
 
@@ -308,7 +282,7 @@ void computeFragmentColor(
 #endif
 
 #if defined(USE_DEPTH_CUES) || (defined(USE_AMBIENT_OCCLUSION) && !defined(STATIC_AMBIENT_OCCLUSION_PREBAKING))
-    vec3 screenSpacePosition = (camera.viewMatrix * vec4(fragmentPositionWorld, 1.0)).xyz;
+    vec3 screenSpacePosition = (viewMatrix * vec4(fragmentPositionWorld, 1.0)).xyz;
 #endif
 
     fragmentColor = blinnPhongShadingTube(

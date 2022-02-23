@@ -26,20 +26,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef USE_VULKAN_INTEROP
 #include <Utils/AppSettings.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
-#endif
 
 #include "AmbientOcclusionBaker.hpp"
 
 AmbientOcclusionBaker::~AmbientOcclusionBaker() {
-#ifdef USE_VULKAN_INTEROP
     sgl::AppSettings::get()->getPrimaryDevice()->waitIdle();
-
-    if (rendererVk) {
-        delete rendererVk;
-        rendererVk = nullptr;
-    }
-#endif
 }

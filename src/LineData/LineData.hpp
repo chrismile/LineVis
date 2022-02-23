@@ -36,6 +36,7 @@
 #include <Graphics/Shader/ShaderAttributes.hpp>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
 #include <ImGui/Widgets/ColorLegendWidget.hpp>
+#include <Graphics/Vulkan/Render/GraphicsPipeline.hpp>
 #include "Utils/InternalState.hpp"
 #include "Loaders/DataSetList.hpp"
 #include "Loaders/TrajectoryFile.hpp"
@@ -49,6 +50,8 @@ class PropertyEditor;
 namespace sgl { namespace vk {
 class RenderData;
 typedef std::shared_ptr<RenderData> RenderDataPtr;
+class RasterData;
+typedef std::shared_ptr<RasterData> RasterDataPtr;
 class BottomLevelAccelerationStructure;
 typedef std::shared_ptr<BottomLevelAccelerationStructure> BottomLevelAccelerationStructurePtr;
 class TopLevelAccelerationStructure;
@@ -151,9 +154,13 @@ public:
     virtual std::vector<std::vector<glm::vec3>> getFilteredLines(LineRenderer* lineRenderer)=0;
 
     // --- Retrieve data for rendering. Preferred way. ---
-    virtual sgl::ShaderProgramPtr reloadGatherShader();
-    virtual sgl::ShaderAttributesPtr getGatherShaderAttributes(sgl::ShaderProgramPtr& gatherShader);
-    virtual void setUniformGatherShaderData(sgl::ShaderProgramPtr& gatherShader);
+    virtual std::vector<std::string> getShaderModuleNames();
+    virtual void setGraphicsPipelineInfo(
+            sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages);
+    virtual void setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData);
+    virtual sgl::ShaderProgramPtr reloadGatherShaderOpenGL();
+    virtual sgl::ShaderAttributesPtr getGatherShaderAttributesOpenGL(sgl::ShaderProgramPtr& gatherShader);
+    virtual void setUniformGatherShaderDataOpenGL(sgl::ShaderProgramPtr& gatherShader);
     virtual void setUniformGatherShaderData_AllPasses();
     virtual void setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader);
 
@@ -163,7 +170,6 @@ public:
     virtual TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization()=0;
     virtual BandRenderData getBandRenderData() { return {}; }
 
-#ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---
     virtual VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing)=0;
     virtual VulkanTubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer)=0;
@@ -172,10 +178,13 @@ public:
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleAndHullTopLevelAS(LineRenderer* lineRenderer);
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbTopLevelAS(LineRenderer* lineRenderer);
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbAndHullTopLevelAS(LineRenderer* lineRenderer);
-    virtual void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines);
+    inline void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) {
+        getVulkanShaderPreprocessorDefines(preprocessorDefines, true);
+    }
+    virtual void getVulkanShaderPreprocessorDefines(
+            std::map<std::string, std::string>& preprocessorDefines, bool isRasterizer);
     virtual void setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData);
     virtual void updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::Renderer* renderer);
-#endif
 
     // --- Retrieve triangle mesh on the CPU. ---
     virtual void getTriangleMesh(
@@ -290,9 +299,8 @@ protected:
     static float minBandThickness;
 
     /// Stores line point data if linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH.
-    sgl::GeometryBufferPtr linePointDataSSBO;
+    sgl::vk::BufferPtr linePointDataSSBO;
 
-#ifdef USE_VULKAN_INTEROP
     // Caches the rendering data when using Vulkan (as, e.g., the Vulkan ray tracer and AO baking could be used at the
     // same time).
     sgl::vk::BottomLevelAccelerationStructurePtr getTubeTriangleBottomLevelAS(LineRenderer* lineRenderer);
@@ -309,7 +317,7 @@ protected:
     sgl::vk::TopLevelAccelerationStructurePtr tubeAabbTopLevelAS;
     sgl::vk::TopLevelAccelerationStructurePtr tubeAabbAndHullTopLevelAS;
 
-    struct LineRenderSettings {
+    /*struct LineRenderSettings {
         float lineWidth = 0.0f;
         float bandWidth = 0.0f;
         float depthCueStrength = 0.0f;
@@ -329,14 +337,45 @@ protected:
         glm::vec4 color;
         glm::ivec3 padding;
         uint32_t useShading;
+    };*/
+    struct LineUniformData {
+        // Camera data.
+        glm::vec3 cameraPosition{};
+        float fieldOfViewY = 1.0f;
+        glm::mat4 viewMatrix{};
+        glm::mat4 projectionMatrix{};
+        glm::mat4 inverseViewMatrix{};
+        glm::mat4 inverseProjectionMatrix{};
+        glm::vec4 backgroundColor{};
+        glm::vec4 foregroundColor{};
+
+        // Line & band render settings.
+        float lineWidth = 0.0f;
+        float bandWidth = 0.0f;
+        float minBandThickness = 1.0f;
+        float depthCueStrength = 0.0f;
+        float ambientOcclusionStrength = 0.0f;
+        float ambientOcclusionGamma = 1.0f;
+        float lineUniformDataPadding0 = 0, lineUniformDataPadding1 = 0;
+
+        // Pre-baked ambient occlusion settings (STATIC_AMBIENT_OCCLUSION_PREBAKING).
+        uint32_t numAoTubeSubdivisions = 0;
+        uint32_t numLineVertices = 0;
+        uint32_t numParametrizationVertices = 0;
+        uint32_t lineUniformDataPadding2 = 0;
+
+        // Hull render settings.
+        glm::vec4 hullColor{};
+        uint32_t hasHullMesh = 0;
+        uint32_t hullUseShading = 0;
+
+        // Antialiasing.glsl needs a viewport size. Change this value if downsampling/upscaling is used!
+        glm::uvec2 viewportSize{};
     };
 
     // Uniform buffers with settings for rendering.
-    LineRenderSettings lineRenderSettings = {};
-    HullRenderSettings hullRenderSettings = {};
-    sgl::vk::BufferPtr lineRenderSettingsBuffer;
-    sgl::vk::BufferPtr hullRenderSettingsBuffer;
-#endif
+    LineUniformData lineUniformData = {};
+    sgl::vk::BufferPtr lineUniformDataBuffer;
 
     // Optional.
     bool shallRenderSimulationMeshBoundary = false;

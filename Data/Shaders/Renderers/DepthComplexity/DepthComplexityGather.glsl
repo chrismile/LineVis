@@ -49,7 +49,7 @@ uniform float lineWidth;
 
 void main() {
 
-    uint pointIndex = gl_VertexID/2;
+    uint pointIndex = gl_VertexIndex / 2;
     LinePointData linePointData = linePoints[pointIndex];
     vec3 linePoint = (mMatrix * vec4(linePointData.vertexPosition, 1.0)).xyz;
 
@@ -57,7 +57,7 @@ void main() {
     vec3 offsetDirection = normalize(cross(viewDirection, normalize(linePointData.vertexTangent)));
     vec3 vertexPosition;
     float shiftSign = 1.0f;
-    if (gl_VertexID % 2 == 0) {
+    if (gl_VertexIndex % 2 == 0) {
         shiftSign = -1.0;
     }
     vertexPosition = linePoint + shiftSign * lineWidth * 0.5 * offsetDirection;

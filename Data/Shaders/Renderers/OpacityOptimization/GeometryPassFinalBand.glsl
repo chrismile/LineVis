@@ -41,18 +41,16 @@ layout(location = 6) in float vertexOpacity;
 layout(location = 7) in uint vertexPrincipalStressIndex;
 #endif
 
-out VertexData {
-    vec3 linePosition;
-    float lineAttribute;
-    vec3 lineNormal;
-    vec3 lineTangent;
-    vec3 lineOffsetLeft;
-    vec3 lineOffsetRight;
-    float lineOpacity;
+layout(location = 0) out vec3 linePosition;
+layout(location = 1) out float lineAttribute;
+layout(location = 2) out vec3 lineNormal;
+layout(location = 3) out vec3 lineTangent;
+layout(location = 4) out vec3 lineOffsetLeft;
+layout(location = 5) out vec3 lineOffsetRight;
+layout(location = 6) out float lineOpacity;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
-    uint linePrincipalStressIndex;
+layout(location = 7) out uint linePrincipalStressIndex;
 #endif
-};
 
 void main() {
     linePosition = (mMatrix * vec4(vertexPosition, 1.0)).xyz;
@@ -80,32 +78,30 @@ uniform float lineWidth;
 uniform float bandWidth;
 uniform ivec3 psUseBands;
 
-out vec3 fragmentPositionWorld;
-#ifdef USE_SCREEN_SPACE_POSITION
-out vec3 screenSpacePosition;
-#endif
-out float fragmentAttribute;
-out float fragmentOpacity;
-out float fragmentNormalFloat; // Between -1 and 1
-out vec3 normal0;
-out vec3 normal1;
-flat out int useBand;
+layout(location = 0) in vec3 linePosition[];
+layout(location = 1) in float lineAttribute[];
+layout(location = 2) in vec3 lineNormal[];
+layout(location = 3) in vec3 lineTangent[];
+layout(location = 4) in vec3 lineOffsetLeft[];
+layout(location = 5) in vec3 lineOffsetRight[];
+layout(location = 6) in float lineOpacity[];
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
-flat out uint fragmentPrincipalStressIndex;
+layout(location = 7) in uint linePrincipalStressIndex[];
 #endif
 
-in VertexData {
-    vec3 linePosition;
-    float lineAttribute;
-    vec3 lineNormal;
-    vec3 lineTangent;
-    vec3 lineOffsetLeft;
-    vec3 lineOffsetRight;
-    float lineOpacity;
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
-    uint linePrincipalStressIndex;
+layout(location = 0) out vec3 fragmentPositionWorld;
+#ifdef USE_SCREEN_SPACE_POSITION
+layout(location = 1) out vec3 screenSpacePosition;
 #endif
-} v_in[];
+layout(location = 2) out float fragmentAttribute;
+layout(location = 3) out float fragmentOpacity;
+layout(location = 4) out float fragmentNormalFloat; // Between -1 and 1
+layout(location = 5) out vec3 normal0;
+layout(location = 6) out vec3 normal1;
+layout(location = 7) flat out int useBand;
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+layout(location = 8) flat out uint fragmentPrincipalStressIndex;
+#endif
 
 void main() {
     vec3 linePosition0 = v_in[0].linePosition;
@@ -165,6 +161,19 @@ void main() {
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
+    fragmentAttribute = v_in[0].lineAttribute;
+    fragmentOpacity = v_in[0].lineOpacity;
+    if (useBand != 0) {
+        normal0 = v_in[0].lineNormal;
+        normal1 = v_in[0].lineNormal;
+    } else {
+        normal0 = normalize(cross(tangent0, offsetDirectionRight0));
+        normal1 = offsetDirectionRight0;
+    }
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+#endif
+
     vertexPosition = linePosition0 + lineRadius * offsetDirectionRight0;
     fragmentPositionWorld = vertexPosition;
 #ifdef USE_SCREEN_SPACE_POSITION
@@ -197,6 +206,19 @@ void main() {
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
+    fragmentAttribute = v_in[1].lineAttribute;
+    fragmentOpacity = v_in[1].lineOpacity;
+    if (useBand != 0) {
+        normal0 = v_in[1].lineNormal;
+        normal1 = v_in[1].lineNormal;
+    } else {
+        normal0 = normalize(cross(tangent1, offsetDirectionRight1));
+        normal1 = offsetDirectionRight1;
+    }
+#ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
+    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+#endif
+
     vertexPosition = linePosition1 + lineRadius * offsetDirectionRight1;
     fragmentPositionWorld = vertexPosition;
 #ifdef USE_SCREEN_SPACE_POSITION
@@ -213,18 +235,18 @@ void main() {
 
 #version 430 core
 
-in vec3 fragmentPositionWorld;
+layout(location = 0) in vec3 fragmentPositionWorld;
 #ifdef USE_SCREEN_SPACE_POSITION
-in vec3 screenSpacePosition;
+layout(location = 1) in vec3 screenSpacePosition;
 #endif
-in float fragmentAttribute;
-in float fragmentOpacity;
-in float fragmentNormalFloat;
-in vec3 normal0;
-in vec3 normal1;
-flat in int useBand;
+layout(location = 2) in float fragmentAttribute;
+layout(location = 3) in float fragmentOpacity;
+layout(location = 4) in float fragmentNormalFloat;
+layout(location = 5) in vec3 normal0;
+layout(location = 6) in vec3 normal1;
+layout(location = 7) flat in int useBand;
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
-flat in uint fragmentPrincipalStressIndex;
+layout(location = 8) flat in uint fragmentPrincipalStressIndex;
 #endif
 
 #ifdef USE_COVERAGE_MASK
@@ -232,7 +254,7 @@ in int gl_SampleMaskIn[];
 #endif
 
 #if defined(DIRECT_BLIT_GATHER)
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 #endif
 
 uniform vec3 cameraPosition;
@@ -316,7 +338,7 @@ void main() {
     float EPSILON = clamp(fragmentDepth * 0.0015 / (useBand != 0 ? bandWidth : lineWidth), 0.0, 0.49);
     float coverage = 1.0 - smoothstep(1.0 - 2.0*EPSILON, 1.0, absCoords);
     //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(fragmentNormalFloat));
-    vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor,
+    vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor.rgb,
             smoothstep(WHITE_THRESHOLD - EPSILON, WHITE_THRESHOLD + EPSILON, absCoords)),
             fragmentColor.a * coverage);
 

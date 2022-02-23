@@ -1,4 +1,4 @@
-/*
+ /*
  * BSD 2-Clause License
  *
  * Copyright (c) 2022, Christoph Neuhauser
@@ -43,24 +43,13 @@
 
 #include "VulkanRayTracedAmbientOcclusion.hpp"
 
-VulkanRayTracedAmbientOcclusion::VulkanRayTracedAmbientOcclusion(
-        SceneData* sceneData, sgl::vk::Renderer* rendererVk, bool isMainRenderer)
-        : AmbientOcclusionBaker(rendererVk), isMainRenderer(isMainRenderer), sceneData(sceneData) {
+VulkanRayTracedAmbientOcclusion::VulkanRayTracedAmbientOcclusion(SceneData* sceneData, sgl::vk::Renderer* rendererVk)
+        : AmbientOcclusionBaker(rendererVk), sceneData(sceneData) {
     rtaoRenderPass = std::make_shared<VulkanRayTracedAmbientOcclusionPass>(sceneData, rendererVk);
-
-    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    renderReadySemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
-    renderFinishedSemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
-
     VulkanRayTracedAmbientOcclusion::onResolutionChanged();
 }
 
-VulkanRayTracedAmbientOcclusion::~VulkanRayTracedAmbientOcclusion() {
-    // Make sure that the parent class doesn't delete the renderer object if it isn't owned by this object.
-    if (isMainRenderer) {
-        rendererVk = nullptr;
-    }
-}
+VulkanRayTracedAmbientOcclusion::~VulkanRayTracedAmbientOcclusion() = default;
 
 bool VulkanRayTracedAmbientOcclusion::needsReRender() {
     return rtaoRenderPass->needsReRender();
@@ -91,52 +80,20 @@ void VulkanRayTracedAmbientOcclusion::startAmbientOcclusionBaking(LineDataPtr& l
     hasComputationFinished = false;
 }
 
-void VulkanRayTracedAmbientOcclusion::updateIterative(bool isVulkanRenderer) {
-    assert(isVulkanRenderer == isMainRenderer);
-
-    sgl::TexturePtr aoTextureGl = rtaoRenderPass->getAmbientOcclusionTextureGl();
+void VulkanRayTracedAmbientOcclusion::updateIterative(VkPipelineStageFlags pipelineStageFlags) {
     sgl::vk::TexturePtr aoTextureVk = rtaoRenderPass->getAmbientOcclusionTextureVk();
-    sgl::vk::SemaphorePtr renderReadySemaphoreVk =
-            std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderReadySemaphore);
-    sgl::vk::SemaphorePtr renderFinishedSemaphoreVk =
-            std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderFinishedSemaphore);
-
-    if (!isVulkanRenderer) {
-        GLenum dstLayout = GL_NONE;
-        sgl::vk::Device* device = rendererVk->getDevice();
-        if (device->getDeviceDriverId() == VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS) {
-            dstLayout = GL_LAYOUT_GENERAL_EXT;
-        }
-        renderReadySemaphore->signalSemaphoreGl(aoTextureGl, dstLayout);
-
-        rendererVk->beginCommandBuffer();
-        rendererVk->getCommandBuffer()->pushWaitSemaphore(
-                renderReadySemaphoreVk, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT); // VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT
-    }
 
     rtaoRenderPass->setFrameNumber(accumulatedFramesCounter);
     rtaoRenderPass->render();
-    aoTextureVk->getImage()->transitionImageLayout(
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, rendererVk->getVkCommandBuffer());
-
-    if (!isVulkanRenderer) {
-        rendererVk->getCommandBuffer()->pushSignalSemaphore(renderFinishedSemaphoreVk);
-        rendererVk->endCommandBuffer();
-
-        // Submit the rendering operation in Vulkan.
-        rendererVk->submitToQueue();
-
-        // Wait for the rendering to finish on the Vulkan side.
-        renderFinishedSemaphore->waitSemaphoreGl(aoTextureGl, GL_LAYOUT_SHADER_READ_ONLY_EXT);
-    }
+    rendererVk->insertImageMemoryBarrier(
+            aoTextureVk->getImage(),
+            VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, pipelineStageFlags,
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 
     accumulatedFramesCounter++;
     isDataReady = true;
     hasComputationFinished = accumulatedFramesCounter >= maxNumAccumulatedFrames;
-}
-
-sgl::TexturePtr VulkanRayTracedAmbientOcclusion::getAmbientOcclusionFrameTexture() {
-    return rtaoRenderPass->getAmbientOcclusionTextureGl();
 }
 
 sgl::vk::TexturePtr VulkanRayTracedAmbientOcclusion::getAmbientOcclusionFrameTextureVulkan()  {
@@ -242,9 +199,7 @@ void VulkanRayTracedAmbientOcclusionPass::recreateSwapchain(uint32_t width, uint
     imageSettings.usage =
             VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
             | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    imageSettings.exportMemory = true;
     resultTextureVk = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
-    resultTextureGl = sgl::TexturePtr(new sgl::TextureGLExternalMemoryVk(resultTextureVk));
 
     blitResultRenderPass->setInputTexture(accumulationTexture);
     blitResultRenderPass->setOutputImage(resultTextureVk->getImageView());

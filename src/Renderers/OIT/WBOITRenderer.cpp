@@ -30,11 +30,8 @@
 
 #include <Utils/File/Logfile.hpp>
 #include <Math/Geometry/MatrixUtil.hpp>
-#include <Graphics/Window.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Shader/ShaderManager.hpp>
-#include <Graphics/Texture/TextureManager.hpp>
-#include <Graphics/OpenGL/GeometryBuffer.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
+#include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
@@ -46,153 +43,145 @@ const bool useStencilBuffer = true;
 WBOITRenderer::WBOITRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer(
                 "Weighted Blended Order Independent Transparency", sceneData, transferFunctionWindow) {
-    sgl::ShaderManager->invalidateShaderCache();
-    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"WBOITGather.glsl\"");
+    lineRasterPass = std::make_shared<WBOITLineRasterPass>(this);
+    resolveRenderPass = std::make_shared<WBOITResolvePass>(this);
+    //glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
+    resolveRenderPass->setBlendMode(sgl::vk::BlendMode::BACK_TO_FRONT_STRAIGHT_ALPHA);
+
     onResolutionChanged();
-    reloadResolveShader();
-
-    // Create blitting data (fullscreen rectangle in normalized device coordinates)
-    blitRenderData = sgl::ShaderManager->createShaderAttributes(resolveShader);
-
-    std::vector<glm::vec3> fullscreenQuadPos{
-            glm::vec3(1,1,0), glm::vec3(-1,-1,0), glm::vec3(1,-1,0),
-            glm::vec3(-1,-1,0), glm::vec3(1,1,0), glm::vec3(-1,1,0)};
-    sgl::GeometryBufferPtr geomBufferPos = sgl::Renderer->createGeometryBuffer(
-            sizeof(glm::vec3)*fullscreenQuadPos.size(), fullscreenQuadPos.data());
-    std::vector<glm::vec2> fullscreenQuadTex{
-            glm::vec2(1,1), glm::vec2(0,0), glm::vec2(1,0),
-            glm::vec2(0,0), glm::vec2(1,1), glm::vec2(0,1)};
-    sgl::GeometryBufferPtr geomBufferTex = sgl::Renderer->createGeometryBuffer(
-            sizeof(glm::vec2)*fullscreenQuadTex.size(), fullscreenQuadTex.data());
-    blitRenderData->addGeometryBuffer(
-            geomBufferPos, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
-    blitRenderData->addGeometryBuffer(
-            geomBufferTex, "vertexTexCoord", sgl::ATTRIB_FLOAT, 2);
-}
-
-void WBOITRenderer::reloadShaders() {
-    reloadGatherShader();
-    reloadResolveShader();
-
-    if (blitRenderData) {
-        blitRenderData = blitRenderData->copy(resolveShader);
-    }
-}
-
-void WBOITRenderer::reloadResolveShader() {
-    sgl::ShaderManager->invalidateShaderCache();
-    resolveShader = sgl::ShaderManager->getShaderProgram({"WBOITResolve.Vertex", "WBOITResolve.Fragment"});
-    if (blitRenderData) {
-        blitRenderData = blitRenderData->copy(resolveShader);
-    }
 }
 
 void WBOITRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     LineRenderer::reloadGatherShader();
-    gatherShader = lineData->reloadGatherShader();
-    if (canCopyShaderAttributes && shaderAttributes) {
-        shaderAttributes = shaderAttributes->copy(gatherShader);
-    }
+    lineRasterPass->setShaderDirty();
+    resolveRenderPass->setShaderDirty();
 }
 
 void WBOITRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
-
-    // Unload old data.
-    shaderAttributes = sgl::ShaderAttributesPtr();
-    shaderAttributes = lineData->getGatherShaderAttributes(gatherShader);
+    lineRasterPass->setLineData(lineData, isNewData);
 
     dirty = false;
     reRender = true;
 }
 
+void WBOITRenderer::getVulkanShaderPreprocessorDefines(std::map<std::string, std::string> &preprocessorDefines) {
+    LineRenderer::getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    preprocessorDefines.insert(std::make_pair("OIT_GATHER_HEADER", "WBOITGather.glsl"));
+}
+
 void WBOITRenderer::onResolutionChanged() {
     LineRenderer::onResolutionChanged();
 
-    int width = int(*sceneData->viewportWidth);
-    int height = int(*sceneData->viewportHeight);
+    sgl::vk::Device* device = renderer->getDevice();
+    uint32_t width = *sceneData->viewportWidth;
+    uint32_t height = *sceneData->viewportHeight;
 
-    sgl::TextureSettings textureSettingsColor;
-    textureSettingsColor.internalFormat = GL_RGBA32F; // GL_RGBA16F?
-    sgl::TextureSettings textureSettingsDepth;
-    textureSettingsDepth.internalFormat = GL_DEPTH_COMPONENT;
+    sgl::vk::ImageSettings imageSettings;
+    imageSettings.width = width;
+    imageSettings.height = height;
+    imageSettings.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageSettings.format =  VK_FORMAT_R32G32B32A32_SFLOAT;
+    accumulationRenderTexture = std::make_shared<sgl::vk::Texture>(
+            device, imageSettings, sgl::vk::ImageSamplerSettings(), VK_IMAGE_ASPECT_COLOR_BIT);
 
-    gatherPassFBO = sgl::Renderer->createFBO();
-    accumulationRenderTexture = sgl::TextureManager->createEmptyTexture(width, height, textureSettingsColor);
-    textureSettingsColor.internalFormat = GL_R32F; // GL_R16F?
-    revealageRenderTexture = sgl::TextureManager->createEmptyTexture(width, height, textureSettingsColor);
-    gatherPassFBO->bindTexture(accumulationRenderTexture, sgl::COLOR_ATTACHMENT0);
-    gatherPassFBO->bindTexture(revealageRenderTexture, sgl::COLOR_ATTACHMENT1);
-    gatherPassFBO->bindRenderbuffer(*sceneData->sceneDepthRBO, sgl::DEPTH_ATTACHMENT);
-}
+    imageSettings.format =  VK_FORMAT_R32_SFLOAT; // GL_R16F?
+    revealageRenderTexture = std::make_shared<sgl::vk::Texture>(
+            device, imageSettings, sgl::vk::ImageSamplerSettings(), VK_IMAGE_ASPECT_COLOR_BIT);
 
-void WBOITRenderer::setUniformData() {
-    gatherShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
-    gatherShader->setUniform("lineWidth", lineWidth);
-    if (gatherShader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        gatherShader->setUniform("backgroundColor", backgroundColor);
-    }
-    if (gatherShader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
-        gatherShader->setUniform("foregroundColor", foregroundColor);
-    }
-    lineData->setUniformGatherShaderData(gatherShader);
-    setUniformData_Pass(gatherShader);
-
-    resolveShader->setUniform("accumulationTexture", accumulationRenderTexture, 0);
-    resolveShader->setUniform("revealageTexture", revealageRenderTexture, 1);
+    lineRasterPass->setRenderTargets(
+            accumulationRenderTexture, revealageRenderTexture);
+    lineRasterPass->recreateSwapchain(width, height);
+    resolveRenderPass->setInputTextures(
+            accumulationRenderTexture, revealageRenderTexture);
+    resolveRenderPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
+    resolveRenderPass->setOutputImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    resolveRenderPass->recreateSwapchain(width, height);
 }
 
 void WBOITRenderer::render() {
-    LineRenderer::render();
-
-    setUniformData();
-
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-    sgl::Renderer->bindFBO(gatherPassFBO);
-    const float rgba32Zero[] = { 0, 0, 0, 0 };
-    glClearBufferfv(GL_COLOR, 0, rgba32Zero);
-    const float r32One[] = { 1, 0, 0, 0 };
-    glClearBufferfv(GL_COLOR, 1, r32One);
-
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-
-    glEnable(GL_BLEND);
-    glBlendFunci(0, GL_ONE, GL_ONE);
-    glBlendFunci(1, GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
-
-    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
-        glDisable(GL_CULL_FACE);
-    }
-    sgl::Renderer->render(shaderAttributes);
+    // Gather passes.
+    LineRenderer::renderBase();
+    lineRasterPass->render();
     renderHull();
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
-        glEnable(GL_CULL_FACE);
-    }
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-    sgl::Renderer->bindFBO(*sceneData->framebuffer);
-    // Normal alpha blending
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
-    sgl::Renderer->render(blitRenderData);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
+    // Resolve pass.
+    renderer->transitionImageLayout(
+            accumulationRenderTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    renderer->transitionImageLayout(
+            revealageRenderTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    resolveRenderPass->render();
 }
 
 void WBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
+}
+
+
+WBOITLineRasterPass::WBOITLineRasterPass(LineRenderer* lineRenderer) : LineRasterPass(lineRenderer) {}
+
+void WBOITLineRasterPass::setRenderTargets(
+        const sgl::vk::TexturePtr& accumulationTexture, const sgl::vk::TexturePtr& revealageTexture) {
+    this->accumulationRenderTexture = accumulationTexture;
+    this->revealageRenderTexture = revealageTexture;
+}
+
+void WBOITLineRasterPass::recreateSwapchain(uint32_t width, uint32_t height) {
+    framebuffer = std::make_shared<sgl::vk::Framebuffer>(device, width, height);
+
+    sgl::vk::AttachmentState attachmentState;
+    attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    framebuffer->setColorAttachment(
+            accumulationRenderTexture->getImageView(), 0, attachmentState,
+            { 0.0f, 0.0f, 0.0f, 0.0f });
+    framebuffer->setColorAttachment(
+            revealageRenderTexture->getImageView(), 1, attachmentState,
+            { 1.0f, 0.0f, 0.0f, 0.0f });
+
+    sgl::vk::AttachmentState depthAttachmentState;
+    depthAttachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    framebuffer->setDepthStencilAttachment(
+            (*sceneData->sceneDepthTexture)->getImageView(), depthAttachmentState, 1.0f);
+
+    framebufferDirty = true;
+    dataDirty = true;
+}
+
+void WBOITLineRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
+    LineRasterPass::setGraphicsPipelineInfo(pipelineInfo);
+    pipelineInfo.setBlendModeCustom(
+            VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE, VK_BLEND_OP_ADD,
+            VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE, VK_BLEND_OP_ADD,
+            0);
+    pipelineInfo.setBlendModeCustom(
+            VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD,
+            VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD,
+            1);
+    pipelineInfo.setDepthWriteEnabled(false);
+}
+
+
+WBOITResolvePass::WBOITResolvePass(LineRenderer* lineRenderer)
+        : sgl::vk::BlitRenderPass(
+                *lineRenderer->getSceneData()->renderer,
+                { "WBOITResolve.Vertex", "WBOITResolve.Fragment" }) {
+}
+
+void WBOITResolvePass::setInputTextures(
+        const sgl::vk::TexturePtr& accumulationTexture, const sgl::vk::TexturePtr& revealageTexture) {
+    this->accumulationRenderTexture = accumulationTexture;
+    this->revealageRenderTexture = revealageTexture;
+    if (rasterData) {
+        rasterData->setStaticTexture(accumulationTexture, "accumulationTexture");
+        rasterData->setStaticTexture(revealageTexture, "revealageTexture");
+    }
+}
+
+void WBOITResolvePass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
+    rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
+    rasterData->setIndexBuffer(indexBuffer);
+    rasterData->setVertexBuffer(vertexBuffer, 0);
+    rasterData->setStaticTexture(accumulationRenderTexture, "accumulationTexture");
+    rasterData->setStaticTexture(revealageRenderTexture, "revealageTexture");
 }

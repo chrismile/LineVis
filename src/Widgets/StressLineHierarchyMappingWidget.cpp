@@ -27,7 +27,6 @@
  */
 
 #include <cmath>
-#include <GL/glew.h>
 #include <glm/glm.hpp>
 
 #define IMGUI_DEFINE_MATH_OPERATORS
@@ -37,9 +36,7 @@
 #include <ImGui/imgui_stdlib.h>
 
 #include <Math/Math.hpp>
-#include <Graphics/Texture/TextureManager.hpp>
-#include <Graphics/OpenGL/Texture.hpp>
-#include <Graphics/OpenGL/RendererGL.hpp>
+#include <Utils/AppSettings.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 
 #include "StressLineHierarchyMappingWidget.hpp"
@@ -54,10 +51,13 @@ StressLineHierarchyMappingWidget::StressLineHierarchyMappingWidget() {
         };
     }
 
-    hierarchyMappingTextureSettings.type = sgl::TEXTURE_1D_ARRAY;
-    hierarchyMappingTextureSettings.internalFormat = GL_R16;
-    hierarchyMappingTexture = sgl::TextureManager->createEmptyTexture(
-            STANDARD_MAP_RESOLUTION, 3, hierarchyMappingTextureSettings);
+    sgl::vk::ImageSettings imageSettings;
+    imageSettings.imageType = VK_IMAGE_TYPE_1D;
+    imageSettings.format = VK_FORMAT_R32_SFLOAT;
+    imageSettings.width = STANDARD_MAP_RESOLUTION;
+    imageSettings.arrayLayers = 3;
+    hierarchyMappingTexture = std::make_shared<sgl::vk::Texture>(
+            sgl::AppSettings::get()->getPrimaryDevice(), imageSettings, VK_IMAGE_VIEW_TYPE_1D_ARRAY);
 
     rebuildHierarchyMappingTexture();
 }
@@ -105,7 +105,7 @@ void StressLineHierarchyMappingWidget::setLineHierarchyLevelValues(
 }
 
 
-sgl::TexturePtr& StressLineHierarchyMappingWidget::getHierarchyMappingTexture() {
+sgl::vk::TexturePtr& StressLineHierarchyMappingWidget::getHierarchyMappingTexture() {
     return hierarchyMappingTexture;
 }
 
@@ -146,9 +146,8 @@ void StressLineHierarchyMappingWidget::rebuildHierarchyMappingTexture() {
         }
     }
 
-    hierarchyMappingTexture->uploadPixelData(
-            STANDARD_MAP_RESOLUTION, 3, hierarchyMappingData.data(),
-            sgl::PixelFormat(GL_RED, GL_FLOAT));
+    hierarchyMappingTexture->getImage()->uploadData(
+            STANDARD_MAP_RESOLUTION * 3 * sizeof(float), hierarchyMappingData.data());
 }
 
 

@@ -120,7 +120,7 @@ void MBOITRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
 
     sgl::ShaderManager->invalidateShaderCache();
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"MBOITPass1.glsl\"");
-    mboitPass1Shader = lineData->reloadGatherShader();
+    mboitPass1Shader = lineData->reloadGatherShaderOpenGL();
     if (canCopyShaderAttributes && shaderAttributesPass1) {
         shaderAttributesPass1 = shaderAttributesPass1->copy(mboitPass1Shader);
     }
@@ -137,7 +137,7 @@ void MBOITRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
 
     sgl::ShaderManager->invalidateShaderCache();
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"MBOITPass2.glsl\"");
-    mboitPass2Shader = lineData->reloadGatherShader();
+    mboitPass2Shader = lineData->reloadGatherShaderOpenGL();
     if (canCopyShaderAttributes && shaderAttributesPass2) {
         shaderAttributesPass2 = shaderAttributesPass2->copy(mboitPass2Shader);
     }
@@ -312,8 +312,8 @@ void MBOITRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     // Unload old data.
     shaderAttributesPass1 = sgl::ShaderAttributesPtr();
     shaderAttributesPass2 = sgl::ShaderAttributesPtr();
-    shaderAttributesPass1 = lineData->getGatherShaderAttributes(mboitPass1Shader);
-    shaderAttributesPass2 = lineData->getGatherShaderAttributes(mboitPass2Shader);
+    shaderAttributesPass1 = lineData->getGatherShaderAttributesOpenGL(mboitPass1Shader);
+    shaderAttributesPass2 = lineData->getGatherShaderAttributesOpenGL(mboitPass2Shader);
 
     dirty = false;
     reRender = true;
@@ -331,13 +331,13 @@ void MBOITRenderer::onResolutionChanged() {
     textureSettings.internalFormat = GL_RGBA32F;
     blendRenderTexture = sgl::TextureManager->createEmptyTexture(width, height, textureSettings);
     blendFBO->bindTexture(blendRenderTexture);
-    blendFBO->bindRenderbuffer(*sceneData->sceneDepthRBO, sgl::DEPTH_STENCIL_ATTACHMENT);
+    //blendFBO->bindRenderbuffer(*sceneData->sceneDepthRBO, sgl::DEPTH_STENCIL_ATTACHMENT); // TODO
 
     updateMomentMode();
 }
 
 void MBOITRenderer::render() {
-    LineRenderer::render();
+    LineRenderer::renderBase();
 
     setUniformData();
     computeDepthRange();
@@ -394,7 +394,7 @@ void MBOITRenderer::setUniformData() {
         glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
         mboitPass2Shader->setUniform("foregroundColor", foregroundColor);
     }
-    lineData->setUniformGatherShaderData(mboitPass2Shader);
+    lineData->setUniformGatherShaderDataOpenGL(mboitPass2Shader);
     setUniformData_Pass(mboitPass2Shader);
 
     blendShader->setUniformImageTexture(
@@ -506,7 +506,7 @@ void MBOITRenderer::resolve() {
 
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
 
-    sgl::Renderer->bindFBO(*sceneData->framebuffer);
+    //sgl::Renderer->bindFBO(*sceneData->framebuffer); // TODO
     sgl::Renderer->render(blitRenderData);
 
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);

@@ -29,7 +29,12 @@
 #ifndef LINEVIS_WBOITRENDERER_HPP
 #define LINEVIS_WBOITRENDERER_HPP
 
+#include <Graphics/Vulkan/Render/Passes/BlitRenderPass.hpp>
+#include "Renderers/LineRasterPass.hpp"
 #include "Renderers/LineRenderer.hpp"
+
+class WBOITLineRasterPass;
+class WBOITResolvePass;
 
 /**
  * Renders all lines with transparency values determined by the transfer function set by the user.
@@ -52,6 +57,9 @@ public:
      */
     void setLineData(LineDataPtr& lineData, bool isNewData) override;
 
+    /// Sets the shader preprocessor defines used by the renderer.
+    void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) override;
+
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
 
@@ -61,24 +69,42 @@ public:
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
 private:
-    void setUniformData();
-    void reloadShaders();
     void reloadGatherShader(bool canCopyShaderAttributes = true) override;
-    void reloadResolveShader();
-
-    // Shaders.
-    sgl::ShaderProgramPtr gatherShader;
-    sgl::ShaderProgramPtr resolveShader;
 
     // Render data.
-    sgl::ShaderAttributesPtr shaderAttributes;
-    // Blit data (ignores model-view-projection matrix and uses normalized device coordinates).
-    sgl::ShaderAttributesPtr blitRenderData;
+    std::shared_ptr<WBOITLineRasterPass> lineRasterPass;
+    std::shared_ptr<WBOITResolvePass> resolveRenderPass;
+    sgl::vk::TexturePtr accumulationRenderTexture;
+    sgl::vk::TexturePtr revealageRenderTexture;
+};
 
-    // Render data of depth peeling
-    sgl::FramebufferObjectPtr gatherPassFBO;
-    sgl::TexturePtr accumulationRenderTexture;
-    sgl::TexturePtr revealageRenderTexture;
+class WBOITLineRasterPass : public LineRasterPass {
+public:
+    WBOITLineRasterPass(LineRenderer* lineRenderer);
+
+    void setRenderTargets(
+            const sgl::vk::TexturePtr& accumulationTexture, const sgl::vk::TexturePtr& revealageTexture);
+    void recreateSwapchain(uint32_t width, uint32_t height) override;
+
+protected:
+    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
+
+    sgl::vk::TexturePtr accumulationRenderTexture;
+    sgl::vk::TexturePtr revealageRenderTexture;
+};
+
+class WBOITResolvePass : public sgl::vk::BlitRenderPass {
+public:
+    WBOITResolvePass(LineRenderer* lineRenderer);
+
+    virtual void setInputTextures(
+            const sgl::vk::TexturePtr& accumulationTexture, const sgl::vk::TexturePtr& revealageTexture);
+
+protected:
+    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
+
+    sgl::vk::TexturePtr accumulationRenderTexture;
+    sgl::vk::TexturePtr revealageRenderTexture;
 };
 
 #endif //LINEVIS_WBOITRENDERER_HPP

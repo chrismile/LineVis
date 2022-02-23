@@ -72,7 +72,7 @@ DepthComplexityRenderer::DepthComplexityRenderer(
 
 void DepthComplexityRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     LineRenderer::reloadGatherShader();
-    gatherShader = lineData->reloadGatherShader();
+    gatherShader = lineData->reloadGatherShaderOpenGL();
     if (canCopyShaderAttributes && shaderAttributes) {
         shaderAttributes = shaderAttributes->copy(gatherShader);
     }
@@ -84,7 +84,7 @@ void DepthComplexityRenderer::setLineData(LineDataPtr& lineData, bool isNewData)
     // Unload old data.
     shaderAttributes = sgl::ShaderAttributesPtr();
 
-    shaderAttributes = lineData->getGatherShaderAttributes(gatherShader);
+    shaderAttributes = lineData->getGatherShaderAttributesOpenGL(gatherShader);
 
     firstFrame = true;
     totalNumFragments = 0;
@@ -117,7 +117,7 @@ void DepthComplexityRenderer::setUniformData() {
     gatherShader->setUniformOptional("cameraPosition", (*sceneData->camera)->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
     gatherShader->setUniform("viewportW", width);
-    lineData->setUniformGatherShaderData(gatherShader);
+    lineData->setUniformGatherShaderDataOpenGL(gatherShader);
 
     resolveShader->setUniform("viewportW", width);
     resolveShader->setShaderStorageBuffer(0, "FragmentCounterBuffer", fragmentCounterBuffer);
@@ -188,7 +188,7 @@ void DepthComplexityRenderer::resolve() {
 }
 
 void DepthComplexityRenderer::render() {
-    LineRenderer::render();
+    LineRenderer::renderBase();
 
     setUniformData();
     clear();

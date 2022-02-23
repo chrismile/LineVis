@@ -110,6 +110,7 @@ private:
     int mouseHoverWindowIndex = -1;
     std::vector<DataViewPtr> dataViews;
     int hasMovedIndex = -1;
+    bool isFirstFrame = true;
 
     /// Scene data (e.g., camera, main framebuffer, ...).
     uint32_t viewportWidth = 0;
