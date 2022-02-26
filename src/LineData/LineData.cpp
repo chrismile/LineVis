@@ -371,25 +371,10 @@ void LineData::setGraphicsPipelineInfo(
     }
 
     if (linePrimitiveMode != LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
-        uint32_t vertexPositionBinding = shaderStages->getInputVariableLocation("vertexPosition");
-        pipelineInfo.setVertexBufferBinding(vertexPositionBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexPositionBinding, 0, "vertexPosition");
-
-        uint32_t vertexAttributeBinding = shaderStages->getInputVariableLocation("vertexAttribute");
-        pipelineInfo.setVertexBufferBinding(vertexAttributeBinding, sizeof(float));
-        pipelineInfo.setInputAttributeDescription(
-                vertexAttributeBinding, 0, "vertexAttribute");
-
-        uint32_t vertexNormalBinding = shaderStages->getInputVariableLocation("vertexNormal");
-        pipelineInfo.setVertexBufferBinding(vertexNormalBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexNormalBinding, 0, "vertexNormal");
-
-        uint32_t vertexTangentBinding = shaderStages->getInputVariableLocation("vertexTangent");
-        pipelineInfo.setVertexBufferBinding(vertexTangentBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexTangentBinding, 0, "vertexTangent");
+        pipelineInfo.setVertexBufferBindingByLocation("vertexPosition", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexAttribute", sizeof(float));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexNormal", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexTangent", sizeof(glm::vec3));
     }
 }
 

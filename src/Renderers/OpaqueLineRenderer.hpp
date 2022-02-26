@@ -57,6 +57,9 @@ public:
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
 
+    /// Called when the background clear color was changed.
+    void onClearColorChanged() override;
+
     // Renders the object to the scene framebuffer.
     void render() override;
     /// Renders the entries in the property editor.
@@ -100,7 +103,7 @@ protected:
 
 class MultisampledLineRasterPass : public LineRasterPass {
 public:
-    MultisampledLineRasterPass(LineRenderer* lineRenderer);
+    explicit MultisampledLineRasterPass(LineRenderer* lineRenderer);
 
     // Public interface.
     inline void setUseSampleShading(bool sampleShading) { useSamplingShading = sampleShading; setDataDirty(); }
@@ -115,6 +118,7 @@ protected:
 private:
     sgl::vk::ImageViewPtr colorRenderTargetImage;
     sgl::vk::ImageViewPtr depthRenderTargetImage;
+    bool renderTargetChanged = false;
     bool useSamplingShading = false;
     float minSampleShading = 1.0f;
 };

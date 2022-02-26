@@ -63,6 +63,9 @@ public:
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
 
+    /// Called when the background clear color was changed.
+    void onClearColorChanged() override;
+
     // Renders the object to the scene framebuffer.
     void render() override;
     /// Renders the entries in the property editor.
@@ -80,7 +83,7 @@ private:
 
 class WBOITLineRasterPass : public LineRasterPass {
 public:
-    WBOITLineRasterPass(LineRenderer* lineRenderer);
+    explicit WBOITLineRasterPass(LineRenderer* lineRenderer);
 
     void setRenderTargets(
             const sgl::vk::TexturePtr& accumulationTexture, const sgl::vk::TexturePtr& revealageTexture);
@@ -95,7 +98,7 @@ protected:
 
 class WBOITResolvePass : public sgl::vk::BlitRenderPass {
 public:
-    WBOITResolvePass(LineRenderer* lineRenderer);
+    explicit WBOITResolvePass(LineRenderer* lineRenderer);
 
     virtual void setInputTextures(
             const sgl::vk::TexturePtr& accumulationTexture, const sgl::vk::TexturePtr& revealageTexture);

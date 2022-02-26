@@ -48,7 +48,7 @@ WBOITRenderer::WBOITRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& 
     //glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
     resolveRenderPass->setBlendMode(sgl::vk::BlendMode::BACK_TO_FRONT_STRAIGHT_ALPHA);
 
-    onResolutionChanged();
+    onClearColorChanged();
 }
 
 void WBOITRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
@@ -97,6 +97,10 @@ void WBOITRenderer::onResolutionChanged() {
     resolveRenderPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
     resolveRenderPass->setOutputImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     resolveRenderPass->recreateSwapchain(width, height);
+}
+
+void WBOITRenderer::onClearColorChanged() {
+    resolveRenderPass->setAttachmentClearColor(sceneData->clearColor->getFloatColorRGBA());
 }
 
 void WBOITRenderer::render() {
@@ -155,8 +159,8 @@ void WBOITLineRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo&
             VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE, VK_BLEND_OP_ADD,
             0);
     pipelineInfo.setBlendModeCustom(
-            VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD,
-            VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD,
+            VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR, VK_BLEND_OP_ADD,
+            VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR, VK_BLEND_OP_ADD,
             1);
     pipelineInfo.setDepthWriteEnabled(false);
 }
@@ -166,6 +170,7 @@ WBOITResolvePass::WBOITResolvePass(LineRenderer* lineRenderer)
         : sgl::vk::BlitRenderPass(
                 *lineRenderer->getSceneData()->renderer,
                 { "WBOITResolve.Vertex", "WBOITResolve.Fragment" }) {
+    this->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
 }
 
 void WBOITResolvePass::setInputTextures(

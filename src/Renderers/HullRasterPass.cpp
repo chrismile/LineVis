@@ -90,11 +90,7 @@ void HullRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipe
     pipelineInfo.setVertexBufferBinding(vertexNormalBinding, sizeof(glm::vec3));
     pipelineInfo.setInputAttributeDescription(vertexNormalBinding, 0, "vertexNormal");
 
-    if (lineRenderer->getIsTransparencyUsed() || lineData->getUseCappedTubes()) {
-        pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
-    } else {
-        pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
-    }
+    pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
 }
 
 void HullRasterPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {

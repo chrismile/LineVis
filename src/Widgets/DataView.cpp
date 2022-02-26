@@ -199,6 +199,13 @@ ImTextureID DataView::getImGuiTextureId() const {
     return reinterpret_cast<ImTextureID>(descriptorSetImGui);
 }
 
+void DataView::setClearColor(const sgl::Color& color) {
+    clearColor = color;
+    if (lineRenderer) {
+        lineRenderer->onClearColorChanged();
+    }
+}
+
 void DataView::updateCameraMode() {
     bool useCamera2dNew = lineRenderer->getRenderingMode() == RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER;
     if (useCamera2dNew) {

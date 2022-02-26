@@ -8,7 +8,7 @@ layout(location = 0) out vec2 fragTexCoord;
 
 void main() {
     fragTexCoord = vertexTexCoord;
-    gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
+    gl_Position = vec4(vertexPosition, 1.0);
 }
 
 -- Fragment

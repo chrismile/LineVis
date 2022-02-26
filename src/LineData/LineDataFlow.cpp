@@ -408,68 +408,20 @@ void LineDataFlow::setGraphicsPipelineInfo(
         sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) {
     if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
         pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::LINE_LIST);
-
-        uint32_t vertexPositionBinding = shaderStages->getInputVariableLocation("vertexPosition");
-        pipelineInfo.setVertexBufferBinding(vertexPositionBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexPositionBinding, 0, "vertexPosition");
-
-        uint32_t vertexAttributeBinding = shaderStages->getInputVariableLocation("vertexAttribute");
-        pipelineInfo.setVertexBufferBinding(vertexAttributeBinding, sizeof(float));
-        pipelineInfo.setInputAttributeDescription(
-                vertexAttributeBinding, 0, "vertexAttribute");
-
-        uint32_t vertexNormalBinding = shaderStages->getInputVariableLocation("vertexNormal");
-        pipelineInfo.setVertexBufferBinding(vertexNormalBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexNormalBinding, 0, "vertexNormal");
-
-        uint32_t vertexTangentBinding = shaderStages->getInputVariableLocation("vertexTangent");
-        pipelineInfo.setVertexBufferBinding(vertexTangentBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexTangentBinding, 0, "vertexTangent");
-
-        uint32_t vertexOffsetLeftBinding = shaderStages->getInputVariableLocation("vertexOffsetLeft");
-        pipelineInfo.setVertexBufferBinding(vertexOffsetLeftBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexOffsetLeftBinding, 0, "vertexOffsetLeft");
-
-        uint32_t vertexOffsetRightBinding = shaderStages->getInputVariableLocation("vertexOffsetRight");
-        pipelineInfo.setVertexBufferBinding(vertexOffsetRightBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexOffsetRightBinding, 0, "vertexOffsetRight");
+        pipelineInfo.setVertexBufferBindingByLocation("vertexPosition", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexAttribute", sizeof(float));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexNormal", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexTangent", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexOffsetLeft", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexOffsetRight", sizeof(glm::vec3));
     } else if (linePrimitiveMode != LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
         pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::LINE_LIST);
-
-        uint32_t vertexPositionBinding = shaderStages->getInputVariableLocation("vertexPosition");
-        pipelineInfo.setVertexBufferBinding(vertexPositionBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexPositionBinding, 0, "vertexPosition");
-
-        //uint32_t vertexAttributeBinding = shaderStages->getInputVariableLocation("vertexAttribute");
-        //pipelineInfo.setVertexBufferBinding(vertexAttributeBinding, sizeof(float));
-        //pipelineInfo.setInputAttributeDescription(
-        //        vertexAttributeBinding, 0, "vertexAttribute");
+        pipelineInfo.setVertexBufferBindingByLocation("vertexPosition", sizeof(glm::vec3));
         pipelineInfo.setVertexBufferBindingByLocation("vertexAttribute", sizeof(float));
-
-        //if (shaderStages->getHasInputVariableLocation("vertexNormal")) {
-        //    uint32_t vertexNormalBinding = shaderStages->getInputVariableLocation("vertexNormal");
-        //    pipelineInfo.setVertexBufferBinding(vertexNormalBinding, sizeof(glm::vec3));
-        //    pipelineInfo.setInputAttributeDescription(
-        //            vertexNormalBinding, 0, "vertexNormal");
-        //}
         pipelineInfo.setVertexBufferBindingByLocationOptional("vertexNormal", sizeof(glm::vec3));
-
-        uint32_t vertexTangentBinding = shaderStages->getInputVariableLocation("vertexTangent");
-        pipelineInfo.setVertexBufferBinding(vertexTangentBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexTangentBinding, 0, "vertexTangent");
-
+        pipelineInfo.setVertexBufferBindingByLocation("vertexTangent", sizeof(glm::vec3));
         if (useRotatingHelicityBands) {
-            uint32_t vertexRotationBinding = shaderStages->getInputVariableLocation("vertexRotation");
-            pipelineInfo.setVertexBufferBinding(vertexRotationBinding, sizeof(float));
-            pipelineInfo.setInputAttributeDescription(
-                    vertexRotationBinding, 0, "vertexOffsetLeft");
+            pipelineInfo.setVertexBufferBindingByLocation("vertexRotation", sizeof(float));
         }
     } else {
         LineData::setGraphicsPipelineInfo(pipelineInfo, shaderStages);

@@ -57,7 +57,7 @@ jobs:
       run: |
         if [ "$RUNNER_OS" == "Linux" ]; then
           wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-focal.list https://packages.lunarg.com/vulkan/1.2.198/lunarg-vulkan-1.2.198-focal.list
+          sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3.204-focal.list https://packages.lunarg.com/vulkan/1.3.204/lunarg-vulkan-1.3.204-focal.list
           sudo apt update
           sudo apt install vulkan-sdk
           # Also install the dependencies for building GLEW here.

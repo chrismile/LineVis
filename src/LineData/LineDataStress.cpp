@@ -1084,127 +1084,39 @@ void LineDataStress::setGraphicsPipelineInfo(
         sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) {
     if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
         pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::LINE_LIST);
-
-        uint32_t vertexPositionBinding = shaderStages->getInputVariableLocation("vertexPosition");
-        pipelineInfo.setVertexBufferBinding(vertexPositionBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexPositionBinding, 0, "vertexPosition");
-
-        uint32_t vertexAttributeBinding = shaderStages->getInputVariableLocation("vertexAttribute");
-        pipelineInfo.setVertexBufferBinding(vertexAttributeBinding, sizeof(float));
-        pipelineInfo.setInputAttributeDescription(
-                vertexAttributeBinding, 0, "vertexAttribute");
-
-        uint32_t vertexNormalBinding = shaderStages->getInputVariableLocation("vertexNormal");
-        pipelineInfo.setVertexBufferBinding(vertexNormalBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexNormalBinding, 0, "vertexNormal");
-
-        uint32_t vertexTangentBinding = shaderStages->getInputVariableLocation("vertexTangent");
-        pipelineInfo.setVertexBufferBinding(vertexTangentBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexTangentBinding, 0, "vertexTangent");
-
-        uint32_t vertexOffsetLeftBinding = shaderStages->getInputVariableLocation("vertexOffsetLeft");
-        pipelineInfo.setVertexBufferBinding(vertexOffsetLeftBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexOffsetLeftBinding, 0, "vertexOffsetLeft");
-
-        uint32_t vertexOffsetRightBinding = shaderStages->getInputVariableLocation("vertexOffsetRight");
-        pipelineInfo.setVertexBufferBinding(vertexOffsetRightBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexOffsetRightBinding, 0, "vertexOffsetRight");
-
-        uint32_t vertexPrincipalStressIndexBinding =
-                shaderStages->getInputVariableLocation("vertexPrincipalStressIndex");
-        pipelineInfo.setVertexBufferBinding(vertexPrincipalStressIndexBinding, sizeof(uint32_t));
-        pipelineInfo.setInputAttributeDescription(
-                vertexPrincipalStressIndexBinding, 0,
-                "vertexPrincipalStressIndex");
-
+        pipelineInfo.setVertexBufferBindingByLocation("vertexPosition", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexAttribute", sizeof(float));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexNormal", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexTangent", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexOffsetLeft", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexOffsetRight", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationOptional(
+                "vertexPrincipalStressIndex", sizeof(uint32_t));
         if (hasLineHierarchy) {
-            uint32_t vertexLineHierarchyLevelBinding =
-                    shaderStages->getInputVariableLocation("vertexLineHierarchyLevel");
-            pipelineInfo.setVertexBufferBinding(vertexLineHierarchyLevelBinding, sizeof(float));
-            pipelineInfo.setInputAttributeDescription(
-                    vertexLineHierarchyLevelBinding, 0,
-                    "vertexLineHierarchyLevel");
+            pipelineInfo.setVertexBufferBindingByLocation(
+                    "vertexLineHierarchyLevel", sizeof(float));
         }
-
-        uint32_t vertexLineAppearanceOrderBinding =
-                shaderStages->getInputVariableLocation("vertexLineAppearanceOrder");
-        pipelineInfo.setVertexBufferBinding(vertexLineAppearanceOrderBinding, sizeof(uint32_t));
-        pipelineInfo.setInputAttributeDescription(
-                vertexLineAppearanceOrderBinding, 0,
-                "vertexLineAppearanceOrder");
+        pipelineInfo.setVertexBufferBindingByLocationOptional(
+                "vertexLineAppearanceOrder", sizeof(uint32_t));
     } else if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
         pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::TRIANGLE_LIST);
     } else {
         pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::LINE_LIST);
-
-        uint32_t vertexPositionBinding = shaderStages->getInputVariableLocation("vertexPosition");
-        pipelineInfo.setVertexBufferBinding(vertexPositionBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexPositionBinding, 0, "vertexPosition");
-
-        uint32_t vertexAttributeBinding = shaderStages->getInputVariableLocation("vertexAttribute");
-        pipelineInfo.setVertexBufferBinding(vertexAttributeBinding, sizeof(float));
-        pipelineInfo.setInputAttributeDescription(
-                vertexAttributeBinding, 0, "vertexAttribute");
-
-        uint32_t vertexNormalBinding = shaderStages->getInputVariableLocation("vertexNormal");
-        pipelineInfo.setVertexBufferBinding(vertexNormalBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexNormalBinding, 0, "vertexNormal");
-
-        uint32_t vertexTangentBinding = shaderStages->getInputVariableLocation("vertexTangent");
-        pipelineInfo.setVertexBufferBinding(vertexTangentBinding, sizeof(glm::vec3));
-        pipelineInfo.setInputAttributeDescription(
-                vertexTangentBinding, 0, "vertexTangent");
-
-        uint32_t vertexPrincipalStressIndexBinding =
-                shaderStages->getInputVariableLocation("vertexPrincipalStressIndex");
-        pipelineInfo.setVertexBufferBinding(vertexPrincipalStressIndexBinding, sizeof(uint32_t));
-        pipelineInfo.setInputAttributeDescription(
-                vertexPrincipalStressIndexBinding, 0,
-                "vertexPrincipalStressIndex");
-
+        pipelineInfo.setVertexBufferBindingByLocation("vertexPosition", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexAttribute", sizeof(float));
+        pipelineInfo.setVertexBufferBindingByLocationOptional("vertexNormal", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexTangent", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationOptional(
+                "vertexPrincipalStressIndex", sizeof(uint32_t));
         if (hasLineHierarchy) {
-            uint32_t vertexLineHierarchyLevelBinding =
-                    shaderStages->getInputVariableLocation("vertexLineHierarchyLevel");
-            pipelineInfo.setVertexBufferBinding(vertexLineHierarchyLevelBinding, sizeof(float));
-            pipelineInfo.setInputAttributeDescription(
-                    vertexLineHierarchyLevelBinding, 0,
-                    "vertexLineHierarchyLevel");
+            pipelineInfo.setVertexBufferBindingByLocation(
+                    "vertexLineHierarchyLevel", sizeof(float));
         }
-
-        uint32_t vertexLineAppearanceOrderBinding =
-                shaderStages->getInputVariableLocation("vertexLineAppearanceOrder");
-        pipelineInfo.setVertexBufferBinding(vertexLineAppearanceOrderBinding, sizeof(uint32_t));
-        pipelineInfo.setInputAttributeDescription(
-                vertexLineAppearanceOrderBinding, 0,
-                "vertexLineAppearanceOrder");
-
-        uint32_t vertexMajorStressBinding =
-                shaderStages->getInputVariableLocation("vertexMajorStress");
-        pipelineInfo.setVertexBufferBinding(vertexMajorStressBinding, sizeof(uint32_t));
-        pipelineInfo.setInputAttributeDescription(
-                vertexMajorStressBinding, 0,
-                "vertexMajorStress");
-
-        uint32_t vertexMediumStressBinding =
-                shaderStages->getInputVariableLocation("vertexMediumStress");
-        pipelineInfo.setVertexBufferBinding(vertexMediumStressBinding, sizeof(uint32_t));
-        pipelineInfo.setInputAttributeDescription(
-                vertexMediumStressBinding, 0,
-                "vertexMediumStress");
-
-        uint32_t vertexMinorStressBinding =
-                shaderStages->getInputVariableLocation("vertexMinorStress");
-        pipelineInfo.setVertexBufferBinding(vertexMinorStressBinding, sizeof(uint32_t));
-        pipelineInfo.setInputAttributeDescription(
-                vertexMinorStressBinding, 0,
-                "vertexMinorStress");
+        pipelineInfo.setVertexBufferBindingByLocationOptional(
+                "vertexLineAppearanceOrder", sizeof(uint32_t));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexMajorStress", sizeof(float));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexMediumStress", sizeof(float));
+        pipelineInfo.setVertexBufferBindingByLocation("vertexMinorStress", sizeof(float));
     }
 }
 
@@ -1225,13 +1137,16 @@ void LineDataStress::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
         rasterData->setVertexBuffer(tubeRenderData.vertexOffsetRightBuffer, "vertexOffsetRight");
 
         if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
-            rasterData->setVertexBuffer(tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex");
+            rasterData->setVertexBuffer(
+                    tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex");
         }
         if (tubeRenderData.vertexLineHierarchyLevelBuffer) {
-            rasterData->setVertexBuffer(tubeRenderData.vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel");
+            rasterData->setVertexBuffer(
+                    tubeRenderData.vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel");
         }
         if (tubeRenderData.vertexLineAppearanceOrderBuffer) {
-            rasterData->setVertexBuffer(tubeRenderData.vertexLineAppearanceOrderBuffer, "vertexLineAppearanceOrder");
+            rasterData->setVertexBuffer(
+                    tubeRenderData.vertexLineAppearanceOrderBuffer, "vertexLineAppearanceOrder");
         }
     } else if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
         TubeRenderDataProgrammableFetch tubeRenderData = this->getTubeRenderDataProgrammableFetch();
@@ -1254,13 +1169,16 @@ void LineDataStress::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
         rasterData->setVertexBuffer(tubeRenderData.vertexTangentBuffer, "vertexTangent");
 
         if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
-            rasterData->setVertexBuffer(tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex");
+            rasterData->setVertexBuffer(
+                    tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex");
         }
         if (tubeRenderData.vertexLineHierarchyLevelBuffer) {
-            rasterData->setVertexBuffer(tubeRenderData.vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel");
+            rasterData->setVertexBuffer(
+                    tubeRenderData.vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel");
         }
         if (tubeRenderData.vertexLineAppearanceOrderBuffer) {
-            rasterData->setVertexBuffer(tubeRenderData.vertexLineAppearanceOrderBuffer, "vertexLineAppearanceOrder");
+            rasterData->setVertexBuffer(
+                    tubeRenderData.vertexLineAppearanceOrderBuffer, "vertexLineAppearanceOrder");
         }
         if (tubeRenderData.vertexMajorStressBuffer) {
             rasterData->setVertexBuffer(tubeRenderData.vertexMajorStressBuffer, "vertexMajorStress");

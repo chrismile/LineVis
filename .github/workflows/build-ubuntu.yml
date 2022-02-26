@@ -51,8 +51,8 @@ jobs:
       run: |
         distro_code_name=$(lsb_release -c | grep -oP "\:\s+\K\S+")
         wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-        sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-${distro_code_name}.list \
-        https://packages.lunarg.com/vulkan/1.2.198/lunarg-vulkan-1.2.198-${distro_code_name}.list
+        sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-1.3.204-${distro_code_name}.list \
+        https://packages.lunarg.com/vulkan/1.3.204/lunarg-vulkan-1.3.204-${distro_code_name}.list
         sudo apt update
         sudo apt install vulkan-sdk shaderc
 

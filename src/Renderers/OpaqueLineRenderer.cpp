@@ -57,8 +57,6 @@ OpaqueLineRenderer::OpaqueLineRenderer(SceneData* sceneData, sgl::TransferFuncti
 
     lineRasterPass = std::make_shared<MultisampledLineRasterPass>(this);
     sphereRasterPass = std::make_shared<SphereRasterPass>(sceneData);
-
-    onResolutionChanged();
 }
 
 void OpaqueLineRenderer::setVisualizeSeedingProcess(bool visualizeSeeding) {
@@ -153,6 +151,10 @@ void OpaqueLineRenderer::onResolutionChanged() {
     sphereRasterPass->setRenderTarget(colorRenderTargetImage, depthRenderTargetImage);
 }
 
+void OpaqueLineRenderer::onClearColorChanged() {
+    lineRasterPass->recreateSwapchain(*sceneData->viewportWidth, *sceneData->viewportHeight);
+}
+
 void OpaqueLineRenderer::render() {
     LineRenderer::renderBase();
 
@@ -241,6 +243,7 @@ void MultisampledLineRasterPass::setRenderTarget(
         const sgl::vk::ImageViewPtr& colorImage, const sgl::vk::ImageViewPtr& depthImage) {
     colorRenderTargetImage = colorImage;
     depthRenderTargetImage = depthImage;
+    renderTargetChanged = true;
     setDataDirty();
 }
 
@@ -259,8 +262,13 @@ void MultisampledLineRasterPass::recreateSwapchain(uint32_t width, uint32_t heig
     framebuffer->setDepthStencilAttachment(
             depthRenderTargetImage, depthAttachmentState, 1.0f);
 
-    framebufferDirty = true;
-    dataDirty = true;
+    if (renderTargetChanged || !rasterData) {
+        framebufferDirty = true;
+        dataDirty = true;
+    } else {
+        rasterData->getGraphicsPipeline()->setCompatibleFramebuffer(framebuffer);
+    }
+    renderTargetChanged = false;
 }
 
 void MultisampledLineRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {

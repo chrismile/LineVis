@@ -670,6 +670,10 @@ void MainApp::setRenderer(
     newLineRenderer->setUseLinearRGB(useLinearRGB);
     newLineRenderer->setFileDialogInstance(fileDialogInstance);
 
+    if (*sceneDataRef.sceneTexture) {
+        newLineRenderer->onResolutionChanged();
+    }
+
     if (lineData) {
         if (useDockSpaceMode) {
             std::vector<LineRenderer*> lineRenderers;
@@ -722,7 +726,15 @@ void MainApp::render() {
 
     if (scheduledRecreateSceneFramebuffer) {
         device->waitIdle();
+        sgl::vk::Swapchain* swapchain = sgl::AppSettings::get()->getSwapchain();
         createSceneFramebuffer();
+        if (swapchain && sgl::AppSettings::get()->getUseGUI()) {
+            sgl::ImGuiWrapper::get()->setVkRenderTarget(compositedTextureVk->getImageView());
+            sgl::ImGuiWrapper::get()->onResolutionChanged();
+        }
+        if (videoWriter) {
+            videoWriter->onSwapchainRecreated();
+        }
         scheduledRecreateSceneFramebuffer = false;
     }
 
@@ -863,7 +875,8 @@ void MainApp::renderGui() {
 
     if (useDockSpaceMode) {
         if (isFirstFrame && dataViews.size() == 1) {
-            //initializeFirstDataView(); // TODO
+            initializeFirstDataView();
+            isFirstFrame = false;
         }
 
         ImGuiID dockSpaceId = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
@@ -896,6 +909,10 @@ void MainApp::renderGui() {
 
         renderGuiMenuBar();
 
+        if (showPropertyEditor) {
+            renderGuiPropertyEditorWindow();
+        }
+
         for (int i = 0; i < int(dataViews.size()); i++) {
             DataViewPtr& dataView = dataViews.at(i);
             if (dataView->showWindow) {
@@ -909,7 +926,7 @@ void MainApp::renderGui() {
                                 addNewDataView();
                                 DataViewPtr dataView = dataViews.back();
                                 dataView->renderingMode = RenderingMode(i);
-                                dataView->resize(1, 1); // Use arbitrary size for initialization.
+                                //dataView->resize(1, 1); // Use arbitrary size for initialization.
                                 setRenderer(
                                         dataView->sceneData, dataView->oldRenderingMode,
                                         dataView->renderingMode, dataView->lineRenderer,
@@ -1068,10 +1085,6 @@ void MainApp::renderGui() {
         onCameraReset();
     }
 
-    if (showPropertyEditor) {
-        renderGuiPropertyEditorWindow();
-    }
-
 #ifdef USE_PYTHON
     ReplayWidget::ReplayWidgetUpdateType replayWidgetUpdateType = replayWidget.renderGui();
     if (replayWidgetUpdateType == ReplayWidget::REPLAY_WIDGET_UPDATE_LOAD) {
@@ -1223,10 +1236,11 @@ void MainApp::renderGuiGeneralSettingsPropertyEditor() {
         reRender = true;
     }
 
-    newDockSpaceMode = useDockSpaceMode;
+    // TODO: Remove option?
+    /*newDockSpaceMode = useDockSpaceMode;
     if (propertyEditor.addCheckbox("Use Docking Mode", &newDockSpaceMode)) {
         scheduledDockSpaceModeChange = true;
-    }
+    }*/
 
     if (propertyEditor.addCheckbox("Fixed Size Viewport", &useFixedSizeViewport)) {
         reRender = true;
@@ -1304,7 +1318,8 @@ void MainApp::addNewDataView() {
 void MainApp::initializeFirstDataView() {
     DataViewPtr dataView = dataViews.back();
     dataView->renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
-    dataView->resize(1, 1); // Use arbitrary size for initialization.
+    //dataView->renderingMode = RENDERING_MODE_WBOIT;
+    //dataView->resize(1, 1); // Use arbitrary size for initialization.
     setRenderer(
             dataViews[0]->sceneData, dataViews[0]->oldRenderingMode,
             dataViews[0]->renderingMode, dataViews[0]->lineRenderer, 0);
@@ -1586,6 +1601,7 @@ void MainApp::update(float dt) {
         }
     }
 
+    // TODO: Remove option?
     if (scheduledDockSpaceModeChange) {
         if (useDockSpaceMode) {
             if (!dataViews.empty() && dataViews.front()->lineRenderer) {

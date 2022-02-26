@@ -56,13 +56,13 @@ public:
     void saveScreenshot(const std::string& filename);
     void saveScreenshotDataIfAvailable();
     [[nodiscard]] ImTextureID getImGuiTextureId() const;
+    void setClearColor(const sgl::Color& color);
 
     /// For data views using 2D cameras. 3D cameras are handled by SciVisApp.
     void updateCameraMode();
     void moveCamera2dKeyboard(float dt);
     void moveCamera2dMouse(float dt);
 
-    inline void setClearColor(const sgl::Color& color) { clearColor = color; }
     [[nodiscard]] inline std::string getWindowName(int index) const {
         if (lineRenderer) {
             return lineRenderer->getWindowName() + " (" + std::to_string(index + 1) + ")###data_view_"

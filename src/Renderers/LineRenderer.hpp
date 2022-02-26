@@ -117,6 +117,9 @@ public:
     /// Called when the resolution of the application window has changed.
     virtual void onResolutionChanged();
 
+    /// Called when the background clear color was changed.
+    virtual void onClearColorChanged() {}
+
     /// Called when the transfer function was changed.
     virtual void onTransferFunctionMapRebuilt() {}
 
