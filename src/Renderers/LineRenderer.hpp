@@ -99,6 +99,7 @@ public:
             sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages);
     virtual void setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData);
     virtual void updateVulkanUniformBuffers();
+    virtual void setFramebufferAttachments(sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp);
 
     /// Prepares the depth cues buffer and ambient occlusion buffer/texture for the passed pipeline stage.
     virtual void renderBase(VkPipelineStageFlags pipelineStageFlags);
@@ -153,7 +154,8 @@ public:
     static inline float getMinBandThickness() { return LineData::getMinBandThickness(); }
 
     inline const std::string& getWindowName() { return windowName; }
-    inline SceneData* getSceneData() { return sceneData; }
+    [[nodiscard]] inline SceneData* getSceneData() const { return sceneData; }
+    [[nodiscard]] inline bool getHasLineData() const { return lineData.get() != nullptr; }
 
     // Tiling mode.
     static void setNewTilingMode(int newTileWidth, int newTileHeight, bool useMortonCode = false);

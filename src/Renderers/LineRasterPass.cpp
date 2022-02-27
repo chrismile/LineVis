@@ -41,20 +41,21 @@ void LineRasterPass::setLineData(LineDataPtr& lineData, bool isNewData) {
     dataDirty = true;
 }
 
+void LineRasterPass::updateFramebuffer() {
+    framebuffer = std::make_shared<sgl::vk::Framebuffer>(device, framebuffer->getWidth(), framebuffer->getHeight());
+    lineRenderer->setFramebufferAttachments(framebuffer, VK_ATTACHMENT_LOAD_OP_CLEAR);
+
+    if (!rasterData) {
+        framebufferDirty = true;
+        dataDirty = true;
+    } else {
+        rasterData->getGraphicsPipeline()->setCompatibleFramebuffer(framebuffer);
+    }
+}
+
 void LineRasterPass::recreateSwapchain(uint32_t width, uint32_t height) {
     framebuffer = std::make_shared<sgl::vk::Framebuffer>(device, width, height);
-
-    sgl::vk::AttachmentState attachmentState;
-    attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    framebuffer->setColorAttachment(
-            (*sceneData->sceneTexture)->getImageView(), 0, attachmentState,
-            sceneData->clearColor->getFloatColorRGBA());
-
-    sgl::vk::AttachmentState depthAttachmentState;
-    depthAttachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    framebuffer->setDepthStencilAttachment(
-            (*sceneData->sceneDepthTexture)->getImageView(), depthAttachmentState, 1.0f);
+    lineRenderer->setFramebufferAttachments(framebuffer, VK_ATTACHMENT_LOAD_OP_CLEAR);
 
     framebufferDirty = true;
     dataDirty = true;

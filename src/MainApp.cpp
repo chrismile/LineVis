@@ -1554,6 +1554,7 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
                             setRenderer(
                                     dataView->sceneData, dataView->oldRenderingMode, dataView->renderingMode,
                                     dataView->lineRenderer, i);
+                            prepareVisualizationPipeline();
                             dataView->updateCameraMode();
                             reRender = true;
                         }

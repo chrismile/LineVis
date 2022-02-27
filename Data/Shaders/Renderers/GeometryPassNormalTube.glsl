@@ -53,10 +53,10 @@ layout(location = 9) in float vertexMinorStress;
 layout(location = 10) in float vertexRotation;
 #endif
 
-layout(location = 0) out vec3 linePosition;
+layout(location = 0) out vec3 linePositionIn;
 layout(location = 1) out float lineAttribute;
 layout(location = 2) out vec3 lineTangent;
-layout(location = 3) out vec3 lineNormal;
+layout(location = 3) out vec3 lineNormalIn;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
 layout(location = 4) out uint linePrincipalStressIndex;
 #endif
@@ -82,10 +82,10 @@ layout(location = 11) out float lineRotation;
 #include "TransferFunction.glsl"
 
 void main() {
-    linePosition = (mMatrix * vec4(vertexPosition, 1.0)).xyz;
+    linePositionIn = (mMatrix * vec4(vertexPosition, 1.0)).xyz;
     lineAttribute = vertexAttribute;
     lineTangent = vertexTangent;
-    lineNormal = vertexNormal;
+    lineNormalIn = vertexNormal;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
     linePrincipalStressIndex = vertexPrincipalStressIndex;
 #endif
@@ -118,10 +118,10 @@ layout(triangle_strip, max_vertices = 32) out;
 
 #include "LineUniformData.glsl"
 
-layout(location = 0) in vec3 linePosition[];
+layout(location = 0) in vec3 linePositionIn[];
 layout(location = 1) in float lineAttribute[];
 layout(location = 2) in vec3 lineTangent[];
-layout(location = 3) in vec3 lineNormal[];
+layout(location = 3) in vec3 lineNormalIn[];
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
 layout(location = 4) in uint linePrincipalStressIndex[];
 #endif
@@ -131,16 +131,16 @@ layout(location = 5) in float lineLineHierarchyLevel[];
 #ifdef VISUALIZE_SEEDING_PROCESS
 layout(location = 6) in uint lineLineAppearanceOrder[];
 #endif
+#ifdef USE_AMBIENT_OCCLUSION
+layout(location = 7) in uint lineVertexId[];
+#endif
 #ifdef USE_PRINCIPAL_STRESSES
-layout(location = 7) in float lineMajorStress[];
-layout(location = 8) in float lineMediumStress[];
-layout(location = 9) in float lineMinorStress[];
+layout(location = 8) in float lineMajorStress[];
+layout(location = 9) in float lineMediumStress[];
+layout(location = 10) in float lineMinorStress[];
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
-layout(location = 10) in float lineRotation[];
-#endif
-#ifdef USE_AMBIENT_OCCLUSION
-layout(location = 11) in uint lineVertexId[];
+layout(location = 11) in float lineRotation[];
 #endif
 
 layout(location = 0) out vec3 fragmentPositionWorld;
@@ -184,8 +184,8 @@ layout(location = 17) out float fragmentRotation;
 #define M_PI 3.14159265358979323846
 
 void main() {
-    vec3 linePosition0 = (mMatrix * vec4(linePosition[0], 1.0)).xyz;
-    vec3 linePosition1 = (mMatrix * vec4(linePosition[1], 1.0)).xyz;
+    vec3 linePosition0 = (mMatrix * vec4(linePositionIn[0], 1.0)).xyz;
+    vec3 linePosition1 = (mMatrix * vec4(linePositionIn[1], 1.0)).xyz;
 
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
     uint principalStressIndex = linePrincipalStressIndex[0];
@@ -218,10 +218,10 @@ void main() {
     vec3 vertexNormalsCurrent[NUM_TUBE_SUBDIVISIONS];
     vec3 vertexNormalsNext[NUM_TUBE_SUBDIVISIONS];
 
-    vec3 normalCurrent = lineNormal[0];
+    vec3 normalCurrent = lineNormalIn[0];
     vec3 tangentCurrent = lineTangent[0];
     vec3 binormalCurrent = cross(tangentCurrent, normalCurrent);
-    vec3 normalNext = lineNormal[1];
+    vec3 normalNext = lineNormalIn[1];
     vec3 tangentNext = lineTangent[1];
     vec3 binormalNext = cross(tangentNext, normalNext);
 
@@ -351,6 +351,16 @@ void main() {
 #if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
         phi = float(i) * factor;
 #endif
+#ifdef USE_BANDS
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+        useBand = psUseBands[principalStressIndex];
+#else
+        useBand = 1;
+#endif
+#endif
+#if defined(USE_BANDS) && !defined(USE_NORMAL_STRESS_RATIO_TUBES) && !defined(USE_HYPERSTREAMLINES)
+        thickness = useBand != 0 ? MIN_THICKNESS : 1.0f;
+#endif
 #if defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
         thickness0 = thickness0Current[i];
         thickness1 = thickness1Current[i];
@@ -390,6 +400,16 @@ void main() {
 
 #if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
         phi = float(i + 1) * factor;
+#endif
+#ifdef USE_BANDS
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+        useBand = psUseBands[principalStressIndex];
+#else
+        useBand = 1;
+#endif
+#endif
+#if defined(USE_BANDS) && !defined(USE_NORMAL_STRESS_RATIO_TUBES) && !defined(USE_HYPERSTREAMLINES)
+        thickness = useBand != 0 ? MIN_THICKNESS : 1.0f;
 #endif
 #if defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
         thickness0 = thickness0Current[iNext];
@@ -432,6 +452,16 @@ void main() {
 #if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
         phi = float(i) * factor;
 #endif
+#ifdef USE_BANDS
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+        useBand = psUseBands[principalStressIndex];
+#else
+        useBand = 1;
+#endif
+#endif
+#if defined(USE_BANDS) && !defined(USE_NORMAL_STRESS_RATIO_TUBES) && !defined(USE_HYPERSTREAMLINES)
+        thickness = useBand != 0 ? MIN_THICKNESS : 1.0f;
+#endif
 #if defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
         thickness0 = thickness0Next[i];
         thickness1 = thickness1Next[i];
@@ -470,6 +500,16 @@ void main() {
 
 #if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
         phi = float(i + 1) * factor;
+#endif
+#ifdef USE_BANDS
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+        useBand = psUseBands[principalStressIndex];
+#else
+        useBand = 1;
+#endif
+#endif
+#if defined(USE_BANDS) && !defined(USE_NORMAL_STRESS_RATIO_TUBES) && !defined(USE_HYPERSTREAMLINES)
+        thickness = useBand != 0 ? MIN_THICKNESS : 1.0f;
 #endif
 #if defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
         thickness0 = thickness0Next[iNext];

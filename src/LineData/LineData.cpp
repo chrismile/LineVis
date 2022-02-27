@@ -371,10 +371,10 @@ void LineData::setGraphicsPipelineInfo(
     }
 
     if (linePrimitiveMode != LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
-        pipelineInfo.setVertexBufferBindingByLocation("vertexPosition", sizeof(glm::vec3));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexAttribute", sizeof(float));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexNormal", sizeof(glm::vec3));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexTangent", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexPosition", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexAttribute", sizeof(float));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexNormal", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexTangent", sizeof(glm::vec3));
     }
 }
 

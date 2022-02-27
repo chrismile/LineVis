@@ -201,6 +201,11 @@ ImTextureID DataView::getImGuiTextureId() const {
 
 void DataView::setClearColor(const sgl::Color& color) {
     clearColor = color;
+    if (!lineRenderer || !lineRenderer->getHasLineData()) {
+        renderer->transitionImageLayout(sceneTextureVk->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        sceneTextureVk->getImageView()->clearColor(
+                clearColor.getFloatColorRGBA(), renderer->getVkCommandBuffer());
+    }
     if (lineRenderer) {
         lineRenderer->onClearColorChanged();
     }

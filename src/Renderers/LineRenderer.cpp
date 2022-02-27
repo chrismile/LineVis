@@ -35,9 +35,10 @@
 #include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/OpenGL/RendererGL.hpp>
 #include <Graphics/OpenGL/GeometryBuffer.hpp>
+#include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/imgui_custom.h>
 #include <ImGui/Widgets/PropertyEditor.hpp>
-#include <Graphics/Vulkan/Render/Renderer.hpp>
 
 #include "Renderers/Vulkan/VulkanAmbientOcclusionBaker.hpp"
 #include "Renderers/Vulkan/VulkanRayTracedAmbientOcclusion.hpp"
@@ -55,6 +56,10 @@ void LineRenderer::initialize() {
     computeDepthValuesPass = std::make_shared<ComputeDepthValuesPass>(sceneData);
     minMaxDepthReductionPass[0] = std::make_shared<MinMaxDepthReductionPass>(sceneData);
     minMaxDepthReductionPass[1] = std::make_shared<MinMaxDepthReductionPass>(sceneData);
+
+    if (isRasterizer) {
+        hullRasterPass = std::make_shared<HullRasterPass>(this);
+    }
 
     // Add events for interaction with line data.
     onTransferFunctionMapRebuiltListenerToken = sgl::EventManager::get()->addListener(
@@ -150,7 +155,7 @@ void LineRenderer::setGraphicsPipelineInfo(
 
 void LineRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) {
     if (useDepthCues) {
-        renderData->setStaticBuffer(
+        renderData->setStaticBufferOptional(
                 depthMinMaxBuffers[outputDepthMinMaxBufferIndex], "DepthMinMaxBuffer");
     }
     if (useAmbientOcclusion && ambientOcclusionBaker) {
@@ -158,8 +163,8 @@ void LineRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderDat
             auto ambientOcclusionBuffer = ambientOcclusionBaker->getAmbientOcclusionBufferVulkan();
             auto blendingWeightsBuffer = ambientOcclusionBaker->getBlendingWeightsBufferVulkan();
             if (ambientOcclusionBuffer && blendingWeightsBuffer) {
-                renderData->setStaticBuffer(ambientOcclusionBuffer, "AmbientOcclusionFactors");
-                renderData->setStaticBuffer(blendingWeightsBuffer, "AmbientOcclusionBlendingWeights");
+                renderData->setStaticBufferOptional(ambientOcclusionBuffer, "AmbientOcclusionFactors");
+                renderData->setStaticBufferOptional(blendingWeightsBuffer, "AmbientOcclusionBlendingWeights");
             } else {
                 // Just bind anything in order for sgl to not complain...
                 glm::vec4 zeroData{};
@@ -167,13 +172,13 @@ void LineRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderDat
                         sgl::AppSettings::get()->getPrimaryDevice(), sizeof(glm::vec4), &zeroData,
                         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                         VMA_MEMORY_USAGE_GPU_ONLY);
-                renderData->setStaticBuffer(buffer, "AmbientOcclusionFactors");
-                renderData->setStaticBuffer(buffer, "AmbientOcclusionBlendingWeights");
+                renderData->setStaticBufferOptional(buffer, "AmbientOcclusionFactors");
+                renderData->setStaticBufferOptional(buffer, "AmbientOcclusionBlendingWeights");
             }
         } else {
             auto ambientOcclusionTexture =
                     ambientOcclusionBaker->getAmbientOcclusionFrameTextureVulkan();
-            renderData->setStaticTexture(ambientOcclusionTexture, "ambientOcclusionTexture");
+            renderData->setStaticTextureOptional(ambientOcclusionTexture, "ambientOcclusionTexture");
         }
     }
 }
@@ -181,8 +186,28 @@ void LineRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderDat
 void LineRenderer::updateVulkanUniformBuffers() {
 }
 
+void LineRenderer::setFramebufferAttachments(sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) {
+    sgl::vk::AttachmentState attachmentState;
+    attachmentState.loadOp = loadOp;
+    attachmentState.initialLayout =
+            loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR ?
+            VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    framebuffer->setColorAttachment(
+            (*sceneData->sceneTexture)->getImageView(), 0, attachmentState,
+            sceneData->clearColor->getFloatColorRGBA());
+
+    sgl::vk::AttachmentState depthAttachmentState;
+    depthAttachmentState.loadOp = loadOp;
+    depthAttachmentState.initialLayout =
+            loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR ?
+            VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    framebuffer->setDepthStencilAttachment(
+            (*sceneData->sceneDepthTexture)->getImageView(), depthAttachmentState, 1.0f);
+}
+
 void LineRenderer::renderBase(VkPipelineStageFlags pipelineStageFlags) {
-    if (useDepthCues && lineData) {
+    if (useDepthCues && lineData && depthMinMaxBuffers[outputDepthMinMaxBufferIndex]) {
         computeDepthRange();
         renderer->insertBufferMemoryBarrier(
                 VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
@@ -302,6 +327,13 @@ void LineRenderer::updateDepthCueGeometryData() {
         }
     }
 
+    depthMinMaxBuffers[0] = {};
+    depthMinMaxBuffers[1] = {};
+    filteredLinesVerticesBuffer = {};
+    if (filteredLinesVertices.empty()) {
+        return;
+    }
+
     sgl::vk::Device* device = renderer->getDevice();
     depthMinMaxBuffers[0] = std::make_shared<sgl::vk::Buffer>(
             device, sgl::iceil(int(filteredLinesVertices.size()), BLOCK_SIZE_DEPTH_CUES) * sizeof(glm::vec4),
@@ -324,6 +356,10 @@ void LineRenderer::updateDepthCueGeometryData() {
 }
 
 void LineRenderer::computeDepthRange() {
+    if (!filteredLinesVerticesBuffer) {
+        return;
+    }
+
     auto numVertices = uint32_t(filteredLinesVerticesBuffer->getSizeInBytes() / sizeof(glm::vec4));
     uint32_t numBlocks = sgl::iceil(int(numVertices), BLOCK_SIZE_DEPTH_CUES);
     computeDepthValuesPass->render();
@@ -576,11 +612,10 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewData) {
         updateDepthCueGeometryData();
     }
 
-    if (isRasterizer && lineData->hasSimulationMeshOutline()) {
-        if (!hullRasterPass) {
-            hullRasterPass = std::make_shared<HullRasterPass>(this);
+    if (isRasterizer) {
+        if (lineData->hasSimulationMeshOutline()) {
+            hullRasterPass->setLineData(lineData, isNewData);
         }
-        hullRasterPass->setLineData(lineData, isNewData);
     }
 }
 
@@ -598,7 +633,8 @@ void LineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
 
 void LineRenderer::renderHull() {
     if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
-        if (!gatherShaderHull) {
+        hullRasterPass->render();
+        /*if (!gatherShaderHull) {
             reloadGatherShader();
             shaderAttributesHull = lineData->getGatherShaderAttributesHull(gatherShaderHull);
         }
@@ -606,7 +642,7 @@ void LineRenderer::renderHull() {
         gatherShaderHull->setUniformOptional("cameraPosition", (*sceneData->camera)->getPosition());
         glDisable(GL_CULL_FACE);
         sgl::Renderer->render(shaderAttributesHull);
-        glEnable(GL_CULL_FACE);
+        glEnable(GL_CULL_FACE);*/
     }
 }
 

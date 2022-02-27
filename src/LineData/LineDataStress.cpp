@@ -1084,39 +1084,42 @@ void LineDataStress::setGraphicsPipelineInfo(
         sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) {
     if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
         pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::LINE_LIST);
-        pipelineInfo.setVertexBufferBindingByLocation("vertexPosition", sizeof(glm::vec3));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexAttribute", sizeof(float));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexNormal", sizeof(glm::vec3));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexTangent", sizeof(glm::vec3));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexOffsetLeft", sizeof(glm::vec3));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexOffsetRight", sizeof(glm::vec3));
-        pipelineInfo.setVertexBufferBindingByLocationOptional(
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexPosition", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexAttribute", sizeof(float));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexNormal", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexTangent", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexOffsetLeft", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexOffsetRight", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndexOptional(
                 "vertexPrincipalStressIndex", sizeof(uint32_t));
         if (hasLineHierarchy) {
-            pipelineInfo.setVertexBufferBindingByLocation(
+            pipelineInfo.setVertexBufferBindingByLocationIndex(
                     "vertexLineHierarchyLevel", sizeof(float));
         }
-        pipelineInfo.setVertexBufferBindingByLocationOptional(
+        pipelineInfo.setVertexBufferBindingByLocationIndexOptional(
                 "vertexLineAppearanceOrder", sizeof(uint32_t));
     } else if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
         pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::TRIANGLE_LIST);
     } else {
         pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::LINE_LIST);
-        pipelineInfo.setVertexBufferBindingByLocation("vertexPosition", sizeof(glm::vec3));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexAttribute", sizeof(float));
-        pipelineInfo.setVertexBufferBindingByLocationOptional("vertexNormal", sizeof(glm::vec3));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexTangent", sizeof(glm::vec3));
-        pipelineInfo.setVertexBufferBindingByLocationOptional(
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexPosition", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexAttribute", sizeof(float));
+        pipelineInfo.setVertexBufferBindingByLocationIndexOptional("vertexNormal", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexTangent", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndexOptional(
                 "vertexPrincipalStressIndex", sizeof(uint32_t));
         if (hasLineHierarchy) {
-            pipelineInfo.setVertexBufferBindingByLocation(
+            pipelineInfo.setVertexBufferBindingByLocationIndex(
                     "vertexLineHierarchyLevel", sizeof(float));
         }
-        pipelineInfo.setVertexBufferBindingByLocationOptional(
+        pipelineInfo.setVertexBufferBindingByLocationIndexOptional(
                 "vertexLineAppearanceOrder", sizeof(uint32_t));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexMajorStress", sizeof(float));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexMediumStress", sizeof(float));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexMinorStress", sizeof(float));
+        pipelineInfo.setVertexBufferBindingByLocationIndexOptional(
+                "vertexMajorStress", sizeof(float));
+        pipelineInfo.setVertexBufferBindingByLocationIndexOptional(
+                "vertexMediumStress", sizeof(float));
+        pipelineInfo.setVertexBufferBindingByLocationIndexOptional(
+                "vertexMinorStress", sizeof(float));
     }
 }
 
@@ -1137,15 +1140,15 @@ void LineDataStress::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
         rasterData->setVertexBuffer(tubeRenderData.vertexOffsetRightBuffer, "vertexOffsetRight");
 
         if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
-            rasterData->setVertexBuffer(
+            rasterData->setVertexBufferOptional(
                     tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex");
         }
         if (tubeRenderData.vertexLineHierarchyLevelBuffer) {
-            rasterData->setVertexBuffer(
+            rasterData->setVertexBufferOptional(
                     tubeRenderData.vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel");
         }
         if (tubeRenderData.vertexLineAppearanceOrderBuffer) {
-            rasterData->setVertexBuffer(
+            rasterData->setVertexBufferOptional(
                     tubeRenderData.vertexLineAppearanceOrderBuffer, "vertexLineAppearanceOrder");
         }
     } else if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
@@ -1165,7 +1168,7 @@ void LineDataStress::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
         rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
         rasterData->setVertexBuffer(tubeRenderData.vertexPositionBuffer, "vertexPosition");
         rasterData->setVertexBuffer(tubeRenderData.vertexAttributeBuffer, "vertexAttribute");
-        rasterData->setVertexBuffer(tubeRenderData.vertexNormalBuffer, "vertexNormal");
+        rasterData->setVertexBufferOptional(tubeRenderData.vertexNormalBuffer, "vertexNormal");
         rasterData->setVertexBuffer(tubeRenderData.vertexTangentBuffer, "vertexTangent");
 
         if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
@@ -1173,21 +1176,21 @@ void LineDataStress::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
                     tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex");
         }
         if (tubeRenderData.vertexLineHierarchyLevelBuffer) {
-            rasterData->setVertexBuffer(
+            rasterData->setVertexBufferOptional(
                     tubeRenderData.vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel");
         }
         if (tubeRenderData.vertexLineAppearanceOrderBuffer) {
-            rasterData->setVertexBuffer(
+            rasterData->setVertexBufferOptional(
                     tubeRenderData.vertexLineAppearanceOrderBuffer, "vertexLineAppearanceOrder");
         }
         if (tubeRenderData.vertexMajorStressBuffer) {
-            rasterData->setVertexBuffer(tubeRenderData.vertexMajorStressBuffer, "vertexMajorStress");
+            rasterData->setVertexBufferOptional(tubeRenderData.vertexMajorStressBuffer, "vertexMajorStress");
         }
         if (tubeRenderData.vertexMediumStressBuffer) {
-            rasterData->setVertexBuffer(tubeRenderData.vertexMediumStressBuffer, "vertexMediumStress");
+            rasterData->setVertexBufferOptional(tubeRenderData.vertexMediumStressBuffer, "vertexMediumStress");
         }
         if (tubeRenderData.vertexMinorStressBuffer) {
-            rasterData->setVertexBuffer(tubeRenderData.vertexMinorStressBuffer, "vertexMinorStress");
+            rasterData->setVertexBufferOptional(tubeRenderData.vertexMinorStressBuffer, "vertexMinorStress");
         }
     }
 }
@@ -1632,6 +1635,10 @@ TubeRenderData LineDataStress::getTubeRenderData() {
     }
 
 
+    if (lineIndices.empty()) {
+        return {};
+    }
+
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     TubeRenderData tubeRenderData;
 
@@ -1791,6 +1798,9 @@ TubeRenderDataProgrammableFetch LineDataStress::getTubeRenderDataProgrammableFet
         fetchIndices.push_back(base1+1);
         fetchIndices.push_back(base0+1);
     }
+    if (fetchIndices.empty()) {
+        return {};
+    }
     tubeRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
             device, fetchIndices.size() * sizeof(uint32_t), fetchIndices.data(),
             VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -1892,6 +1902,11 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
         }
     }
 
+
+    if (lineIndices.empty()) {
+        return {};
+    }
+
     // Add the index buffer.
     tubeRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
             device, lineIndices.size() * sizeof(uint32_t), lineIndices.data(),
@@ -1935,6 +1950,10 @@ TubeRenderDataOpacityOptimization LineDataStress::getTubeRenderDataOpacityOptimi
 
 PointRenderData LineDataStress::getDegeneratePointsRenderData() {
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+
+    if (degeneratePoints.empty()) {
+        return {};
+    }
 
     PointRenderData renderData;
     renderData.vertexPositionBuffer = std::make_shared<sgl::vk::Buffer>(
@@ -2103,6 +2122,11 @@ BandRenderData LineDataStress::getBandRenderData() {
                 vertexOffsetsRight.emplace_back(0.0f);
             }
         }
+    }
+
+
+    if (lineIndices.empty()) {
+        return {};
     }
 
     // Add the index buffer.

@@ -70,8 +70,8 @@ float getAoFactor(float interpolatedVertexId, float phi) {
 #else
 float getAoFactor(vec3 screenSpacePosition) {
 #ifdef VULKAN
-    vec4 ndcPosition = camera.projectionMatrix * vec4(screenSpacePosition, 1.0);
-    ndcPosition.y *= -1.0;
+    vec4 ndcPosition = projectionMatrix * vec4(screenSpacePosition, 1.0);
+    //ndcPosition.y *= -1.0;
 #else
     vec4 ndcPosition = pMatrix * vec4(screenSpacePosition, 1.0);
 #endif

@@ -64,6 +64,7 @@ layout(location = 0) out vec4 fragColor;
 #ifdef USE_DEPTH_CUES
 #undef USE_DEPTH_CUES
 #endif
+#define MESH_HULL
 #include "Lighting.glsl"
 
 void main() {

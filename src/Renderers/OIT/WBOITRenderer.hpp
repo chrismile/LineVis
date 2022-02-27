@@ -33,7 +33,6 @@
 #include "Renderers/LineRasterPass.hpp"
 #include "Renderers/LineRenderer.hpp"
 
-class WBOITLineRasterPass;
 class WBOITResolvePass;
 
 /**
@@ -59,6 +58,9 @@ public:
 
     /// Sets the shader preprocessor defines used by the renderer.
     void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) override;
+    void setGraphicsPipelineInfo(
+            sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) override;
+    void setFramebufferAttachments(sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) override;
 
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
@@ -75,23 +77,8 @@ private:
     void reloadGatherShader(bool canCopyShaderAttributes = true) override;
 
     // Render data.
-    std::shared_ptr<WBOITLineRasterPass> lineRasterPass;
+    std::shared_ptr<LineRasterPass> lineRasterPass;
     std::shared_ptr<WBOITResolvePass> resolveRenderPass;
-    sgl::vk::TexturePtr accumulationRenderTexture;
-    sgl::vk::TexturePtr revealageRenderTexture;
-};
-
-class WBOITLineRasterPass : public LineRasterPass {
-public:
-    explicit WBOITLineRasterPass(LineRenderer* lineRenderer);
-
-    void setRenderTargets(
-            const sgl::vk::TexturePtr& accumulationTexture, const sgl::vk::TexturePtr& revealageTexture);
-    void recreateSwapchain(uint32_t width, uint32_t height) override;
-
-protected:
-    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
-
     sgl::vk::TexturePtr accumulationRenderTexture;
     sgl::vk::TexturePtr revealageRenderTexture;
 };
@@ -99,7 +86,6 @@ protected:
 class WBOITResolvePass : public sgl::vk::BlitRenderPass {
 public:
     explicit WBOITResolvePass(LineRenderer* lineRenderer);
-
     virtual void setInputTextures(
             const sgl::vk::TexturePtr& accumulationTexture, const sgl::vk::TexturePtr& revealageTexture);
 

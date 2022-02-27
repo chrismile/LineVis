@@ -50,21 +50,26 @@ void HullRasterPass::setCustomRenderTarget(
     depthRenderTargetImage = depthImage;
 }
 
+void HullRasterPass::setAttachmentLoadOp(VkAttachmentLoadOp loadOp) {
+    this->attachmentLoadOp = loadOp;
+    recreateSwapchain(*sceneData->viewportWidth, *sceneData->viewportHeight);
+}
+
+void HullRasterPass::updateFramebuffer() {
+    framebuffer = std::make_shared<sgl::vk::Framebuffer>(device, framebuffer->getWidth(), framebuffer->getHeight());
+    lineRenderer->setFramebufferAttachments(framebuffer, attachmentLoadOp);
+
+    if (!rasterData) {
+        framebufferDirty = true;
+        dataDirty = true;
+    } else {
+        rasterData->getGraphicsPipeline()->setCompatibleFramebuffer(framebuffer);
+    }
+}
+
 void HullRasterPass::recreateSwapchain(uint32_t width, uint32_t height) {
     framebuffer = std::make_shared<sgl::vk::Framebuffer>(device, width, height);
-
-    sgl::vk::AttachmentState attachmentState;
-    attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-    framebuffer->setColorAttachment(
-            colorRenderTargetImage ? colorRenderTargetImage : (*sceneData->sceneTexture)->getImageView(),
-            0, attachmentState, sceneData->clearColor->getFloatColorRGBA());
-
-    sgl::vk::AttachmentState depthAttachmentState;
-    depthAttachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-    depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    framebuffer->setDepthStencilAttachment(
-            depthRenderTargetImage ? (*sceneData->sceneDepthTexture)->getImageView() : depthRenderTargetImage,
-            depthAttachmentState, 1.0f);
+    lineRenderer->setFramebufferAttachments(framebuffer, attachmentLoadOp);
 
     framebufferDirty = true;
     dataDirty = true;
@@ -75,7 +80,7 @@ void HullRasterPass::loadShader() {
     lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);
     lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
-            lineData->getShaderModuleNames(), preprocessorDefines);
+            { "MeshHull.Vertex", "MeshHull.Fragment" }, preprocessorDefines);
 }
 
 void HullRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
@@ -84,12 +89,16 @@ void HullRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipe
 
     uint32_t vertexPositionBinding = shaderStages->getInputVariableLocation("vertexPosition");
     pipelineInfo.setVertexBufferBinding(vertexPositionBinding, sizeof(glm::vec3));
-    pipelineInfo.setInputAttributeDescription(vertexPositionBinding, 0, "vertexPosition");
+    pipelineInfo.setInputAttributeDescription(
+            vertexPositionBinding, 0, "vertexPosition");
 
     uint32_t vertexNormalBinding = shaderStages->getInputVariableLocation("vertexNormal");
     pipelineInfo.setVertexBufferBinding(vertexNormalBinding, sizeof(glm::vec3));
-    pipelineInfo.setInputAttributeDescription(vertexNormalBinding, 0, "vertexNormal");
+    pipelineInfo.setInputAttributeDescription(
+            vertexNormalBinding, 0, "vertexNormal");
 
+    pipelineInfo.setBlendMode(sgl::vk::BlendMode::BACK_TO_FRONT_STRAIGHT_ALPHA);
+    pipelineInfo.setDepthWriteEnabled(false);
     pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
 }
 
@@ -101,12 +110,12 @@ void HullRasterPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::Grap
     SimulationMeshOutlineRenderData renderData = lineData->getSimulationMeshOutlineRenderData();
     rasterData->setIndexBuffer(renderData.indexBuffer);
     rasterData->setVertexBuffer(renderData.vertexPositionBuffer, "vertexPosition");
-    rasterData->setVertexBuffer(renderData.vertexNormalBuffer, "vertexPosition");
+    rasterData->setVertexBuffer(renderData.vertexNormalBuffer, "vertexNormal");
 }
 
 void HullRasterPass::_render() {
     /*
-     * Assumes "lineData->updateVulkanUniformBuffers(lineRenderer, renderer);" was called.
+     * Assumes "lineData->updateVulkanUniformBuffers(lineRenderer, renderer);" was called by LineRasterPass.
      */
 
     RasterPass::_render();

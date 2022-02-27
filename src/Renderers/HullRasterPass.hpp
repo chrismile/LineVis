@@ -42,7 +42,10 @@ public:
 
     // Public interface.
     void setLineData(LineDataPtr& lineData, bool isNewData);
+    [[nodiscard]] inline bool getIsDataEmpty() const { return rasterData && rasterData->getNumVertices() == 0; }
     void setCustomRenderTarget(const sgl::vk::ImageViewPtr& colorImage, const sgl::vk::ImageViewPtr& depthImage);
+    void setAttachmentLoadOp(VkAttachmentLoadOp loadOp);
+    void updateFramebuffer();
     void recreateSwapchain(uint32_t width, uint32_t height) override;
 
 protected:
@@ -55,6 +58,7 @@ protected:
     SceneData* sceneData;
     sgl::CameraPtr* camera;
     LineDataPtr lineData;
+    VkAttachmentLoadOp attachmentLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     sgl::vk::ImageViewPtr colorRenderTargetImage;
     sgl::vk::ImageViewPtr depthRenderTargetImage;
 };

@@ -408,20 +408,20 @@ void LineDataFlow::setGraphicsPipelineInfo(
         sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) {
     if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
         pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::LINE_LIST);
-        pipelineInfo.setVertexBufferBindingByLocation("vertexPosition", sizeof(glm::vec3));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexAttribute", sizeof(float));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexNormal", sizeof(glm::vec3));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexTangent", sizeof(glm::vec3));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexOffsetLeft", sizeof(glm::vec3));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexOffsetRight", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexPosition", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexAttribute", sizeof(float));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexNormal", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexTangent", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexOffsetLeft", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexOffsetRight", sizeof(glm::vec3));
     } else if (linePrimitiveMode != LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
         pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::LINE_LIST);
-        pipelineInfo.setVertexBufferBindingByLocation("vertexPosition", sizeof(glm::vec3));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexAttribute", sizeof(float));
-        pipelineInfo.setVertexBufferBindingByLocationOptional("vertexNormal", sizeof(glm::vec3));
-        pipelineInfo.setVertexBufferBindingByLocation("vertexTangent", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexPosition", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexAttribute", sizeof(float));
+        pipelineInfo.setVertexBufferBindingByLocationIndexOptional("vertexNormal", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexTangent", sizeof(glm::vec3));
         if (useRotatingHelicityBands) {
-            pipelineInfo.setVertexBufferBindingByLocation("vertexRotation", sizeof(float));
+            pipelineInfo.setVertexBufferBindingByLocationIndex("vertexRotation", sizeof(float));
         }
     } else {
         LineData::setGraphicsPipelineInfo(pipelineInfo, shaderStages);
@@ -762,6 +762,10 @@ TubeRenderData LineDataFlow::getTubeRenderData() {
     }
 
 
+    if (lineIndices.empty()) {
+        return {};
+    }
+
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     TubeRenderData tubeRenderData;
 
@@ -856,6 +860,9 @@ TubeRenderDataProgrammableFetch LineDataFlow::getTubeRenderDataProgrammableFetch
         fetchIndices.push_back(base1+1);
         fetchIndices.push_back(base0+1);
     }
+    if (fetchIndices.empty()) {
+        return {};
+    }
     tubeRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
             device, fetchIndices.size() * sizeof(uint32_t), fetchIndices.data(),
             VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -911,6 +918,10 @@ TubeRenderDataOpacityOptimization LineDataFlow::getTubeRenderDataOpacityOptimiza
     createLineTubesRenderDataCPU(
             lineCentersList, lineAttributesList,
             lineIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes);
+
+    if (lineIndices.empty()) {
+        return {};
+    }
 
     TubeRenderDataOpacityOptimization tubeRenderData;
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
@@ -1052,6 +1063,10 @@ BandRenderData LineDataFlow::getBandRenderData() {
         }
     }
 
+
+    if (lineIndices.empty()) {
+        return {};
+    }
 
     // Add the index buffer.
     bandRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(

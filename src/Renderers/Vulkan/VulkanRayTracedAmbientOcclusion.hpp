@@ -122,7 +122,7 @@ public:
     void setLineData(LineDataPtr& data, bool isNewData);
     inline void setFrameNumber(uint32_t frameNumber) { uniformData.frameNumber = frameNumber; }
 
-    sgl::vk::TexturePtr getAmbientOcclusionTextureVk() { return resultTextureVk; }
+    sgl::vk::TexturePtr getAmbientOcclusionTextureVk() { return resultTexture; }
 
     // Called when the camera has moved.
     void onHasMoved();
@@ -150,7 +150,7 @@ private:
 
     sgl::vk::TexturePtr accumulationTexture;
     sgl::vk::TexturePtr denoisedTexture;
-    sgl::vk::TexturePtr resultTextureVk;
+    sgl::vk::TexturePtr resultTexture;
 
     bool changedDenoiserSettings = false;
 

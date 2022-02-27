@@ -35,6 +35,7 @@
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
+#include "../HullRasterPass.hpp"
 #include "WBOITRenderer.hpp"
 
 // Use stencil buffer to mask unused pixels
@@ -43,7 +44,7 @@ const bool useStencilBuffer = true;
 WBOITRenderer::WBOITRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer(
                 "Weighted Blended Order Independent Transparency", sceneData, transferFunctionWindow) {
-    lineRasterPass = std::make_shared<WBOITLineRasterPass>(this);
+    lineRasterPass = std::make_shared<LineRasterPass>(this);
     resolveRenderPass = std::make_shared<WBOITResolvePass>(this);
     //glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
     resolveRenderPass->setBlendMode(sgl::vk::BlendMode::BACK_TO_FRONT_STRAIGHT_ALPHA);
@@ -70,6 +71,42 @@ void WBOITRenderer::getVulkanShaderPreprocessorDefines(std::map<std::string, std
     preprocessorDefines.insert(std::make_pair("OIT_GATHER_HEADER", "WBOITGather.glsl"));
 }
 
+void WBOITRenderer::setGraphicsPipelineInfo(
+        sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) {
+    pipelineInfo.setBlendModeCustom(
+            VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE, VK_BLEND_OP_ADD,
+            VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE, VK_BLEND_OP_ADD,
+            0);
+    pipelineInfo.setBlendModeCustom(
+            VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR, VK_BLEND_OP_ADD,
+            VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR, VK_BLEND_OP_ADD,
+            1);
+    pipelineInfo.setDepthWriteEnabled(false);
+}
+
+void WBOITRenderer::setFramebufferAttachments(sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) {
+    sgl::vk::AttachmentState attachmentState;
+    attachmentState.loadOp = loadOp;
+    attachmentState.initialLayout =
+            loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR ?
+            VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    framebuffer->setColorAttachment(
+            accumulationRenderTexture->getImageView(), 0, attachmentState,
+            { 0.0f, 0.0f, 0.0f, 0.0f });
+    framebuffer->setColorAttachment(
+            revealageRenderTexture->getImageView(), 1, attachmentState,
+            { 1.0f, 0.0f, 0.0f, 0.0f });
+
+    sgl::vk::AttachmentState depthAttachmentState;
+    depthAttachmentState.loadOp = loadOp;
+    depthAttachmentState.initialLayout =
+            loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR ?
+            VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    framebuffer->setDepthStencilAttachment(
+            (*sceneData->sceneDepthTexture)->getImageView(), depthAttachmentState, 1.0f);
+}
+
 void WBOITRenderer::onResolutionChanged() {
     LineRenderer::onResolutionChanged();
 
@@ -89,9 +126,11 @@ void WBOITRenderer::onResolutionChanged() {
     revealageRenderTexture = std::make_shared<sgl::vk::Texture>(
             device, imageSettings, sgl::vk::ImageSamplerSettings(), VK_IMAGE_ASPECT_COLOR_BIT);
 
-    lineRasterPass->setRenderTargets(
-            accumulationRenderTexture, revealageRenderTexture);
     lineRasterPass->recreateSwapchain(width, height);
+    if (hullRasterPass) {
+        hullRasterPass->recreateSwapchain(width, height);
+    }
+
     resolveRenderPass->setInputTextures(
             accumulationRenderTexture, revealageRenderTexture);
     resolveRenderPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
@@ -119,50 +158,6 @@ void WBOITRenderer::render() {
 
 void WBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
-}
-
-
-WBOITLineRasterPass::WBOITLineRasterPass(LineRenderer* lineRenderer) : LineRasterPass(lineRenderer) {}
-
-void WBOITLineRasterPass::setRenderTargets(
-        const sgl::vk::TexturePtr& accumulationTexture, const sgl::vk::TexturePtr& revealageTexture) {
-    this->accumulationRenderTexture = accumulationTexture;
-    this->revealageRenderTexture = revealageTexture;
-}
-
-void WBOITLineRasterPass::recreateSwapchain(uint32_t width, uint32_t height) {
-    framebuffer = std::make_shared<sgl::vk::Framebuffer>(device, width, height);
-
-    sgl::vk::AttachmentState attachmentState;
-    attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    framebuffer->setColorAttachment(
-            accumulationRenderTexture->getImageView(), 0, attachmentState,
-            { 0.0f, 0.0f, 0.0f, 0.0f });
-    framebuffer->setColorAttachment(
-            revealageRenderTexture->getImageView(), 1, attachmentState,
-            { 1.0f, 0.0f, 0.0f, 0.0f });
-
-    sgl::vk::AttachmentState depthAttachmentState;
-    depthAttachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-    framebuffer->setDepthStencilAttachment(
-            (*sceneData->sceneDepthTexture)->getImageView(), depthAttachmentState, 1.0f);
-
-    framebufferDirty = true;
-    dataDirty = true;
-}
-
-void WBOITLineRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
-    LineRasterPass::setGraphicsPipelineInfo(pipelineInfo);
-    pipelineInfo.setBlendModeCustom(
-            VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE, VK_BLEND_OP_ADD,
-            VK_BLEND_FACTOR_ONE, VK_BLEND_FACTOR_ONE, VK_BLEND_OP_ADD,
-            0);
-    pipelineInfo.setBlendModeCustom(
-            VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR, VK_BLEND_OP_ADD,
-            VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR, VK_BLEND_OP_ADD,
-            1);
-    pipelineInfo.setDepthWriteEnabled(false);
 }
 
 

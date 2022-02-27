@@ -87,7 +87,7 @@ void VulkanRayTracedAmbientOcclusion::updateIterative(VkPipelineStageFlags pipel
     rtaoRenderPass->render();
     rendererVk->insertImageMemoryBarrier(
             aoTextureVk->getImage(),
-            VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            aoTextureVk->getImage()->getVkImageLayout(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, pipelineStageFlags,
             VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
 
@@ -199,10 +199,10 @@ void VulkanRayTracedAmbientOcclusionPass::recreateSwapchain(uint32_t width, uint
     imageSettings.usage =
             VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
             | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    resultTextureVk = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
+    resultTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
 
     blitResultRenderPass->setInputTexture(accumulationTexture);
-    blitResultRenderPass->setOutputImage(resultTextureVk->getImageView());
+    blitResultRenderPass->setOutputImage(resultTexture->getImageView());
     blitResultRenderPass->recreateSwapchain(width, height);
 
     setDenoiserFeatureMaps();
@@ -280,9 +280,9 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
         renderer->transitionImageLayout(
                 denoisedTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         renderer->transitionImageLayout(
-                resultTextureVk->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+                resultTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         denoisedTexture->getImage()->blit(
-                resultTextureVk->getImage(), renderer->getVkCommandBuffer());
+                resultTexture->getImage(), renderer->getVkCommandBuffer());
     } else {
         renderer->transitionImageLayout(
                 accumulationTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);

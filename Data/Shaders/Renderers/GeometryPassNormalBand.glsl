@@ -148,9 +148,9 @@ void main() {
     vec3 tangent1 = normalize(lineTangent[1]);
 
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
-    useBand = psUseBands[linePrincipalStressIndex[0]];
+    int useBandValue = psUseBands[linePrincipalStressIndex[0]];
 #else
-    useBand = 1;
+    int useBandValue = 1;
 #endif
 
     vec3 offsetDirectionLeft0;
@@ -165,7 +165,7 @@ void main() {
 
     offsetDirectionLeft0 = -offsetDirectionRight0;
     offsetDirectionLeft1 = -offsetDirectionRight1;
-    if (useBand != 0) {
+    if (useBandValue != 0) {
         vec3 helperVec0 = offsetDirectionRight0;
         vec3 viewDirectionNew0 = normalize(cross(helperVec0, tangent0));
 
@@ -180,7 +180,7 @@ void main() {
         offsetDirectionLeft1 *= thickness1 * length(lineOffsetRight[1]);
     }
 #else
-    if (useBand != 0) {
+    if (useBandValue != 0) {
         offsetDirectionLeft0 = lineOffsetLeft[0];
         offsetDirectionRight0 = lineOffsetRight[0];
         offsetDirectionLeft1 = lineOffsetLeft[1];
@@ -197,19 +197,20 @@ void main() {
 
     vec3 vertexPosition;
 
-    const float lineRadius = (useBand != 0 ? bandWidth : lineWidth) * 0.5;
+    const float lineRadius = (useBandValue != 0 ? bandWidth : lineWidth) * 0.5;
     const mat4 pvMatrix = pMatrix * vMatrix;
 
     // Vertex 0
     fragmentAttribute = lineAttribute[0];
     fragmentTangent = tangent0;
-    if (useBand != 0) {
+    if (useBandValue != 0) {
         normal0 = lineNormal[0];
         normal1 = lineNormal[0];
     } else {
         normal0 = normalize(cross(tangent0, offsetDirectionRight0));
         normal1 = offsetDirectionRight0;
     }
+    useBand = useBandValue;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL) || defined(IS_PSL_DATA)
     fragmentPrincipalStressIndex = linePrincipalStressIndex[0];
 #endif
@@ -234,13 +235,14 @@ void main() {
 
     fragmentAttribute = lineAttribute[0];
     fragmentTangent = tangent0;
-    if (useBand != 0) {
+    if (useBandValue != 0) {
         normal0 = lineNormal[0];
         normal1 = lineNormal[0];
     } else {
         normal0 = normalize(cross(tangent0, offsetDirectionRight0));
         normal1 = offsetDirectionRight0;
     }
+    useBand = useBandValue;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL) || defined(IS_PSL_DATA)
     fragmentPrincipalStressIndex = linePrincipalStressIndex[0];
 #endif
@@ -266,13 +268,14 @@ void main() {
     // Vertex 1
     fragmentAttribute = lineAttribute[1];
     fragmentTangent = tangent1;
-    if (useBand != 0) {
+    if (useBandValue != 0) {
         normal0 = lineNormal[1];
         normal1 = lineNormal[1];
     } else {
         normal0 = normalize(cross(tangent1, offsetDirectionRight1));
         normal1 = offsetDirectionRight1;
     }
+    useBand = useBandValue;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL) || defined(IS_PSL_DATA)
     fragmentPrincipalStressIndex = linePrincipalStressIndex[1];
 #endif
@@ -297,13 +300,14 @@ void main() {
 
     fragmentAttribute = lineAttribute[1];
     fragmentTangent = tangent1;
-    if (useBand != 0) {
+    if (useBandValue != 0) {
         normal0 = lineNormal[1];
         normal1 = lineNormal[1];
     } else {
         normal0 = normalize(cross(tangent1, offsetDirectionRight1));
         normal1 = offsetDirectionRight1;
     }
+    useBand = useBandValue;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL) || defined(IS_PSL_DATA)
     fragmentPrincipalStressIndex = linePrincipalStressIndex[1];
 #endif

@@ -26,14 +26,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef USE_DEPTH_CUES
+#if defined(USE_DEPTH_CUES) && !defined(MESH_HULL)
 layout (std430, binding = DEPTH_MIN_MAX_BUFFER_BINDING) readonly buffer DepthMinMaxBuffer {
     float minDepth;
     float maxDepth;
 };
 #endif
 
-#if defined(USE_AMBIENT_OCCLUSION) && defined(GEOMETRY_PASS_TUBE)
+#if defined(USE_AMBIENT_OCCLUSION) && defined(GEOMETRY_PASS_TUBE) && !defined(MESH_HULL)
 #include "AmbientOcclusion.glsl"
 #endif
 
@@ -44,7 +44,7 @@ layout (std430, binding = DEPTH_MIN_MAX_BUFFER_BINDING) readonly buffer DepthMin
 */
 vec4 blinnPhongShading(
         in vec4 baseColor,
-#if defined(VULKAN) || defined(VOXEL_RAY_CASTING)
+#if defined(VULKAN_RAY_TRACER) || defined(VOXEL_RAY_CASTING)
         in vec3 fragmentPositionWorld,
 #ifdef USE_DEPTH_CUES
         in vec3 screenSpacePosition,
@@ -91,6 +91,7 @@ vec4 blinnPhongShading(
     return color;
 }
 
+#if !defined(MESH_HULL)
 /**
  * Simplified Blinn-Phong shading assuming the ambient and diffuse color are equal and the specular color is white.
  * Assumes the following global variables are given: cameraPosition, fragmentPositionWorld, fragmentNormal.
@@ -179,3 +180,4 @@ vec4 blinnPhongShadingTube(
     vec4 color = vec4(phongColor, baseColor.a);
     return color;
 }
+#endif

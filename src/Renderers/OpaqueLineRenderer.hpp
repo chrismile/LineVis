@@ -34,7 +34,6 @@
 #include "LineRasterPass.hpp"
 #include "LineRenderer.hpp"
 
-class MultisampledLineRasterPass;
 class BilldboardSpheresRasterPass;
 class SphereRasterPass;
 
@@ -53,6 +52,9 @@ public:
 
     /// Sets the shader preprocessor defines used by the renderer.
     void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) override;
+    void setGraphicsPipelineInfo(
+            sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) override;
+    void setFramebufferAttachments(sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) override;
 
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
@@ -77,7 +79,7 @@ protected:
     sgl::vk::ImageViewPtr depthRenderTargetImage;
 
     /// For rendering the line data.
-    std::shared_ptr<MultisampledLineRasterPass> lineRasterPass;
+    std::shared_ptr<LineRasterPass> lineRasterPass;
     /// For rendering degenerate points (as points extruded to billboard spheres).
     std::shared_ptr<BilldboardSpheresRasterPass> degeneratePointsRasterPass;
     /// For rendering the current seed point.
@@ -101,40 +103,16 @@ protected:
     std::vector<std::string> sampleModeNames;
 };
 
-class MultisampledLineRasterPass : public LineRasterPass {
-public:
-    explicit MultisampledLineRasterPass(LineRenderer* lineRenderer);
-
-    // Public interface.
-    inline void setUseSampleShading(bool sampleShading) { useSamplingShading = sampleShading; setDataDirty(); }
-    inline void setMinSampleShading(float minSamples) { minSampleShading = minSamples; setDataDirty(); }
-
-    void setRenderTarget(const sgl::vk::ImageViewPtr& colorImage, const sgl::vk::ImageViewPtr& depthImage);
-    void recreateSwapchain(uint32_t width, uint32_t height) override;
-
-protected:
-    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
-
-private:
-    sgl::vk::ImageViewPtr colorRenderTargetImage;
-    sgl::vk::ImageViewPtr depthRenderTargetImage;
-    bool renderTargetChanged = false;
-    bool useSamplingShading = false;
-    float minSampleShading = 1.0f;
-};
-
 class BilldboardSpheresRasterPass : public sgl::vk::RasterPass {
 public:
-    explicit BilldboardSpheresRasterPass(SceneData* sceneData);
+    explicit BilldboardSpheresRasterPass(LineRenderer* lineRenderer);
 
     // Public interface.
     void setLineData(LineDataPtr& lineData, bool isNewData);
-    inline void setUseSampleShading(bool sampleShading) { useSamplingShading = sampleShading; setDataDirty(); }
-    inline void setMinSampleShading(float minSamples) { minSampleShading = minSamples; setDataDirty(); }
     inline void setPointWidth(float pointWidth) { uniformData.pointWidth = pointWidth; }
     inline void setPointColor(const glm::vec4& color) { uniformData.pointColor = color; }
 
-    void setRenderTarget(const sgl::vk::ImageViewPtr& colorImage, const sgl::vk::ImageViewPtr& depthImage);
+    void setAttachmentLoadOp(VkAttachmentLoadOp loadOp);
     void recreateSwapchain(uint32_t width, uint32_t height) override;
 
 protected:
@@ -144,13 +122,11 @@ protected:
     void _render() override;
 
 private:
+    LineRenderer* lineRenderer;
     SceneData* sceneData;
     sgl::CameraPtr* camera;
     LineDataPtr lineData;
-    sgl::vk::ImageViewPtr colorRenderTargetImage;
-    sgl::vk::ImageViewPtr depthRenderTargetImage;
-    bool useSamplingShading = false;
-    float minSampleShading = 1.0f;
+    VkAttachmentLoadOp attachmentLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 
     sgl::vk::BufferPtr indexBuffer;
     sgl::vk::BufferPtr vertexBuffer;
@@ -168,16 +144,14 @@ private:
 
 class SphereRasterPass : public sgl::vk::RasterPass {
 public:
-    explicit SphereRasterPass(SceneData* sceneData);
+    explicit SphereRasterPass(LineRenderer* lineRenderer);
 
     // Public interface.
     inline void setSpherePosition(const glm::vec3& position) { uniformData.spherePosition = position; }
     inline void setSphereRadius(float pointWidth) { uniformData.sphereRadius = pointWidth; }
     inline void setSphereColor(const glm::vec4& color) { uniformData.sphereColor = color; }
-    inline void setUseSampleShading(bool sampleShading) { useSamplingShading = sampleShading; setDataDirty(); }
-    inline void setMinSampleShading(float minSamples) { minSampleShading = minSamples; setDataDirty(); }
 
-    void setRenderTarget(const sgl::vk::ImageViewPtr& colorImage, const sgl::vk::ImageViewPtr& depthImage);
+    void setAttachmentLoadOp(VkAttachmentLoadOp loadOp);
     void recreateSwapchain(uint32_t width, uint32_t height) override;
 
 protected:
@@ -187,13 +161,11 @@ protected:
     void _render() override;
 
 private:
+    LineRenderer* lineRenderer;
     SceneData* sceneData;
     sgl::CameraPtr* camera;
     LineDataPtr lineData;
-    sgl::vk::ImageViewPtr colorRenderTargetImage;
-    sgl::vk::ImageViewPtr depthRenderTargetImage;
-    bool useSamplingShading = false;
-    float minSampleShading = 1.0f;
+    VkAttachmentLoadOp attachmentLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 
     sgl::vk::BufferPtr indexBuffer;
     sgl::vk::BufferPtr vertexPositionBuffer;
