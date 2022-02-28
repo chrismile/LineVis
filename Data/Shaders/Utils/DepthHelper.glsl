@@ -29,6 +29,47 @@
 #ifndef DEPTH_HELPER_GLSL
 #define DEPTH_HELPER_GLSL
 
+#ifdef VULKAN
+
+#ifdef DEPTH_HELPER_USE_PROJECTION_MATRIX
+
+float convertDepthBufferValueToLinearDepth(float z_ndc) {
+    float z_eye = pMatrix[3][2] / (pMatrix[2][2] + z_ndc);
+    return z_eye;
+}
+
+float convertLinearDepthToDepthBufferValue(float z_eye) {
+    float z_ndc = (pMatrix[3][2] - pMatrix[2][2] * z_eye) / z_eye;
+    return z_ndc;
+}
+
+#ifdef USE_INVERSE_PROJECTION_MATRIX
+
+vec3 convertDepthBufferValueToViewSpacePosition(vec2 ndcPositionXY, float depth) {
+    vec4 posViewSpaceHomog = inverseProjectionMatrix * vec4(ndcPositionXY.x, ndcPositionXY.y, depth, 1.0);
+    vec3 posViewSpace = posViewSpaceHomog.xyz / posViewSpaceHomog.w;
+    return posViewSpace;
+}
+
+#endif
+
+#else
+
+float convertDepthBufferValueToLinearDepth(float z_ndc) {
+    float z_eye = zNear * zFar / (zNear + z_ndc * (zFar - zNear));
+    return z_eye;
+}
+
+float convertLinearDepthToDepthBufferValue(float z_eye) {
+    float diff = zFar - zNear;
+    float z_ndc = (zNear * zFar / diff - z_eye * zNear / diff) / z_eye;
+    return z_ndc;
+}
+
+#endif
+
+#else
+
 /**
  * See: http://www.songho.ca/opengl/gl_projectionmatrix.html
  * We know (OpenGL matrices are column-major):
@@ -36,10 +77,10 @@
  * P_34 = M_proj[3][2] = -2fn / (f - n)
  * p_clip = M_proj * p_eye, p_ndc = p_clip.xyz / p_clip.w
  * z_ndc = z_clip / w_clip = (P_33 * z_e + P_34 * w_e) / (-z_e) = (P_33 * z_e + P_34) / (-z_e) =
- * <=> z_e = -P_34 / (z_ndc + p_33)
+ * <=> z_e = -P_34 / (z_ndc + P_33)
  *
  * However: z_e in looking direction is negative in OpenGL standard convention!
- * Thus: z_e = P_34 / (z_ndc + p_33), z_ndc = (-P_33 * z_e + P_34) / z_e
+ * Thus: z_e = P_34 / (z_ndc + P_33), z_ndc = (-P_33 * z_e + P_34) / z_e
  * Furthermore: d is in range [0,1], but z_ndc is in range [-1,1].
  * d = (z_ndc + 1) / 2
  *
@@ -83,11 +124,14 @@ float convertDepthBufferValueToLinearDepth(float depth) {
 }
 
 float convertLinearDepthToDepthBufferValue(float z_eye) {
-    float z_ndc = (-2.0 * zNear * zFar + z_eye * (zNear + zFar)) / z_eye;
+    float diff = zFar - zNear;
+    float z_ndc = (-2.0 * zNear * zFar / diff + z_eye * (zNear + zFar) / diff) / z_eye;
     // The depth buffer stores values in [0,1], but OpenGL uses [-1,1] for NDC.
     float depth = (z_ndc + 1.0) / 2.0;
     return depth;
 }
+
+#endif
 
 #endif
 
