@@ -170,9 +170,6 @@ private:
         glm::mat4 inverseViewMatrix;
         glm::mat4 inverseProjectionMatrix;
 
-        // What is the radius to take into account for ambient occlusion?
-        float ambientOcclusionRadius{};
-
         // The number of this frame (used for accumulation of samples across frames).
         uint32_t frameNumber{};
         // The number of samples accumulated in one rendering pass.
@@ -180,6 +177,16 @@ private:
 
         // Should the distance of the AO hits be used?
         uint32_t useDistance{};
+
+        uint32_t padding0{};
+
+        // What is the radius to take into account for ambient occlusion?
+        float ambientOcclusionRadius{};
+
+        // A factor which should be used for offsetting secondary rays.
+        float subdivisionCorrectionFactor{};
+
+        float padding1{}, padding2{};
     };
     UniformData uniformData{};
     sgl::vk::BufferPtr uniformBuffer;

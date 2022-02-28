@@ -48,15 +48,22 @@ layout(binding = 3) uniform UniformsBuffer {
     mat4 inverseViewMatrix;
     mat4 inverseProjectionMatrix;
 
-    // What is the radius to take into account for ambient occlusion?
-    float ambientOcclusionRadius;
-
     // The number of this frame (used for accumulation of samples across frames).
     uint frameNumber;
     // The number of samples accumulated in one rendering pass.
     uint numSamplesPerFrame;
     // Should the distance of the AO hits be used?
     uint useDistance;
+
+    uint padding0;
+
+    // What is the radius to take into account for ambient occlusion?
+    float ambientOcclusionRadius;
+
+    // A factor which should be used for offsetting secondary rays.
+    float subdivisionCorrectionFactor;
+
+    float padding1, padding2;
 };
 
 struct TubeTriangleVertexData {
@@ -148,6 +155,8 @@ void main() {
             rayOrigin, 0.0001, rayDirection, 1000.0);
     while(rayQueryProceedEXT(rayQueryPrimary)) {}
 
+    const float offsetFactor = subdivisionCorrectionFactor + 0.001;
+
     float aoFactor = 1.0;
     if (rayQueryGetIntersectionTypeEXT(rayQueryPrimary, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
         // 2. Get the surface normal of the hit tube.
@@ -197,7 +206,7 @@ void main() {
             vec3 rayDirection = normalize(frame * sampleHemisphere(xi));
 
             rayQueryEXT rayQuery;
-            float occlusionFactor = traceAoRay(rayQuery, vertexPositionWorld + rayDirection * 0.001, rayDirection);
+            float occlusionFactor = traceAoRay(rayQuery, vertexPositionWorld + rayDirection * offsetFactor, rayDirection);
             aoFactor += occlusionFactor;
         }
 

@@ -34,6 +34,7 @@
 #include <Graphics/Vulkan/Utils/Interop.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 #include <ImGui/imgui_custom.h>
+#include "../LineRenderer.hpp"
 #include "LineData/LineData.hpp"
 
 #include "Renderers/Vulkan/Scattering/Denoiser/EAWDenoiser.hpp"
@@ -254,9 +255,15 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
     if (!changedDenoiserSettings) {
         uniformData.inverseViewMatrix = glm::inverse((*sceneData->camera)->getViewMatrix());
         uniformData.inverseProjectionMatrix = glm::inverse((*sceneData->camera)->getProjectionMatrix());
-        uniformData.ambientOcclusionRadius = ambientOcclusionRadius;
         uniformData.numSamplesPerFrame = numAmbientOcclusionSamplesPerFrame;
         uniformData.useDistance = useDistance;
+        uniformData.ambientOcclusionRadius = ambientOcclusionRadius;
+        float radius = LineRenderer::getLineWidth();
+        if (lineData->getUseBandRendering()) {
+            radius = std::max(LineRenderer::getLineWidth(), LineRenderer::getBandWidth());
+        }
+        uniformData.subdivisionCorrectionFactor =
+                radius * (1.0f - std::cos(sgl::PI / float(lineData->getTubeNumSubdivisions())));
         uniformBuffer->updateData(
                 sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
 

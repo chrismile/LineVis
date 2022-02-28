@@ -240,6 +240,7 @@ public:
     /// Returns whether the gather shader needs to be reloaded.
     bool setUseCappedTubes(LineRenderer* lineRenderer, bool cappedTubes);
     [[nodiscard]] inline bool getUseCappedTubes() const { return useCappedTubes; }
+    [[nodiscard]] static inline int getTubeNumSubdivisions() { return tubeNumSubdivisions; }
 
     enum LinePrimitiveMode {
         LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH,
