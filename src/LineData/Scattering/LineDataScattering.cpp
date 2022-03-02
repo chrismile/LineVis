@@ -27,38 +27,29 @@
  */
 
 #include <iostream>
+
 #include <Math/Math.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
-
-#ifdef USE_VULKAN_INTEROP
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
 #include <Graphics/Vulkan/Utils/SyncObjects.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
-#endif
+#include <Graphics/Vulkan/Render/ComputePipeline.hpp>
 
 #include "Renderers/LineRenderer.hpp"
 #include "LineDataScattering.hpp"
 
 LineDataScattering::LineDataScattering(
-        sgl::TransferFunctionWindow& transferFunctionWindow
-#ifdef USE_VULKAN_INTEROP
-        , sgl::vk::Renderer* rendererVk
-#endif
-        ) : LineDataFlow(transferFunctionWindow)
-#ifdef USE_VULKAN_INTEROP
-        , rendererVk(rendererVk)
-#endif
+        sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
+        : LineDataFlow(transferFunctionWindow), rendererVk(rendererVk)
 {
     dataSetType = DATA_SET_TYPE_SCATTERING_LINES;
     lineDataWindowName = "Line Data (Scattering)";
 
-#ifdef USE_VULKAN_INTEROP
     if (rendererVk) {
         lineDensityFieldImageComputeRenderPass = std::make_shared<LineDensityFieldImageComputeRenderPass>(rendererVk);
         lineDensityFieldMinMaxReduceRenderPass = std::make_shared<LineDensityFieldMinMaxReduceRenderPass>(rendererVk);
         lineDensityFieldNormalizeRenderPass = std::make_shared<LineDensityFieldNormalizeRenderPass>(rendererVk);
     }
-#endif
 }
 
 LineDataScattering::~LineDataScattering() {
@@ -84,9 +75,7 @@ void LineDataScattering::setDataSetInformation(
 }
 
 void LineDataScattering::setGridData(
-#ifdef USE_VULKAN_INTEROP
         const sgl::vk::TexturePtr& scalarFieldTexture,
-#endif
         const std::vector<uint32_t>& outlineTriangleIndices,
         const std::vector<glm::vec3>& outlineVertexPositions, const std::vector<glm::vec3>& outlineVertexNormals,
         float* scalarFieldData, uint32_t gridSizeX, uint32_t gridSizeY, uint32_t gridSizeZ,
@@ -108,7 +97,6 @@ void LineDataScattering::setGridData(
     gridAabb.min = -gridAabb.max;
     focusBoundingBox = gridAabb;
 
-#ifdef USE_VULKAN_INTEROP
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     if (device) {
         sgl::vk::ImageSettings imageSettings;
@@ -141,7 +129,6 @@ void LineDataScattering::setGridData(
         colorLegendWidgets.back().setAttributeMaxValue(1.0f);
         colorLegendWidgets.back().setAttributeDisplayName("Line Density");
     }
-#endif
 
     if (!outlineTriangleIndices.empty()) {
         simulationMeshOutlineTriangleIndices = outlineTriangleIndices;
@@ -183,7 +170,6 @@ void LineDataScattering::setLineRenderers(const std::vector<LineRenderer*>& line
 bool LineDataScattering::renderGuiPropertyEditorNodesRenderer(
         sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer) {
     bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodesRenderer(propertyEditor, lineRenderer);
-#ifdef USE_VULKAN_INTEROP
     if (lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
         if (propertyEditor.addCheckbox("Use Line Segment Length", &useLineSegmentLengthForDensityField)) {
             dirty = true;
@@ -191,22 +177,17 @@ bool LineDataScattering::renderGuiPropertyEditorNodesRenderer(
             lineDensityFieldImageComputeRenderPass->setUseLineSegmentLength(useLineSegmentLengthForDensityField);
         }
     }
-#endif
     return shallReloadGatherShader;
 }
 
 
 void LineDataScattering::rebuildInternalRepresentationIfNecessary() {
-#ifdef USE_VULKAN_INTEROP
     if (dirty || triangleRepresentationDirty) {
         isLineDensityFieldDirty = true;
     }
-#endif
-
     LineData::rebuildInternalRepresentationIfNecessary();
 }
 
-#ifdef USE_VULKAN_INTEROP
 VulkanLineDataScatteringRenderData LineDataScattering::getVulkanLineDataScatteringRenderData() {
     rebuildInternalRepresentationIfNecessary();
     recomputeHistogram();
@@ -377,10 +358,11 @@ void LineDensityFieldImageComputeRenderPass::_render() {
 
 LineDensityFieldMinMaxReduceRenderPass::LineDensityFieldMinMaxReduceRenderPass(sgl::vk::Renderer* renderer)
         : ComputePass(renderer) {
-    uniformBuffer = std::make_shared<sgl::vk::Buffer>(
+    uniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(UniformData),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
+    uniformDataBuffer->uploadData(sizeof(UniformData), &uniformData);
 }
 
 void LineDensityFieldMinMaxReduceRenderPass::setLineDensityFieldImage(sgl::vk::ImagePtr& lineDensityFieldImage) {
@@ -408,7 +390,7 @@ void LineDensityFieldMinMaxReduceRenderPass::createComputeData(
 
     for (int i = 0; i < 2; i++) {
         computeDataPingPong[i] = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
-        computeDataPingPong[i]->setStaticBuffer(uniformBuffer, "UniformBuffer");
+        computeDataPingPong[i]->setStaticBuffer(uniformDataBuffer, "UniformDataBuffer");
         computeDataPingPong[i]->setStaticBuffer(minMaxReductionBuffers[i % 2], "MinMaxInBuffer");
         computeDataPingPong[i]->setStaticBuffer(minMaxReductionBuffers[(i + 1) % 2], "MinMaxOutBuffer");
     }
@@ -436,10 +418,13 @@ void LineDensityFieldMinMaxReduceRenderPass::_render() {
         sgl::vk::BufferPtr writeBuffer = minMaxReductionBuffers[(iteration + 1) % 2];
 
         inputSize = numBlocks;
-        numBlocks = sgl::iceil(int(numBlocks), BLOCK_SIZE*2);
-        uniformData.sizeOfInput = inputSize;
-        uniformBuffer->updateData(sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
+        numBlocks = sgl::iceil(int(numBlocks), BLOCK_SIZE * 2);
+
+        renderer->pushConstants(
+                std::static_pointer_cast<sgl::vk::Pipeline>(computeData->getComputePipeline()),
+                VK_SHADER_STAGE_COMPUTE_BIT, 0, inputSize);
         renderer->dispatch(computeData, int(numBlocks), 1, 1);
+
         renderer->insertBufferMemoryBarrier(
                 VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -448,10 +433,6 @@ void LineDensityFieldMinMaxReduceRenderPass::_render() {
                 VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                 writeBuffer);
-        renderer->insertBufferMemoryBarrier(
-                VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                uniformBuffer);
         iteration++;
     }
     outputDepthMinMaxIndex = iteration % 2;
@@ -620,4 +601,3 @@ float* LineDensityFieldSmoothingPass::smoothScalarFieldCpu(sgl::vk::TexturePtr& 
     stagingBuffer->unmapMemory();
     return dataOutput;
 }
-#endif

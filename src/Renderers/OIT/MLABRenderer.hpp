@@ -83,7 +83,7 @@ protected:
     void gather();
     void resolve();
     void reloadShaders();
-    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
+    void reloadGatherShader() override;
     void reloadResolveShader();
 
     // Shaders.

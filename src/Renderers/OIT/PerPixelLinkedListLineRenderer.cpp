@@ -32,6 +32,8 @@
 #include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/OpenGL/GeometryBuffer.hpp>
 #include <Graphics/OpenGL/Shader.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
+#include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Utils/AppSettings.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
@@ -39,107 +41,55 @@
 
 #include "Utils/InternalState.hpp"
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
+#include "../HullRasterPass.hpp"
 #include "PerPixelLinkedListLineRenderer.hpp"
-
-// Use stencil buffer to mask unused pixels
-static bool useStencilBuffer = true;
 
 PerPixelLinkedListLineRenderer::PerPixelLinkedListLineRenderer(
         SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Per-Pixel Linked List Renderer", sceneData, transferFunctionWindow) {
-    sgl::ShaderManager->invalidateShaderCache();
-    setSortingAlgorithmDefine();
-    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"LinkedListGather.glsl\"");
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    uniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(UniformData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
-    reloadResolveShader();
-    clearShader = sgl::ShaderManager->getShaderProgram(
-            {"LinkedListClear.Vertex", "LinkedListClear.Fragment"});
+    resolveRasterPass = std::shared_ptr<ResolvePass>(new ResolvePass(
+            this, {"LinkedListResolve.Vertex", "LinkedListResolve.Fragment"}));
+    resolveRasterPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    resolveRasterPass->setBlendMode(sgl::vk::BlendMode::BACK_TO_FRONT_STRAIGHT_ALPHA);
 
-    // Create blitting data (fullscreen rectangle in normalized device coordinates).
-    blitRenderData = sgl::ShaderManager->createShaderAttributes(resolveShader);
+    clearRasterPass = std::shared_ptr<ResolvePass>(new ResolvePass(
+            this, {"LinkedListClear.Vertex", "LinkedListClear.Fragment"}));
+    clearRasterPass->setColorWriteEnabled(false);
+    clearRasterPass->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
+    clearRasterPass->setAttachmentStoreOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
+    clearRasterPass->setOutputImageInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
+    clearRasterPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-    std::vector<glm::vec3> fullscreenQuad{
-            glm::vec3(1,1,0), glm::vec3(-1,-1,0), glm::vec3(1,-1,0),
-            glm::vec3(-1,-1,0), glm::vec3(1,1,0), glm::vec3(-1,1,0)};
-    sgl::GeometryBufferPtr geomBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(glm::vec3)*fullscreenQuad.size(), fullscreenQuad.data());
-    blitRenderData->addGeometryBuffer(
-            geomBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
-
-    clearRenderData = sgl::ShaderManager->createShaderAttributes(clearShader);
-    clearRenderData->addGeometryBuffer(
-            geomBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
-
-    onResolutionChanged();
+    onClearColorChanged();
 }
 
 PerPixelLinkedListLineRenderer::~PerPixelLinkedListLineRenderer() {
     if ((*sceneData->performanceMeasurer) && !timerDataIsWritten && timer) {
-        delete timer;
-        (*sceneData->performanceMeasurer)->setPpllTimer(nullptr);
+        timer = {};
+        (*sceneData->performanceMeasurer)->setPpllTimer({});
     }
 }
 
 void PerPixelLinkedListLineRenderer::reloadResolveShader() {
-    sgl::ShaderManager->invalidateShaderCache();
-    sgl::ShaderManager->addPreprocessorDefine("MAX_NUM_FRAGS", sgl::toString(expectedMaxDepthComplexity));
-
-    if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT
-        || sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID) {
-        int stackSize = int(std::ceil(std::log2(expectedMaxDepthComplexity)) * 2 + 4);
-        sgl::ShaderManager->addPreprocessorDefine("STACK_SIZE", sgl::toString(stackSize));
-    }
-
-    resolveShader = sgl::ShaderManager->getShaderProgram(
-            {"LinkedListResolve.Vertex", "LinkedListResolve.Fragment"});
-    if (blitRenderData) {
-        blitRenderData = blitRenderData->copy(resolveShader);
-    }
+    resolveRasterPass->setShaderDirty();
 }
 
-void PerPixelLinkedListLineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
+void PerPixelLinkedListLineRenderer::reloadGatherShader() {
     LineRenderer::reloadGatherShader();
-    gatherShader = lineData->reloadGatherShaderOpenGL();
-    if (canCopyShaderAttributes && shaderAttributes) {
-        shaderAttributes = shaderAttributes->copy(gatherShader);
-    }
-}
-
-void PerPixelLinkedListLineRenderer::setSortingAlgorithmDefine() {
-    if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_PRIORITY_QUEUE) {
-        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "frontToBackPQ");
-    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_BUBBLE_SORT) {
-        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "bubbleSort");
-    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_INSERTION_SORT) {
-        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "insertionSort");
-    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_SHELL_SORT) {
-        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "shellSort");
-    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_MAX_HEAP) {
-        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "heapSort");
-    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_BITONIC_SORT) {
-        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "bitonicSort");
-    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT) {
-        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "quicksort");
-    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID) {
-        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "quicksortHybrid");
-    }
-
-    if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT
-        || sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_QUICKSORT", "");
-    } else {
-        sgl::ShaderManager->removePreprocessorDefine("USE_QUICKSORT");
-    }
 }
 
 void PerPixelLinkedListLineRenderer::setNewState(const InternalState& newState) {
     currentStateName = newState.name;
     timerDataIsWritten = false;
     if ((*sceneData->performanceMeasurer) && !timerDataIsWritten) {
-        if (timer) {
-            delete timer;
-        }
-        timer = new sgl::TimerGL;
+        timer = {};
+        timer = std::make_shared<sgl::vk::Timer>(renderer);
         (*sceneData->performanceMeasurer)->setPpllTimer(timer);
     }
 }
@@ -147,10 +97,11 @@ void PerPixelLinkedListLineRenderer::setNewState(const InternalState& newState) 
 void PerPixelLinkedListLineRenderer::updateLargeMeshMode() {
     // More than one million cells?
     LargeMeshMode newMeshLargeMeshMode = MESH_SIZE_MEDIUM;
-    if (lineData->getNumLineSegments() > 1e6) { // > 1m line segments
+    if (lineData->getNumLineSegments() > size_t(1e6)) { // > 1m line segments
         newMeshLargeMeshMode = MESH_SIZE_LARGE;
     }
     if (newMeshLargeMeshMode != largeMeshMode) {
+        renderer->getDevice()->waitIdle();
         largeMeshMode = newMeshLargeMeshMode;
         expectedAvgDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES_PPLL[int(largeMeshMode)][0];
         expectedMaxDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES_PPLL[int(largeMeshMode)][1];
@@ -161,15 +112,75 @@ void PerPixelLinkedListLineRenderer::updateLargeMeshMode() {
 
 void PerPixelLinkedListLineRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
-
-    // Unload old data.
-    shaderAttributes = sgl::ShaderAttributesPtr();
     updateLargeMeshMode();
-
-    shaderAttributes = lineData->getGatherShaderAttributesOpenGL(gatherShader);
 
     dirty = false;
     reRender = true;
+}
+
+void PerPixelLinkedListLineRenderer::getVulkanShaderPreprocessorDefines(
+        std::map<std::string, std::string> &preprocessorDefines) {
+    LineRenderer::getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    preprocessorDefines.insert(std::make_pair("OIT_GATHER_HEADER", "\"LinkedListGather.glsl\""));
+
+    preprocessorDefines.insert(std::make_pair("MAX_NUM_FRAGS", sgl::toString(expectedMaxDepthComplexity)));
+    if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT
+            || sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID) {
+        int stackSize = int(std::ceil(std::log2(expectedMaxDepthComplexity)) * 2 + 4);
+        preprocessorDefines.insert(std::make_pair("STACK_SIZE", sgl::toString(stackSize)));
+    }
+
+    if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_PRIORITY_QUEUE) {
+        preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "frontToBackPQ"));
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_BUBBLE_SORT) {
+        preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "bubbleSort"));
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_INSERTION_SORT) {
+        preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "insertionSort"));
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_SHELL_SORT) {
+        preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "shellSort"));
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_MAX_HEAP) {
+        preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "heapSort"));
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_BITONIC_SORT) {
+        preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "bitonicSort"));
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT) {
+        preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "quicksort"));
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID) {
+        preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "quicksortHybrid"));
+    }
+
+    if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT
+            || sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID) {
+        preprocessorDefines.insert(std::make_pair("USE_QUICKSORT", ""));
+    }
+}
+
+void PerPixelLinkedListLineRenderer::setGraphicsPipelineInfo(
+        sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) {
+    pipelineInfo.setColorWriteEnabled(false);
+    pipelineInfo.setDepthWriteEnabled(false);
+}
+
+void PerPixelLinkedListLineRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) {
+    LineRenderer::setRenderDataBindings(renderData);
+    renderData->setStaticBufferOptional(fragmentBuffer, "FragmentBuffer");
+    renderData->setStaticBuffer(startOffsetBuffer, "StartOffsetBuffer");
+    renderData->setStaticBufferOptional(fragmentCounterBuffer, "FragCounterBuffer");
+    renderData->setStaticBufferOptional(uniformDataBuffer, "UniformDataBuffer");
+}
+
+void PerPixelLinkedListLineRenderer::updateVulkanUniformBuffers() {
+}
+
+void PerPixelLinkedListLineRenderer::setFramebufferAttachments(
+        sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) {
+    sgl::vk::AttachmentState attachmentState;
+    attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachmentState.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachmentState.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    framebuffer->setColorAttachment(
+            (*sceneData->sceneTexture)->getImageView(), 0, attachmentState,
+            sceneData->clearColor->getFloatColorRGBA());
 }
 
 void PerPixelLinkedListLineRenderer::reallocateFragmentBuffer() {
@@ -182,7 +193,8 @@ void PerPixelLinkedListLineRenderer::reallocateFragmentBuffer() {
     size_t fragmentBufferSizeBytes = 12ull * fragmentBufferSize;
     if (fragmentBufferSizeBytes >= (1ull << 32ull)) {
         sgl::Logfile::get()->writeError(
-                std::string() + "Fragment buffer size was larger than or equal to 4GiB. Clamping to 4GiB.");
+                std::string() + "Fragment buffer size was larger than or equal to 4GiB. Clamping to 4GiB.",
+                false);
         fragmentBufferSizeBytes = (1ull << 32ull) - 12ull;
         fragmentBufferSize = fragmentBufferSizeBytes / 12ull;
     } else {
@@ -195,9 +207,10 @@ void PerPixelLinkedListLineRenderer::reallocateFragmentBuffer() {
         (*sceneData->performanceMeasurer)->setCurrentAlgorithmBufferSizeBytes(fragmentBufferSizeBytes);
     }
 
-    fragmentBuffer = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
-    fragmentBuffer = sgl::Renderer->createGeometryBuffer(
-            fragmentBufferSizeBytes, NULL, sgl::SHADER_STORAGE_BUFFER);
+    fragmentBuffer = {}; // Delete old data first (-> refcount 0)
+    fragmentBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), fragmentBufferSizeBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 }
 
 void PerPixelLinkedListLineRenderer::onResolutionChanged() {
@@ -211,29 +224,54 @@ void PerPixelLinkedListLineRenderer::onResolutionChanged() {
     reallocateFragmentBuffer();
 
     size_t startOffsetBufferSizeBytes = sizeof(uint32_t) * paddedWindowWidth * paddedWindowHeight;
-    startOffsetBuffer = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
-    startOffsetBuffer = sgl::Renderer->createGeometryBuffer(
-            startOffsetBufferSizeBytes, nullptr, sgl::SHADER_STORAGE_BUFFER);
+    startOffsetBuffer = {}; // Delete old data first (-> refcount 0)
+    startOffsetBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), startOffsetBufferSizeBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
-    atomicCounterBuffer = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
-    atomicCounterBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t), nullptr, sgl::ATOMIC_COUNTER_BUFFER);
+    fragmentCounterBuffer = {}; // Delete old data first (-> refcount 0)
+    fragmentCounterBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(uint32_t),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+    lineRasterPass->recreateSwapchain(width, height);
+    if (hullRasterPass) {
+        hullRasterPass->recreateSwapchain(width, height);
+    }
+
+    resolveRasterPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
+    resolveRasterPass->recreateSwapchain(*sceneData->viewportWidth, *sceneData->viewportHeight);
+
+    clearRasterPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
+    clearRasterPass->recreateSwapchain(*sceneData->viewportWidth, *sceneData->viewportHeight);
+}
+
+void PerPixelLinkedListLineRenderer::onClearColorChanged() {
+    resolveRasterPass->setAttachmentClearColor(sceneData->clearColor->getFloatColorRGBA());
 }
 
 void PerPixelLinkedListLineRenderer::render() {
     LineRenderer::renderBase();
 
-    setUniformData();
+    uniformData.linkedListSize = static_cast<uint32_t>(fragmentBufferSize);
+    uniformData.viewportW = paddedWindowWidth;
+    uniformDataBuffer->updateData(
+            sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
     if ((*sceneData->performanceMeasurer)) {
-        timer->startGPU("PPLLClear", float(frameCounter));
+        timer->startGPU("PPLLClear");
         clear();
-        timer->end();
-        timer->startGPU("FCGather", float(frameCounter));
+        timer->endGPU("PPLLClear");
+        timer->startGPU("FCGather");
         gather();
-        timer->end();
-        timer->startGPU("PPLLResolve", float(frameCounter));
+        timer->endGPU("FCGather");
+        timer->startGPU("PPLLResolve");
         resolve();
-        timer->end();
+        timer->endGPU("PPLLResolve");
     } else {
         clear();
         gather();
@@ -242,113 +280,41 @@ void PerPixelLinkedListLineRenderer::render() {
     frameCounter++;
 }
 
-void PerPixelLinkedListLineRenderer::setUniformData() {
-    sgl::ShaderManager->bindShaderStorageBuffer(0, fragmentBuffer);
-    sgl::ShaderManager->bindShaderStorageBuffer(1, startOffsetBuffer);
-    sgl::ShaderManager->bindAtomicCounterBuffer(0, atomicCounterBuffer);
-
-    gatherShader->setUniform("viewportW", paddedWindowWidth);
-    gatherShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSize);
-    gatherShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
-    gatherShader->setUniform("lineWidth", lineWidth);
-    if (gatherShader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        gatherShader->setUniform("backgroundColor", backgroundColor);
-    }
-    if (gatherShader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
-        gatherShader->setUniform("foregroundColor", foregroundColor);
-    }
-    lineData->setUniformGatherShaderDataOpenGL(gatherShader);
-    setUniformData_Pass(gatherShader);
-
-    if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
-        gatherShaderHull->setUniform("viewportW", paddedWindowWidth);
-        gatherShaderHull->setUniform("linkedListSize", (unsigned int)fragmentBufferSize);
-    }
-
-    resolveShader->setUniform("viewportW", paddedWindowWidth);
-    clearShader->setUniform("viewportW", paddedWindowWidth);
-}
-
 void PerPixelLinkedListLineRenderer::clear() {
-    glDepthMask(GL_FALSE);
-
-    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    // In the clear and gather pass, we just want to write data to an SSBO.
-    glDisable(GL_DEPTH_TEST);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-    sgl::Renderer->render(clearRenderData);
-
-    // Set atomic counter to zero.
-    GLuint bufferID = static_cast<sgl::GeometryBufferGL*>(atomicCounterBuffer.get())->getBuffer();
-    GLubyte val = 0;
-    glClearNamedBufferData(bufferID, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_BYTE, (const void*)&val);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
+    clearRasterPass->render();
+    fragmentCounterBuffer->fill(0, renderer->getVkCommandBuffer());
+    renderer->insertBufferMemoryBarrier(
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            startOffsetBuffer);
+    renderer->insertBufferMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            fragmentCounterBuffer);
 }
 
 void PerPixelLinkedListLineRenderer::gather() {
-    // Enable the depth test, but disable depth write for gathering.
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
+    //renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
+    //renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
+    //renderer->setModelMatrix(sgl::matrixIdentity());
 
-    // We can use the stencil buffer to mask used pixels for the resolve pass.
-    if (useStencilBuffer) {
-        glEnable(GL_STENCIL_TEST);
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
-        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-        glStencilMask(0xFF);
-        glClear(GL_STENCIL_BUFFER_BIT);
-    }
-
-    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-    // Now, the final gather step.
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
-        glDisable(GL_CULL_FACE);
-    }
-    sgl::Renderer->render(shaderAttributes);
+    lineRasterPass->render();
     renderHull();
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
-        glEnable(GL_CULL_FACE);
-    }
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void PerPixelLinkedListLineRenderer::resolve() {
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glDisable(GL_DEPTH_TEST);
-
-    if (useStencilBuffer) {
-        glStencilFunc(GL_EQUAL, 1, 0xFF);
-        glStencilMask(0x00);
-    }
-
-    sgl::Renderer->render(blitRenderData);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-    glDisable(GL_STENCIL_TEST);
-    glDepthMask(GL_TRUE);
+    resolveRasterPass->render();
 }
 
 void PerPixelLinkedListLineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 
     if (propertyEditor.addCombo(
-            "Sorting Mode", (int*)&sortingAlgorithmMode, SORTING_MODE_NAMES, NUM_SORTING_MODES)) {
-        setSortingAlgorithmDefine();
+            "Sorting Mode", (int*)&sortingAlgorithmMode,
+            SORTING_MODE_NAMES, NUM_SORTING_MODES)) {
         reloadResolveShader();
         reRender = true;
     }

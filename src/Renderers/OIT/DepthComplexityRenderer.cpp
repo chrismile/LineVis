@@ -70,10 +70,10 @@ DepthComplexityRenderer::DepthComplexityRenderer(
     onResolutionChanged();
 }
 
-void DepthComplexityRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
+void DepthComplexityRenderer::reloadGatherShader() {
     LineRenderer::reloadGatherShader();
     gatherShader = lineData->reloadGatherShaderOpenGL();
-    if (canCopyShaderAttributes && shaderAttributes) {
+    if (/* canCopyShaderAttributes && */ shaderAttributes) {
         shaderAttributes = shaderAttributes->copy(gatherShader);
     }
 }

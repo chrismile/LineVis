@@ -30,7 +30,7 @@
 
 #version 430 core
 
-in vec4 vertexPosition;
+layout(location = 0) in vec4 vertexPosition;
 
 void main()
 {
@@ -42,8 +42,9 @@ void main()
 
 #version 430
 
-layout(pixel_center_integer) in vec4 gl_FragCoord;
-out vec4 fragColorOut;
+in vec4 gl_FragCoord;
+
+layout(location = 0) out vec4 fragColorOut;
 
 // Size of the rendering viewport (/window)
 uniform ivec2 viewportSize;

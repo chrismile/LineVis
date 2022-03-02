@@ -56,7 +56,6 @@ OpaqueLineRenderer::OpaqueLineRenderer(SceneData* sceneData, sgl::TransferFuncti
         sampleModeNames.push_back(std::to_string(i));
     }
 
-    lineRasterPass = std::make_shared<LineRasterPass>(this);
     sphereRasterPass = std::make_shared<SphereRasterPass>(this);
 }
 
@@ -76,7 +75,7 @@ void OpaqueLineRenderer::renderSphere(const glm::vec3& position, float radius, c
     sphereRasterPass->render();
 }
 
-void OpaqueLineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
+void OpaqueLineRenderer::reloadGatherShader() {
     LineRenderer::reloadGatherShader();
     lineRasterPass->setShaderDirty();
     if (degeneratePointsRasterPass) {
@@ -89,7 +88,6 @@ void OpaqueLineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
 
 void OpaqueLineRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
-    lineRasterPass->setLineData(lineData, isNewData);
 
     hasDegeneratePoints =
             lineData->getType() == DATA_SET_TYPE_STRESS_LINES &&

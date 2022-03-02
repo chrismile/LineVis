@@ -61,7 +61,7 @@ public:
     bool needsReRender() override;
 
 protected:
-    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
+    void reloadGatherShader() override;
     void computeStatistics(bool isReRender);
     void setUniformData();
     void clear();

@@ -32,6 +32,8 @@
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Texture/TextureManager.hpp>
 #include <Graphics/Scene/RenderTarget.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
+#include <Graphics/Vulkan/Render/Passes/BlitRenderPass.hpp>
 
 #include "LineData/Scattering/LineDataScattering.hpp"
 #include "SphericalHeatMapRenderer.hpp"
@@ -39,7 +41,9 @@
 SphericalHeatMapRenderer::SphericalHeatMapRenderer(
         SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Spherical Heat Map Renderer", sceneData, transferFunctionWindow) {
-    ;
+    isRasterizer = true;
+    blitRenderPass = std::make_shared<sgl::vk::BlitRenderPass>(renderer);
+    blitRenderPass->setAttachmentClearColor({ 0.0f, 0.0f, 0.0f, 0.0f });
 }
 
 SphericalHeatMapRenderer::~SphericalHeatMapRenderer() {
@@ -84,14 +88,20 @@ void SphericalHeatMapRenderer::setHeatMapData(Image data) {
 
     heat_map = data;
 
-    sgl::PixelFormat pixelFormat;
-    pixelFormat.pixelFormat = GL_RGBA;
-    pixelFormat.pixelType = GL_UNSIGNED_BYTE;
-    sgl::TextureSettings textureSettings;
-    textureSettings.internalFormat = GL_RGBA8;
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    sgl::vk::ImageSamplerSettings samplerSettings;
+    sgl::vk::ImageSettings imageSettings;
+    imageSettings.width = heat_map.width;
+    imageSettings.height = heat_map.height;
+    imageSettings.format = VK_FORMAT_R8G8B8A8_UNORM;
+    imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-    heatMapTexture = sgl::TextureManager->createTexture(
-        heat_map.pixels, heat_map.width, heat_map.height, pixelFormat, textureSettings);
+    heatMapTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
+    heatMapTexture->getImage()->uploadData(heat_map.width * heat_map.height * 4, heat_map.pixels);
+
+    blitRenderPass->setInputTexture(heatMapTexture);
+    blitRenderPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
+    blitRenderPass->recreateSwapchain(*sceneData->viewportWidth, *sceneData->viewportHeight);
 }
 
 void SphericalHeatMapRenderer::render() {
@@ -99,13 +109,11 @@ void SphericalHeatMapRenderer::render() {
         return;
     }
 
-    sgl::FramebufferObjectPtr fbo = (*sceneData->camera)->getRenderTarget()->getFramebufferObject();
-
-    int px_width = fbo->getWidth();
-    int px_height = fbo->getHeight();
+    const uint32_t px_width = *sceneData->viewportWidth;
+    const uint32_t px_height = *sceneData->viewportHeight;
 
     float heat_map_aspect_ratio = 2; // dim_x / dim_y
-    float fb_aspect_ratio = 1.0f * px_width / px_height;
+    float fb_aspect_ratio = 1.0f * float(px_width) / float(px_height);
 
     glm::vec2 texture_lower_left = { -heat_map_aspect_ratio, -1};
 
@@ -114,19 +122,16 @@ void SphericalHeatMapRenderer::render() {
         texture_lower_left *=  fb_aspect_ratio / heat_map_aspect_ratio;
     }
 
-    sgl::AABB2 aabb2 { texture_lower_left, -texture_lower_left };
+    sgl::AABB2 aabb { texture_lower_left, -texture_lower_left };
 
     // Don't use a 3D camera, but normalized device coordinate space ([-1, 1]^3).
-    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
+    renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
+    renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
+    renderer->setModelMatrix(sgl::matrixIdentity());
 
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-    sgl::Renderer->clearFramebuffer(GL_COLOR_BUFFER_BIT, sgl::Color(0, 0, 0, 0));
-    sgl::Renderer->blitTexture(heatMapTexture, aabb2);
+    blitRenderPass->setNormalizedCoordinatesAabb(aabb);
+    blitRenderPass->render();
 }
 
 void SphericalHeatMapRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
-    ;
 }

@@ -53,6 +53,8 @@ using namespace sgl;
 
 VulkanRayTracer::VulkanRayTracer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Vulkan Ray Tracer", sceneData, transferFunctionWindow) {
+    isRasterizer = false;
+
     rayTracingRenderPass = std::make_shared<RayTracingRenderPass>(this, renderer, sceneData->camera);
     rayTracingRenderPass->setNumSamplesPerFrame(numSamplesPerFrame);
     rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
@@ -61,10 +63,7 @@ VulkanRayTracer::VulkanRayTracer(SceneData* sceneData, sgl::TransferFunctionWind
     rayTracingRenderPass->setUseMlat(useMlat);
     rayTracingRenderPass->setMlatNumNodes(mlatNumNodes);
 
-    isVulkanRenderer = true;
-    isRasterizer = false;
-
-    onResolutionChanged();
+    onClearColorChanged();
 }
 
 VulkanRayTracer::~VulkanRayTracer() {
@@ -74,7 +73,7 @@ VulkanRayTracer::~VulkanRayTracer() {
     ambientOcclusionBaker = {};
 }
 
-void VulkanRayTracer::reloadGatherShader(bool canCopyShaderAttributes) {
+void VulkanRayTracer::reloadGatherShader() {
     rayTracingRenderPass->setShaderDirty();
     rayTracingRenderPass->setUseDepthCues(useDepthCues);
     rayTracingRenderPass->setVisualizeSeedingProcess(visualizeSeedingProcess);

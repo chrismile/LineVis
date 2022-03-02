@@ -111,7 +111,6 @@ public:
     PointRenderData getDegeneratePointsRenderData();
     BandRenderData getBandRenderData() override;
 
-#ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---
     VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
     VulkanTubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) override;
@@ -119,7 +118,6 @@ public:
             std::map<std::string, std::string>& preprocessorDefines, bool isRasterizer) override;
     void setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData) override;
     void updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::Renderer* renderer) override;
-#endif
 
     // --- Retrieve triangle mesh on the CPU. ---
     void getTriangleMesh(
@@ -229,7 +227,6 @@ private:
     StressLineHierarchyMappingWidget stressLineHierarchyMappingWidget;
     MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
 
-#ifdef USE_VULKAN_INTEROP
     struct StressLineUniformData {
         glm::vec3 lineHierarchySlider{}; // USE_LINE_HIERARCHY_LEVEL && !USE_TRANSPARENCY
         float paddingStressLineSettings{};
@@ -240,7 +237,6 @@ private:
     // Uniform buffers with settings for rendering.
     StressLineUniformData stressLineUniformData;
     sgl::vk::BufferPtr stressLineUniformDataBuffer;
-#endif
 
     // For computing distance do degenerate regions.
     /*const size_t NUM_DISTANCE_MEASURES = 2;

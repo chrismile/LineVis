@@ -39,9 +39,6 @@
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
 #include <ImGui/imgui_stdlib.h>
-#ifdef USE_VULKAN_INTEROP
-#include <Graphics/Vulkan/Render/Renderer.hpp>
-#endif
 
 #include "Utils/IndexMesh.hpp"
 #include "Utils/MeshSmoothing.hpp"

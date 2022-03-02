@@ -30,7 +30,7 @@
 
 #version 430
 
-layout (local_size_x = 256) in;
+layout(local_size_x = 256) in;
 
 struct LineSegment {
     vec3 v0; // Vertex position

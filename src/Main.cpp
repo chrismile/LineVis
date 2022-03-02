@@ -98,6 +98,8 @@ int main(int argc, char *argv[]) {
     requestedDeviceFeatures.optionalPhysicalDeviceFeatures.geometryShader = VK_TRUE; // For a rasterizer mode.
     requestedDeviceFeatures.optionalPhysicalDeviceFeatures.sampleRateShading = VK_TRUE; // For OpaqueLineRenderer.
     requestedDeviceFeatures.optionalPhysicalDeviceFeatures.independentBlend = VK_TRUE; // For WBOITRenderer.
+    // For PerPixelLinkedListRenderer, OpacityOptimizationRenderer, DepthComplexityRenderer, ...
+    requestedDeviceFeatures.requestedPhysicalDeviceFeatures.fragmentStoresAndAtomics = VK_TRUE;
     device->createDeviceSwapchain(
             instance, window,
             {

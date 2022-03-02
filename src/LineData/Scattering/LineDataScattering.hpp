@@ -29,13 +29,12 @@
 #ifndef LINEVIS_LINEDATASCATTERING_HPP
 #define LINEVIS_LINEDATASCATTERING_HPP
 
+#include <Graphics/Vulkan/Render/Passes/Pass.hpp>
+
 #include "../LineDataFlow.hpp"
 #include "CloudData.hpp"
 #include "Texture3d.hpp"
 #include "../SearchStructures/KdTree.hpp"
-
-#ifdef USE_VULKAN_INTEROP
-#include <Graphics/Vulkan/Render/Passes/Pass.hpp>
 
 namespace sgl { namespace vk {
 class Renderer;
@@ -52,7 +51,6 @@ class LineDensityFieldImageComputeRenderPass;
 class LineDensityFieldMinMaxReduceRenderPass;
 class LineDensityFieldNormalizeRenderPass;
 class LineDensityFieldSmoothingPass;
-#endif
 
 /**
  * The scattering line data object combines three types of data:
@@ -63,10 +61,7 @@ class LineDensityFieldSmoothingPass;
 class LineDataScattering : public LineDataFlow {
 public:
     LineDataScattering(
-            sgl::TransferFunctionWindow& transferFunctionWindow
-#ifdef USE_VULKAN_INTEROP
-            , sgl::vk::Renderer* rendererVk
-#endif
+            sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk
     );
     ~LineDataScattering() override;
     sgl::ShaderProgramPtr reloadGatherShaderOpenGL() override;
@@ -97,9 +92,7 @@ public:
     KdTree<Empty>* getExitDirections();
 
     void setGridData(
-#ifdef USE_VULKAN_INTEROP
             const sgl::vk::TexturePtr& scalarFieldTexture,
-#endif
             const std::vector<uint32_t>& outlineTriangleIndices,
             const std::vector<glm::vec3>& outlineVertexPositions, const std::vector<glm::vec3>& outlineVertexNormals,
             float* scalarFieldData, uint32_t gridSizeX, uint32_t gridSizeY, uint32_t gridSizeZ,
@@ -107,13 +100,11 @@ public:
 
     void rebuildInternalRepresentationIfNecessary() override;
 
-#ifdef USE_VULKAN_INTEROP
     // --- Retrieve data for rendering for Vulkan. ---
     VulkanLineDataScatteringRenderData getVulkanLineDataScatteringRenderData();
     VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
     VulkanTubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) override;
     VulkanHullTriangleRenderData getVulkanHullTriangleRenderData(bool raytracing) override;
-#endif
 
 protected:
     void recomputeHistogram() override;
@@ -130,7 +121,6 @@ private:
     bool useLineSegmentLengthForDensityField = true;
     KdTree<Empty>* ray_exit_directions;
 
-#ifdef USE_VULKAN_INTEROP
     // Caches the rendering data when using Vulkan.
     VulkanLineDataScatteringRenderData vulkanScatteredLinesGridRenderData;
     std::shared_ptr<LineDensityFieldImageComputeRenderPass> lineDensityFieldImageComputeRenderPass;
@@ -139,12 +129,10 @@ private:
     bool isLineDensityFieldDirty = false;
 
     sgl::vk::Renderer* rendererVk = nullptr;
-#endif
 };
 
 typedef std::shared_ptr<LineDataScattering> LineDataScatteringPtr;
 
-#ifdef USE_VULKAN_INTEROP
 class LineDensityFieldImageComputeRenderPass : public sgl::vk::ComputePass {
     friend class VulkanAmbientOcclusionBaker;
 public:
@@ -207,13 +195,11 @@ private:
 
     // Uniform buffer object storing the line rendering settings.
     struct UniformData {
-        uint32_t sizeOfInput;
-        uint32_t padding;
         float nearDist = std::numeric_limits<float>::lowest();
         float farDist = std::numeric_limits<float>::max();
     };
     UniformData uniformData{};
-    sgl::vk::BufferPtr uniformBuffer;
+    sgl::vk::BufferPtr uniformDataBuffer;
 };
 
 class LineDensityFieldNormalizeRenderPass : public sgl::vk::ComputePass {
@@ -268,6 +254,5 @@ private:
     sgl::vk::BufferPtr smoothingUniformBuffer;
     sgl::vk::BufferPtr smoothingKernelBuffer;
 };
-#endif
 
 #endif //LINEVIS_LINEDATASCATTERING_HPP

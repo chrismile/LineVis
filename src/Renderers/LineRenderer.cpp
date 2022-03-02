@@ -50,6 +50,12 @@
 float LineRenderer::lineWidth = STANDARD_LINE_WIDTH;
 float LineRenderer::bandWidth = STANDARD_BAND_WIDTH;
 
+LineRenderer::LineRenderer(
+        std::string windowName, SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
+        : windowName(std::move(windowName)), sceneData(sceneData), renderer(*sceneData->renderer),
+          transferFunctionWindow(transferFunctionWindow) {
+}
+
 void LineRenderer::initialize() {
     updateDepthCueMode();
     updateAmbientOcclusionMode();
@@ -58,6 +64,7 @@ void LineRenderer::initialize() {
     minMaxDepthReductionPass[1] = std::make_shared<MinMaxDepthReductionPass>(sceneData);
 
     if (isRasterizer) {
+        lineRasterPass = std::make_shared<LineRasterPass>(this);
         hullRasterPass = std::make_shared<HullRasterPass>(this);
     }
 
@@ -105,6 +112,8 @@ void LineRenderer::onResolutionChanged() {
 }
 
 void LineRenderer::getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) {
+    sgl::vk::ShaderManager->invalidateShaderCache();
+
     if (useDepthCues) {
         preprocessorDefines.insert(std::make_pair("USE_DEPTH_CUES", ""));
         preprocessorDefines.insert(std::make_pair("COMPUTE_DEPTH_CUES_GPU", ""));
@@ -272,7 +281,6 @@ void LineRenderer::setAmbientOcclusionBaker() {
     }
     ambientOcclusionBaker = {};
 
-#ifdef USE_VULKAN_INTEROP
     if (ambientOcclusionBakerType == AmbientOcclusionBakerType::VULKAN_RTAO_PREBAKER) {
         sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
         if (!device || !device->getRayQueriesSupported()) {
@@ -288,13 +296,12 @@ void LineRenderer::setAmbientOcclusionBaker() {
             showRayQueriesUnsupportedWarning();
             return;
         }
-        if (lineData && lineData->getUseCappedTubes() && (!isVulkanRenderer || isRasterizer)) {
+        if (lineData && lineData->getUseCappedTubes() && isRasterizer) {
             lineData->setUseCappedTubes(this, false);
         }
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(
                 new VulkanRayTracedAmbientOcclusion(sceneData, renderer));
     }
-#endif
 
     AmbientOcclusionBakerType newAmbientOcclusionBakerType = AmbientOcclusionBakerType::NONE;
     if (ambientOcclusionBaker) {
@@ -459,7 +466,7 @@ bool LineRenderer::setNewSettings(const SettingsMap& settings) {
 
 void LineRenderer::reloadGatherShaderExternal() {
     if (lineData) {
-        reloadGatherShader(false);
+        reloadGatherShader();
         setLineData(lineData, false);
     }
 }
@@ -536,7 +543,6 @@ void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
             }
         }
 
-#ifdef USE_VULKAN_INTEROP
         if (mode != RENDERING_MODE_VOXEL_RAY_CASTING
                 && mode != RENDERING_MODE_LINE_DENSITY_MAP_RENDERER
                 && mode != RENDERING_MODE_VOLUMETRIC_PATH_TRACER) {
@@ -574,14 +580,13 @@ void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                 }
             }
         }
-#endif
     }
 
     if (useAmbientOcclusion && ambientOcclusionBaker) {
         if (ambientOcclusionBaker->renderGuiPropertyEditorNodes(propertyEditor)) {
             reRender = true;
             internalReRender = true;
-            if (isVulkanRenderer && ambientOcclusionBaker->getIsStaticPrebaker()) {
+            if (ambientOcclusionBaker->getIsStaticPrebaker()) {
                 ambientOcclusionBuffersDirty = true;
             }
         }
@@ -596,7 +601,7 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewData) {
     if (!this->lineData || lineData->getType() != this->lineData->getType()
             || lineData->settingsDiffer(this->lineData.get())) {
         this->lineData = lineData;
-        reloadGatherShader(false);
+        reloadGatherShader();
     }
     this->lineData = lineData;
 
@@ -613,13 +618,19 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewData) {
     }
 
     if (isRasterizer) {
+        lineRasterPass->setLineData(lineData, isNewData);
         if (lineData->hasSimulationMeshOutline()) {
             hullRasterPass->setLineData(lineData, isNewData);
         }
     }
 }
 
-void LineRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
+void LineRenderer::reloadGatherShader() {
+    if (isRasterizer) {
+        lineRasterPass->setShaderDirty();
+        hullRasterPass->setShaderDirty();
+    }
+
     // TODO
     //hullRasterPass->setShaderDirty();
 

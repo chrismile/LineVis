@@ -104,7 +104,7 @@ void MBOITRenderer::reloadShaders() {
     reloadResolveShader();
 }
 
-void MBOITRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
+void MBOITRenderer::reloadGatherShader() {
     if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
         sgl::ShaderManager->addPreprocessorDefine("USE_SYNC_FRAGMENT_SHADER_INTERLOCK", "");
         if (!useOrderedFragmentShaderInterlock) {
@@ -121,7 +121,7 @@ void MBOITRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     sgl::ShaderManager->invalidateShaderCache();
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"MBOITPass1.glsl\"");
     mboitPass1Shader = lineData->reloadGatherShaderOpenGL();
-    if (canCopyShaderAttributes && shaderAttributesPass1) {
+    if (/* canCopyShaderAttributes && */ shaderAttributesPass1) {
         shaderAttributesPass1 = shaderAttributesPass1->copy(mboitPass1Shader);
     }
 
@@ -138,7 +138,7 @@ void MBOITRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     sgl::ShaderManager->invalidateShaderCache();
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"MBOITPass2.glsl\"");
     mboitPass2Shader = lineData->reloadGatherShaderOpenGL();
-    if (canCopyShaderAttributes && shaderAttributesPass2) {
+    if (/* canCopyShaderAttributes && */ shaderAttributesPass2) {
         shaderAttributesPass2 = shaderAttributesPass2->copy(mboitPass2Shader);
     }
 

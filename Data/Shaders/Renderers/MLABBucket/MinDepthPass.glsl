@@ -39,14 +39,16 @@ layout(early_fragment_tests, pixel_interlock_unordered) in;
 layout(early_fragment_tests, pixel_interlock_ordered) in;
 #endif
 
-// gl_FragCoord will be used for pixel centers at integer coordinates.
-// See https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/gl_FragCoord.xhtml
-layout(pixel_center_integer) in vec4 gl_FragCoord;
+in vec4 gl_FragCoord;
 
-uniform int viewportW;
+layout(binding = 0) uniform UniformDataBuffer {
+    // Size of the viewport in x direction (in pixels).
+    int viewportW;
 
-uniform float logDepthMin;
-uniform float logDepthMax;
+    // Range of logarithmic depth.
+    float logDepthMin;
+    float logDepthMax;
+};
 
 // Maps depth to range [0,1] with logarithmic scale
 float logDepthWarp(float z) {

@@ -94,7 +94,7 @@ public:
     void setNewState(const InternalState& newState) override;
 
 protected:
-    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
+    void reloadGatherShader() override;
 
 private:
     static bool isOsprayInitialized;

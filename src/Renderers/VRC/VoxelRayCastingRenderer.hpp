@@ -60,7 +60,7 @@ public:
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
 protected:
-    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
+    void reloadGatherShader() override;
     void setUniformData();
 
 private:

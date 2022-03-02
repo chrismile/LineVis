@@ -31,10 +31,7 @@
 #version 430 core
 
 layout(location = 0) in vec3 vertexPosition;
-
-out VertexData {
-    vec3 pointPosition;
-};
+layout(location = 0) out vec3 pointPosition;
 
 void main() {
     pointPosition = (mMatrix * vec4(vertexPosition, 1.0)).xyz;
@@ -57,15 +54,13 @@ layout(binding = 0) uniform UniformDataBuffer {
     float padding;
 };
 
-out vec3 fragmentPositionWorld;
-out vec2 quadCoords; // Between -1 and 1
+layout(location = 0) in vec3 pointPosition[];
 
-in VertexData {
-    vec3 pointPosition;
-} v_in[];
+layout(location = 0) out vec3 fragmentPositionWorld;
+layout(location = 1) out vec2 quadCoords; // Between -1 and 1
 
 void main() {
-    vec3 pointPosition = v_in[0].pointPosition;
+    vec3 pointPosition = pointPosition[0];
 
     vec3 quadNormal = normalize(cameraPosition - pointPosition);
     vec3 vertexPosition;
@@ -104,9 +99,9 @@ void main() {
 
 #version 430 core
 
-in vec3 fragmentPositionWorld;
-in vec2 quadCoords; // Between -1 and 1
-out vec4 fragColor;
+layout(location = 0) in vec3 fragmentPositionWorld;
+layout(location = 1) in vec2 quadCoords; // Between -1 and 1
+layout(location = 0) out vec4 fragColor;
 
 layout(binding = 0) uniform RenderSettingsBuffer {
     vec3 cameraPosition;

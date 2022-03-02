@@ -103,7 +103,7 @@ bool LineData::setUseCappedTubes(LineRenderer* lineRenderer, bool cappedTubes) {
     useCappedTubes = cappedTubes;
     if (useCappedTubesOld != cappedTubes) {
         triangleRepresentationDirty = true;
-        if (lineRenderer->isVulkanRenderer && !lineRenderer->isRasterizer) {
+        if (!lineRenderer->isRasterizer) {
             return true;
         }
     }
@@ -139,10 +139,10 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
         }
     }
 
-    if (lineRenderer && (linePrimitiveMode == LINE_PRIMITIVES_TRIANGLE_MESH || lineRenderer->isVulkanRenderer)) {
+    if (lineRenderer && (linePrimitiveMode == LINE_PRIMITIVES_TRIANGLE_MESH || !lineRenderer->isRasterizer)) {
         if (propertyEditor.addCheckbox("Capped Tubes", &useCappedTubes)) {
             triangleRepresentationDirty = true;
-            if (lineRenderer->isVulkanRenderer && !lineRenderer->isRasterizer) {
+            if (!lineRenderer->isRasterizer) {
                 shallReloadGatherShader = true;
             }
         }
@@ -157,8 +157,7 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
             shallRenderSimulationMeshBoundary = hullOpacity > 0.0f;
             reRender = true;
         }
-        if (lineRenderer && lineRenderer->isVulkanRenderer && !lineRenderer->isRasterizer
-                && editModeHullOpacity == ImGui::EditMode::INPUT_FINISHED) {
+        if (lineRenderer && !lineRenderer->isRasterizer && editModeHullOpacity == ImGui::EditMode::INPUT_FINISHED) {
             lineRenderer->setRenderSimulationMeshHull(shallRenderSimulationMeshBoundary);
         }
         if (shallRenderSimulationMeshBoundary) {
@@ -525,7 +524,6 @@ void LineData::setUniformGatherShaderDataHull_Pass(sgl::ShaderProgramPtr& gather
 }
 
 
-#ifdef USE_VULKAN_INTEROP
 sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLevelAS(LineRenderer* lineRenderer) {
     rebuildInternalRepresentationIfNecessary();
     if (tubeTriangleBottomLevelAS) {
@@ -854,4 +852,3 @@ void LineData::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::R
     lineUniformDataBuffer->updateData(
             sizeof(LineUniformData), &lineUniformData, renderer->getVkCommandBuffer());
 }
-#endif

@@ -44,23 +44,20 @@ const bool useStencilBuffer = true;
 WBOITRenderer::WBOITRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer(
                 "Weighted Blended Order Independent Transparency", sceneData, transferFunctionWindow) {
-    lineRasterPass = std::make_shared<LineRasterPass>(this);
-    resolveRenderPass = std::make_shared<WBOITResolvePass>(this);
+    resolveRasterPass = std::make_shared<WBOITResolvePass>(this);
     //glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
-    resolveRenderPass->setBlendMode(sgl::vk::BlendMode::BACK_TO_FRONT_STRAIGHT_ALPHA);
+    resolveRasterPass->setBlendMode(sgl::vk::BlendMode::BACK_TO_FRONT_STRAIGHT_ALPHA);
 
     onClearColorChanged();
 }
 
-void WBOITRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
+void WBOITRenderer::reloadGatherShader() {
     LineRenderer::reloadGatherShader();
-    lineRasterPass->setShaderDirty();
-    resolveRenderPass->setShaderDirty();
+    resolveRasterPass->setShaderDirty();
 }
 
 void WBOITRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
-    lineRasterPass->setLineData(lineData, isNewData);
 
     dirty = false;
     reRender = true;
@@ -131,20 +128,32 @@ void WBOITRenderer::onResolutionChanged() {
         hullRasterPass->recreateSwapchain(width, height);
     }
 
-    resolveRenderPass->setInputTextures(
+    resolveRasterPass->setInputTextures(
             accumulationRenderTexture, revealageRenderTexture);
-    resolveRenderPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
-    resolveRenderPass->setOutputImageLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    resolveRenderPass->recreateSwapchain(width, height);
+    resolveRasterPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
+    resolveRasterPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    resolveRasterPass->recreateSwapchain(width, height);
 }
 
 void WBOITRenderer::onClearColorChanged() {
-    resolveRenderPass->setAttachmentClearColor(sceneData->clearColor->getFloatColorRGBA());
+    resolveRasterPass->setAttachmentClearColor(sceneData->clearColor->getFloatColorRGBA());
 }
 
 void WBOITRenderer::render() {
     // Gather passes.
     LineRenderer::renderBase();
+
+    if (lineRasterPass->getIsDataEmpty()) {
+        renderer->transitionImageLayout(
+                accumulationRenderTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        renderer->transitionImageLayout(
+                revealageRenderTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        accumulationRenderTexture->getImageView()->clearColor(
+                { 0.0f, 0.0f, 0.0f, 0.0f }, renderer->getVkCommandBuffer());
+        revealageRenderTexture->getImageView()->clearColor(
+                { 1.0f, 0.0f, 0.0f, 0.0f }, renderer->getVkCommandBuffer());
+    }
+
     lineRasterPass->render();
     renderHull();
 
@@ -153,7 +162,7 @@ void WBOITRenderer::render() {
             accumulationRenderTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     renderer->transitionImageLayout(
             revealageRenderTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    resolveRenderPass->render();
+    resolveRasterPass->render();
 }
 
 void WBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {

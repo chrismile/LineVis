@@ -35,6 +35,7 @@
 #include <Graphics/Buffers/FBO.hpp>
 #include <Graphics/Texture/Bitmap.hpp>
 #include <Graphics/OpenGL/TimerGL.hpp>
+#include <Graphics/Vulkan/Utils/Timer.hpp>
 
 #include "InternalState.hpp"
 
@@ -62,6 +63,7 @@ public:
     // Called by OIT algorithms.
     void setCurrentAlgorithmBufferSizeBytes(size_t numBytes);
     inline void setPpllTimer(sgl::TimerGL* ppllTimer) { this->ppllTimer = ppllTimer; }
+    inline void setPpllTimer(const sgl::vk::TimerPtr& ppllTimer) { /*this->ppllTimer = ppllTimer;*/ } // TODO
 
 private:
     /// Write out the performance data of "currentState" to "file".

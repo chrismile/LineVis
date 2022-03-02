@@ -56,8 +56,7 @@ class VolumetricPathTracingPass;
  */
 class VolumetricPathTracingRenderer : public LineRenderer {
 public:
-    VolumetricPathTracingRenderer(
-            SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
+    VolumetricPathTracingRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~VolumetricPathTracingRenderer() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_VOLUMETRIC_PATH_TRACER; }
 
@@ -91,19 +90,6 @@ public:
     void renderGuiOverlay() override;
 
 private:
-    // OpenGL-Vulkan interoperability data.
-    sgl::vk::TexturePtr renderTextureVk;
-    sgl::TexturePtr renderTextureGl;
-    sgl::SemaphoreVkGlInteropPtr renderReadySemaphore, renderFinishedSemaphore;
-    bool useLinearRGB = false;
-    bool recreateImages = false;
-
-    // For fixing a bug occuring on newer NVIDIA Linux drivers (> 470.xx).
-    bool isFirstFrame = true;
-    bool isLinuxAndNvidia495OrNewer = false;
-
-    // Vulkan render data.
-    sgl::vk::Renderer* rendererVk = nullptr;
     std::shared_ptr<VolumetricPathTracingPass> vptPass;
 };
 

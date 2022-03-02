@@ -75,7 +75,7 @@ private:
     void gather();
     void resolve();
     void reloadShaders();
-    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
+    void reloadGatherShader() override;
     void reloadResolveShader();
 
     sgl::ShaderProgramPtr mboitPass1Shader;

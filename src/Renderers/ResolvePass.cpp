@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020 - 2021, Christoph Neuhauser
+ * Copyright (c) 2022, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,63 +26,28 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
--- Vertex
+#include <utility>
 
-#version 430 core
+#include "LineRenderer.hpp"
+#include "ResolvePass.hpp"
 
-layout(location = 0) in vec3 vertexPosition;
+ResolvePass::ResolvePass(LineRenderer* lineRenderer, std::vector<std::string> customShaderIds)
+        : sgl::vk::BlitRenderPass(
+        *lineRenderer->getSceneData()->renderer, std::move(customShaderIds)),
+          lineRenderer(lineRenderer) {
+    this->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
+}
 
-void main() {
-    gl_Position = vec4(vertexPosition, 1.0);
+void ResolvePass::loadShader() {
+    std::map<std::string, std::string> preprocessorDefines;
+    lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(shaderIds, preprocessorDefines);
 }
 
 
--- Fragment
-
-#version 430 core
-
-#include "LinkedListHeader.glsl"
-
-uint colorList[MAX_NUM_FRAGS];
-float depthList[MAX_NUM_FRAGS];
-
-#include "LinkedListSort.glsl"
-
-#ifdef USE_QUICKSORT
-#include "LinkedListQuicksort.glsl"
-#endif
-
-layout(location = 0) out vec4 fragColor;
-
-void main() {
-    int x = int(gl_FragCoord.x);
-    int y = int(gl_FragCoord.y);
-    uint pixelIndex = addrGen(uvec2(x,y));
-
-    // Get start offset from array
-    uint fragOffset = startOffset[pixelIndex];
-
-    // Collect all fragments for this pixel
-    int numFrags = 0;
-    LinkedListFragmentNode fragment;
-    for (int i = 0; i < MAX_NUM_FRAGS; i++) {
-        if (fragOffset == -1) {
-            // End of list reached
-            break;
-        }
-
-        fragment = fragmentBuffer[fragOffset];
-        fragOffset = fragment.next;
-
-        colorList[i] = fragment.color;
-        depthList[i] = fragment.depth;
-
-        numFrags++;
-    }
-
-    if (numFrags == 0) {
-        discard;
-    }
-
-    fragColor = sortingAlgorithm(numFrags);
+void ResolvePass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
+    rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
+    rasterData->setIndexBuffer(indexBuffer);
+    rasterData->setVertexBuffer(vertexBuffer, 0);
+    lineRenderer->setRenderDataBindings(rasterData);
 }

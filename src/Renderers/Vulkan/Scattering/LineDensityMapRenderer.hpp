@@ -37,8 +37,6 @@
 namespace sgl {
 class Texture;
 typedef std::shared_ptr<Texture> TexturePtr;
-class SemaphoreVkGlInterop;
-typedef std::shared_ptr<SemaphoreVkGlInterop> SemaphoreVkGlInteropPtr;
 }
 
 namespace sgl { namespace vk {
@@ -56,13 +54,12 @@ class LineDensityFieldDvrPass;
  */
 class LineDensityMapRenderer : public LineRenderer {
 public:
-    LineDensityMapRenderer(
-            SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk);
+    LineDensityMapRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~LineDensityMapRenderer() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_LINE_DENSITY_MAP_RENDERER; }
 
     /// Returns whether the triangle representation is used by the renderer.
-    bool getIsTriangleRepresentationUsed() const override { return false; }
+    [[nodiscard]] bool getIsTriangleRepresentationUsed() const override { return false; }
 
     /**
      * Re-generates the visualization mapping.
@@ -73,19 +70,15 @@ public:
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
 
+    /// Called when the background clear color was changed.
+    void onClearColorChanged() override;
+
     // Renders the object to the scene framebuffer.
     void render() override;
     /// Renders the entries in the property editor.
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
 private:
-    // OpenGL-Vulkan interoperability data.
-    sgl::vk::TexturePtr renderTextureVk;
-    sgl::TexturePtr renderTextureGl;
-    sgl::SemaphoreVkGlInteropPtr renderReadySemaphore, renderFinishedSemaphore;
-
-    // Vulkan render data.
-    sgl::vk::Renderer* rendererVk = nullptr;
     std::shared_ptr<LineDensityFieldDvrPass> lineDensityFieldDvrPass;
 };
 
@@ -94,11 +87,11 @@ private:
  */
 class LineDensityFieldDvrPass : public sgl::vk::ComputePass {
 public:
-    explicit LineDensityFieldDvrPass(sgl::vk::Renderer* renderer, sgl::CameraPtr* camera);
+    explicit LineDensityFieldDvrPass(
+            LineDensityMapRenderer* lineRenderer, sgl::vk::Renderer* renderer, sgl::CameraPtr* camera);
 
     // Public interface.
     void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
-    void setBackgroundColor(const glm::vec4& color);
     void setLineData(LineDataPtr& lineData, bool isNewData);
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
 
@@ -109,22 +102,13 @@ protected:
     void _render() override;
 
 private:
+    LineDensityMapRenderer* lineRenderer;
     sgl::CameraPtr* camera;
     LineDataPtr lineData;
     sgl::vk::ImageViewPtr sceneImageView;
     VulkanLineDataScatteringRenderData lineDataScatteringRenderData;
 
-    struct CameraSettings {
-        glm::mat4 viewMatrix;
-        glm::mat4 projectionMatrix;
-        glm::mat4 inverseViewMatrix;
-        glm::mat4 inverseProjectionMatrix;
-    };
-    CameraSettings cameraSettings{};
-    sgl::vk::BufferPtr cameraSettingsBuffer;
-
     struct RenderSettingsData {
-        glm::vec4 backgroundColor;
         glm::vec3 minBoundingBox;
         float attenuationCoefficient = 200;
         glm::vec3 maxBoundingBox;

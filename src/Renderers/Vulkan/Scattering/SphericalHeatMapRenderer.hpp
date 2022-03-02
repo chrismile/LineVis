@@ -32,6 +32,13 @@
 #include "Renderers/LineRenderer.hpp"
 #include "../../../LineData/Scattering/DtPathTrace.hpp"
 
+namespace sgl { namespace vk {
+
+class BlitRenderPass;
+typedef std::shared_ptr<BlitRenderPass> BlitRenderPassPtr;
+
+}}
+
 class SphericalHeatMapRenderer : public LineRenderer {
 public:
     SphericalHeatMapRenderer(
@@ -58,7 +65,8 @@ public:
 
 private:
     Image heat_map = {};
-    sgl::TexturePtr heatMapTexture;
+    sgl::vk::BlitRenderPassPtr blitRenderPass;
+    sgl::vk::TexturePtr heatMapTexture;
 };
 
 #endif //LINEVIS_SPHERICALHEATMAPRENDERER_HPP

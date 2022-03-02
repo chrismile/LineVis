@@ -72,14 +72,12 @@ public:
 
 protected:
     void renderSphere(const glm::vec3& position, float radius, const sgl::Color& color);
-    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
+    void reloadGatherShader() override;
 
     // Vulkan render data.
     sgl::vk::ImageViewPtr colorRenderTargetImage;
     sgl::vk::ImageViewPtr depthRenderTargetImage;
 
-    /// For rendering the line data.
-    std::shared_ptr<LineRasterPass> lineRasterPass;
     /// For rendering degenerate points (as points extruded to billboard spheres).
     std::shared_ptr<BilldboardSpheresRasterPass> degeneratePointsRasterPass;
     /// For rendering the current seed point.

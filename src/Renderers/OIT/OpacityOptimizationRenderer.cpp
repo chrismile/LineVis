@@ -146,7 +146,7 @@ void OpacityOptimizationRenderer::reloadResolveShader() {
     }
 }
 
-void OpacityOptimizationRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
+void OpacityOptimizationRenderer::reloadGatherShader() {
     sgl::ShaderManager->invalidateShaderCache();
 
     bool isStressLineData = false;
@@ -208,10 +208,10 @@ void OpacityOptimizationRenderer::reloadGatherShader(bool canCopyShaderAttribute
         sgl::ShaderManager->removePreprocessorDefine("IS_PSL_DATA");
     }
 
-    if (canCopyShaderAttributes && gatherPpllOpacitiesRenderData) {
+    if (/* canCopyShaderAttributes && */ gatherPpllOpacitiesRenderData) {
         gatherPpllOpacitiesRenderData = gatherPpllOpacitiesRenderData->copy(gatherPpllOpacitiesShader);
     }
-    if (canCopyShaderAttributes && gatherPpllFinalRenderData) {
+    if (/* canCopyShaderAttributes && */ gatherPpllFinalRenderData) {
         gatherPpllFinalRenderData = gatherPpllFinalRenderData->copy(gatherPpllFinalShader);
     }
 }

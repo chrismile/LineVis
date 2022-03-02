@@ -41,14 +41,12 @@
 VoxelRayCastingRenderer::VoxelRayCastingRenderer(
         SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Voxel Ray Casting Renderer", sceneData, transferFunctionWindow) {
-    isVulkanRenderer = false;
     isRasterizer = false;
     lineHullShader = sgl::ShaderManager->getShaderProgram({ "LineHull.Vertex", "LineHull.Fragment" });
-
-    onResolutionChanged();
+    onClearColorChanged();
 }
 
-void VoxelRayCastingRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
+void VoxelRayCastingRenderer::reloadGatherShader() {
     sgl::ShaderManager->invalidateShaderCache();
     sgl::ShaderManager->addPreprocessorDefine(
             "gridResolution", ivec3ToString(gridResolution));

@@ -24,18 +24,19 @@ void main() {
 
 #version 430 core
 
-// See https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_shader_image_load_store.txt
-#extension GL_ARB_shader_image_load_store : require
+layout(location = 0) in vec4 gl_FragCoord;
+layout(location = 0) out vec4 fragColor;
 
-// gl_FragCoord will be used for pixel centers at integer coordinates.
-// See https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/gl_FragCoord.xhtml
-layout(pixel_center_integer) in vec4 gl_FragCoord;
+layout(binding = 0) uniform UniformDataBuffer {
+    // Size of viewport in x direction (in pixels).
+    int viewportW;
 
-uniform int viewportW;
+    // Range of logarithmic depth.
+    float logDepthMin;
+    float logDepthMax;
+};
 
 #include "TiledAddress.glsl"
-
-out vec4 fragColor;
 
 layout (binding = 0, r32f) coherent uniform image2DArray zeroth_moment; // float
 #if SINGLE_PRECISION
@@ -58,7 +59,7 @@ layout (binding = 1, rgba16) coherent uniform image2DArray moments;
 #endif
 #endif
 
-uniform sampler2D transparentSurfaceAccumulator;
+layout(binding = 3) uniform sampler2D transparentSurfaceAccumulator;
 
 void clearMoments(ivec3 idx0) {
     ivec3 idx1 = ivec3(idx0.xy, 1);

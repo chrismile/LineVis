@@ -434,7 +434,7 @@ MainApp::~MainApp() {
 
     IGFD_Destroy(fileDialogInstance);
 
-#if defined(USE_VULKAN_INTEROP) && defined(SUPPORT_OPTIX)
+#ifdef SUPPORT_OPTIX
     if (optixInitialized) {
         OptixVptDenoiser::freeGlobal();
     }
@@ -646,11 +646,9 @@ void MainApp::setRenderer(
     }
 #endif
     else if (newRenderingMode == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
-        auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
-        newLineRenderer = new LineDensityMapRenderer(&sceneDataRef, transferFunctionWindow, renderer);
+        newLineRenderer = new LineDensityMapRenderer(&sceneDataRef, transferFunctionWindow);
     } else if (newRenderingMode == RENDERING_MODE_VOLUMETRIC_PATH_TRACER) {
-        auto* renderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
-        newLineRenderer = new VolumetricPathTracingRenderer(&sceneDataRef, transferFunctionWindow, renderer);
+        newLineRenderer = new VolumetricPathTracingRenderer(&sceneDataRef, transferFunctionWindow);
     } else if (newRenderingMode == RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER) {
         newLineRenderer = new SphericalHeatMapRenderer(&sceneDataRef, transferFunctionWindow);
     } else {
@@ -1272,13 +1270,10 @@ void MainApp::renderGuiGeneralSettingsPropertyEditor() {
                             OpaqueLineRenderer* opaqueLineRenderer = static_cast<OpaqueLineRenderer*>(
                                     dataView->lineRenderer);
                             opaqueLineRenderer->setVisualizeSeedingProcess(true);
-                        }
-#ifdef USE_VULKAN_INTEROP
-                        else if (dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_VULKAN_RAY_TRACER) {
+                        } else if (dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_VULKAN_RAY_TRACER) {
                             VulkanRayTracer* vulkanRayTracer = static_cast<VulkanRayTracer*>(dataView->lineRenderer);
                             vulkanRayTracer->setVisualizeSeedingProcess(true);
                         }
-#endif
                     }
                     recordingTimeStampStart = sgl::Timer->getTicksMicroseconds();
                     recordingTime = 0.0f;

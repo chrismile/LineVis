@@ -37,12 +37,10 @@
 #include <Utils/File/FileUtils.hpp>
 #include <Utils/File/FileLoader.hpp>
 #include <Utils/Events/Stream/Stream.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
 #include <ImGui/imgui_stdlib.h>
-#ifdef USE_VULKAN_INTEROP
-#include <Graphics/Vulkan/Render/Renderer.hpp>
-#endif
 
 #include <IsosurfaceCpp/src/MarchingCubes.hpp>
 #include <IsosurfaceCpp/src/SnapMC.hpp>
@@ -57,18 +55,16 @@
 
 ScatteringLineTracingRequester::ScatteringLineTracingRequester(
         sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererMainThread)
-        : transferFunctionWindow(transferFunctionWindow) , rendererVk(rendererMainThread)
+        : transferFunctionWindow(transferFunctionWindow)
 {
-    if (sgl::AppSettings::get()->getVulkanInteropCapabilities() == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
-        sgl::vk::Device* device = rendererMainThread->getDevice();
-        rendererVk = new sgl::vk::Renderer(device, 100);
-        lineDensityFieldSmoothingPass = std::make_shared<LineDensityFieldSmoothingPass>(rendererVk);
+    sgl::vk::Device* device = rendererMainThread->getDevice();
+    rendererVk = new sgl::vk::Renderer(device, 100);
+    lineDensityFieldSmoothingPass = std::make_shared<LineDensityFieldSmoothingPass>(rendererVk);
 
-        // Turn off multi-threaded loading if no dedicated worker thread queue is available.
-        if (!device->getWorkerThreadGraphicsQueue()
-                || device->getGraphicsQueue() == device->getWorkerThreadGraphicsQueue()) {
-            supportsMultiThreadedLoading = false;
-        }
+    // Turn off multi-threaded loading if no dedicated worker thread queue is available.
+    if (!device->getWorkerThreadGraphicsQueue()
+            || device->getGraphicsQueue() == device->getWorkerThreadGraphicsQueue()) {
+        supportsMultiThreadedLoading = false;
     }
 
     lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
@@ -402,12 +398,7 @@ void ScatteringLineTracingRequester::traceLines(
         cachedGrid = load_xyz_file(cachedGridFileName);
 
         if (use_iso_surface) {
-#ifdef USE_VULKAN_INTEROP
-            if (sgl::AppSettings::get()->getVulkanInteropCapabilities()
-                    == sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
-                createScalarFieldTexture();
-            }
-#endif
+            createScalarFieldTexture();
             createIsosurface();
         }
     }
@@ -500,16 +491,13 @@ void ScatteringLineTracingRequester::traceLines(
     lineData->setDataSetInformation(gridDataSetFilename, { "Attribute #1" });
     lineData->setTrajectoryData(trajectories);
     lineData->setGridData(
-#ifdef USE_VULKAN_INTEROP
             cachedScalarFieldTexture,
-#endif
             outlineTriangleIndices, outlineVertexPositions, outlineVertexNormals,
             cachedGrid.data, cachedGrid.size_x, cachedGrid.size_y, cachedGrid.size_z,
             cachedGrid.voxel_size_x, cachedGrid.voxel_size_y, cachedGrid.voxel_size_z);
 
 }
 
-#ifdef USE_VULKAN_INTEROP
 void ScatteringLineTracingRequester::createScalarFieldTexture() {
     sgl::vk::ImageSettings imageSettings;
     imageSettings.width = cachedGrid.size_x;
@@ -526,7 +514,6 @@ void ScatteringLineTracingRequester::createScalarFieldTexture() {
     cachedScalarFieldTexture->getImage()->uploadData(
             cachedGrid.size_x * cachedGrid.size_y * cachedGrid.size_z * sizeof(float), cachedGrid.data);
 }
-#endif
 
 void ScatteringLineTracingRequester::createIsosurface() {
     ZoneScoped;
@@ -544,22 +531,11 @@ void ScatteringLineTracingRequester::createIsosurface() {
 
     const float gamma = 0.3f;
     bool shallSmoothScalarField = true;
-#ifndef USE_VULKAN_INTEROP
-    shallSmoothScalarField = false;
-#else
-    if (sgl::AppSettings::get()->getVulkanInteropCapabilities()
-            != sgl::VulkanInteropCapabilities::EXTERNAL_MEMORY) {
-        shallSmoothScalarField = false;
-    }
-#endif
     if (!shallSmoothScalarField) {
         polygonizeSnapMC(
                 cachedGrid.data, int(cachedGrid.size_x), int(cachedGrid.size_y), int(cachedGrid.size_z),
                 1e-4f, gamma, isosurfaceVertexPositions, isosurfaceVertexNormals);
-
-    }
-#ifdef USE_VULKAN_INTEROP
-    else {
+    } else {
         int padding = 4;
         int smoothedGridSizeX = int(cachedGrid.size_x) + 2 * padding;
         int smoothedGridSizeY = int(cachedGrid.size_y) + 2 * padding;
@@ -573,7 +549,6 @@ void ScatteringLineTracingRequester::createIsosurface() {
                 0.01f, gamma, isosurfaceVertexPositions, isosurfaceVertexNormals);
         delete[] scalarFieldSmoothed;
     }
-#endif
 
     if (!isosurfaceVertexPositions.empty()) {
         computeSharedIndexRepresentation(

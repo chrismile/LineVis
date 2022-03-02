@@ -64,7 +64,7 @@ private:
     void resolve();
     void setUniformData();
     void computeDepthComplexity();
-    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
+    void reloadGatherShader() override;
     uint64_t maxDepthComplexity = 1;
 
     // Render data of depth peeling

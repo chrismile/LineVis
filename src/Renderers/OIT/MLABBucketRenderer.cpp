@@ -61,7 +61,7 @@ MLABBucketRenderer::~MLABBucketRenderer() {
     sgl::ShaderManager->removePreprocessorDefine("MLAB_MIN_DEPTH_BUCKETS");
 }
 
-void MLABBucketRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
+void MLABBucketRenderer::reloadGatherShader() {
     MLABRenderer::reloadGatherShader();
 
     if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
@@ -78,7 +78,7 @@ void MLABBucketRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"MinDepthPass.glsl\"");
 
     minDepthPassShader = lineData->reloadGatherShaderOpenGL();
-    if (canCopyShaderAttributes && minDepthPassShaderAttributes) {
+    if (/* canCopyShaderAttributes && */ minDepthPassShaderAttributes) {
         minDepthPassShaderAttributes = minDepthPassShaderAttributes->copy(minDepthPassShader);
     }
 

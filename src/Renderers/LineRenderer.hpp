@@ -34,6 +34,7 @@
 #include <utility>
 #include "LineData/LineData.hpp"
 #include "RenderingModes.hpp"
+#include "LineRasterPass.hpp"
 #include "SceneData.hpp"
 
 namespace sgl {
@@ -66,9 +67,7 @@ class LineRenderer {
 
 public:
     LineRenderer(
-            std::string windowName, SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
-        : windowName(std::move(windowName)), sceneData(sceneData), renderer(*sceneData->renderer),
-        transferFunctionWindow(transferFunctionWindow) {}
+            std::string windowName, SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     virtual void initialize();
     virtual ~LineRenderer();
     virtual RenderingMode getRenderingMode()=0;
@@ -85,7 +84,6 @@ public:
     /// Returns whether live visualization mapping updates can be used or whether the data set is too large.
     [[nodiscard]] virtual bool getCanUseLiveUpdate(LineDataAccessType accessType) const;
     [[nodiscard]] inline bool getIsRasterizer() const { return isRasterizer; }
-    [[nodiscard]] inline bool getIsVulkanRenderer() const { return isVulkanRenderer; }
 
     /**
      * Re-generates the visualization mapping.
@@ -167,7 +165,7 @@ public:
 
 protected:
     // Reload the gather shader.
-    virtual void reloadGatherShader(bool canCopyShaderAttributes = true);
+    virtual void reloadGatherShader();
     void updateNewLineData(LineDataPtr& lineData, bool isNewData);
     bool showRendererWindow = true;
     // Rendering helpers for sub-classes.
@@ -178,7 +176,6 @@ protected:
 
     // Metadata about renderer.
     bool isRasterizer = true;
-    bool isVulkanRenderer = false;
     std::string windowName;
 
     // For rendering the simulation mesh hull.
@@ -186,6 +183,7 @@ protected:
     sgl::ShaderAttributesPtr shaderAttributesHull;
     std::shared_ptr<HullRasterPass> hullRasterPass;
 
+    std::shared_ptr<LineRasterPass> lineRasterPass;
     SceneData* sceneData;
     sgl::vk::Renderer* renderer = nullptr;
     LineDataPtr lineData;

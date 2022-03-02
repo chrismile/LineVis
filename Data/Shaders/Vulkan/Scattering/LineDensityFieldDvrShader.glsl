@@ -4,26 +4,19 @@
 
 layout(local_size_x = 16, local_size_y = 16) in;
 
-layout(binding = 0) uniform CameraSettingsBuffer {
-    mat4 viewMatrix;
-    mat4 projectionMatrix;
-    mat4 inverseViewMatrix;
-    mat4 inverseProjectionMatrix;
-} camera;
-
-layout(binding = 1) uniform RenderSettingsBuffer {
-    vec4 backgroundColor;
+layout(binding = 0) uniform RenderSettingsBuffer {
     vec3 minBoundingBox;
-    float attenuation_coefficient;
+    float attenuationCoefficient;
     vec3 maxBoundingBox;
     float voxelSize;
 };
 
-layout (binding = 2, rgba8) uniform image2D outputImage;
-layout (binding = 3) uniform sampler3D lineDensityField;
+layout (binding = 1, rgba8) uniform image2D outputImage;
+layout (binding = 2) uniform sampler3D lineDensityField;
 
 #include "RayIntersectionTests.glsl"
 #include "Blending.glsl"
+#include "LineUniformData.glsl"
 #include "TransferFunction.glsl"
 
 vec3 lerp(vec3 point_a, vec3 t, vec3 point_b) {
@@ -52,10 +45,10 @@ void main() {
         return;
     }
 
-    vec3 rayOrigin = (camera.inverseViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+    vec3 rayOrigin = (inverseViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
     vec2 fragNdc = 2.0 * ((vec2(gl_GlobalInvocationID.xy) + vec2(0.5)) / vec2(outputImageSize)) - 1.0;
-    vec3 rayTarget = (camera.inverseProjectionMatrix * vec4(fragNdc.xy, 1.0, 1.0)).xyz;
-    vec3 rayDirection = (camera.inverseViewMatrix * vec4(normalize(rayTarget.xyz), 0.0)).xyz;
+    vec3 rayTarget = (inverseProjectionMatrix * vec4(fragNdc.xy, 1.0, 1.0)).xyz;
+    vec3 rayDirection = (inverseViewMatrix * vec4(normalize(rayTarget.xyz), 0.0)).xyz;
 
     vec4 outputColor;
     vec3 entrancePoint;
@@ -87,7 +80,7 @@ void main() {
             // float att_coeff = 200;
             float local_density = texture(lineDensityField, tex_coods).r;
             vec4 t_fun_color = transferFunction(local_density);
-            float alpha = 1 - exp(-t_fun_color.a * step_size * attenuation_coefficient);
+            float alpha = 1 - exp(-t_fun_color.a * step_size * attenuationCoefficient);
             // float alpha = 0.01;
 
             vec4 color = vec4(t_fun_color.rgb, alpha);

@@ -26,24 +26,20 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// See https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_shader_image_load_store.txt
-#extension GL_ARB_shader_image_load_store : require
-
 // Use early z-test to cull transparent fragments occluded by opaque fragments.
 // Additionaly, use fragment interlock.
 layout(early_fragment_tests) in;
 
-// gl_FragCoord will be used for pixel centers at integer coordinates.
-// See https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/gl_FragCoord.xhtml
-layout(pixel_center_integer) in vec4 gl_FragCoord;
+in vec4 gl_FragCoord;
 
-// Stores the number of fragments using atomic operations.
-layout(binding = 0) coherent buffer FragmentCounterBuffer {
-    uint fragmentCounterBuffer[];
+layout(binding = 0) uniform UniformDataBuffer {
+    int viewportW;
 };
 
-uniform int viewportW;
-//uniform int viewportH; // Not needed
+// Stores the number of fragments using atomic operations.
+layout(binding = 1) coherent buffer FragmentCounterBuffer {
+    uint fragmentCounterBuffer[];
+};
 
 //#include "TiledAddress.glsl"
 uint addrGen(uvec2 addr2D) {

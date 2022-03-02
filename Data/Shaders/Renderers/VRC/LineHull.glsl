@@ -30,9 +30,11 @@
 
 #version 430 core
 
-in vec3 vertexPosition;
+layout(location = 0) in vec3 vertexPosition;
 
-uniform mat4 voxelSpaceToWorldSpace;
+layout(binding = 0) uniform buffer UniformDataBuffer {
+    mat4 voxelSpaceToWorldSpace;
+};
 
 void main() {
     gl_Position = mvpMatrix * voxelSpaceToWorldSpace * vec4(vertexPosition, 1.0);
@@ -43,7 +45,7 @@ void main() {
 
 #version 430 core
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 
 void main() {
     fragColor = vec4(0.0, 0.0, 0.0, 1.0);

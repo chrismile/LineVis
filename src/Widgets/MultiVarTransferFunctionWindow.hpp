@@ -147,12 +147,7 @@ public:
     void setUseLinearRGB(bool useLinearRGB);
 
     // 1D array texture, with one 1D color (RGBA) texture slice per variable.
-#ifdef SUPPORT_OPENGL
-    sgl::TexturePtr& getTransferFunctionMapTexture();
-#endif
-#ifdef USE_VULKAN_INTEROP
     sgl::vk::TexturePtr& getTransferFunctionMapTextureVulkan();
-#endif
     bool getTransferFunctionMapRebuilt();
     std::vector<sgl::Color16> getTransferFunctionMap_sRGB(int varIdx);
 
@@ -169,13 +164,8 @@ public:
         guiVarData.at(varIdx).window->rebuildRangeSsbo();
     }
 
-    /// Returns the Data range uniform buffer object.
-#ifdef SUPPORT_OPENGL
-    inline sgl::GeometryBufferPtr& getMinMaxSsbo() { return minMaxSsbo; }
-#endif
-#ifdef USE_VULKAN_INTEROP
+    /// Returns the data range uniform buffer object.
     inline sgl::vk::BufferPtr& getMinMaxSsboVulkan() { return minMaxSsboVulkan; }
-#endif
 
 private:
     void updateAvailableFiles();
@@ -189,12 +179,7 @@ private:
     GuiVarData* currVarData = nullptr;
 
     // Data range shader storage buffer object.
-#ifdef SUPPORT_OPENGL
-    sgl::GeometryBufferPtr minMaxSsbo;
-#endif
-#ifdef USE_VULKAN_INTEROP
     sgl::vk::BufferPtr minMaxSsboVulkan;
-#endif
     std::vector<float> minMaxData;
 
     // GUI
@@ -210,14 +195,8 @@ private:
     std::string saveDirectory;
     std::vector<std::string> tfPresetFiles;
     std::vector<std::string> availableFiles;
-#ifdef SUPPORT_OPENGL
-    sgl::TexturePtr tfMapTexture;
-    sgl::TextureSettings tfMapTextureSettings;
-#endif
-#ifdef USE_VULKAN_INTEROP
     sgl::vk::TexturePtr tfMapTextureVulkan;
     sgl::vk::ImageSettings tfMapImageSettingsVulkan;
-#endif
 
     bool useLinearRGB = true;
     bool transferFunctionMapRebuilt = true;

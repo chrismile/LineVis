@@ -32,13 +32,13 @@
 
 #define REQUIRE_INVOCATION_INTERLOCK
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 
 // Adapted version of "Multi-Layer Alpha Blending" [Salvi and Vaidyanathan 2014].
 void multiLayerAlphaBlending(in MLABFragmentNode frag, inout MLABFragmentNode list[MAX_NUM_LAYERS+1]) {
     MLABFragmentNode temp, merge;
     // Use bubble sort to insert new fragment node (single pass)
-    for (int i = 0; i < MAX_NUM_LAYERS+1; i++) {
+    [[unroll]] for (int i = 0; i < MAX_NUM_LAYERS + 1; i++) {
         if (frag.depth <= list[i].depth) {
             temp = list[i];
             list[i] = frag;

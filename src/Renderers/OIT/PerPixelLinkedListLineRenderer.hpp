@@ -29,15 +29,16 @@
 #ifndef LINEDENSITYCONTROL_PERPIXELLINKEDLISTLINERENDERER_HPP
 #define LINEDENSITYCONTROL_PERPIXELLINKEDLISTLINERENDERER_HPP
 
-#include <Graphics/Shader/ShaderAttributes.hpp>
-#include <Graphics/OpenGL/TimerGL.hpp>
+#include <Graphics/Vulkan/Utils/Timer.hpp>
 
 #include "Renderers/PPLL.hpp"
 #include "Renderers/LineRenderer.hpp"
+#include "Renderers/ResolvePass.hpp"
 
-const int MESH_MODE_DEPTH_COMPLEXITIES_PPLL[4][2] = {
-        80, 256, // avg and max depth complexity medium
-        120, 380 // avg and max depth complexity very large
+const int MESH_MODE_DEPTH_COMPLEXITIES_PPLL[2][2] = {
+        {20, 100}, // avg and max depth complexity medium
+        //{80, 256}, // avg and max depth complexity medium
+        {120, 380} // avg and max depth complexity very large
 };
 
 /**
@@ -64,8 +65,19 @@ public:
      */
     void setLineData(LineDataPtr& lineData, bool isNewData) override;
 
+    /// Sets the shader preprocessor defines used by the renderer.
+    void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) override;
+    void setGraphicsPipelineInfo(
+            sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) override;
+    void setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) override;
+    void updateVulkanUniformBuffers() override;
+    void setFramebufferAttachments(sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) override;
+
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
+
+    /// Called when the background clear color was changed.
+    void onClearColorChanged() override;
 
     // Renders the object to the scene framebuffer.
     void render() override;
@@ -76,45 +88,44 @@ public:
     void setNewState(const InternalState& newState) override;
 
 protected:
-    void setSortingAlgorithmDefine();
     void updateLargeMeshMode();
     void reallocateFragmentBuffer();
-    void setUniformData();
     void clear();
     void gather();
     void resolve();
-    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
+    void reloadGatherShader() override;
     void reloadResolveShader();
 
     // Sorting algorithm for PPLL.
     SortingAlgorithmMode sortingAlgorithmMode = SORTING_ALGORITHM_MODE_PRIORITY_QUEUE;
 
-    // Shaders.
-    sgl::ShaderProgramPtr gatherShader;
-    sgl::ShaderProgramPtr clearShader;
-    sgl::ShaderProgramPtr resolveShader;
-
-    // Render data.
-    sgl::ShaderAttributesPtr shaderAttributes;
-    // Blit data (ignores model-view-projection matrix and uses normalized device coordinates).
-    sgl::ShaderAttributesPtr blitRenderData;
-    sgl::ShaderAttributesPtr clearRenderData;
+    // Render passes.
+    std::shared_ptr<ResolvePass> resolveRasterPass;
+    std::shared_ptr<ResolvePass> clearRasterPass;
 
     // Per-pixel linked list data.
     size_t fragmentBufferSize = 0;
-    sgl::GeometryBufferPtr fragmentBuffer;
-    sgl::GeometryBufferPtr startOffsetBuffer;
-    sgl::GeometryBufferPtr atomicCounterBuffer;
+    sgl::vk::BufferPtr fragmentBuffer;
+    sgl::vk::BufferPtr startOffsetBuffer;
+    sgl::vk::BufferPtr fragmentCounterBuffer;
+
+    struct UniformData {
+        // Number of fragments we can store in total.
+        uint linkedListSize;
+        // Size of the viewport in x direction (in pixels).
+        int viewportW;
+    };
+    UniformData uniformData = {};
+    sgl::vk::BufferPtr uniformDataBuffer;
 
     // Window data.
-    int windowWidth = 0, windowHeight = 0;
     int paddedWindowWidth = 0, paddedWindowHeight = 0;
 
     // Data for performance measurements.
     int frameCounter = 0;
     std::string currentStateName;
     bool timerDataIsWritten = true;
-    sgl::TimerGL* timer = nullptr;
+    sgl::vk::TimerPtr timer;
 
     // Per-pixel linked list settings.
     enum LargeMeshMode {
@@ -123,10 +134,6 @@ protected:
     LargeMeshMode largeMeshMode = MESH_SIZE_MEDIUM;
     int expectedAvgDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES_PPLL[0][0];
     int expectedMaxDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES_PPLL[0][1];
-
-    // GUI data.
-    bool showRendererWindow = true;
-    bool useProgrammableFetch = true;
 };
 
 #endif //LINEDENSITYCONTROL_PERPIXELLINKEDLISTLINERENDERER_HPP

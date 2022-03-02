@@ -72,7 +72,7 @@ public:
     void setNewState(const InternalState& newState) override;
 
 protected:
-    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
+    void reloadGatherShader() override;
     void reallocateFragmentBuffer() override;
     void setUniformData();
     void gather();

@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020 - 2021, Christoph Neuhauser
+ * Copyright (c) 2022, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,63 +26,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
--- Vertex
+#ifndef LINEVIS_RESOLVEPASS_HPP
+#define LINEVIS_RESOLVEPASS_HPP
 
-#version 430 core
+#include <Graphics/Vulkan/Render/Passes/BlitRenderPass.hpp>
 
-layout(location = 0) in vec3 vertexPosition;
+class LineRenderer;
 
-void main() {
-    gl_Position = vec4(vertexPosition, 1.0);
-}
+class ResolvePass : public sgl::vk::BlitRenderPass {
+public:
+    ResolvePass(LineRenderer* lineRenderer, std::vector<std::string> customShaderIds);
 
+protected:
+    void loadShader() override;
+    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
+    LineRenderer* lineRenderer;
+};
 
--- Fragment
-
-#version 430 core
-
-#include "LinkedListHeader.glsl"
-
-uint colorList[MAX_NUM_FRAGS];
-float depthList[MAX_NUM_FRAGS];
-
-#include "LinkedListSort.glsl"
-
-#ifdef USE_QUICKSORT
-#include "LinkedListQuicksort.glsl"
-#endif
-
-layout(location = 0) out vec4 fragColor;
-
-void main() {
-    int x = int(gl_FragCoord.x);
-    int y = int(gl_FragCoord.y);
-    uint pixelIndex = addrGen(uvec2(x,y));
-
-    // Get start offset from array
-    uint fragOffset = startOffset[pixelIndex];
-
-    // Collect all fragments for this pixel
-    int numFrags = 0;
-    LinkedListFragmentNode fragment;
-    for (int i = 0; i < MAX_NUM_FRAGS; i++) {
-        if (fragOffset == -1) {
-            // End of list reached
-            break;
-        }
-
-        fragment = fragmentBuffer[fragOffset];
-        fragOffset = fragment.next;
-
-        colorList[i] = fragment.color;
-        depthList[i] = fragment.depth;
-
-        numFrags++;
-    }
-
-    if (numFrags == 0) {
-        discard;
-    }
-
-    fragColor = sortingAlgorithm(numFrags);
-}
+#endif //LINEVIS_RESOLVEPASS_HPP

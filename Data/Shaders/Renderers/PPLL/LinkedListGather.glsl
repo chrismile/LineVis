@@ -29,7 +29,7 @@
 
 #include "LinkedListHeader.glsl"
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 
 void gatherFragment(vec4 color) {
     if (color.a < 0.001) {
@@ -49,7 +49,7 @@ void gatherFragment(vec4 color) {
     frag.depth = length(fragmentPositionWorld - cameraPosition);//gl_FragCoord.z;//
     frag.next = -1;
 
-    uint insertIndex = atomicCounterIncrement(fragCounter);
+    uint insertIndex = atomicAdd(fragCounter, 1u);
 
     if (insertIndex < linkedListSize) {
         // Insert the fragment into the linked list
@@ -76,7 +76,7 @@ void gatherFragmentCustomDepth(vec4 color, float depth) {
     frag.depth = depth;
     frag.next = -1;
 
-    uint insertIndex = atomicCounterIncrement(fragCounter);
+    uint insertIndex = atomicAdd(fragCounter, 1u);
 
     if (insertIndex < linkedListSize) {
         // Insert the fragment into the linked list

@@ -30,12 +30,11 @@
 
 #version 430
 
-layout (local_size_x = 64, local_size_y = 4, local_size_z = 1) in;
+layout(local_size_x = 64, local_size_y = 4, local_size_z = 1) in;
 
-uniform sampler3D densityTexture;
-layout (binding = 0, r32f) uniform image3D aoImage;
-
-layout (binding = 6, std430) buffer GaussianFilterWeightBuffer {
+layout(binding = 0) uniform sampler3D densityTexture;
+layout(binding = 1, r32f) uniform image3D aoImage;
+layout(binding = 2, std430) buffer GaussianFilterWeightBuffer {
     float blurKernel[];
 };
 

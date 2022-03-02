@@ -26,13 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// See https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_shader_image_load_store.txt
-#extension GL_ARB_shader_image_load_store : require
-
 // See https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_fragment_shader_interlock.txt
 #extension GL_ARB_fragment_shader_interlock : require
-
-#pragma optionNV (unroll all)
 
 #if defined(USE_SYNC_FRAGMENT_SHADER_INTERLOCK) && defined(INTERLOCK_UNORDERED)
 // Use early z-test to cull transparent fragments occluded by opaque fragments.
@@ -54,11 +49,7 @@ layout (std430, binding = 1) coherent buffer SpinlockViewportBuffer {
 
 #endif
 
-// gl_FragCoord will be used for pixel centers at integer coordinates.
-// See https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/gl_FragCoord.xhtml
-layout(pixel_center_integer) in vec4 gl_FragCoord;
-
-uniform int viewportW;
+in vec4 gl_FragCoord;
 
 // Distance of infinitely far away fragments (used for initialization)
 #define DISTANCE_INFINITE (1E30)
@@ -88,9 +79,9 @@ struct MLABFragmentNode_compressed {
 #elif MAX_NUM_LAYERS % 4 == 0
 struct MLABFragmentNode_compressed {
     // Linear depth, i.e. distance to viewer
-    vec4 depth[MAX_NUM_LAYERS/4];
+    vec4 depth[MAX_NUM_LAYERS / 4];
     // RGB color (3 bytes), opacity (1 byte)
-    uvec4 premulColor[MAX_NUM_LAYERS/4];
+    uvec4 premulColor[MAX_NUM_LAYERS / 4];
 };
 #else
 struct MLABFragmentNode_compressed {
@@ -108,9 +99,14 @@ struct MLABFragmentNode {
     uint premulColor;
 };
 
+layout(binding = 0) uniform UniformDataBuffer {
+    // Size of the viewport in x direction (in pixels).
+    int viewportW;
+};
+
 // Stores viewportW * viewportH * MAX_NUM_LAYERS fragments.
 // Access fragment i at screen position (x,y) using "nodes[w*npp*y + npp*x + i]".
-layout (std430, binding = 0) coherent buffer FragmentNodes {
+layout(std430, binding = 1) coherent buffer FragmentNodes {
     MLABFragmentNode_compressed nodes[];
 };
 
@@ -121,7 +117,7 @@ struct MinDepthNode {
     float minOpaqueDepth;
 };
 
-layout (std430, binding = 1) coherent buffer MinDepthBuffer {
+layout(std430, binding = 2) coherent buffer MinDepthBuffer {
     MinDepthNode depthBuffer[];
 };
 #endif
@@ -132,14 +128,14 @@ void loadFragmentNodes(in uint pixelIndex, out MLABFragmentNode nodeArray[MAX_NU
     MLABFragmentNode_compressed fragmentNode = nodes[pixelIndex];
 
 #if (MAX_NUM_LAYERS % 4 == 0) && (MAX_NUM_LAYERS > 4)
-    for (int i = 0; i < MAX_NUM_LAYERS/4; i++) {
-        for (int j = 0; j < 4; j++) {
+    [[unroll]] for (int i = 0; i < MAX_NUM_LAYERS / 4; i++) {
+        [[unroll]] for (int j = 0; j < 4; j++) {
             MLABFragmentNode node = { fragmentNode.depth[i][j], fragmentNode.premulColor[i][j] };
             nodeArray[i*4 + j] = node;
         }
     }
 #else
-    for (int i = 0; i < MAX_NUM_LAYERS; i++) {
+    [[unroll]] for (int i = 0; i < MAX_NUM_LAYERS; i++) {
         MLABFragmentNode node = { fragmentNode.depth[i], fragmentNode.premulColor[i] };
         nodeArray[i] = node;
     }
@@ -150,18 +146,18 @@ void loadFragmentNodes(in uint pixelIndex, out MLABFragmentNode nodeArray[MAX_NU
 }
 
 // Store the fragments from "nodeArray" into VRAM
-void storeFragmentNodes(in uint pixelIndex, in MLABFragmentNode nodeArray[MAX_NUM_LAYERS+1]) {
+void storeFragmentNodes(in uint pixelIndex, in MLABFragmentNode nodeArray[MAX_NUM_LAYERS + 1]) {
     MLABFragmentNode_compressed fragmentNode;
 
 #if (MAX_NUM_LAYERS % 4 == 0) && (MAX_NUM_LAYERS > 4)
-    for (int i = 0; i < MAX_NUM_LAYERS/4; i++) {
-        for(int j = 0; j < 4; j++) {
-            fragmentNode.depth[i][j] = nodeArray[4*i + j].depth;
-            fragmentNode.premulColor[i][j] = nodeArray[4*i + j].premulColor;
+    [[unroll]] for (int i = 0; i < MAX_NUM_LAYERS/4; i++) {
+        [[unroll]] for(int j = 0; j < 4; j++) {
+            fragmentNode.depth[i][j] = nodeArray[4 * i + j].depth;
+            fragmentNode.premulColor[i][j] = nodeArray[4 * i + j].premulColor;
         }
     }
 #else
-    for (int i = 0; i < MAX_NUM_LAYERS; i++) {
+    [[unroll]] for (int i = 0; i < MAX_NUM_LAYERS; i++) {
         fragmentNode.depth[i] = nodeArray[i].depth;
         fragmentNode.premulColor[i] = nodeArray[i].premulColor;
     }
@@ -173,8 +169,8 @@ void storeFragmentNodes(in uint pixelIndex, in MLABFragmentNode nodeArray[MAX_NU
 // Reset the data for the passed fragment position
 void clearPixel(uint pixelIndex) {
     // TODO: Compressed?
-    MLABFragmentNode nodeArray[MAX_NUM_LAYERS+1];
-    for (uint i = 0; i < MAX_NUM_LAYERS; i++) {
+    MLABFragmentNode nodeArray[MAX_NUM_LAYERS + 1];
+    [[unroll]] for (uint i = 0; i < MAX_NUM_LAYERS; i++) {
         nodeArray[i].depth = DISTANCE_INFINITE;
         nodeArray[i].premulColor = 0xFF000000u; // 100% transparency, i.e. 0% opacity
     }

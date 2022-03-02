@@ -83,7 +83,7 @@ protected:
     void updateLargeMeshMode();
     void reallocateFragmentBuffer();
     void setUniformData();
-    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
+    void reloadGatherShader() override;
     void reloadResolveShader();
 
     // Rendering steps.

@@ -53,42 +53,13 @@
 using namespace sgl;
 
 VolumetricPathTracingRenderer::VolumetricPathTracingRenderer(
-        SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk)
-        : LineRenderer("Volumetric Path Tracer", sceneData, transferFunctionWindow),
-          rendererVk(rendererVk) {
-    isVulkanRenderer = true;
-    isRasterizer = true;
-
-    vptPass = std::make_shared<VolumetricPathTracingPass>(rendererVk, sceneData->camera);
-
-    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    renderReadySemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
-    renderFinishedSemaphore = std::make_shared<sgl::SemaphoreVkGlInterop>(device);
-
-#ifndef _WIN32
-    if (device->getDeviceDriverId() == VK_DRIVER_ID_NVIDIA_PROPRIETARY) {
-        std::string driverVersionString = device->getDeviceDriverInfo();
-        std::vector<std::string> splitVersionString;
-        sgl::splitString(driverVersionString, '.', splitVersionString);
-        if (splitVersionString.size() >= 2 && sgl::fromString<int>(splitVersionString.at(0)) >= 495) {
-            isLinuxAndNvidia495OrNewer = true;
-        }
-    }
-#endif
-
-    onResolutionChanged();
+        SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
+        : LineRenderer("Volumetric Path Tracer", sceneData, transferFunctionWindow) {
+    isRasterizer = false;
+    vptPass = std::make_shared<VolumetricPathTracingPass>(*sceneData->renderer, sceneData->camera);
 }
 
-VolumetricPathTracingRenderer::~VolumetricPathTracingRenderer() {
-    sgl::AppSettings::get()->getPrimaryDevice()->waitIdle();
-
-    vptPass = {};
-
-    if (rendererVk) {
-        delete rendererVk;
-        rendererVk = nullptr;
-    }
-}
+VolumetricPathTracingRenderer::~VolumetricPathTracingRenderer() = default;
 
 void VolumetricPathTracingRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
@@ -110,27 +81,10 @@ void VolumetricPathTracingRenderer::setLineData(LineDataPtr& lineData, bool isNe
 void VolumetricPathTracingRenderer::onResolutionChanged() {
     LineRenderer::onResolutionChanged();
 
-    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     uint32_t width = *sceneData->viewportWidth;
     uint32_t height = *sceneData->viewportHeight;
 
-    sgl::vk::ImageSettings imageSettings;
-    if (useLinearRGB) {
-        imageSettings.format = VK_FORMAT_R16G16B16A16_UNORM;
-    } else {
-        imageSettings.format = VK_FORMAT_R8G8B8A8_UNORM;
-    }
-    imageSettings.width = width;
-    imageSettings.height = height;
-    imageSettings.usage =
-            VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
-            | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    imageSettings.exportMemory = true;
-    sgl::vk::ImageSamplerSettings samplerSettings;
-    renderTextureVk = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
-    renderTextureGl = sgl::TexturePtr(new sgl::TextureGLExternalMemoryVk(renderTextureVk));
-
-    vptPass->setOutputImage(renderTextureVk->getImageView());
+    vptPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
     vptPass->recreateSwapchain(width, height);
 }
 
@@ -150,9 +104,8 @@ void VolumetricPathTracingRenderer::notifyReRenderTriggeredExternally() {
 }
 
 void VolumetricPathTracingRenderer::setUseLinearRGB(bool useLinearRGB) {
-    this->useLinearRGB = useLinearRGB;
     vptPass->setUseLinearRGB(useLinearRGB);
-    recreateImages = true;
+    onResolutionChanged();
 }
 
 void VolumetricPathTracingRenderer::setFileDialogInstance(ImGuiFileDialog* fileDialogInstance) {
@@ -166,63 +119,7 @@ void VolumetricPathTracingRenderer::render() {
         return;
     }
 
-    sgl::vk::Device* device = rendererVk->getDevice();
-    if (recreateImages) {
-        device->waitGraphicsQueueIdle();
-        onResolutionChanged();
-        recreateImages = false;
-    }
-
-    GLenum dstLayout = GL_NONE;
-	if (device->getDeviceDriverId() == VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS) {
-		dstLayout = GL_LAYOUT_GENERAL_EXT;
-	}
-    renderReadySemaphore->signalSemaphoreGl(renderTextureGl, dstLayout);
-
-    sgl::vk::SemaphorePtr renderReadySemaphoreVk =
-            std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderReadySemaphore);
-    sgl::vk::SemaphorePtr renderFinishedSemaphoreVk =
-            std::static_pointer_cast<sgl::vk::Semaphore, sgl::SemaphoreVkGlInterop>(renderFinishedSemaphore);
-
-    rendererVk->beginCommandBuffer();
-    rendererVk->getCommandBuffer()->pushWaitSemaphore(
-            renderReadySemaphoreVk, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
-    rendererVk->setViewMatrix((*sceneData->camera)->getViewMatrix());
-    rendererVk->setProjectionMatrix((*sceneData->camera)->getProjectionMatrixVulkan());
     vptPass->render();
-    //renderTextureVk->getImage()->transitionImageLayout(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    //renderTextureVk->getImageView()->clearColor(
-    //        glm::vec4(0.0f, 1.0f, 0.0f, 1.0f), rendererVk->getVkCommandBuffer());
-    rendererVk->getCommandBuffer()->pushSignalSemaphore(renderFinishedSemaphoreVk);
-    rendererVk->endCommandBuffer();
-
-    // Submit the rendering operation in Vulkan.
-    rendererVk->submitToQueue();
-
-    /*
-     * For some reason, on NVIDIA driver versions > 470.xx, a second frame may not be rendered immediately after the first frame.
-     * Otherwise, the driver will hang.
-     */
-    if (isFirstFrame && isLinuxAndNvidia495OrNewer) {
-        rendererVk->getDevice()->waitGraphicsQueueIdle();
-    }
-    isFirstFrame = false;
-
-    // Wait for the rendering to finish on the Vulkan side.
-    //renderFinishedSemaphore->waitSemaphoreGl(renderTextureGl, GL_LAYOUT_SHADER_READ_ONLY_EXT);
-    renderFinishedSemaphore->waitSemaphoreGl(renderTextureGl, GL_LAYOUT_SHADER_READ_ONLY_EXT);
-
-    // Now, blit the data using OpenGL to the scene texture.
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-
-    //sgl::Renderer->bindFBO(*sceneData->framebuffer); // TODO
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-    sgl::Renderer->blitTexture(
-            renderTextureGl, sgl::AABB2(glm::vec2(-1, -1), glm::vec2(1, 1)),
-            false);
 }
 
 void VolumetricPathTracingRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {

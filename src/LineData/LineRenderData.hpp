@@ -34,14 +34,12 @@ namespace sgl {
 class GeometryBuffer;
 typedef std::shared_ptr<GeometryBuffer> GeometryBufferPtr;
 
-#ifdef USE_VULKAN_INTEROP
 namespace vk {
 
 class Buffer;
 typedef std::shared_ptr<Buffer> BufferPtr;
 
 }
-#endif
 
 }
 
@@ -139,7 +137,6 @@ struct HullTriangleVertexData {
     float padding1;
 };
 
-#ifdef USE_VULKAN_INTEROP
 struct VulkanTubeTriangleRenderData {
     sgl::vk::BufferPtr indexBuffer;
     sgl::vk::BufferPtr vertexBuffer; // TubeTriangleVertexData objects.
@@ -154,6 +151,5 @@ struct VulkanHullTriangleRenderData {
     sgl::vk::BufferPtr indexBuffer;
     sgl::vk::BufferPtr vertexBuffer; // HullTriangleVertexData objects.
 };
-#endif
 
 #endif //LINEVIS_LINERENDERDATA_HPP

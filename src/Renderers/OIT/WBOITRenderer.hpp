@@ -74,11 +74,10 @@ public:
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
 private:
-    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
+    void reloadGatherShader() override;
 
     // Render data.
-    std::shared_ptr<LineRasterPass> lineRasterPass;
-    std::shared_ptr<WBOITResolvePass> resolveRenderPass;
+    std::shared_ptr<WBOITResolvePass> resolveRasterPass;
     sgl::vk::TexturePtr accumulationRenderTexture;
     sgl::vk::TexturePtr revealageRenderTexture;
 };

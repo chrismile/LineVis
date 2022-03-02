@@ -13,13 +13,11 @@
 #define MOMENT_GENERATION 0
 #define MOMENT_BASED_OIT
 
-uniform int viewportW;
-
 #include "MBOITHeader.glsl"
 #include "MomentOIT.glsl"
 #include "TiledAddress.glsl"
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 
 void gatherFragment(vec4 color) {
     float depth = logDepthWarp(-screenSpacePosition.z, logDepthMin, logDepthMax);

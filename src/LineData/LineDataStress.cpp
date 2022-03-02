@@ -33,14 +33,11 @@
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
-#include <ImGui/imgui_custom.h>
-#include <ImGui/Widgets/PropertyEditor.hpp>
-
-#ifdef USE_VULKAN_INTEROP
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
 #include <Graphics/Vulkan/Render/Data.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
-#endif
+#include <ImGui/imgui_custom.h>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "Loaders/TrajectoryFile.hpp"
 #include "Renderers/Tubes/Tubes.hpp"
@@ -2200,18 +2197,18 @@ void LineDataStress::setUniformGatherShaderData_AllPasses() {
         sgl::ShaderManager->bindShaderStorageBuffer(3, lineHierarchyLevelsSSBO);
     }*/
 
-    if (usePrincipalStressDirectionIndex) {
+    /*if (usePrincipalStressDirectionIndex) {
         sgl::ShaderManager->bindShaderStorageBuffer(9, multiVarTransferFunctionWindow.getMinMaxSsbo());
-    }
+    }*/
 }
 
 void LineDataStress::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader) {
     if (!usePrincipalStressDirectionIndex) {
         LineData::setUniformGatherShaderData_Pass(gatherShader);
     } else {
-        gatherShader->setUniformOptional(
+        /*gatherShader->setUniformOptional(
                 "transferFunctionTexture",
-                multiVarTransferFunctionWindow.getTransferFunctionMapTexture(), 0);
+                multiVarTransferFunctionWindow.getTransferFunctionMapTexture(), 0);*/
         if (getUseBandRendering()) {
             gatherShader->setUniform("bandWidth", LineRenderer::bandWidth);
         }
@@ -2235,7 +2232,6 @@ void LineDataStress::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gath
 }
 
 
-#ifdef USE_VULKAN_INTEROP
 VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(
         LineRenderer* lineRenderer, bool raytracing) {
     rebuildInternalRepresentationIfNecessary();
@@ -2601,7 +2597,6 @@ void LineDataStress::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl:
     stressLineUniformDataBuffer->updateData(
             sizeof(StressLineUniformData), &stressLineUniformData, renderer->getVkCommandBuffer());
 }
-#endif
 
 void LineDataStress::getTriangleMesh(
         LineRenderer* lineRenderer,

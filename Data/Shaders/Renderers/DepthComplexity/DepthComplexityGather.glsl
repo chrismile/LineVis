@@ -30,6 +30,8 @@
 
 #version 430 core
 
+#include "LineUniformData.glsl"
+
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in vec3 vertexTangent;
 
@@ -44,11 +46,7 @@ layout (std430, binding = 2) buffer LinePoints {
     LinePointData linePoints[];
 };
 
-uniform vec3 cameraPosition;
-uniform float lineWidth;
-
 void main() {
-
     uint pointIndex = gl_VertexIndex / 2;
     LinePointData linePointData = linePoints[pointIndex];
     vec3 linePoint = (mMatrix * vec4(linePointData.vertexPosition, 1.0)).xyz;
@@ -70,15 +68,14 @@ void main() {
 
 #version 430 core
 
+#include "LineUniformData.glsl"
+#include "TransferFunction.glsl"
+
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in vec3 vertexTangent;
 
-out VertexData {
-    vec3 linePosition;
-    vec3 lineTangent;
-};
-
-#include "TransferFunction.glsl"
+layout(location = 0) out vec3 linePosition;
+layout(location = 1) out vec3 lineTangent;
 
 void main() {
     linePosition = (mMatrix * vec4(vertexPosition, 1.0)).xyz;
@@ -93,22 +90,19 @@ void main() {
 layout(lines) in;
 layout(triangle_strip, max_vertices = 4) out;
 
-uniform vec3 cameraPosition;
-uniform float lineWidth;
+#include "LineUniformData.glsl"
 
-in VertexData {
-    vec3 linePosition;
-    vec3 lineTangent;
-} v_in[];
+layout(location = 0) in vec3 linePosition[];
+layout(location = 1) in vec3 lineTangent[];
 
 void main() {
-    vec3 linePosition0 = v_in[0].linePosition;
-    vec3 linePosition1 = v_in[1].linePosition;
+    vec3 linePosition0 = linePosition[0];
+    vec3 linePosition1 = linePosition[1];
 
     vec3 viewDirection0 = normalize(cameraPosition - linePosition0);
     vec3 viewDirection1 = normalize(cameraPosition - linePosition1);
-    vec3 offsetDirection0 = normalize(cross(viewDirection0, normalize(v_in[0].lineTangent)));
-    vec3 offsetDirection1 = normalize(cross(viewDirection1, normalize(v_in[1].lineTangent)));
+    vec3 offsetDirection0 = normalize(cross(viewDirection0, normalize(lineTangent[0])));
+    vec3 offsetDirection1 = normalize(cross(viewDirection1, normalize(lineTangent[1])));
     vec3 vertexPosition;
 
     const float lineRadius = lineWidth * 0.5;
@@ -139,8 +133,7 @@ void main() {
 
 #include "DepthComplexityHeader.glsl"
 
-void main()
-{
+void main() {
     int x = int(gl_FragCoord.x);
     int y = int(gl_FragCoord.y);
     uint pixelIndex = addrGen(uvec2(x,y));

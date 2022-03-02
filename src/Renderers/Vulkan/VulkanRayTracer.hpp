@@ -104,7 +104,7 @@ public:
     void setVisualizeSeedingProcess(bool visualizeSeeding) override;
 
 protected:
-    void reloadGatherShader(bool canCopyShaderAttributes = true) override;
+    void reloadGatherShader() override;
 
 private:
     // Vulkan render data.

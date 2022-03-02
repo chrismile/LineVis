@@ -26,6 +26,4 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// gl_FragCoord will be used for pixel centers at integer coordinates.
-// See https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/gl_FragCoord.xhtml
-layout(pixel_center_integer) in vec4 gl_FragCoord;
+in vec4 gl_FragCoord;

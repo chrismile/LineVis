@@ -29,14 +29,15 @@
 #define DEPTH_HELPER_USE_PROJECTION_MATRIX
 #include "DepthHelper.glsl"
 
-uniform sampler2D depthReadTexture;
-uniform int iteration;
+layout(push_constant) uniform PushConstants {
+    int iteration;
+};
 
-// gl_FragCoord will be used for pixel centers at integer coordinates.
-// See https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/gl_FragCoord.xhtml
-layout(pixel_center_integer) in vec4 gl_FragCoord;
+layout(binding = 0) uniform sampler2D depthReadTexture;
 
-out vec4 fragColor;
+in vec4 gl_FragCoord;
+
+layout(location = 0) out vec4 fragColor;
 
 void gatherFragment(vec4 color) {
     float previousDepthValue = texelFetch(depthReadTexture, ivec2(gl_FragCoord.xy), 0).x;

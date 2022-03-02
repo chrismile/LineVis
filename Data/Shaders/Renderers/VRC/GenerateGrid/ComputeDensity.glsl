@@ -30,12 +30,12 @@
 
 #version 430
 
-layout (local_size_x = 64, local_size_y = 4, local_size_z = 1) in;
+layout(local_size_x = 64, local_size_y = 4, local_size_z = 1) in;
 
 #include "VRCComputeHeaderVoxel.glsl"
 #include "TransferFunction.glsl"
 
-layout (binding = 0, r32f) uniform image3D densityImage;
+layout(binding = 0, r32f) uniform image3D densityImage;
 
 void main() {
     ivec3 voxelIndex = ivec3(gl_GlobalInvocationID.xyz);

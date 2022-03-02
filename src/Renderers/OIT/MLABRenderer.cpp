@@ -124,7 +124,7 @@ void MLABRenderer::reloadResolveShader() {
     }
 }
 
-void MLABRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
+void MLABRenderer::reloadGatherShader() {
     if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
         sgl::ShaderManager->addPreprocessorDefine("USE_SYNC_FRAGMENT_SHADER_INTERLOCK", "");
         if (!useOrderedFragmentShaderInterlock) {
@@ -140,7 +140,7 @@ void MLABRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
 
     LineRenderer::reloadGatherShader();
     gatherShader = lineData->reloadGatherShaderOpenGL();
-    if (canCopyShaderAttributes && shaderAttributes) {
+    if (/* canCopyShaderAttributes && */ shaderAttributes) {
         shaderAttributes = shaderAttributes->copy(gatherShader);
     }
 

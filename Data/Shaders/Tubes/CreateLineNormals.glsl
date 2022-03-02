@@ -2,10 +2,9 @@
 
 #version 430
 
-layout (local_size_x = WORK_GROUP_SIZE_1D, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = WORK_GROUP_SIZE_1D, local_size_y = 1, local_size_z = 1) in;
 
-layout (std430, binding = 2) buffer LineOffsetBuffer
-{
+layout(std430, binding = 2) buffer LineOffsetBuffer {
     uint lineOffsets[];
 };
 
@@ -13,8 +12,7 @@ struct InputLinePoint {
     vec3 linePoint;
     float lineAttribute;
 };
-layout (std430, binding = 3) buffer InputLinePointBuffer
-{
+layout(std430, binding = 3) buffer InputLinePointBuffer {
     InputLinePoint inputLinePoints[];
 };
 
@@ -26,12 +24,13 @@ struct OutputLinePoint {
     vec3 lineNormal;
     float padding2;
 };
-layout (std430, binding = 4) buffer OutputLinePointBuffer
-{
+layout(std430, binding = 4) buffer OutputLinePointBuffer {
     OutputLinePoint outputLinePoints[];
 };
 
-uniform uint numLines;
+layout(binding = 0) uniform UniformDataBuffer {
+    uint numLines;
+};
 
 
 void computeLineNormal(in vec3 tangent, out vec3 normal, in vec3 lastNormal)

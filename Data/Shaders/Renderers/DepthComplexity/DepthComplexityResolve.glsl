@@ -49,7 +49,7 @@ uniform uint numFragmentsMaxColor;
 // The color to shade the framents with
 uniform vec4 color;
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 
 void main() {
     int x = int(gl_FragCoord.x);
@@ -57,7 +57,7 @@ void main() {
     uint pixelIndex = addrGen(uvec2(x,y));
     
     uint numFragments = fragmentCounterBuffer[pixelIndex];
-    float percentage = clamp(float(numFragments)/float(min(numFragmentsMaxColor, 512)), 0.0, 1.0)*color.a;
+    float percentage = clamp(float(numFragments) / float(min(numFragmentsMaxColor, 512)), 0.0, 1.0) * color.a;
     
     vec4 color = vec4(color.rgb, percentage);
     fragColor = color;

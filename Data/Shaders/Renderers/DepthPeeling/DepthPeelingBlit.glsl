@@ -30,9 +30,9 @@
 
 #version 430 core
 
-in vec4 vertexPosition;
-in vec2 vertexTexCoord;
-out vec2 fragTexCoord;
+layout(location = 0) in vec4 vertexPosition;
+layout(location = 1) in vec2 vertexTexCoord;
+layout(location = 0) out vec2 fragTexCoord;
 
 void main() {
     fragTexCoord = vertexTexCoord;
@@ -43,9 +43,9 @@ void main() {
 
 #version 430 core
 
-uniform sampler2D inputTexture;
-in vec2 fragTexCoord;
-out vec4 fragColor;
+layout(location = 0) in vec2 fragTexCoord;
+layout(location = 0) out vec4 fragColor;
+layout(binding = 0) uniform sampler2D inputTexture;
 
 void main() {
     fragColor = texture(inputTexture, fragTexCoord);

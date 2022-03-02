@@ -65,7 +65,6 @@ bool OsprayRenderer::denoiserAvailable = false;
 OsprayRenderer::OsprayRenderer(
         SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("OSPRay Renderer", sceneData, transferFunctionWindow) {
-    isVulkanRenderer = false;
     isRasterizer = false;
 
     int argc = sgl::FileUtils::get()->get_argc();
@@ -171,7 +170,7 @@ void OsprayRenderer::setNewState(const InternalState& newState) {
     }
 }
 
-void OsprayRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
+void OsprayRenderer::reloadGatherShader() {
 }
 
 bool OsprayRenderer::getIsTriangleRepresentationUsed() const {

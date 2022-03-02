@@ -19,15 +19,13 @@
 
 // https://www.khronos.org/opengl/wiki/Interface_Block_(GLSL)#Block_buffer_binding
 #ifndef SHADOW_MAPPING_MOMENTS_GENERATION
-layout(std140, binding = 1) uniform MomentOITUniformData
-{
+layout(std140, binding = 1) uniform MomentOITUniformData {
     vec4 wrapping_zone_parameters;
     float overestimation;
     float moment_bias;
 } MomentOIT;
 #else
-layout(std140, binding = 2) uniform MomentOITUniformData
-{
+layout(std140, binding = 2) uniform MomentOITUniformData {
     vec4 wrapping_zone_parameters;
     float overestimation;
     float moment_bias;

@@ -50,19 +50,19 @@ DepthPeelingRenderer::DepthPeelingRenderer(
     onResolutionChanged();
 }
 
-void DepthPeelingRenderer::reloadGatherShader(bool canCopyShaderAttributes) {
+void DepthPeelingRenderer::reloadGatherShader() {
     sgl::ShaderManager->invalidateShaderCache();
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"DepthPeelingGather.glsl\"");
     gatherShader = lineData->reloadGatherShaderOpenGL();
     LineRenderer::reloadGatherShader();
-    if (canCopyShaderAttributes && shaderAttributes) {
+    if (/* canCopyShaderAttributes && */ shaderAttributes) {
         shaderAttributes = shaderAttributes->copy(gatherShader);
     }
 
     sgl::ShaderManager->invalidateShaderCache();
     sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"DepthComplexityGatherInc.glsl\"");
     depthComplexityGatherShader = lineData->reloadGatherShaderOpenGL();
-    if (canCopyShaderAttributes && depthComplexityShaderAttributes) {
+    if (/* canCopyShaderAttributes && */ depthComplexityShaderAttributes) {
         depthComplexityShaderAttributes = depthComplexityShaderAttributes->copy(depthComplexityGatherShader);
     }
 }

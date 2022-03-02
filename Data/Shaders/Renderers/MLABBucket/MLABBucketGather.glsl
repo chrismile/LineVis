@@ -32,13 +32,13 @@
 #include "ColorPack.glsl"
 #include "TiledAddress.glsl"
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 
 // Adapted version of "Multi-Layer Alpha Blending" [Salvi and Vaidyanathan 2014]
 void multiLayerAlphaBlendingOffset(in MLABBucketFragmentNode frag, inout MLABBucketFragmentNode list[BUFFER_SIZE+1]) {
     MLABBucketFragmentNode temp, merge;
     // Use bubble sort to insert new fragment node (single pass)
-    for (int i = 1; i < BUFFER_SIZE+1; i++) {
+    [[unroll]] for (int i = 1; i < BUFFER_SIZE+1; i++) {
         if (frag.depth <= list[i].depth) {
             temp = list[i];
             list[i] = frag;

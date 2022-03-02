@@ -85,8 +85,7 @@ uint addrGen(uvec2 addr2D) {
 }
 
 // For use with Image Load/Store
-ivec2 addrGen2D(ivec2 addr2D)
-{
+ivec2 addrGen2D(ivec2 addr2D) {
     int addr1D = int(addrGen(addr2D));
     return ivec2(addr1D%viewportW, addr1D/viewportW);
 }
