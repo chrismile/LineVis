@@ -53,6 +53,13 @@ struct TriangleMesh {
     std::vector<glm::vec4> vertexColors;
 };
 
+namespace sgl {namespace vk {
+
+class BlitRenderPass;
+typedef std::shared_ptr<BlitRenderPass> BlitRenderPassPtr;
+
+}}
+
 /**
  * A ray tracing renderer using Intel OSPRay (https://www.ospray.org/).
  */
@@ -76,8 +83,13 @@ public:
 
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
+
+    /// Called when the background clear color was changed.
+    void onClearColorChanged() override;
+
     /// Called when the transfer function was changed.
     void onTransferFunctionMapRebuilt() override;
+
     // Returns if the data needs to be re-rendered, but the visualization mapping is valid.
     bool needsReRender() override;
     // If the re-rendering was triggered from an outside source, frame accumulation cannot be used.
@@ -101,7 +113,9 @@ private:
     static bool denoiserAvailable;
 
     OSPFrameBufferFormat frameBufferFormat = OSP_FB_RGBA8;
-    sgl::TexturePtr renderImage;
+    std::vector<sgl::vk::BufferPtr> stagingBuffers;
+    sgl::vk::TexturePtr renderTexture;
+    sgl::vk::BlitRenderPassPtr blitRenderPass;
 
     // The relative change in frame variance is used for deciding whether to stop refining the current (still) frame.
     float lastFrameVariance = 1e9f;

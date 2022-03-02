@@ -35,6 +35,9 @@
 #include <Graphics/Window.hpp>
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Texture/TextureManager.hpp>
+#include <Graphics/Vulkan/Utils/Swapchain.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
+#include <Graphics/Vulkan/Render/Passes/BlitRenderPass.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "OsprayRenderer.hpp"
@@ -128,7 +131,13 @@ OsprayRenderer::OsprayRenderer(
     ospRelease(ambientLight);
     ospRelease(ospLightsShared);
 
-    onResolutionChanged();
+    blitRenderPass = std::make_shared<sgl::vk::BlitRenderPass>(
+            renderer, std::vector<std::string>{ "Blit.Vertex.MirrorVertical", "Blit.Fragment" });
+    // This was "glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);" / pre-multiplied alpha in OpenGL.
+    //blitRenderPass->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
+    //blitRenderPass->setBlendMode(sgl::vk::BlendMode::BACK_TO_FRONT_PREMUL_ALPHA);
+
+    onClearColorChanged();
 }
 
 OsprayRenderer::~OsprayRenderer() {
@@ -398,25 +407,59 @@ void OsprayRenderer::onLineRadiusChanged() {
 void OsprayRenderer::onResolutionChanged() {
     LineRenderer::onResolutionChanged();
 
-    int width = int(*sceneData->viewportWidth);
-    int height = int(*sceneData->viewportHeight);
+    uint32_t width = *sceneData->viewportWidth;
+    uint32_t height = *sceneData->viewportHeight;
 
-    sgl::TextureSettings settings;
+    size_t bufferSize = width * height;
+    sgl::vk::ImageSamplerSettings samplerSettings;
+    sgl::vk::ImageSettings imageSettings;
+    imageSettings.width = width;
+    imageSettings.height = height;
+    imageSettings.usage =
+            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     if (frameBufferFormat == OSP_FB_RGBA32F) {
-        settings.internalFormat = GL_RGBA32F;
+        imageSettings.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        bufferSize *= sizeof(float) * 4;
     } else {
-        settings.internalFormat = GL_RGBA8;
+        imageSettings.format = VK_FORMAT_R8G8B8A8_UNORM;
+        bufferSize *= sizeof(uint32_t);
     }
-    renderImage = sgl::TextureManager->createEmptyTexture(width, height, settings);
+    renderTexture = std::make_shared<sgl::vk::Texture>(renderer->getDevice(), imageSettings, samplerSettings);
+
+    blitRenderPass->setInputTexture(renderTexture);
+    blitRenderPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
+    blitRenderPass->recreateSwapchain(width, height);
+
+    auto* swapchain = sgl::AppSettings::get()->getSwapchain();
+    stagingBuffers.reserve(swapchain->getNumImages());
+    for (size_t i = 0; i < swapchain->getNumImages(); i++) {
+        stagingBuffers.push_back(std::make_shared<sgl::vk::Buffer>(
+                renderer->getDevice(), bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU));
+    }
 
     if (ospFrameBuffer) {
         ospRelease(ospFrameBuffer);
     }
     ospFrameBuffer = ospNewFrameBuffer(
-            width, height, frameBufferFormat, OSP_FB_COLOR | OSP_FB_ACCUM | OSP_FB_VARIANCE);
+            width, height, frameBufferFormat,
+            OSP_FB_COLOR | OSP_FB_ACCUM | OSP_FB_VARIANCE);
     if (useDenoiser) {
         updateDenoiserMode();
     }
+}
+
+void OsprayRenderer::onClearColorChanged() {
+    glm::vec4 newBackgroundColor = sceneData->clearColor->getFloatColorRGBA();
+    if (newBackgroundColor != backgroundColor) {
+        backgroundColor = newBackgroundColor;
+        ospSetVec4f(
+                ospRenderer, "backgroundColor",
+                backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
+        ospCommit(ospRenderer);
+        frameParameterChanged = true;
+    }
+
+    blitRenderPass->setAttachmentClearColor(newBackgroundColor);
 }
 
 void OsprayRenderer::onTransferFunctionMapRebuilt() {
@@ -484,22 +527,9 @@ void OsprayRenderer::onHasMoved() {
 void OsprayRenderer::render() {
     LineRenderer::renderBase();
 
-    int width = int(*sceneData->viewportWidth);
-    int height = int(*sceneData->viewportHeight);
-
     if (currentLineWidth != LineRenderer::getLineWidth()) {
         currentLineWidth = LineRenderer::getLineWidth();
         onLineRadiusChanged();
-    }
-
-    glm::vec4 newBackgroundColor = sceneData->clearColor->getFloatColorRGBA();
-    if (newBackgroundColor != backgroundColor) {
-        backgroundColor = newBackgroundColor;
-        ospSetVec4f(
-                ospRenderer, "backgroundColor",
-                backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a);
-        ospCommit(ospRenderer);
-        frameParameterChanged = true;
     }
 
     if (frameParameterChanged) {
@@ -513,15 +543,17 @@ void OsprayRenderer::render() {
     //ospRelease(future);
     float frameVariance = ospRenderFrameBlocking(ospFrameBuffer, ospRenderer, ospCamera, ospWorld);
     frameVariance = std::min(frameVariance, 1e8f);
-    if (frameBufferFormat == OSP_FB_RGBA32F) {
-        sgl::PixelFormat pixelFormat;
-        pixelFormat.pixelType = GL_FLOAT;
-        auto imageData = static_cast<const float*>(ospMapFrameBuffer(ospFrameBuffer, OSP_FB_COLOR));
-        renderImage->uploadPixelData(width, height, imageData, pixelFormat);
-    } else {
-        auto imageData = static_cast<const uint32_t*>(ospMapFrameBuffer(ospFrameBuffer, OSP_FB_COLOR));
-        renderImage->uploadPixelData(width, height, imageData);
-    }
+    const void* imageData = ospMapFrameBuffer(ospFrameBuffer, OSP_FB_COLOR);
+
+    auto* swapchain = sgl::AppSettings::get()->getSwapchain();
+    auto& stagingBuffer = stagingBuffers.at(swapchain->getImageIndex());
+    void* stagingBufferData = stagingBuffer->mapMemory();
+    memcpy(stagingBufferData, imageData, stagingBuffer->getSizeInBytes());
+    stagingBuffer->unmapMemory();
+
+    renderer->transitionImageLayout(renderTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    renderTexture->getImage()->copyFromBuffer(stagingBuffer, renderer->getVkCommandBuffer());
+
     ospUnmapFrameBuffer(ospFrameBuffer, ospFrameBuffer);
 
     //float frameVariance = std::min(ospGetVariance(ospFrameBuffer), 1e8f);
@@ -529,21 +561,15 @@ void OsprayRenderer::render() {
     frameVarianceRelativeChange = lastFrameVariance / frameVariance - 1.0f;
     lastFrameVariance = frameVariance;
 
-    // Blit the rendered image directly to the scene texture.
-    glDepthMask(GL_FALSE);
-    glDisable(GL_DEPTH_TEST);
-    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // Pre-multiplied alpha
+    //renderer->transitionImageLayout(
+    //        renderTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    //renderer->transitionImageLayout(
+    //        (*sceneData->sceneTexture)->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    //renderTexture->getImage()->blit(
+    //        (*sceneData->sceneTexture)->getImage(), renderer->getVkCommandBuffer());
 
-    sgl::Renderer->clearFramebuffer(GL_COLOR_BUFFER_BIT, *sceneData->clearColor);
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-    sgl::Renderer->blitTexture(
-            renderImage, sgl::AABB2(glm::vec2(-1.0f, -1.0f), glm::vec2(1.0f, 1.0f)));
-
-    // Revert to normal alpha blending.
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
-    glDepthMask(GL_TRUE);
+    renderer->transitionImageLayout(renderTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    blitRenderPass->render();
 }
 
 void OsprayRenderer::updateDenoiserMode() {

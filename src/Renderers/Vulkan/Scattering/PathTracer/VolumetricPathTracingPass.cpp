@@ -77,8 +77,7 @@ VolumetricPathTracingPass::VolumetricPathTracingPass(sgl::vk::Renderer* renderer
         loadEnvironmentMapImage();
     }
 
-    blitResultRenderPass = sgl::vk::BlitRenderPassPtr(new sgl::vk::BlitRenderPass(
-            renderer, {"BlitVulkan.Vertex", "BlitVulkan.Fragment"}));
+    blitResultRenderPass = std::make_shared<sgl::vk::BlitRenderPass>(renderer);
     blitPrimaryRayMomentTexturePass = std::make_shared<BlitMomentTexturePass>(renderer, "Primary");
     blitScatterRayMomentTexturePass = std::make_shared<BlitMomentTexturePass>(renderer, "Scatter");
 

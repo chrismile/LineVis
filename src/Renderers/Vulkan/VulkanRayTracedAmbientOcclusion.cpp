@@ -33,6 +33,7 @@
 #include <Graphics/Vulkan/Render/RayTracingPipeline.hpp>
 #include <Graphics/Vulkan/Utils/Interop.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
+#include <memory>
 #include <ImGui/imgui_custom.h>
 #include "../LineRenderer.hpp"
 #include "LineData/LineData.hpp"
@@ -156,8 +157,7 @@ VulkanRayTracedAmbientOcclusionPass::VulkanRayTracedAmbientOcclusionPass(
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
 
-    blitResultRenderPass = sgl::vk::BlitRenderPassPtr(new sgl::vk::BlitRenderPass(
-            renderer, {"BlitVulkan.Vertex", "BlitVulkan.Fragment"}));
+    blitResultRenderPass = std::make_shared<sgl::vk::BlitRenderPass>(renderer);
 
     createDenoiser();
 }
