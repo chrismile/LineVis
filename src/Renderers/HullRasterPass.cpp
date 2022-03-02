@@ -33,7 +33,7 @@
 
 HullRasterPass::HullRasterPass(LineRenderer* lineRenderer)
         : RasterPass(*lineRenderer->getSceneData()->renderer), lineRenderer(lineRenderer),
-          sceneData(lineRenderer->getSceneData()), camera(sceneData->camera) {
+          sceneData(lineRenderer->getSceneData()), camera(&sceneData->camera) {
 }
 
 void HullRasterPass::setLineData(LineDataPtr& lineData, bool isNewData) {

@@ -273,7 +273,7 @@ void OpaqueLineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& prope
 
 BilldboardSpheresRasterPass::BilldboardSpheresRasterPass(LineRenderer* lineRenderer)
         : RasterPass(*lineRenderer->getSceneData()->renderer),
-        lineRenderer(lineRenderer), sceneData(lineRenderer->getSceneData()), camera(sceneData->camera) {
+        lineRenderer(lineRenderer), sceneData(lineRenderer->getSceneData()), camera(&sceneData->camera) {
     uniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(UniformData), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
@@ -337,7 +337,7 @@ void BilldboardSpheresRasterPass::_render() {
 
 SphereRasterPass::SphereRasterPass(LineRenderer* lineRenderer)
         : RasterPass(*lineRenderer->getSceneData()->renderer),
-          lineRenderer(lineRenderer), sceneData(lineRenderer->getSceneData()), camera(sceneData->camera) {
+          lineRenderer(lineRenderer), sceneData(lineRenderer->getSceneData()), camera(&sceneData->camera) {
     uniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(UniformData), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);

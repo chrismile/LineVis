@@ -253,8 +253,8 @@ void VulkanRayTracedAmbientOcclusionPass::createComputeData(
 
 void VulkanRayTracedAmbientOcclusionPass::_render() {
     if (!changedDenoiserSettings) {
-        uniformData.inverseViewMatrix = glm::inverse((*sceneData->camera)->getViewMatrix());
-        uniformData.inverseProjectionMatrix = glm::inverse((*sceneData->camera)->getProjectionMatrix());
+        uniformData.inverseViewMatrix = glm::inverse(sceneData->camera->getViewMatrix());
+        uniformData.inverseProjectionMatrix = glm::inverse(sceneData->camera->getProjectionMatrix());
         uniformData.numSamplesPerFrame = numAmbientOcclusionSamplesPerFrame;
         uniformData.useDistance = useDistance;
         uniformData.ambientOcclusionRadius = ambientOcclusionRadius;

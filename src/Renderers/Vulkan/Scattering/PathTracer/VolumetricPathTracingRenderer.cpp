@@ -56,7 +56,7 @@ VolumetricPathTracingRenderer::VolumetricPathTracingRenderer(
         SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Volumetric Path Tracer", sceneData, transferFunctionWindow) {
     isRasterizer = false;
-    vptPass = std::make_shared<VolumetricPathTracingPass>(*sceneData->renderer, sceneData->camera);
+    vptPass = std::make_shared<VolumetricPathTracingPass>(*sceneData->renderer, &sceneData->camera);
 }
 
 VolumetricPathTracingRenderer::~VolumetricPathTracingRenderer() = default;

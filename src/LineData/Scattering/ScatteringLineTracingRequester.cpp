@@ -86,8 +86,8 @@ ScatteringLineTracingRequester::~ScatteringLineTracingRequester() {
     if (rendererVk) {
         lineDensityFieldSmoothingPass = {};
         cachedScalarFieldTexture = {};
-        //delete rendererVk;
-        //rendererVk = nullptr;
+        delete rendererVk;
+        rendererVk = nullptr;
     }
 }
 

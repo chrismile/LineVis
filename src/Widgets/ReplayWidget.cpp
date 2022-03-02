@@ -568,11 +568,11 @@ bool ReplayWidget::runScript(const std::string& filename) {
     currentReplayStateGlobal = ReplayState();
     useCameraFlight = useCameraFlightGlobal;
 
-    cameraPositionLast = (*sceneData->camera)->getPosition();
+    cameraPositionLast = sceneData->camera->getPosition();
     cameraOrientationLast =
-            glm::angleAxis(-(*sceneData->camera)->getPitch(), glm::vec3(1, 0, 0))
-            * glm::angleAxis((*sceneData->camera)->getYaw() + sgl::PI / 2.0f, glm::vec3(0, 1, 0));
-    cameraFovyLast = (*sceneData->camera)->getFOVy();
+            glm::angleAxis(-sceneData->camera->getPitch(), glm::vec3(1, 0, 0))
+            * glm::angleAxis(sceneData->camera->getYaw() + sgl::PI / 2.0f, glm::vec3(0, 1, 0));
+    cameraFovyLast = sceneData->camera->getFOVy();
     currentRendererSettings = std::map<std::string, std::string>();
     currentDatasetSettings = std::map<std::string, std::string>();
     replaySettingsRendererLast = ReplaySettingsMap();

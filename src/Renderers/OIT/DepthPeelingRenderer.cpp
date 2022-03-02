@@ -128,12 +128,12 @@ void DepthPeelingRenderer::setUniformData() {
 
     int width = int(*sceneData->viewportWidth);
 
-    depthComplexityGatherShader->setUniformOptional("cameraPosition", (*sceneData->camera)->getPosition());
+    depthComplexityGatherShader->setUniformOptional("cameraPosition", sceneData->camera->getPosition());
     depthComplexityGatherShader->setUniform("lineWidth", lineWidth);
     depthComplexityGatherShader->setUniform("viewportW", width);
     lineData->setUniformGatherShaderData_Pass(depthComplexityGatherShader);
 
-    gatherShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
+    gatherShader->setUniform("cameraPosition", sceneData->camera->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
     if (gatherShader->hasUniform("backgroundColor")) {
         glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
@@ -199,8 +199,8 @@ void DepthPeelingRenderer::gather() {
         gatherShader->setUniform("depthReadTexture", depthRenderTextures[(i+1)%2], 7);
         gatherShader->setUniform("iteration", int(i));
 
-        sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
-        sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
+        sgl::Renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
+        sgl::Renderer->setViewMatrix(sceneData->camera->getViewMatrix());
         sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
         sgl::Renderer->render(shaderAttributes);
@@ -257,8 +257,8 @@ void DepthPeelingRenderer::computeDepthComplexity() {
 
     // Render to numFragmentsBuffer to determine the depth complexity of the scene.
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
+    sgl::Renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
+    sgl::Renderer->setViewMatrix(sceneData->camera->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {

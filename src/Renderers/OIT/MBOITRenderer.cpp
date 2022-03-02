@@ -362,7 +362,7 @@ void MBOITRenderer::setUniformData() {
             1, b, textureSettingsB.internalFormat, GL_READ_WRITE,
             0, true, 0);
     //mboitPass1Shader->setUniform("viewportW", width);
-    mboitPass1Shader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
+    mboitPass1Shader->setUniform("cameraPosition", sceneData->camera->getPosition());
     mboitPass1Shader->setUniform("lineWidth", lineWidth);
     if (mboitPass1Shader->hasUniform("backgroundColor")) {
         glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
@@ -383,7 +383,7 @@ void MBOITRenderer::setUniformData() {
             1, b, textureSettingsB.internalFormat, GL_READ_WRITE,
             0, true, 0); // GL_READ_ONLY? -> Shader
     //mboitPass2Shader->setUniform("viewportW", width);
-    mboitPass2Shader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
+    mboitPass2Shader->setUniform("cameraPosition", sceneData->camera->getPosition());
     mboitPass2Shader->setUniform("lineWidth", lineWidth);
     if (mboitPass2Shader->hasUniform("backgroundColor")) {
         glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
@@ -424,15 +424,15 @@ void MBOITRenderer::setUniformData() {
 
 void MBOITRenderer::computeDepthRange() {
     const sgl::AABB3& boundingBox = lineData->getModelBoundingBox();
-    sgl::AABB3 screenSpaceBoundingBox = boundingBox.transformed((*sceneData->camera)->getViewMatrix());
+    sgl::AABB3 screenSpaceBoundingBox = boundingBox.transformed(sceneData->camera->getViewMatrix());
 
     // Add offset of 0.1 for e.g. point data sets where additonal vertices may be added in the shader for quads.
     float minViewZ = screenSpaceBoundingBox.getMaximum().z + 0.1f;
     float maxViewZ = screenSpaceBoundingBox.getMinimum().z - 0.1f;
-    minViewZ = std::max(-minViewZ, (*sceneData->camera)->getNearClipDistance());
-    maxViewZ = std::min(-maxViewZ, (*sceneData->camera)->getFarClipDistance());
-    minViewZ = std::min(minViewZ, (*sceneData->camera)->getFarClipDistance());
-    maxViewZ = std::max(maxViewZ, (*sceneData->camera)->getNearClipDistance());
+    minViewZ = std::max(-minViewZ, sceneData->camera->getNearClipDistance());
+    maxViewZ = std::min(-maxViewZ, sceneData->camera->getFarClipDistance());
+    minViewZ = std::min(minViewZ, sceneData->camera->getFarClipDistance());
+    maxViewZ = std::max(maxViewZ, sceneData->camera->getNearClipDistance());
     float logmin = log(minViewZ);
     float logmax = log(maxViewZ);
     mboitPass1Shader->setUniform("logDepthMin", logmin);
@@ -467,8 +467,8 @@ void MBOITRenderer::gather() {
         glDisable(GL_CULL_FACE);
     }
 
-    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
+    sgl::Renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
+    sgl::Renderer->setViewMatrix(sceneData->camera->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     sgl::Renderer->render(shaderAttributesPass1);

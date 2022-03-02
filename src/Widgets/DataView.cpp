@@ -49,11 +49,11 @@ DataView::DataView(SceneData* parentSceneData)
     sceneData.viewportWidth = &viewportWidth;
     sceneData.viewportHeight = &viewportHeight;
 
-    sgl::CameraPtr parentCamera = *parentSceneData->camera;
+    const sgl::CameraPtr& parentCamera = parentSceneData->camera;
 
     camera = std::make_shared<sgl::Camera>();
     camera->copyState(parentCamera);
-    sceneData.camera = &camera;
+    sceneData.camera = camera;
 
     camera2d = std::make_shared<sgl::Camera>();
     camera2d->setPosition(glm::vec3(0.0f, 0.0f, 1.0f));
@@ -159,7 +159,7 @@ void DataView::resize(int newWidth, int newHeight) {
 
 void DataView::beginRender() {
     if (syncWithParentCamera) {
-        sgl::CameraPtr parentCamera = *parentSceneData->camera;
+        const sgl::CameraPtr& parentCamera = parentSceneData->camera;
         camera->copyState(parentCamera);
     }
 
@@ -214,9 +214,9 @@ void DataView::setClearColor(const sgl::Color& color) {
 void DataView::updateCameraMode() {
     bool useCamera2dNew = lineRenderer->getRenderingMode() == RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER;
     if (useCamera2dNew) {
-        sceneData.camera = &camera2d;
+        sceneData.camera = camera2d;
     } else {
-        sceneData.camera = &camera;
+        sceneData.camera = camera;
     }
 }
 

@@ -392,7 +392,7 @@ void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
 
     shaderProgram->setUniformOptional("depthCueStrength", depthCueStrength);
 
-    shaderProgram->setUniformOptional("fieldOfViewY", (*sceneData->camera)->getFOVy());
+    shaderProgram->setUniformOptional("fieldOfViewY", sceneData->camera->getFOVy());
     //shaderProgram->setUniformOptional(
     //        "viewportSize",
     //        glm::ivec2((*sceneData->sceneTexture)->getW(), (*sceneData->sceneTexture)->getH())); // TODO
@@ -650,7 +650,7 @@ void LineRenderer::renderHull() {
             shaderAttributesHull = lineData->getGatherShaderAttributesHull(gatherShaderHull);
         }
         lineData->setUniformGatherShaderDataHull_Pass(gatherShaderHull);
-        gatherShaderHull->setUniformOptional("cameraPosition", (*sceneData->camera)->getPosition());
+        gatherShaderHull->setUniformOptional("cameraPosition", sceneData->camera->getPosition());
         glDisable(GL_CULL_FACE);
         sgl::Renderer->render(shaderAttributesHull);
         glEnable(GL_CULL_FACE);*/

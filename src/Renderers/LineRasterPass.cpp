@@ -33,7 +33,7 @@
 
 LineRasterPass::LineRasterPass(LineRenderer* lineRenderer)
         : RasterPass(*lineRenderer->getSceneData()->renderer), lineRenderer(lineRenderer),
-        sceneData(lineRenderer->getSceneData()), camera(sceneData->camera) {
+        sceneData(lineRenderer->getSceneData()), camera(&sceneData->camera) {
 }
 
 void LineRasterPass::setLineData(LineDataPtr& lineData, bool isNewData) {

@@ -42,8 +42,12 @@ SphericalHeatMapRenderer::SphericalHeatMapRenderer(
         SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Spherical Heat Map Renderer", sceneData, transferFunctionWindow) {
     isRasterizer = true;
-    blitRenderPass = std::make_shared<sgl::vk::BlitRenderPass>(renderer);
+    blitRenderPass = std::make_shared<sgl::vk::BlitRenderPass>(
+            renderer, std::vector<std::string>{ "Blit.Vertex.Transformed", "Blit.Fragment" });
+    blitRenderPass->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
     blitRenderPass->setAttachmentClearColor({ 0.0f, 0.0f, 0.0f, 0.0f });
+    // Set cull mode to front, as we are using OpenGL-style projection matrix.
+    blitRenderPass->setCullMode(sgl::vk::CullMode::CULL_FRONT);
 }
 
 SphericalHeatMapRenderer::~SphericalHeatMapRenderer() {
@@ -125,8 +129,8 @@ void SphericalHeatMapRenderer::render() {
     sgl::AABB2 aabb { texture_lower_left, -texture_lower_left };
 
     // Don't use a 3D camera, but normalized device coordinate space ([-1, 1]^3).
-    renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
-    renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
+    renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
+    renderer->setViewMatrix(sceneData->camera->getViewMatrix());
     renderer->setModelMatrix(sgl::matrixIdentity());
 
     blitRenderPass->setNormalizedCoordinatesAabb(aabb);

@@ -114,7 +114,7 @@ void DepthComplexityRenderer::setUniformData() {
 
     sgl::ShaderManager->bindShaderStorageBuffer(0, fragmentCounterBuffer);
 
-    gatherShader->setUniformOptional("cameraPosition", (*sceneData->camera)->getPosition());
+    gatherShader->setUniformOptional("cameraPosition", sceneData->camera->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
     gatherShader->setUniform("viewportW", width);
     lineData->setUniformGatherShaderDataOpenGL(gatherShader);
@@ -156,8 +156,8 @@ void DepthComplexityRenderer::gather() {
     glClear(GL_STENCIL_BUFFER_BIT);
     glDisable(GL_CULL_FACE);
 
-    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
+    sgl::Renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
+    sgl::Renderer->setViewMatrix(sceneData->camera->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     // Now, the final gather step.

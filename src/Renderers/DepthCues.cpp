@@ -68,11 +68,11 @@ void ComputeDepthValuesPass::_render() {
     auto numVertices = uint32_t(lineVerticesBuffer->getSizeInBytes() / sizeof(glm::vec4));
     uint32_t numBlocks = sgl::iceil(int(numVertices), BLOCK_SIZE_DEPTH_CUES);
 
-    uniformData.nearDist = (*sceneData->camera)->getNearClipDistance();
-    uniformData.farDist = (*sceneData->camera)->getFarClipDistance();
+    uniformData.nearDist = sceneData->camera->getNearClipDistance();
+    uniformData.farDist = sceneData->camera->getFarClipDistance();
     uniformData.numVertices = numVertices;
-    uniformData.cameraViewMatrix = (*sceneData->camera)->getViewMatrix();
-    uniformData.cameraProjectionMatrix = (*sceneData->camera)->getProjectionMatrix();
+    uniformData.cameraViewMatrix = sceneData->camera->getViewMatrix();
+    uniformData.cameraProjectionMatrix = sceneData->camera->getProjectionMatrix();
     uniformDataBuffer->updateData(
             sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
 
@@ -118,10 +118,10 @@ void MinMaxDepthReductionPass::createComputeData(
 void MinMaxDepthReductionPass::_render() {
     uint32_t numBlocks = sgl::iceil(int(inputSize), BLOCK_SIZE_DEPTH_CUES * 2);
 
-    uniformData.nearDist = (*sceneData->camera)->getNearClipDistance();
-    uniformData.farDist = (*sceneData->camera)->getFarClipDistance();
-    uniformData.cameraViewMatrix = (*sceneData->camera)->getViewMatrix();
-    uniformData.cameraProjectionMatrix = (*sceneData->camera)->getProjectionMatrix();
+    uniformData.nearDist = sceneData->camera->getNearClipDistance();
+    uniformData.farDist = sceneData->camera->getFarClipDistance();
+    uniformData.cameraViewMatrix = sceneData->camera->getViewMatrix();
+    uniformData.cameraProjectionMatrix = sceneData->camera->getProjectionMatrix();
     uniformDataBuffer->updateData(
             sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
 

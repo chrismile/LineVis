@@ -260,7 +260,7 @@ void MLABRenderer::setUniformData() {
     }
 
     gatherShader->setUniform("viewportW", paddedWindowWidth);
-    gatherShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
+    gatherShader->setUniform("cameraPosition", sceneData->camera->getPosition());
     gatherShader->setUniform("lineWidth", lineWidth);
     if (gatherShader->hasUniform("backgroundColor")) {
         glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
@@ -315,8 +315,8 @@ void MLABRenderer::gather() {
         glClear(GL_STENCIL_BUFFER_BIT);
     }
 
-    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
+    sgl::Renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
+    sgl::Renderer->setViewMatrix(sceneData->camera->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     // Now, the final gather step.

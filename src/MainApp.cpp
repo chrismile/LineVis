@@ -109,7 +109,7 @@ void signalHandler(int signum) {
 MainApp::MainApp()
         : sceneData(
                 &rendererVk, &sceneTextureVk, &sceneDepthTextureVk,
-                &viewportWidth, &viewportHeight, &camera,
+                &viewportWidth, &viewportHeight, camera,
                 &clearColor, &screenshotTransparentBackground,
                 &performanceMeasurer, &continuousRendering, &recording,
                 &useCameraFlight, &MOVE_SPEED, &MOUSE_ROT_SPEED,
@@ -126,8 +126,7 @@ MainApp::MainApp()
           streamlineTracingRequester(new StreamlineTracingRequester(transferFunctionWindow)),
           stressLineTracingRequester(new StressLineTracingRequester(zeromqContext)),
           scatteringLineTracingRequester(new ScatteringLineTracingRequester(
-                  transferFunctionWindow, rendererVk
-          )) {
+                  transferFunctionWindow, rendererVk)) {
     sgl::AppSettings::get()->getVulkanInstance()->setDebugCallback(&vulkanErrorCallback);
 
 #ifdef SUPPORT_OPTIX

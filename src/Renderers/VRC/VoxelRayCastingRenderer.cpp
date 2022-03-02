@@ -146,17 +146,17 @@ void VoxelRayCastingRenderer::onResolutionChanged() {
 
 void VoxelRayCastingRenderer::setUniformData() {
     // Set camera data
-    renderShader->setUniform("fov", (*sceneData->camera)->getFOVy());
-    renderShader->setUniform("aspectRatio", (*sceneData->camera)->getAspectRatio());
+    renderShader->setUniform("fov", sceneData->camera->getFOVy());
+    renderShader->setUniform("aspectRatio", sceneData->camera->getAspectRatio());
     renderShader->setUniform(
             "cameraPositionVoxelGrid",
-            sgl::transformPoint(worldToVoxelGridMatrix, (*sceneData->camera)->getPosition()));
+            sgl::transformPoint(worldToVoxelGridMatrix, sceneData->camera->getPosition()));
 
-    glm::mat4 inverseViewMatrix = glm::inverse((*sceneData->camera)->getViewMatrix());
-    renderShader->setUniform("viewMatrix", (*sceneData->camera)->getViewMatrix());
+    glm::mat4 inverseViewMatrix = glm::inverse(sceneData->camera->getViewMatrix());
+    renderShader->setUniform("viewMatrix", sceneData->camera->getViewMatrix());
     renderShader->setUniform("inverseViewMatrix", inverseViewMatrix);
 
-    glm::mat4 inverseProjectionMatrix = glm::inverse((*sceneData->camera)->getProjectionMatrix());
+    glm::mat4 inverseProjectionMatrix = glm::inverse(sceneData->camera->getProjectionMatrix());
     renderShader->setUniformOptional(
             "ndcToVoxelSpace", worldToVoxelGridMatrix * inverseViewMatrix * inverseProjectionMatrix);
 
@@ -170,7 +170,7 @@ void VoxelRayCastingRenderer::setUniformData() {
     }
 
     if (renderShader->hasUniform("cameraPosition")) {
-        renderShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
+        renderShader->setUniform("cameraPosition", sceneData->camera->getPosition());
     }
 
     int width = int(*sceneData->viewportWidth);

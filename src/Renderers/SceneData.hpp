@@ -32,6 +32,7 @@
 #include <Graphics/Scene/Camera.hpp>
 #include <Graphics/Buffers/FBO.hpp>
 #include <Graphics/Color.hpp>
+#include <utility>
 
 namespace sgl { namespace dialog {
 class MsgBoxHandle;
@@ -44,14 +45,15 @@ struct SceneData {
     SceneData(
             sgl::vk::Renderer** renderer, sgl::vk::TexturePtr* sceneTexture, sgl::vk::TexturePtr* sceneDepthTexture,
             uint32_t* viewportWidth, uint32_t* viewportHeight,
-            sgl::CameraPtr* camera, sgl::Color* clearColor, bool* screenshotTransparentBackground,
+            sgl::CameraPtr camera, sgl::Color* clearColor, bool* screenshotTransparentBackground,
             AutomaticPerformanceMeasurer** performanceMeasurer,
             bool* continuousRendering, bool* recordingMode, bool* useCameraFlight,
             float* MOVE_SPEED, float* MOUSE_ROT_SPEED,
             std::vector<sgl::dialog::MsgBoxHandlePtr>* nonBlockingMsgBoxHandles)
             : renderer(renderer), sceneTexture(sceneTexture), sceneDepthTexture(sceneDepthTexture),
             viewportWidth(viewportWidth), viewportHeight(viewportHeight),
-              camera(camera), clearColor(clearColor), screenshotTransparentBackground(screenshotTransparentBackground),
+              camera(std::move(camera)), clearColor(clearColor),
+              screenshotTransparentBackground(screenshotTransparentBackground),
               performanceMeasurer(performanceMeasurer),
               continuousRendering(continuousRendering), recordingMode(recordingMode), useCameraFlight(useCameraFlight),
               MOVE_SPEED(MOVE_SPEED), MOUSE_ROT_SPEED(MOUSE_ROT_SPEED),
@@ -63,7 +65,7 @@ struct SceneData {
     uint32_t* viewportWidth;
     uint32_t* viewportHeight;
 
-    sgl::CameraPtr* camera;
+    sgl::CameraPtr camera;
     sgl::Color* clearColor;
     bool* screenshotTransparentBackground;
     AutomaticPerformanceMeasurer** performanceMeasurer;

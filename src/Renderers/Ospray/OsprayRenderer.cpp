@@ -458,7 +458,7 @@ void OsprayRenderer::onHasMoved() {
 
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
-    glm::mat4 invViewMatrix = glm::inverse((*sceneData->camera)->getViewMatrix());
+    glm::mat4 invViewMatrix = glm::inverse(sceneData->camera->getViewMatrix());
     glm::vec3 upDir = invViewMatrix[1];
     glm::vec3 lookDir = -invViewMatrix[2];
     glm::vec3 position = invViewMatrix[3];
@@ -468,7 +468,7 @@ void OsprayRenderer::onHasMoved() {
     float camDirection[] = { lookDir.x, lookDir.y, lookDir.z };
     float camUp[] = { upDir.x, upDir.y, upDir.z };
     ospSetFloat(ospCamera, "aspect", float(width) / float(height));
-    ospSetFloat(ospCamera, "fovy", glm::degrees((*sceneData->camera)->getFOVy()));
+    ospSetFloat(ospCamera, "fovy", glm::degrees(sceneData->camera->getFOVy()));
     ospSetParam(ospCamera, "position", OSP_VEC3F, camPosition);
     ospSetParam(ospCamera, "direction", OSP_VEC3F, camDirection);
     ospSetParam(ospCamera, "up", OSP_VEC3F, camUp);

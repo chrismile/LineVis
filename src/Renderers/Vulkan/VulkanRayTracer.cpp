@@ -55,7 +55,8 @@ VulkanRayTracer::VulkanRayTracer(SceneData* sceneData, sgl::TransferFunctionWind
         : LineRenderer("Vulkan Ray Tracer", sceneData, transferFunctionWindow) {
     isRasterizer = false;
 
-    rayTracingRenderPass = std::make_shared<RayTracingRenderPass>(this, renderer, sceneData->camera);
+    rayTracingRenderPass = std::make_shared<RayTracingRenderPass>(
+            this, renderer, &sceneData->camera);
     rayTracingRenderPass->setNumSamplesPerFrame(numSamplesPerFrame);
     rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
     rayTracingRenderPass->setMaxDepthComplexity(maxDepthComplexity);

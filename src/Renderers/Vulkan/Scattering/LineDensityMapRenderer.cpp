@@ -48,7 +48,7 @@ LineDensityMapRenderer::LineDensityMapRenderer(
         : LineRenderer("Scattered Lines Renderer", sceneData, transferFunctionWindow) {
     isRasterizer = false;
     lineDensityFieldDvrPass = std::make_shared<LineDensityFieldDvrPass>(
-            this, *sceneData->renderer, sceneData->camera);
+            this, *sceneData->renderer, &sceneData->camera);
     onClearColorChanged();
 }
 

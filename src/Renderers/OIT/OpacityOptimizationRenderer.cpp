@@ -617,7 +617,7 @@ void OpacityOptimizationRenderer::setUniformData() {
 
     gatherPpllOpacitiesShader->setUniform("viewportW", paddedViewportWidthOpacity);
     gatherPpllOpacitiesShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeOpacity);
-    gatherPpllOpacitiesShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
+    gatherPpllOpacitiesShader->setUniform("cameraPosition", sceneData->camera->getPosition());
     gatherPpllOpacitiesShader->setUniform("lineWidth", lineWidth);
     gatherPpllOpacitiesShader->setUniformOptional("minAttrValue", transferFunctionWindow.getDataRangeMin());
     gatherPpllOpacitiesShader->setUniformOptional("maxAttrValue", transferFunctionWindow.getDataRangeMax());
@@ -626,7 +626,7 @@ void OpacityOptimizationRenderer::setUniformData() {
 
     gatherPpllFinalShader->setUniform("viewportW", paddedViewportWidthFinal);
     gatherPpllFinalShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeFinal);
-    gatherPpllFinalShader->setUniform("cameraPosition", (*sceneData->camera)->getPosition());
+    gatherPpllFinalShader->setUniform("cameraPosition", sceneData->camera->getPosition());
     gatherPpllFinalShader->setUniform("lineWidth", lineWidth);
     if (gatherPpllFinalShader->hasUniform("backgroundColor")) {
         glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
@@ -703,8 +703,8 @@ void OpacityOptimizationRenderer::gatherPpllOpacities() {
         glClear(GL_STENCIL_BUFFER_BIT);
     }
 
-    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
+    sgl::Renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
+    sgl::Renderer->setViewMatrix(sceneData->camera->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     // Now, the final gather step.
@@ -840,8 +840,8 @@ void OpacityOptimizationRenderer::gatherPpllFinal() {
         glClear(GL_STENCIL_BUFFER_BIT);
     }
 
-    sgl::Renderer->setProjectionMatrix((*sceneData->camera)->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix((*sceneData->camera)->getViewMatrix());
+    sgl::Renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
+    sgl::Renderer->setViewMatrix(sceneData->camera->getViewMatrix());
     sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
 
     if (useMultisampling) {
