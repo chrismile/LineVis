@@ -27,14 +27,10 @@
  */
 
 #include <Math/Geometry/MatrixUtil.hpp>
+#include <Utils/AppSettings.hpp>
 #include <Utils/File/Logfile.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Shader/ShaderManager.hpp>
-#include <Graphics/OpenGL/GeometryBuffer.hpp>
-#include <Graphics/OpenGL/Shader.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
-#include <Utils/AppSettings.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>

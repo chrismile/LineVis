@@ -36,6 +36,8 @@
 #include <Graphics/Texture/TextureManager.hpp>
 #include <Graphics/Buffers/FBO.hpp>
 #include <Graphics/OpenGL/GeometryBuffer.hpp>
+#include <Graphics/Vulkan/Utils/Device.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
@@ -54,7 +56,7 @@ MBOITRenderer::MBOITRenderer(
         SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Moment-Based Order Independent Transparency",
                        sceneData, transferFunctionWindow) {
-    syncMode = getSupportedSyncMode();
+    syncMode = getSupportedSyncMode(renderer->getDevice());
 
     // Create moment OIT uniform data buffer.
     momentUniformData.moment_bias = 5*1e-7f;
@@ -80,6 +82,8 @@ MBOITRenderer::MBOITRenderer(
 }
 
 void MBOITRenderer::updateSyncMode() {
+    checkSyncModeSupported(sceneData, renderer->getDevice(), syncMode);
+
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
 

@@ -28,7 +28,7 @@
 
 -- VBO.Vertex
 
-#version 430 core
+#version 450 core
 
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in float vertexAttribute;
@@ -64,7 +64,7 @@ void main() {
 
 -- VBO.Geometry
 
-#version 430 core
+#version 450 core
 
 layout(lines) in;
 layout(triangle_strip, max_vertices = 4) out;
@@ -146,7 +146,7 @@ void main() {
 
 -- Fragment
 
-#version 430 core
+#version 450 core
 
 in vec3 fragmentPositionWorld;
 in float fragmentAttribute;

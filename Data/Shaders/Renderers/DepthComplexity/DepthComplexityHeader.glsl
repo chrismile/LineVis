@@ -27,7 +27,6 @@
  */
 
 // Use early z-test to cull transparent fragments occluded by opaque fragments.
-// Additionaly, use fragment interlock.
 layout(early_fragment_tests) in;
 
 in vec4 gl_FragCoord;

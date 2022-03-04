@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2018 - 2021, Christoph Neuhauser, Michael Kern
+ * Copyright (c) 2018 - 2022, Christoph Neuhauser, Michael Kern
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,7 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "MLABBucketHeader.glsl"
+#include "MLABHeader.glsl"
 #define DEPTH_HELPER_USE_PROJECTION_MATRIX
 #include "DepthHelper.glsl"
 #include "ColorPack.glsl"
@@ -35,10 +35,10 @@
 layout(location = 0) out vec4 fragColor;
 
 // Adapted version of "Multi-Layer Alpha Blending" [Salvi and Vaidyanathan 2014]
-void multiLayerAlphaBlendingOffset(in MLABBucketFragmentNode frag, inout MLABBucketFragmentNode list[BUFFER_SIZE+1]) {
-    MLABBucketFragmentNode temp, merge;
+void multiLayerAlphaBlendingOffset(in MLABFragmentNode frag, inout MLABFragmentNode list[MAX_NUM_LAYERS + 1]) {
+    MLABFragmentNode temp, merge;
     // Use bubble sort to insert new fragment node (single pass)
-    [[unroll]] for (int i = 1; i < BUFFER_SIZE+1; i++) {
+    [[unroll]] for (int i = 1; i < MAX_NUM_LAYERS + 1; i++) {
         if (frag.depth <= list[i].depth) {
             temp = list[i];
             list[i] = frag;
@@ -47,22 +47,22 @@ void multiLayerAlphaBlendingOffset(in MLABBucketFragmentNode frag, inout MLABBuc
     }
 
     // Merge last two nodes if necessary
-    if (list[BUFFER_SIZE].depth != DISTANCE_INFINITE) {
-        vec4 src = unpackUnorm4x8(list[BUFFER_SIZE-1].premulColor);
-        vec4 dst = unpackUnorm4x8(list[BUFFER_SIZE].premulColor);
+    if (list[MAX_NUM_LAYERS].depth != DISTANCE_INFINITE) {
+        vec4 src = unpackUnorm4x8(list[MAX_NUM_LAYERS-1].premulColor);
+        vec4 dst = unpackUnorm4x8(list[MAX_NUM_LAYERS].premulColor);
         vec4 mergedColor;
         mergedColor.rgb = src.rgb + dst.rgb * src.a;
         mergedColor.a = src.a * dst.a; // Transmittance
         merge.premulColor = packUnorm4x8(mergedColor);
-        merge.depth = list[BUFFER_SIZE-1].depth;
-        list[BUFFER_SIZE-1] = merge;
+        merge.depth = list[MAX_NUM_LAYERS-1].depth;
+        list[MAX_NUM_LAYERS-1] = merge;
     }
 }
 
 
 void multiLayerAlphaBlendingMergeFront(
-        in MLABBucketFragmentNode frag, inout MLABBucketFragmentNode list[BUFFER_SIZE+1]) {
-    MLABBucketFragmentNode temp, merge;
+        in MLABFragmentNode frag, inout MLABFragmentNode list[MAX_NUM_LAYERS + 1]) {
+    MLABFragmentNode temp, merge;
     if (frag.depth <= list[0].depth) {
         temp = list[0];
         list[0] = frag;
@@ -84,18 +84,22 @@ void multiLayerAlphaBlendingMergeFront(
 
 void gatherFragment(vec4 color) {
     if (color.a < 0.001) {
+#ifndef GATHER_NO_DISCARD
         discard;
+#else
+        return;
+#endif
     }
 
     ivec2 fragPos2D = ivec2(int(gl_FragCoord.x), int(gl_FragCoord.y));
     uint pixelIndex = addrGen(uvec2(fragPos2D));
 
-    MLABBucketFragmentNode frag;
+    MLABFragmentNode frag;
     frag.depth = gl_FragCoord.z;
     frag.premulColor = packUnorm4x8(vec4(color.rgb * color.a, 1.0 - color.a));
 
-    MLABBucketFragmentNode nodeArray[BUFFER_SIZE+1];
-    loadFragmentNodes(pixelIndex, fragPos2D, nodeArray);
+    MLABFragmentNode nodeArray[MAX_NUM_LAYERS + 1];
+    loadFragmentNodes(pixelIndex, nodeArray);
     float depthLog = logDepthWarp(-screenSpacePosition.z);
     frag.depth = depthLog;
 
@@ -109,9 +113,13 @@ void gatherFragment(vec4 color) {
             // Insert normally (with offset of one).
             multiLayerAlphaBlendingOffset(frag, nodeArray);
         }
-        storeFragmentNodes(pixelIndex, fragPos2D, nodeArray);
+        storeFragmentNodes(pixelIndex, nodeArray);
     } else {
+#ifndef GATHER_NO_DISCARD
         discard;
+#else
+        return;
+#endif
     }
 
     fragColor = vec4(0.0, 0.0, 0.0, 0.0);
@@ -119,18 +127,22 @@ void gatherFragment(vec4 color) {
 
 void gatherFragmentCustomDepth(vec4 color, float depth) {
     if (color.a < 0.001) {
+#ifndef GATHER_NO_DISCARD
         discard;
+#else
+        return;
+#endif
     }
 
     ivec2 fragPos2D = ivec2(int(gl_FragCoord.x), int(gl_FragCoord.y));
     uint pixelIndex = addrGen(uvec2(fragPos2D));
 
-    MLABBucketFragmentNode frag;
+    MLABFragmentNode frag;
     frag.depth = convertLinearDepthToDepthBufferValue(depth);
     frag.premulColor = packUnorm4x8(vec4(color.rgb * color.a, 1.0 - color.a));
 
-    MLABBucketFragmentNode nodeArray[BUFFER_SIZE+1];
-    loadFragmentNodes(pixelIndex, fragPos2D, nodeArray);
+    MLABFragmentNode nodeArray[MAX_NUM_LAYERS + 1];
+    loadFragmentNodes(pixelIndex, nodeArray);
     float depthLog = logDepthWarp(-depth);
     frag.depth = depthLog;
 
@@ -144,9 +156,13 @@ void gatherFragmentCustomDepth(vec4 color, float depth) {
             // Insert normally (with offset of one).
             multiLayerAlphaBlendingOffset(frag, nodeArray);
         }
-        storeFragmentNodes(pixelIndex, fragPos2D, nodeArray);
+        storeFragmentNodes(pixelIndex, nodeArray);
     } else {
+#ifndef GATHER_NO_DISCARD
         discard;
+#else
+        return;
+#endif
     }
 
     fragColor = vec4(0.0, 0.0, 0.0, 0.0);

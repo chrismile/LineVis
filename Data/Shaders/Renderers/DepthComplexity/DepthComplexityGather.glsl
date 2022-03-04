@@ -28,7 +28,7 @@
 
 -- Programmable.Vertex
 
-#version 430 core
+#version 450 core
 
 #include "LineUniformData.glsl"
 
@@ -66,7 +66,7 @@ void main() {
 
 -- VBO.Vertex
 
-#version 430 core
+#version 450 core
 
 #include "LineUniformData.glsl"
 #include "TransferFunction.glsl"
@@ -85,7 +85,7 @@ void main() {
 
 -- VBO.Geometry
 
-#version 430 core
+#version 450 core
 
 layout(lines) in;
 layout(triangle_strip, max_vertices = 4) out;
@@ -129,7 +129,7 @@ void main() {
 
 -- Fragment
 
-#version 430 core
+#version 450 core
 
 #include "DepthComplexityHeader.glsl"
 

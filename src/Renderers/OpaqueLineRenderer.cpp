@@ -55,6 +55,7 @@ OpaqueLineRenderer::OpaqueLineRenderer(SceneData* sceneData, sgl::TransferFuncti
     for (int i = 1; i <= maximumNumberOfSamples; i *= 2) {
         sampleModeNames.push_back(std::to_string(i));
     }
+    supportsGeometryShaders = (*sceneData->renderer)->getDevice()->getPhysicalDeviceFeatures().geometryShader;
 
     sphereRasterPass = std::make_shared<SphereRasterPass>(this);
 }
@@ -92,7 +93,7 @@ void OpaqueLineRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     hasDegeneratePoints =
             lineData->getType() == DATA_SET_TYPE_STRESS_LINES &&
             static_cast<LineDataStress*>(lineData.get())->getHasDegeneratePoints();
-    if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES && hasDegeneratePoints) {
+    if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES && hasDegeneratePoints && supportsGeometryShaders) {
         degeneratePointsRasterPass = std::make_shared<BilldboardSpheresRasterPass>(this);
         degeneratePointsRasterPass->setLineData(lineData, isNewData);
     }
@@ -198,7 +199,7 @@ void OpaqueLineRenderer::render() {
 
     lineRasterPass->render();
 
-    if (showDegeneratePoints && hasDegeneratePoints) {
+    if (showDegeneratePoints && hasDegeneratePoints && supportsGeometryShaders) {
         degeneratePointsRasterPass->setPointWidth(pointWidth);
         degeneratePointsRasterPass->setPointColor(glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
         degeneratePointsRasterPass->render();
@@ -280,6 +281,7 @@ BilldboardSpheresRasterPass::BilldboardSpheresRasterPass(LineRenderer* lineRende
 }
 
 void BilldboardSpheresRasterPass::setLineData(LineDataPtr& lineData, bool isNewData) {
+    this->lineData = lineData;
     PointRenderData pointRenderData = static_cast<LineDataStress*>(lineData.get())->getDegeneratePointsRenderData();
     vertexBuffer = pointRenderData.vertexPositionBuffer;
     setDataDirty();

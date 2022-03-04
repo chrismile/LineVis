@@ -28,7 +28,7 @@
 
 -- Vertex
 
-#version 430 core
+#version 450 core
 
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 0) out vec3 pointPosition;
@@ -41,7 +41,7 @@ void main() {
 
 -- Geometry
 
-#version 430 core
+#version 450 core
 
 layout(points) in;
 layout(triangle_strip, max_vertices = 4) out;
@@ -97,7 +97,7 @@ void main() {
 
 -- Fragment
 
-#version 430 core
+#version 450 core
 
 layout(location = 0) in vec3 fragmentPositionWorld;
 layout(location = 1) in vec2 quadCoords; // Between -1 and 1

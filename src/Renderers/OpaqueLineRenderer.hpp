@@ -84,8 +84,9 @@ protected:
     std::shared_ptr<SphereRasterPass> sphereRasterPass;
 
     // GUI data.
-    bool useMultisampling = true; // TODO
+    bool useMultisampling = true;
 
+    bool supportsGeometryShaders = false;
     bool showDegeneratePoints = false; ///< Stress lines only.
     bool hasDegeneratePoints = false; ///< Stress lines only.
     bool visualizeSeedingProcess = false; ///< Stress lines only.

@@ -28,7 +28,7 @@
 
 -- Compute
 
-#version 430
+#version 450 core
 
 #define BLOCK_SIZE 256
 

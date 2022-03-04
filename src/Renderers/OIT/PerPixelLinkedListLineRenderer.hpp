@@ -109,6 +109,7 @@ protected:
     sgl::vk::BufferPtr startOffsetBuffer;
     sgl::vk::BufferPtr fragmentCounterBuffer;
 
+    // Uniform data buffer shared by all shaders.
     struct UniformData {
         // Number of fragments we can store in total.
         uint linkedListSize;

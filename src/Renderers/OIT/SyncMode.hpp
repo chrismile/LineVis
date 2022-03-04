@@ -29,11 +29,28 @@
 #ifndef STRESSLINEVIS_SYNCMODE_HPP
 #define STRESSLINEVIS_SYNCMODE_HPP
 
+namespace sgl { namespace vk {
+class Device;
+}}
+
+class SceneData;
+
 enum SyncMode {
     NO_SYNC, SYNC_FRAGMENT_SHADER_INTERLOCK, SYNC_SPINLOCK
 };
 
-/// Returns SYNC_FRAGMENT_SHADER_INTERLOCK if supported, SYNC_SPINLOCK otherwise.
-SyncMode getSupportedSyncMode(bool silent = false);
+/**
+ * @param device The Vulkan device to check the sync mode support for.
+ * @return SYNC_FRAGMENT_SHADER_INTERLOCK if supported, SYNC_SPINLOCK otherwise.
+ */
+SyncMode getSupportedSyncMode(sgl::vk::Device* device);
+
+/**
+ * Checks whether the passed sync mode is supported and overwrites it with a supported mode if not.
+ * @param sceneData The scene data used for enqueueing a non-blocking warning dialog.
+ * @param device The Vulkan device to check the sync mode support for.
+ * @param syncMode The current sync mode, which is overwritten if it is not supported by the device.
+ */
+void checkSyncModeSupported(SceneData* sceneData, sgl::vk::Device* device, SyncMode& syncMode);
 
 #endif //STRESSLINEVIS_SYNCMODE_HPP

@@ -9,9 +9,9 @@
  * Changes for the OpenGL port: Copyright 2018 - 2019 Christoph Neuhauser
  */
 
+#if defined(USE_SYNC_FRAGMENT_SHADER_INTERLOCK) && !defined(RESOLVE_PASS)
 // See https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_fragment_shader_interlock.txt
-#extension GL_ARB_fragment_shader_interlock : require
-
+//#extension GL_ARB_fragment_shader_interlock : require // Set in code using __extensions.
 #ifdef PIXEL_SYNC_UNORDERED
 // Use early z-test to cull transparent fragments occluded by opaque fragments.
 // Additionaly, use fragment interlock.
@@ -20,6 +20,10 @@ layout(early_fragment_tests, pixel_interlock_unordered) in;
 // Use early z-test to cull transparent fragments occluded by opaque fragments.
 // Additionaly, use fragment interlock.
 layout(early_fragment_tests, pixel_interlock_ordered) in;
+#endif
+#else
+// Use early z-test to cull transparent fragments occluded by opaque fragments.
+layout(early_fragment_tests) in;
 #endif
 
 in vec4 gl_FragCoord;

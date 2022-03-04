@@ -26,18 +26,30 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <Utils/Dialog.hpp>
 #include <Utils/File/Logfile.hpp>
-#include <Graphics/OpenGL/SystemGL.hpp>
+#include <Graphics/Vulkan/Utils/Device.hpp>
 
+#include "Renderers/SceneData.hpp"
 #include "SyncMode.hpp"
 
-SyncMode getSupportedSyncMode(bool silent) {
-    if (!sgl::SystemGL::get()->isGLExtensionAvailable("GL_ARB_fragment_shader_interlock")) {
-        if (!silent) {
-            sgl::Logfile::get()->writeInfo(
-                    "Info (MLABRenderer::updateSyncMode): GL_ARB_fragment_shader_interlock unsupported.");
-        }
+SyncMode getSupportedSyncMode(sgl::vk::Device* device) {
+    if (!device->isDeviceExtensionSupported(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME)) {
         return SYNC_SPINLOCK;
     }
     return SYNC_FRAGMENT_SHADER_INTERLOCK;
+}
+
+void checkSyncModeSupported(SceneData* sceneData, sgl::vk::Device* device, SyncMode& syncMode) {
+    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK
+            && !device->isDeviceExtensionSupported(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME)) {
+        std::string warningText =
+                "Fragment shader interlock is not supported by the used GPU. "
+                "Falling back to a supported rendering mode.";
+        sgl::Logfile::get()->writeWarning(warningText, false);
+        auto handle = sgl::dialog::openMessageBox(
+                "Unsupported Synchronization Mode", warningText, sgl::dialog::Icon::WARNING);
+        sceneData->nonBlockingMsgBoxHandles->push_back(handle);
+        syncMode = getSupportedSyncMode(device);
+    }
 }

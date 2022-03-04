@@ -28,7 +28,7 @@
 
 -- Vertex
 
-#version 430 core
+#version 450 core
 
 layout(location = 0) in vec4 vertexPosition;
 layout(location = 1) in vec2 vertexTexCoord;
@@ -41,7 +41,7 @@ void main() {
 
 -- Fragment
 
-#version 430 core
+#version 450 core
 
 layout(location = 0) in vec2 fragTexCoord;
 layout(location = 0) out vec4 fragColor;

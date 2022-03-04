@@ -39,6 +39,12 @@ class MsgBoxHandle;
 typedef std::shared_ptr<MsgBoxHandle> MsgBoxHandlePtr;
 }}
 
+namespace sgl { namespace vk {
+class Renderer;
+class Texture;
+typedef std::shared_ptr<Texture> TexturePtr;
+}}
+
 class AutomaticPerformanceMeasurer;
 
 struct SceneData {

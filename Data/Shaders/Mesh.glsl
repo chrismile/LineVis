@@ -28,7 +28,7 @@
 
 -- Vertex.Plain
 
-#version 430 core
+#version 450 core
 
 layout(location = 0) in vec4 vertexPosition;
 
@@ -38,7 +38,7 @@ void main() {
 
 -- Fragment.Plain
 
-#version 430 core
+#version 450 core
 
 layout(location = 0) out vec4 fragColor;
 
@@ -53,7 +53,7 @@ void main() {
 
 -- Vertex.Textured
 
-#version 430 core
+#version 450 core
 
 layout(location = 0) in vec4 vertexPosition;
 layout(location = 1) in vec2 vertexTexCoord;
@@ -66,7 +66,7 @@ void main() {
 
 -- Fragment.Textured
 
-#version 430 core
+#version 450 core
 
 layout(location = 0) in vec2 fragTexCoord;
 layout(location = 0) out vec4 fragColor;

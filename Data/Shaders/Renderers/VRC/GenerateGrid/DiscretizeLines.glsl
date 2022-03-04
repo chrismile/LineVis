@@ -28,7 +28,7 @@
 
 -- Compute
 
-#version 430
+#version 450 core
 
 layout(local_size_x = 256) in;
 

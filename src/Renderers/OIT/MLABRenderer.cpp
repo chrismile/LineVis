@@ -26,23 +26,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Utils/File/Logfile.hpp>
 #include <Utils/AppSettings.hpp>
+#include <Utils/File/Logfile.hpp>
 #include <Math/Geometry/MatrixUtil.hpp>
-#include <Graphics/Window.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Shader/ShaderManager.hpp>
-#include <Graphics/OpenGL/GeometryBuffer.hpp>
-#include <Graphics/OpenGL/Shader.hpp>
-#include <Graphics/OpenGL/SystemGL.hpp>
+#include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "Utils/InternalState.hpp"
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
+#include "../HullRasterPass.hpp"
 #include "MLABRenderer.hpp"
-
-// Whether to use stencil buffer to mask unused pixels.
-bool MLABRenderer::useStencilBuffer = true;
 
 MLABRenderer::MLABRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : MLABRenderer("Multi-Layer Alpha Blending Renderer", sceneData, transferFunctionWindow) {
@@ -56,111 +50,74 @@ MLABRenderer::MLABRenderer(
 void MLABRenderer::initialize() {
     LineRenderer::initialize();
 
+    uniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(UniformData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+
     clearBitSet = true;
-    syncMode = getSupportedSyncMode();
+    syncMode = getSupportedSyncMode(renderer->getDevice());
 
-    updateLayerMode();
-    sgl::ShaderManager->invalidateShaderCache();
-    reloadResolveShader();
-    clearShader = sgl::ShaderManager->getShaderProgram({"MLABClear.Vertex", "MLABClear.Fragment"});
+    resolveRasterPass = std::shared_ptr<ResolvePass>(new ResolvePass(
+            this, {"MLABResolve.Vertex", "MLABResolve.Fragment"}));
+    resolveRasterPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    resolveRasterPass->setBlendMode(sgl::vk::BlendMode::BACK_TO_FRONT_STRAIGHT_ALPHA);
 
-    // Create blitting data (fullscreen rectangle in normalized device coordinates).
-    blitRenderData = sgl::ShaderManager->createShaderAttributes(resolveShader);
+    clearRasterPass = std::shared_ptr<ResolvePass>(new ResolvePass(
+            this, {"MLABClear.Vertex", "MLABClear.Fragment"}));
+    clearRasterPass->setColorWriteEnabled(false);
+    clearRasterPass->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
+    clearRasterPass->setAttachmentStoreOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
+    clearRasterPass->setOutputImageInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
+    clearRasterPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-    std::vector<glm::vec3> fullscreenQuad{
-            glm::vec3(1,1,0), glm::vec3(-1,-1,0), glm::vec3(1,-1,0),
-            glm::vec3(-1,-1,0), glm::vec3(1,1,0), glm::vec3(-1,1,0)};
-    sgl::GeometryBufferPtr geomBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(glm::vec3)*fullscreenQuad.size(), fullscreenQuad.data());
-    blitRenderData->addGeometryBuffer(
-            geomBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
-
-    clearRenderData = sgl::ShaderManager->createShaderAttributes(clearShader);
-    clearRenderData->addGeometryBuffer(
-            geomBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
+    onClearColorChanged();
 }
 
 void MLABRenderer::updateSyncMode() {
+    checkSyncModeSupported(sceneData, renderer->getDevice(), syncMode);
+
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
     int paddedWidth = width, paddedHeight = height;
     getScreenSizeWithTiling(paddedWidth, paddedHeight);
 
-    spinlockViewportBuffer = sgl::GeometryBufferPtr();
+    spinlockViewportBuffer = {};
     if (syncMode == SYNC_SPINLOCK) {
-        spinlockViewportBuffer = sgl::Renderer->createGeometryBuffer(
-                sizeof(uint32_t) * size_t(paddedWidth) * size_t(paddedHeight),
-                nullptr, sgl::SHADER_STORAGE_BUFFER);
+        spinlockViewportBuffer = std::make_shared<sgl::vk::Buffer>(
+                renderer->getDevice(), sizeof(uint32_t) * size_t(paddedWidth) * size_t(paddedHeight),
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
         // Set all values in the buffer to zero.
-        GLuint bufferId = static_cast<sgl::GeometryBufferGL*>(spinlockViewportBuffer.get())->getBuffer();
-        uint32_t val = 0;
-        glClearNamedBufferData(bufferId, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, (const void*)&val);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        spinlockViewportBuffer->fill(0, renderer->getVkCommandBuffer());
+        renderer->insertBufferMemoryBarrier(
+                VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                spinlockViewportBuffer);
     }
 }
 
 void MLABRenderer::updateLayerMode() {
-    sgl::ShaderManager->invalidateShaderCache();
-    sgl::ShaderManager->addPreprocessorDefine("MAX_NUM_LAYERS", sgl::toString(numLayers));
     onResolutionChanged();
+    reloadShaders();
 }
 
 void MLABRenderer::reloadShaders() {
     reloadGatherShader();
     reloadResolveShader();
-
-    clearShader = sgl::ShaderManager->getShaderProgram({"MLABClear.Vertex", "MLABClear.Fragment"});
-    if (clearRenderData) {
-        clearRenderData = clearRenderData->copy(clearShader);
-    }
+    clearRasterPass->setShaderDirty();
 }
 
 void MLABRenderer::reloadResolveShader() {
-    sgl::ShaderManager->invalidateShaderCache();
-    resolveShader = sgl::ShaderManager->getShaderProgram({"MLABResolve.Vertex", "MLABResolve.Fragment"});
-    if (blitRenderData) {
-        blitRenderData = blitRenderData->copy(resolveShader);
-    }
+    resolveRasterPass->setShaderDirty();
 }
 
 void MLABRenderer::reloadGatherShader() {
-    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_SYNC_FRAGMENT_SHADER_INTERLOCK", "");
-        if (!useOrderedFragmentShaderInterlock) {
-            sgl::ShaderManager->addPreprocessorDefine("INTERLOCK_UNORDERED", "");
-        }
-    } else if (syncMode == SYNC_SPINLOCK) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_SYNC_SPINLOCK", "");
-        // Do not discard while keeping the spinlock locked.
-        sgl::ShaderManager->addPreprocessorDefine("GATHER_NO_DISCARD", "");
-    }
-
-    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"MLABGather.glsl\"");
-
     LineRenderer::reloadGatherShader();
-    gatherShader = lineData->reloadGatherShaderOpenGL();
-    if (/* canCopyShaderAttributes && */ shaderAttributes) {
-        shaderAttributes = shaderAttributes->copy(gatherShader);
-    }
-
-    sgl::ShaderManager->removePreprocessorDefine("OIT_GATHER_HEADER");
-
-    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_SYNC_FRAGMENT_SHADER_INTERLOCK");
-        if (!useOrderedFragmentShaderInterlock) {
-            sgl::ShaderManager->removePreprocessorDefine("INTERLOCK_UNORDERED");
-        }
-    } else if (syncMode == SYNC_SPINLOCK) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_SYNC_SPINLOCK");
-        sgl::ShaderManager->removePreprocessorDefine("GATHER_NO_DISCARD");
-    }
 }
 
 void MLABRenderer::setNewState(const InternalState& newState) {
     currentStateName = newState.name;
     newState.rendererSettings.getValueOpt("numLayers", numLayers);
-    newState.rendererSettings.getValueOpt("useStencilBuffer", useStencilBuffer);
 
     bool recompileGatherShader = false;
     if (newState.rendererSettings.getValueOpt(
@@ -179,10 +136,8 @@ void MLABRenderer::setNewState(const InternalState& newState) {
 
     timerDataIsWritten = false;
     if ((*sceneData->performanceMeasurer) && !timerDataIsWritten) {
-        if (timer) {
-            delete timer;
-        }
-        timer = new sgl::TimerGL;
+        timer = {};
+        timer = std::make_shared<sgl::vk::Timer>(renderer);
         // TODO
         //(*sceneData->performanceMeasurer)->setMlabTimer(timer);
     }
@@ -191,12 +146,56 @@ void MLABRenderer::setNewState(const InternalState& newState) {
 void MLABRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
 
-    // Unload old data.
-    shaderAttributes = sgl::ShaderAttributesPtr();
-    shaderAttributes = lineData->getGatherShaderAttributesOpenGL(gatherShader);
-
     dirty = false;
     reRender = true;
+}
+
+void MLABRenderer::getVulkanShaderPreprocessorDefines(
+        std::map<std::string, std::string> &preprocessorDefines) {
+    LineRenderer::getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    preprocessorDefines.insert(std::make_pair("OIT_GATHER_HEADER", "\"MLABGather.glsl\""));
+    preprocessorDefines.insert(std::make_pair("MAX_NUM_LAYERS", sgl::toString(numLayers)));
+    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
+        preprocessorDefines.insert(std::make_pair("__extensions", "GL_ARB_fragment_shader_interlock"));
+        preprocessorDefines.insert(std::make_pair("USE_SYNC_FRAGMENT_SHADER_INTERLOCK", ""));
+        if (!useOrderedFragmentShaderInterlock) {
+            preprocessorDefines.insert(std::make_pair("INTERLOCK_UNORDERED", ""));
+        }
+    } else if (syncMode == SYNC_SPINLOCK) {
+        preprocessorDefines.insert(std::make_pair("USE_SYNC_SPINLOCK", ""));
+        // Do not discard while keeping the spinlock locked.
+        preprocessorDefines.insert(std::make_pair("GATHER_NO_DISCARD", ""));
+    }
+}
+
+void MLABRenderer::setGraphicsPipelineInfo(
+        sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) {
+    pipelineInfo.setColorWriteEnabled(false);
+    pipelineInfo.setDepthWriteEnabled(false);
+}
+
+void MLABRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) {
+    LineRenderer::setRenderDataBindings(renderData);
+    renderData->setStaticBufferOptional(fragmentBuffer, "FragmentNodes");
+    renderData->setStaticBufferOptional(uniformDataBuffer, "UniformDataBuffer");
+    if (syncMode == SYNC_SPINLOCK) {
+        renderData->setStaticBufferOptional(spinlockViewportBuffer, "SpinlockViewportBuffer");
+    }
+}
+
+void MLABRenderer::updateVulkanUniformBuffers() {
+}
+
+void MLABRenderer::setFramebufferAttachments(
+        sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) {
+    sgl::vk::AttachmentState attachmentState;
+    attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachmentState.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachmentState.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    framebuffer->setColorAttachment(
+            (*sceneData->sceneTexture)->getImageView(), 0, attachmentState,
+            sceneData->clearColor->getFloatColorRGBA());
 }
 
 void MLABRenderer::reallocateFragmentBuffer() {
@@ -209,7 +208,8 @@ void MLABRenderer::reallocateFragmentBuffer() {
             (sizeof(uint32_t) + sizeof(float)) * size_t(numLayers) * size_t(paddedWidth) * size_t(paddedHeight);
     if (fragmentBufferSizeBytes >= (1ull << 32ull)) {
         sgl::Logfile::get()->writeError(
-                std::string() + "Fragment buffer size was larger than or equal to 4GiB. Clamping to 4GiB.");
+                std::string() + "Fragment buffer size was larger than or equal to 4GiB. Clamping to 4GiB.",
+                false);
         fragmentBufferSizeBytes = (1ull << 32ull) - 12ull;
     } else {
         sgl::Logfile::get()->writeInfo(
@@ -221,9 +221,10 @@ void MLABRenderer::reallocateFragmentBuffer() {
         (*sceneData->performanceMeasurer)->setCurrentAlgorithmBufferSizeBytes(fragmentBufferSizeBytes);
     }
 
-    fragmentBuffer = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
-    fragmentBuffer = sgl::Renderer->createGeometryBuffer(
-            fragmentBufferSizeBytes, nullptr, sgl::SHADER_STORAGE_BUFFER);
+    fragmentBuffer = {}; // Delete old data first (-> refcount 0)
+    fragmentBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), fragmentBufferSizeBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     updateSyncMode();
 
@@ -242,6 +243,21 @@ void MLABRenderer::onResolutionChanged() {
     getScreenSizeWithTiling(paddedWindowWidth, paddedWindowHeight);
 
     reallocateFragmentBuffer();
+
+    lineRasterPass->recreateSwapchain(width, height);
+    if (hullRasterPass) {
+        hullRasterPass->recreateSwapchain(width, height);
+    }
+
+    resolveRasterPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
+    resolveRasterPass->recreateSwapchain(*sceneData->viewportWidth, *sceneData->viewportHeight);
+
+    clearRasterPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
+    clearRasterPass->recreateSwapchain(*sceneData->viewportWidth, *sceneData->viewportHeight);
+}
+
+void MLABRenderer::onClearColorChanged() {
+    resolveRasterPass->setAttachmentClearColor(sceneData->clearColor->getFloatColorRGBA());
 }
 
 void MLABRenderer::render() {
@@ -254,101 +270,38 @@ void MLABRenderer::render() {
 }
 
 void MLABRenderer::setUniformData() {
-    sgl::ShaderManager->bindShaderStorageBuffer(0, fragmentBuffer);
-    if (syncMode == SYNC_SPINLOCK) {
-        sgl::ShaderManager->bindShaderStorageBuffer(1, spinlockViewportBuffer);
-    }
-
-    gatherShader->setUniform("viewportW", paddedWindowWidth);
-    gatherShader->setUniform("cameraPosition", sceneData->camera->getPosition());
-    gatherShader->setUniform("lineWidth", lineWidth);
-    if (gatherShader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        gatherShader->setUniform("backgroundColor", backgroundColor);
-    }
-    if (gatherShader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
-        gatherShader->setUniform("foregroundColor", foregroundColor);
-    }
-    lineData->setUniformGatherShaderDataOpenGL(gatherShader);
-    setUniformData_Pass(gatherShader);
-
-    if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
-        gatherShaderHull->setUniform("viewportW", paddedWindowWidth);
-    }
-
-    resolveShader->setUniform("viewportW", paddedWindowWidth);
-    clearShader->setUniform("viewportW", paddedWindowWidth);
+    uniformData.viewportW = paddedWindowWidth;
+    uniformDataBuffer->updateData(
+            sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void MLABRenderer::clear() {
-    glDepthMask(GL_FALSE);
-
-    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    // In the clear and gather pass, we just want to write data to an SSBO.
-    glDisable(GL_DEPTH_TEST);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
     if (clearBitSet) {
-        sgl::Renderer->render(clearRenderData);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        clearRasterPass->render();
+        renderer->insertMemoryBarrier(
+                VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
         clearBitSet = false;
     }
 }
 
 void MLABRenderer::gather() {
-    // Enable the depth test, but disable depth write for gathering.
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
+    //renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
+    //renderer->setViewMatrix(sceneData->camera->getViewMatrix());
+    //renderer->setModelMatrix(sgl::matrixIdentity());
 
-    // We can use the stencil buffer to mask used pixels for the resolve pass.
-    if (useStencilBuffer) {
-        glEnable(GL_STENCIL_TEST);
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
-        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-        glStencilMask(0xFF);
-        glClear(GL_STENCIL_BUFFER_BIT);
-    }
-
-    sgl::Renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix(sceneData->camera->getViewMatrix());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-    // Now, the final gather step.
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
-        glDisable(GL_CULL_FACE);
-    }
-    sgl::Renderer->render(shaderAttributes);
+    lineRasterPass->render();
     renderHull();
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
-        glEnable(GL_CULL_FACE);
-    }
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void MLABRenderer::resolve() {
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glDisable(GL_DEPTH_TEST);
-
-    if (useStencilBuffer) {
-        glStencilFunc(GL_EQUAL, 1, 0xFF);
-        glStencilMask(0x00);
-    }
-
-    sgl::Renderer->render(blitRenderData);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-    glDisable(GL_STENCIL_TEST);
-    glDepthMask(GL_TRUE);
+    resolveRasterPass->render();
 }
 
 void MLABRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
@@ -356,7 +309,6 @@ void MLABRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
 
     if (propertyEditor.addSliderInt("Num Layers", &numLayers, 1, 64)) {
         updateLayerMode();
-        reloadShaders();
         reRender = true;
     }
     const char *syncModeNames[] = { "No Sync (Unsafe)", "Fragment Shader Interlock", "Spinlock" };
@@ -378,9 +330,6 @@ void MLABRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
     }
     if (propertyEditor.addButton("Reload Gather Shader", "Reload")) {
         reloadGatherShader();
-        if (shaderAttributes) {
-            shaderAttributes = shaderAttributes->copy(gatherShader);
-        }
         reRender = true;
     }
 }

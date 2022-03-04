@@ -29,11 +29,9 @@
 #ifndef LINEVIS_MLABBUCKETRENDERER_HPP
 #define LINEVIS_MLABBUCKETRENDERER_HPP
 
-#include <Graphics/Shader/ShaderAttributes.hpp>
-#include <Graphics/OpenGL/TimerGL.hpp>
-
-#include "SyncMode.hpp"
 #include "MLABRenderer.hpp"
+
+class MinDepthRasterPass;
 
 /**
  * Renders all lines with transparency values determined by the transfer function set by the user.
@@ -63,6 +61,14 @@ public:
      */
     void setLineData(LineDataPtr& lineData, bool isNewData) override;
 
+    /// Sets the shader preprocessor defines used by the renderer.
+    void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) override;
+    void setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) override;
+    void updateVulkanUniformBuffers() override;
+
+    /// Called when the resolution of the application window has changed.
+    void onResolutionChanged() override;
+
     // Renders the object to the scene framebuffer.
     void render() override;
     /// Renders the entries in the property editor.
@@ -78,9 +84,28 @@ protected:
     void gather();
     void computeDepthRange();
 
-    sgl::ShaderProgramPtr minDepthPassShader;
-    sgl::ShaderAttributesPtr minDepthPassShaderAttributes;
-    sgl::GeometryBufferPtr minDepthBuffer;
+    std::shared_ptr<MinDepthRasterPass> minDepthRasterPass;
+    sgl::vk::BufferPtr minDepthBuffer;
+
+    // Uniform data buffer shared by all shaders.
+    struct UniformBucketData {
+        // Range of logarithmic depth.
+        float logDepthMin{};
+        float logDepthMax{};
+
+        float lowerBackBufferOpacity{}; // default 0.25
+        float upperBackBufferOpacity{}; // default 0.98
+    };
+    UniformBucketData uniformBucketData = {};
+    sgl::vk::BufferPtr uniformBucketDataBuffer;
+};
+
+class MinDepthRasterPass : public LineRasterPass {
+public:
+    explicit MinDepthRasterPass(LineRenderer* lineRenderer);
+
+protected:
+    void loadShader() override;
 };
 
 #endif //LINEVIS_MLABBUCKETRENDERER_HPP

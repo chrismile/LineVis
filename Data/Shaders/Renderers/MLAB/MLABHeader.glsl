@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2018 - 2021, Christoph Neuhauser
+ * Copyright (c) 2018 - 2022, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,27 +26,31 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// See https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_fragment_shader_interlock.txt
-#extension GL_ARB_fragment_shader_interlock : require
+#extension GL_EXT_control_flow_attributes : require
 
-#if defined(USE_SYNC_FRAGMENT_SHADER_INTERLOCK) && defined(INTERLOCK_UNORDERED)
+#if defined(USE_SYNC_FRAGMENT_SHADER_INTERLOCK) && !defined(RESOLVE_PASS)
+// See https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_fragment_shader_interlock.txt
+//#extension GL_ARB_fragment_shader_interlock : require // Set in code using __extensions.
+#ifdef PIXEL_SYNC_UNORDERED
 // Use early z-test to cull transparent fragments occluded by opaque fragments.
 // Additionaly, use fragment interlock.
 layout(early_fragment_tests, pixel_interlock_unordered) in;
-#elif defined(USE_SYNC_FRAGMENT_SHADER_INTERLOCK)
+#else
 // Use early z-test to cull transparent fragments occluded by opaque fragments.
 // Additionaly, use fragment interlock.
 layout(early_fragment_tests, pixel_interlock_ordered) in;
 #endif
+#else
+// Use early z-test to cull transparent fragments occluded by opaque fragments.
+layout(early_fragment_tests) in;
+#endif
 
 #if defined(USE_SYNC_SPINLOCK)
-layout(early_fragment_tests, pixel_interlock_ordered) in;
 // Viewport-sized spinlock buffer.
 // 0 means pixel is unlocked, and 1 means pixel is locked by a fragment shader invocation.
-layout (std430, binding = 1) coherent buffer SpinlockViewportBuffer {
+layout (std430, binding = 0) coherent buffer SpinlockViewportBuffer {
     uint spinlockViewportBuffer[];
 };
-
 #endif
 
 in vec4 gl_FragCoord;
@@ -99,14 +103,14 @@ struct MLABFragmentNode {
     uint premulColor;
 };
 
-layout(binding = 0) uniform UniformDataBuffer {
+layout(binding = 1) uniform UniformDataBuffer {
     // Size of the viewport in x direction (in pixels).
     int viewportW;
 };
 
 // Stores viewportW * viewportH * MAX_NUM_LAYERS fragments.
 // Access fragment i at screen position (x,y) using "nodes[w*npp*y + npp*x + i]".
-layout(std430, binding = 1) coherent buffer FragmentNodes {
+layout(std430, binding = 2) coherent buffer FragmentNodes {
     MLABFragmentNode_compressed nodes[];
 };
 
@@ -116,10 +120,22 @@ struct MinDepthNode {
     float minDepth;
     float minOpaqueDepth;
 };
-
-layout(std430, binding = 2) coherent buffer MinDepthBuffer {
+layout(std430, binding = 3) coherent buffer MinDepthBuffer {
     MinDepthNode depthBuffer[];
 };
+layout(binding = 4) uniform UniformBucketDataBuffer {
+    // Range of logarithmic depth.
+    float logDepthMin;
+    float logDepthMax;
+
+    float lowerBackBufferOpacity; // default 0.25
+    float upperBackBufferOpacity; // default 0.98
+};
+// Maps depth to range [0,1] with logarithmic scale.
+float logDepthWarp(float z) {
+    return (log(z) - logDepthMin) / (logDepthMax - logDepthMin);
+    //return (z - exp(logmin)) / (exp(logmax) - exp(logmin));
+}
 #endif
 
 

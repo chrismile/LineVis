@@ -41,9 +41,18 @@ ResolvePass::ResolvePass(LineRenderer* lineRenderer, std::vector<std::string> cu
 void ResolvePass::loadShader() {
     std::map<std::string, std::string> preprocessorDefines;
     lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+
+    // Resolve passes don't need fragment shader interlock.
+    auto it = preprocessorDefines.find("__extensions");
+    if (it != preprocessorDefines.end()) {
+        if (it->second == "GL_ARB_fragment_shader_interlock") {
+            preprocessorDefines.erase(it);
+        }
+    }
+    preprocessorDefines.insert(std::make_pair("RESOLVE_PASS", ""));
+
     shaderStages = sgl::vk::ShaderManager->getShaderStages(shaderIds, preprocessorDefines);
 }
-
 
 void ResolvePass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
     rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);

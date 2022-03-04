@@ -26,7 +26,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
 #include "LinkedListHeader.glsl"
 
 layout(location = 0) out vec4 fragColor;

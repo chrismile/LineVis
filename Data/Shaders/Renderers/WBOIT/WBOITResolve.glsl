@@ -1,6 +1,6 @@
 -- Vertex
 
-#version 430 core
+#version 450 core
 
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in vec2 vertexTexCoord;
@@ -13,7 +13,7 @@ void main() {
 
 -- Fragment
 
-#version 430 core
+#version 450 core
 
 /**
  * Based on: Morgan McGuire and Louis Bavoil, Weighted Blended Order-Independent Transparency, Journal of Computer

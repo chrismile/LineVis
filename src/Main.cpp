@@ -91,6 +91,7 @@ int main(int argc, char *argv[]) {
     optionalDeviceExtensions.insert(
             optionalDeviceExtensions.end(),
             raytracingDeviceExtensions.begin(), raytracingDeviceExtensions.end());
+    optionalDeviceExtensions.push_back(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME);
 
     sgl::vk::Instance* instance = sgl::AppSettings::get()->getVulkanInstance();
     sgl::vk::Device* device = new sgl::vk::Device;

@@ -42,7 +42,8 @@ public:
 
     // Public interface.
     void setLineData(LineDataPtr& lineData, bool isNewData);
-    [[nodiscard]]  inline bool getIsDataEmpty() const { return rasterData && rasterData->getNumVertices() == 0; }
+    [[nodiscard]] inline bool getIsDataEmpty() const { return rasterData && rasterData->getNumVertices() == 0; }
+    inline void setUpdateUniformData(bool updateUniforms) { updateUniformData = updateUniforms; }
     /**
      * This function must only be called when framebuffer compatibility can be ensured.
      * Otherwise, please use @see recreateSwapchain.
@@ -61,6 +62,7 @@ protected:
     SceneData* sceneData;
     sgl::CameraPtr* camera;
     LineDataPtr lineData;
+    bool updateUniformData = true;
 };
 
 #endif //LINEVIS_LINERASTERPASS_HPP

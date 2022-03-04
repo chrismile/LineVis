@@ -28,7 +28,7 @@
 
 -- VBO.Vertex
 
-#version 430 core
+#version 450 core
 
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in float vertexAttribute;
@@ -111,7 +111,7 @@ void main() {
 
 -- VBO.Geometry
 
-#version 430 core
+#version 450 core
 
 layout(lines) in;
 layout(triangle_strip, max_vertices = 32) out;
@@ -847,7 +847,7 @@ void main() {
 
 #ifdef USE_AMBIENT_OCCLUSION
     //colorOut = vec4(getAoFactor(fragmentVertexId, phi), 0.0, 0.0, 1.0);
-    colorOut = vec4(vec3(getAoFactor(screenSpacePosition)), 1.0);
+    //colorOut = vec4(vec3(getAoFactor(screenSpacePosition)), 1.0);
 #endif
 
 #if defined(DIRECT_BLIT_GATHER)

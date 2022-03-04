@@ -88,12 +88,14 @@ void LineRasterPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::Grap
 }
 
 void LineRasterPass::_render() {
-    lineData->updateVulkanUniformBuffers(lineRenderer, renderer);
-    lineRenderer->updateVulkanUniformBuffers();
+    if (updateUniformData) {
+        lineData->updateVulkanUniformBuffers(lineRenderer, renderer);
+        lineRenderer->updateVulkanUniformBuffers();
 
-    renderer->insertMemoryBarrier(
-            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT);
+        renderer->insertMemoryBarrier(
+                VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT);
+    }
 
     RasterPass::_render();
 }

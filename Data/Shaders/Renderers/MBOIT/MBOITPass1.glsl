@@ -9,7 +9,6 @@
  * Changes for the OpenGL port: Copyright 2018 - 2019 Christoph Neuhauser
  */
 
-
 #define MOMENT_GENERATION 1
 #define MOMENT_BASED_OIT
 

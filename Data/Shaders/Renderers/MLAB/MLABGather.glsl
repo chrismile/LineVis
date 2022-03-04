@@ -81,7 +81,6 @@ void gatherFragment(vec4 color) {
     MLABFragmentNode nodeArray[MAX_NUM_LAYERS+1];
 
     // Read data from SSBO
-    memoryBarrierBuffer();
     loadFragmentNodes(pixelIndex, nodeArray);
 
     // Insert node to list (or merge last two nodes)
@@ -89,6 +88,7 @@ void gatherFragment(vec4 color) {
 
     // Write back data to SSBO
     storeFragmentNodes(pixelIndex, nodeArray);
+    memoryBarrierBuffer();
 }
 
 void gatherFragmentCustomDepth(vec4 color, float depth) {
@@ -112,7 +112,6 @@ void gatherFragmentCustomDepth(vec4 color, float depth) {
     MLABFragmentNode nodeArray[MAX_NUM_LAYERS+1];
 
     // Read data from SSBO
-    memoryBarrierBuffer();
     loadFragmentNodes(pixelIndex, nodeArray);
 
     // Insert node to list (or merge last two nodes)
@@ -120,4 +119,5 @@ void gatherFragmentCustomDepth(vec4 color, float depth) {
 
     // Write back data to SSBO
     storeFragmentNodes(pixelIndex, nodeArray);
+    memoryBarrierBuffer();
 }

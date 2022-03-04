@@ -29,11 +29,11 @@
 #ifndef STRESSLINEVIS_MLABRENDERER_HPP
 #define STRESSLINEVIS_MLABRENDERER_HPP
 
-#include <Graphics/Shader/ShaderAttributes.hpp>
-#include <Graphics/OpenGL/TimerGL.hpp>
+#include <Graphics/Vulkan/Utils/Timer.hpp>
 
 #include "SyncMode.hpp"
 #include "Renderers/LineRenderer.hpp"
+#include "Renderers/ResolvePass.hpp"
 
 /**
  * Renders all lines with transparency values determined by the transfer function set by the user.
@@ -54,7 +54,7 @@ public:
     MLABRenderer(
             const std::string& windowName, SceneData* sceneData, sgl::TransferFunctionWindow &transferFunctionWindow);
     void initialize() override;
-    ~MLABRenderer() override {}
+    ~MLABRenderer() override = default;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_MLAB; }
 
     /**
@@ -63,8 +63,19 @@ public:
      */
     void setLineData(LineDataPtr& lineData, bool isNewData) override;
 
+    /// Sets the shader preprocessor defines used by the renderer.
+    void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) override;
+    void setGraphicsPipelineInfo(
+            sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) override;
+    void setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) override;
+    void updateVulkanUniformBuffers() override;
+    void setFramebufferAttachments(sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) override;
+
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
+
+    /// Called when the background clear color was changed.
+    void onClearColorChanged() override;
 
     // Renders the object to the scene framebuffer.
     void render() override;
@@ -86,20 +97,25 @@ protected:
     void reloadGatherShader() override;
     void reloadResolveShader();
 
-    // Shaders.
-    sgl::ShaderProgramPtr gatherShader;
-    sgl::ShaderProgramPtr clearShader;
-    sgl::ShaderProgramPtr resolveShader;
-
-    // Render data.
-    sgl::ShaderAttributesPtr shaderAttributes;
-    // Blit data (ignores model-view-projection matrix and uses normalized device coordinates).
-    sgl::ShaderAttributesPtr blitRenderData;
-    sgl::ShaderAttributesPtr clearRenderData;
+    // Render passes.
+    std::shared_ptr<ResolvePass> resolveRasterPass;
+    std::shared_ptr<ResolvePass> clearRasterPass;
 
     // Stored fragment data.
-    sgl::GeometryBufferPtr fragmentBuffer;
-    sgl::GeometryBufferPtr spinlockViewportBuffer; ///!< if (syncMode == SYNC_SPINLOCK)
+    sgl::vk::BufferPtr fragmentBuffer;
+    sgl::vk::BufferPtr spinlockViewportBuffer; ///< if (syncMode == SYNC_SPINLOCK)
+
+    // Uniform data buffer shared by all shaders.
+    struct UniformData {
+        // Size of the viewport in x direction (in pixels).
+        int viewportW{};
+
+        // Range of logarithmic depth, used by child class MLABBucketRenderer.
+        float logDepthMin{};
+        float logDepthMax{};
+    };
+    UniformData uniformData = {};
+    sgl::vk::BufferPtr uniformDataBuffer;
 
     // Window data.
     int windowWidth = 0, windowHeight = 0;
@@ -110,12 +126,11 @@ protected:
     int frameCounter = 0;
     std::string currentStateName;
     bool timerDataIsWritten = true;
-    sgl::TimerGL* timer = nullptr;
+    sgl::vk::TimerPtr timer;
 
     // MLAB settings.
-    static bool useStencilBuffer;
     int numLayers = 8;
-    SyncMode syncMode; ///!< Initialized depending on system capabilities.
+    SyncMode syncMode = SYNC_FRAGMENT_SHADER_INTERLOCK; ///< Initialized depending on system capabilities.
     bool useOrderedFragmentShaderInterlock = true;
 };
 

@@ -33,6 +33,8 @@
 #include <Graphics/Renderer.hpp>
 #include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/OpenGL/Shader.hpp>
+#include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
@@ -51,48 +53,21 @@ MLABBucketRenderer::MLABBucketRenderer(
 }
 
 void MLABBucketRenderer::initialize() {
-    sgl::ShaderManager->addPreprocessorDefine("MLAB_MIN_DEPTH_BUCKETS", "");
-    sgl::ShaderManager->addPreprocessorDefine("USE_SCREEN_SPACE_POSITION", "");
     MLABRenderer::initialize();
+    uniformBucketDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(UniformBucketData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    minDepthRasterPass = std::make_shared<MinDepthRasterPass>(this);
+
+    // Uniform updating is done by the minimum depth raster pass.
+    lineRasterPass->setUpdateUniformData(false);
 }
 
-MLABBucketRenderer::~MLABBucketRenderer() {
-    sgl::ShaderManager->removePreprocessorDefine("USE_SCREEN_SPACE_POSITION");
-    sgl::ShaderManager->removePreprocessorDefine("MLAB_MIN_DEPTH_BUCKETS");
-}
+MLABBucketRenderer::~MLABBucketRenderer() = default;
 
 void MLABBucketRenderer::reloadGatherShader() {
     MLABRenderer::reloadGatherShader();
-
-    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_SYNC_FRAGMENT_SHADER_INTERLOCK", "");
-        if (!useOrderedFragmentShaderInterlock) {
-            sgl::ShaderManager->addPreprocessorDefine("INTERLOCK_UNORDERED", "");
-        }
-    } else if (syncMode == SYNC_SPINLOCK) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_SYNC_SPINLOCK", "");
-        // Do not discard while keeping the spinlock locked.
-        sgl::ShaderManager->addPreprocessorDefine("GATHER_NO_DISCARD", "");
-    }
-
-    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"MinDepthPass.glsl\"");
-
-    minDepthPassShader = lineData->reloadGatherShaderOpenGL();
-    if (/* canCopyShaderAttributes && */ minDepthPassShaderAttributes) {
-        minDepthPassShaderAttributes = minDepthPassShaderAttributes->copy(minDepthPassShader);
-    }
-
-    sgl::ShaderManager->removePreprocessorDefine("OIT_GATHER_HEADER");
-
-    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_SYNC_FRAGMENT_SHADER_INTERLOCK");
-        if (!useOrderedFragmentShaderInterlock) {
-            sgl::ShaderManager->removePreprocessorDefine("INTERLOCK_UNORDERED");
-        }
-    } else if (syncMode == SYNC_SPINLOCK) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_SYNC_SPINLOCK");
-        sgl::ShaderManager->removePreprocessorDefine("GATHER_NO_DISCARD");
-    }
+    minDepthRasterPass->setDataDirty();
 }
 
 void MLABBucketRenderer::setNewState(const InternalState& newState) {
@@ -103,10 +78,24 @@ void MLABBucketRenderer::setNewState(const InternalState& newState) {
 
 void MLABBucketRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     MLABRenderer::setLineData(lineData, isNewData);
+    minDepthRasterPass->setLineData(lineData, isNewData);
+}
 
-    // Unload old data.
-    minDepthPassShaderAttributes = sgl::ShaderAttributesPtr();
-    minDepthPassShaderAttributes = lineData->getGatherShaderAttributesOpenGL(minDepthPassShader);
+void MLABBucketRenderer::getVulkanShaderPreprocessorDefines(
+        std::map<std::string, std::string> &preprocessorDefines) {
+    MLABRenderer::getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    preprocessorDefines["OIT_GATHER_HEADER"] = "\"MLABBucketGather.glsl\"";
+    preprocessorDefines.insert(std::make_pair("MLAB_MIN_DEPTH_BUCKETS", ""));
+    preprocessorDefines.insert(std::make_pair("USE_SCREEN_SPACE_POSITION", ""));
+}
+
+void MLABBucketRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) {
+    MLABRenderer::setRenderDataBindings(renderData);
+    renderData->setStaticBufferOptional(minDepthBuffer, "MinDepthBuffer");
+    renderData->setStaticBufferOptional(uniformBucketDataBuffer, "UniformBucketDataBuffer");
+}
+
+void MLABBucketRenderer::updateVulkanUniformBuffers() {
 }
 
 void MLABBucketRenderer::reallocateFragmentBuffer() {
@@ -119,7 +108,8 @@ void MLABBucketRenderer::reallocateFragmentBuffer() {
             (sizeof(uint32_t) + sizeof(float)) * size_t(numLayers) * size_t(paddedWidth) * size_t(paddedHeight);
     if (fragmentBufferSizeBytes >= (1ull << 32ull)) {
         sgl::Logfile::get()->writeError(
-                std::string() + "Fragment buffer size was larger than or equal to 4GiB. Clamping to 4GiB.");
+                std::string() + "Fragment buffer size was larger than or equal to 4GiB. Clamping to 4GiB.",
+                false);
         fragmentBufferSizeBytes = (1ull << 32ull) - 12ull;
     } else {
         sgl::Logfile::get()->writeInfo(
@@ -134,13 +124,15 @@ void MLABBucketRenderer::reallocateFragmentBuffer() {
                 fragmentBufferSizeBytes + minDepthBufferSizeBytes);
     }
 
-    fragmentBuffer = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
-    fragmentBuffer = sgl::Renderer->createGeometryBuffer(
-            fragmentBufferSizeBytes, NULL, sgl::SHADER_STORAGE_BUFFER);
+    fragmentBuffer = {}; // Delete old data first (-> refcount 0)
+    fragmentBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), fragmentBufferSizeBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
-    minDepthBuffer = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
-    minDepthBuffer = sgl::Renderer->createGeometryBuffer(
-            minDepthBufferSizeBytes, nullptr, sgl::SHADER_STORAGE_BUFFER);
+    minDepthBuffer = {}; // Delete old data first (-> refcount 0)
+    minDepthBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), minDepthBufferSizeBytes, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     updateSyncMode();
 
@@ -148,69 +140,49 @@ void MLABBucketRenderer::reallocateFragmentBuffer() {
     clearBitSet = true;
 }
 
+void MLABBucketRenderer::onResolutionChanged() {
+    MLABRenderer::onResolutionChanged();
+
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
+    minDepthRasterPass->recreateSwapchain(width, height);
+}
+
 void MLABBucketRenderer::render() {
     LineRenderer::renderBase();
 
-    setUniformData();
     computeDepthRange();
+    setUniformData();
     clear();
     gather();
     resolve();
 }
 
 void MLABBucketRenderer::setUniformData() {
-    MLABRenderer::setUniformData();
-    sgl::ShaderManager->bindShaderStorageBuffer(1, minDepthBuffer);
+    uniformBucketData.lowerBackBufferOpacity = lowerBackBufferOpacity;
+    uniformBucketData.upperBackBufferOpacity = upperBackBufferOpacity;
+    uniformBucketDataBuffer->updateData(
+            sizeof(UniformBucketData), &uniformBucketData,
+            renderer->getVkCommandBuffer());
 
-    minDepthPassShader->setUniform("viewportW", paddedWindowWidth);
-    minDepthPassShader->setUniform("lineWidth", lineWidth);
-    if (minDepthPassShader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        minDepthPassShader->setUniform("backgroundColor", backgroundColor);
-    }
-    if (minDepthPassShader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
-        minDepthPassShader->setUniform("foregroundColor", foregroundColor);
-    }
-    minDepthPassShader->setUniform("lowerBackBufferOpacity", lowerBackBufferOpacity);
-    minDepthPassShader->setUniform("upperBackBufferOpacity", upperBackBufferOpacity);
-    lineData->setUniformGatherShaderDataOpenGL(minDepthPassShader);
+    MLABRenderer::setUniformData();
 }
 
 void MLABBucketRenderer::gather() {
-    // Enable the depth test, but disable depth write for gathering.
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
+    //renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
+    //renderer->setViewMatrix(sceneData->camera->getViewMatrix());
+    //renderer->setModelMatrix(sgl::matrixIdentity());
 
-    // We can use the stencil buffer to mask used pixels for the resolve pass.
-    if (useStencilBuffer) {
-        glEnable(GL_STENCIL_TEST);
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
-        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-        glStencilMask(0xFF);
-        glClear(GL_STENCIL_BUFFER_BIT);
-    }
+    minDepthRasterPass->render();
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
-    sgl::Renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix(sceneData->camera->getViewMatrix());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-    // Now, the final gather step.
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
-        glDisable(GL_CULL_FACE);
-    }
-
-    sgl::Renderer->render(minDepthPassShaderAttributes);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-    sgl::Renderer->render(shaderAttributes);
+    lineRasterPass->render();
     renderHull();
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
-        glEnable(GL_CULL_FACE);
-    }
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void MLABBucketRenderer::computeDepthRange() {
@@ -226,8 +198,8 @@ void MLABBucketRenderer::computeDepthRange() {
     maxViewZ = std::max(maxViewZ, sceneData->camera->getNearClipDistance());
     float logmin = log(minViewZ);
     float logmax = log(maxViewZ);
-    minDepthPassShader->setUniform("logDepthMin", logmin);
-    minDepthPassShader->setUniform("logDepthMax", logmax);
+    uniformBucketData.logDepthMin = logmin;
+    uniformBucketData.logDepthMax = logmax;
 }
 
 void MLABBucketRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
@@ -240,4 +212,18 @@ void MLABBucketRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& prope
     if (propertyEditor.addSliderFloat("Back Bucket Upper Opacity", &upperBackBufferOpacity, 0.0f, 1.0f)) {
         reRender = true;
     }
+}
+
+
+
+MinDepthRasterPass::MinDepthRasterPass(LineRenderer* lineRenderer) : LineRasterPass(lineRenderer) {
+}
+
+void MinDepthRasterPass::loadShader() {
+    std::map<std::string, std::string> preprocessorDefines;
+    lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    preprocessorDefines["OIT_GATHER_HEADER"] = "\"MinDepthPass.glsl\"";
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            lineData->getShaderModuleNames(), preprocessorDefines);
 }
