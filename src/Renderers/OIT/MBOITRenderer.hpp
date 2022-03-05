@@ -29,9 +29,13 @@
 #ifndef LINEVIS_MBOITRENDERER_HPP
 #define LINEVIS_MBOITRENDERER_HPP
 
-#include "Renderers/LineRenderer.hpp"
 #include "SyncMode.hpp"
 #include "MBOITUtils.hpp"
+#include "Renderers/LineRenderer.hpp"
+#include "Renderers/ResolvePass.hpp"
+
+class MBOITPass1;
+class MBOITPass2;
 
 /**
  * Renders all lines with transparency values determined by the transfer function set by the user.
@@ -47,6 +51,7 @@
 class MBOITRenderer : public LineRenderer {
 public:
     MBOITRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+    void initialize() override;
     ~MBOITRenderer() override = default;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_MBOIT; }
 
@@ -56,8 +61,19 @@ public:
      */
     void setLineData(LineDataPtr& lineData, bool isNewData) override;
 
+    /// Sets the shader preprocessor defines used by the renderer.
+    void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) override;
+    void setGraphicsPipelineInfo(
+            sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) override;
+    void setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) override;
+    void updateVulkanUniformBuffers() override;
+    void setFramebufferAttachments(sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) override;
+
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
+
+    /// Called when the background clear color was changed.
+    void onClearColorChanged() override;
 
     // Renders the object to the scene framebuffer.
     void render() override;
@@ -70,48 +86,74 @@ public:
 private:
     void updateSyncMode();
     void updateMomentMode();
-    void setUniformData();
     void computeDepthRange();
+    void setUniformData();
     void gather();
     void resolve();
     void reloadShaders();
     void reloadGatherShader() override;
     void reloadResolveShader();
 
-    sgl::ShaderProgramPtr mboitPass1Shader;
-    sgl::ShaderAttributesPtr shaderAttributesPass1;
-    sgl::ShaderProgramPtr mboitPass2Shader;
-    sgl::ShaderAttributesPtr shaderAttributesPass2;
-    sgl::ShaderProgramPtr blendShader;
+    // Render passes.
+    std::shared_ptr<MBOITPass1> mboitPass1;
+    std::shared_ptr<MBOITPass2> mboitPass2;
+    std::shared_ptr<ResolvePass> resolveRasterPass;
+
+    struct UniformData {
+        // Size of viewport in x direction (in pixels).
+        int viewportW;
+
+        // Range of logarithmic depth.
+        float logDepthMin;
+        float logDepthMax;
+    };
+    UniformData uniformData{};
+    sgl::vk::BufferPtr uniformDataBuffer;
 
     MomentOITUniformData momentUniformData{};
-    sgl::GeometryBufferPtr momentOITUniformBuffer;
+    sgl::vk::BufferPtr momentOITUniformBuffer;
 
-    // Blit data (ignores model-view-projection matrix and uses normalized device coordinates)
-    sgl::ShaderAttributesPtr blitRenderData;
-    //sgl::ShaderAttributesPtr clearRenderData;
+    // Window data.
+    int windowWidth = 0, windowHeight = 0;
+    int paddedWindowWidth = 0, paddedWindowHeight = 0;
 
-    sgl::TexturePtr b0;
-    sgl::TexturePtr b;
-    sgl::TexturePtr bExtra;
-    sgl::TextureSettings textureSettingsB0;
-    sgl::TextureSettings textureSettingsB;
-    sgl::TextureSettings textureSettingsBExtra;
+    sgl::vk::ImageViewPtr b0;
+    sgl::vk::ImageViewPtr b;
+    sgl::vk::ImageViewPtr bExtra;
+    sgl::vk::ImageSettings imageSettingsB0;
+    sgl::vk::ImageSettings imageSettingsB;
+    sgl::vk::ImageSettings imageSettingsBExtra;
+    std::vector<sgl::vk::ImagePtr> momentImageArray;
 
-    sgl::FramebufferObjectPtr blendFBO;
-    sgl::TexturePtr blendRenderTexture;
+    sgl::vk::TexturePtr blendRenderTexture; ///< Accumulator.
 
-    sgl::GeometryBufferPtr spinlockViewportBuffer; ///!< if (syncMode == SYNC_SPINLOCK)
-    SyncMode syncMode; ///!< Initialized depending on system capabilities.
+    sgl::vk::BufferPtr spinlockViewportBuffer; ///< if (syncMode == SYNC_SPINLOCK)
+    SyncMode syncMode; ///< Initialized depending on system capabilities.
     bool useOrderedFragmentShaderInterlock = true;
 
     // Internal mode
-    static bool useStencilBuffer; ///< Use stencil buffer to mask unused pixels.
     static bool usePowerMoments;
     static int numMoments;
     static MBOITPixelFormat pixelFormat;
     static bool USE_R_RG_RGBA_FOR_MBOIT6;
     static float overestimationBeta;
+};
+
+class MBOITPass1 : public LineRasterPass {
+public:
+    explicit MBOITPass1(LineRenderer* lineRenderer);
+
+protected:
+    void loadShader() override;
+};
+
+class MBOITPass2 : public LineRasterPass {
+public:
+    explicit MBOITPass2(LineRenderer* lineRenderer);
+
+protected:
+    void loadShader() override;
+    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
 };
 
 #endif //LINEVIS_MBOITRENDERER_HPP

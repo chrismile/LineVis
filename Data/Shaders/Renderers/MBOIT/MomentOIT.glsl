@@ -1,12 +1,12 @@
 /**
- * This file is part of an OpenGL GLSL port of the HLSL code accompanying the paper "Moment-Based Order-Independent
+ * This file is part of an Vulkan GLSL port of the HLSL code accompanying the paper "Moment-Based Order-Independent
  * Transparency" by Münstermann, Krumpen, Klein, and Peters (http://momentsingraphics.de/?page_id=210).
  * The original code was released in accordance to CC0 (https://creativecommons.org/publicdomain/zero/1.0/).
  *
  * This port is released under the terms of BSD 2-Clause License. For more details please see the LICENSE file in the
  * root directory of this project.
  *
- * Changes for the OpenGL port: Copyright 2018-2019 Christoph Neuhauser
+ * Changes for the Vulkan GLSL port: Copyright 2018-2022 Christoph Neuhauser
  */
 
 /*! \file
@@ -17,20 +17,11 @@
 #ifndef MOMENT_OIT_GLSL
 #define MOMENT_OIT_GLSL
 
-// https://www.khronos.org/opengl/wiki/Interface_Block_(GLSL)#Block_buffer_binding
-#ifndef SHADOW_MAPPING_MOMENTS_GENERATION
-layout(std140, binding = 1) uniform MomentOITUniformData {
+layout(std140, binding = 6) uniform MomentOITUniformData {
     vec4 wrapping_zone_parameters;
     float overestimation;
     float moment_bias;
 } MomentOIT;
-#else
-layout(std140, binding = 2) uniform MomentOITUniformData {
-    vec4 wrapping_zone_parameters;
-    float overestimation;
-    float moment_bias;
-} MomentOIT;
-#endif
 
 #include "MomentMath.glsl"
 
@@ -41,8 +32,6 @@ const float ABSORBANCE_MAX_VALUE = 10.0;
 /*! Generation of moments in case that rasterizer ordered views are used. 
     This includes the case if moments are stored in 16 bits. */
 #if ROV
-
-#ifndef SHADOW_MAPPING_MOMENTS_GENERATION
 
 //RasterizerOrderedTexture2DArray<float> b0 : register(u0);
 layout (binding = 0, r32f) coherent uniform image2DArray b0; // float
@@ -71,32 +60,6 @@ layout (binding = 2, rgba16) coherent uniform image2DArray b_extra;
 layout (binding = 1, rgba16) coherent uniform image2DArray b;
 #endif
 #endif
-
-#else
-
-layout (binding = 3, r32f) coherent uniform image2DArray b0; // float
-#if SINGLE_PRECISION
-#if NUM_MOMENTS == 6
-layout (binding = 4, rg32f) coherent uniform image2DArray b; // vec2
-#if USE_R_RG_RGBA_FOR_MBOIT6
-layout (binding = 5, rgba32f) coherent uniform image2DArray b_extra; // vec4
-#endif
-#else
-layout (binding = 4, rgba32f) coherent uniform image2DArray b; // vec4
-#endif
-#else
-#if NUM_MOMENTS == 6
-layout (binding = 4, rg16) coherent uniform image2DArray b;
-#if USE_R_RG_RGBA_FOR_MBOIT6
-layout (binding = 5, rgba16) coherent uniform image2DArray b_extra;
-#endif
-#else
-layout (binding = 4, rgba16) coherent uniform image2DArray b;
-#endif
-#endif
-
-#endif
-
 
 
 #if !TRIGONOMETRIC

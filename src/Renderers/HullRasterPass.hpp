@@ -45,6 +45,11 @@ public:
     [[nodiscard]] inline bool getIsDataEmpty() const { return rasterData && rasterData->getNumVertices() == 0; }
     void setCustomRenderTarget(const sgl::vk::ImageViewPtr& colorImage, const sgl::vk::ImageViewPtr& depthImage);
     void setAttachmentLoadOp(VkAttachmentLoadOp loadOp);
+    /**
+     * This function must only be called when framebuffer compatibility can be ensured.
+     * Otherwise, please use @see recreateSwapchain.
+     * One use case for this function is changing the clear color.
+     */
     void updateFramebuffer();
     void recreateSwapchain(uint32_t width, uint32_t height) override;
 

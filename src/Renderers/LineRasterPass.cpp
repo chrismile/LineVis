@@ -41,9 +41,13 @@ void LineRasterPass::setLineData(LineDataPtr& lineData, bool isNewData) {
     dataDirty = true;
 }
 
+void LineRasterPass::setAttachmentLoadOp(VkAttachmentLoadOp loadOp) {
+    this->attachmentLoadOp = loadOp;
+}
+
 void LineRasterPass::updateFramebuffer() {
     framebuffer = std::make_shared<sgl::vk::Framebuffer>(device, framebuffer->getWidth(), framebuffer->getHeight());
-    lineRenderer->setFramebufferAttachments(framebuffer, VK_ATTACHMENT_LOAD_OP_CLEAR);
+    lineRenderer->setFramebufferAttachments(framebuffer, attachmentLoadOp);
 
     if (!rasterData) {
         framebufferDirty = true;
@@ -55,7 +59,7 @@ void LineRasterPass::updateFramebuffer() {
 
 void LineRasterPass::recreateSwapchain(uint32_t width, uint32_t height) {
     framebuffer = std::make_shared<sgl::vk::Framebuffer>(device, width, height);
-    lineRenderer->setFramebufferAttachments(framebuffer, VK_ATTACHMENT_LOAD_OP_CLEAR);
+    lineRenderer->setFramebufferAttachments(framebuffer, attachmentLoadOp);
 
     framebufferDirty = true;
     dataDirty = true;

@@ -44,6 +44,7 @@ public:
     void setLineData(LineDataPtr& lineData, bool isNewData);
     [[nodiscard]] inline bool getIsDataEmpty() const { return rasterData && rasterData->getNumVertices() == 0; }
     inline void setUpdateUniformData(bool updateUniforms) { updateUniformData = updateUniforms; }
+    void setAttachmentLoadOp(VkAttachmentLoadOp loadOp);
     /**
      * This function must only be called when framebuffer compatibility can be ensured.
      * Otherwise, please use @see recreateSwapchain.
@@ -62,6 +63,7 @@ protected:
     SceneData* sceneData;
     sgl::CameraPtr* camera;
     LineDataPtr lineData;
+    VkAttachmentLoadOp attachmentLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     bool updateUniformData = true;
 };
 

@@ -1,12 +1,12 @@
 /**
- * This file is part of an OpenGL GLSL port of the HLSL code accompanying the paper "Moment-Based Order-Independent
+ * This file is part of an Vulkan GLSL port of the HLSL code accompanying the paper "Moment-Based Order-Independent
  * Transparency" by Münstermann, Krumpen, Klein, and Peters (http://momentsingraphics.de/?page_id=210).
  * The original code was released in accordance to CC0 (https://creativecommons.org/publicdomain/zero/1.0/).
  *
  * This port is released under the terms of BSD 2-Clause License. For more details please see the LICENSE file in the
  * root directory of this project.
  *
- * Changes for the OpenGL port: Copyright 2018 - 2019 Christoph Neuhauser
+ * Changes for the Vulkan GLSL port: Copyright 2018-2022 Christoph Neuhauser
  */
 
 #if defined(USE_SYNC_FRAGMENT_SHADER_INTERLOCK) && !defined(RESOLVE_PASS)
@@ -26,9 +26,17 @@ layout(early_fragment_tests, pixel_interlock_ordered) in;
 layout(early_fragment_tests) in;
 #endif
 
+#if defined(USE_SYNC_SPINLOCK)
+// Viewport-sized spinlock buffer.
+// 0 means pixel is unlocked, and 1 means pixel is locked by a fragment shader invocation.
+layout (std430, binding = 4) coherent buffer SpinlockViewportBuffer {
+    uint spinlockViewportBuffer[];
+};
+#endif
+
 in vec4 gl_FragCoord;
 
-layout(binding = 0) uniform UniformDataBuffer {
+layout(binding = 5) uniform UniformDataBuffer {
     // Size of viewport in x direction (in pixels).
     int viewportW;
 

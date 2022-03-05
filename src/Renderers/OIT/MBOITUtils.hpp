@@ -14,8 +14,7 @@
 
 #include <glm/glm.hpp>
 
-struct MomentOITUniformData
-{
+struct MomentOITUniformData {
     glm::vec4 wrapping_zone_parameters;
     float overestimation;
     float moment_bias;

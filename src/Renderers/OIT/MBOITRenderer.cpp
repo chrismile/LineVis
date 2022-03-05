@@ -37,6 +37,7 @@
 #include <Graphics/Buffers/FBO.hpp>
 #include <Graphics/OpenGL/GeometryBuffer.hpp>
 #include <Graphics/Vulkan/Utils/Device.hpp>
+#include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
@@ -45,7 +46,6 @@
 #include "MBOITRenderer.hpp"
 
 // Internal mode
-bool MBOITRenderer::useStencilBuffer = true; ///< Use stencil buffer to mask unused pixels
 bool MBOITRenderer::usePowerMoments = true;
 int MBOITRenderer::numMoments = 4;
 MBOITPixelFormat MBOITRenderer::pixelFormat = MBOIT_PIXEL_FORMAT_FLOAT_32;
@@ -56,29 +56,41 @@ MBOITRenderer::MBOITRenderer(
         SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Moment-Based Order Independent Transparency",
                        sceneData, transferFunctionWindow) {
+}
+
+void MBOITRenderer::initialize() {
+    LineRenderer::initialize();
+
     syncMode = getSupportedSyncMode(renderer->getDevice());
+
+    uniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(UniformData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Create moment OIT uniform data buffer.
     momentUniformData.moment_bias = 5*1e-7f;
     momentUniformData.overestimation = overestimationBeta;
     computeWrappingZoneParameters(momentUniformData.wrapping_zone_parameters);
-    momentOITUniformBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(MomentOITUniformData), &momentUniformData, sgl::UNIFORM_BUFFER);
+    momentOITUniformBuffer =  std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(MomentOITUniformData), &momentUniformData,
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    updateMomentMode();
+    resolveRasterPass = std::shared_ptr<ResolvePass>(new ResolvePass(
+            this, {"MBOITBlend.Vertex", "MBOITBlend.Fragment"}));
+    resolveRasterPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    resolveRasterPass->setBlendMode(sgl::vk::BlendMode::BACK_TO_FRONT_STRAIGHT_ALPHA);
 
-    // Create blitting data (fullscreen rectangle in normalized device coordinates).
-    blitRenderData = sgl::ShaderManager->createShaderAttributes(blendShader);
+    mboitPass1 = std::make_shared<MBOITPass1>(this);
+    mboitPass1->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
+    mboitPass2 = std::make_shared<MBOITPass2>(this);
+    mboitPass2->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
+    mboitPass2->setUpdateUniformData(false);
 
-    std::vector<glm::vec3> fullscreenQuad{
-            glm::vec3(1,1,0), glm::vec3(-1,-1,0), glm::vec3(1,-1,0),
-            glm::vec3(-1,-1,0), glm::vec3(1,1,0), glm::vec3(-1,1,0)};
-    sgl::GeometryBufferPtr geomBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(glm::vec3)*fullscreenQuad.size(), fullscreenQuad.data());
-    blitRenderData->addGeometryBuffer(
-            geomBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
+    // Disable render passes of parent class.
+    lineRasterPass = {};
+    hullRasterPass = {};
 
-    onResolutionChanged();
+    onClearColorChanged();
 }
 
 void MBOITRenderer::updateSyncMode() {
@@ -86,18 +98,21 @@ void MBOITRenderer::updateSyncMode() {
 
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
+    int paddedWidth = width, paddedHeight = height;
+    getScreenSizeWithTiling(paddedWidth, paddedHeight);
 
-    spinlockViewportBuffer = sgl::GeometryBufferPtr();
+    spinlockViewportBuffer = {};
     if (syncMode == SYNC_SPINLOCK) {
-        spinlockViewportBuffer = sgl::Renderer->createGeometryBuffer(
-                sizeof(uint32_t) * size_t(width) * size_t(height),
-                nullptr, sgl::SHADER_STORAGE_BUFFER);
+        spinlockViewportBuffer = std::make_shared<sgl::vk::Buffer>(
+                renderer->getDevice(), sizeof(uint32_t) * size_t(paddedWidth) * size_t(paddedHeight),
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
         // Set all values in the buffer to zero.
-        GLuint bufferId = static_cast<sgl::GeometryBufferGL*>(spinlockViewportBuffer.get())->getBuffer();
-        uint32_t val = 0;
-        glClearNamedBufferData(bufferId, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, (const void*)&val);
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        spinlockViewportBuffer->fill(0, renderer->getVkCommandBuffer());
+        renderer->insertBufferMemoryBarrier(
+                VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                spinlockViewportBuffer);
     }
 }
 
@@ -109,135 +124,98 @@ void MBOITRenderer::reloadShaders() {
 }
 
 void MBOITRenderer::reloadGatherShader() {
-    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_SYNC_FRAGMENT_SHADER_INTERLOCK", "");
-        if (!useOrderedFragmentShaderInterlock) {
-            sgl::ShaderManager->addPreprocessorDefine("INTERLOCK_UNORDERED", "");
-        }
-    } else if (syncMode == SYNC_SPINLOCK) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_SYNC_SPINLOCK", "");
-        // Do not discard while keeping the spinlock locked.
-        sgl::ShaderManager->addPreprocessorDefine("GATHER_NO_DISCARD", "");
-    }
-
-    sgl::ShaderManager->addPreprocessorDefine("USE_SCREEN_SPACE_POSITION", "");
-
-    sgl::ShaderManager->invalidateShaderCache();
-    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"MBOITPass1.glsl\"");
-    mboitPass1Shader = lineData->reloadGatherShaderOpenGL();
-    if (/* canCopyShaderAttributes && */ shaderAttributesPass1) {
-        shaderAttributesPass1 = shaderAttributesPass1->copy(mboitPass1Shader);
-    }
-
-    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_SYNC_FRAGMENT_SHADER_INTERLOCK");
-        if (!useOrderedFragmentShaderInterlock) {
-            sgl::ShaderManager->removePreprocessorDefine("INTERLOCK_UNORDERED");
-        }
-    } else if (syncMode == SYNC_SPINLOCK) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_SYNC_SPINLOCK");
-        sgl::ShaderManager->removePreprocessorDefine("GATHER_NO_DISCARD");
-    }
-
-    sgl::ShaderManager->invalidateShaderCache();
-    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"MBOITPass2.glsl\"");
-    mboitPass2Shader = lineData->reloadGatherShaderOpenGL();
-    if (/* canCopyShaderAttributes && */ shaderAttributesPass2) {
-        shaderAttributesPass2 = shaderAttributesPass2->copy(mboitPass2Shader);
-    }
-
-    sgl::ShaderManager->removePreprocessorDefine("USE_SCREEN_SPACE_POSITION");
+    mboitPass1->setShaderDirty();
+    mboitPass2->setShaderDirty();
 }
 
 void MBOITRenderer::reloadResolveShader() {
-    blendShader = sgl::ShaderManager->getShaderProgram({"MBOITBlend.Vertex", "MBOITBlend.Fragment"});
-    if (blitRenderData) {
-        blitRenderData = blitRenderData->copy(blendShader);
-    }
+    resolveRasterPass->setShaderDirty();
 }
 
 void MBOITRenderer::updateMomentMode() {
-    // 1. Set shader state dependent on the selected mode
-    sgl::ShaderManager->addPreprocessorDefine("ROV", "1"); // Always use fragment shader interlock.
-    sgl::ShaderManager->addPreprocessorDefine("NUM_MOMENTS", sgl::toString(numMoments));
-    sgl::ShaderManager->addPreprocessorDefine(
-            "SINGLE_PRECISION", sgl::toString((int)(pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32)));
-    sgl::ShaderManager->addPreprocessorDefine("TRIGONOMETRIC", sgl::toString((int)(!usePowerMoments)));
-    sgl::ShaderManager->addPreprocessorDefine(
-            "USE_R_RG_RGBA_FOR_MBOIT6", sgl::toString((int)USE_R_RG_RGBA_FOR_MBOIT6));
-
-    // 2. Re-load the shaders
+    // Reload the shaders.
     reloadShaders();
 
-    // 3. Load textures
+    // Create moment images.
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
 
-    //const GLint internalFormat1 = pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32 ? GL_R32F : GL_R16;
-    const GLint internalFormat1 = GL_R32F;
-    const GLint internalFormat2 = pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32 ? GL_RG32F : GL_RG16;
-    const GLint internalFormat4 = pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32 ? GL_RGBA32F : GL_RGBA16;
-    const GLint pixelFormat1 = GL_RED;
-    const GLint pixelFormat2 = GL_RG;
-    const GLint pixelFormat4 = GL_RGBA;
+    VkFormat format1 = VK_FORMAT_R32_SFLOAT;
+    VkFormat format2 =
+            pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32 ? VK_FORMAT_R32G32_SFLOAT : VK_FORMAT_R16G16_UNORM;
+    VkFormat format4 =
+            pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32 ? VK_FORMAT_R32G32B32A32_SFLOAT : VK_FORMAT_R16G16B16A16_UNORM;
 
     int depthB0 = 1;
     int depthB = 1;
     int depthBExtra = 0;
-    GLint internalFormatB0 = internalFormat1;
-    GLint internalFormatB = internalFormat4;
-    GLint internalFormatBExtra = 0;
-    GLint pixelFormatB0 = pixelFormat1;
-    GLint pixelFormatB = pixelFormat4;
-    GLint pixelFormatBExtra = 0;
+    VkFormat formatB0 = format1;
+    VkFormat formatB = format4;
+    VkFormat formatBExtra = format4;
 
     if (numMoments == 6) {
         if (USE_R_RG_RGBA_FOR_MBOIT6) {
             depthBExtra = 1;
-            internalFormatB = internalFormat2;
-            pixelFormatB = pixelFormat2;
-            internalFormatBExtra = internalFormat4;
-            pixelFormatBExtra = pixelFormat4;
+            formatB = format2;
+            formatBExtra = format4;
         } else {
             depthB = 3;
-            internalFormatB = internalFormat2;
-            pixelFormatB = pixelFormat2;
+            formatB = format2;
         }
     } else if (numMoments == 8) {
         depthB = 2;
     }
 
-    // Highest memory requirement: width * height * sizeof(DATATYPE) * #moments
-    void *emptyData = calloc(width * height, sizeof(float) * 8);
+    momentImageArray.clear();
 
-    textureSettingsB0 = sgl::TextureSettings();
-    textureSettingsB0.type = sgl::TEXTURE_2D_ARRAY;
-    textureSettingsB0.internalFormat = internalFormatB0;
-    b0 = sgl::TextureManager->createTexture(
-            emptyData, width, height, depthB0, sgl::PixelFormat(pixelFormatB0, GL_FLOAT), textureSettingsB0);
+    imageSettingsB0 = {};
+    imageSettingsB0.format = formatB0;
+    imageSettingsB0.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageSettingsB0.width = width;
+    imageSettingsB0.height = height;
+    imageSettingsB0.arrayLayers = depthB0;
+    b0 = std::make_shared<sgl::vk::ImageView>(
+            std::make_shared<sgl::vk::Image>(renderer->getDevice(), imageSettingsB0),
+            VK_IMAGE_VIEW_TYPE_2D_ARRAY);
+    renderer->transitionImageLayout(b0->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    b0->clearColor({ 0.0f, 0.0f, 0.0f, 0.0f }, renderer->getVkCommandBuffer());
+    momentImageArray.push_back(b0->getImage());
 
-    textureSettingsB = textureSettingsB0;
-    textureSettingsB.internalFormat = internalFormatB;
-    b = sgl::TextureManager->createTexture(
-            emptyData, width, height, depthB, sgl::PixelFormat(pixelFormatB, GL_FLOAT), textureSettingsB);
+    imageSettingsB = imageSettingsB0;
+    imageSettingsB.format = formatB;
+    imageSettingsB.arrayLayers = depthB;
+    b = std::make_shared<sgl::vk::ImageView>(
+            std::make_shared<sgl::vk::Image>(renderer->getDevice(), imageSettingsB),
+            VK_IMAGE_VIEW_TYPE_2D_ARRAY);
+    renderer->transitionImageLayout(b->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    b->clearColor({ 0.0f, 0.0f, 0.0f, 0.0f }, renderer->getVkCommandBuffer());
+    momentImageArray.push_back(b->getImage());
 
     if (numMoments == 6 && USE_R_RG_RGBA_FOR_MBOIT6) {
-        textureSettingsBExtra = textureSettingsB0;
-        textureSettingsBExtra.internalFormat = internalFormatBExtra;
-        bExtra = sgl::TextureManager->createTexture(
-                emptyData, width, height, depthBExtra, sgl::PixelFormat(pixelFormatBExtra, GL_FLOAT),
-                textureSettingsBExtra);
+        imageSettingsBExtra = imageSettingsB0;
+        imageSettingsBExtra.format = formatBExtra;
+        imageSettingsB.arrayLayers = depthBExtra;
+        bExtra = std::make_shared<sgl::vk::ImageView>(
+                std::make_shared<sgl::vk::Image>(renderer->getDevice(), imageSettingsBExtra),
+                VK_IMAGE_VIEW_TYPE_2D_ARRAY);
+        renderer->transitionImageLayout(bExtra->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        bExtra->clearColor({ 0.0f, 0.0f, 0.0f, 0.0f }, renderer->getVkCommandBuffer());
+        momentImageArray.push_back(bExtra->getImage());
     }
 
-    size_t baseSizeBytes = MBOIT_PIXEL_FORMAT_FLOAT_32 ? 4 : 2;
+    renderer->insertImageMemoryBarriers(
+            momentImageArray, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+
+    size_t baseSizeBytes = pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32 ? 4 : 2;
     if ((*sceneData->performanceMeasurer)) {
         (*sceneData->performanceMeasurer)->setCurrentAlgorithmBufferSizeBytes(
-                baseSizeBytes * numMoments * width * height);
+                baseSizeBytes * numMoments * width * height + 4 * width * height);
     }
-    free(emptyData);
 
-
-    // Set algorithm-dependent bias
+    // Set algorithm-dependent bias.
     if (usePowerMoments) {
         if (numMoments == 4 && pixelFormat == MBOIT_PIXEL_FORMAT_UNORM_16) {
             momentUniformData.moment_bias = 6*1e-4f;    // 6*1e-5
@@ -268,7 +246,9 @@ void MBOITRenderer::updateMomentMode() {
         }
     }
 
-    momentOITUniformBuffer->subData(0, sizeof(MomentOITUniformData), &momentUniformData);
+    momentOITUniformBuffer->updateData(
+            sizeof(MomentOITUniformData), &momentUniformData,
+            renderer->getVkCommandBuffer());
 }
 
 void MBOITRenderer::setNewState(const InternalState& newState) {
@@ -289,8 +269,6 @@ void MBOITRenderer::setNewState(const InternalState& newState) {
         overestimationBeta = 0.1f;
         momentUniformData.overestimation = overestimationBeta;
     }
-
-    newState.rendererSettings.getValueOpt("useStencilBuffer", useStencilBuffer);
 
     bool recompileGatherShader = false;
     if (newState.rendererSettings.getValueOpt(
@@ -313,14 +291,79 @@ void MBOITRenderer::setNewState(const InternalState& newState) {
 void MBOITRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
 
-    // Unload old data.
-    shaderAttributesPass1 = sgl::ShaderAttributesPtr();
-    shaderAttributesPass2 = sgl::ShaderAttributesPtr();
-    shaderAttributesPass1 = lineData->getGatherShaderAttributesOpenGL(mboitPass1Shader);
-    shaderAttributesPass2 = lineData->getGatherShaderAttributesOpenGL(mboitPass2Shader);
+    mboitPass1->setLineData(lineData, isNewData);
+    mboitPass2->setLineData(lineData, isNewData);
 
     dirty = false;
     reRender = true;
+}
+
+void MBOITRenderer::getVulkanShaderPreprocessorDefines(
+        std::map<std::string, std::string> &preprocessorDefines) {
+    LineRenderer::getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    preprocessorDefines.insert(std::make_pair("OIT_GATHER_HEADER", "\"MLABGather.glsl\""));
+    preprocessorDefines.insert(std::make_pair("ROV", "1")); // Always use ROV mode for now.
+    preprocessorDefines.insert(std::make_pair("NUM_MOMENTS", sgl::toString(numMoments)));
+    preprocessorDefines.insert(std::make_pair(
+            "SINGLE_PRECISION", sgl::toString((int)(pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32))));
+    preprocessorDefines.insert(std::make_pair("TRIGONOMETRIC", sgl::toString((int)(!usePowerMoments))));
+    preprocessorDefines.insert(std::make_pair(
+            "USE_R_RG_RGBA_FOR_MBOIT6", sgl::toString((int)USE_R_RG_RGBA_FOR_MBOIT6)));
+    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
+        preprocessorDefines.insert(std::make_pair("__extensions", "GL_ARB_fragment_shader_interlock"));
+        preprocessorDefines.insert(std::make_pair("USE_SYNC_FRAGMENT_SHADER_INTERLOCK", ""));
+        if (!useOrderedFragmentShaderInterlock) {
+            preprocessorDefines.insert(std::make_pair("INTERLOCK_UNORDERED", ""));
+        }
+    } else if (syncMode == SYNC_SPINLOCK) {
+        preprocessorDefines.insert(std::make_pair("USE_SYNC_SPINLOCK", ""));
+        // Do not discard while keeping the spinlock locked.
+        preprocessorDefines.insert(std::make_pair("GATHER_NO_DISCARD", ""));
+    }
+    preprocessorDefines.insert(std::make_pair("USE_SCREEN_SPACE_POSITION", ""));
+}
+
+void MBOITRenderer::setGraphicsPipelineInfo(
+        sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) {
+    pipelineInfo.setColorWriteEnabled(false);
+    pipelineInfo.setDepthWriteEnabled(false);
+}
+
+void MBOITRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) {
+    LineRenderer::setRenderDataBindings(renderData);
+    renderData->setStaticImageView(b0, 0);
+    renderData->setStaticImageView(b, 1);
+    if (numMoments == 6 && USE_R_RG_RGBA_FOR_MBOIT6) {
+        renderData->setStaticImageView(bExtra, 2);
+    }
+    renderData->setStaticTextureOptional(blendRenderTexture, "transparentSurfaceAccumulator");
+    renderData->setStaticBufferOptional(uniformDataBuffer, "UniformDataBuffer");
+    renderData->setStaticBufferOptional(momentOITUniformBuffer, "MomentOITUniformData");
+    if (syncMode == SYNC_SPINLOCK) {
+        renderData->setStaticBufferOptional(spinlockViewportBuffer, "SpinlockViewportBuffer");
+    }
+}
+
+void MBOITRenderer::updateVulkanUniformBuffers() {
+}
+
+void MBOITRenderer::setFramebufferAttachments(
+        sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) {
+    sgl::vk::AttachmentState attachmentState;
+    if (loadOp == VK_ATTACHMENT_LOAD_OP_DONT_CARE) {
+        attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        attachmentState.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        attachmentState.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    } else {
+        attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachmentState.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        attachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        attachmentState.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    }
+    framebuffer->setColorAttachment(
+            blendRenderTexture->getImageView(), 0, attachmentState,
+            { 0.0f, 0.0f, 0.0f, 0.0f });
 }
 
 void MBOITRenderer::onResolutionChanged() {
@@ -328,102 +371,39 @@ void MBOITRenderer::onResolutionChanged() {
 
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
+    windowWidth = width;
+    windowHeight = height;
+    paddedWindowWidth = windowWidth, paddedWindowHeight = windowHeight;
+    getScreenSizeWithTiling(paddedWindowWidth, paddedWindowHeight);
 
-    // Create accumulator framebuffer object & texture
-    blendFBO = sgl::Renderer->createFBO();
-    sgl::TextureSettings textureSettings;
-    textureSettings.internalFormat = GL_RGBA32F;
-    blendRenderTexture = sgl::TextureManager->createEmptyTexture(width, height, textureSettings);
-    blendFBO->bindTexture(blendRenderTexture);
-    //blendFBO->bindRenderbuffer(*sceneData->sceneDepthRBO, sgl::DEPTH_STENCIL_ATTACHMENT); // TODO
-
+    updateSyncMode();
     updateMomentMode();
+
+    sgl::vk::ImageSettings imageSettings;
+    imageSettings.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    imageSettings.width = width;
+    imageSettings.height = height;
+    blendRenderTexture = std::make_shared<sgl::vk::Texture>(renderer->getDevice(), imageSettings);
+
+    mboitPass1->recreateSwapchain(width, height);
+    mboitPass2->recreateSwapchain(width, height);
+
+    resolveRasterPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
+    resolveRasterPass->recreateSwapchain(*sceneData->viewportWidth, *sceneData->viewportHeight);
+}
+
+void MBOITRenderer::onClearColorChanged() {
+    resolveRasterPass->setAttachmentClearColor(sceneData->clearColor->getFloatColorRGBA());
 }
 
 void MBOITRenderer::render() {
     LineRenderer::renderBase();
 
-    setUniformData();
     computeDepthRange();
+    setUniformData();
     gather();
     resolve();
-}
-
-void MBOITRenderer::setUniformData() {
-    //int width = int(*sceneData->viewportWidth);
-    //int height = int(*sceneData->viewportHeight);
-
-    if (syncMode == SYNC_SPINLOCK) {
-        sgl::ShaderManager->bindShaderStorageBuffer(1, spinlockViewportBuffer);
-    }
-
-    lineData->setUniformGatherShaderData_AllPasses();
-
-    mboitPass1Shader->setUniformImageTexture(
-            0, b0, textureSettingsB0.internalFormat, GL_READ_WRITE,
-            0, true, 0);
-    mboitPass1Shader->setUniformImageTexture(
-            1, b, textureSettingsB.internalFormat, GL_READ_WRITE,
-            0, true, 0);
-    //mboitPass1Shader->setUniform("viewportW", width);
-    mboitPass1Shader->setUniform("cameraPosition", sceneData->camera->getPosition());
-    mboitPass1Shader->setUniform("lineWidth", lineWidth);
-    if (mboitPass1Shader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        mboitPass1Shader->setUniform("backgroundColor", backgroundColor);
-    }
-    if (mboitPass1Shader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
-        mboitPass1Shader->setUniform("foregroundColor", foregroundColor);
-    }
-    lineData->setUniformGatherShaderData_Pass(mboitPass1Shader);
-    setUniformData_Pass(mboitPass1Shader);
-
-    mboitPass2Shader->setUniformImageTexture(
-            0, b0, textureSettingsB0.internalFormat, GL_READ_WRITE,
-            0, true, 0); // GL_READ_ONLY? -> Shader
-    mboitPass2Shader->setUniformImageTexture(
-            1, b, textureSettingsB.internalFormat, GL_READ_WRITE,
-            0, true, 0); // GL_READ_ONLY? -> Shader
-    //mboitPass2Shader->setUniform("viewportW", width);
-    mboitPass2Shader->setUniform("cameraPosition", sceneData->camera->getPosition());
-    mboitPass2Shader->setUniform("lineWidth", lineWidth);
-    if (mboitPass2Shader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        mboitPass2Shader->setUniform("backgroundColor", backgroundColor);
-    }
-    if (mboitPass2Shader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
-        mboitPass2Shader->setUniform("foregroundColor", foregroundColor);
-    }
-    lineData->setUniformGatherShaderDataOpenGL(mboitPass2Shader);
-    setUniformData_Pass(mboitPass2Shader);
-
-    blendShader->setUniformImageTexture(
-            0, b0, textureSettingsB0.internalFormat, GL_READ_WRITE,
-            0, true, 0); // GL_READ_ONLY? -> Shader
-    blendShader->setUniformImageTexture(
-            1, b, textureSettingsB.internalFormat, GL_READ_WRITE,
-            0, true, 0); // GL_READ_ONLY? -> Shader
-    blendShader->setUniform("transparentSurfaceAccumulator", blendRenderTexture, 0);
-    //blendShader->setUniform("viewportW", width);
-
-    if (numMoments == 6 && USE_R_RG_RGBA_FOR_MBOIT6) {
-        mboitPass1Shader->setUniformImageTexture(
-                2, bExtra, textureSettingsBExtra.internalFormat, GL_READ_WRITE,
-                0, true, 0);
-        mboitPass2Shader->setUniformImageTexture(
-                2, bExtra, textureSettingsBExtra.internalFormat, GL_READ_WRITE,
-                0, true, 0); // GL_READ_ONLY? -> Shader
-        blendShader->setUniformImageTexture(
-                2, bExtra, textureSettingsBExtra.internalFormat, GL_READ_WRITE,
-                0, true, 0); // GL_READ_ONLY? -> Shader
-    }
-
-    mboitPass1Shader->setUniformBuffer(1, "MomentOITUniformData", momentOITUniformBuffer);
-    mboitPass2Shader->setUniformBuffer(1, "MomentOITUniformData", momentOITUniformBuffer);
 }
 
 void MBOITRenderer::computeDepthRange() {
@@ -439,85 +419,49 @@ void MBOITRenderer::computeDepthRange() {
     maxViewZ = std::max(maxViewZ, sceneData->camera->getNearClipDistance());
     float logmin = log(minViewZ);
     float logmax = log(maxViewZ);
-    mboitPass1Shader->setUniform("logDepthMin", logmin);
-    mboitPass1Shader->setUniform("logDepthMax", logmax);
-    mboitPass2Shader->setUniform("logDepthMin", logmin);
-    mboitPass2Shader->setUniform("logDepthMax", logmax);
+    uniformData.logDepthMin = logmin;
+    uniformData.logDepthMax = logmax;
+}
+
+void MBOITRenderer::setUniformData() {
+    uniformData.viewportW = paddedWindowWidth;
+    uniformDataBuffer->updateData(
+            sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void MBOITRenderer::gather() {
-    setUniformData();
+    //renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
+    //renderer->setViewMatrix(sceneData->camera->getViewMatrix());
+    //renderer->setModelMatrix(sgl::matrixIdentity());
 
-    glDepthMask(GL_FALSE);
-    glDisable(GL_DEPTH_TEST);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-
-    glEnable(GL_DEPTH_TEST);
-
-    if (useStencilBuffer) {
-        glEnable(GL_STENCIL_TEST);
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
-        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-        glStencilMask(0xFF);
-        glClear(GL_STENCIL_BUFFER_BIT);
+    mboitPass1->render();
+    if (syncMode == SYNC_SPINLOCK) {
+        renderer->insertMemoryBarrier(
+                VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
     }
+    renderer->insertImageMemoryBarriers(
+            momentImageArray, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
 
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
-        glDisable(GL_CULL_FACE);
-    }
+    mboitPass2->render();
 
-    sgl::Renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix(sceneData->camera->getViewMatrix());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-    sgl::Renderer->render(shaderAttributesPass1);
-
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-
-    sgl::Renderer->bindFBO(blendFBO);
-    sgl::Renderer->clearFramebuffer(GL_COLOR_BUFFER_BIT, sgl::Color(0, 0, 0, 0));
-
-    glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE);
-
-    sgl::Renderer->render(shaderAttributesPass2);
-
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
-        glEnable(GL_CULL_FACE);
-    }
-
-    glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+    renderer->insertImageMemoryBarriers(
+            momentImageArray, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
 }
 
 void MBOITRenderer::resolve() {
-    glDisable(GL_DEPTH_TEST);
-
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-
-    if (useStencilBuffer) {
-        glStencilFunc(GL_EQUAL, 1, 0xFF);
-        glStencilMask(0x00);
-    }
-
-    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE);
-
-    //sgl::Renderer->bindFBO(*sceneData->framebuffer); // TODO
-    sgl::Renderer->render(blitRenderData);
-
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_STENCIL_TEST);
-
-    glDepthMask(GL_TRUE);
+    renderer->transitionImageLayout(
+            blendRenderTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    resolveRasterPass->render();
 }
 
 void MBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
@@ -525,9 +469,10 @@ void MBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEd
 
     // USE_R_RG_RGBA_FOR_MBOIT6
     const char *const momentModes[] = {
-            "Power Moments: 4", "Power Moments: 6 (Layered)", "Power Moments: 6 (R_RG_RGBA)", "Power Moments: 8",
-            "Trigonometric Moments: 2", "Trigonometric Moments: 3 (Layered)", "Trigonometric Moments: 3 (R_RG_RGBA)",
-            "Trigonometric Moments: 4"};
+            "Power Moments: 4", "Power Moments: 6 (Layered)",
+            "Power Moments: 6 (R_RG_RGBA)", "Power Moments: 8",
+            "Trigonometric Moments: 2", "Trigonometric Moments: 3 (Layered)",
+            "Trigonometric Moments: 3 (R_RG_RGBA)", "Trigonometric Moments: 4"};
     const int momentModesNumMoments[] = {4, 6, 6, 8, 4, 6, 6, 8};
     static int momentModeIndex = -1;
     if (true) { // momentModeIndex == -1
@@ -538,7 +483,8 @@ void MBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEd
         momentModeIndex += (numMoments == 8) ? 1 : 0;
     }
 
-    if (propertyEditor.addCombo("Moment Mode", &momentModeIndex, momentModes, IM_ARRAYSIZE(momentModes))) {
+    if (propertyEditor.addCombo(
+            "Moment Mode", &momentModeIndex, momentModes, IM_ARRAYSIZE(momentModes))) {
         usePowerMoments = (momentModeIndex / 4) == 0;
         numMoments = momentModesNumMoments[momentModeIndex]; // Count complex moments * 2
         USE_R_RG_RGBA_FOR_MBOIT6 = (momentModeIndex == 2) || (momentModeIndex == 6);
@@ -548,14 +494,18 @@ void MBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEd
 
     const char *const pixelFormatModes[] = {"Float 32-bit", "UNORM Integer 16-bit"};
     if (propertyEditor.addCombo(
-            "Pixel Format", (int*)&pixelFormat, pixelFormatModes, IM_ARRAYSIZE(pixelFormatModes))) {
+            "Pixel Format", (int*)&pixelFormat, pixelFormatModes,
+            IM_ARRAYSIZE(pixelFormatModes))) {
         updateMomentMode();
         reRender = true;
     }
 
-    if (propertyEditor.addSliderFloat("Overestimation", &overestimationBeta, 0.0f, 1.0f, "%.2f")) {
+    if (propertyEditor.addSliderFloat(
+            "Overestimation", &overestimationBeta, 0.0f, 1.0f, "%.2f")) {
         momentUniformData.overestimation = overestimationBeta;
-        momentOITUniformBuffer->subData(0, sizeof(MomentOITUniformData), &momentUniformData);
+        momentOITUniformBuffer->updateData(
+                sizeof(MomentOITUniformData), &momentUniformData,
+                renderer->getVkCommandBuffer());
         reRender = true;
     }
 
@@ -571,4 +521,38 @@ void MBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEd
         reloadGatherShader();
         reRender = true;
     }
+}
+
+
+
+MBOITPass1::MBOITPass1(LineRenderer* lineRenderer) : LineRasterPass(lineRenderer) {
+}
+
+void MBOITPass1::loadShader() {
+    std::map<std::string, std::string> preprocessorDefines;
+    lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    preprocessorDefines["OIT_GATHER_HEADER"] = "\"MBOITPass1.glsl\"";
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            lineData->getShaderModuleNames(), preprocessorDefines);
+}
+
+
+
+MBOITPass2::MBOITPass2(LineRenderer* lineRenderer) : LineRasterPass(lineRenderer) {
+}
+
+void MBOITPass2::loadShader() {
+    std::map<std::string, std::string> preprocessorDefines;
+    lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    preprocessorDefines["OIT_GATHER_HEADER"] = "\"MBOITPass2.glsl\"";
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            lineData->getShaderModuleNames(), preprocessorDefines);
+}
+
+void MBOITPass2::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
+    LineRasterPass::setGraphicsPipelineInfo(pipelineInfo);
+    pipelineInfo.setColorWriteEnabled(true);
+    pipelineInfo.setBlendMode(sgl::vk::BlendMode::ONE);
 }

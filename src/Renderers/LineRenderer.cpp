@@ -618,8 +618,10 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewData) {
     }
 
     if (isRasterizer) {
-        lineRasterPass->setLineData(lineData, isNewData);
-        if (lineData->hasSimulationMeshOutline()) {
+        if (lineRasterPass) {
+            lineRasterPass->setLineData(lineData, isNewData);
+        }
+        if (hullRasterPass && lineData->hasSimulationMeshOutline()) {
             hullRasterPass->setLineData(lineData, isNewData);
         }
     }
@@ -627,8 +629,12 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewData) {
 
 void LineRenderer::reloadGatherShader() {
     if (isRasterizer) {
-        lineRasterPass->setShaderDirty();
-        hullRasterPass->setShaderDirty();
+        if (lineRasterPass) {
+            lineRasterPass->setShaderDirty();
+        }
+        if (hullRasterPass) {
+            hullRasterPass->setShaderDirty();
+        }
     }
 
     // TODO

@@ -52,7 +52,6 @@ void HullRasterPass::setCustomRenderTarget(
 
 void HullRasterPass::setAttachmentLoadOp(VkAttachmentLoadOp loadOp) {
     this->attachmentLoadOp = loadOp;
-    recreateSwapchain(*sceneData->viewportWidth, *sceneData->viewportHeight);
 }
 
 void HullRasterPass::updateFramebuffer() {
