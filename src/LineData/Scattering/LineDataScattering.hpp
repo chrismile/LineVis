@@ -64,7 +64,6 @@ public:
             sgl::TransferFunctionWindow& transferFunctionWindow, sgl::vk::Renderer* rendererVk
     );
     ~LineDataScattering() override;
-    sgl::ShaderProgramPtr reloadGatherShaderOpenGL() override;
 
     [[nodiscard]] inline CloudDataPtr getCloudData() { return cloudData; }
     [[nodiscard]] inline uint32_t getGridSizeX() const { return gridSizeX; }

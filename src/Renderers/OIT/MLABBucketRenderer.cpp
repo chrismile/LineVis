@@ -29,10 +29,6 @@
 #include <Utils/File/Logfile.hpp>
 #include <Utils/AppSettings.hpp>
 #include <Math/Geometry/MatrixUtil.hpp>
-#include <Graphics/Window.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Shader/ShaderManager.hpp>
-#include <Graphics/OpenGL/Shader.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>

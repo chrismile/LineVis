@@ -26,12 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <GL/glew.h>
-
 #include <Utils/File/Logfile.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Texture/TextureManager.hpp>
-#include <Graphics/Scene/RenderTarget.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <Graphics/Vulkan/Render/Passes/BlitRenderPass.hpp>
 

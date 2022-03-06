@@ -55,11 +55,6 @@ LineDataScattering::LineDataScattering(
 LineDataScattering::~LineDataScattering() {
 }
 
-sgl::ShaderProgramPtr LineDataScattering::reloadGatherShaderOpenGL() {
-    recomputeHistogram();
-    return LineDataFlow::reloadGatherShaderOpenGL();
-}
-
 KdTree<Empty>* LineDataScattering::getExitDirections() {
     return ray_exit_directions;
 }

@@ -31,12 +31,10 @@
 
 #include <memory>
 
-#include <Graphics/Buffers/GeometryBuffer.hpp>
-#include <Graphics/Shader/Shader.hpp>
-#include <Graphics/Shader/ShaderAttributes.hpp>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
 #include <ImGui/Widgets/ColorLegendWidget.hpp>
 #include <Graphics/Vulkan/Render/GraphicsPipeline.hpp>
+
 #include "Utils/InternalState.hpp"
 #include "Loaders/DataSetList.hpp"
 #include "Loaders/TrajectoryFile.hpp"
@@ -158,11 +156,6 @@ public:
     virtual void setGraphicsPipelineInfo(
             sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages);
     virtual void setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData);
-    virtual sgl::ShaderProgramPtr reloadGatherShaderOpenGL();
-    virtual sgl::ShaderAttributesPtr getGatherShaderAttributesOpenGL(sgl::ShaderProgramPtr& gatherShader);
-    virtual void setUniformGatherShaderDataOpenGL(sgl::ShaderProgramPtr& gatherShader);
-    virtual void setUniformGatherShaderData_AllPasses();
-    virtual void setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader);
 
     // --- Retrieve data for rendering. Only for renderers needing direct access! ---
     virtual TubeRenderData getTubeRenderData()=0;
@@ -197,9 +190,6 @@ public:
 
     // Retrieve simulation mesh outline (optional).
     inline bool hasSimulationMeshOutline() { return !simulationMeshOutlineVertexPositions.empty(); }
-    sgl::ShaderProgramPtr reloadGatherShaderHull();
-    sgl::ShaderAttributesPtr getGatherShaderAttributesHull(sgl::ShaderProgramPtr& gatherShader);
-    void setUniformGatherShaderDataHull_Pass(sgl::ShaderProgramPtr& gatherShader);
     SimulationMeshOutlineRenderData getSimulationMeshOutlineRenderData();
     virtual bool shallRenderTransferFunctionWindow() { return true; }
 

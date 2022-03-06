@@ -31,8 +31,6 @@
 #endif
 
 #include <Utils/File/Logfile.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
 #include <Graphics/Vulkan/Render/Data.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
@@ -84,8 +82,7 @@ LineDataStress::LineDataStress(sgl::TransferFunctionWindow &transferFunctionWind
             VMA_MEMORY_USAGE_GPU_ONLY);
 }
 
-LineDataStress::~LineDataStress() {
-}
+LineDataStress::~LineDataStress() = default;
 
 bool LineDataStress::settingsDiffer(LineData* other) {
     return useLineHierarchy != static_cast<LineDataStress*>(other)->useLineHierarchy
@@ -1192,191 +1189,6 @@ void LineDataStress::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
     }
 }
 
-sgl::ShaderProgramPtr LineDataStress::reloadGatherShaderOpenGL() {
-    if (linePrimitiveMode == LINE_PRIMITIVES_BAND || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_BANDS", "");
-    }
-    if (usePrincipalStressDirectionIndex) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", "");
-        sgl::ShaderManager->addPreprocessorDefine("USE_MULTI_VAR_TRANSFER_FUNCTION", "");
-    }
-    if (useLineHierarchy) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_LINE_HIERARCHY_LEVEL", "");
-    }
-    if (rendererSupportsTransparency) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_TRANSPARENCY", "");
-    }
-    if (getUseBandRendering() && bandRenderMode == BandRenderMode::RIBBONS) {
-        if (renderThickBands) {
-            sgl::ShaderManager->addPreprocessorDefine("BAND_RENDERING_THICK", "");
-            sgl::ShaderManager->addPreprocessorDefine("MIN_THICKNESS", std::to_string(minBandThickness));
-        } else {
-            sgl::ShaderManager->addPreprocessorDefine("MIN_THICKNESS", std::to_string(1e-2f));
-        }
-    }
-#ifdef USE_EIGEN
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_PRINCIPAL_STRESSES", "");
-    }
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND
-            && bandRenderMode == LineDataStress::BandRenderMode::EIGENVALUE_RATIO) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_NORMAL_STRESS_RATIO_TUBES", "");
-    }
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND
-            && bandRenderMode == LineDataStress::BandRenderMode::HYPERSTREAMLINES) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_HYPERSTREAMLINES", "");
-    }
-#endif
-
-    sgl::ShaderProgramPtr gatherShader = LineData::reloadGatherShaderOpenGL();
-
-#ifdef USE_EIGEN
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND
-            && bandRenderMode == LineDataStress::BandRenderMode::HYPERSTREAMLINES) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_HYPERSTREAMLINES");
-    }
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND
-            && bandRenderMode == LineDataStress::BandRenderMode::EIGENVALUE_RATIO) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_NORMAL_STRESS_RATIO_TUBES");
-    }
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESSES");
-    }
-#endif
-    if (getUseBandRendering() && bandRenderMode == BandRenderMode::RIBBONS) {
-        if (renderThickBands) {
-            sgl::ShaderManager->removePreprocessorDefine("BAND_RENDERING_THICK");
-        }
-        sgl::ShaderManager->removePreprocessorDefine("MIN_THICKNESS");
-    }
-    if (rendererSupportsTransparency) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_TRANSPARENCY");
-    }
-    if (useLineHierarchy) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_LINE_HIERARCHY_LEVEL");
-    }
-    if (usePrincipalStressDirectionIndex) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX");
-        sgl::ShaderManager->removePreprocessorDefine("USE_MULTI_VAR_TRANSFER_FUNCTION");
-    }
-    if (linePrimitiveMode == LINE_PRIMITIVES_BAND || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_BANDS");
-    }
-    return gatherShader;
-}
-
-sgl::ShaderAttributesPtr LineDataStress::getGatherShaderAttributesOpenGL(sgl::ShaderProgramPtr& gatherShader) {
-    sgl::ShaderAttributesPtr shaderAttributes;
-
-    /*if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
-        BandRenderData tubeRenderData = this->getBandRenderData();
-        linePointDataSSBO = sgl::GeometryBufferPtr();
-        lineHierarchyLevelsSSBO = sgl::GeometryBufferPtr();
-
-        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
-
-        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_LINES);
-        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-        shaderAttributes->addGeometryBuffer(
-                tubeRenderData.vertexPositionBuffer, "vertexPosition",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
-                sgl::ATTRIB_FLOAT, 1);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexNormalBuffer, "vertexNormal",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexTangentBuffer, "vertexTangent",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexOffsetLeftBuffer, "vertexOffsetLeft",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexOffsetRightBuffer, "vertexOffsetRight",
-                sgl::ATTRIB_FLOAT, 3);
-        if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
-            shaderAttributes->addGeometryBufferOptional(
-                    tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
-                    sgl::ATTRIB_UNSIGNED_INT,
-                    1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
-        }
-        if (tubeRenderData.vertexLineHierarchyLevelBuffer) {
-            shaderAttributes->addGeometryBufferOptional(
-                    tubeRenderData.vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel",
-                    sgl::ATTRIB_FLOAT, 1);
-        }
-        if (tubeRenderData.vertexLineAppearanceOrderBuffer) {
-            shaderAttributes->addGeometryBufferOptional(
-                    tubeRenderData.vertexLineAppearanceOrderBuffer, "vertexLineAppearanceOrder",
-                    sgl::ATTRIB_UNSIGNED_INT, 1);
-        }
-    } else if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
-        TubeRenderDataProgrammableFetch tubeRenderData = this->getTubeRenderDataProgrammableFetch();
-        linePointDataSSBO = tubeRenderData.linePointsBuffer;
-        lineHierarchyLevelsSSBO = tubeRenderData.lineHierarchyLevelsBuffer;
-
-        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
-        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_TRIANGLES);
-        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-    } else {
-        TubeRenderData tubeRenderData = this->getTubeRenderData();
-        linePointDataSSBO = sgl::GeometryBufferPtr();
-        lineHierarchyLevelsSSBO = sgl::GeometryBufferPtr();
-
-        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
-
-        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_LINES);
-        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-        shaderAttributes->addGeometryBuffer(
-                tubeRenderData.vertexPositionBuffer, "vertexPosition",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
-                sgl::ATTRIB_FLOAT, 1);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexNormalBuffer, "vertexNormal",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexTangentBuffer, "vertexTangent",
-                sgl::ATTRIB_FLOAT, 3);
-        if (tubeRenderData.vertexPrincipalStressIndexBuffer) {
-            shaderAttributes->addGeometryBufferOptional(
-                    tubeRenderData.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
-                    sgl::ATTRIB_UNSIGNED_INT,
-                    1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
-        }
-        if (tubeRenderData.vertexLineHierarchyLevelBuffer) {
-            shaderAttributes->addGeometryBufferOptional(
-                    tubeRenderData.vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel",
-                    sgl::ATTRIB_FLOAT, 1);
-        }
-        if (tubeRenderData.vertexLineAppearanceOrderBuffer) {
-            shaderAttributes->addGeometryBufferOptional(
-                    tubeRenderData.vertexLineAppearanceOrderBuffer, "vertexLineAppearanceOrder",
-                    sgl::ATTRIB_UNSIGNED_INT,
-                    1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
-        }
-        if (tubeRenderData.vertexMajorStressBuffer) {
-            shaderAttributes->addGeometryBufferOptional(
-                    tubeRenderData.vertexMajorStressBuffer, "vertexMajorStress",
-                    sgl::ATTRIB_FLOAT, 1);
-        }
-        if (tubeRenderData.vertexMediumStressBuffer) {
-            shaderAttributes->addGeometryBufferOptional(
-                    tubeRenderData.vertexMediumStressBuffer, "vertexMediumStress",
-                    sgl::ATTRIB_FLOAT, 1);
-        }
-        if (tubeRenderData.vertexMinorStressBuffer) {
-            shaderAttributes->addGeometryBufferOptional(
-                    tubeRenderData.vertexMinorStressBuffer, "vertexMinorStress",
-                    sgl::ATTRIB_FLOAT, 1);
-        }
-    }*/
-
-    return shaderAttributes;
-}
-
 TubeRenderData LineDataStress::getTubeRenderData() {
     rebuildInternalRepresentationIfNecessary();
 
@@ -2190,47 +2002,6 @@ BandRenderData LineDataStress::getBandRenderData() {
 
     return bandRenderData;
 }
-
-void LineDataStress::setUniformGatherShaderData_AllPasses() {
-    LineData::setUniformGatherShaderData_AllPasses();
-    /*if (useLineHierarchy && linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
-        sgl::ShaderManager->bindShaderStorageBuffer(3, lineHierarchyLevelsSSBO);
-    }*/
-
-    /*if (usePrincipalStressDirectionIndex) {
-        sgl::ShaderManager->bindShaderStorageBuffer(9, multiVarTransferFunctionWindow.getMinMaxSsbo());
-    }*/
-}
-
-void LineDataStress::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader) {
-    if (!usePrincipalStressDirectionIndex) {
-        LineData::setUniformGatherShaderData_Pass(gatherShader);
-    } else {
-        /*gatherShader->setUniformOptional(
-                "transferFunctionTexture",
-                multiVarTransferFunctionWindow.getTransferFunctionMapTexture(), 0);*/
-        if (getUseBandRendering()) {
-            gatherShader->setUniform("bandWidth", LineRenderer::bandWidth);
-        }
-    }
-    gatherShader->setUniformOptional("currentSeedIdx", int32_t(currentSeedIdx));
-
-    if (useLineHierarchy) {
-        if (!rendererSupportsTransparency) {
-            gatherShader->setUniform("lineHierarchySlider", glm::vec3(1.0f) - lineHierarchySliderValues);
-        } else {
-            //gatherShader->setUniformOptional(
-            //        "lineHierarchyImportanceMap",
-            //        stressLineHierarchyMappingWidget.getHierarchyMappingTexture(), 1);
-        }
-    }
-
-    if (getUseBandRendering()) {
-        gatherShader->setUniform(
-                "psUseBands", glm::ivec3(psUseBands[0], psUseBands[1], psUseBands[2]));
-    }
-}
-
 
 VulkanTubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(
         LineRenderer* lineRenderer, bool raytracing) {

@@ -33,7 +33,6 @@
 #include <glm/gtx/color_space.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/rotate_vector.hpp>
-#include <GL/glew.h>
 #include <boost/algorithm/string.hpp>
 
 #ifdef USE_ZEROMQ
@@ -392,7 +391,6 @@ MainApp::MainApp()
         performanceMeasurer = new AutomaticPerformanceMeasurer(
                 getTestModesPaper(), "performance.csv", "depth_complexity.csv",
                 [this](const InternalState &newState) { this->setNewState(newState); });
-        performanceMeasurer->setInitialFreeMemKilobytes(gpuInitialFreeMemKilobytes);
     }
 
 #ifdef __linux__

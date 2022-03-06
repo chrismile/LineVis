@@ -28,13 +28,9 @@
 
 #include <boost/algorithm/string/case_conv.hpp>
 
-#include <GL/glew.h>
 #include <ospray/ospray.h>
 
 #include <Utils/File/Logfile.hpp>
-#include <Graphics/Window.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Texture/TextureManager.hpp>
 #include <Graphics/Vulkan/Utils/Swapchain.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <Graphics/Vulkan/Render/Passes/BlitRenderPass.hpp>

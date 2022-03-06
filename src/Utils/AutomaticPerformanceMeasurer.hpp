@@ -32,9 +32,6 @@
 #include <string>
 #include <functional>
 #include <Utils/File/CsvWriter.hpp>
-#include <Graphics/Buffers/FBO.hpp>
-#include <Graphics/Texture/Bitmap.hpp>
-#include <Graphics/OpenGL/TimerGL.hpp>
 #include <Graphics/Vulkan/Utils/Timer.hpp>
 
 #include "InternalState.hpp"
@@ -49,7 +46,6 @@ public:
     ~AutomaticPerformanceMeasurer();
 
     // To be called by the application
-    void setInitialFreeMemKilobytes(int initialFreeMemKilobytes);
     void startMeasure(float timeStamp);
     void endMeasure();
 
@@ -62,8 +58,7 @@ public:
 
     // Called by OIT algorithms.
     void setCurrentAlgorithmBufferSizeBytes(size_t numBytes);
-    inline void setPpllTimer(sgl::TimerGL* ppllTimer) { this->ppllTimer = ppllTimer; }
-    inline void setPpllTimer(const sgl::vk::TimerPtr& ppllTimer) { /*this->ppllTimer = ppllTimer;*/ } // TODO
+    inline void setPpllTimer(const sgl::vk::TimerPtr& ppllTimer) { this->ppllTimer = ppllTimer; }
 
 private:
     /// Write out the performance data of "currentState" to "file".
@@ -81,7 +76,7 @@ private:
 
     float nextModeCounter = 0.0f;
 
-    sgl::TimerGL timerGL;
+    sgl::vk::TimerPtr timerVk;
     int initialFreeMemKilobytes;
     sgl::CsvWriter file;
     sgl::CsvWriter depthComplexityFile;
@@ -95,7 +90,7 @@ private:
 
     // For per-pixel linked list renderers.
     sgl::CsvWriter ppllFile;
-    sgl::TimerGL* ppllTimer = nullptr;
+    sgl::vk::TimerPtr ppllTimer = nullptr;
 };
 
 

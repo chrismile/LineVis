@@ -28,12 +28,9 @@
 
 #include <chrono>
 #include <cstring>
-#include <GL/glew.h>
 
 #include <Utils/File/Logfile.hpp>
 #include <Math/Math.hpp>
-#include <Graphics/Shader/ShaderManager.hpp>
-#include <Graphics/Renderer.hpp>
 
 #include "Tubes.hpp"
 

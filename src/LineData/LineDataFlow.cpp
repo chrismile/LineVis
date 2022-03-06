@@ -27,8 +27,6 @@
  */
 
 #include <Utils/File/Logfile.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
 #include <Graphics/Vulkan/Render/Data.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
@@ -457,95 +455,6 @@ void LineDataFlow::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
     }
 }
 
-sgl::ShaderProgramPtr LineDataFlow::reloadGatherShaderOpenGL() {
-    if (useRibbons && getUseBandRendering()) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_BANDS", "");
-        if (renderThickBands) {
-            sgl::ShaderManager->addPreprocessorDefine("BAND_RENDERING_THICK", "");
-            sgl::ShaderManager->addPreprocessorDefine("MIN_THICKNESS", std::to_string(minBandThickness));
-        } else {
-            sgl::ShaderManager->addPreprocessorDefine("MIN_THICKNESS", std::to_string(1e-2f));
-        }
-    }
-    if (useRotatingHelicityBands) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_ROTATING_HELICITY_BANDS", "");
-    }
-
-    sgl::ShaderProgramPtr gatherShader = LineData::reloadGatherShaderOpenGL();
-
-    if (useRotatingHelicityBands) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_ROTATING_HELICITY_BANDS");
-    }
-    if (useRibbons && getUseBandRendering()) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_BANDS");
-        if (renderThickBands) {
-            sgl::ShaderManager->removePreprocessorDefine("BAND_RENDERING_THICK");
-        }
-        sgl::ShaderManager->removePreprocessorDefine("MIN_THICKNESS");
-    }
-    return gatherShader;
-}
-
-sgl::ShaderAttributesPtr LineDataFlow::getGatherShaderAttributesOpenGL(sgl::ShaderProgramPtr& gatherShader) {
-    sgl::ShaderAttributesPtr shaderAttributes;
-    /*if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
-        BandRenderData tubeRenderData = this->getBandRenderData();
-        linePointDataSSBO = sgl::GeometryBufferPtr();
-
-        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
-
-        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_LINES);
-        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-        shaderAttributes->addGeometryBuffer(
-                tubeRenderData.vertexPositionBuffer, "vertexPosition",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
-                sgl::ATTRIB_FLOAT, 1);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexNormalBuffer, "vertexNormal",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexTangentBuffer, "vertexTangent",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexOffsetLeftBuffer, "vertexOffsetLeft",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexOffsetRightBuffer, "vertexOffsetRight",
-                sgl::ATTRIB_FLOAT, 3);
-    } else if (linePrimitiveMode != LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
-        TubeRenderData tubeRenderData = this->getTubeRenderData();
-        linePointDataSSBO = sgl::GeometryBufferPtr();
-
-        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
-
-        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_LINES);
-        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-        shaderAttributes->addGeometryBuffer(
-                tubeRenderData.vertexPositionBuffer, "vertexPosition",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
-                sgl::ATTRIB_FLOAT, 1);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexNormalBuffer, "vertexNormal",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexTangentBuffer, "vertexTangent",
-                sgl::ATTRIB_FLOAT, 3);
-
-        if (useRotatingHelicityBands) {
-            shaderAttributes->addGeometryBufferOptional(
-                    tubeRenderData.vertexRotationBuffer, "vertexRotation",
-                    sgl::ATTRIB_FLOAT, 1);
-        }
-    } else {
-        shaderAttributes = LineData::getGatherShaderAttributesOpenGL(gatherShader);
-    }*/
-
-    return shaderAttributes;
-}
 
 
 // --- Retrieve data for rendering. ---

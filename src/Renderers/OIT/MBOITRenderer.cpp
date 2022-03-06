@@ -26,16 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <GL/glew.h>
-
 #include <Math/Geometry/MatrixUtil.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Window.hpp>
-#include <Graphics/Shader/ShaderManager.hpp>
 #include <Graphics/Scene/Camera.hpp>
-#include <Graphics/Texture/TextureManager.hpp>
-#include <Graphics/Buffers/FBO.hpp>
-#include <Graphics/OpenGL/GeometryBuffer.hpp>
 #include <Graphics/Vulkan/Utils/Device.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>

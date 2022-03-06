@@ -26,24 +26,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Utils/StringUtils.hpp>
 #include <Utils/File/Logfile.hpp>
-#include <Math/Geometry/MatrixUtil.hpp>
 #include <Graphics/Window.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Shader/ShaderManager.hpp>
-#include <Graphics/OpenGL/GeometryBuffer.hpp>
-#include <Graphics/OpenGL/Texture.hpp>
 
 #include <Graphics/Vulkan/Utils/Interop.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
-#include <Graphics/Vulkan/Shader/ShaderManager.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
-#include <Graphics/Vulkan/Render/Data.hpp>
 #include <Graphics/Vulkan/Render/GraphicsPipeline.hpp>
 #include <Graphics/Vulkan/Render/CommandBuffer.hpp>
 
-#include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "LineData/Scattering/LineDataScattering.hpp"

@@ -34,7 +34,6 @@
 #include <map>
 
 #include <Utils/SciVis/SciVisApp.hpp>
-#include <Graphics/Shader/Shader.hpp>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
 
 #include "Loaders/DataSetList.hpp"

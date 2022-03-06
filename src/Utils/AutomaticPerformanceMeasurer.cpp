@@ -65,6 +65,7 @@ AutomaticPerformanceMeasurer::AutomaticPerformanceMeasurer(std::vector<InternalS
 }
 
 AutomaticPerformanceMeasurer::~AutomaticPerformanceMeasurer() {
+    timerVk->finishGPU();
     writeCurrentModeData();
     file.close();
     depthComplexityFile.close();
@@ -91,14 +92,14 @@ void AutomaticPerformanceMeasurer::writeCurrentModeData() {
     std::vector<uint64_t> frameTimesNS;
 
     if (!ppllTimer) {
-        timerGL.stopMeasuring();
-        timeMS = timerGL.getTimeMS(currentState.name);
-        auto& performanceProfile = timerGL.getCurrentFrameTimeList();
-        for (auto &perfPair : performanceProfile) {
+        timerVk->finishGPU();
+        timeMS = timerVk->getTimeMS(currentState.name);
+        /*auto& performanceProfile = timerVk->getCurrentFrameTimeList();
+        for (auto& perfPair : performanceProfile) {
             frameTimesNS.push_back(perfPair.second);
-        }
+        }*/
     } else {
-        ppllTimer->stopMeasuring();
+        ppllTimer->finishGPU();
         double timePPLLClear = ppllTimer->getTimeMS("PPLLClear");
         double timeFCGather = ppllTimer->getTimeMS("FCGather");
         double timePPLLResolve = ppllTimer->getTimeMS("PPLLResolve");
@@ -109,14 +110,14 @@ void AutomaticPerformanceMeasurer::writeCurrentModeData() {
         ppllFile.newRow();
 
         // Push data for performance measurer.
-        std::map<float, uint64_t> frameTimeMap;
+        /*std::map<float, uint64_t> frameTimeMap;
         auto& performanceProfile = ppllTimer->getCurrentFrameTimeList();
         for (auto &perfPair : performanceProfile) {
             frameTimeMap[perfPair.first] += perfPair.second;
         }
         for (auto &perfPair : frameTimeMap) {
             frameTimesNS.push_back(perfPair.second);
-        }
+        }*/
         timeMS = timePPLLClear + timeFCGather + timePPLLResolve;
     }
 
@@ -127,31 +128,31 @@ void AutomaticPerformanceMeasurer::writeCurrentModeData() {
 
     // Write current memory consumption in gigabytes
     file.writeCell(sgl::toString(getUsedVideoMemorySizeGiB()));
-    file.writeCell(sgl::toString(currentAlgorithmsBufferSizeBytes / 1024.0 / 1024.0 / 1024.0));
+    file.writeCell(sgl::toString(double(currentAlgorithmsBufferSizeBytes) / 1024.0 / 1024.0 / 1024.0));
 
 
     std::vector<float> frameTimes;
     float averageFrametime = 0.0f;
     for (uint64_t frameTimeNS : frameTimesNS) {
-        float frameTimeMS = float(double(frameTimeNS) / double(1e6));
-        float frameTimeS = float(double(frameTimeNS) / double(1e9));
+        auto frameTimeMS = float(double(frameTimeNS) / double(1e6));
+        auto frameTimeS = float(double(frameTimeNS) / double(1e9));
         frameTimes.push_back(frameTimeS);
         averageFrametime += frameTimeS;
         perfFile.writeCell(sgl::toString(frameTimeMS));
     }
     std::sort(frameTimes.begin(), frameTimes.end());
-    averageFrametime /= frameTimes.size();
+    averageFrametime /= float(frameTimes.size());
 
     float averageFps = 1.0f / averageFrametime;
-    int percentile5Index = int(frameTimes.size() * 0.5);
-    int percentile95Index = int(frameTimes.size() * 0.95);
+    int percentile5Index = int(double(frameTimes.size()) * 0.5);
+    int percentile95Index = int(double(frameTimes.size()) * 0.95);
     float percentile5Fps = 1.0f / frameTimes.at(percentile95Index);
     float percentile95Fps = 1.0f / frameTimes.at(percentile5Index);
     file.writeCell(sgl::toString(averageFps));
     file.writeCell(sgl::toString(percentile5Fps));
     file.writeCell(sgl::toString(percentile95Fps));
     file.writeCell(sgl::toString(maxPPLLNumFragments));
-    file.writeCell(sgl::toString((maxPPLLNumFragments * 12ull) / 1024.0 / 1024.0 / 1024.0));
+    file.writeCell(sgl::toString(double(maxPPLLNumFragments * 12ull) / 1024.0 / 1024.0 / 1024.0));
 
     file.newRow();
     perfFile.newRow();
@@ -176,14 +177,14 @@ void AutomaticPerformanceMeasurer::setNextState(bool first) {
 void AutomaticPerformanceMeasurer::startMeasure(float timeStamp) {
     //if (currentState.oitAlgorithm == RENDER_MODE_RAYTRACING) {
         // CPU rendering algorithm, thus use a CPU timer and not a GPU timer.
-        //timerGL.startCPU(currentState.name, timeStamp);
+        //timerVk->startCPU(currentState.name, timeStamp);
     //} else {
-    timerGL.startGPU(currentState.name, timeStamp);
+    timerVk->startGPU(currentState.name);
     //}
 }
 
 void AutomaticPerformanceMeasurer::endMeasure() {
-    timerGL.end();
+    timerVk->endGPU(currentState.name);
 }
 
 void AutomaticPerformanceMeasurer::pushDepthComplexityFrame(
@@ -201,7 +202,7 @@ void AutomaticPerformanceMeasurer::pushDepthComplexityFrame(
     depthComplexityFile.writeCell(sgl::toString(avgUsed));
     depthComplexityFile.writeCell(sgl::toString(avgAll));
     depthComplexityFile.writeCell(sgl::toString((int)totalNumFragments));
-    depthComplexityFile.writeCell(sgl::toString((totalNumFragments * 12ull) / 1024.0 / 1024.0 / 1024.0));
+    depthComplexityFile.writeCell(sgl::toString(double(totalNumFragments * 12ull) / 1024.0 / 1024.0 / 1024.0));
     depthComplexityFile.newRow();
     depthComplexityFrameNumber++;
 }
@@ -210,41 +211,7 @@ void AutomaticPerformanceMeasurer::setCurrentAlgorithmBufferSizeBytes(size_t num
     currentAlgorithmsBufferSizeBytes = numBytes;
 }
 
-/*#ifndef GL_QUERY_RESOURCE_TYPE_VIDMEM_ALLOC_NV
-#include <SDL2/SDL.h>
-#endif*/
-
-void AutomaticPerformanceMeasurer::setInitialFreeMemKilobytes(int initialFreeMemKilobytes) {
-    this->initialFreeMemKilobytes = initialFreeMemKilobytes;
-}
-
 float AutomaticPerformanceMeasurer::getUsedVideoMemorySizeGiB() {
-    // https://www.khronos.org/registry/OpenGL/extensions/NVX/NVX_gpu_memory_info.txt
-    if (sgl::SystemGL::get()->isGLExtensionAvailable("GL_NVX_gpu_memory_info")) {
-        GLint freeMemKilobytes = 0;
-        glGetIntegerv(GL_GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX, &freeMemKilobytes);
-        float usedGiB = float((initialFreeMemKilobytes - freeMemKilobytes) * 1000.0 / (1024.0 * 1024.0 * 1024.0));
-        return usedGiB;
-    }
-    // https://www.khronos.org/registry/OpenGL/extensions/NV/NV_query_resource.txt
-    /*if (sgl::SystemGL::get()->isGLExtensionAvailable("GL_NV_query_resource")) {
-        // Doesn't work for whatever reason :(
-        /GLint buffer[4096];
-#ifndef GL_QUERY_RESOURCE_TYPE_VIDMEM_ALLOC_NV
-#define GL_QUERY_RESOURCE_TYPE_VIDMEM_ALLOC_NV 0x9540
-        typedef GLint (*PFNGLQUERYRESOURCENVPROC) (GLenum queryType, GLint tagId, GLuint bufSize, GLint *buffer);
-        PFNGLQUERYRESOURCENVPROC glQueryResourceNV
-                = (PFNGLQUERYRESOURCENVPROC)SDL_GL_GetProcAddress("glQueryResourceNV");
-        glQueryResourceNV(GL_QUERY_RESOURCE_TYPE_VIDMEM_ALLOC_NV, -1, 4096, buffer);
-#else
-        glQueryResourceNV(GL_QUERY_RESOURCE_TYPE_VIDMEM_ALLOC_NV, 0, 6, buffer);
-#endif
-        // Used video memory stored at int at index 5 (in kilobytes).
-        size_t usedKB = buffer[5];
-        float usedGiB = (usedKB * 1000) / 1024.0 / 1024.0 / 1024.0;
-        return usedGiB;
-    }*/
-
     // Fallback
     return 0.0f;
 }

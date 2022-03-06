@@ -34,25 +34,20 @@
 #include <poll.h>
 #endif
 
-#include <GL/glew.h>
 #include <glm/glm.hpp>
-
-#define IMGUI_DEFINE_MATH_OPERATORS
-#include <ImGui/imgui.h>
-#include <ImGui/imgui_internal.h>
-#include <ImGui/imgui_custom.h>
-#include <ImGui/imgui_stdlib.h>
 
 #include <Utils/AppSettings.hpp>
 #include <Utils/XML.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/FileUtils.hpp>
 #include <Math/Math.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Texture/TextureManager.hpp>
-#ifdef SUPPORT_VULKAN
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
-#endif
+
+#define IMGUI_DEFINE_MATH_OPERATORS
+#include <ImGui/imgui.h>
+#include <ImGui/imgui_internal.h>
+#include <ImGui/imgui_custom.h>
+#include <ImGui/imgui_stdlib.h>
 
 #include "MultiVarTransferFunctionWindow.hpp"
 

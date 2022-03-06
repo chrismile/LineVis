@@ -27,9 +27,6 @@
  */
 
 #include <Utils/File/Logfile.hpp>
-#include <Graphics/Shader/ShaderManager.hpp> // TODO
-#include <Graphics/Shader/ShaderAttributes.hpp> // TODO
-#include <Graphics/Renderer.hpp> // TODO
 #include <Graphics/Vulkan/Shader/ShaderManager.hpp>
 #include <Graphics/Vulkan/Render/Data.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
@@ -314,51 +311,9 @@ std::vector<std::string> LineData::getShaderModuleNames() {
                 "GeometryPassNormalTube.Fragment"
         };
     } else {
-        sgl::Logfile::get()->writeError("Error in LineData::reloadGatherShaderOpenGL: Invalid line primitive mode.");
+        sgl::Logfile::get()->writeError("Error in LineData::getShaderModuleNames: Invalid line primitive mode.");
         return {};
     }
-}
-
-sgl::ShaderProgramPtr LineData::reloadGatherShaderOpenGL() {
-    sgl::ShaderManager->invalidateShaderCache();
-    sgl::ShaderProgramPtr shaderProgramPtr;
-    if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
-        shaderProgramPtr = sgl::ShaderManager->getShaderProgram({
-                "GeometryPassNormal.Programmable.Vertex",
-                "GeometryPassNormal.Fragment"
-        });
-    } else if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_GEOMETRY_SHADER) {
-        shaderProgramPtr = sgl::ShaderManager->getShaderProgram({
-                "GeometryPassNormal.VBO.Vertex",
-                "GeometryPassNormal.VBO.Geometry",
-                "GeometryPassNormal.Fragment"
-        });
-    } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER) {
-        sgl::ShaderManager->addPreprocessorDefine("NUM_TUBE_SUBDIVISIONS", tubeNumSubdivisions);
-        shaderProgramPtr = sgl::ShaderManager->getShaderProgram({
-                "GeometryPassNormalTube.VBO.Vertex",
-                "GeometryPassNormalTube.VBO.Geometry",
-                "GeometryPassNormalTube.Fragment"
-        });
-        sgl::ShaderManager->removePreprocessorDefine("NUM_TUBE_SUBDIVISIONS");
-    } else if (linePrimitiveMode == LINE_PRIMITIVES_BAND) {
-        shaderProgramPtr = sgl::ShaderManager->getShaderProgram({
-                "GeometryPassNormalBand.VBO.Vertex",
-                "GeometryPassNormalBand.VBO.Geometry",
-                "GeometryPassNormalBand.Fragment"
-        });
-    } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND) {
-        sgl::ShaderManager->addPreprocessorDefine("NUM_TUBE_SUBDIVISIONS", tubeNumSubdivisions);
-        shaderProgramPtr = sgl::ShaderManager->getShaderProgram({
-                "GeometryPassNormalTube.VBO.Vertex",
-                "GeometryPassNormalTube.VBO.Geometry",
-                "GeometryPassNormalTube.Fragment"
-        });
-        sgl::ShaderManager->removePreprocessorDefine("NUM_TUBE_SUBDIVISIONS");
-    } else {
-        sgl::Logfile::get()->writeError("Error in LineData::reloadGatherShaderOpenGL: Invalid line primitive mode.");
-    }
-    return shaderProgramPtr;
 }
 
 void LineData::setGraphicsPipelineInfo(
@@ -394,66 +349,6 @@ void LineData::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
         rasterData->setVertexBuffer(tubeRenderData.vertexNormalBuffer, "vertexNormal");
         rasterData->setVertexBuffer(tubeRenderData.vertexTangentBuffer, "vertexTangent");
     }
-}
-
-sgl::ShaderAttributesPtr LineData::getGatherShaderAttributesOpenGL(sgl::ShaderProgramPtr& gatherShader) {
-    sgl::ShaderAttributesPtr shaderAttributes;
-
-    /*if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH) {
-        TubeRenderDataProgrammableFetch tubeRenderData = this->getTubeRenderDataProgrammableFetch();
-        linePointDataSSBO = tubeRenderData.linePointsBuffer;
-
-        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
-        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_TRIANGLES);
-        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-    } else {
-        TubeRenderData tubeRenderData = this->getTubeRenderData();
-        linePointDataSSBO = sgl::GeometryBufferPtr();
-
-        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
-
-        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_LINES);
-        shaderAttributes->setIndexGeometryBuffer(tubeRenderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-        shaderAttributes->addGeometryBuffer(
-                tubeRenderData.vertexPositionBuffer, "vertexPosition",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexAttributeBuffer, "vertexAttribute",
-                sgl::ATTRIB_FLOAT, 1);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexNormalBuffer, "vertexNormal",
-                sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBufferOptional(
-                tubeRenderData.vertexTangentBuffer, "vertexTangent",
-                sgl::ATTRIB_FLOAT, 3);
-    }*/
-
-    return shaderAttributes;
-}
-
-sgl::ShaderProgramPtr LineData::reloadGatherShaderHull() {
-    sgl::ShaderManager->invalidateShaderCache();
-    sgl::ShaderProgramPtr shaderProgramPtr = sgl::ShaderManager->getShaderProgram({
-            "MeshHull.Vertex", "MeshHull.Fragment"
-    });
-    return shaderProgramPtr;
-}
-
-sgl::ShaderAttributesPtr LineData::getGatherShaderAttributesHull(sgl::ShaderProgramPtr& gatherShader) {
-    SimulationMeshOutlineRenderData renderData = this->getSimulationMeshOutlineRenderData();
-
-    sgl::ShaderAttributesPtr shaderAttributes;
-    /*if (gatherShader) {
-        shaderAttributes = sgl::ShaderManager->createShaderAttributes(gatherShader);
-        shaderAttributes->setVertexMode(sgl::VERTEX_MODE_TRIANGLES);
-        shaderAttributes->setIndexGeometryBuffer(renderData.indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-        shaderAttributes->addGeometryBuffer(
-                renderData.vertexPositionBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
-        shaderAttributes->addGeometryBuffer(
-                renderData.vertexNormalBuffer, "vertexNormal", sgl::ATTRIB_FLOAT, 3);
-    }*/
-
-    return shaderAttributes;
 }
 
 SimulationMeshOutlineRenderData LineData::getSimulationMeshOutlineRenderData() {
@@ -494,35 +389,6 @@ void LineData::loadSimulationMeshOutlineFromFile(
             simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions,
             simulationMeshOutlineVertexNormals);
 }
-
-void LineData::setUniformGatherShaderDataOpenGL(sgl::ShaderProgramPtr& gatherShader) {
-    setUniformGatherShaderData_AllPasses();
-    setUniformGatherShaderData_Pass(gatherShader);
-}
-
-void LineData::setUniformGatherShaderData_AllPasses() {
-    /*if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH && linePointDataSSBO) {
-        sgl::ShaderManager->bindShaderStorageBuffer(2, linePointDataSSBO);
-    }*/
-}
-
-void LineData::setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader) {
-    gatherShader->setUniformOptional(
-            "transferFunctionTexture",
-            transferFunctionWindow.getTransferFunctionMapTexture(), 0);
-    gatherShader->setUniformOptional("minAttributeValue", transferFunctionWindow.getSelectedRangeMin());
-    gatherShader->setUniformOptional("maxAttributeValue", transferFunctionWindow.getSelectedRangeMax());
-
-    if (getUseBandRendering()) {
-        gatherShader->setUniformOptional("bandWidth", LineRenderer::bandWidth);
-    }
-}
-
-void LineData::setUniformGatherShaderDataHull_Pass(sgl::ShaderProgramPtr& gatherShader) {
-    gatherShader->setUniformOptional("color", glm::vec4(hullColor.r, hullColor.g, hullColor.b, hullOpacity));
-    gatherShader->setUniformOptional("useShading", int(hullUseShading));
-}
-
 
 sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLevelAS(LineRenderer* lineRenderer) {
     rebuildInternalRepresentationIfNecessary();

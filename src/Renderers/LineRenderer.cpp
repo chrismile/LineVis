@@ -26,15 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <iostream>
-
-#include <Math/Geometry/MatrixUtil.hpp>
 #include <Utils/Dialog.hpp>
 #include <Utils/File/Logfile.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Shader/ShaderManager.hpp>
-#include <Graphics/OpenGL/RendererGL.hpp>
-#include <Graphics/OpenGL/GeometryBuffer.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/imgui_custom.h>
@@ -383,42 +376,6 @@ void LineRenderer::computeDepthRange() {
     }
 
     outputDepthMinMaxBufferIndex = iteration % 2;
-}
-
-void LineRenderer::setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram) {
-    if (useDepthCues && lineData) {
-        computeDepthRange();
-    }
-
-    shaderProgram->setUniformOptional("depthCueStrength", depthCueStrength);
-
-    shaderProgram->setUniformOptional("fieldOfViewY", sceneData->camera->getFOVy());
-    //shaderProgram->setUniformOptional(
-    //        "viewportSize",
-    //        glm::ivec2((*sceneData->sceneTexture)->getW(), (*sceneData->sceneTexture)->getH())); // TODO
-
-    if (useAmbientOcclusion && ambientOcclusionBaker && ambientOcclusionBaker->getIsDataReady()) {
-        /*if (ambientOcclusionBaker->getIsStaticPrebaker() && ambientOcclusionBaker->getAmbientOcclusionBuffer()) {
-            sgl::GeometryBufferPtr aoBuffer = ambientOcclusionBaker->getAmbientOcclusionBuffer();
-            sgl::GeometryBufferPtr blendingWeightsBuffer = ambientOcclusionBaker->getBlendingWeightsBuffer();
-            sgl::ShaderManager->bindShaderStorageBuffer(13, aoBuffer);
-            sgl::ShaderManager->bindShaderStorageBuffer(14, blendingWeightsBuffer);
-            shaderProgram->setUniformOptional(
-                    "numAoTubeSubdivisions", ambientOcclusionBaker->getNumTubeSubdivisions());
-            shaderProgram->setUniformOptional(
-                    "numLineVertices", ambientOcclusionBaker->getNumLineVertices());
-            shaderProgram->setUniformOptional(
-                    "numParametrizationVertices", ambientOcclusionBaker->getNumParametrizationVertices());
-        } else if (!ambientOcclusionBaker->getIsStaticPrebaker()) {
-            shaderProgram->setUniform(
-                    "ambientOcclusionTexture", ambientOcclusionBaker->getAmbientOcclusionFrameTexture(),
-                    6);
-        }*/
-        shaderProgram->setUniformOptional(
-                "ambientOcclusionStrength", ambientOcclusionStrength);
-        shaderProgram->setUniformOptional(
-                "ambientOcclusionGamma", ambientOcclusionGamma);
-    }
 }
 
 bool LineRenderer::setNewSettings(const SettingsMap& settings) {

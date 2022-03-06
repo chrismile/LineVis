@@ -99,10 +99,6 @@ public:
     void setGraphicsPipelineInfo(
             sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) override;
     void setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) override;
-    sgl::ShaderProgramPtr reloadGatherShaderOpenGL() override;
-    sgl::ShaderAttributesPtr getGatherShaderAttributesOpenGL(sgl::ShaderProgramPtr& gatherShader) override;
-    void setUniformGatherShaderData_AllPasses() override;
-    void setUniformGatherShaderData_Pass(sgl::ShaderProgramPtr& gatherShader) override;
 
     // --- Retrieve data for rendering. ---
     TubeRenderData getTubeRenderData() override;

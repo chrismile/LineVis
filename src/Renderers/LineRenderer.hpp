@@ -179,8 +179,6 @@ protected:
     std::string windowName;
 
     // For rendering the simulation mesh hull.
-    sgl::ShaderProgramPtr gatherShaderHull;
-    sgl::ShaderAttributesPtr shaderAttributesHull;
     std::shared_ptr<HullRasterPass> hullRasterPass;
 
     std::shared_ptr<LineRasterPass> lineRasterPass;
@@ -197,7 +195,6 @@ protected:
     void updateDepthCueMode();
     void updateDepthCueGeometryData();
     void computeDepthRange();
-    void setUniformData_Pass(sgl::ShaderProgramPtr shaderProgram);
     bool useDepthCues = true;
     float depthCueStrength = 0.8f;
     float minDepth = 0.0f;
