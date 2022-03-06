@@ -33,7 +33,7 @@
 #include <thread>
 #include <Graphics/Vulkan/Render/Passes/Pass.hpp>
 #include "LineData/LineRenderData.hpp"
-#include "../AmbientOcclusion/AmbientOcclusionBaker.hpp"
+#include "Renderers/AmbientOcclusion/AmbientOcclusionBaker.hpp"
 
 namespace sgl {
 

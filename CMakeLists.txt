@@ -50,11 +50,11 @@ if (USE_GTEST)
             ${CMAKE_CURRENT_SOURCE_DIR}/test/TestVolumetricPathTracing.cpp
             ${CMAKE_CURRENT_SOURCE_DIR}/src/LineData/Scattering/CloudData.cpp
             ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/OIT/MBOITUtils.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracingPass.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/PathTracer/SuperVoxelGrid.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/PathTracer/OpenExrLoader.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/Denoiser/Denoiser.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/Denoiser/EAWDenoiser.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Scattering/PathTracer/VolumetricPathTracingPass.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Scattering/PathTracer/SuperVoxelGrid.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Scattering/PathTracer/OpenExrLoader.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Scattering/Denoiser/Denoiser.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Scattering/Denoiser/EAWDenoiser.cpp
     )
 endif()
 
@@ -185,7 +185,7 @@ else()
     MESSAGE(STATUS "sgl was not built with CUDA interoperability support. Disabling OptiX denoiser support.")
 endif()
 if (NOT SUPPORT_OPTIX)
-    list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/Denoiser/OptixVptDenoiser.cpp)
+    list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Scattering/Denoiser/OptixVptDenoiser.cpp)
 endif()
 
 find_package(Imath CONFIG QUIET)
@@ -211,9 +211,9 @@ else()
     MESSAGE(STATUS "OpenEXR not found. Disabling OpenEXR image loading support.")
 endif()
 if (NOT SUPPORT_OPENEXR)
-    list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/PathTracer/OpenExrLoader.cpp)
+    list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Scattering/PathTracer/OpenExrLoader.cpp)
     if (USE_GTEST)
-        list(REMOVE_ITEM GTEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Vulkan/Scattering/PathTracer/OpenExrLoader.cpp)
+        list(REMOVE_ITEM GTEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Scattering/PathTracer/OpenExrLoader.cpp)
     endif()
 endif()
 

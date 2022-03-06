@@ -35,8 +35,8 @@
 #include <Graphics/Vulkan/Utils/Instance.hpp>
 #include <Graphics/Vulkan/Utils/Device.hpp>
 
-#include "Renderers/Vulkan/Scattering/nanovdb/NanoVDB.h"
-#include "Renderers/Vulkan/Scattering/nanovdb/util/Primitives.h"
+#include "Renderers/Scattering/nanovdb/NanoVDB.h"
+#include "Renderers/Scattering/nanovdb/util/Primitives.h"
 #include "LineData/Scattering/CloudData.hpp"
 #include "VolumetricPathTracingTestData.hpp"
 #include "VolumetricPathTracingTestRenderer.hpp"

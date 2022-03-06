@@ -32,6 +32,11 @@
 
 layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
+layout(push_constant) uniform PushConstants {
+    uint numLineVertices;
+    float temporalSmoothingFactor; // = 0.1
+};
+
 layout (std430, binding = 2) buffer OpacityBufferPerVertex {
     float opacityBufferPerVertex[];
 };
@@ -47,9 +52,6 @@ layout (std430, binding = 4) readonly buffer LineSegmentVisibilityBuffer {
 layout (std430, binding = 5) readonly buffer BlendingWeightParametrizationBuffer {
     float blendingWeightParametrizationBuffer[]; // per-vertex
 };
-
-uniform uint numLineVertices;
-uniform float temporalSmoothingFactor = 0.1;
 
 #include "FloatPack.glsl"
 

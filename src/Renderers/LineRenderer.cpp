@@ -40,9 +40,9 @@
 #include <ImGui/imgui_custom.h>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
-#include "Renderers/Vulkan/VulkanAmbientOcclusionBaker.hpp"
-#include "Renderers/Vulkan/VulkanRayTracedAmbientOcclusion.hpp"
-#include "Renderers/Vulkan/VulkanRayTracer.hpp"
+#include "Renderers/AmbientOcclusion/VulkanAmbientOcclusionBaker.hpp"
+#include "Renderers/AmbientOcclusion/VulkanRayTracedAmbientOcclusion.hpp"
+#include "Renderers/RayTracing/VulkanRayTracer.hpp"
 #include "DepthCues.hpp"
 #include "HullRasterPass.hpp"
 #include "LineRenderer.hpp"

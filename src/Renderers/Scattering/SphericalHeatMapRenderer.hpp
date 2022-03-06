@@ -30,7 +30,7 @@
 #define LINEVIS_SPHERICALHEATMAPRENDERER_HPP
 
 #include "Renderers/LineRenderer.hpp"
-#include "../../../LineData/Scattering/DtPathTrace.hpp"
+#include "LineData/Scattering/DtPathTrace.hpp"
 
 namespace sgl { namespace vk {
 

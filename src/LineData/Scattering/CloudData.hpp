@@ -33,7 +33,7 @@
 #include <Math/Geometry/AABB3.hpp>
 #include <Graphics/Color.hpp>
 
-#include "Renderers/Vulkan/Scattering/nanovdb/util/GridHandle.h"
+#include "Renderers/Scattering/nanovdb/util/GridHandle.h"
 
 class CloudData {
 public:

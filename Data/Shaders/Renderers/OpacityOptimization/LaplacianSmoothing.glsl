@@ -32,6 +32,11 @@
 
 layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
+layout(push_constant) uniform PushConstants {
+    uint numLineSegments; ///< Number of entries in opacityBufferIn/opacityBufferOut.
+    float relaxationConstant;
+};
+
 layout (std430, binding = 2) readonly buffer OpacityBufferIn {
     float opacityBufferIn[];
 };
@@ -48,9 +53,6 @@ layout (std430, binding = 5) readonly buffer LineSegmentConnectivityBuffer {
     // Indices of left and right neighbors (or index of element itself if no left/right neighbor).
     uvec2 lineSegmentConnectivityBuffer[];
 };
-
-uniform uint numLineSegments; ///< Number of entries in opacityBufferIn/opacityBufferOut.
-uniform float relaxationConstant;
 
 /**
  * Computes (see http://graphics.stanford.edu/courses/cs468-12-spring/LectureSlides/06_smoothing.pdf):

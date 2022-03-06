@@ -73,11 +73,6 @@ void main() {
 layout(lines) in;
 layout(triangle_strip, max_vertices = 4) out;
 
-uniform vec3 cameraPosition;
-uniform float lineWidth;
-uniform float bandWidth;
-uniform ivec3 psUseBands;
-
 layout(location = 0) in vec3 linePosition[];
 layout(location = 1) in float lineAttribute[];
 layout(location = 2) in vec3 lineNormal[];
@@ -102,6 +97,8 @@ layout(location = 7) flat out int useBand;
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
 layout(location = 8) flat out uint fragmentPrincipalStressIndex;
 #endif
+
+#include "LineUniformData.glsl"
 
 void main() {
     vec3 linePosition0 = v_in[0].linePosition;
@@ -257,14 +254,9 @@ in int gl_SampleMaskIn[];
 layout(location = 0) out vec4 fragColor;
 #endif
 
-uniform vec3 cameraPosition;
-uniform float lineWidth;
-uniform float bandWidth;
-uniform vec3 backgroundColor;
-uniform vec3 foregroundColor;
-
 #define M_PI 3.14159265358979323846
 
+#include "LineUniformData.glsl"
 #include "TransferFunction.glsl"
 
 #define DEPTH_HELPER_USE_PROJECTION_MATRIX
@@ -298,7 +290,7 @@ void gatherFragmentCustomDepth(vec4 color, float fragmentDepth) {
     frag.depth = convertNormalizedFloatToUint32(depthNormalized);
 #endif
 
-    uint insertIndex = atomicCounterIncrement(fragCounter);
+    uint insertIndex = atomicAdd(fragCounter, 1u);
 
     if (insertIndex < linkedListSize) {
         // Insert the fragment into the linked list

@@ -33,7 +33,7 @@
 layout(location = 0) in vec3 vertexPosition;
 
 void main() {
-    gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
+    gl_Position = vec4(vertexPosition, 1.0);
 }
 
 
@@ -56,21 +56,23 @@ uint depthList[MAX_NUM_FRAGS];
 #include "LinkedListQuicksortOpacities.glsl"
 #endif
 
-layout (std430, binding = 3) buffer OpacityBufferUint {
+layout (std430, binding = 4) buffer OpacityBufferUint {
     uint lineSegmentOpacities[];
 };
 
-layout (std430, binding = 4) readonly buffer LineSegmentVisibilityBuffer {
+layout (std430, binding = 5) readonly buffer LineSegmentVisibilityBuffer {
     uint lineSegmentVisibilityBuffer[];
 };
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 
 const float p = 1.0f; ///< Normalization of parameters.
-uniform float q = 2000.0f; ///< Overall opacity, q >= 0.
-uniform float r = 20.0f; ///< Clearing of background, r >= 0.
-//uniform int s = 15; ///< Iterations for smoothing.
-uniform float lambda = 2.0f; ///< Relaxation constant for smoothing, lambda > 0.
+layout(binding = 0) uniform OpacityOptimizationSettingsUniformDataBuffer {
+    float q = 2000.0f; ///< Overall opacity, q >= 0.
+    float r = 20.0f; ///< Clearing of background, r >= 0.
+    //int s = 15; ///< Iterations for smoothing.
+    float lambda = 2.0f; ///< Relaxation constant for smoothing, lambda > 0.
+};
 
 void main() {
     int x = int(gl_FragCoord.x);

@@ -35,12 +35,12 @@
 #include <ImGui/Widgets/PropertyEditor.hpp>
 #include <memory>
 #include <ImGui/imgui_custom.h>
-#include "../LineRenderer.hpp"
+#include "Renderers/LineRenderer.hpp"
 #include "LineData/LineData.hpp"
 
-#include "Renderers/Vulkan/Scattering/Denoiser/EAWDenoiser.hpp"
+#include "Renderers/Scattering/Denoiser/EAWDenoiser.hpp"
 #ifdef SUPPORT_OPTIX
-#include "Renderers/Vulkan/Scattering/Denoiser/OptixVptDenoiser.hpp"
+#include "Renderers/Scattering/Denoiser/OptixVptDenoiser.hpp"
 #endif
 
 #include "VulkanRayTracedAmbientOcclusion.hpp"

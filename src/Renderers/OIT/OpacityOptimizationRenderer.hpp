@@ -29,8 +29,7 @@
 #ifndef STRESSLINEVIS_OPACITYOPTIMIZATIONRENDERER_HPP
 #define STRESSLINEVIS_OPACITYOPTIMIZATIONRENDERER_HPP
 
-#include <Graphics/Shader/ShaderAttributes.hpp>
-#include <Graphics/OpenGL/TimerGL.hpp>
+#include <Graphics/Vulkan/Utils/Timer.hpp>
 
 #include "Renderers/PPLL.hpp"
 #include "Renderers/LineRenderer.hpp"
@@ -55,6 +54,7 @@ const int MESH_MODE_DEPTH_COMPLEXITIES_OPOPT[2][2] = {
 /*class OpacityOptimizationRenderer : public LineRenderer {
 public:
     OpacityOptimizationRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+    void initialize();
     ~OpacityOptimizationRenderer() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_OPACITY_OPTIMIZATION; }*/
 
@@ -225,9 +225,8 @@ protected:
     std::vector<std::string> sampleModeNames;
 
     // Multisampling (CSAA) data.
-    sgl::FramebufferObjectPtr msaaSceneFBO;
-    sgl::TexturePtr msaaRenderTexture;
-    sgl::RenderbufferObjectPtr msaaDepthRBO;
+    sgl::vk::TexturePtr msaaRenderTexture;
+    sgl::vk::ImageViewPtr msaaDepthTexture;
 
     // GUI data.
     bool showRendererWindow = true;

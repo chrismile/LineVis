@@ -78,12 +78,12 @@
 #include "Renderers/OIT/DepthPeelingRenderer.hpp"
 #include "Renderers/VRC/VoxelRayCastingRenderer.hpp"
 
-#include "Renderers/Vulkan/VulkanRayTracer.hpp"
-#include "Renderers/Vulkan/Scattering/LineDensityMapRenderer.hpp"
-#include "Renderers/Vulkan/Scattering/SphericalHeatMapRenderer.hpp"
-#include "Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracingRenderer.hpp"
+#include "Renderers/RayTracing/VulkanRayTracer.hpp"
+#include "Renderers/Scattering/LineDensityMapRenderer.hpp"
+#include "Renderers/Scattering/SphericalHeatMapRenderer.hpp"
+#include "Renderers/Scattering/PathTracer/VolumetricPathTracingRenderer.hpp"
 #ifdef SUPPORT_OPTIX
-#include "Renderers/Vulkan/Scattering/Denoiser/OptixVptDenoiser.hpp"
+#include "Renderers/Scattering/Denoiser/OptixVptDenoiser.hpp"
 #endif
 
 #ifdef USE_OSPRAY

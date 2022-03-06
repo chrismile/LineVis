@@ -29,7 +29,7 @@
 #include <Utils/AppSettings.hpp>
 #include <ImGui/imgui.h>
 
-#include "Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracingPass.hpp"
+#include "Renderers/Scattering/PathTracer/VolumetricPathTracingPass.hpp"
 #include "VolumetricPathTracingTestRenderer.hpp"
 
 VolumetricPathTracingTestRenderer::VolumetricPathTracingTestRenderer(sgl::vk::Renderer* renderer) : renderer(renderer) {

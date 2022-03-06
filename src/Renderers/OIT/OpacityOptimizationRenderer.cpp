@@ -26,7 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*#include <Math/Geometry/MatrixUtil.hpp>
+#include <Math/Geometry/MatrixUtil.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
@@ -42,14 +42,17 @@
 #include "Loaders/TrajectoryFile.hpp"
 #include "OpacityOptimizationRenderer.hpp"
 
-// Use stencil buffer to mask unused pixels
-static bool useStencilBuffer = false;
-
-OpacityOptimizationRenderer::OpacityOptimizationRenderer(
+/*OpacityOptimizationRenderer::OpacityOptimizationRenderer(
         SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Opacity Optimization Renderer", sceneData, transferFunctionWindow) {
-    setSortingAlgorithmDefine();
+    // Add events for interaction with line data.
+    onOpacityEstimationRecomputeListenerToken = sgl::EventManager::get()->addListener(
+            ON_OPACITY_OPTIMIZATION_RECOMPUTE_EVENT, [this](const sgl::EventPtr&) {
+                this->onHasMoved();
+            });
+}
 
+void OpacityOptimizationRenderer::initialize() {
     // Get all available multisampling modes.
     maximumNumberOfSamples = (*sceneData->renderer)->getDevice()->getMaxUsableSampleCount();
     if (maximumNumberOfSamples <= 1) {
@@ -76,26 +79,7 @@ OpacityOptimizationRenderer::OpacityOptimizationRenderer(
     computePerVertexOpacitiesShader = sgl::ShaderManager->getShaderProgram(
             {"ComputePerVertexOpacities.Compute"});
 
-    resolvePpllOpacitiesRenderData = sgl::ShaderManager->createShaderAttributes(resolvePpllOpacitiesShader);
-    resolvePpllOpacitiesRenderData->addGeometryBuffer(
-            geomBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
-    resolvePpllFinalRenderData = sgl::ShaderManager->createShaderAttributes(resolvePpllFinalShader);
-    resolvePpllFinalRenderData->addGeometryBuffer(
-            geomBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
-    clearPpllOpacitiesRenderData = sgl::ShaderManager->createShaderAttributes(clearPpllOpacitiesShader);
-    clearPpllOpacitiesRenderData->addGeometryBuffer(
-            geomBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
-    clearPpllFinalRenderData = sgl::ShaderManager->createShaderAttributes(clearPpllFinalShader);
-    clearPpllFinalRenderData->addGeometryBuffer(
-            geomBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
-
-    // Add events for interaction with line data.
-    onOpacityEstimationRecomputeListenerToken = sgl::EventManager::get()->addListener(
-            ON_OPACITY_OPTIMIZATION_RECOMPUTE_EVENT, [this](const sgl::EventPtr&) {
-                this->onHasMoved();
-            });
-
-    onResolutionChanged();
+    onClearColorChanged();
 }
 
 OpacityOptimizationRenderer::~OpacityOptimizationRenderer() {
@@ -500,6 +484,71 @@ void OpacityOptimizationRenderer::recomputeStaticParametrization() {
     }
 }
 
+
+void OpacityOptimizationRenderer::getVulkanShaderPreprocessorDefines(
+        std::map<std::string, std::string> &preprocessorDefines) {
+    LineRenderer::getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    preprocessorDefines.insert(std::make_pair("OIT_GATHER_HEADER", "\"LinkedListGather.glsl\""));
+
+    preprocessorDefines.insert(std::make_pair("MAX_NUM_FRAGS", sgl::toString(expectedMaxDepthComplexity)));
+    if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT
+        || sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID) {
+        int stackSize = int(std::ceil(std::log2(expectedMaxDepthComplexity)) * 2 + 4);
+        preprocessorDefines.insert(std::make_pair("STACK_SIZE", sgl::toString(stackSize)));
+    }
+
+    if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_PRIORITY_QUEUE) {
+        preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "frontToBackPQ"));
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_BUBBLE_SORT) {
+        preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "bubbleSort"));
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_INSERTION_SORT) {
+        preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "insertionSort"));
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_SHELL_SORT) {
+        preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "shellSort"));
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_MAX_HEAP) {
+        preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "heapSort"));
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_BITONIC_SORT) {
+        preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "bitonicSort"));
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT) {
+        preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "quicksort"));
+    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID) {
+        preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "quicksortHybrid"));
+    }
+
+    if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT
+        || sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID) {
+        preprocessorDefines.insert(std::make_pair("USE_QUICKSORT", ""));
+    }
+}
+
+void OpacityOptimizationRenderer::setGraphicsPipelineInfo(
+        sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) {
+    pipelineInfo.setColorWriteEnabled(false);
+    pipelineInfo.setDepthWriteEnabled(false);
+}
+
+void OpacityOptimizationRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) {
+    LineRenderer::setRenderDataBindings(renderData);
+    renderData->setStaticBufferOptional(fragmentBuffer, "FragmentBuffer");
+    renderData->setStaticBuffer(startOffsetBuffer, "StartOffsetBuffer");
+    renderData->setStaticBufferOptional(fragmentCounterBuffer, "FragCounterBuffer");
+    renderData->setStaticBufferOptional(uniformDataBuffer, "UniformDataBuffer");
+}
+
+void OpacityOptimizationRenderer::updateVulkanUniformBuffers() {
+}
+
+void OpacityOptimizationRenderer::setFramebufferAttachments(
+        sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) {
+    sgl::vk::AttachmentState attachmentState;
+    attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachmentState.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachmentState.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    framebuffer->setColorAttachment(
+            (*sceneData->sceneTexture)->getImageView(), 0, attachmentState,
+            sceneData->clearColor->getFloatColorRGBA());
+}
 
 void OpacityOptimizationRenderer::reallocateFragmentBuffer() {
     // Fragment buffer for opacities.
@@ -972,5 +1021,4 @@ void OpacityOptimizationRenderer::update(float dt) {
     if (smoothingFramesCounter > 0) {
         --smoothingFramesCounter;
     }
-}
-*/
+}*/

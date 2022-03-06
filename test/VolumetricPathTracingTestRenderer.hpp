@@ -32,7 +32,7 @@
 #include <Graphics/Vulkan/Utils/SyncObjects.hpp>
 #include <Graphics/Vulkan/Image/Image.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
-#include "Renderers/Vulkan/Scattering/PathTracer/VolumetricPathTracingPass.hpp"
+#include "Renderers/Scattering/PathTracer/VolumetricPathTracingPass.hpp"
 
 class CloudData;
 typedef std::shared_ptr<CloudData> CloudDataPtr;

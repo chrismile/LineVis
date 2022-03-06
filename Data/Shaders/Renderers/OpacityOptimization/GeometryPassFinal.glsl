@@ -70,9 +70,6 @@ void main() {
 layout(lines) in;
 layout(triangle_strip, max_vertices = 4) out;
 
-uniform vec3 cameraPosition;
-uniform float lineWidth;
-
 layout(location = 0) in vec3 linePosition[];
 layout(location = 1) in float lineAttribute[];
 layout(location = 2) in vec3 lineTangent[];
@@ -100,11 +97,13 @@ layout(location = 7) flat out uint fragmentPrincipalStressIndex;
 layout(location = 8) out float fragmentVertexId;
 #endif
 
+#include "LineUniformData.glsl"
+
 void main() {
-    vec3 linePosition0 = v_in[0].linePosition;
-    vec3 linePosition1 = v_in[1].linePosition;
-    vec3 tangent0 = normalize(v_in[0].lineTangent);
-    vec3 tangent1 = normalize(v_in[1].lineTangent);
+    vec3 linePosition0 = linePosition[0];
+    vec3 linePosition1 = linePosition[1];
+    vec3 tangent0 = normalize(lineTangent[0]);
+    vec3 tangent1 = normalize(lineTangent[1]);
 
     vec3 viewDirection0 = normalize(cameraPosition - linePosition0);
     vec3 viewDirection1 = normalize(cameraPosition - linePosition1);
@@ -117,15 +116,15 @@ void main() {
 
     // Vertex 0
     vec3 v0Normal0 = normalize(cross(tangent0, offsetDirection0));
-    fragmentAttribute = v_in[0].lineAttribute;
-    fragmentOpacity = v_in[0].lineOpacity;
+    fragmentAttribute = lineAttribute[0];
+    fragmentOpacity = lineOpacity[0];
     normal0 = v0Normal0;
     normal1 = offsetDirection0;
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
-    fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[0];
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-    fragmentVertexId = float(v_in[0].lineVertexId);
+    fragmentVertexId = float(lineVertexId[0]);
 #endif
 
     vertexPosition = linePosition0 - lineRadius * offsetDirection0;
@@ -137,15 +136,15 @@ void main() {
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
-    fragmentAttribute = v_in[0].lineAttribute;
-    fragmentOpacity = v_in[0].lineOpacity;
+    fragmentAttribute = lineAttribute[0];
+    fragmentOpacity = lineOpacity[0];
     normal0 = v0Normal0;
     normal1 = offsetDirection0;
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
-    fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[0];
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-    fragmentVertexId = float(v_in[0].lineVertexId);
+    fragmentVertexId = float(lineVertexId[0]);
 #endif
 
     vertexPosition = linePosition0 + lineRadius * offsetDirection0;
@@ -159,15 +158,15 @@ void main() {
 
     // Vertex 1
     vec3 v1Normal0 = normalize(cross(tangent1, offsetDirection1));
-    fragmentAttribute = v_in[1].lineAttribute;
-    fragmentOpacity = v_in[1].lineOpacity;
+    fragmentAttribute = lineAttribute[1];
+    fragmentOpacity = lineOpacity[1];
     normal0 = v1Normal0;
     normal1 = offsetDirection1;
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
-    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[1];
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-    fragmentVertexId = float(v_in[1].lineVertexId);
+    fragmentVertexId = float(lineVertexId[1]);
 #endif
 
     vertexPosition = linePosition1 - lineRadius * offsetDirection1;
@@ -179,15 +178,15 @@ void main() {
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
-    fragmentAttribute = v_in[1].lineAttribute;
-    fragmentOpacity = v_in[1].lineOpacity;
+    fragmentAttribute = lineAttribute[1];
+    fragmentOpacity = lineOpacity[1];
     normal0 = v1Normal0;
     normal1 = offsetDirection1;
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
-    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[1];
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-    fragmentVertexId = float(v_in[1].lineVertexId);
+    fragmentVertexId = float(lineVertexId[1]);
 #endif
 
     vertexPosition = linePosition1 + lineRadius * offsetDirection1;
@@ -231,13 +230,9 @@ in int gl_SampleMaskIn[];
 layout(location = 0) out vec4 fragColor;
 #endif
 
-uniform vec3 cameraPosition;
-uniform float lineWidth;
-uniform vec3 backgroundColor;
-uniform vec3 foregroundColor;
-
 #define M_PI 3.14159265358979323846
 
+#include "LineUniformData.glsl"
 #include "TransferFunction.glsl"
 
 #define DEPTH_HELPER_USE_PROJECTION_MATRIX
@@ -271,7 +266,7 @@ void gatherFragmentCustomDepth(vec4 color, float fragmentDepth) {
     frag.depth = convertNormalizedFloatToUint32(depthNormalized);
 #endif
 
-    uint insertIndex = atomicCounterIncrement(fragCounter);
+    uint insertIndex = atomicAdd(fragCounter, 1u);
 
     if (insertIndex < linkedListSize) {
         // Insert the fragment into the linked list

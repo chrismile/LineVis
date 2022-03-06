@@ -33,7 +33,7 @@
 layout(location = 0) in vec3 vertexPosition;
 
 void main() {
-    gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
+    gl_Position = vec4(vertexPosition, 1.0);
 }
 
 
@@ -54,7 +54,7 @@ uint depthList[MAX_NUM_FRAGS];
 #include "LinkedListQuicksort.glsl"
 #endif
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 
 void main() {
     int x = int(gl_FragCoord.x);

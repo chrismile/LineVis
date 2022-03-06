@@ -32,8 +32,8 @@
 #include <Graphics/Scene/Camera.hpp>
 #include <Graphics/Vulkan/Render/Passes/BlitRenderPass.hpp>
 #include "Renderers/SceneData.hpp"
-#include "Renderers/Vulkan/Scattering/Denoiser/Denoiser.hpp"
-#include "../AmbientOcclusion/AmbientOcclusionBaker.hpp"
+#include "Renderers/Scattering/Denoiser/Denoiser.hpp"
+#include "Renderers/AmbientOcclusion/AmbientOcclusionBaker.hpp"
 
 namespace sgl {
 
@@ -67,7 +67,7 @@ class VulkanRayTracedAmbientOcclusionPass;
 class VulkanRayTracedAmbientOcclusion : public AmbientOcclusionBaker {
 public:
     VulkanRayTracedAmbientOcclusion(SceneData* sceneData, sgl::vk::Renderer* rendererVk);
-    ~VulkanRayTracedAmbientOcclusion();
+    ~VulkanRayTracedAmbientOcclusion() override;
 
     AmbientOcclusionBakerType getType() override { return AmbientOcclusionBakerType::VULKAN_RTAO; }
     bool getIsStaticPrebaker() override { return false; }

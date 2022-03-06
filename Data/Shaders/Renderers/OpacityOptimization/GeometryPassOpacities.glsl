@@ -39,16 +39,14 @@ layout(location = 4) in uint vertexPrincipalStressIndex;
 layout(location = 5) in float vertexLineHierarchyLevel;
 #endif
 
-out VertexData {
-    vec3 linePosition;
-    float lineAttribute;
-    vec3 lineTangent;
-    uint lineSegmentId;
+layout(location = 0) out vec3 linePosition;
+layout(location = 1) out float lineAttribute;
+layout(location = 2) out vec3 lineTangent;
+layout(location = 3) out uint lineSegmentId;
 #ifdef USE_LINE_HIERARCHY_LEVEL
-    uint linePrincipalStressIndex;
-    float lineLineHierarchyLevel;
+layout(location = 4) out uint linePrincipalStressIndex;
+layout(location = 5) out float lineLineHierarchyLevel;
 #endif
-};
 
 void main() {
     linePosition = (mMatrix * vec4(vertexPosition, 1.0)).xyz;
@@ -69,55 +67,57 @@ void main() {
 layout(lines) in;
 layout(triangle_strip, max_vertices = 4) out;
 
-uniform vec3 cameraPosition;
-uniform float lineWidth;
-
-out vec3 fragmentPositionWorld;
-out float fragmentAttribute;
-flat out uint fragmentLineSegmentId;
+layout(location = 0) in vec3 linePosition[];
+layout(location = 1) in float lineAttribute[];
+layout(location = 2) in vec3 lineTangent[];
+layout(location = 3) in uint lineSegmentId[];
 #ifdef USE_LINE_HIERARCHY_LEVEL
-flat out uint fragmentPrincipalStressIndex;
-flat out float fragmentLineHierarchyLevel;
+layout(location = 4) in uint linePrincipalStressIndex[];
+layout(location = 5) in float lineLineHierarchyLevel[];
 #endif
 
-in VertexData {
-    vec3 linePosition;
-    float lineAttribute;
-    vec3 lineTangent;
-    uint lineSegmentId;
+layout(location = 0) out vec3 fragmentPositionWorld;
+layout(location = 1) out float fragmentAttribute;
+layout(location = 2) flat out uint fragmentLineSegmentId;
 #ifdef USE_LINE_HIERARCHY_LEVEL
-    uint linePrincipalStressIndex;
-    float lineLineHierarchyLevel;
+layout(location = 3) flat out uint fragmentPrincipalStressIndex;
+layout(location = 4) flat out float fragmentLineHierarchyLevel;
 #endif
-} v_in[];
+
+#include "LineUniformData.glsl"
 
 void main() {
-    vec3 linePosition0 = v_in[0].linePosition;
-    vec3 linePosition1 = v_in[1].linePosition;
-    float lineAttribute1 = v_in[1].lineAttribute;
+    vec3 linePosition0 = linePosition[0];
+    vec3 linePosition1 = linePosition[1];
+    float lineAttribute1 = lineAttribute[1];
 
     vec3 viewDirection0 = normalize(cameraPosition - linePosition0);
     vec3 viewDirection1 = normalize(cameraPosition - linePosition1);
-    vec3 offsetDirection0 = normalize(cross(normalize(v_in[0].lineTangent), viewDirection0));
-    vec3 offsetDirection1 = normalize(cross(normalize(v_in[1].lineTangent), viewDirection1));
+    vec3 offsetDirection0 = normalize(cross(normalize(lineTangent[0]), viewDirection0));
+    vec3 offsetDirection1 = normalize(cross(normalize(lineTangent[1]), viewDirection1));
     vec3 vertexPosition;
 
     const float lineRadius = lineWidth * 0.5;
     const mat4 pvMatrix = pMatrix * vMatrix;
 
     // Vertex 0
-    fragmentAttribute = v_in[0].lineAttribute;
-    fragmentLineSegmentId = v_in[0].lineSegmentId;
+    fragmentAttribute = lineAttribute[0];
+    fragmentLineSegmentId = lineSegmentId[0];
 #ifdef USE_LINE_HIERARCHY_LEVEL
-    fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
-    fragmentLineHierarchyLevel = v_in[0].lineLineHierarchyLevel;
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[0];
+    fragmentLineHierarchyLevel = lineLineHierarchyLevel[0];
 #endif
-
     vertexPosition = linePosition0 - lineRadius * offsetDirection0;
     fragmentPositionWorld = vertexPosition;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
+    fragmentAttribute = lineAttribute[0];
+    fragmentLineSegmentId = lineSegmentId[0];
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[0];
+    fragmentLineHierarchyLevel = lineLineHierarchyLevel[0];
+#endif
     vertexPosition = linePosition0 + lineRadius * offsetDirection0;
     fragmentPositionWorld = vertexPosition;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
@@ -125,17 +125,22 @@ void main() {
 
     // Vertex 1
     fragmentAttribute = lineAttribute1;
-    fragmentLineSegmentId = v_in[1].lineSegmentId;
+    fragmentLineSegmentId = lineSegmentId[1];
 #ifdef USE_LINE_HIERARCHY_LEVEL
-    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
-    fragmentLineHierarchyLevel = v_in[1].lineLineHierarchyLevel;
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[1];
+    fragmentLineHierarchyLevel = lineLineHierarchyLevel[1];
 #endif
-
     vertexPosition = linePosition1 - lineRadius * offsetDirection1;
     fragmentPositionWorld = vertexPosition;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
+    fragmentAttribute = lineAttribute1;
+    fragmentLineSegmentId = lineSegmentId[1];
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[1];
+    fragmentLineHierarchyLevel = lineLineHierarchyLevel[1];
+#endif
     vertexPosition = linePosition1 + lineRadius * offsetDirection1;
     fragmentPositionWorld = vertexPosition;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
@@ -148,24 +153,23 @@ void main() {
 
 #version 450 core
 
-in vec3 fragmentPositionWorld;
-in float fragmentAttribute;
-flat in uint fragmentLineSegmentId;
+layout(location = 0) in vec3 fragmentPositionWorld;
+layout(location = 1) in float fragmentAttribute;
+layout(location = 2) flat in uint fragmentLineSegmentId;
 #ifdef USE_LINE_HIERARCHY_LEVEL
-flat in uint fragmentPrincipalStressIndex;
-flat in float fragmentLineHierarchyLevel;
-//uniform vec3 lineHierarchySliderLower;
-//uniform vec3 lineHierarchySliderUpper;
-uniform sampler1DArray lineHierarchyImportanceMap;
+layout(location = 3) flat in uint fragmentPrincipalStressIndex;
+layout(location = 4) flat in float fragmentLineHierarchyLevel;
+layout(binding = LINE_HIERARCHY_IMPORTANCE_MAP_BINDING) uniform sampler1DArray lineHierarchyImportanceMap;
 #endif
-
-uniform vec3 cameraPosition;
 
 #ifndef USE_LINE_HIERARCHY_LEVEL
-uniform float minAttrValue = 0.0f;
-uniform float maxAttrValue = 1.0f;
+layout(binding = 7) uniform AttributeRangeUniformDataBuffer {
+    float minAttrValue; // = 0.0f
+    float maxAttrValue; // = 1.0f
+};
 #endif
 
+#include "LineUniformData.glsl"
 #include "FloatPack.glsl"
 #include "LinkedListHeaderOpacities.glsl"
 
@@ -178,9 +182,6 @@ void main() {
     frag.lineSegmentId = fragmentLineSegmentId;
     frag.next = -1;
 #ifdef USE_LINE_HIERARCHY_LEVEL
-    //float lower = lineHierarchySliderLower[fragmentPrincipalStressIndex];
-    //float upper = lineHierarchySliderUpper[fragmentPrincipalStressIndex];
-    //float fragmentAttributeHierarchy = (upper - lower) * fragmentLineHierarchyLevel + lower;
     float fragmentAttributeHierarchy = texture(
             lineHierarchyImportanceMap, vec2(fragmentLineHierarchyLevel, float(fragmentPrincipalStressIndex))).r;
     packFloat22Float10(frag.depth, gl_FragCoord.z, fragmentAttributeHierarchy);
@@ -188,7 +189,7 @@ void main() {
     packFloat22Float10(frag.depth, gl_FragCoord.z, (fragmentAttribute - minAttrValue) / (maxAttrValue - minAttrValue));
 #endif
 
-    uint insertIndex = atomicCounterIncrement(fragCounter);
+    uint insertIndex = atomicAdd(fragCounter, 1u);
 
     if (insertIndex < linkedListSize) {
         // Insert the fragment into the linked list

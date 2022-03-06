@@ -34,9 +34,9 @@
 #include <Utils/File/FileLoader.hpp>
 #include <Utils/Events/Stream/Stream.hpp>
 
-#include "Renderers/Vulkan/Scattering/nanovdb/NanoVDB.h"
-#include "Renderers/Vulkan/Scattering/nanovdb/util/GridBuilder.h"
-#include "Renderers/Vulkan/Scattering/nanovdb/util/IO.h"
+#include "Renderers/Scattering/nanovdb/NanoVDB.h"
+#include "Renderers/Scattering/nanovdb/util/GridBuilder.h"
+#include "Renderers/Scattering/nanovdb/util/IO.h"
 
 #include "CloudData.hpp"
 

@@ -32,6 +32,10 @@
 
 layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
+layout(push_constant) uniform PushConstants {
+    uint numLineSegments; ///< Number of entries in opacityBufferIn/opacityBufferOut.
+};
+
 layout (std430, binding = 2) writeonly buffer OpacityBufferFloat {
     float opacityBufferFloat[];
 };
@@ -39,8 +43,6 @@ layout (std430, binding = 2) writeonly buffer OpacityBufferFloat {
 layout (std430, binding = 3) readonly buffer OpacityBufferUint {
     uint opacityBufferUint[];
 };
-
-uniform uint numLineSegments; ///< Number of entries in opacityBufferIn/opacityBufferOut.
 
 #include "FloatPack.glsl"
 
