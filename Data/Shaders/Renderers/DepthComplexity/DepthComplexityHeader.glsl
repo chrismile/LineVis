@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2018 - 2021, Christoph Neuhauser
+ * Copyright (c) 2018 - 2022, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,14 @@ in vec4 gl_FragCoord;
 
 layout(binding = 0) uniform UniformDataBuffer {
     int viewportW;
+    int padding0;
+
+    // The number of fragments necessary to reach the maximal color opacity.
+    uint numFragmentsMaxColor;
+    uint padding1;
+
+    // The color to shade the framents with.
+    vec4 color;
 };
 
 // Stores the number of fragments using atomic operations.

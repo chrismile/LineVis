@@ -39,6 +39,10 @@ layout(local_size_x = BLOCK_SIZE) in;
 #define LOG_NUM_BANKS 5
 #define CONFLICT_FREE_OFFSET(n) ((n) >> LOG_NUM_BANKS)
 
+layout(push_constant) uniform PushConstants {
+    uint N;
+};
+
 layout(std430, binding = 0) readonly buffer DataInBuffer {
     uint dataIn[];
 };
@@ -51,14 +55,8 @@ layout(std430, binding = 2) buffer SumOutBuffer {
     uint sumOut[];
 };
 
-uniform uint N;
-
 shared uint sdata[2 * BLOCK_SIZE + 2 * BLOCK_SIZE / NUM_BANKS];
 
-/*
- * Based on the idea from:
- * https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
- */
 /**
  * Based on the work-efficient parallel sum scan algorithm [Blelloch 1990] implementation from:
  * https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda

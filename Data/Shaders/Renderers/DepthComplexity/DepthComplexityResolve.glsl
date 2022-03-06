@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2018 - 2021, Christoph Neuhauser
+ * Copyright (c) 2018 - 2022, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,12 +42,6 @@ void main() {
 #version 450 core
 
 #include "DepthComplexityHeader.glsl"
-
-// The number of fragments necessary to reach the maximal color opacity.
-uniform uint numFragmentsMaxColor;
-
-// The color to shade the framents with
-uniform vec4 color;
 
 layout(location = 0) out vec4 fragColor;
 

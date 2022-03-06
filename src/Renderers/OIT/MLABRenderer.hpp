@@ -32,8 +32,8 @@
 #include <Graphics/Vulkan/Utils/Timer.hpp>
 
 #include "SyncMode.hpp"
-#include "Renderers/LineRenderer.hpp"
 #include "Renderers/ResolvePass.hpp"
+#include "Renderers/LineRenderer.hpp"
 
 /**
  * Renders all lines with transparency values determined by the transfer function set by the user.

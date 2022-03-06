@@ -36,9 +36,12 @@
 #include "Renderers/LineRenderer.hpp"
 
 const int MESH_MODE_DEPTH_COMPLEXITIES_OPOPT[2][2] = {
-        80, 256, // avg and max depth complexity medium
-        120, 380 // avg and max depth complexity very large
+        {20, 100}, // avg and max depth complexity medium
+        //{80, 256}, // avg and max depth complexity medium
+        {120, 380} // avg and max depth complexity very large
 };
+
+// TODO: Port to Vulkan.
 
 /**
  * Implementation of opacity optimization as described in:
@@ -49,20 +52,31 @@ const int MESH_MODE_DEPTH_COMPLEXITIES_OPOPT[2][2] = {
  * For more details see: Yang, J. C., Hensley, J., Grün, H. and Thibieroz, N., "Real-Time Concurrent
  * Linked List Construction on the GPU", Computer Graphics Forum, 29, 2010.
  */
-class OpacityOptimizationRenderer : public LineRenderer {
+/*class OpacityOptimizationRenderer : public LineRenderer {
 public:
     OpacityOptimizationRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~OpacityOptimizationRenderer() override;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_OPACITY_OPTIMIZATION; }
+    RenderingMode getRenderingMode() override { return RENDERING_MODE_OPACITY_OPTIMIZATION; }*/
 
     /**
      * Re-generates the visualization mapping.
      * @param lineData The render data.
      */
-    void setLineData(LineDataPtr& lineData, bool isNewData) override;
+    //void setLineData(LineDataPtr& lineData, bool isNewData) override;
+
+    /// Sets the shader preprocessor defines used by the renderer.
+    /*void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) override;
+    void setGraphicsPipelineInfo(
+            sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) override;
+    void setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) override;
+    void updateVulkanUniformBuffers() override;
+    void setFramebufferAttachments(sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) override;
 
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
+
+    /// Called when the background clear color was changed.
+    void onClearColorChanged() override;
 
     /// Renders the object to the scene framebuffer.
     void render() override;
@@ -141,18 +155,18 @@ protected:
 
     // Geometry data.
     // Per-vertex.
-    sgl::GeometryBufferPtr vertexPositionBuffer; ///< Per-vertex data.
-    sgl::GeometryBufferPtr vertexAttributeBuffer; ///< Per-vertex data.
-    sgl::GeometryBufferPtr vertexTangentBuffer; ///< Per-vertex data.
-    sgl::GeometryBufferPtr vertexOpacityBuffer; ///< Per-vertex data.
-    sgl::GeometryBufferPtr lineSegmentIdBuffer; ///< Per-vertex data.
-    sgl::GeometryBufferPtr blendingWeightParametrizationBuffer; ///< Per-vertex data (see Günther et al. 2013).
+    sgl::vk::BufferPtr vertexPositionBuffer; ///< Per-vertex data.
+    sgl::vk::BufferPtr vertexAttributeBuffer; ///< Per-vertex data.
+    sgl::vk::BufferPtr vertexTangentBuffer; ///< Per-vertex data.
+    sgl::vk::BufferPtr vertexOpacityBuffer; ///< Per-vertex data.
+    sgl::vk::BufferPtr lineSegmentIdBuffer; ///< Per-vertex data.
+    sgl::vk::BufferPtr blendingWeightParametrizationBuffer; ///< Per-vertex data (see Günther et al. 2013).
     // Per-segment.
-    sgl::GeometryBufferPtr segmentVisibilityBuffer; ///< Per-segment data. Uint because of GPU atomics.
-    sgl::GeometryBufferPtr segmentOpacityUintBuffer; ///< Per-segment data. Uint because of GPU atomics.
-    sgl::GeometryBufferPtr segmentOpacityBuffers[2]; ///< Per-segment data. Ping-pong computation for smoothing.
+    sgl::vk::BufferPtr segmentVisibilityBuffer; ///< Per-segment data. Uint because of GPU atomics.
+    sgl::vk::BufferPtr segmentOpacityUintBuffer; ///< Per-segment data. Uint because of GPU atomics.
+    sgl::vk::BufferPtr segmentOpacityBuffers[2]; ///< Per-segment data. Ping-pong computation for smoothing.
     int segmentOpacityBufferIdx = 0; ///< 0 or 1 depending on ping-pong rendering state.
-    sgl::GeometryBufferPtr lineSegmentConnectivityBuffer; ///< Per-segment data. uvec2 values storing neighbor index.
+    sgl::vk::BufferPtr lineSegmentConnectivityBuffer; ///< Per-segment data. uvec2 values storing neighbor index.
 
     // Information about geometry data.
     uint32_t numPolylineSegments = 0;
@@ -162,13 +176,13 @@ protected:
     // Per-pixel linked list data.
     float opacityBufferScaleFactor = 0.5; ///< Use half width/height of final pass for opacity pass.
     size_t fragmentBufferSizeOpacity = 0;
-    sgl::GeometryBufferPtr fragmentBufferOpacities;
-    sgl::GeometryBufferPtr startOffsetBufferOpacities;
-    sgl::GeometryBufferPtr atomicCounterBufferOpacities;
+    sgl::vk::BufferPtr fragmentBufferOpacities;
+    sgl::vk::BufferPtr startOffsetBufferOpacities;
+    sgl::vk::BufferPtr atomicCounterBufferOpacities;
     size_t fragmentBufferSizeFinal = 0;
-    sgl::GeometryBufferPtr fragmentBufferFinal;
-    sgl::GeometryBufferPtr startOffsetBufferFinal;
-    sgl::GeometryBufferPtr atomicCounterBufferFinal;
+    sgl::vk::BufferPtr fragmentBufferFinal;
+    sgl::vk::BufferPtr startOffsetBufferFinal;
+    sgl::vk::BufferPtr atomicCounterBufferFinal;
 
     // Viewport data.
     int viewportWidthOpacity = 0, viewportHeightOpacity = 0;
@@ -176,11 +190,11 @@ protected:
     int viewportWidthFinal = 0, viewportHeightFinal = 0;
     int paddedViewportWidthFinal = 0, paddedViewportHeightFinal = 0;
 
-    // Data for performance measurements. (TODO)
+    // Data for performance measurements.
     int frameCounter = 0;
     std::string currentStateName;
     bool timerDataIsWritten = true;
-    sgl::TimerGL* timer = nullptr;
+    sgl::vk::TimerPtr timer;
 
     // Per-pixel linked list settings.
     enum LargeMeshMode {
@@ -203,6 +217,9 @@ protected:
     bool useMultisampling = false;
     int maximumNumberOfSamples = 1;
     int numSamples = 4;
+    bool supportsSampleShadingRate = true;
+    bool useSamplingShading = false;
+    float minSampleShading = 1.0f;
     int numSampleModes = -1;
     int sampleModeSelection = -1;
     std::vector<std::string> sampleModeNames;
@@ -214,6 +231,8 @@ protected:
 
     // GUI data.
     bool showRendererWindow = true;
-};
+};*/
+
+#define OpacityOptimizationRenderer OpaqueLineRenderer
 
 #endif //STRESSLINEVIS_OPACITYOPTIMIZATIONRENDERER_HPP

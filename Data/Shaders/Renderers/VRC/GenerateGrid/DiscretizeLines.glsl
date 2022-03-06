@@ -67,13 +67,9 @@ struct LinePoint {
     float lineAttribute;
 };
 
-#ifdef VULKAN
-layout (std430, binding = 1) uniform UniformBuffer {
-    uint numLinesInVoxel[];
+layout(push_constant) uniform PushConstants {
+    uint numLines;
 };
-#else
-uniform uint numLines;
-#endif
 
 layout (std430, binding = 2) readonly buffer LinePointBuffer {
     LinePoint linePoints[];

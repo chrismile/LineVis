@@ -34,6 +34,10 @@
 
 layout(local_size_x = BLOCK_SIZE) in;
 
+layout(push_constant) uniform PushConstants {
+    uint N;
+};
+
 layout(std430, binding = 1) buffer DataOutBuffer {
     uint dataOut[];
 };
@@ -41,8 +45,6 @@ layout(std430, binding = 1) buffer DataOutBuffer {
 layout(std430, binding = 2) readonly buffer SumInBuffer {
     uint sumIn[];
 };
-
-uniform uint N;
 
 shared uint a;
 

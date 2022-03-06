@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2020 - 2022, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,13 +29,11 @@
 #include <iostream>
 
 #include <Math/Geometry/MatrixUtil.hpp>
-#include <Graphics/Window.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Shader/ShaderManager.hpp>
-#include <Graphics/OpenGL/GeometryBuffer.hpp>
-#include <Graphics/OpenGL/Shader.hpp>
-#include <Utils/AppSettings.hpp>
 #include <Utils/Timer.hpp>
+#include <Utils/AppSettings.hpp>
+#include <Graphics/Vulkan/Utils/Swapchain.hpp>
+#include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
@@ -45,46 +43,37 @@
 DepthComplexityRenderer::DepthComplexityRenderer(
         SceneData* sceneData, sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineRenderer("Depth Complexity Renderer", sceneData, transferFunctionWindow) {
-    sgl::ShaderManager->invalidateShaderCache();
-    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"DepthComplexityGatherInc.glsl\"");
-    resolveShader = sgl::ShaderManager->getShaderProgram(
-            {"DepthComplexityResolve.Vertex", "DepthComplexityResolve.Fragment"});
-    clearShader = sgl::ShaderManager->getShaderProgram(
-            {"DepthComplexityClear.Vertex", "DepthComplexityClear.Fragment"});
+}
 
-    // Create blitting data (fullscreen rectangle in normalized device coordinates)
-    blitRenderData = sgl::ShaderManager->createShaderAttributes(resolveShader);
+void DepthComplexityRenderer::initialize() {
+    LineRenderer::initialize();
 
-    std::vector<glm::vec3> fullscreenQuad{
-            glm::vec3(1,1,0), glm::vec3(-1,-1,0), glm::vec3(1,-1,0),
-            glm::vec3(-1,-1,0), glm::vec3(1,1,0), glm::vec3(-1,1,0)};
-    sgl::GeometryBufferPtr geomBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(glm::vec3)*fullscreenQuad.size(), fullscreenQuad.data());
-    blitRenderData->addGeometryBuffer(geomBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
+    uniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(UniformData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    clearRenderData = sgl::ShaderManager->createShaderAttributes(clearShader);
-    geomBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(glm::vec3)*fullscreenQuad.size(), fullscreenQuad.data());
-    clearRenderData->addGeometryBuffer(geomBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
+    resolveRasterPass = std::shared_ptr<ResolvePass>(new ResolvePass(
+            this, {"DepthComplexityResolve.Vertex", "DepthComplexityResolve.Fragment"}));
+    resolveRasterPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    resolveRasterPass->setBlendMode(sgl::vk::BlendMode::BACK_TO_FRONT_STRAIGHT_ALPHA);
 
-    onResolutionChanged();
+    clearRasterPass = std::shared_ptr<ResolvePass>(new ResolvePass(
+            this, {"DepthComplexityClear.Vertex", "DepthComplexityClear.Fragment"}));
+    clearRasterPass->setColorWriteEnabled(false);
+    clearRasterPass->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
+    clearRasterPass->setAttachmentStoreOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
+    clearRasterPass->setOutputImageInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
+    clearRasterPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    onClearColorChanged();
 }
 
 void DepthComplexityRenderer::reloadGatherShader() {
     LineRenderer::reloadGatherShader();
-    gatherShader = lineData->reloadGatherShaderOpenGL();
-    if (/* canCopyShaderAttributes && */ shaderAttributes) {
-        shaderAttributes = shaderAttributes->copy(gatherShader);
-    }
 }
 
 void DepthComplexityRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
-
-    // Unload old data.
-    shaderAttributes = sgl::ShaderAttributesPtr();
-
-    shaderAttributes = lineData->getGatherShaderAttributesOpenGL(gatherShader);
 
     firstFrame = true;
     totalNumFragments = 0;
@@ -97,6 +86,39 @@ void DepthComplexityRenderer::setLineData(LineDataPtr& lineData, bool isNewData)
     reRender = true;
 }
 
+void DepthComplexityRenderer::getVulkanShaderPreprocessorDefines(
+        std::map<std::string, std::string> &preprocessorDefines) {
+    LineRenderer::getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    preprocessorDefines.insert(std::make_pair("OIT_GATHER_HEADER", "\"DepthComplexityGatherInc.glsl\""));
+}
+
+void DepthComplexityRenderer::setGraphicsPipelineInfo(
+        sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) {
+    pipelineInfo.setColorWriteEnabled(false);
+    pipelineInfo.setDepthWriteEnabled(false);
+}
+
+void DepthComplexityRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) {
+    LineRenderer::setRenderDataBindings(renderData);
+    renderData->setStaticBufferOptional(fragmentCounterBuffer, "FragmentCounterBuffer");
+    renderData->setStaticBufferOptional(uniformDataBuffer, "UniformDataBuffer");
+}
+
+void DepthComplexityRenderer::updateVulkanUniformBuffers() {
+}
+
+void DepthComplexityRenderer::setFramebufferAttachments(
+        sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) {
+    sgl::vk::AttachmentState attachmentState;
+    attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachmentState.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachmentState.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    framebuffer->setColorAttachment(
+            (*sceneData->sceneTexture)->getImageView(), 0, attachmentState,
+            sceneData->clearColor->getFloatColorRGBA());
+}
+
 void DepthComplexityRenderer::onResolutionChanged() {
     LineRenderer::onResolutionChanged();
 
@@ -104,90 +126,63 @@ void DepthComplexityRenderer::onResolutionChanged() {
     int height = int(*sceneData->viewportHeight);
 
     size_t fragmentCounterBufferSizeBytes = sizeof(uint32_t) * width * height;
-    fragmentCounterBuffer = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
-    fragmentCounterBuffer = sgl::Renderer->createGeometryBuffer(
-            fragmentCounterBufferSizeBytes, NULL, sgl::SHADER_STORAGE_BUFFER);
+    fragmentCounterBuffer = {}; // Delete old data first (-> refcount 0)
+    fragmentCounterBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), fragmentCounterBufferSizeBytes,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+    auto* swapchain = sgl::AppSettings::get()->getSwapchain();
+    stagingBuffers.reserve(swapchain->getNumImages());
+    for (size_t i = 0; i < swapchain->getNumImages(); i++) {
+        stagingBuffers.push_back(std::make_shared<sgl::vk::Buffer>(
+                renderer->getDevice(), fragmentCounterBufferSizeBytes,
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU));
+    }
+}
+
+void DepthComplexityRenderer::onClearColorChanged() {
+    resolveRasterPass->setAttachmentClearColor(sceneData->clearColor->getFloatColorRGBA());
 }
 
 void DepthComplexityRenderer::setUniformData() {
     int width = int(*sceneData->viewportWidth);
-
-    sgl::ShaderManager->bindShaderStorageBuffer(0, fragmentCounterBuffer);
-
-    gatherShader->setUniformOptional("cameraPosition", sceneData->camera->getPosition());
-    gatherShader->setUniform("lineWidth", lineWidth);
-    gatherShader->setUniform("viewportW", width);
-    lineData->setUniformGatherShaderDataOpenGL(gatherShader);
-
-    resolveShader->setUniform("viewportW", width);
-    resolveShader->setShaderStorageBuffer(0, "FragmentCounterBuffer", fragmentCounterBuffer);
-
-    clearShader->setUniform("viewportW", width);
-    clearShader->setShaderStorageBuffer(0, "FragmentCounterBuffer", fragmentCounterBuffer);
+    uniformData.viewportW = width;
+    uniformData.numFragmentsMaxColor = numFragmentsMaxColor;
+    uniformData.color = renderColor.getFloatColorRGBA();
+    uniformDataBuffer->updateData(
+            sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void DepthComplexityRenderer::clear() {
-    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    // In the clear and gather pass, we just want to write data to an SSBO.
-    glDepthMask(GL_FALSE);
-    glDisable(GL_DEPTH_TEST);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-    sgl::Renderer->render(clearRenderData);
-
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    clearRasterPass->render();
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void DepthComplexityRenderer::gather() {
-    // Enable the depth test, but disable depth write for gathering.
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-    glDepthMask(GL_FALSE);
+    //renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
+    //renderer->setViewMatrix(sceneData->camera->getViewMatrix());
+    //renderer->setModelMatrix(sgl::matrixIdentity());
 
-    // We can use the stencil buffer to mask used pixels for the resolve pass.
-    glEnable(GL_STENCIL_TEST);
-    glStencilFunc(GL_ALWAYS, 1, 0xFF);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-    glStencilMask(0xFF);
-    glClear(GL_STENCIL_BUFFER_BIT);
-    glDisable(GL_CULL_FACE);
-
-    sgl::Renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix(sceneData->camera->getViewMatrix());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-    // Now, the final gather step.
-    sgl::Renderer->render(shaderAttributes);
-    //renderHull(); // Doesn't make sense for this renderer.
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-    glEnable(GL_CULL_FACE);
+    lineRasterPass->render();
+    renderHull();
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void DepthComplexityRenderer::resolve() {
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glDisable(GL_DEPTH_TEST);
-
-    glStencilFunc(GL_EQUAL, 1, 0xFF);
-    glStencilMask(0x00);
-
-    resolveShader->setUniform("color", renderColor);
-    resolveShader->setUniform("numFragmentsMaxColor", numFragmentsMaxColor);
-    sgl::Renderer->render(blitRenderData);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-    glDisable(GL_STENCIL_TEST);
-    glDepthMask(GL_TRUE);
+    resolveRasterPass->render();
 }
 
 void DepthComplexityRenderer::render() {
+    renderer->submitToQueueImmediate();
+
     LineRenderer::renderBase();
 
     setUniformData();
@@ -258,7 +253,10 @@ void DepthComplexityRenderer::computeStatistics(bool isReRender) {
     int height = int(*sceneData->viewportHeight);
     bufferSize = width * height;
 
-    uint32_t *data = (uint32_t*)fragmentCounterBuffer->mapBuffer(sgl::BUFFER_MAP_READ_ONLY);
+    auto* swapchain = sgl::AppSettings::get()->getSwapchain();
+    auto& stagingBuffer = stagingBuffers.at(swapchain->getImageIndex());
+    fragmentCounterBuffer->copyDataTo(stagingBuffer, renderer->getVkCommandBuffer());
+    auto *data = (uint32_t*)stagingBuffer->mapMemory();
 
     // Local reduction variables necessary for older OpenMP implementations
     uint64_t totalNumFragments = 0;
@@ -282,7 +280,7 @@ void DepthComplexityRenderer::computeStatistics(bool isReRender) {
     this->usedLocations = usedLocations;
     this->maxComplexity = maxComplexity;
 
-    fragmentCounterBuffer->unmapBuffer();
+    stagingBuffer->unmapMemory();
 
     bool performanceMeasureMode = (*sceneData->performanceMeasurer) != nullptr;
     if ((performanceMeasureMode || (*sceneData->recordingMode)) || firstFrame || true) {

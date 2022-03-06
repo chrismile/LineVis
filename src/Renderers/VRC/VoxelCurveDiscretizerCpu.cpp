@@ -30,7 +30,8 @@
 #include <chrono>
 
 #include <Utils/File/Logfile.hpp>
-#include <Graphics/Renderer.hpp>
+#include <Graphics/Vulkan/Buffers/Buffer.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 
 #include "VoxelCurveDiscretizer.hpp"
 
@@ -274,10 +275,14 @@ void VoxelCurveDiscretizer::compressData() {
     //generateVoxelAOFactorsFromDensity(voxelDensities, voxelAOFactors, gridResolution, isHairDataset);
 
     // Upload to GPU.
-    voxelGridLineSegmentOffsetsBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t) * voxelLineListOffsets.size(), voxelLineListOffsets.data());
-    voxelGridNumLineSegmentsBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t) * numLinesInVoxel.size(), numLinesInVoxel.data());
+    voxelGridLineSegmentOffsetsBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(uint32_t) * voxelLineListOffsets.size(), voxelLineListOffsets.data(),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+    voxelGridNumLineSegmentsBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(uint32_t) * numLinesInVoxel.size(), numLinesInVoxel.data(),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     //densityTexture = generateDensityTexture(compressedData.voxelDensities, gpuData.gridResolution);
     //aoTexture = generateDensityTexture(compressedData.voxelAOFactors, gpuData.gridResolution);
@@ -291,8 +296,10 @@ void VoxelCurveDiscretizer::compressData() {
     sgl::Logfile::get()->writeInfo(
             "Total number of voxelized line segments: " + std::to_string(lineSegments.size()));
 
-    voxelGridLineSegmentsBuffer = sgl::Renderer->createGeometryBuffer(
-            baseSize * lineSegments.size(), lineSegments.data());
+    voxelGridLineSegmentsBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), baseSize * lineSegments.size(), lineSegments.data(),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 }
 
 std::vector<VoxelDiscretizer*> VoxelCurveDiscretizer::getVoxelsInAABB(const sgl::AABB3& aabb) {
@@ -500,12 +507,21 @@ void VoxelCurveDiscretizer::createLineHullMesh() {
     std::vector<uint32_t> lineHullIndices;
     std::vector<glm::vec3> lineHullVertices;
 
-    uint32_t* voxelGridNumLineSegmentsArray = new uint32_t[gridResolution.x * gridResolution.y * gridResolution.z];
-    uint32_t* voxelGridDilatedNumSegmentsArray = new uint32_t[
+    auto* voxelGridNumLineSegmentsArray = new uint32_t[gridResolution.x * gridResolution.y * gridResolution.z];
+    auto* voxelGridDilatedNumSegmentsArray = new uint32_t[
             (gridResolution.x + 2) * (gridResolution.y + 2) * (gridResolution.z + 2)];
-    void* buffer = voxelGridNumLineSegmentsBuffer->mapBuffer(sgl::BUFFER_MAP_READ_ONLY);
-    memcpy(voxelGridNumLineSegmentsArray, buffer, voxelGridNumLineSegmentsBuffer->getSize());
-    voxelGridNumLineSegmentsBuffer->unmapBuffer();
+
+    sgl::vk::BufferPtr stagingBuffer(new sgl::vk::Buffer(
+            renderer->getDevice(), voxelGridNumLineSegmentsBuffer->getSizeInBytes(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU));
+
+    VkCommandBuffer commandBuffer = renderer->getDevice()->beginSingleTimeCommands();
+    voxelGridNumLineSegmentsBuffer->copyDataTo(stagingBuffer, commandBuffer);
+    renderer->getDevice()->endSingleTimeCommands(commandBuffer);
+
+    void* mappedData = stagingBuffer->mapMemory();
+    memcpy(voxelGridNumLineSegmentsArray, mappedData, voxelGridNumLineSegmentsBuffer->getSizeInBytes());
+    stagingBuffer->unmapMemory();
 
     // Dilate the grid.
     for (int z = -1; z <= gridResolution.z; z++) {
@@ -585,8 +601,12 @@ void VoxelCurveDiscretizer::createLineHullMesh() {
     delete[] voxelGridNumLineSegmentsArray;
     delete[] voxelGridDilatedNumSegmentsArray;
 
-    lineHullIndexBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t) * lineHullIndices.size(), lineHullIndices.data(), sgl::INDEX_BUFFER);
-    lineHullVertexBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(glm::vec3) * lineHullVertices.size(), lineHullVertices.data());
+    lineHullIndexBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(uint32_t) * lineHullIndices.size(), lineHullIndices.data(),
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+    lineHullVertexBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(glm::vec3) * lineHullVertices.size(), lineHullVertices.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 }

@@ -26,15 +26,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <Math/Geometry/MatrixUtil.hpp>
+/*#include <Math/Geometry/MatrixUtil.hpp>
 #include <Utils/File/Logfile.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Window.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Shader/ShaderManager.hpp>
-#include <Graphics/Texture/TextureManager.hpp>
-#include <Graphics/OpenGL/GeometryBuffer.hpp>
-#include <Graphics/OpenGL/Shader.hpp>
+#include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <Utils/AppSettings.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
@@ -53,16 +48,16 @@ static bool useStencilBuffer = false;
 OpacityOptimizationRenderer::OpacityOptimizationRenderer(
         SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Opacity Optimization Renderer", sceneData, transferFunctionWindow) {
-    sgl::ShaderManager->invalidateShaderCache();
     setSortingAlgorithmDefine();
 
     // Get all available multisampling modes.
-    glGetIntegerv(GL_MAX_SAMPLES, &maximumNumberOfSamples);
+    maximumNumberOfSamples = (*sceneData->renderer)->getDevice()->getMaxUsableSampleCount();
     if (maximumNumberOfSamples <= 1) {
         useMultisampling = false;
     }
+    supportsSampleShadingRate = renderer->getDevice()->getPhysicalDeviceFeatures().sampleRateShading;
     numSampleModes = sgl::intlog2(maximumNumberOfSamples) + 1;
-    sampleModeSelection = std::min(sgl::intlog2(4), numSampleModes - 1);
+    sampleModeSelection = std::min(sgl::intlog2(numSamples), numSampleModes - 1);
     for (int i = 1; i <= maximumNumberOfSamples; i *= 2) {
         sampleModeNames.push_back(std::to_string(i));
     }
@@ -80,13 +75,6 @@ OpacityOptimizationRenderer::OpacityOptimizationRenderer(
             {"LaplacianSmoothing.Compute"});
     computePerVertexOpacitiesShader = sgl::ShaderManager->getShaderProgram(
             {"ComputePerVertexOpacities.Compute"});
-
-    // Create blitting data (fullscreen rectangle in normalized device coordinates).
-    std::vector<glm::vec3> fullscreenQuad{
-            glm::vec3(1,1,0), glm::vec3(-1,-1,0), glm::vec3(1,-1,0),
-            glm::vec3(-1,-1,0), glm::vec3(1,1,0), glm::vec3(-1,1,0)};
-    sgl::GeometryBufferPtr geomBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(glm::vec3)*fullscreenQuad.size(), fullscreenQuad.data());
 
     resolvePpllOpacitiesRenderData = sgl::ShaderManager->createShaderAttributes(resolvePpllOpacitiesShader);
     resolvePpllOpacitiesRenderData->addGeometryBuffer(
@@ -208,10 +196,10 @@ void OpacityOptimizationRenderer::reloadGatherShader() {
         sgl::ShaderManager->removePreprocessorDefine("IS_PSL_DATA");
     }
 
-    if (/* canCopyShaderAttributes && */ gatherPpllOpacitiesRenderData) {
+    if (gatherPpllOpacitiesRenderData) {
         gatherPpllOpacitiesRenderData = gatherPpllOpacitiesRenderData->copy(gatherPpllOpacitiesShader);
     }
-    if (/* canCopyShaderAttributes && */ gatherPpllFinalRenderData) {
+    if (gatherPpllFinalRenderData) {
         gatherPpllFinalRenderData = gatherPpllFinalRenderData->copy(gatherPpllFinalShader);
     }
 }
@@ -281,17 +269,17 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewD
 
     lines = lineData->getFilteredLines(this);
 
-    sgl::GeometryBufferPtr indexBuffer;
-    sgl::GeometryBufferPtr vertexPositionBuffer;
-    sgl::GeometryBufferPtr vertexAttributeBuffer;
-    sgl::GeometryBufferPtr vertexNormalBuffer;
-    sgl::GeometryBufferPtr vertexTangentBuffer;
-    sgl::GeometryBufferPtr vertexOffsetLeftBuffer;
-    sgl::GeometryBufferPtr vertexOffsetRightBuffer;
-    sgl::GeometryBufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
-    sgl::GeometryBufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
+    sgl::vk::BufferPtr indexBuffer;
+    sgl::vk::BufferPtr vertexPositionBuffer;
+    sgl::vk::BufferPtr vertexAttributeBuffer;
+    sgl::vk::BufferPtr vertexNormalBuffer;
+    sgl::vk::BufferPtr vertexTangentBuffer;
+    sgl::vk::BufferPtr vertexOffsetLeftBuffer;
+    sgl::vk::BufferPtr vertexOffsetRightBuffer;
+    sgl::vk::BufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
+    sgl::vk::BufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
 
-    /*if (lineData->getUseBandRendering()) {
+    if (lineData->getUseBandRendering()) {
         BandRenderData tubeRenderData = lineData->getBandRenderData();
         indexBuffer = tubeRenderData.indexBuffer;
         vertexPositionBuffer = tubeRenderData.vertexPositionBuffer;
@@ -310,7 +298,7 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewD
         vertexTangentBuffer = tubeRenderData.vertexTangentBuffer;
         vertexPrincipalStressIndexBuffer = tubeRenderData.vertexPrincipalStressIndexBuffer;
         vertexLineHierarchyLevelBuffer = tubeRenderData.vertexLineHierarchyLevelBuffer;
-    }*/
+    }
 
     gatherPpllOpacitiesRenderData = sgl::ShaderManager->createShaderAttributes(gatherPpllOpacitiesShader);
     gatherPpllFinalRenderData = sgl::ShaderManager->createShaderAttributes(gatherPpllFinalShader);
@@ -318,11 +306,12 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewD
     numLineVertices = uint32_t(vertexPositionBuffer->getSize() / sizeof(glm::vec3));
     generateBlendingWeightParametrization(isNewData);
 
-    vertexOpacityBuffer = sgl::Renderer->createGeometryBuffer(
-            numLineVertices * sizeof(float), nullptr, sgl::VERTEX_BUFFER);
-    GLuint bufferId = static_cast<sgl::GeometryBufferGL*>(vertexOpacityBuffer.get())->getBuffer();
-    float clearVal = 0.0f;
-    glClearNamedBufferData(bufferId, GL_R32F, GL_RED, GL_FLOAT, (const void*)&clearVal);
+    vertexOpacityBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), numLineVertices * sizeof(float),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+    vertexOpacityBuffer->fill(0, renderer->getVkCommandBuffer());
+    // TODO: Barrier.
 
     gatherPpllOpacitiesRenderData->setVertexMode(sgl::VERTEX_MODE_LINES);
     gatherPpllOpacitiesRenderData->setIndexGeometryBuffer(indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
@@ -479,24 +468,35 @@ void OpacityOptimizationRenderer::recomputeStaticParametrization() {
     numLineSegments = uint32_t(lineSegmentConnectivityData.size());
 
     // Upload the data to the GPU.
-    lineSegmentIdBuffer = sgl::Renderer->createGeometryBuffer(
-            numLineVertices * sizeof(uint32_t), lineSegmentIdData.data(), sgl::VERTEX_BUFFER);
+    lineSegmentIdBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), numLineVertices * sizeof(uint32_t), lineSegmentIdData.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
-    blendingWeightParametrizationBuffer = sgl::Renderer->createGeometryBuffer(
-            numLineVertices * sizeof(float), blendingWeightParametrizationData.data(), sgl::SHADER_STORAGE_BUFFER);
+    blendingWeightParametrizationBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), numLineVertices * sizeof(float), blendingWeightParametrizationData.data(),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
-    lineSegmentConnectivityBuffer = sgl::Renderer->createGeometryBuffer(
-            numLineSegments * sizeof(glm::uvec2), lineSegmentConnectivityData.data(), sgl::SHADER_STORAGE_BUFFER);
+    lineSegmentConnectivityBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), numLineSegments * sizeof(glm::uvec2), lineSegmentConnectivityData.data(),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
-    segmentVisibilityBuffer = sgl::Renderer->createGeometryBuffer(
-            numLineSegments * sizeof(uint32_t), nullptr, sgl::SHADER_STORAGE_BUFFER);
+    segmentVisibilityBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), numLineSegments * sizeof(uint32_t),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
-    segmentOpacityUintBuffer = sgl::Renderer->createGeometryBuffer(
-            numLineSegments * sizeof(uint32_t), nullptr, sgl::SHADER_STORAGE_BUFFER);
+    segmentOpacityUintBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), numLineSegments * sizeof(uint32_t),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     for (int i = 0; i < 2; i++) {
-        segmentOpacityBuffers[i] = sgl::Renderer->createGeometryBuffer(
-                numLineSegments * sizeof(float), nullptr, sgl::SHADER_STORAGE_BUFFER);
+        segmentOpacityBuffers[i] = std::make_shared<sgl::vk::Buffer>(
+                renderer->getDevice(), numLineSegments * sizeof(float),
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     }
 }
 
@@ -512,9 +512,10 @@ void OpacityOptimizationRenderer::reallocateFragmentBuffer() {
         fragmentBufferSizeOpacity = fragmentBufferSizeOpacityBytes / 12ull;
     }
 
-    fragmentBufferOpacities = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
-    fragmentBufferOpacities = sgl::Renderer->createGeometryBuffer(
-            fragmentBufferSizeOpacityBytes, NULL, sgl::SHADER_STORAGE_BUFFER);
+    fragmentBufferOpacities = {}; // Delete old data first (-> refcount 0)
+    fragmentBufferOpacities = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), fragmentBufferSizeOpacityBytes,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Fragment buffer for final color pass.
     fragmentBufferSizeFinal = size_t(expectedAvgDepthComplexity) * size_t(viewportWidthFinal) * size_t(viewportHeightFinal);
@@ -526,9 +527,10 @@ void OpacityOptimizationRenderer::reallocateFragmentBuffer() {
         fragmentBufferSizeFinal = fragmentBufferSizeFinalBytes / 12ull;
     }
 
-    fragmentBufferFinal = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
-    fragmentBufferFinal = sgl::Renderer->createGeometryBuffer(
-            fragmentBufferSizeFinalBytes, NULL, sgl::SHADER_STORAGE_BUFFER);
+    fragmentBufferFinal = {}; // Delete old data first (-> refcount 0)
+    fragmentBufferFinal = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), fragmentBufferSizeFinalBytes,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Write info to console and performance measurer.
     size_t fragmentBufferSizeBytes = fragmentBufferSizeOpacityBytes + fragmentBufferSizeFinalBytes;
@@ -559,23 +561,27 @@ void OpacityOptimizationRenderer::onResolutionChanged() {
 
     reallocateFragmentBuffer();
 
-    startOffsetBufferOpacities = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
-    startOffsetBufferOpacities = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t) * paddedViewportWidthOpacity * paddedViewportHeightOpacity,
-            NULL, sgl::SHADER_STORAGE_BUFFER);
+    startOffsetBufferOpacities = {}; // Delete old data first (-> refcount 0)
+    startOffsetBufferOpacities = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(uint32_t) * paddedViewportWidthOpacity * paddedViewportHeightOpacity,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    atomicCounterBufferOpacities = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
-    atomicCounterBufferOpacities = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t), NULL, sgl::ATOMIC_COUNTER_BUFFER);
+    atomicCounterBufferOpacities = {}; // Delete old data first (-> refcount 0)
+    atomicCounterBufferOpacities = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(uint32_t),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
-    startOffsetBufferFinal = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
-    startOffsetBufferFinal = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t) * paddedViewportWidthFinal * paddedViewportHeightFinal,
-            NULL, sgl::SHADER_STORAGE_BUFFER);
+    startOffsetBufferFinal = {}; // Delete old data first (-> refcount 0)
+    startOffsetBufferOpacities = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(uint32_t) * paddedViewportWidthFinal * paddedViewportHeightFinal,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    atomicCounterBufferFinal = sgl::GeometryBufferPtr(); // Delete old data first (-> refcount 0)
-    atomicCounterBufferFinal = sgl::Renderer->createGeometryBuffer(
-            sizeof(uint32_t), NULL, sgl::ATOMIC_COUNTER_BUFFER);
+    atomicCounterBufferFinal = {}; // Delete old data first (-> refcount 0)
+    atomicCounterBufferFinal = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(uint32_t),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 
     if (useMultisampling) {
         msaaSceneFBO = sgl::Renderer->createFBO();
@@ -924,14 +930,25 @@ void OpacityOptimizationRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEdit
     }
 
     if (maximumNumberOfSamples > 1) {
-        if (propertyEditor.addCheckbox("Multisampling", &useMultisampling)) {
+        if (propertyEditor.addCombo("Samples", &sampleModeSelection, sampleModeNames.data(), numSampleModes)) {
+            numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
+            useMultisampling = numSamples > 1;
+            reloadResolveShader();
             onResolutionChanged();
             reRender = true;
         }
-        if (useMultisampling) {
-            if (propertyEditor.addCombo("Samples", &sampleModeSelection, sampleModeNames.data(), numSampleModes)) {
+        if (useMultisampling && supportsSampleShadingRate) {
+            if (propertyEditor.addCheckbox("Use Sample Shading", &useSamplingShading)) {
                 numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
-                reloadResolveShader();
+                useMultisampling = numSamples > 1;
+                onResolutionChanged();
+                reRender = true;
+            }
+            if (propertyEditor.addSliderFloatEdit(
+                    "Min. Sample Shading", &minSampleShading,
+                    0.0f, 1.0f) == ImGui::EditMode::INPUT_FINISHED) {
+                numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
+                useMultisampling = numSamples > 1;
                 onResolutionChanged();
                 reRender = true;
             }
@@ -956,3 +973,4 @@ void OpacityOptimizationRenderer::update(float dt) {
         --smoothingFramesCounter;
     }
 }
+*/

@@ -29,8 +29,6 @@
 #ifndef PROCESS_VOXEL_GLSL
 #define PROCESS_VOXEL_GLSL
 
-uniform vec3 cameraPositionVoxelGrid;
-
 #undef STRESS_LINE_DATA
 #undef USE_AMBIENT_OCCLUSION
 #define VOXEL_RAY_CASTING
@@ -199,7 +197,7 @@ void processLineSegment(
         //float EPSILON_WHITE = 0.0;//fwidth(ribbonPosition);
         //float coverage = 1.0 - smoothstep(1.0 - EPSILON_OUTLINE, 1.0, absCoords);
         intersectionColor = vec4(
-                mix(intersectionColor.rgb, foregroundColor, smoothstep(WHITE_THRESHOLD, WHITE_THRESHOLD, absCoords)),
+                mix(intersectionColor.rgb, foregroundColor.rgb, smoothstep(WHITE_THRESHOLD, WHITE_THRESHOLD, absCoords)),
                 intersectionColor.a);
 
         RayHit hit;

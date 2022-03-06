@@ -29,8 +29,12 @@
 #ifndef LINEVIS_VOXELRAYCASTINGRENDERER_HPP
 #define LINEVIS_VOXELRAYCASTINGRENDERER_HPP
 
+#include "Renderers/ResolvePass.hpp"
 #include "Renderers/LineRenderer.hpp"
 #include "VoxelCurveDiscretizer.hpp"
+
+class LineHullRasterPass;
+class VoxelRayCastingPass;
 
 /**
  * A voxel ray caster (VRC) for line rendering based on the work by:
@@ -43,6 +47,7 @@ class VoxelRayCastingRenderer : public LineRenderer {
 public:
     VoxelRayCastingRenderer(
             SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+    void initialize() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_VOXEL_RAY_CASTING; }
 
     /**
@@ -51,8 +56,19 @@ public:
      */
     void setLineData(LineDataPtr& lineData, bool isNewData) override;
 
+    /// Sets the shader preprocessor defines used by the renderer.
+    void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) override;
+    void setGraphicsPipelineInfo(
+            sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) override;
+    void setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) override;
+    void updateVulkanUniformBuffers() override;
+    void setFramebufferAttachments(sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) override;
+
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
+
+    /// Called when the background clear color was changed.
+    void onClearColorChanged() override;
 
     // Renders the object to the scene framebuffer.
     void render() override;
@@ -64,25 +80,32 @@ protected:
     void setUniformData();
 
 private:
-    sgl::TexturePtr renderTexture;
-
-    // Blit data (ignores model-view-projection matrix and uses normalized device coordinates)
-    sgl::ShaderAttributesPtr blitRenderData;
-    sgl::ShaderProgramPtr renderShader;
+    sgl::vk::TexturePtr renderTexture;
 
     // Rendering data for a hull enclosing the mesh.
-    sgl::ShaderProgramPtr lineHullShader;
-    sgl::ShaderAttributesPtr lineHullRenderData;
-    sgl::FramebufferObjectPtr nearestLineHullHitFbo;
-    sgl::FramebufferObjectPtr furthestLineHullHitFbo;
-    sgl::TexturePtr nearestLineHullHitDepthTexture;
-    sgl::TexturePtr furthestLineHullHitDepthTexture;
+    std::shared_ptr<LineHullRasterPass> lineHullRasterPasses[2];
+    sgl::vk::TexturePtr nearestLineHullHitDepthTexture;
+    sgl::vk::TexturePtr furthestLineHullHitDepthTexture;
 
+    std::shared_ptr<ResolvePass> voxelRayCastingPass;
     VoxelCurveDiscretizer voxelCurveDiscretizer;
     glm::mat4 worldToVoxelGridMatrix{}, voxelGridToWorldMatrix{};
-    sgl::GeometryBufferPtr voxelGridLineSegmentOffsetsBuffer;
-    sgl::GeometryBufferPtr voxelGridNumLineSegmentsBuffer;
-    sgl::GeometryBufferPtr voxelGridLineSegmentsBuffer;
+    sgl::vk::BufferPtr voxelGridLineSegmentOffsetsBuffer;
+    sgl::vk::BufferPtr voxelGridNumLineSegmentsBuffer;
+    sgl::vk::BufferPtr voxelGridLineSegmentsBuffer;
+
+    // Uniform data buffer shared by all shaders.
+    struct UniformData {
+        glm::vec3 cameraPositionVoxelGrid;
+        float aspectRatio;
+        glm::vec3 paddingUniform;
+        float lineRadius; //< in voxel space.
+        glm::mat4 worldSpaceToVoxelSpace;
+        glm::mat4 voxelSpaceToWorldSpace;
+        glm::mat4 ndcToVoxelSpace;
+    };
+    UniformData uniformData = {};
+    sgl::vk::BufferPtr uniformDataBuffer;
 
     // Rendering settings.
     int gridResolution1D = 64, quantizationResolution1D = 64;
@@ -92,6 +115,39 @@ private:
     glm::ivec3 gridResolution{};
     glm::uvec3 quantizationResolution{};
     bool computeNearestFurthestHitsUsingHull = true;
+};
+
+class LineHullRasterPass : public sgl::vk::RasterPass {
+public:
+    explicit LineHullRasterPass(LineRenderer* lineRenderer, VoxelCurveDiscretizer* voxelCurveDiscretizer);
+
+    // Public interface.
+    void setLineData(LineDataPtr& lineData, bool isNewData);
+    void setDepthCompareOp(VkCompareOp compareOp);
+    void setOutputDepthImageView(const sgl::vk::ImageViewPtr& imageView);
+    void recreateSwapchain(uint32_t width, uint32_t height) override;
+
+protected:
+    void loadShader() override;
+    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
+    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
+    void _render() override;
+
+    LineRenderer* lineRenderer = nullptr;
+    SceneData* sceneData;
+    sgl::CameraPtr* camera;
+    LineDataPtr lineData;
+    VoxelCurveDiscretizer* voxelCurveDiscretizer = nullptr;
+
+    // Uniform data buffer shared by all shaders.
+    struct UniformData {
+        glm::mat4 voxelSpaceToWorldSpace;
+    };
+    UniformData uniformData = {};
+    sgl::vk::BufferPtr uniformDataBuffer;
+
+    VkCompareOp depthCompareOp = VK_COMPARE_OP_LESS;
+    sgl::vk::ImageViewPtr outputDepthImageView;
 };
 
 #endif //LINEVIS_VOXELRAYCASTINGRENDERER_HPP

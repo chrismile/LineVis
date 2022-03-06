@@ -28,10 +28,9 @@
 
 #include <GL/glew.h>
 
-#include <Graphics/Window.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Shader/ShaderManager.hpp>
-#include <Graphics/Texture/TextureManager.hpp>
+#include <Utils/File/Logfile.hpp>
+#include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
 #include <ImGui/Widgets/PropertyEditor.hpp>
@@ -40,58 +39,35 @@
 
 VoxelRayCastingRenderer::VoxelRayCastingRenderer(
         SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
-        : LineRenderer("Voxel Ray Casting Renderer", sceneData, transferFunctionWindow) {
+        : LineRenderer("Voxel Ray Casting Renderer", sceneData, transferFunctionWindow),
+          voxelCurveDiscretizer((*sceneData->renderer)->getDevice()){
     isRasterizer = false;
-    lineHullShader = sgl::ShaderManager->getShaderProgram({ "LineHull.Vertex", "LineHull.Fragment" });
+}
+
+void VoxelRayCastingRenderer::initialize() {
+    LineRenderer::initialize();
+
+    uniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(UniformData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    voxelRayCastingPass = std::make_shared<ResolvePass>(
+            this,
+            std::vector<std::string>{ "VoxelRayCasting.Vertex", "VoxelRayCasting.Fragment" });
+    voxelRayCastingPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    for (int i = 0; i < 2; i++) {
+        lineHullRasterPasses[i] = std::make_shared<LineHullRasterPass>(
+                this, &voxelCurveDiscretizer);
+    }
+    lineHullRasterPasses[0]->setDepthCompareOp(VK_COMPARE_OP_GREATER);
+    lineHullRasterPasses[1]->setDepthCompareOp(VK_COMPARE_OP_LESS);
+
     onClearColorChanged();
 }
 
 void VoxelRayCastingRenderer::reloadGatherShader() {
-    sgl::ShaderManager->invalidateShaderCache();
-    sgl::ShaderManager->addPreprocessorDefine(
-            "gridResolution", ivec3ToString(gridResolution));
-    sgl::ShaderManager->addPreprocessorDefine(
-            "GRID_RESOLUTION_LOG2", sgl::toString(sgl::intlog2(int(gridResolution.x))));
-    sgl::ShaderManager->addPreprocessorDefine(
-            "GRID_RESOLUTION", gridResolution.x);
-    sgl::ShaderManager->addPreprocessorDefine(
-            "quantizationResolution", uvec3ToString(quantizationResolution));
-    sgl::ShaderManager->addPreprocessorDefine(
-            "QUANTIZATION_RESOLUTION", sgl::toString(quantizationResolution.x));
-    sgl::ShaderManager->addPreprocessorDefine(
-            "QUANTIZATION_RESOLUTION_LOG2", sgl::toString(sgl::intlog2(int(quantizationResolution.x))));
-    sgl::ShaderManager->addPreprocessorDefine(
-            "MAX_NUM_HITS", maxNumHits);
-    sgl::ShaderManager->addPreprocessorDefine(
-            "MAX_NUM_LINES_PER_VOXEL", maxNumLinesPerVoxel);
-    if (computeNearestFurthestHitsUsingHull) {
-        sgl::ShaderManager->addPreprocessorDefine("COMPUTE_NEAREST_FURTHEST_HIT_USING_HULL", "");
-    }
-
-    sgl::ShaderManager->invalidateShaderCache();
-    renderShader = sgl::ShaderManager->getShaderProgram(
-            { "VoxelRayCasting.Vertex", "VoxelRayCasting.Fragment" });
-
-    sgl::ShaderManager->removePreprocessorDefine("gridResolution");
-    sgl::ShaderManager->removePreprocessorDefine("GRID_RESOLUTION_LOG2");
-    sgl::ShaderManager->removePreprocessorDefine("GRID_RESOLUTION");
-    sgl::ShaderManager->removePreprocessorDefine("quantizationResolution");
-    sgl::ShaderManager->removePreprocessorDefine("QUANTIZATION_RESOLUTION");
-    sgl::ShaderManager->removePreprocessorDefine("QUANTIZATION_RESOLUTION_LOG2");
-    sgl::ShaderManager->removePreprocessorDefine("MAX_NUM_HITS");
-    sgl::ShaderManager->removePreprocessorDefine("MAX_NUM_LINES_PER_VOXEL");
-    if (computeNearestFurthestHitsUsingHull) {
-        sgl::ShaderManager->removePreprocessorDefine("COMPUTE_NEAREST_FURTHEST_HIT_USING_HULL");
-    }
-
-    // Create blitting data (fullscreen rectangle in normalized device coordinates).
-    blitRenderData = sgl::ShaderManager->createShaderAttributes(renderShader);
-    std::vector<glm::vec3> fullscreenQuad{
-            glm::vec3(1,1,0), glm::vec3(-1,-1,0), glm::vec3(1,-1,0),
-            glm::vec3(-1,-1,0), glm::vec3(1,1,0), glm::vec3(-1,1,0)};
-    sgl::GeometryBufferPtr geomBuffer = sgl::Renderer->createGeometryBuffer(
-            sizeof(glm::vec3)*fullscreenQuad.size(), (void*)&fullscreenQuad.front());
-    blitRenderData->addGeometryBuffer(geomBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
+    voxelRayCastingPass->setShaderDirty();
 }
 
 void VoxelRayCastingRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
@@ -108,13 +84,9 @@ void VoxelRayCastingRenderer::setLineData(LineDataPtr& lineData, bool isNewData)
     voxelGridNumLineSegmentsBuffer = voxelCurveDiscretizer.getVoxelGridNumLineSegmentsBuffer();
     voxelGridLineSegmentsBuffer = voxelCurveDiscretizer.getVoxelGridLineSegmentsBuffer();
 
-    sgl::GeometryBufferPtr lineHullIndexBuffer = voxelCurveDiscretizer.getLineHullIndexBuffer();
-    sgl::GeometryBufferPtr lineHullVertexBuffer = voxelCurveDiscretizer.getLineHullVertexBuffer();
-    lineHullRenderData = sgl::ShaderManager->createShaderAttributes(lineHullShader);
-    lineHullRenderData->setVertexMode(sgl::VERTEX_MODE_TRIANGLES);
-    lineHullRenderData->setIndexGeometryBuffer(lineHullIndexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-    lineHullRenderData->addGeometryBuffer(
-            lineHullVertexBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
+    for (int i = 0; i < 2; i++) {
+        lineHullRasterPasses[i]->setLineData(lineData, isNewData);
+    }
 
     worldToVoxelGridMatrix = voxelCurveDiscretizer.getWorldToVoxelGridMatrix();
     voxelGridToWorldMatrix = voxelCurveDiscretizer.getVoxelGridToWorldMatrix();
@@ -127,81 +99,113 @@ void VoxelRayCastingRenderer::setLineData(LineDataPtr& lineData, bool isNewData)
     reRender = true;
 }
 
+void VoxelRayCastingRenderer::getVulkanShaderPreprocessorDefines(
+        std::map<std::string, std::string> &preprocessorDefines) {
+    LineRenderer::getVulkanShaderPreprocessorDefines(preprocessorDefines);
+
+    preprocessorDefines.insert(std::make_pair(
+            "gridResolution", ivec3ToString(gridResolution)));
+    preprocessorDefines.insert(std::make_pair(
+            "GRID_RESOLUTION_LOG2", sgl::toString(sgl::intlog2(int(gridResolution.x)))));
+    preprocessorDefines.insert(std::make_pair(
+            "GRID_RESOLUTION", sgl::toString(gridResolution.x)));
+    preprocessorDefines.insert(std::make_pair(
+            "quantizationResolution", uvec3ToString(quantizationResolution)));
+    preprocessorDefines.insert(std::make_pair(
+            "QUANTIZATION_RESOLUTION", sgl::toString(quantizationResolution.x)));
+    preprocessorDefines.insert(std::make_pair(
+            "QUANTIZATION_RESOLUTION_LOG2", sgl::toString(sgl::intlog2(int(quantizationResolution.x)))));
+    preprocessorDefines.insert(std::make_pair(
+            "MAX_NUM_HITS", sgl::toString(maxNumHits)));
+    preprocessorDefines.insert(std::make_pair(
+            "MAX_NUM_LINES_PER_VOXEL", sgl::toString(maxNumLinesPerVoxel)));
+    if (computeNearestFurthestHitsUsingHull) {
+        preprocessorDefines.insert(std::make_pair("COMPUTE_NEAREST_FURTHEST_HIT_USING_HULL", ""));
+    }
+}
+
+void VoxelRayCastingRenderer::setGraphicsPipelineInfo(
+        sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) {
+}
+
+void VoxelRayCastingRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) {
+    LineRenderer::setRenderDataBindings(renderData);
+    lineData->setVulkanRenderDataDescriptors(renderData);
+    renderData->setStaticBufferOptional(uniformDataBuffer, "UniformDataBuffer");
+    renderData->setStaticBufferOptional(voxelGridLineSegmentOffsetsBuffer, "VoxelLineListOffsetBuffer");
+    renderData->setStaticBufferOptional(voxelGridNumLineSegmentsBuffer, "NumLinesBuffer");
+    renderData->setStaticBufferOptional(voxelGridLineSegmentsBuffer, "LineSegmentBuffer");
+    if (computeNearestFurthestHitsUsingHull) {
+        renderData->setStaticTexture(nearestLineHullHitDepthTexture, "nearestLineHullHitDepthTexture");
+        renderData->setStaticTexture(furthestLineHullHitDepthTexture, "furthestLineHullHitDepthTexture");
+    }
+    //renderData->setStaticTextureOptional(densityTexture, "densityTexture");
+    //renderData->setStaticTextureOptional(aoTexture, "aoTexture");
+}
+
+void VoxelRayCastingRenderer::updateVulkanUniformBuffers() {
+}
+
+void VoxelRayCastingRenderer::setFramebufferAttachments(
+        sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) {
+    sgl::vk::AttachmentState attachmentState;
+    attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachmentState.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachmentState.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    framebuffer->setColorAttachment(
+            (*sceneData->sceneTexture)->getImageView(), 0, attachmentState,
+            sceneData->clearColor->getFloatColorRGBA());
+}
+
 void VoxelRayCastingRenderer::onResolutionChanged() {
     LineRenderer::onResolutionChanged();
 
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
 
-    nearestLineHullHitFbo = sgl::Renderer->createFBO();
-    nearestLineHullHitDepthTexture = sgl::TextureManager->createDepthTexture(
-            width, height, sgl::DEPTH_COMPONENT32F);
-    nearestLineHullHitFbo->bindTexture(nearestLineHullHitDepthTexture, sgl::DEPTH_ATTACHMENT);
+    sgl::vk::ImageSettings depthImageSettings{};
+    depthImageSettings.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    depthImageSettings.format = VK_FORMAT_D32_SFLOAT;
+    depthImageSettings.width = width;
+    depthImageSettings.height = height;
 
-    furthestLineHullHitFbo = sgl::Renderer->createFBO();
-    furthestLineHullHitDepthTexture = sgl::TextureManager->createDepthTexture(
-            width, height, sgl::DEPTH_COMPONENT32F);
-    furthestLineHullHitFbo->bindTexture(furthestLineHullHitDepthTexture, sgl::DEPTH_ATTACHMENT);
+    furthestLineHullHitDepthTexture = std::make_shared<sgl::vk::Texture>(
+            renderer->getDevice(), depthImageSettings, VK_IMAGE_ASPECT_DEPTH_BIT);
+    nearestLineHullHitDepthTexture = std::make_shared<sgl::vk::Texture>(
+            renderer->getDevice(), depthImageSettings, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+    voxelRayCastingPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
+    voxelRayCastingPass->recreateSwapchain(width, height);
+
+    lineHullRasterPasses[0]->setOutputDepthImageView(furthestLineHullHitDepthTexture->getImageView());
+    lineHullRasterPasses[1]->setOutputDepthImageView(nearestLineHullHitDepthTexture->getImageView());
+    for (int i = 0; i < 2; i++) {
+        lineHullRasterPasses[i]->recreateSwapchain(width, height);
+    }
+}
+
+void VoxelRayCastingRenderer::onClearColorChanged() {
+    voxelRayCastingPass->setAttachmentClearColor(sceneData->clearColor->getFloatColorRGBA());
 }
 
 void VoxelRayCastingRenderer::setUniformData() {
-    // Set camera data
-    renderShader->setUniform("fov", sceneData->camera->getFOVy());
-    renderShader->setUniform("aspectRatio", sceneData->camera->getAspectRatio());
-    renderShader->setUniform(
-            "cameraPositionVoxelGrid",
-            sgl::transformPoint(worldToVoxelGridMatrix, sceneData->camera->getPosition()));
-
+    lineData->updateVulkanUniformBuffers(this, renderer);
     glm::mat4 inverseViewMatrix = glm::inverse(sceneData->camera->getViewMatrix());
-    renderShader->setUniform("viewMatrix", sceneData->camera->getViewMatrix());
-    renderShader->setUniform("inverseViewMatrix", inverseViewMatrix);
-
-    glm::mat4 inverseProjectionMatrix = glm::inverse(sceneData->camera->getProjectionMatrix());
-    renderShader->setUniformOptional(
-            "ndcToVoxelSpace", worldToVoxelGridMatrix * inverseViewMatrix * inverseProjectionMatrix);
-
+    glm::mat4 inverseProjectionMatrix = glm::inverse(sceneData->camera->getProjectionMatrixOpenGL());
+    uniformData.cameraPositionVoxelGrid =
+            sgl::transformPoint(worldToVoxelGridMatrix, sceneData->camera->getPosition());
+    uniformData.aspectRatio = sceneData->camera->getAspectRatio();
     float voxelSpaceLineRadius = lineWidth * 0.5f * glm::length(worldToVoxelGridMatrix[0]);
-    renderShader->setUniform("lineRadius", voxelSpaceLineRadius);
-    renderShader->setUniform("clearColor", *sceneData->clearColor);
-    if (renderShader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
-        renderShader->setUniform("foregroundColor", foregroundColor);
-    }
-
-    if (renderShader->hasUniform("cameraPosition")) {
-        renderShader->setUniform("cameraPosition", sceneData->camera->getPosition());
-    }
-
-    int width = int(*sceneData->viewportWidth);
-    int height = int(*sceneData->viewportHeight);
-    renderShader->setUniform("viewportSize", glm::ivec2(width, height));
-
-    sgl::ShaderManager->bindShaderStorageBuffer(0, voxelGridLineSegmentOffsetsBuffer);
-    sgl::ShaderManager->bindShaderStorageBuffer(1, voxelGridNumLineSegmentsBuffer);
-    sgl::ShaderManager->bindShaderStorageBuffer(2, voxelGridLineSegmentsBuffer);
-    //if (renderShader->hasUniform("densityTexture")) {
-    //    renderShader->setUniform("densityTexture", densityTexture, 0);
-    //}
-    //if (renderShader->hasUniform("aoTexture")) {
-    //    renderShader->setUniform("aoTexture", aoTexture, 1);
-    //}
-    if (renderShader->hasUniform("transferFunctionTexture")) {
-        renderShader->setUniform("transferFunctionTexture", transferFunctionWindow.getTransferFunctionMapTexture(), 2);
-    }
-
-    renderShader->setUniform("worldSpaceToVoxelSpace", worldToVoxelGridMatrix);
-    renderShader->setUniform("voxelSpaceToWorldSpace", voxelGridToWorldMatrix);
-
-    if (computeNearestFurthestHitsUsingHull) {
-        renderShader->setUniform(
-                "nearestLineHullHitDepthTexture", nearestLineHullHitDepthTexture, 3);
-        renderShader->setUniform(
-                "furthestLineHullHitDepthTexture", furthestLineHullHitDepthTexture, 4);
-    }
-
-    lineData->setUniformGatherShaderDataOpenGL(renderShader);
-    setUniformData_Pass(renderShader);
+    uniformData.lineRadius = voxelSpaceLineRadius;
+    uniformData.worldSpaceToVoxelSpace = worldToVoxelGridMatrix;
+    uniformData.voxelSpaceToWorldSpace = voxelGridToWorldMatrix;
+    uniformData.ndcToVoxelSpace = worldToVoxelGridMatrix * inverseViewMatrix * inverseProjectionMatrix;
+    uniformDataBuffer->updateData(
+            sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void VoxelRayCastingRenderer::render() {
@@ -211,40 +215,12 @@ void VoxelRayCastingRenderer::render() {
 
     // 1. Compute the minimum and maximum projected line hull depth at every pixel.
     if (computeNearestFurthestHitsUsingHull) {
-        lineHullShader->setUniform("voxelSpaceToWorldSpace", voxelGridToWorldMatrix);
-
-        glDepthMask(GL_TRUE);
-        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-        glDisable(GL_CULL_FACE);
-        //glEnable(GL_POLYGON_OFFSET_FILL);
-
-        //glPolygonOffset(-1.0f, -1.0f);
-        glDepthFunc(GL_GREATER);
-        sgl::Renderer->bindFBO(furthestLineHullHitFbo);
-        sgl::Renderer->clearFramebuffer(GL_DEPTH_BUFFER_BIT, sgl::Color(), 0.0f);
-        sgl::Renderer->render(lineHullRenderData);
-
-        //glPolygonOffset(1.0f, 1.0f);
-        glDepthFunc(GL_LESS);
-        sgl::Renderer->bindFBO(nearestLineHullHitFbo);
-        sgl::Renderer->clearFramebuffer(GL_DEPTH_BUFFER_BIT, sgl::Color(), 1.0f);
-        sgl::Renderer->render(lineHullRenderData);
-
-        glEnable(GL_CULL_FACE);
-        //glDisable(GL_POLYGON_OFFSET_FILL);
+        lineHullRasterPasses[0]->render();
+        lineHullRasterPasses[1]->render();
     }
 
-    // 2. Do the VRC rendering pass.
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glDepthMask(GL_FALSE);
-    glDisable(GL_DEPTH_TEST);
-    //sgl::Renderer->bindFBO(*sceneData->framebuffer); // TODO
-    sgl::Renderer->render(blitRenderData);
-    glEnable(GL_DEPTH_TEST);
-    glDepthMask(GL_TRUE);
+    // 2. Execute the VRC rendering pass.
+    voxelRayCastingPass->render();
 }
 
 void VoxelRayCastingRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
@@ -275,4 +251,77 @@ void VoxelRayCastingRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& 
         internalReRender = true;
         reRender = true;
     }
+}
+
+
+
+LineHullRasterPass::LineHullRasterPass(LineRenderer* lineRenderer, VoxelCurveDiscretizer* voxelCurveDiscretizer)
+        : RasterPass(*lineRenderer->getSceneData()->renderer), lineRenderer(lineRenderer),
+          sceneData(lineRenderer->getSceneData()), camera(&sceneData->camera),
+          voxelCurveDiscretizer(voxelCurveDiscretizer) {
+    uniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(UniformData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+}
+
+void LineHullRasterPass::setLineData(LineDataPtr& lineData, bool isNewData) {
+    this->lineData = lineData;
+    dataDirty = true;
+}
+
+void LineHullRasterPass::setDepthCompareOp(VkCompareOp compareOp) {
+    depthCompareOp = compareOp;
+}
+
+void LineHullRasterPass::setOutputDepthImageView(const sgl::vk::ImageViewPtr& imageView) {
+    outputDepthImageView = imageView;
+}
+
+void LineHullRasterPass::recreateSwapchain(uint32_t width, uint32_t height) {
+    framebuffer = std::make_shared<sgl::vk::Framebuffer>(device, width, height);
+
+    sgl::vk::AttachmentState depthAttachmentState;
+    depthAttachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachmentState.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depthAttachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    framebuffer->setDepthStencilAttachment(
+            outputDepthImageView, depthAttachmentState,
+            depthCompareOp == VK_COMPARE_OP_LESS ? 1.0f : 0.0f);
+
+    framebufferDirty = true;
+    dataDirty = true;
+}
+
+void LineHullRasterPass::loadShader() {
+    std::map<std::string, std::string> preprocessorDefines;
+    lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            { "LineHull.Vertex", "LineHull.Fragment" }, preprocessorDefines);
+}
+
+void LineHullRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
+    pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::TRIANGLE_LIST);
+    pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
+    pipelineInfo.setDepthCompareOp(depthCompareOp);
+    pipelineInfo.setVertexBufferBindingByLocationIndex("vertexPosition", sizeof(glm::vec3));
+}
+
+void LineHullRasterPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
+    rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
+    lineData->setVulkanRenderDataDescriptors(rasterData);
+    rasterData->setStaticBuffer(uniformDataBuffer, "UniformDataBuffer");
+    rasterData->setIndexBuffer(voxelCurveDiscretizer->getLineHullIndexBuffer());
+    rasterData->setVertexBuffer(voxelCurveDiscretizer->getLineHullVertexBuffer(), 0);
+}
+
+void LineHullRasterPass::_render() {
+    uniformData.voxelSpaceToWorldSpace = voxelCurveDiscretizer->getVoxelGridToWorldMatrix();
+    uniformDataBuffer->updateData(
+            sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT);
+    RasterPass::_render();
 }

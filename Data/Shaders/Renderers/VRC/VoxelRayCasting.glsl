@@ -34,7 +34,7 @@ layout(location = 0) in vec4 vertexPosition;
 
 void main()
 {
-    gl_Position = mvpMatrix * vertexPosition;
+    gl_Position = vertexPosition;
 }
 
 
@@ -46,27 +46,22 @@ in vec4 gl_FragCoord;
 
 layout(location = 0) out vec4 fragColorOut;
 
-// Size of the rendering viewport (/window)
-uniform ivec2 viewportSize;
-
-// Camera data
-uniform vec3 cameraPositionWorld;
-uniform float aspectRatio;
-uniform float fov;
+#include "LineUniformData.glsl"
 
 // Convert points in world space to voxel space (voxel grid at range (0, 0, 0) to (rx, ry, rz)).
-uniform mat4 worldSpaceToVoxelSpace;
-uniform mat4 voxelSpaceToWorldSpace;
-uniform mat4 viewMatrix;
-uniform mat4 inverseViewMatrix;
-uniform mat4 ndcToVoxelSpace;
-
-uniform vec4 clearColor = vec4(1.0);
-uniform vec3 foregroundColor = vec3(0.0);
+layout(binding = 0) uniform UniformDataBuffer {
+    vec3 cameraPositionVoxelGrid;
+    float aspectRatio;
+    vec3 paddingUniform;
+    float lineRadius; //< in voxel space.
+    mat4 worldSpaceToVoxelSpace;
+    mat4 voxelSpaceToWorldSpace;
+    mat4 ndcToVoxelSpace;
+};
 
 #ifdef COMPUTE_NEAREST_FURTHEST_HIT_USING_HULL
-uniform sampler2D nearestLineHullHitDepthTexture;
-uniform sampler2D furthestLineHullHitDepthTexture;
+layout(binding = 1) uniform sampler2D nearestLineHullHitDepthTexture;
+layout(binding = 2) uniform sampler2D furthestLineHullHitDepthTexture;
 #endif
 
 #include "RayIntersectionTests.glsl"
@@ -78,11 +73,12 @@ uniform sampler2D furthestLineHullHitDepthTexture;
 
 void main() {
     ivec2 fragCoord = ivec2(gl_FragCoord.xy);
-    vec4 fragColor = clearColor;
+    vec4 fragColor = backgroundColor;
 
+    //float aspectRatio = float(viewportSize.x) / float(viewportSize.y);
     vec3 rayOrigin = (worldSpaceToVoxelSpace * inverseViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-    vec2 ndcPosition = 2.0 * (vec2(fragCoord) + vec2(0.5)) / vec2(viewportSize) - vec2(1.0);
-    float scale = tan(fov * 0.5);
+    vec2 ndcPosition = 2.0 * (vec2(fragCoord.x, viewportSize.y - fragCoord.y - 1) + vec2(0.5)) / vec2(viewportSize) - vec2(1.0);
+    float scale = tan(fieldOfViewY * 0.5);
     vec2 rayDirCameraSpace = vec2(ndcPosition.x * aspectRatio * scale, ndcPosition.y * scale);
     vec3 rayDirection = normalize((worldSpaceToVoxelSpace * inverseViewMatrix * vec4(rayDirCameraSpace, -1.0, 0.0)).xyz);
 
@@ -112,10 +108,11 @@ void main() {
         exitPoint = exitPoint - EPSILON_VEC3;
 
         fragColor = traverseVoxelGrid(rayOrigin, rayDirection, entrancePoint, exitPoint);
-        blend(clearColor, fragColor);
+        blend(backgroundColor, fragColor);
         //blend(vec4(1.0, 0.5, 0.0, 1.0), fragColor); // For debugging the hull.
         fragColor = vec4(fragColor.rgb / fragColor.a, fragColor.a);
     }
+    //fragColor = vec4(vec3(pow(nearestLineHullHitDepth, 100.0)), 1.0);
 #else
     // Get the intersections with the voxel grid.
     vec3 voxelGridLower = vec3(-1.0 + 1e-4);
@@ -130,7 +127,7 @@ void main() {
         }
 
         fragColor = traverseVoxelGrid(rayOrigin, rayDirection, entrancePoint, exitPoint);
-        blend(clearColor, fragColor);
+        blend(backgroundColor, fragColor);
         fragColor = vec4(fragColor.rgb / fragColor.a, fragColor.a);
     }
 #endif

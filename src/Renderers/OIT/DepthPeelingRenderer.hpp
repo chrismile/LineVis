@@ -29,7 +29,10 @@
 #ifndef LINEVIS_DEPTHPEELINGRENDERER_HPP
 #define LINEVIS_DEPTHPEELINGRENDERER_HPP
 
+#include "Renderers/ResolvePass.hpp"
 #include "Renderers/LineRenderer.hpp"
+
+class DepthComplexityRasterPass;
 
 /**
  * Renders all lines with transparency values determined by the transfer function set by the user.
@@ -39,7 +42,8 @@
 class DepthPeelingRenderer : public LineRenderer {
 public:
     DepthPeelingRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
-    ~DepthPeelingRenderer() override = default;
+    void initialize() override;
+    ~DepthPeelingRenderer() override;
     RenderingMode getRenderingMode() override { return RENDERING_MODE_DEPTH_PEELING; }
 
     /**
@@ -48,8 +52,19 @@ public:
      */
     void setLineData(LineDataPtr& lineData, bool isNewData) override;
 
+    /// Sets the shader preprocessor defines used by the renderer.
+    void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) override;
+    void setGraphicsPipelineInfo(
+            sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) override;
+    void setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) override;
+    void updateVulkanUniformBuffers() override;
+    void setFramebufferAttachments(sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) override;
+
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
+
+    /// Called when the background clear color was changed.
+    void onClearColorChanged() override;
 
     // Renders the object to the scene framebuffer.
     void render() override;
@@ -57,7 +72,7 @@ public:
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
     /// For changing performance measurement modes.
-    virtual void setNewState(const InternalState& newState) override;
+    void setNewState(const InternalState& newState) override;
 
 private:
     void gather();
@@ -66,22 +81,50 @@ private:
     void computeDepthComplexity();
     void reloadGatherShader() override;
     uint64_t maxDepthComplexity = 1;
+    int currIdx = 0;
+
+    // Render passes.
+    std::shared_ptr<DepthComplexityRasterPass> depthComplexityRasterPass;
+    std::shared_ptr<LineRasterPass> depthPeelingRasterPasses[2];
+    sgl::vk::BlitRenderPassPtr depthPeelingBlitPasses[2];
+    sgl::vk::BlitRenderPassPtr blitRenderPass;
+
+    sgl::vk::BufferPtr fragmentCounterBuffer;
+    std::vector<sgl::vk::BufferPtr> stagingBuffers;
 
     // Render data of depth peeling
-    sgl::FramebufferObjectPtr depthPeelingFBOs[2];
-    sgl::TexturePtr colorRenderTextures[2];
-    sgl::TexturePtr depthRenderTextures[2];
-    sgl::FramebufferObjectPtr accumulatorFBO;
-    sgl::TexturePtr colorAccumulatorTexture;
+    sgl::vk::TexturePtr colorRenderTextures[2];
+    sgl::vk::TexturePtr depthRenderTextures[2];
+    sgl::vk::TexturePtr colorAccumulatorTexture;
 
-    // Render data.
-    sgl::ShaderProgramPtr gatherShader;
-    sgl::ShaderAttributesPtr shaderAttributes;
+    sgl::vk::Renderer* depthComplexityRenderer = nullptr;
+    sgl::vk::FencePtr fence;
+    VkCommandPool commandPool = VK_NULL_HANDLE;
+    VkCommandBuffer depthComplexityCommandBuffer = VK_NULL_HANDLE;
 
-    // For computing the depth complexity
-    sgl::ShaderProgramPtr depthComplexityGatherShader;
-    sgl::ShaderAttributesPtr depthComplexityShaderAttributes;
-    sgl::GeometryBufferPtr fragmentCounterBuffer;
+    // Uniform data buffer shared by all shaders.
+    struct UniformData {
+        int viewportW;
+        int padding0;
+
+        // The number of fragments necessary to reach the maximal color opacity.
+        uint32_t numFragmentsMaxColor;
+        uint32_t padding1;
+
+        // The color to shade the framents with.
+        glm::vec4 color;
+    };
+    UniformData uniformData = {};
+    sgl::vk::BufferPtr uniformDataBuffer;
+};
+
+class DepthComplexityRasterPass : public LineRasterPass {
+public:
+    explicit DepthComplexityRasterPass(LineRenderer* lineRenderer);
+
+protected:
+    void loadShader() override;
+    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
 };
 
 #endif //LINEVIS_DEPTHPEELINGRENDERER_HPP

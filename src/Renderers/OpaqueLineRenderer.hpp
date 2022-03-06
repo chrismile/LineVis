@@ -93,7 +93,7 @@ protected:
     float pointWidth = STANDARD_LINE_WIDTH;
 
     int maximumNumberOfSamples = 1;
-    int numSamples = 4; // TODO
+    int numSamples = 4;
     bool supportsSampleShadingRate = true;
     bool useSamplingShading = false;
     float minSampleShading = 1.0f;

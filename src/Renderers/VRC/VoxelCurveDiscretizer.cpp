@@ -30,19 +30,40 @@
 
 #include <Math/Math.hpp>
 #include <Utils/File/Logfile.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Shader/ShaderManager.hpp>
-#include <Graphics/OpenGL/GeometryBuffer.hpp>
+#include <Graphics/Vulkan/Render/Data.hpp>
+#include <Graphics/Vulkan/Render/ComputePipeline.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
+#include <Graphics/Vulkan/Shader/ShaderManager.hpp>
+#include <memory>
 
 #include "VoxelCurveDiscretizer.hpp"
 
-VoxelCurveDiscretizer::VoxelCurveDiscretizer() {
-    prefixSumBlockIncrementShader = sgl::ShaderManager->getShaderProgram(
-            {"PrefixSumBlockIncrement.Compute"});
-    prefixSumScanShader = sgl::ShaderManager->getShaderProgram(
-            { "PrefixSumScan.Compute"});
-    prefixSumWriteFinalElementShader = sgl::ShaderManager->getShaderProgram(
-            {"PrefixSumWriteFinalElement.Compute"});
+VoxelCurveDiscretizer::VoxelCurveDiscretizer(sgl::vk::Device* device) {
+    renderer = new sgl::vk::Renderer(device, 100);
+
+    sgl::vk::ComputePipelineInfo computePipelineInfo(sgl::vk::ShaderManager->getShaderStages(
+            { "PrefixSumBlockIncrement.Compute" }));
+    prefixSumBlockIncrementPipeline = std::make_shared<sgl::vk::ComputePipeline>(device, computePipelineInfo);
+
+    computePipelineInfo = sgl::vk::ComputePipelineInfo(sgl::vk::ShaderManager->getShaderStages(
+            { "PrefixSumScan.Compute" }));
+    prefixSumScanPipeline = std::make_shared<sgl::vk::ComputePipeline>(device, computePipelineInfo);
+
+    computePipelineInfo = sgl::vk::ComputePipelineInfo(sgl::vk::ShaderManager->getShaderStages(
+            { "PrefixSumWriteFinalElement.Compute" }));
+    sgl::vk::ComputePipelinePtr computePipeline = std::make_shared<sgl::vk::ComputePipeline>(
+            device, computePipelineInfo);
+    prefixSumWriteFinalElementData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
+}
+
+VoxelCurveDiscretizer::~VoxelCurveDiscretizer() {
+    prefixSumBlockIncrementData = {};
+    prefixSumScanData = {};
+    prefixSumWriteFinalElementData = {};
+
+    renderer->getDevice()->waitIdle();
+    delete renderer;
+    renderer = nullptr;
 }
 
 void VoxelCurveDiscretizer::loadLineData(

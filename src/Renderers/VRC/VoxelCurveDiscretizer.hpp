@@ -47,7 +47,7 @@ public:
     // Returns true if the passed line intersects the voxel boundaries
     bool addPossibleIntersections(const glm::vec3& v1, const glm::vec3& v2, float a1, float a2);
     void setIndex(glm::uvec3 index);
-    const glm::uvec3& getIndex() const { return index; }
+    [[nodiscard]] const glm::uvec3& getIndex() const { return index; }
     float computeDensity();
 
     glm::uvec3 index;
@@ -59,22 +59,23 @@ public:
 
 class VoxelCurveDiscretizer {
 public:
-    VoxelCurveDiscretizer();
+    VoxelCurveDiscretizer(sgl::vk::Device* device);
+    ~VoxelCurveDiscretizer();
     void loadLineData(LineDataPtr& lineData, uint32_t gridResolution1D = 256, uint32_t quantizationResolution1D = 8);
     void createVoxelGridGpu();
     void createVoxelGridCpu();
     void createLineHullMesh();
 
     // Get finished data.
-    inline const glm::mat4& getWorldToVoxelGridMatrix() const { return linesToVoxel; }
-    inline const glm::mat4& getVoxelGridToWorldMatrix() const { return voxelToLines; }
-    inline const glm::ivec3& getGridResolution() const { return gridResolution; }
-    inline const glm::uvec3& getQuantizationResolution() const { return quantizationResolution; }
-    inline const sgl::GeometryBufferPtr& getVoxelGridLineSegmentOffsetsBuffer() const { return voxelGridLineSegmentOffsetsBuffer; }
-    inline const sgl::GeometryBufferPtr& getVoxelGridNumLineSegmentsBuffer() const { return voxelGridNumLineSegmentsBuffer; }
-    inline const sgl::GeometryBufferPtr& getVoxelGridLineSegmentsBuffer() const { return voxelGridLineSegmentsBuffer; }
-    inline const sgl::GeometryBufferPtr& getLineHullIndexBuffer() const { return lineHullIndexBuffer; }
-    inline const sgl::GeometryBufferPtr& getLineHullVertexBuffer() const { return lineHullVertexBuffer; }
+    [[nodiscard]] inline const glm::mat4& getWorldToVoxelGridMatrix() const { return linesToVoxel; }
+    [[nodiscard]] inline const glm::mat4& getVoxelGridToWorldMatrix() const { return voxelToLines; }
+    [[nodiscard]] inline const glm::ivec3& getGridResolution() const { return gridResolution; }
+    [[nodiscard]] inline const glm::uvec3& getQuantizationResolution() const { return quantizationResolution; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getVoxelGridLineSegmentOffsetsBuffer() const { return voxelGridLineSegmentOffsetsBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getVoxelGridNumLineSegmentsBuffer() const { return voxelGridNumLineSegmentsBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getVoxelGridLineSegmentsBuffer() const { return voxelGridLineSegmentsBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getLineHullIndexBuffer() const { return lineHullIndexBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getLineHullVertexBuffer() const { return lineHullVertexBuffer; }
 
 private:
     // CPU grid generation utility functions.
@@ -92,17 +93,20 @@ private:
     static int computeFaceIndex(const glm::vec3& v, const glm::ivec3& voxelIndex);
 
     // Test decompression
-    glm::vec3 getQuantizedPositionOffset(uint32_t faceIndex, uint32_t quantizedPos1D) const;
+    [[nodiscard]] glm::vec3 getQuantizedPositionOffset(uint32_t faceIndex, uint32_t quantizedPos1D) const;
     void decompressLine(const glm::vec3& voxelPosition, const LineSegmentCompressed& compressedLine,
                         LineSegment& decompressedLine);
     bool checkLinesEqual(const LineSegment& originalLine, const LineSegment& decompressedLine);
 
     // Prefix sum data.
-    sgl::GeometryBufferPtr parallelPrefixSumReduce(uint32_t N, sgl::GeometryBufferPtr& bufferIn);
-    void parallelPrefixSumRecursive(uint32_t N, sgl::GeometryBufferPtr& bufferIn, sgl::GeometryBufferPtr& bufferOut);
-    sgl::ShaderProgramPtr prefixSumBlockIncrementShader;
-    sgl::ShaderProgramPtr prefixSumScanShader;
-    sgl::ShaderProgramPtr prefixSumWriteFinalElementShader;
+    sgl::vk::BufferPtr parallelPrefixSumReduce(uint32_t N, sgl::vk::BufferPtr& bufferIn);
+    void parallelPrefixSumRecursive(uint32_t N, sgl::vk::BufferPtr& bufferIn, sgl::vk::BufferPtr& bufferOut);
+    sgl::vk::ComputePipelinePtr prefixSumBlockIncrementPipeline;
+    sgl::vk::ComputePipelinePtr prefixSumScanPipeline;
+    sgl::vk::ComputeDataPtr prefixSumBlockIncrementData;
+    sgl::vk::ComputeDataPtr prefixSumScanData;
+    sgl::vk::ComputeDataPtr prefixSumWriteFinalElementData;
+    std::vector<sgl::vk::ComputeDataPtr> parallelPrefixSumReduceCache;
 
     // Line hull mesh helpers.
     bool isVoxelFilled(const uint32_t* voxelGridNumLineSegmentsArray, int x, int y, int z) const;
@@ -115,11 +119,12 @@ private:
     glm::ivec3 gridResolution{};
     glm::uvec3 quantizationResolution{};
 
-    sgl::GeometryBufferPtr voxelGridLineSegmentOffsetsBuffer;
-    sgl::GeometryBufferPtr voxelGridNumLineSegmentsBuffer;
-    sgl::GeometryBufferPtr voxelGridLineSegmentsBuffer;
-    sgl::GeometryBufferPtr lineHullIndexBuffer;
-    sgl::GeometryBufferPtr lineHullVertexBuffer;
+    sgl::vk::Renderer* renderer = nullptr;
+    sgl::vk::BufferPtr voxelGridLineSegmentOffsetsBuffer;
+    sgl::vk::BufferPtr voxelGridNumLineSegmentsBuffer;
+    sgl::vk::BufferPtr voxelGridLineSegmentsBuffer;
+    sgl::vk::BufferPtr lineHullIndexBuffer;
+    sgl::vk::BufferPtr lineHullVertexBuffer;
 };
 
 std::string ivec3ToString(const glm::ivec3& v);

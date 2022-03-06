@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2018 - 2021, Christoph Neuhauser
+ * Copyright (c) 2018 - 2022, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,7 +42,7 @@ struct LinePointData {
     float padding;
 };
 
-layout (std430, binding = 2) buffer LinePoints {
+layout (std430, binding = LINE_POINTS_BUFFER_BINDING) buffer LinePoints {
     LinePointData linePoints[];
 };
 

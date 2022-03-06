@@ -36,8 +36,6 @@
 
 #define PACK_LINES
 
-uniform float lineRadius = 0.2;
-
 struct LineSegment {
     vec3 v0; // Vertex position
     float a0; // Vertex attribute
@@ -58,17 +56,17 @@ struct LineSegmentCompressed {
 };
 
 // Offset in the line segments buffer for each voxel.
-layout (std430, binding = 0) readonly buffer VoxelLineListOffsetBuffer {
+layout (std430, binding = 3) readonly buffer VoxelLineListOffsetBuffer {
     uint voxelLineListOffsets[];
 };
 
 // Number of line segments in each voxel.
-layout (std430, binding = 1) readonly buffer NumLinesBuffer {
+layout (std430, binding = 4) readonly buffer NumLinesBuffer {
     uint numLinesInVoxel[];
 };
 
 // Buffer containing all line segments
-layout (std430, binding = 2) readonly buffer LineSegmentBuffer {
+layout (std430, binding = 5) readonly buffer LineSegmentBuffer {
 #ifdef PACK_LINES
     LineSegmentCompressed lineSegments[];
 #else
@@ -78,10 +76,10 @@ layout (std430, binding = 2) readonly buffer LineSegmentBuffer {
 
 
 // Density of voxels (with LODs)
-uniform sampler3D densityTexture;
+//layout(binding = 6) uniform sampler3D densityTexture;
 
 // Density of voxels (with LODs)
-uniform usampler3D octreeTexture;
+//layout(binding = 7) uniform usampler3D octreeTexture;
 
 
 // --- Functions ---
@@ -171,8 +169,8 @@ void loadLineInVoxel(vec3 voxelPosition, uint voxelLineListOffset, uint lineInde
 }*/
 
 // Get density at specified lod index
-float getVoxelDensity(vec3 coords, float lod) {
+/*float getVoxelDensity(vec3 coords, float lod) {
     return textureLod(densityTexture, coords / vec3(gridResolution), lod).r;
-}
+}*/
 
 #endif

@@ -32,7 +32,7 @@
 
 layout(location = 0) in vec3 vertexPosition;
 
-layout(binding = 0) uniform buffer UniformDataBuffer {
+layout(binding = 0) uniform UniformDataBuffer {
     mat4 voxelSpaceToWorldSpace;
 };
 
@@ -45,8 +45,5 @@ void main() {
 
 #version 450 core
 
-layout(location = 0) out vec4 fragColor;
-
 void main() {
-    fragColor = vec4(0.0, 0.0, 0.0, 1.0);
 }
