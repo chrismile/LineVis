@@ -160,6 +160,7 @@ void LineDataScattering::setLineRenderers(const std::vector<LineRenderer*>& line
                 return lineRenderer && (lineRenderer->getRenderingMode() == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER
                         || lineRenderer->getRenderingMode() == RENDERING_MODE_VOLUMETRIC_PATH_TRACER);
             });
+    recomputeHistogram();
 }
 
 bool LineDataScattering::renderGuiPropertyEditorNodesRenderer(
