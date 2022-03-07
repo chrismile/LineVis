@@ -85,6 +85,8 @@ public:
     virtual ~LineData();
     virtual void update(float dt) {}
     [[nodiscard]] inline int getSelectedAttributeIndex() const { return selectedAttributeIndex; }
+    [[nodiscard]] inline const std::vector<std::string>& getAttributeNames() const { return attributeNames; }
+    [[nodiscard]] inline size_t getNumAttributes() const { return attributeNames.size(); }
     void setSelectedAttributeIndex(int attributeIndex);
     void onTransferFunctionMapRebuilt();
     inline DataSetType getType() { return dataSetType; }
