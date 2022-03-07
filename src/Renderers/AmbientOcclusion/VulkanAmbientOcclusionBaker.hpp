@@ -60,7 +60,7 @@ class AmbientOcclusionComputeRenderPass;
 
 class VulkanAmbientOcclusionBaker : public AmbientOcclusionBaker {
 public:
-    explicit VulkanAmbientOcclusionBaker(sgl::vk::Renderer* rendererVk);
+    explicit VulkanAmbientOcclusionBaker(sgl::vk::Renderer* renderer);
     ~VulkanAmbientOcclusionBaker() override;
 
     AmbientOcclusionBakerType getType() override { return AmbientOcclusionBakerType::VULKAN_RTAO_PREBAKER; }

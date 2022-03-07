@@ -78,7 +78,7 @@ const char* const AMBIENT_OCCLUSION_BAKER_TYPE_NAMES[] = {
 
 class AmbientOcclusionBaker {
 public:
-    explicit AmbientOcclusionBaker(sgl::vk::Renderer* rendererVk) : rendererVk(rendererVk) {}
+    explicit AmbientOcclusionBaker(sgl::vk::Renderer* renderer) : rendererMain(renderer) {}
     virtual ~AmbientOcclusionBaker();
 
     [[nodiscard]] inline BakingMode getBakingMode() const { return bakingMode; }
@@ -115,7 +115,7 @@ public:
     virtual bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) { return false; }
 
 protected:
-    sgl::vk::Renderer* rendererVk;
+    sgl::vk::Renderer* rendererMain;
     BakingMode bakingMode = BakingMode::ITERATIVE_UPDATE;
 };
 

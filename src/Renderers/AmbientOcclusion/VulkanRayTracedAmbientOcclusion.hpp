@@ -66,7 +66,7 @@ class VulkanRayTracedAmbientOcclusionPass;
 
 class VulkanRayTracedAmbientOcclusion : public AmbientOcclusionBaker {
 public:
-    VulkanRayTracedAmbientOcclusion(SceneData* sceneData, sgl::vk::Renderer* rendererVk);
+    VulkanRayTracedAmbientOcclusion(SceneData* sceneData, sgl::vk::Renderer* renderer);
     ~VulkanRayTracedAmbientOcclusion() override;
 
     AmbientOcclusionBakerType getType() override { return AmbientOcclusionBakerType::VULKAN_RTAO; }

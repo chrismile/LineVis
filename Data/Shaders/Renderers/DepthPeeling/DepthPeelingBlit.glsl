@@ -36,7 +36,7 @@ layout(location = 0) out vec2 fragTexCoord;
 
 void main() {
     fragTexCoord = vertexTexCoord;
-    gl_Position = mvpMatrix * vertexPosition;
+    gl_Position = vertexPosition;
 }
 
 -- Fragment

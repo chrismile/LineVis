@@ -76,6 +76,7 @@ void DepthPeelingRenderer::initialize() {
     blitRenderPass = std::make_shared<sgl::vk::BlitRenderPass>(renderer);
     blitRenderPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     blitRenderPass->setBlendMode(sgl::vk::BlendMode::BACK_TO_FRONT_PREMUL_ALPHA);
+    blitRenderPass->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
 
     // Disable render passes of parent class.
     lineRasterPass = {};
@@ -156,9 +157,9 @@ void DepthPeelingRenderer::setFramebufferAttachments(
         attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
         attachmentState.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         attachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        attachmentState.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        attachmentState.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         framebuffer->setColorAttachment(
-                colorRenderTextures[0]->getImageView(), 0, attachmentState,
+                colorRenderTextures[currIdx]->getImageView(), 0, attachmentState,
                 { 0.0f, 0.0f, 0.0f, 0.0f });
 
         sgl::vk::AttachmentState depthAttachmentState;
@@ -167,7 +168,7 @@ void DepthPeelingRenderer::setFramebufferAttachments(
         depthAttachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         framebuffer->setDepthStencilAttachment(
-                depthRenderTextures[0]->getImageView(), depthAttachmentState, 1.0f);
+                depthRenderTextures[currIdx]->getImageView(), depthAttachmentState, 1.0f);
     }
 }
 
@@ -184,11 +185,10 @@ void DepthPeelingRenderer::onResolutionChanged() {
     imageSettingsColor.height = height;
     sgl::vk::ImageSettings imageSettingsDepth;
     imageSettingsDepth.format = VK_FORMAT_D32_SFLOAT;
-    imageSettingsDepth.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    imageSettingsDepth.usage =
+            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     imageSettingsDepth.width = width;
     imageSettingsDepth.height = height;
-
-    colorAccumulatorTexture = std::make_shared<sgl::vk::Texture>(renderer->getDevice(), imageSettingsColor);
 
     for (int i = 0; i < 2; i++) {
         colorRenderTextures[i] = std::make_shared<sgl::vk::Texture>(renderer->getDevice(), imageSettingsColor);
@@ -196,8 +196,12 @@ void DepthPeelingRenderer::onResolutionChanged() {
                 renderer->getDevice(), imageSettingsDepth, VK_IMAGE_ASPECT_DEPTH_BIT);
     }
 
+    imageSettingsColor.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    colorAccumulatorTexture = std::make_shared<sgl::vk::Texture>(renderer->getDevice(), imageSettingsColor);
+
     depthComplexityRasterPass->recreateSwapchain(width, height);
     for (int i = 0; i < 2; i++) {
+        currIdx = i;
         depthPeelingRasterPasses[i]->recreateSwapchain(width, height);
     }
 
@@ -274,11 +278,27 @@ void DepthPeelingRenderer::gather() {
     renderer->transitionImageLayout(
             colorAccumulatorTexture->getImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
+    renderer->insertImageMemoryBarrier(
+            depthRenderTextures[1]->getImage(),
+            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_WRITE_BIT);
+    depthRenderTextures[1]->getImageView()->clearDepthStencil(
+            1.0f, 0, renderer->getVkCommandBuffer());
+    renderer->transitionImageLayout(
+            depthRenderTextures[1]->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    int swapInterval = 512;
+    if (renderer->getDevice()->getDeviceType() == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
+        swapInterval = 256;
+    }
+
     // TODO: Use multiple command buffers to avoid GPU driver TDR.
     for (uint64_t i = 0; i < std::min(maxDepthComplexity, uint64_t(2000ul)); i++) {
         currIdx = int(i);
 
         // 1. Peel one layer of the scene.
+        depthPeelingRasterPasses[i % 2]->buildIfNecessary();
         renderer->pushConstants(
                 depthPeelingRasterPasses[i % 2]->getGraphicsPipeline(),
                 VK_SHADER_STAGE_FRAGMENT_BIT, 0, int(i));
@@ -286,6 +306,11 @@ void DepthPeelingRenderer::gather() {
 
         // 2. Store it in the accumulator.
         depthPeelingBlitPasses[i % 2]->render();
+
+        // Avoid GPU driver TDR.
+        if (i != 0 && i % swapInterval == 0) {
+            renderer->syncWithCpu();
+        }
     }
 }
 
@@ -296,8 +321,8 @@ void DepthPeelingRenderer::resolve() {
 }
 
 void DepthPeelingRenderer::computeDepthComplexity() {
-    renderer->setCustomCommandBuffer(depthComplexityCommandBuffer);
-    renderer->beginCommandBuffer();
+    //renderer->setCustomCommandBuffer(depthComplexityCommandBuffer);
+    //renderer->beginCommandBuffer();
 
     // Clear numFragmentsBuffer.
     fragmentCounterBuffer->fill(0, renderer->getVkCommandBuffer());
@@ -325,11 +350,12 @@ void DepthPeelingRenderer::computeDepthComplexity() {
     auto* swapchain = sgl::AppSettings::get()->getSwapchain();
     auto& stagingBuffer = stagingBuffers.at(swapchain->getImageIndex());
     fragmentCounterBuffer->copyDataTo(stagingBuffer, renderer->getVkCommandBuffer());
-    renderer->endCommandBuffer();
-    renderer->submitToQueue({}, {}, fence, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
-    renderer->resetCustomCommandBuffer();
-    fence->wait();
-    fence->reset();
+    //renderer->endCommandBuffer();
+    //renderer->submitToQueue({}, {}, fence, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+    //renderer->resetCustomCommandBuffer();
+    //fence->wait();
+    //fence->reset();
+    renderer->syncWithCpu();
 
     auto *data = (uint32_t*)stagingBuffer->mapMemory();
 

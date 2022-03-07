@@ -280,9 +280,8 @@ void LineRenderer::setAmbientOcclusionBaker() {
             showRayQueriesUnsupportedWarning();
             return;
         }
-        auto* ambientOcclusionRenderer = new sgl::vk::Renderer(sgl::AppSettings::get()->getPrimaryDevice());
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(
-                new VulkanAmbientOcclusionBaker(ambientOcclusionRenderer));
+                new VulkanAmbientOcclusionBaker(renderer));
     } else if (ambientOcclusionBakerType == AmbientOcclusionBakerType::VULKAN_RTAO) {
         sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
         if (!device || !device->getRayQueriesSupported()) {

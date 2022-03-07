@@ -38,6 +38,7 @@
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
+#include "../HullRasterPass.hpp"
 #include "DepthComplexityRenderer.hpp"
 
 DepthComplexityRenderer::DepthComplexityRenderer(
@@ -129,8 +130,15 @@ void DepthComplexityRenderer::onResolutionChanged() {
     fragmentCounterBuffer = {}; // Delete old data first (-> refcount 0)
     fragmentCounterBuffer = std::make_shared<sgl::vk::Buffer>(
             renderer->getDevice(), fragmentCounterBufferSizeBytes,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
+    fragmentCounterBuffer->fill(0, renderer->getVkCommandBuffer());
+    renderer->insertBufferMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            fragmentCounterBuffer);
 
     auto* swapchain = sgl::AppSettings::get()->getSwapchain();
     stagingBuffers.reserve(swapchain->getNumImages());
@@ -139,6 +147,17 @@ void DepthComplexityRenderer::onResolutionChanged() {
                 renderer->getDevice(), fragmentCounterBufferSizeBytes,
                 VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU));
     }
+
+    lineRasterPass->recreateSwapchain(width, height);
+    if (hullRasterPass) {
+        hullRasterPass->recreateSwapchain(width, height);
+    }
+
+    resolveRasterPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
+    resolveRasterPass->recreateSwapchain(*sceneData->viewportWidth, *sceneData->viewportHeight);
+
+    clearRasterPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
+    clearRasterPass->recreateSwapchain(*sceneData->viewportWidth, *sceneData->viewportHeight);
 }
 
 void DepthComplexityRenderer::onClearColorChanged() {
@@ -181,8 +200,6 @@ void DepthComplexityRenderer::resolve() {
 }
 
 void DepthComplexityRenderer::render() {
-    renderer->submitToQueueImmediate();
-
     LineRenderer::renderBase();
 
     setUniformData();
@@ -256,6 +273,8 @@ void DepthComplexityRenderer::computeStatistics(bool isReRender) {
     auto* swapchain = sgl::AppSettings::get()->getSwapchain();
     auto& stagingBuffer = stagingBuffers.at(swapchain->getImageIndex());
     fragmentCounterBuffer->copyDataTo(stagingBuffer, renderer->getVkCommandBuffer());
+    renderer->syncWithCpu();
+
     auto *data = (uint32_t*)stagingBuffer->mapMemory();
 
     // Local reduction variables necessary for older OpenMP implementations

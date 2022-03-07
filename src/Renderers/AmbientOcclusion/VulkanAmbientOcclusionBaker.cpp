@@ -41,9 +41,9 @@
 #include "Renderers/LineRenderer.hpp"
 #include "VulkanAmbientOcclusionBaker.hpp"
 
-VulkanAmbientOcclusionBaker::VulkanAmbientOcclusionBaker(sgl::vk::Renderer* rendererVk)
-        : AmbientOcclusionBaker(rendererVk) {
-    aoComputeRenderPass = std::make_shared<AmbientOcclusionComputeRenderPass>(rendererVk);
+VulkanAmbientOcclusionBaker::VulkanAmbientOcclusionBaker(sgl::vk::Renderer* renderer)
+        : AmbientOcclusionBaker(renderer) {
+    aoComputeRenderPass = std::make_shared<AmbientOcclusionComputeRenderPass>(rendererMain);
 }
 
 VulkanAmbientOcclusionBaker::~VulkanAmbientOcclusionBaker() {
@@ -54,10 +54,10 @@ VulkanAmbientOcclusionBaker::~VulkanAmbientOcclusionBaker() {
     waitCommandBuffersFinished();
     aoComputeRenderPass = {};
 
-    if (rendererVk) {
+    /*if (rendererVk) {
         delete rendererVk;
         rendererVk = nullptr;
-    }
+    }*/
 }
 
 void VulkanAmbientOcclusionBaker::waitCommandBuffersFinished() {
@@ -66,7 +66,7 @@ void VulkanAmbientOcclusionBaker::waitCommandBuffersFinished() {
             commandBuffersUseFence->wait(std::numeric_limits<uint64_t>::max());
             commandBuffersUseFence = sgl::vk::FencePtr();
         }
-        rendererVk->getDevice()->freeCommandBuffers(commandPool, commandBuffers);
+        rendererMain->getDevice()->freeCommandBuffers(commandPool, commandBuffers);
         commandBuffers.clear();
     }
 }
@@ -195,13 +195,13 @@ void VulkanAmbientOcclusionBaker::bakeAoTexture() {
 
     while (numIterations < maxNumIterations) {
         aoComputeRenderPass->setFrameNumber(numIterations);
-        rendererVk->setCustomCommandBuffer(commandBuffers.at(numIterations), false);
-        rendererVk->beginCommandBuffer();
+        rendererMain->setCustomCommandBuffer(commandBuffers.at(numIterations), false);
+        rendererMain->beginCommandBuffer();
         aoComputeRenderPass->render();
-        rendererVk->insertMemoryBarrier(
+        rendererMain->insertMemoryBarrier(
                 VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-        rendererVk->endCommandBuffer();
+        rendererMain->endCommandBuffer();
 
         // Submit the rendering operation in Vulkan.
         sgl::vk::FencePtr fence;
@@ -209,13 +209,14 @@ void VulkanAmbientOcclusionBaker::bakeAoTexture() {
             commandBuffersUseFence = std::make_shared<sgl::vk::Fence>(device, 0);
             fence = commandBuffersUseFence;
         }
-        rendererVk->submitToQueue(
+        rendererMain->submitToQueue(
                 waitSemaphores.at(numIterations), signalSemaphores.at(numIterations),
                 fence, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
         numIterations++;
     }
-    rendererVk->resetCustomCommandBuffer();
+    rendererMain->resetCustomCommandBuffer();
+    waitCommandBuffersFinished();
 
     isDataReady = true;
     hasComputationFinished = true;
@@ -291,10 +292,10 @@ void VulkanAmbientOcclusionBaker::bakeAoTextureThreadFunction() {
 
         numIterations++;
     }
-    rendererVk->getDevice()->freeCommandBuffers(commandPool, commandBuffers);
+    rendererMain->getDevice()->freeCommandBuffers(commandPool, commandBuffers);
 
     delete renderer;
-    aoComputeRenderPass->setRenderer(rendererVk);
+    aoComputeRenderPass->setRenderer(rendererMain);
     aoComputeRenderPass->resetAoBufferTmp();
 
     hasThreadUpdate = true;
@@ -306,7 +307,7 @@ void VulkanAmbientOcclusionBaker::updateIterative(VkPipelineStageFlags pipelineS
     aoComputeRenderPass->setFrameNumber(numIterations);
 
     aoComputeRenderPass->render();
-    rendererVk->insertMemoryBarrier(
+    rendererMain->insertMemoryBarrier(
             VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, pipelineStageFlags);
 
@@ -328,17 +329,17 @@ void VulkanAmbientOcclusionBaker::updateMultiThreaded(VkPipelineStageFlags pipel
     commandPoolType.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     commandBuffers = device->allocateCommandBuffers(commandPoolType, &commandPool, 1);
 
-    rendererVk->setCustomCommandBuffer(commandBuffers.front());
-    rendererVk->beginCommandBuffer();
+    rendererMain->setCustomCommandBuffer(commandBuffers.front());
+    rendererMain->beginCommandBuffer();
 
-    rendererVk->insertBufferMemoryBarrier(
+    rendererMain->insertBufferMemoryBarrier(
             VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
             device->getComputeQueueIndex(), device->getGraphicsQueueIndex(),
             aoBufferThreaded);
-    aoBufferThreaded->copyDataTo(aoBufferVk, rendererVk->getVkCommandBuffer());
+    aoBufferThreaded->copyDataTo(aoBufferVk, rendererMain->getVkCommandBuffer());
 
-    rendererVk->endCommandBuffer();
+    rendererMain->endCommandBuffer();
 
     // TODO
     device->waitIdle();

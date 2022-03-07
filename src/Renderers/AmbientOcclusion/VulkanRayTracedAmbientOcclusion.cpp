@@ -45,9 +45,9 @@
 
 #include "VulkanRayTracedAmbientOcclusion.hpp"
 
-VulkanRayTracedAmbientOcclusion::VulkanRayTracedAmbientOcclusion(SceneData* sceneData, sgl::vk::Renderer* rendererVk)
-        : AmbientOcclusionBaker(rendererVk), sceneData(sceneData) {
-    rtaoRenderPass = std::make_shared<VulkanRayTracedAmbientOcclusionPass>(sceneData, rendererVk);
+VulkanRayTracedAmbientOcclusion::VulkanRayTracedAmbientOcclusion(SceneData* sceneData, sgl::vk::Renderer* renderer)
+        : AmbientOcclusionBaker(renderer), sceneData(sceneData) {
+    rtaoRenderPass = std::make_shared<VulkanRayTracedAmbientOcclusionPass>(sceneData, rendererMain);
     VulkanRayTracedAmbientOcclusion::onResolutionChanged();
 }
 
@@ -87,7 +87,7 @@ void VulkanRayTracedAmbientOcclusion::updateIterative(VkPipelineStageFlags pipel
 
     rtaoRenderPass->setFrameNumber(accumulatedFramesCounter);
     rtaoRenderPass->render();
-    rendererVk->insertImageMemoryBarrier(
+    rendererMain->insertImageMemoryBarrier(
             aoTextureVk->getImage(),
             aoTextureVk->getImage()->getVkImageLayout(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, pipelineStageFlags,
