@@ -28,15 +28,9 @@
 
 #include <algorithm>
 
-#include <GL/glew.h>
-
 #include <Utils/File/Logfile.hpp>
 #include <Utils/AppSettings.hpp>
 #include <Utils/File/FileUtils.hpp>
-#include <Graphics/Renderer.hpp>
-#include <Graphics/Window.hpp>
-#include <Graphics/Texture/Bitmap.hpp>
-#include <Graphics/OpenGL/SystemGL.hpp>
 
 #include "AutomaticPerformanceMeasurer.hpp"
 

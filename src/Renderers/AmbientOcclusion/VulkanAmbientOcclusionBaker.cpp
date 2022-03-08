@@ -31,8 +31,7 @@
 #include <Utils/AppSettings.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <Graphics/Vulkan/Render/AccelerationStructure.hpp>
-#include <Graphics/Vulkan/Utils/Interop.hpp>
-#include <Graphics/OpenGL/GeometryBuffer.hpp>
+#include <Graphics/Vulkan/Render/CommandBuffer.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
 #include <ImGui/Widgets/PropertyEditor.hpp>
@@ -61,13 +60,17 @@ VulkanAmbientOcclusionBaker::~VulkanAmbientOcclusionBaker() {
 }
 
 void VulkanAmbientOcclusionBaker::waitCommandBuffersFinished() {
-    if (!commandBuffers.empty()) {
+    if (!commandBuffersVk.empty()) {
         if (commandBuffersUseFence) {
             commandBuffersUseFence->wait(std::numeric_limits<uint64_t>::max());
             commandBuffersUseFence = sgl::vk::FencePtr();
         }
-        rendererMain->getDevice()->freeCommandBuffers(commandPool, commandBuffers);
-        commandBuffers.clear();
+        if (commandBuffers.empty()) {
+            rendererMain->getDevice()->freeCommandBuffers(commandPool, commandBuffersVk);
+        } else {
+            commandBuffers.clear();
+        }
+        commandBuffersVk.clear();
     }
 }
 
@@ -180,13 +183,19 @@ void VulkanAmbientOcclusionBaker::bakeAoTexture() {
 
     sgl::vk::CommandPoolType commandPoolType;
     commandPoolType.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    commandPoolType.queueFamilyIndex = device->getComputeQueueIndex();
-    commandBuffers = device->allocateCommandBuffers(commandPoolType, &commandPool, maxNumIterations);
+    //commandPoolType.queueFamilyIndex = device->getComputeQueueIndex();
+    //commandBuffersVk = device->allocateCommandBuffers(commandPoolType, &commandPool, maxNumIterations);
+    commandBuffers.reserve(maxNumIterations + 1);
+    commandBuffersVk.reserve(maxNumIterations + 1);
+    for (int i = 0; i < maxNumIterations + 1; i++) {
+        commandBuffers.push_back(std::make_shared<sgl::vk::CommandBuffer>(device, commandPoolType));
+        commandBuffersVk.push_back(commandBuffers.back()->getVkCommandBuffer());
+    }
 
-    waitSemaphores.resize(maxNumIterations);
-    signalSemaphores.resize(maxNumIterations);
+    waitSemaphores.resize(maxNumIterations + 1);
+    signalSemaphores.resize(maxNumIterations + 1);
 
-    for (int i = 1; i < maxNumIterations; i++) {
+    for (int i = 1; i < maxNumIterations + 1; i++) {
         waitSemaphores.at(i) = std::make_shared<sgl::vk::Semaphore>(device);
         signalSemaphores.at(i - 1) = waitSemaphores.at(i);
     }
@@ -194,29 +203,45 @@ void VulkanAmbientOcclusionBaker::bakeAoTexture() {
     signalSemaphores.back() = {};
 
     while (numIterations < maxNumIterations) {
-        aoComputeRenderPass->setFrameNumber(numIterations);
-        rendererMain->setCustomCommandBuffer(commandBuffers.at(numIterations), false);
+        const auto& commandBuffer = commandBuffers.at(numIterations);
+        rendererMain->endCommandBuffer();
+        if (signalSemaphores.at(numIterations)) {
+            commandBuffer->pushSignalSemaphore(signalSemaphores.at(numIterations));
+        }
+        rendererMain->pushCommandBuffer(commandBuffer);
         rendererMain->beginCommandBuffer();
+        if (waitSemaphores.at(numIterations)) {
+            commandBuffer->pushWaitSemaphore(
+                    waitSemaphores.at(numIterations), VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+        }
+        aoComputeRenderPass->setFrameNumber(numIterations);
         aoComputeRenderPass->render();
         rendererMain->insertMemoryBarrier(
                 VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-        rendererMain->endCommandBuffer();
 
         // Submit the rendering operation in Vulkan.
-        sgl::vk::FencePtr fence;
         if (numIterations + 1 == maxNumIterations) {
             commandBuffersUseFence = std::make_shared<sgl::vk::Fence>(device, 0);
-            fence = commandBuffersUseFence;
+            commandBuffer->setFence(commandBuffersUseFence);
         }
-        rendererMain->submitToQueue(
-                waitSemaphores.at(numIterations), signalSemaphores.at(numIterations),
-                fence, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
         numIterations++;
     }
-    rendererMain->resetCustomCommandBuffer();
-    waitCommandBuffersFinished();
+    waitSemaphoresTmp = waitSemaphores;
+    signalSemaphoresTmp = signalSemaphores;
+
+    const auto& commandBuffer = commandBuffers.at(numIterations);
+    rendererMain->endCommandBuffer();
+    if (signalSemaphores.at(numIterations)) {
+        commandBuffer->pushSignalSemaphore(signalSemaphores.at(numIterations));
+    }
+    rendererMain->pushCommandBuffer(commandBuffer);
+    rendererMain->beginCommandBuffer();
+    if (waitSemaphores.at(numIterations)) {
+        commandBuffer->pushWaitSemaphore(
+                waitSemaphores.at(numIterations), VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    }
 
     isDataReady = true;
     hasComputationFinished = true;
@@ -246,7 +271,8 @@ void VulkanAmbientOcclusionBaker::bakeAoTextureThreadFunction() {
     VkCommandPool commandPool;
     sgl::vk::CommandPoolType commandPoolType;
     commandPoolType.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    commandPoolType.queueFamilyIndex = device->getComputeQueueIndex();
+    commandPoolType.queueFamilyIndex = device->getWorkerThreadGraphicsQueueIndex();
+    commandPoolType.threadIndex = 1;
     commandBuffers = device->allocateCommandBuffers(commandPoolType, &commandPool, maxNumIterations);
 
     waitSemaphores.resize(maxNumIterations);
@@ -269,7 +295,7 @@ void VulkanAmbientOcclusionBaker::bakeAoTextureThreadFunction() {
             renderer->insertBufferMemoryBarrier(
                     VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
                     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                    device->getComputeQueueIndex(), device->getGraphicsQueueIndex(),
+                    //device->getComputeQueueIndex(), device->getGraphicsQueueIndex(),
                     aoBufferThreaded);
         } else {
             renderer->insertMemoryBarrier(
@@ -292,7 +318,7 @@ void VulkanAmbientOcclusionBaker::bakeAoTextureThreadFunction() {
 
         numIterations++;
     }
-    rendererMain->getDevice()->freeCommandBuffers(commandPool, commandBuffers);
+    device->freeCommandBuffers(commandPool, commandBuffers);
 
     delete renderer;
     aoComputeRenderPass->setRenderer(rendererMain);
@@ -321,28 +347,15 @@ void VulkanAmbientOcclusionBaker::updateMultiThreaded(VkPipelineStageFlags pipel
         workerThread.join();
     }
 
-    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    //device->waitIdle(); // To make sure we don't get any MultipleThreads warnings...
+    //sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     waitCommandBuffersFinished();
-
-    sgl::vk::CommandPoolType commandPoolType;
-    commandPoolType.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    commandBuffers = device->allocateCommandBuffers(commandPoolType, &commandPool, 1);
-
-    rendererMain->setCustomCommandBuffer(commandBuffers.front());
-    rendererMain->beginCommandBuffer();
 
     rendererMain->insertBufferMemoryBarrier(
             VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-            device->getComputeQueueIndex(), device->getGraphicsQueueIndex(),
+            //device->getComputeQueueIndex(), device->getGraphicsQueueIndex(),
             aoBufferThreaded);
     aoBufferThreaded->copyDataTo(aoBufferVk, rendererMain->getVkCommandBuffer());
-
-    rendererMain->endCommandBuffer();
-
-    // TODO
-    device->waitIdle();
 
     hasThreadUpdate = false;
     isDataReady = true;

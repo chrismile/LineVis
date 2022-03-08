@@ -98,7 +98,10 @@ private:
     void waitCommandBuffersFinished();
     std::shared_ptr<AmbientOcclusionComputeRenderPass> aoComputeRenderPass;
     VkCommandPool commandPool = VK_NULL_HANDLE;
-    std::vector<VkCommandBuffer> commandBuffers;
+    std::vector<sgl::vk::CommandBufferPtr> commandBuffers;
+    std::vector<VkCommandBuffer> commandBuffersVk;
+    std::vector<sgl::vk::SemaphorePtr> waitSemaphoresTmp;
+    std::vector<sgl::vk::SemaphorePtr> signalSemaphoresTmp;
     sgl::vk::FencePtr commandBuffersUseFence;
 
     // How many iterations do we want to use for the ray tracer until we assume the result has converged?

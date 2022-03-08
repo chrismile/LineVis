@@ -29,9 +29,6 @@
 #ifndef LINEVIS_VOXELCURVEDISCRETIZER_HPP
 #define LINEVIS_VOXELCURVEDISCRETIZER_HPP
 
-#include <Graphics/Buffers/GeometryBuffer.hpp>
-#include <Graphics/Shader/Shader.hpp>
-
 #include "LineData/LineData.hpp"
 #include "VoxelData.hpp"
 
@@ -59,7 +56,7 @@ public:
 
 class VoxelCurveDiscretizer {
 public:
-    VoxelCurveDiscretizer(sgl::vk::Device* device);
+    explicit VoxelCurveDiscretizer(sgl::vk::Device* device);
     ~VoxelCurveDiscretizer();
     void loadLineData(LineDataPtr& lineData, uint32_t gridResolution1D = 256, uint32_t quantizationResolution1D = 8);
     void createVoxelGridGpu();

@@ -30,7 +30,6 @@
 #define LINEVIS_SCENEDATA_HPP
 
 #include <Graphics/Scene/Camera.hpp>
-#include <Graphics/Buffers/FBO.hpp>
 #include <Graphics/Color.hpp>
 #include <utility>
 
