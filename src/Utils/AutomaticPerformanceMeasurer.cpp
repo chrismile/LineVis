@@ -194,7 +194,7 @@ void AutomaticPerformanceMeasurer::pushDepthComplexityFrame(
         newDepthComplexityMode = false;
         maxPPLLNumFragments = 0ull;
     }
-    maxPPLLNumFragments = std::max(maxPPLLNumFragments, totalNumFragments);
+    maxPPLLNumFragments = std::max(maxPPLLNumFragments, size_t(totalNumFragments));
 
     depthComplexityFile.writeCell(currentState.name);
     depthComplexityFile.writeCell(sgl::toString((int)depthComplexityFrameNumber));

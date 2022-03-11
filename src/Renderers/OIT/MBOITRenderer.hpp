@@ -81,7 +81,7 @@ public:
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
     /// For changing performance measurement modes.
-    virtual void setNewState(const InternalState& newState);
+    void setNewState(const InternalState& newState) override;
 
 private:
     void updateSyncMode();

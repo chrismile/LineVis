@@ -87,8 +87,8 @@ private:
     struct UniformData {
         float nearDist = 0.0f; ///< The distance of the near plane.
         float farDist = 0.0f; ///< The distance of the far plane.
-        uint numVertices = 0; ///< Number of entries in VertexPositionBuffer.
-        uint padding = 0;
+        uint32_t numVertices = 0; ///< Number of entries in VertexPositionBuffer.
+        uint32_t padding = 0;
         glm::mat4 cameraViewMatrix;
         glm::mat4 cameraProjectionMatrix;
     };
