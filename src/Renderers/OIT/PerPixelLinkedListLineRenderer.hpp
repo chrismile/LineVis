@@ -112,7 +112,7 @@ protected:
     // Uniform data buffer shared by all shaders.
     struct UniformData {
         // Number of fragments we can store in total.
-        uint linkedListSize;
+        uint32_t linkedListSize;
         // Size of the viewport in x direction (in pixels).
         int viewportW;
     };

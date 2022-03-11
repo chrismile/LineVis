@@ -402,6 +402,7 @@ MainApp::~MainApp() {
     device->waitIdle();
 
     if (usePerformanceMeasurementMode) {
+        performanceMeasurer->cleanup();
         delete performanceMeasurer;
         performanceMeasurer = nullptr;
     }

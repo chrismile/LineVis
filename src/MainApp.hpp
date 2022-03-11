@@ -145,7 +145,7 @@ private:
     sgl::TransferFunctionWindow transferFunctionWindow;
 
     // For making performance measurements.
-    AutomaticPerformanceMeasurer *performanceMeasurer = nullptr;
+    AutomaticPerformanceMeasurer* performanceMeasurer = nullptr;
     InternalState lastState;
     bool firstState = true;
     bool usesNewState = true;

@@ -40,9 +40,11 @@ const float TIME_PERFORMANCE_MEASUREMENT = 128.0f;
 
 class AutomaticPerformanceMeasurer {
 public:
-    AutomaticPerformanceMeasurer(std::vector<InternalState> _states,
-    const std::string& _csvFilename, const std::string& _depthComplexityFilename,
+    AutomaticPerformanceMeasurer(
+            std::vector<InternalState> _states,
+            const std::string& _csvFilename, const std::string& _depthComplexityFilename,
             std::function<void(const InternalState&)> _newStateCallback);
+    void cleanup();
     ~AutomaticPerformanceMeasurer();
 
     // To be called by the application

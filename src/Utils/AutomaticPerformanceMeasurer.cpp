@@ -58,7 +58,12 @@ AutomaticPerformanceMeasurer::AutomaticPerformanceMeasurer(std::vector<InternalS
     setNextState(true);
 }
 
-AutomaticPerformanceMeasurer::~AutomaticPerformanceMeasurer() {
+/*
+ * Use cleanup function, as doing the cleanup in the destructor triggers the following warning when using MSVC.
+ * "Warning: src\Utils\AutomaticPerformanceMeasurer.cpp(68): warning C4722:
+ * 'AutomaticPerformanceMeasurer::~AutomaticPerformanceMeasurer': destructor never returns, potential memory leak"
+ */
+void AutomaticPerformanceMeasurer::cleanup() {
     timerVk->finishGPU();
     writeCurrentModeData();
     file.close();
@@ -66,6 +71,8 @@ AutomaticPerformanceMeasurer::~AutomaticPerformanceMeasurer() {
     perfFile.close();
     ppllFile.close();
 }
+
+AutomaticPerformanceMeasurer::~AutomaticPerformanceMeasurer() = default;
 
 
 bool AutomaticPerformanceMeasurer::update(float currentTime) {

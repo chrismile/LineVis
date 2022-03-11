@@ -33,7 +33,7 @@ namespace sgl { namespace vk {
 class Device;
 }}
 
-class SceneData;
+struct SceneData;
 
 enum SyncMode {
     NO_SYNC, SYNC_FRAGMENT_SHADER_INTERLOCK, SYNC_SPINLOCK
