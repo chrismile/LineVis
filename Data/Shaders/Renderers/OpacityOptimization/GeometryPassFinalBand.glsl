@@ -250,9 +250,7 @@ layout(location = 8) flat in uint fragmentPrincipalStressIndex;
 in int gl_SampleMaskIn[];
 #endif
 
-#if defined(DIRECT_BLIT_GATHER)
 layout(location = 0) out vec4 fragColor;
-#endif
 
 #define M_PI 3.14159265358979323846
 
@@ -336,4 +334,6 @@ void main() {
 
     colorOut.a *= fragmentOpacity;
     gatherFragmentCustomDepth(colorOut, fragmentDepth);
+
+    fragColor = vec4(0.0);
 }

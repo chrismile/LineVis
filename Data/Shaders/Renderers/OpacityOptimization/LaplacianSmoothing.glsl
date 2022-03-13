@@ -32,24 +32,25 @@
 
 layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
+#include "OpacityOptimizationUniformData.glsl"
+
 layout(push_constant) uniform PushConstants {
     uint numLineSegments; ///< Number of entries in opacityBufferIn/opacityBufferOut.
-    float relaxationConstant;
 };
 
-layout (std430, binding = 2) readonly buffer OpacityBufferIn {
+layout (std430, binding = 0) readonly buffer OpacityBufferIn {
     float opacityBufferIn[];
 };
 
-layout (std430, binding = 3) writeonly buffer OpacityBufferOut {
+layout (std430, binding = 1) writeonly buffer OpacityBufferOut {
     float opacityBufferOut[];
 };
 
-layout (std430, binding = 4) readonly buffer LineSegmentVisibilityBuffer {
+layout (std430, binding = 2) readonly buffer LineSegmentVisibilityBuffer {
     uint lineSegmentVisibilityBuffer[];
 };
 
-layout (std430, binding = 5) readonly buffer LineSegmentConnectivityBuffer {
+layout (std430, binding = 3) readonly buffer LineSegmentConnectivityBuffer {
     // Indices of left and right neighbors (or index of element itself if no left/right neighbor).
     uvec2 lineSegmentConnectivityBuffer[];
 };

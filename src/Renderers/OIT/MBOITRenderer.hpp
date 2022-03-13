@@ -128,7 +128,7 @@ private:
     sgl::vk::TexturePtr blendRenderTexture; ///< Accumulator.
 
     sgl::vk::BufferPtr spinlockViewportBuffer; ///< if (syncMode == SYNC_SPINLOCK)
-    SyncMode syncMode; ///< Initialized depending on system capabilities.
+    SyncMode syncMode = SYNC_SPINLOCK; ///< Initialized depending on system capabilities.
     bool useOrderedFragmentShaderInterlock = true;
 
     // Internal mode

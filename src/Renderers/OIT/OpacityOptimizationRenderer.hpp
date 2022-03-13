@@ -32,6 +32,7 @@
 #include <Graphics/Vulkan/Utils/Timer.hpp>
 
 #include "Renderers/PPLL.hpp"
+#include "Renderers/ResolvePass.hpp"
 #include "Renderers/LineRenderer.hpp"
 
 const int MESH_MODE_DEPTH_COMPLEXITIES_OPOPT[2][2] = {
@@ -40,7 +41,11 @@ const int MESH_MODE_DEPTH_COMPLEXITIES_OPOPT[2][2] = {
         {120, 380} // avg and max depth complexity very large
 };
 
-// TODO: Port to Vulkan.
+class PpllOpacitiesLineRasterPass;
+class PpllFinalLineRasterPass;
+class ConvertPerSegmentOpacitiesPass;
+class SmoothPerSegmentOpacitiesPass;
+class ComputePerVertexOpacitiesPass;
 
 /**
  * Implementation of opacity optimization as described in:
@@ -51,21 +56,21 @@ const int MESH_MODE_DEPTH_COMPLEXITIES_OPOPT[2][2] = {
  * For more details see: Yang, J. C., Hensley, J., Grün, H. and Thibieroz, N., "Real-Time Concurrent
  * Linked List Construction on the GPU", Computer Graphics Forum, 29, 2010.
  */
-/*class OpacityOptimizationRenderer : public LineRenderer {
+class OpacityOptimizationRenderer : public LineRenderer {
 public:
     OpacityOptimizationRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
-    void initialize();
+    void initialize() override;
     ~OpacityOptimizationRenderer() override;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_OPACITY_OPTIMIZATION; }*/
+    RenderingMode getRenderingMode() override { return RENDERING_MODE_OPACITY_OPTIMIZATION; }
 
     /**
      * Re-generates the visualization mapping.
      * @param lineData The render data.
      */
-    //void setLineData(LineDataPtr& lineData, bool isNewData) override;
+    void setLineData(LineDataPtr& lineData, bool isNewData) override;
 
     /// Sets the shader preprocessor defines used by the renderer.
-    /*void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) override;
+    void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) override;
     void setGraphicsPipelineInfo(
             sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) override;
     void setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) override;
@@ -93,7 +98,6 @@ public:
     void setNewState(const InternalState& newState) override;
 
 protected:
-    void setSortingAlgorithmDefine();
     void updateLargeMeshMode();
     void reallocateFragmentBuffer();
     void setUniformData();
@@ -133,31 +137,25 @@ protected:
     // Sorting algorithm for PPLL.
     SortingAlgorithmMode sortingAlgorithmMode = SORTING_ALGORITHM_MODE_PRIORITY_QUEUE;
 
+    // Render passes.
+    std::shared_ptr<PpllOpacitiesLineRasterPass> gatherPpllOpacitiesPass;
+    std::shared_ptr<ResolvePass> clearPpllOpacitiesPass;
+    std::shared_ptr<ResolvePass> resolvePpllOpacitiesPass;
+    std::shared_ptr<ConvertPerSegmentOpacitiesPass> convertPerSegmentOpacitiesPass;
+    std::shared_ptr<SmoothPerSegmentOpacitiesPass> smoothPerSegmentOpacitiesPasses[2];
+    std::shared_ptr<ComputePerVertexOpacitiesPass> computePerVertexOpacitiesPass;
+    std::shared_ptr<PpllFinalLineRasterPass> gatherPpllFinalPass;
+    std::shared_ptr<ResolvePass> clearPpllFinalPass;
+    std::shared_ptr<ResolvePass> resolvePpllFinalPass;
+
     // Shaders.
     const uint32_t WORK_GROUP_SIZE_1D = 64; ///< For compute shaders.
-    sgl::ShaderProgramPtr gatherPpllOpacitiesShader;
-    sgl::ShaderProgramPtr clearPpllOpacitiesShader;
-    sgl::ShaderProgramPtr resolvePpllOpacitiesShader;
-    sgl::ShaderProgramPtr convertPerSegmentOpacitiesShader;
-    sgl::ShaderProgramPtr smoothPerSegmentOpacitiesShader;
-    sgl::ShaderProgramPtr computePerVertexOpacitiesShader;
-    sgl::ShaderProgramPtr gatherPpllFinalShader;
-    sgl::ShaderProgramPtr clearPpllFinalShader;
-    sgl::ShaderProgramPtr resolvePpllFinalShader;
-
-    // Render data.
-    sgl::ShaderAttributesPtr gatherPpllOpacitiesRenderData;
-    sgl::ShaderAttributesPtr clearPpllOpacitiesRenderData;
-    sgl::ShaderAttributesPtr resolvePpllOpacitiesRenderData;
-    sgl::ShaderAttributesPtr gatherPpllFinalRenderData;
-    sgl::ShaderAttributesPtr clearPpllFinalRenderData;
-    sgl::ShaderAttributesPtr resolvePpllFinalRenderData;
 
     // Geometry data.
     // Per-vertex.
-    sgl::vk::BufferPtr vertexPositionBuffer; ///< Per-vertex data.
-    sgl::vk::BufferPtr vertexAttributeBuffer; ///< Per-vertex data.
-    sgl::vk::BufferPtr vertexTangentBuffer; ///< Per-vertex data.
+    //sgl::vk::BufferPtr vertexPositionBuffer; ///< Per-vertex data.
+    //sgl::vk::BufferPtr vertexAttributeBuffer; ///< Per-vertex data.
+    //sgl::vk::BufferPtr vertexTangentBuffer; ///< Per-vertex data.
     sgl::vk::BufferPtr vertexOpacityBuffer; ///< Per-vertex data.
     sgl::vk::BufferPtr lineSegmentIdBuffer; ///< Per-vertex data.
     sgl::vk::BufferPtr blendingWeightParametrizationBuffer; ///< Per-vertex data (see Günther et al. 2013).
@@ -174,21 +172,57 @@ protected:
     uint32_t numLineVertices = 0;
 
     // Per-pixel linked list data.
-    float opacityBufferScaleFactor = 0.5; ///< Use half width/height of final pass for opacity pass.
+    float opacityBufferScaleFactor = 0.5f; ///< Use half width/height of final pass for opacity pass.
     size_t fragmentBufferSizeOpacity = 0;
     sgl::vk::BufferPtr fragmentBufferOpacities;
     sgl::vk::BufferPtr startOffsetBufferOpacities;
-    sgl::vk::BufferPtr atomicCounterBufferOpacities;
+    sgl::vk::BufferPtr fragmentCounterBufferOpacities;
     size_t fragmentBufferSizeFinal = 0;
     sgl::vk::BufferPtr fragmentBufferFinal;
     sgl::vk::BufferPtr startOffsetBufferFinal;
-    sgl::vk::BufferPtr atomicCounterBufferFinal;
+    sgl::vk::BufferPtr fragmentCounterBufferFinal;
+
+    // Uniform data buffer shared by all shaders.
+    struct PpllUniformData {
+        // Number of fragments we can store in total.
+        uint32_t linkedListSize;
+        // Size of the viewport in x direction (in pixels).
+        int viewportW;
+    };
+    PpllUniformData ppllUniformDataOpacities = {};
+    sgl::vk::BufferPtr ppllUniformDataBufferOpacities;
+    PpllUniformData ppllUniformDataFinal = {};
+    sgl::vk::BufferPtr ppllUniformDataBufferFinal;
+
+    // Parameters for opacity optimization.
+    struct OpacityOptimizationUniformData {
+        float q = 2000.0f; ///< Overall opacity, q >= 0.
+        float r = 20.0f; ///< Clearing of background, r >= 0.
+        int s = 15; ///< Iterations for smoothing.
+        float lambda = 2.0f; ///< Emphasis of important structures, lambda > 0.
+        float relaxationConstant = 0.1f; ///< Relaxation constant for spatial smoothing, relaxationConstant > 0.
+        /// Temporal smoothing constant, 0 <= temporalSmoothingFactor <= 1. 1 means immediate update, 0 no update at all.
+        float temporalSmoothingFactor = 0.15f;
+        float opacityOptimizationUniformDataPadding0 = 0;
+        float opacityOptimizationUniformDataPadding1 = 0;
+    };
+    OpacityOptimizationUniformData opacityOptimizationUniformData = {};
+    sgl::vk::BufferPtr opacityOptimizationUniformDataBuffer;
+
+    struct AttributeRangeUniformData {
+        float minAttrValue = 0.0f;
+        float maxAttrValue = 1.0f;
+        float padding0{}, padding1{};
+    };
+    AttributeRangeUniformData attributeRangeUniformData = {};
+    sgl::vk::BufferPtr attributeRangeUniformDataBuffer;
 
     // Viewport data.
     int viewportWidthOpacity = 0, viewportHeightOpacity = 0;
     int paddedViewportWidthOpacity = 0, paddedViewportHeightOpacity = 0;
     int viewportWidthFinal = 0, viewportHeightFinal = 0;
     int paddedViewportWidthFinal = 0, paddedViewportHeightFinal = 0;
+    bool isOpacitiesStep = true;
 
     // Data for performance measurements.
     int frameCounter = 0;
@@ -204,15 +238,6 @@ protected:
     int expectedAvgDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES_OPOPT[0][0];
     int expectedMaxDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES_OPOPT[0][1];
 
-    // Parameters for Opacity Optimization.
-    float q = 2000.0f; ///< Overall opacity, q >= 0.
-    float r = 20.0f; ///< Clearing of background, r >= 0.
-    int s = 15; ///< Iterations for smoothing.
-    float lambda = 2.0f; ///< Emphasis of important structures, lambda > 0.
-    float relaxationConstant = 0.1f; ///< Relaxation constant for spatial smoothing, relaxationConstant > 0.
-    /// Temporal smoothing constant, 0 <= temporalSmoothingFactor <= 1. 1 means immediate update, 0 no update at all.
-    float temporalSmoothingFactor = 0.15f;
-
     // Multisampling (CSAA) mode.
     bool useMultisampling = false;
     int maximumNumberOfSamples = 1;
@@ -225,13 +250,116 @@ protected:
     std::vector<std::string> sampleModeNames;
 
     // Multisampling (CSAA) data.
-    sgl::vk::TexturePtr msaaRenderTexture;
-    sgl::vk::ImageViewPtr msaaDepthTexture;
+    sgl::vk::ImageViewPtr colorRenderTargetImageOpacities;
+    sgl::vk::ImageViewPtr colorRenderTargetImageFinal;
 
     // GUI data.
     bool showRendererWindow = true;
-};*/
+};
 
-#define OpacityOptimizationRenderer OpaqueLineRenderer
+struct OpacityOptimizationLineDataBuffers {
+    sgl::vk::BufferPtr indexBuffer;
+    sgl::vk::BufferPtr vertexPositionBuffer;
+    sgl::vk::BufferPtr vertexAttributeBuffer;
+    sgl::vk::BufferPtr vertexNormalBuffer;
+    sgl::vk::BufferPtr vertexTangentBuffer;
+    sgl::vk::BufferPtr vertexOffsetLeftBuffer;
+    sgl::vk::BufferPtr vertexOffsetRightBuffer;
+    sgl::vk::BufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
+    sgl::vk::BufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
+    sgl::vk::BufferPtr lineSegmentIdBuffer;
+    sgl::vk::BufferPtr vertexOpacityBuffer;
+};
+
+class PpllOpacitiesLineRasterPass : public LineRasterPass {
+public:
+    explicit PpllOpacitiesLineRasterPass(LineRenderer* lineRenderer);
+    void setOpacityOptimizationLineDataBuffers(const OpacityOptimizationLineDataBuffers& dataBuffers);
+
+protected:
+    void loadShader() override;
+    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
+    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
+
+    OpacityOptimizationLineDataBuffers buffers;
+};
+
+class PpllFinalLineRasterPass : public LineRasterPass {
+public:
+    explicit PpllFinalLineRasterPass(LineRenderer* lineRenderer);
+    void setOpacityOptimizationLineDataBuffers(const OpacityOptimizationLineDataBuffers& dataBuffers);
+
+protected:
+    void loadShader() override;
+    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
+    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
+
+    OpacityOptimizationLineDataBuffers buffers;
+};
+
+class ConvertPerSegmentOpacitiesPass : public sgl::vk::ComputePass {
+public:
+    explicit ConvertPerSegmentOpacitiesPass(LineRenderer* lineRenderer);
+    inline void setNumLineSegments(uint32_t num) { numLineSegments = num; }
+    void setSegmentOpacityBuffer(const sgl::vk::BufferPtr& buffer);
+    void setSegmentOpacityUintBuffer(const sgl::vk::BufferPtr& buffer);
+
+protected:
+    void loadShader() override;
+    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
+    void _render() override;
+
+    LineRenderer* lineRenderer;
+    const uint32_t WORK_GROUP_SIZE_1D = 64;
+    uint32_t numLineSegments = 0;
+    sgl::vk::BufferPtr segmentOpacityBuffer;
+    sgl::vk::BufferPtr segmentOpacityUintBuffer;
+};
+
+class SmoothPerSegmentOpacitiesPass : public sgl::vk::ComputePass {
+public:
+    explicit SmoothPerSegmentOpacitiesPass(LineRenderer* lineRenderer);
+    inline void setNumLineSegments(uint32_t num) { numLineSegments = num; }
+    void setSegmentOpacityBufferIn(const sgl::vk::BufferPtr& buffer);
+    void setSegmentOpacityBufferOut(const sgl::vk::BufferPtr& buffer);
+    void setSegmentVisibilityBuffer(const sgl::vk::BufferPtr& buffer);
+    void setLineSegmentConnectivityBuffer(const sgl::vk::BufferPtr& buffer);
+
+protected:
+    void loadShader() override;
+    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
+    void _render() override;
+
+    LineRenderer* lineRenderer;
+    const uint32_t WORK_GROUP_SIZE_1D = 64;
+    uint32_t numLineSegments = 0;
+    sgl::vk::BufferPtr segmentOpacityBufferIn;
+    sgl::vk::BufferPtr segmentOpacityBufferOut;
+    sgl::vk::BufferPtr segmentVisibilityBuffer;
+    sgl::vk::BufferPtr lineSegmentConnectivityBuffer;
+};
+
+class ComputePerVertexOpacitiesPass : public sgl::vk::ComputePass {
+public:
+    explicit ComputePerVertexOpacitiesPass(LineRenderer* lineRenderer);
+    inline void setNumLineVertices(uint32_t num) { numLineVertices = num; }
+    void setVertexOpacityBuffer(const sgl::vk::BufferPtr& buffer);
+    void setSegmentOpacityBuffer(const sgl::vk::BufferPtr& buffer);
+    void setSegmentVisibilityBuffer(const sgl::vk::BufferPtr& buffer);
+    void setBlendingWeightParametrizationBuffer(const sgl::vk::BufferPtr& buffer);
+
+protected:
+    void loadShader() override;
+    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
+    void _render() override;
+
+    LineRenderer* lineRenderer;
+    const uint32_t WORK_GROUP_SIZE_1D = 64;
+    uint32_t numLineVertices = 0;
+    sgl::vk::BufferPtr vertexOpacityBuffer;
+    sgl::vk::BufferPtr segmentOpacityBuffer;
+    sgl::vk::BufferPtr segmentVisibilityBuffer;
+    sgl::vk::BufferPtr blendingWeightParametrizationBuffer;
+};
 
 #endif //STRESSLINEVIS_OPACITYOPTIMIZATIONRENDERER_HPP

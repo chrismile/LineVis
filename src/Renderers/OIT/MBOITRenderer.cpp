@@ -409,8 +409,8 @@ void MBOITRenderer::computeDepthRange() {
     maxViewZ = std::min(-maxViewZ, sceneData->camera->getFarClipDistance());
     minViewZ = std::min(minViewZ, sceneData->camera->getFarClipDistance());
     maxViewZ = std::max(maxViewZ, sceneData->camera->getNearClipDistance());
-    float logmin = log(minViewZ);
-    float logmax = log(maxViewZ);
+    float logmin = std::log(minViewZ);
+    float logmax = std::log(maxViewZ);
     uniformData.logDepthMin = logmin;
     uniformData.logDepthMax = logmax;
 }
@@ -470,7 +470,7 @@ void MBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEd
     if (true) { // momentModeIndex == -1
         // Initialize
         momentModeIndex = usePowerMoments ? 0 : 4;
-        momentModeIndex += numMoments/2 - 2;
+        momentModeIndex += numMoments / 2 - 2;
         momentModeIndex += (USE_R_RG_RGBA_FOR_MBOIT6 && numMoments == 6) ? 1 : 0;
         momentModeIndex += (numMoments == 8) ? 1 : 0;
     }

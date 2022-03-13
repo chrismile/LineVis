@@ -29,6 +29,7 @@
 #include <Math/Geometry/MatrixUtil.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
+#include <Graphics/Vulkan/Render/ComputePipeline.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <Utils/AppSettings.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
@@ -42,7 +43,7 @@
 #include "Loaders/TrajectoryFile.hpp"
 #include "OpacityOptimizationRenderer.hpp"
 
-/*OpacityOptimizationRenderer::OpacityOptimizationRenderer(
+OpacityOptimizationRenderer::OpacityOptimizationRenderer(
         SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Opacity Optimization Renderer", sceneData, transferFunctionWindow) {
     // Add events for interaction with line data.
@@ -53,6 +54,8 @@
 }
 
 void OpacityOptimizationRenderer::initialize() {
+    LineRenderer::initialize();
+
     // Get all available multisampling modes.
     maximumNumberOfSamples = (*sceneData->renderer)->getDevice()->getMaxUsableSampleCount();
     if (maximumNumberOfSamples <= 1) {
@@ -65,19 +68,66 @@ void OpacityOptimizationRenderer::initialize() {
         sampleModeNames.push_back(std::to_string(i));
     }
 
-    reloadGatherShader();
-    reloadResolveShader();
-    clearPpllOpacitiesShader = sgl::ShaderManager->getShaderProgram(
-            {"LinkedListClearOpacities.Vertex", "LinkedListClearOpacities.Fragment"});
-    clearPpllFinalShader = sgl::ShaderManager->getShaderProgram(
-            {"LinkedListClearFinal.Vertex", "LinkedListClearFinal.Fragment"});
+    ppllUniformDataBufferOpacities = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(PpllUniformData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    ppllUniformDataBufferFinal = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(PpllUniformData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    opacityOptimizationUniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(OpacityOptimizationUniformData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    attributeRangeUniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(AttributeRangeUniformData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    convertPerSegmentOpacitiesShader = sgl::ShaderManager->getShaderProgram(
-            {"ConvertPerSegmentOpacities.Compute"});
-    smoothPerSegmentOpacitiesShader = sgl::ShaderManager->getShaderProgram(
-            {"LaplacianSmoothing.Compute"});
-    computePerVertexOpacitiesShader = sgl::ShaderManager->getShaderProgram(
-            {"ComputePerVertexOpacities.Compute"});
+    resolvePpllOpacitiesPass = std::shared_ptr<ResolvePass>(new ResolvePass(
+            this,
+            {"LinkedListResolveOpacities.Vertex", "LinkedListResolveOpacities.Fragment"}));
+    resolvePpllOpacitiesPass->setColorWriteEnabled(false);
+    resolvePpllOpacitiesPass->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
+    resolvePpllOpacitiesPass->setAttachmentStoreOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
+    resolvePpllOpacitiesPass->setOutputImageInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
+    resolvePpllOpacitiesPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    clearPpllOpacitiesPass = std::shared_ptr<ResolvePass>(new ResolvePass(
+            this, {"LinkedListClearOpacities.Vertex", "LinkedListClearOpacities.Fragment"}));
+    clearPpllOpacitiesPass->setColorWriteEnabled(false);
+    clearPpllOpacitiesPass->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
+    clearPpllOpacitiesPass->setAttachmentStoreOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
+    clearPpllOpacitiesPass->setOutputImageInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
+    clearPpllOpacitiesPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    resolvePpllFinalPass = std::shared_ptr<ResolvePass>(new ResolvePass(
+            this,
+            {"LinkedListResolveFinal.Vertex", "LinkedListResolveFinal.Fragment"}));
+    resolvePpllFinalPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    resolvePpllFinalPass->setBlendMode(sgl::vk::BlendMode::BACK_TO_FRONT_STRAIGHT_ALPHA);
+
+    clearPpllFinalPass = std::shared_ptr<ResolvePass>(new ResolvePass(
+            this, {"LinkedListClearFinal.Vertex", "LinkedListClearFinal.Fragment"}));
+    clearPpllFinalPass->setColorWriteEnabled(false);
+    clearPpllFinalPass->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
+    clearPpllFinalPass->setAttachmentStoreOp(VK_ATTACHMENT_STORE_OP_DONT_CARE);
+    clearPpllFinalPass->setOutputImageInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
+    clearPpllFinalPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    gatherPpllOpacitiesPass = std::make_shared<PpllOpacitiesLineRasterPass>(this);
+    gatherPpllOpacitiesPass->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
+    gatherPpllOpacitiesPass->setUpdateUniformData(false);
+    gatherPpllFinalPass = std::make_shared<PpllFinalLineRasterPass>(this);
+    gatherPpllFinalPass->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
+    gatherPpllFinalPass->setUpdateUniformData(false);
+
+    convertPerSegmentOpacitiesPass = std::make_shared<ConvertPerSegmentOpacitiesPass>(this);
+    for (int i = 0; i < 2; i++) {
+        smoothPerSegmentOpacitiesPasses[i] = std::make_shared<SmoothPerSegmentOpacitiesPass>(this);
+    }
+    computePerVertexOpacitiesPass = std::make_shared<ComputePerVertexOpacitiesPass>(this);
+
+    // Disable render passes of parent class.
+    lineRasterPass = {};
+    hullRasterPass = {};
 
     onClearColorChanged();
 }
@@ -88,142 +138,21 @@ OpacityOptimizationRenderer::~OpacityOptimizationRenderer() {
 }
 
 void OpacityOptimizationRenderer::reloadResolveShader() {
-    sgl::ShaderManager->invalidateShaderCache();
-    sgl::ShaderManager->addPreprocessorDefine("MAX_NUM_FRAGS", sgl::toString(expectedMaxDepthComplexity));
-
-    if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT
-        || sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID) {
-        int stackSize = int(std::ceil(std::log2(expectedMaxDepthComplexity)) * 2 + 4);
-        sgl::ShaderManager->addPreprocessorDefine("STACK_SIZE", sgl::toString(stackSize));
-    }
-
-    if (useMultisampling) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_COVERAGE_MASK", "");
-    }
-
-    resolvePpllOpacitiesShader = sgl::ShaderManager->getShaderProgram(
-            {"LinkedListResolveOpacities.Vertex", "LinkedListResolveOpacities.Fragment"});
-    if (resolvePpllOpacitiesRenderData) {
-        resolvePpllOpacitiesRenderData = resolvePpllOpacitiesRenderData->copy(resolvePpllOpacitiesShader);
-    }
-
-    resolvePpllFinalShader = sgl::ShaderManager->getShaderProgram(
-            {"LinkedListResolveFinal.Vertex", "LinkedListResolveFinal.Fragment"});
-    if (resolvePpllFinalRenderData) {
-        resolvePpllFinalRenderData = resolvePpllFinalRenderData->copy(resolvePpllFinalShader);
-    }
-
-    if (useMultisampling) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_COVERAGE_MASK");
-    }
+    resolvePpllOpacitiesPass->setShaderDirty();
+    resolvePpllFinalPass->setShaderDirty();
 }
 
 void OpacityOptimizationRenderer::reloadGatherShader() {
-    sgl::ShaderManager->invalidateShaderCache();
-
-    bool isStressLineData = false;
-    bool usePrincipalStressDirectionIndex = false;
-    bool useLineHierarchy = false;
-    if (lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
-        LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
-        isStressLineData = true;
-        usePrincipalStressDirectionIndex = lineDataStress->getUsePrincipalStressDirectionIndex();
-        useLineHierarchy = lineDataStress->getUseLineHierarchy();
-    }
-    if (isStressLineData) {
-        sgl::ShaderManager->addPreprocessorDefine("IS_PSL_DATA", "");
-    }
-    if (usePrincipalStressDirectionIndex) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", "");
-    }
-    if (useLineHierarchy) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_LINE_HIERARCHY_LEVEL", "");
-    }
-    sgl::ShaderManager->addPreprocessorDefine("USE_TRANSPARENCY", "");
-
-    sgl::ShaderManager->addPreprocessorDefine("OIT_GATHER_HEADER", "\"LinkedListGather.glsl\"");
-    LineRenderer::reloadGatherShader();
-    sgl::ShaderManager->removePreprocessorDefine("OIT_GATHER_HEADER");
-
-    if (lineData->getUseBandRendering()) {
-        gatherPpllOpacitiesShader = sgl::ShaderManager->getShaderProgram({
-                "GeometryPassOpacitiesBand.VBO.Vertex",
-                "GeometryPassOpacitiesBand.VBO.Geometry",
-                "GeometryPassOpacitiesBand.Fragment"
-        });
-        gatherPpllFinalShader = sgl::ShaderManager->getShaderProgram({
-                "GeometryPassFinalBand.VBO.Vertex",
-                "GeometryPassFinalBand.VBO.Geometry",
-                "GeometryPassFinalBand.Fragment"
-        });
-    } else {
-        gatherPpllOpacitiesShader = sgl::ShaderManager->getShaderProgram({
-                "GeometryPassOpacities.VBO.Vertex",
-                "GeometryPassOpacities.VBO.Geometry",
-                "GeometryPassOpacities.Fragment"
-        });
-        gatherPpllFinalShader = sgl::ShaderManager->getShaderProgram({
-                "GeometryPassFinal.VBO.Vertex",
-                "GeometryPassFinal.VBO.Geometry",
-                "GeometryPassFinal.Fragment"
-        });
-    }
-
-    sgl::ShaderManager->removePreprocessorDefine("USE_TRANSPARENCY");
-    if (useLineHierarchy) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_LINE_HIERARCHY_LEVEL");
-    }
-    if (usePrincipalStressDirectionIndex) {
-        sgl::ShaderManager->removePreprocessorDefine("USE_PRINCIPAL_STRESS_DIRECTION_INDEX");
-    }
-    if (isStressLineData) {
-        sgl::ShaderManager->removePreprocessorDefine("IS_PSL_DATA");
-    }
-
-    if (gatherPpllOpacitiesRenderData) {
-        gatherPpllOpacitiesRenderData = gatherPpllOpacitiesRenderData->copy(gatherPpllOpacitiesShader);
-    }
-    if (gatherPpllFinalRenderData) {
-        gatherPpllFinalRenderData = gatherPpllFinalRenderData->copy(gatherPpllFinalShader);
-    }
-}
-
-void OpacityOptimizationRenderer::setSortingAlgorithmDefine() {
-    if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_PRIORITY_QUEUE) {
-        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "frontToBackPQ");
-    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_BUBBLE_SORT) {
-        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "bubbleSort");
-    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_INSERTION_SORT) {
-        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "insertionSort");
-    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_SHELL_SORT) {
-        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "shellSort");
-    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_MAX_HEAP) {
-        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "heapSort");
-    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_BITONIC_SORT) {
-        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "bitonicSort");
-    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT) {
-        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "quicksort");
-    } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID) {
-        sgl::ShaderManager->addPreprocessorDefine("sortingAlgorithm", "quicksortHybrid");
-    }
-
-    if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT
-        || sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT_HYBRID) {
-        sgl::ShaderManager->addPreprocessorDefine("USE_QUICKSORT", "");
-    } else {
-        sgl::ShaderManager->removePreprocessorDefine("USE_QUICKSORT");
-    }
+    gatherPpllOpacitiesPass->setShaderDirty();
+    gatherPpllFinalPass->setShaderDirty();
 }
 
 void OpacityOptimizationRenderer::setNewState(const InternalState& newState) {
     currentStateName = newState.name;
     timerDataIsWritten = false;
     if ((*sceneData->performanceMeasurer) && !timerDataIsWritten) {
-        if (timer) {
-            delete timer;
-            timer = nullptr;
-        }
-        timer = new sgl::TimerGL;
+        timer = {};
+        timer = std::make_shared<sgl::vk::Timer>(renderer);
         (*sceneData->performanceMeasurer)->setPpllTimer(timer);
     }
 }
@@ -231,7 +160,7 @@ void OpacityOptimizationRenderer::setNewState(const InternalState& newState) {
 void OpacityOptimizationRenderer::updateLargeMeshMode() {
     // More than one million cells?
     LargeMeshMode newMeshLargeMeshMode = MESH_SIZE_MEDIUM;
-    if (lineData->getNumLineSegments() > 1e6) { // > 1m line segments
+    if (lineData->getNumLineSegments() > size_t(1e6)) { // > 1m line segments
         newMeshLargeMeshMode = MESH_SIZE_LARGE;
     }
     if (newMeshLargeMeshMode != largeMeshMode) {
@@ -246,48 +175,38 @@ void OpacityOptimizationRenderer::updateLargeMeshMode() {
 void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
 
-    // Unload old data.
-    gatherPpllOpacitiesRenderData = sgl::ShaderAttributesPtr();
-    gatherPpllFinalRenderData = sgl::ShaderAttributesPtr();
+    gatherPpllOpacitiesPass->setLineData(lineData, isNewData);
+    gatherPpllFinalPass->setLineData(lineData, isNewData);
     updateLargeMeshMode();
 
     lines = lineData->getFilteredLines(this);
 
-    sgl::vk::BufferPtr indexBuffer;
-    sgl::vk::BufferPtr vertexPositionBuffer;
-    sgl::vk::BufferPtr vertexAttributeBuffer;
-    sgl::vk::BufferPtr vertexNormalBuffer;
-    sgl::vk::BufferPtr vertexTangentBuffer;
-    sgl::vk::BufferPtr vertexOffsetLeftBuffer;
-    sgl::vk::BufferPtr vertexOffsetRightBuffer;
-    sgl::vk::BufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
-    sgl::vk::BufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
+    OpacityOptimizationLineDataBuffers buffers{};
+    gatherPpllOpacitiesPass->setOpacityOptimizationLineDataBuffers(buffers);
+    gatherPpllFinalPass->setOpacityOptimizationLineDataBuffers(buffers);
 
     if (lineData->getUseBandRendering()) {
         BandRenderData tubeRenderData = lineData->getBandRenderData();
-        indexBuffer = tubeRenderData.indexBuffer;
-        vertexPositionBuffer = tubeRenderData.vertexPositionBuffer;
-        vertexAttributeBuffer = tubeRenderData.vertexAttributeBuffer;
-        vertexNormalBuffer = tubeRenderData.vertexNormalBuffer;
-        vertexTangentBuffer = tubeRenderData.vertexTangentBuffer;
-        vertexOffsetLeftBuffer = tubeRenderData.vertexOffsetLeftBuffer;
-        vertexOffsetRightBuffer = tubeRenderData.vertexOffsetRightBuffer;
-        vertexPrincipalStressIndexBuffer = tubeRenderData.vertexPrincipalStressIndexBuffer;
-        vertexLineHierarchyLevelBuffer = tubeRenderData.vertexLineHierarchyLevelBuffer;
+        buffers.indexBuffer = tubeRenderData.indexBuffer;
+        buffers.vertexPositionBuffer = tubeRenderData.vertexPositionBuffer;
+        buffers.vertexAttributeBuffer = tubeRenderData.vertexAttributeBuffer;
+        buffers.vertexNormalBuffer = tubeRenderData.vertexNormalBuffer;
+        buffers.vertexTangentBuffer = tubeRenderData.vertexTangentBuffer;
+        buffers.vertexOffsetLeftBuffer = tubeRenderData.vertexOffsetLeftBuffer;
+        buffers.vertexOffsetRightBuffer = tubeRenderData.vertexOffsetRightBuffer;
+        buffers.vertexPrincipalStressIndexBuffer = tubeRenderData.vertexPrincipalStressIndexBuffer;
+        buffers.vertexLineHierarchyLevelBuffer = tubeRenderData.vertexLineHierarchyLevelBuffer;
     } else {
         TubeRenderDataOpacityOptimization tubeRenderData = lineData->getTubeRenderDataOpacityOptimization();
-        indexBuffer = tubeRenderData.indexBuffer;
-        vertexPositionBuffer = tubeRenderData.vertexPositionBuffer;
-        vertexAttributeBuffer = tubeRenderData.vertexAttributeBuffer;
-        vertexTangentBuffer = tubeRenderData.vertexTangentBuffer;
-        vertexPrincipalStressIndexBuffer = tubeRenderData.vertexPrincipalStressIndexBuffer;
-        vertexLineHierarchyLevelBuffer = tubeRenderData.vertexLineHierarchyLevelBuffer;
+        buffers.indexBuffer = tubeRenderData.indexBuffer;
+        buffers.vertexPositionBuffer = tubeRenderData.vertexPositionBuffer;
+        buffers.vertexAttributeBuffer = tubeRenderData.vertexAttributeBuffer;
+        buffers.vertexTangentBuffer = tubeRenderData.vertexTangentBuffer;
+        buffers.vertexPrincipalStressIndexBuffer = tubeRenderData.vertexPrincipalStressIndexBuffer;
+        buffers.vertexLineHierarchyLevelBuffer = tubeRenderData.vertexLineHierarchyLevelBuffer;
     }
 
-    gatherPpllOpacitiesRenderData = sgl::ShaderManager->createShaderAttributes(gatherPpllOpacitiesShader);
-    gatherPpllFinalRenderData = sgl::ShaderManager->createShaderAttributes(gatherPpllFinalShader);
-
-    numLineVertices = uint32_t(vertexPositionBuffer->getSize() / sizeof(glm::vec3));
+    numLineVertices = uint32_t(buffers.vertexPositionBuffer->getSizeInBytes() / sizeof(glm::vec3));
     generateBlendingWeightParametrization(isNewData);
 
     vertexOpacityBuffer = std::make_shared<sgl::vk::Buffer>(
@@ -295,67 +214,37 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewD
             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
     vertexOpacityBuffer->fill(0, renderer->getVkCommandBuffer());
-    // TODO: Barrier.
+    renderer->insertBufferMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            vertexOpacityBuffer);
 
-    gatherPpllOpacitiesRenderData->setVertexMode(sgl::VERTEX_MODE_LINES);
-    gatherPpllOpacitiesRenderData->setIndexGeometryBuffer(indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-    gatherPpllOpacitiesRenderData->addGeometryBuffer(
-            vertexPositionBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
-    gatherPpllOpacitiesRenderData->addGeometryBufferOptional(
-            vertexAttributeBuffer, "vertexAttribute", sgl::ATTRIB_FLOAT, 1);
-    gatherPpllOpacitiesRenderData->addGeometryBuffer(
-            vertexTangentBuffer, "vertexTangent", sgl::ATTRIB_FLOAT, 3);
-    if (vertexOffsetLeftBuffer) {
-        gatherPpllOpacitiesRenderData->addGeometryBuffer(
-                vertexOffsetLeftBuffer, "vertexOffsetLeft", sgl::ATTRIB_FLOAT, 3);
-    }
-    if (vertexOffsetRightBuffer) {
-        gatherPpllOpacitiesRenderData->addGeometryBuffer(
-                vertexOffsetRightBuffer, "vertexOffsetRight", sgl::ATTRIB_FLOAT, 3);
-    }
-    if (vertexPrincipalStressIndexBuffer) {
-        gatherPpllOpacitiesRenderData->addGeometryBufferOptional(
-                vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
-                sgl::ATTRIB_UNSIGNED_INT,
-                1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
-    }
-    if (vertexLineHierarchyLevelBuffer) {
-        gatherPpllOpacitiesRenderData->addGeometryBufferOptional(
-                vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel",
-                sgl::ATTRIB_FLOAT, 1);
-    }
-    gatherPpllOpacitiesRenderData->addGeometryBuffer(
-            this->lineSegmentIdBuffer, "vertexLineSegmentId", sgl::ATTRIB_UNSIGNED_INT,
-            1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
+    buffers.lineSegmentIdBuffer = lineSegmentIdBuffer;
+    buffers.vertexOpacityBuffer = vertexOpacityBuffer;
+    gatherPpllOpacitiesPass->setOpacityOptimizationLineDataBuffers(buffers);
+    gatherPpllFinalPass->setOpacityOptimizationLineDataBuffers(buffers);
 
-    gatherPpllFinalRenderData->setVertexMode(sgl::VERTEX_MODE_LINES);
-    gatherPpllFinalRenderData->setIndexGeometryBuffer(indexBuffer, sgl::ATTRIB_UNSIGNED_INT);
-    gatherPpllFinalRenderData->addGeometryBuffer(
-            vertexPositionBuffer, "vertexPosition", sgl::ATTRIB_FLOAT, 3);
-    gatherPpllFinalRenderData->addGeometryBufferOptional(
-            vertexAttributeBuffer, "vertexAttribute", sgl::ATTRIB_FLOAT, 1);
-    if (vertexNormalBuffer) {
-        gatherPpllFinalRenderData->addGeometryBuffer(
-                vertexNormalBuffer, "vertexNormal", sgl::ATTRIB_FLOAT, 3);
+    convertPerSegmentOpacitiesPass->setNumLineSegments(numLineSegments);
+    convertPerSegmentOpacitiesPass->setSegmentOpacityBuffer(segmentOpacityBuffers[0]);
+    convertPerSegmentOpacitiesPass->setSegmentOpacityUintBuffer(segmentOpacityUintBuffer);
+
+    for (int i = 0; i < 2; i++) {
+        smoothPerSegmentOpacitiesPasses[i]->setNumLineSegments(numLineSegments);
+        smoothPerSegmentOpacitiesPasses[i]->setSegmentOpacityBufferIn(
+                segmentOpacityBuffers[i]);
+        smoothPerSegmentOpacitiesPasses[i]->setSegmentOpacityBufferOut(
+                segmentOpacityBuffers[(i + 1) % 2]);
+        smoothPerSegmentOpacitiesPasses[i]->setSegmentVisibilityBuffer(segmentVisibilityBuffer);
+        smoothPerSegmentOpacitiesPasses[i]->setLineSegmentConnectivityBuffer(lineSegmentConnectivityBuffer);
     }
-    gatherPpllFinalRenderData->addGeometryBuffer(
-            vertexTangentBuffer, "vertexTangent", sgl::ATTRIB_FLOAT, 3);
-    if (vertexOffsetLeftBuffer) {
-        gatherPpllFinalRenderData->addGeometryBuffer(
-                vertexOffsetLeftBuffer, "vertexOffsetLeft", sgl::ATTRIB_FLOAT, 3);
-    }
-    if (vertexOffsetRightBuffer) {
-        gatherPpllFinalRenderData->addGeometryBuffer(
-                vertexOffsetRightBuffer, "vertexOffsetRight", sgl::ATTRIB_FLOAT, 3);
-    }
-    gatherPpllFinalRenderData->addGeometryBuffer(
-            this->vertexOpacityBuffer, "vertexOpacity", sgl::ATTRIB_FLOAT, 1);
-    if (vertexPrincipalStressIndexBuffer) {
-        gatherPpllFinalRenderData->addGeometryBufferOptional(
-                vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex",
-                sgl::ATTRIB_UNSIGNED_INT,
-                1, 0, 0, 0, sgl::ATTRIB_CONVERSION_INT);
-    }
+
+    computePerVertexOpacitiesPass->setNumLineVertices(numLineVertices);
+    computePerVertexOpacitiesPass->setVertexOpacityBuffer(vertexOpacityBuffer);
+    computePerVertexOpacitiesPass->setSegmentOpacityBuffer(
+            segmentOpacityBuffers[opacityOptimizationUniformData.s % 2]);
+    computePerVertexOpacitiesPass->setSegmentVisibilityBuffer(segmentVisibilityBuffer);
+    computePerVertexOpacitiesPass->setBlendingWeightParametrizationBuffer(blendingWeightParametrizationBuffer);
+    segmentOpacityBufferIdx = 0;
 
     dirty = false;
     reRender = true;
@@ -484,11 +373,33 @@ void OpacityOptimizationRenderer::recomputeStaticParametrization() {
     }
 }
 
-
 void OpacityOptimizationRenderer::getVulkanShaderPreprocessorDefines(
         std::map<std::string, std::string> &preprocessorDefines) {
     LineRenderer::getVulkanShaderPreprocessorDefines(preprocessorDefines);
-    preprocessorDefines.insert(std::make_pair("OIT_GATHER_HEADER", "\"LinkedListGather.glsl\""));
+
+    bool isStressLineData = false;
+    bool usePrincipalStressDirectionIndex = false;
+    bool useLineHierarchy = false;
+    if (lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
+        LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
+        isStressLineData = true;
+        usePrincipalStressDirectionIndex = lineDataStress->getUsePrincipalStressDirectionIndex();
+        useLineHierarchy = lineDataStress->getUseLineHierarchy();
+    }
+    if (isStressLineData) {
+        preprocessorDefines.insert(std::make_pair("IS_PSL_DATA", ""));
+    }
+    if (usePrincipalStressDirectionIndex) {
+        preprocessorDefines.insert(std::make_pair("USE_PRINCIPAL_STRESS_DIRECTION_INDEX", ""));
+    }
+    if (useLineHierarchy) {
+        preprocessorDefines.insert(std::make_pair("USE_LINE_HIERARCHY_LEVEL", ""));
+    }
+    preprocessorDefines.insert(std::make_pair("USE_TRANSPARENCY", ""));
+
+    if (useMultisampling) {
+        preprocessorDefines.insert(std::make_pair("USE_COVERAGE_MASK", ""));
+    }
 
     preprocessorDefines.insert(std::make_pair("MAX_NUM_FRAGS", sgl::toString(expectedMaxDepthComplexity)));
     if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_QUICKSORT
@@ -529,10 +440,27 @@ void OpacityOptimizationRenderer::setGraphicsPipelineInfo(
 
 void OpacityOptimizationRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) {
     LineRenderer::setRenderDataBindings(renderData);
-    renderData->setStaticBufferOptional(fragmentBuffer, "FragmentBuffer");
-    renderData->setStaticBuffer(startOffsetBuffer, "StartOffsetBuffer");
-    renderData->setStaticBufferOptional(fragmentCounterBuffer, "FragCounterBuffer");
-    renderData->setStaticBufferOptional(uniformDataBuffer, "UniformDataBuffer");
+
+    renderData->setStaticBufferOptional(
+            opacityOptimizationUniformDataBuffer, "OpacityOptimizationUniformDataBuffer");
+    renderData->setStaticBufferOptional(
+            attributeRangeUniformDataBuffer, "AttributeRangeUniformDataBuffer");
+
+    if (isOpacitiesStep) {
+        renderData->setStaticBufferOptional(fragmentBufferOpacities, "FragmentBuffer");
+        renderData->setStaticBufferOptional(startOffsetBufferOpacities, "StartOffsetBuffer");
+        renderData->setStaticBufferOptional(fragmentCounterBufferOpacities, "FragCounterBuffer");
+        renderData->setStaticBufferOptional(ppllUniformDataBufferOpacities, "UniformDataBuffer");
+    } else {
+        renderData->setStaticBufferOptional(fragmentBufferFinal, "FragmentBuffer");
+        renderData->setStaticBufferOptional(startOffsetBufferFinal, "StartOffsetBuffer");
+        renderData->setStaticBufferOptional(fragmentCounterBufferFinal, "FragCounterBuffer");
+        renderData->setStaticBufferOptional(ppllUniformDataBufferFinal, "UniformDataBuffer");
+    }
+
+    // Resolve opacities pass.
+    renderData->setStaticBufferOptional(segmentOpacityUintBuffer, "OpacityBufferUint");
+    renderData->setStaticBufferOptional(segmentVisibilityBuffer, "LineSegmentVisibilityBuffer");
 }
 
 void OpacityOptimizationRenderer::updateVulkanUniformBuffers() {
@@ -540,13 +468,24 @@ void OpacityOptimizationRenderer::updateVulkanUniformBuffers() {
 
 void OpacityOptimizationRenderer::setFramebufferAttachments(
         sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) {
+    sgl::vk::ImageViewPtr colorRenderTarget;
     sgl::vk::AttachmentState attachmentState;
+    if (loadOp == VK_ATTACHMENT_LOAD_OP_DONT_CARE) {
+        colorRenderTarget = colorRenderTargetImageOpacities;
+    } else {
+        colorRenderTarget = colorRenderTargetImageFinal;
+        //attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        //attachmentState.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        //attachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        //attachmentState.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    }
     attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     attachmentState.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     attachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     attachmentState.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
     framebuffer->setColorAttachment(
-            (*sceneData->sceneTexture)->getImageView(), 0, attachmentState,
+            colorRenderTarget, 0, attachmentState,
             sceneData->clearColor->getFloatColorRGBA());
 }
 
@@ -556,7 +495,8 @@ void OpacityOptimizationRenderer::reallocateFragmentBuffer() {
     size_t fragmentBufferSizeOpacityBytes = 12ull * fragmentBufferSizeOpacity;
     if (fragmentBufferSizeOpacityBytes >= (1ull << 32ull)) {
         sgl::Logfile::get()->writeError(
-                std::string() + "Fragment buffer size was larger than or equal to 4GiB. Clamping to 4GiB.");
+                std::string() + "Fragment buffer size was larger than or equal to 4GiB. Clamping to 4GiB.",
+                false);
         fragmentBufferSizeOpacityBytes = (1ull << 32ull) - 12ull;
         fragmentBufferSizeOpacity = fragmentBufferSizeOpacityBytes / 12ull;
     }
@@ -571,7 +511,8 @@ void OpacityOptimizationRenderer::reallocateFragmentBuffer() {
     size_t fragmentBufferSizeFinalBytes = 12ull * fragmentBufferSizeFinal;
     if (fragmentBufferSizeFinalBytes >= (1ull << 32ull)) {
         sgl::Logfile::get()->writeError(
-                std::string() + "Fragment buffer size was larger than or equal to 4GiB. Clamping to 4GiB.");
+                std::string() + "Fragment buffer size was larger than or equal to 4GiB. Clamping to 4GiB.",
+                false);
         fragmentBufferSizeFinalBytes = (1ull << 32ull) - 12ull;
         fragmentBufferSizeFinal = fragmentBufferSizeFinalBytes / 12ull;
     }
@@ -585,7 +526,7 @@ void OpacityOptimizationRenderer::reallocateFragmentBuffer() {
     size_t fragmentBufferSizeBytes = fragmentBufferSizeOpacityBytes + fragmentBufferSizeFinalBytes;
     sgl::Logfile::get()->writeInfo(
             std::string() + "Fragment buffer size GiB (total): "
-            + std::to_string(fragmentBufferSizeBytes / 1024.0 / 1024.0 / 1024.0));
+            + std::to_string(double(fragmentBufferSizeBytes) / 1024.0 / 1024.0 / 1024.0));
 
     if ((*sceneData->performanceMeasurer)) {
         (*sceneData->performanceMeasurer)->setCurrentAlgorithmBufferSizeBytes(fragmentBufferSizeBytes);
@@ -595,6 +536,7 @@ void OpacityOptimizationRenderer::reallocateFragmentBuffer() {
 void OpacityOptimizationRenderer::onResolutionChanged() {
     LineRenderer::onResolutionChanged();
 
+    sgl::vk::Device* device = renderer->getDevice();
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
     viewportWidthOpacity = int(std::round(float(width) * opacityBufferScaleFactor));
@@ -615,364 +557,236 @@ void OpacityOptimizationRenderer::onResolutionChanged() {
             renderer->getDevice(), sizeof(uint32_t) * paddedViewportWidthOpacity * paddedViewportHeightOpacity,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    atomicCounterBufferOpacities = {}; // Delete old data first (-> refcount 0)
-    atomicCounterBufferOpacities = std::make_shared<sgl::vk::Buffer>(
+    fragmentCounterBufferOpacities = {}; // Delete old data first (-> refcount 0)
+    fragmentCounterBufferOpacities = std::make_shared<sgl::vk::Buffer>(
             renderer->getDevice(), sizeof(uint32_t),
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
 
     startOffsetBufferFinal = {}; // Delete old data first (-> refcount 0)
-    startOffsetBufferOpacities = std::make_shared<sgl::vk::Buffer>(
+    startOffsetBufferFinal = std::make_shared<sgl::vk::Buffer>(
             renderer->getDevice(), sizeof(uint32_t) * paddedViewportWidthFinal * paddedViewportHeightFinal,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    atomicCounterBufferFinal = {}; // Delete old data first (-> refcount 0)
-    atomicCounterBufferFinal = std::make_shared<sgl::vk::Buffer>(
+    fragmentCounterBufferFinal = {}; // Delete old data first (-> refcount 0)
+    fragmentCounterBufferFinal = std::make_shared<sgl::vk::Buffer>(
             renderer->getDevice(), sizeof(uint32_t),
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
 
     if (useMultisampling) {
-        msaaSceneFBO = sgl::Renderer->createFBO();
-        //msaaRenderTexture = sgl::TextureManager->createMultisampledTexture(
-        //        viewportWidthFinal, viewportHeightFinal, numSamples,
-        //        (*sceneData->sceneTexture)->getSettings().internalFormat, true); // TODO
-        msaaDepthRBO = sgl::Renderer->createRBO(
-                viewportWidthFinal, viewportHeightFinal, sgl::RBO_DEPTH24_STENCIL8, numSamples);
-        msaaSceneFBO->bindTexture(msaaRenderTexture);
-        msaaSceneFBO->bindRenderbuffer(msaaDepthRBO, sgl::DEPTH_STENCIL_ATTACHMENT);
+        sgl::vk::ImageSettings imageSettings = (*sceneData->sceneTexture)->getImage()->getImageSettings();
+        imageSettings.numSamples = VkSampleCountFlagBits(numSamples);
+        imageSettings.usage =
+                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
+                | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        colorRenderTargetImageFinal = std::make_shared<sgl::vk::ImageView>(
+                std::make_shared<sgl::vk::Image>(device, imageSettings), VK_IMAGE_ASPECT_COLOR_BIT);
     } else {
-        msaaSceneFBO = sgl::FramebufferObjectPtr();
-        msaaRenderTexture = sgl::TexturePtr();
-        msaaDepthRBO = sgl::RenderbufferObjectPtr();
+        colorRenderTargetImageFinal = (*sceneData->sceneTexture)->getImageView();
     }
 
+    if (viewportWidthOpacity == viewportWidthFinal && viewportHeightOpacity == viewportHeightFinal) {
+        colorRenderTargetImageOpacities = (*sceneData->sceneTexture)->getImageView();
+    } else {
+        sgl::vk::ImageSettings imageSettings = (*sceneData->sceneTexture)->getImage()->getImageSettings();
+        imageSettings.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        colorRenderTargetImageOpacities = std::make_shared<sgl::vk::ImageView>(
+                std::make_shared<sgl::vk::Image>(device, imageSettings), VK_IMAGE_ASPECT_COLOR_BIT);
+    }
+
+    gatherPpllOpacitiesPass->recreateSwapchain(viewportWidthOpacity, viewportHeightOpacity);
+    gatherPpllFinalPass->recreateSwapchain(viewportWidthFinal, viewportHeightFinal);
+
+    clearPpllOpacitiesPass->setOutputImage(colorRenderTargetImageOpacities);
+    clearPpllOpacitiesPass->recreateSwapchain(viewportWidthOpacity, viewportHeightOpacity);
+    resolvePpllOpacitiesPass->setOutputImage(colorRenderTargetImageOpacities);
+    resolvePpllOpacitiesPass->recreateSwapchain(viewportWidthOpacity, viewportHeightOpacity);
+    clearPpllFinalPass->setOutputImage(colorRenderTargetImageFinal);
+    clearPpllFinalPass->recreateSwapchain(viewportWidthFinal, viewportHeightFinal);
+    resolvePpllFinalPass->setOutputImage(colorRenderTargetImageFinal);
+    resolvePpllFinalPass->recreateSwapchain(viewportWidthFinal, viewportHeightFinal);
+
     onHasMoved();
+}
+
+void OpacityOptimizationRenderer::onClearColorChanged() {
+    resolvePpllFinalPass->setAttachmentClearColor(sceneData->clearColor->getFloatColorRGBA());
 }
 
 void OpacityOptimizationRenderer::render() {
     LineRenderer::renderBase();
 
     setUniformData();
+    isOpacitiesStep = true;
     clearPpllOpacities();
     gatherPpllOpacities();
     resolvePpllOpacities();
     convertPerSegmentOpacities();
     smoothPerSegmentOpacities();
     computePerVertexOpacities();
+    isOpacitiesStep = false;
     clearPpllFinal();
     gatherPpllFinal();
     resolvePpllFinal();
 }
 
 void OpacityOptimizationRenderer::setUniformData() {
-    if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
-        lineData->setUniformGatherShaderData_AllPasses();
-    }
+    lineData->updateVulkanUniformBuffers(this, renderer);
+    this->updateVulkanUniformBuffers();
 
-    gatherPpllOpacitiesShader->setUniform("viewportW", paddedViewportWidthOpacity);
-    gatherPpllOpacitiesShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeOpacity);
-    gatherPpllOpacitiesShader->setUniform("cameraPosition", sceneData->camera->getPosition());
-    gatherPpllOpacitiesShader->setUniform("lineWidth", lineWidth);
-    gatherPpllOpacitiesShader->setUniformOptional("minAttrValue", transferFunctionWindow.getDataRangeMin());
-    gatherPpllOpacitiesShader->setUniformOptional("maxAttrValue", transferFunctionWindow.getDataRangeMax());
-    lineData->setUniformGatherShaderData_Pass(gatherPpllOpacitiesShader);
-    setUniformData_Pass(gatherPpllOpacitiesShader);
+    ppllUniformDataOpacities.viewportW = paddedViewportWidthOpacity;
+    ppllUniformDataOpacities.linkedListSize = uint32_t(fragmentBufferSizeOpacity);
+    ppllUniformDataBufferOpacities->updateData(
+            sizeof(PpllUniformData), &ppllUniformDataOpacities,
+            renderer->getVkCommandBuffer());
 
-    gatherPpllFinalShader->setUniform("viewportW", paddedViewportWidthFinal);
-    gatherPpllFinalShader->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeFinal);
-    gatherPpllFinalShader->setUniform("cameraPosition", sceneData->camera->getPosition());
-    gatherPpllFinalShader->setUniform("lineWidth", lineWidth);
-    if (gatherPpllFinalShader->hasUniform("backgroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        gatherPpllFinalShader->setUniform("backgroundColor", backgroundColor);
-    }
-    if (gatherPpllFinalShader->hasUniform("foregroundColor")) {
-        glm::vec3 backgroundColor = sceneData->clearColor->getFloatColorRGB();
-        glm::vec3 foregroundColor = glm::vec3(1.0f) - backgroundColor;
-        gatherPpllFinalShader->setUniform("foregroundColor", foregroundColor);
-    }
-    lineData->setUniformGatherShaderData_Pass(gatherPpllFinalShader);
-    setUniformData_Pass(gatherPpllFinalShader);
+    ppllUniformDataFinal.viewportW = paddedViewportWidthFinal;
+    ppllUniformDataFinal.linkedListSize = uint32_t(fragmentBufferSizeFinal);
+    ppllUniformDataBufferFinal->updateData(
+            sizeof(PpllUniformData), &ppllUniformDataFinal,
+            renderer->getVkCommandBuffer());
 
-    if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
-        gatherShaderHull->setUniform("viewportW", paddedViewportWidthFinal);
-        gatherShaderHull->setUniform("linkedListSize", (unsigned int)fragmentBufferSizeFinal);
-    }
+    opacityOptimizationUniformDataBuffer->updateData(
+            sizeof(OpacityOptimizationUniformData), &opacityOptimizationUniformData,
+            renderer->getVkCommandBuffer());
 
-    resolvePpllOpacitiesShader->setUniform("viewportW", paddedViewportWidthOpacity);
-    resolvePpllOpacitiesShader->setUniform("q", q);
-    resolvePpllOpacitiesShader->setUniform("r", r);
-    //resolvePpllOpacitiesShader->setUniform("s", s);
-    resolvePpllOpacitiesShader->setUniform("lambda", lambda);
+    attributeRangeUniformData.minAttrValue = transferFunctionWindow.getDataRangeMin();
+    attributeRangeUniformData.maxAttrValue = transferFunctionWindow.getDataRangeMax();
+    attributeRangeUniformDataBuffer->updateData(
+            sizeof(AttributeRangeUniformData), &attributeRangeUniformData,
+            renderer->getVkCommandBuffer());
 
-    resolvePpllFinalShader->setUniform("viewportW", paddedViewportWidthFinal);
-
-    clearPpllOpacitiesShader->setUniform("viewportW", paddedViewportWidthOpacity);
-    clearPpllFinalShader->setUniform("viewportW", paddedViewportWidthFinal);
-
-    convertPerSegmentOpacitiesShader->setUniform("numLineSegments", (unsigned int)numLineSegments);
-
-    smoothPerSegmentOpacitiesShader->setUniform("numLineSegments", (unsigned int)numLineSegments);
-    smoothPerSegmentOpacitiesShader->setUniform("relaxationConstant", relaxationConstant);
-
-    computePerVertexOpacitiesShader->setUniform("numLineVertices", (unsigned int)numLineVertices);
-    computePerVertexOpacitiesShader->setUniform("temporalSmoothingFactor", temporalSmoothingFactor);
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT);
 }
 
 void OpacityOptimizationRenderer::clearPpllOpacities() {
-    sgl::ShaderManager->bindShaderStorageBuffer(0, fragmentBufferOpacities);
-    sgl::ShaderManager->bindShaderStorageBuffer(1, startOffsetBufferOpacities);
-    sgl::ShaderManager->bindAtomicCounterBuffer(0, atomicCounterBufferOpacities);
-
-    glDepthMask(GL_FALSE);
-
-    // In the clear and gather pass, we just want to write data to an SSBO.
-    glDisable(GL_DEPTH_TEST);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-    glViewport(0, 0, viewportWidthOpacity, viewportHeightOpacity);
-
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-    sgl::Renderer->render(clearPpllOpacitiesRenderData);
-
-    // Set atomic counter to zero.
-    GLuint bufferId = static_cast<sgl::GeometryBufferGL*>(atomicCounterBufferOpacities.get())->getBuffer();
-    uint32_t val = 0;
-    glClearNamedBufferData(bufferId, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, (const void*)&val);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
+    clearPpllOpacitiesPass->render();
+    fragmentCounterBufferOpacities->fill(0, renderer->getVkCommandBuffer());
+    renderer->insertBufferMemoryBarrier(
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            startOffsetBufferOpacities);
+    renderer->insertBufferMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            fragmentCounterBufferOpacities);
 }
 
 void OpacityOptimizationRenderer::gatherPpllOpacities() {
-    // Enable the depth test, but disable depth write for gathering.
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-
-    // We can use the stencil buffer to mask used pixels for the resolve pass.
-    if (useStencilBuffer) {
-        glEnable(GL_STENCIL_TEST);
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
-        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-        glStencilMask(0xFF);
-        glClear(GL_STENCIL_BUFFER_BIT);
-    }
-
-    sgl::Renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix(sceneData->camera->getViewMatrix());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-    // Now, the final gather step.
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
-        glDisable(GL_CULL_FACE);
-    }
-    sgl::Renderer->render(gatherPpllOpacitiesRenderData);
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
-        glEnable(GL_CULL_FACE);
-    }
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    gatherPpllOpacitiesPass->render();
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void OpacityOptimizationRenderer::resolvePpllOpacities() {
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glDisable(GL_DEPTH_TEST);
-
-    if (useStencilBuffer) {
-        glStencilFunc(GL_EQUAL, 1, 0xFF);
-        glStencilMask(0x00);
-    }
-
     // The segment opacity buffer stores the minimum fragment opacity, so initialize with maximum value.
-    sgl::ShaderManager->bindShaderStorageBuffer(3, segmentOpacityUintBuffer);
-    sgl::ShaderManager->bindShaderStorageBuffer(4, segmentVisibilityBuffer);
-    GLuint opacityBufferId = static_cast<sgl::GeometryBufferGL*>(segmentOpacityUintBuffer.get())->getBuffer();
-    uint32_t opacityClearVal = std::numeric_limits<uint32_t>::max();//0xFFFFFFFFu;
-    glClearNamedBufferData(
-            opacityBufferId, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, (const void*)&opacityClearVal);
-    GLuint visibilityBufferId = static_cast<sgl::GeometryBufferGL*>(segmentVisibilityBuffer.get())->getBuffer();
-    uint32_t visibilityClearVal = 0u;
-    glClearNamedBufferData(
-            visibilityBufferId, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, (const void*)&visibilityClearVal);
+    segmentOpacityUintBuffer->fill(
+            std::numeric_limits<uint32_t>::max(), renderer->getVkCommandBuffer());
+    segmentVisibilityBuffer->fill(0, renderer->getVkCommandBuffer());
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
-    sgl::Renderer->render(resolvePpllOpacitiesRenderData);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-    glDisable(GL_STENCIL_TEST);
-    glDepthMask(GL_TRUE);
+    resolvePpllOpacitiesPass->render();
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 }
 
 void OpacityOptimizationRenderer::convertPerSegmentOpacities() {
-    sgl::ShaderManager->bindShaderStorageBuffer(2, segmentOpacityBuffers[segmentOpacityBufferIdx]);
-    // Already bound by @see resolvePpllOpacities.
-    //sgl::ShaderManager->bindShaderStorageBuffer(3, segmentOpacityUintBuffer);
-
-    const uint32_t WORK_GROUP_SIZE_1D = 64;
-    uint32_t numWorkGroups = sgl::iceil(uint32_t(numLineSegments), WORK_GROUP_SIZE_1D);
-    convertPerSegmentOpacitiesShader->dispatchCompute(numWorkGroups);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    convertPerSegmentOpacitiesPass->render();
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 }
 
 void OpacityOptimizationRenderer::smoothPerSegmentOpacities() {
-    // Already bound by @see resolvePpllOpacities.
-    //sgl::ShaderManager->bindShaderStorageBuffer(4, segmentVisibilityBuffer);
-    sgl::ShaderManager->bindShaderStorageBuffer(5, lineSegmentConnectivityBuffer);
-    const uint32_t WORK_GROUP_SIZE_1D = 64;
-    uint32_t numWorkGroups = sgl::iceil(uint32_t(numLineSegments), WORK_GROUP_SIZE_1D);
-
-    for (int i = 0; i < s; i++) {
-        if (i != 0) {
-            // Already bound by @see convertPerSegmentOpacities if i == 0.
-            sgl::ShaderManager->bindShaderStorageBuffer(2, segmentOpacityBuffers[segmentOpacityBufferIdx]);
-        }
-        sgl::ShaderManager->bindShaderStorageBuffer(3, segmentOpacityBuffers[(segmentOpacityBufferIdx + 1) % 2]);
-
-        smoothPerSegmentOpacitiesShader->dispatchCompute(numWorkGroups);
+    for (int i = 0; i < opacityOptimizationUniformData.s; i++) {
+        smoothPerSegmentOpacitiesPasses[i % 2]->render();
 
         segmentOpacityBufferIdx = (segmentOpacityBufferIdx + 1) % 2;
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-    }
-
-    if (s == 0) {
-        sgl::ShaderManager->bindShaderStorageBuffer(3, segmentOpacityBuffers[segmentOpacityBufferIdx]);
+        renderer->insertMemoryBarrier(
+                VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
     }
 }
 
 void OpacityOptimizationRenderer::computePerVertexOpacities() {
-    sgl::ShaderManager->bindShaderStorageBuffer(2, vertexOpacityBuffer);
-    // Already bound by @see smoothPerSegmentOpacities.
-    //sgl::ShaderManager->bindShaderStorageBuffer(3, segmentOpacityBuffers[segmentOpacityBufferIdx]);
-    // Already bound by @see resolvePpllOpacities.
-    //sgl::ShaderManager->bindShaderStorageBuffer(4, segmentVisibilityBuffer);
-    sgl::ShaderManager->bindShaderStorageBuffer(5, blendingWeightParametrizationBuffer);
-
-    const uint32_t WORK_GROUP_SIZE_1D = 64;
-    uint32_t numWorkGroups = sgl::iceil(uint32_t(numLineVertices), WORK_GROUP_SIZE_1D);
-    computePerVertexOpacitiesShader->dispatchCompute(numWorkGroups);
-    glMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+    computePerVertexOpacitiesPass->render();
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT);
 
     segmentOpacityBufferIdx = 0;
 }
 
 void OpacityOptimizationRenderer::clearPpllFinal() {
-    sgl::ShaderManager->bindShaderStorageBuffer(0, fragmentBufferFinal);
-    sgl::ShaderManager->bindShaderStorageBuffer(1, startOffsetBufferFinal);
-    sgl::ShaderManager->bindAtomicCounterBuffer(0, atomicCounterBufferFinal);
-
-    glDepthMask(GL_FALSE);
-
-    // In the clear and gather pass, we just want to write data to an SSBO.
-    glDisable(GL_DEPTH_TEST);
-    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-    glViewport(0, 0, viewportWidthFinal, viewportHeightFinal);
-
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-    sgl::Renderer->render(clearPpllFinalRenderData);
-
-    // Set atomic counter to zero.
-    GLuint bufferId = static_cast<sgl::GeometryBufferGL*>(atomicCounterBufferFinal.get())->getBuffer();
-    uint32_t val = 0;
-    glClearNamedBufferData(bufferId, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, (const void*)&val);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_ATOMIC_COUNTER_BARRIER_BIT);
+    clearPpllFinalPass->render();
+    fragmentCounterBufferFinal->fill(0, renderer->getVkCommandBuffer());
+    renderer->insertBufferMemoryBarrier(
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            startOffsetBufferFinal);
+    renderer->insertBufferMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            fragmentCounterBufferFinal);
 }
 
 void OpacityOptimizationRenderer::gatherPpllFinal() {
-    // Enable the depth test, but disable depth write for gathering.
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-
-    // We can use the stencil buffer to mask used pixels for the resolve pass.
-    if (useStencilBuffer) {
-        glEnable(GL_STENCIL_TEST);
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
-        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-        glStencilMask(0xFF);
-        glClear(GL_STENCIL_BUFFER_BIT);
-    }
-
-    sgl::Renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
-    sgl::Renderer->setViewMatrix(sceneData->camera->getViewMatrix());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-    if (useMultisampling) {
-        sgl::Renderer->bindFBO(msaaSceneFBO);
-        sgl::Renderer->clearFramebuffer(
-                GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, *sceneData->clearColor);
-    }
-
-    // Now, the final gather step.
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
-        glDisable(GL_CULL_FACE);
-    }
-    sgl::Renderer->render(gatherPpllFinalRenderData);
-    renderHull();
-    if (lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_BAND) {
-        glEnable(GL_CULL_FACE);
-    }
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-    if (useMultisampling) {
-        //sgl::Renderer->bindFBO(*sceneData->framebuffer); // TODO
-    }
+    gatherPpllFinalPass->render();
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void OpacityOptimizationRenderer::resolvePpllFinal() {
-    sgl::Renderer->setProjectionMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setViewMatrix(sgl::matrixIdentity());
-    sgl::Renderer->setModelMatrix(sgl::matrixIdentity());
-
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glDisable(GL_DEPTH_TEST);
-
-    if (useStencilBuffer) {
-        glStencilFunc(GL_EQUAL, 1, 0xFF);
-        glStencilMask(0x00);
-    }
-
-    sgl::Renderer->render(resolvePpllFinalRenderData);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-    glDisable(GL_STENCIL_TEST);
-    glDepthMask(GL_TRUE);
+    resolvePpllFinalPass->render();
 }
 
 
 void OpacityOptimizationRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 
-    if (propertyEditor.addSliderFloat("q", &q, 0.0f, 5000.0f, "%.1f")) {
+    if (propertyEditor.addSliderFloat(
+            "q", &opacityOptimizationUniformData.q, 0.0f, 5000.0f, "%.1f")) {
         reRender = true;
         onHasMoved();
     }
-    if (propertyEditor.addSliderFloat("r", &r, 0.0f, 5000.0f, "%.1f")) {
+    if (propertyEditor.addSliderFloat(
+            "r", &opacityOptimizationUniformData.r, 0.0f, 5000.0f, "%.1f")) {
         reRender = true;
         onHasMoved();
     }
-    if (propertyEditor.addSliderInt("s", &s, 0, 20)) {
+    if (propertyEditor.addSliderInt(
+            "s", &opacityOptimizationUniformData.s, 0, 20)) {
         reRender = true;
         onHasMoved();
     }
-    if (propertyEditor.addSliderFloat("lambda", &lambda, 0.1f, 20.0f, "%.1f")) {
+    if (propertyEditor.addSliderFloat(
+            "lambda", &opacityOptimizationUniformData.lambda, 0.1f, 20.0f, "%.1f")) {
         reRender = true;
         onHasMoved();
     }
-    if (propertyEditor.addSliderFloat("rel", &relaxationConstant, 0.0f, 1.0f, "%.2f")) {
+    if (propertyEditor.addSliderFloat(
+            "rel", &opacityOptimizationUniformData.relaxationConstant,
+            0.0f, 1.0f, "%.2f")) {
         reRender = true;
         onHasMoved();
     }
-    if (propertyEditor.addSliderFloat("ts", &temporalSmoothingFactor, 0.0f, 1.0f, "%.2f")) {
+    if (propertyEditor.addSliderFloat(
+            "ts", &opacityOptimizationUniformData.temporalSmoothingFactor,
+            0.0f, 1.0f, "%.2f")) {
         reRender = true;
         onHasMoved();
     }
 
     if (propertyEditor.addCombo(
             "Sorting Mode", (int*)&sortingAlgorithmMode, SORTING_MODE_NAMES, NUM_SORTING_MODES)) {
-        setSortingAlgorithmDefine();
         reloadResolveShader();
         reRender = true;
         onHasMoved();
@@ -1021,4 +835,322 @@ void OpacityOptimizationRenderer::update(float dt) {
     if (smoothingFramesCounter > 0) {
         --smoothingFramesCounter;
     }
-}*/
+}
+
+
+
+PpllOpacitiesLineRasterPass::PpllOpacitiesLineRasterPass(LineRenderer* lineRenderer) : LineRasterPass(lineRenderer) {
+}
+
+void PpllOpacitiesLineRasterPass::loadShader() {
+    std::map<std::string, std::string> preprocessorDefines;
+    lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+
+    std::vector<std::string> shaderModuleNames;
+    if (lineData->getUseBandRendering()) {
+        shaderModuleNames = {
+                "GeometryPassOpacitiesBand.VBO.Vertex",
+                "GeometryPassOpacitiesBand.VBO.Geometry",
+                "GeometryPassOpacitiesBand.Fragment"
+        };
+    } else {
+        shaderModuleNames = {
+                "GeometryPassOpacities.VBO.Vertex",
+                "GeometryPassOpacities.VBO.Geometry",
+                "GeometryPassOpacities.Fragment"
+        };
+    }
+
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            shaderModuleNames, preprocessorDefines);
+}
+
+void PpllOpacitiesLineRasterPass::setOpacityOptimizationLineDataBuffers(
+        const OpacityOptimizationLineDataBuffers& dataBuffers) {
+    buffers = dataBuffers;
+}
+
+void PpllOpacitiesLineRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
+    pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::LINE_LIST);
+
+    pipelineInfo.setVertexBufferBindingByLocationIndex("vertexPosition", sizeof(glm::vec3));
+    pipelineInfo.setVertexBufferBindingByLocationIndex("vertexAttribute", sizeof(float));
+    pipelineInfo.setVertexBufferBindingByLocationIndex("vertexTangent", sizeof(glm::vec3));
+    pipelineInfo.setVertexBufferBindingByLocationIndexOptional(
+            "vertexOffsetLeft", sizeof(glm::vec3));
+    pipelineInfo.setVertexBufferBindingByLocationIndexOptional(
+            "vertexOffsetRight", sizeof(glm::vec3));
+    pipelineInfo.setVertexBufferBindingByLocationIndexOptional(
+            "vertexPrincipalStressIndex", sizeof(uint32_t));
+    pipelineInfo.setVertexBufferBindingByLocationIndexOptional(
+            "vertexLineHierarchyLevel", sizeof(float));
+    pipelineInfo.setVertexBufferBindingByLocationIndexOptional(
+            "vertexLineSegmentId", sizeof(uint32_t));
+
+    lineRenderer->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
+    if ((lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TRIANGLE_MESH && lineData->getUseCappedTubes())
+        || (lineRenderer->getIsTransparencyUsed() && lineData->getLinePrimitiveMode() != LineData::LINE_PRIMITIVES_BAND)) {
+        pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
+    } else {
+        pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
+    }
+
+    pipelineInfo.setColorWriteEnabled(false);
+    pipelineInfo.setBlendMode(sgl::vk::BlendMode::OVERWRITE);
+}
+
+void PpllOpacitiesLineRasterPass::createRasterData(
+        sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
+    rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
+    lineData->setVulkanRenderDataDescriptors(rasterData);
+    lineRenderer->setRenderDataBindings(rasterData);
+
+    rasterData->setIndexBuffer(buffers.indexBuffer);
+    rasterData->setVertexBuffer(buffers.vertexPositionBuffer, "vertexPosition");
+    rasterData->setVertexBuffer(buffers.vertexAttributeBuffer, "vertexAttribute");
+    rasterData->setVertexBuffer(buffers.vertexTangentBuffer, "vertexTangent");
+    rasterData->setVertexBufferOptional(buffers.vertexOffsetLeftBuffer, "vertexOffsetLeft");
+    rasterData->setVertexBufferOptional(buffers.vertexOffsetRightBuffer, "vertexOffsetRight");
+    rasterData->setVertexBufferOptional(
+            buffers.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex");
+    rasterData->setVertexBufferOptional(buffers.vertexLineHierarchyLevelBuffer, "vertexLineHierarchyLevel");
+    rasterData->setVertexBufferOptional(buffers.lineSegmentIdBuffer, "vertexLineSegmentId");
+}
+
+
+
+PpllFinalLineRasterPass::PpllFinalLineRasterPass(LineRenderer* lineRenderer) : LineRasterPass(lineRenderer) {
+}
+
+void PpllFinalLineRasterPass::loadShader() {
+    std::map<std::string, std::string> preprocessorDefines;
+    lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+
+    std::vector<std::string> shaderModuleNames;
+    if (lineData->getUseBandRendering()) {
+        shaderModuleNames = {
+                "GeometryPassFinalBand.VBO.Vertex",
+                "GeometryPassFinalBand.VBO.Geometry",
+                "GeometryPassFinalBand.Fragment"
+        };
+    } else {
+        shaderModuleNames = {
+                "GeometryPassFinal.VBO.Vertex",
+                "GeometryPassFinal.VBO.Geometry",
+                "GeometryPassFinal.Fragment"
+        };
+    }
+
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            shaderModuleNames, preprocessorDefines);
+}
+
+void PpllFinalLineRasterPass::setOpacityOptimizationLineDataBuffers(
+        const OpacityOptimizationLineDataBuffers& dataBuffers) {
+    buffers = dataBuffers;
+}
+
+void PpllFinalLineRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
+    pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::LINE_LIST);
+
+    pipelineInfo.setVertexBufferBindingByLocationIndex("vertexPosition", sizeof(glm::vec3));
+    pipelineInfo.setVertexBufferBindingByLocationIndex("vertexAttribute", sizeof(float));
+    pipelineInfo.setVertexBufferBindingByLocationIndexOptional("vertexNormal", sizeof(glm::vec3));
+    pipelineInfo.setVertexBufferBindingByLocationIndex("vertexTangent", sizeof(glm::vec3));
+    pipelineInfo.setVertexBufferBindingByLocationIndexOptional(
+            "vertexOffsetLeft", sizeof(glm::vec3));
+    pipelineInfo.setVertexBufferBindingByLocationIndexOptional(
+            "vertexOffsetRight", sizeof(glm::vec3));
+    pipelineInfo.setVertexBufferBindingByLocationIndexOptional(
+            "vertexPrincipalStressIndex", sizeof(uint32_t));
+    pipelineInfo.setVertexBufferBindingByLocationIndex("vertexOpacity", sizeof(float));
+
+    lineRenderer->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
+    if ((lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TRIANGLE_MESH && lineData->getUseCappedTubes())
+        || (lineRenderer->getIsTransparencyUsed() && lineData->getLinePrimitiveMode() != LineData::LINE_PRIMITIVES_BAND)) {
+        pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
+    } else {
+        pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
+    }
+
+    pipelineInfo.setColorWriteEnabled(true);
+    pipelineInfo.setBlendMode(sgl::vk::BlendMode::ONE);
+}
+
+void PpllFinalLineRasterPass::createRasterData(
+        sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
+    rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
+    lineData->setVulkanRenderDataDescriptors(rasterData);
+    lineRenderer->setRenderDataBindings(rasterData);
+
+    rasterData->setIndexBuffer(buffers.indexBuffer);
+    rasterData->setVertexBuffer(buffers.vertexPositionBuffer, "vertexPosition");
+    rasterData->setVertexBuffer(buffers.vertexAttributeBuffer, "vertexAttribute");
+    rasterData->setVertexBufferOptional(buffers.vertexNormalBuffer, "vertexNormal");
+    rasterData->setVertexBuffer(buffers.vertexTangentBuffer, "vertexTangent");
+    rasterData->setVertexBufferOptional(buffers.vertexOffsetLeftBuffer, "vertexOffsetLeft");
+    rasterData->setVertexBufferOptional(buffers.vertexOffsetRightBuffer, "vertexOffsetRight");
+    rasterData->setVertexBufferOptional(
+            buffers.vertexPrincipalStressIndexBuffer, "vertexPrincipalStressIndex");
+    rasterData->setVertexBufferOptional(buffers.vertexOpacityBuffer, "vertexOpacity");
+}
+
+
+
+ConvertPerSegmentOpacitiesPass::ConvertPerSegmentOpacitiesPass(LineRenderer* lineRenderer)
+        : ComputePass(*lineRenderer->getSceneData()->renderer), lineRenderer(lineRenderer) {
+}
+
+void ConvertPerSegmentOpacitiesPass::loadShader() {
+    std::map<std::string, std::string> preprocessorDefines;
+    lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            { "ConvertPerSegmentOpacities.Compute" }, preprocessorDefines);
+}
+
+void ConvertPerSegmentOpacitiesPass::createComputeData(
+        sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
+    computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
+    lineRenderer->setRenderDataBindings(computeData);
+    computeData->setStaticBuffer(segmentOpacityBuffer, "OpacityBufferFloat");
+    computeData->setStaticBuffer(segmentOpacityUintBuffer, "OpacityBufferUint");
+}
+
+void ConvertPerSegmentOpacitiesPass::setSegmentOpacityBuffer(const sgl::vk::BufferPtr& buffer) {
+    segmentOpacityBuffer = buffer;
+    if (computeData) {
+        computeData->setStaticBuffer(segmentOpacityBuffer, "OpacityBufferFloat");
+    }
+}
+
+void ConvertPerSegmentOpacitiesPass::setSegmentOpacityUintBuffer(const sgl::vk::BufferPtr& buffer) {
+    segmentOpacityUintBuffer = buffer;
+    if (computeData) {
+        computeData->setStaticBuffer(segmentOpacityUintBuffer, "OpacityBufferUint");
+    }
+}
+
+void ConvertPerSegmentOpacitiesPass::_render() {
+    groupCountX = sgl::iceil(int(numLineSegments), int(WORK_GROUP_SIZE_1D));
+    renderer->pushConstants(
+            getComputePipeline(), VK_SHADER_STAGE_COMPUTE_BIT, 0, numLineSegments);
+    ComputePass::_render();
+}
+
+
+
+SmoothPerSegmentOpacitiesPass::SmoothPerSegmentOpacitiesPass(LineRenderer* lineRenderer)
+        : ComputePass(*lineRenderer->getSceneData()->renderer), lineRenderer(lineRenderer) {
+}
+
+void SmoothPerSegmentOpacitiesPass::loadShader() {
+    std::map<std::string, std::string> preprocessorDefines;
+    lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            { "LaplacianSmoothing.Compute" }, preprocessorDefines);
+}
+
+void SmoothPerSegmentOpacitiesPass::createComputeData(
+        sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
+    computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
+    lineRenderer->setRenderDataBindings(computeData);
+    computeData->setStaticBuffer(segmentOpacityBufferIn, "OpacityBufferIn");
+    computeData->setStaticBuffer(segmentOpacityBufferOut, "OpacityBufferOut");
+    computeData->setStaticBuffer(segmentVisibilityBuffer, "LineSegmentVisibilityBuffer");
+    computeData->setStaticBuffer(lineSegmentConnectivityBuffer, "LineSegmentConnectivityBuffer");
+}
+
+void SmoothPerSegmentOpacitiesPass::setSegmentOpacityBufferIn(const sgl::vk::BufferPtr& buffer) {
+    segmentOpacityBufferIn = buffer;
+    if (computeData) {
+        computeData->setStaticBuffer(segmentOpacityBufferIn, "OpacityBufferIn");
+    }
+}
+
+void SmoothPerSegmentOpacitiesPass::setSegmentOpacityBufferOut(const sgl::vk::BufferPtr& buffer) {
+    segmentOpacityBufferOut = buffer;
+    if (computeData) {
+        computeData->setStaticBuffer(segmentOpacityBufferOut, "OpacityBufferOut");
+    }
+}
+
+void SmoothPerSegmentOpacitiesPass::setSegmentVisibilityBuffer(const sgl::vk::BufferPtr& buffer) {
+    segmentVisibilityBuffer = buffer;
+    if (computeData) {
+        computeData->setStaticBuffer(segmentVisibilityBuffer, "LineSegmentVisibilityBuffer");
+    }
+}
+
+void SmoothPerSegmentOpacitiesPass::setLineSegmentConnectivityBuffer(const sgl::vk::BufferPtr& buffer) {
+    lineSegmentConnectivityBuffer = buffer;
+    if (computeData) {
+        computeData->setStaticBuffer(lineSegmentConnectivityBuffer, "LineSegmentConnectivityBuffer");
+    }
+}
+
+void SmoothPerSegmentOpacitiesPass::_render() {
+    groupCountX = sgl::iceil(int(numLineSegments), int(WORK_GROUP_SIZE_1D));
+    renderer->pushConstants(
+            getComputePipeline(), VK_SHADER_STAGE_COMPUTE_BIT, 0, numLineSegments);
+    ComputePass::_render();
+}
+
+
+
+ComputePerVertexOpacitiesPass::ComputePerVertexOpacitiesPass(LineRenderer* lineRenderer)
+        : ComputePass(*lineRenderer->getSceneData()->renderer), lineRenderer(lineRenderer) {
+}
+
+void ComputePerVertexOpacitiesPass::loadShader() {
+    std::map<std::string, std::string> preprocessorDefines;
+    lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            { "ComputePerVertexOpacities.Compute" }, preprocessorDefines);
+}
+
+void ComputePerVertexOpacitiesPass::createComputeData(
+        sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
+    computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
+    lineRenderer->setRenderDataBindings(computeData);
+    computeData->setStaticBuffer(vertexOpacityBuffer, "OpacityBufferPerVertex");
+    computeData->setStaticBuffer(segmentOpacityBuffer, "OpacityBufferPerSegment");
+    computeData->setStaticBuffer(segmentVisibilityBuffer, "LineSegmentVisibilityBuffer");
+    computeData->setStaticBuffer(blendingWeightParametrizationBuffer, "BlendingWeightParametrizationBuffer");
+}
+
+void ComputePerVertexOpacitiesPass::setVertexOpacityBuffer(const sgl::vk::BufferPtr& buffer) {
+    vertexOpacityBuffer = buffer;
+    if (computeData) {
+        computeData->setStaticBuffer(vertexOpacityBuffer, "OpacityBufferPerVertex");
+    }
+}
+
+void ComputePerVertexOpacitiesPass::setSegmentOpacityBuffer(const sgl::vk::BufferPtr& buffer) {
+    segmentOpacityBuffer = buffer;
+    if (computeData) {
+        computeData->setStaticBuffer(segmentOpacityBuffer, "OpacityBufferPerSegment");
+    }
+}
+
+void ComputePerVertexOpacitiesPass::setSegmentVisibilityBuffer(const sgl::vk::BufferPtr& buffer) {
+    segmentVisibilityBuffer = buffer;
+    if (computeData) {
+        computeData->setStaticBuffer(segmentVisibilityBuffer, "LineSegmentVisibilityBuffer");
+    }
+}
+
+void ComputePerVertexOpacitiesPass::setBlendingWeightParametrizationBuffer(const sgl::vk::BufferPtr& buffer) {
+    blendingWeightParametrizationBuffer = buffer;
+    if (computeData) {
+        computeData->setStaticBuffer(blendingWeightParametrizationBuffer, "BlendingWeightParametrizationBuffer");
+    }
+}
+
+void ComputePerVertexOpacitiesPass::_render() {
+    groupCountX = sgl::iceil(int(numLineVertices), int(WORK_GROUP_SIZE_1D));
+    renderer->pushConstants(
+            getComputePipeline(), VK_SHADER_STAGE_COMPUTE_BIT, 0, numLineVertices);
+    ComputePass::_render();
+}

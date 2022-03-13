@@ -293,7 +293,6 @@ void DepthPeelingRenderer::gather() {
         swapInterval = 256;
     }
 
-    // TODO: Use multiple command buffers to avoid GPU driver TDR.
     for (uint64_t i = 0; i < std::min(maxDepthComplexity, uint64_t(2000ul)); i++) {
         currIdx = int(i);
 

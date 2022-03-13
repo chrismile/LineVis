@@ -32,24 +32,25 @@
 
 layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
+#include "OpacityOptimizationUniformData.glsl"
+
 layout(push_constant) uniform PushConstants {
     uint numLineVertices;
-    float temporalSmoothingFactor; // = 0.1
 };
 
-layout (std430, binding = 2) buffer OpacityBufferPerVertex {
+layout (std430, binding = 0) buffer OpacityBufferPerVertex {
     float opacityBufferPerVertex[];
 };
 
-layout (std430, binding = 3) readonly buffer OpacityBufferPerSegment {
+layout (std430, binding = 1) readonly buffer OpacityBufferPerSegment {
     float opacityBufferPerSegment[];
 };
 
-layout (std430, binding = 4) readonly buffer LineSegmentVisibilityBuffer {
+layout (std430, binding = 2) readonly buffer LineSegmentVisibilityBuffer {
     uint lineSegmentVisibilityBuffer[];
 };
 
-layout (std430, binding = 5) readonly buffer BlendingWeightParametrizationBuffer {
+layout (std430, binding = 3) readonly buffer BlendingWeightParametrizationBuffer {
     float blendingWeightParametrizationBuffer[]; // per-vertex
 };
 

@@ -36,11 +36,11 @@ layout(push_constant) uniform PushConstants {
     uint numLineSegments; ///< Number of entries in opacityBufferIn/opacityBufferOut.
 };
 
-layout (std430, binding = 2) writeonly buffer OpacityBufferFloat {
+layout (std430, binding = 0) writeonly buffer OpacityBufferFloat {
     float opacityBufferFloat[];
 };
 
-layout (std430, binding = 3) readonly buffer OpacityBufferUint {
+layout (std430, binding = 1) readonly buffer OpacityBufferUint {
     uint opacityBufferUint[];
 };
 

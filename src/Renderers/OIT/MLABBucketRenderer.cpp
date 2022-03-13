@@ -192,8 +192,8 @@ void MLABBucketRenderer::computeDepthRange() {
     maxViewZ = std::min(-maxViewZ, sceneData->camera->getFarClipDistance());
     minViewZ = std::min(minViewZ, sceneData->camera->getFarClipDistance());
     maxViewZ = std::max(maxViewZ, sceneData->camera->getNearClipDistance());
-    float logmin = log(minViewZ);
-    float logmax = log(maxViewZ);
+    float logmin = std::log(minViewZ);
+    float logmax = std::log(maxViewZ);
     uniformBucketData.logDepthMin = logmin;
     uniformBucketData.logDepthMax = logmax;
 }
