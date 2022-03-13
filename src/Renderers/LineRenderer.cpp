@@ -528,11 +528,14 @@ void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                     internalReRender = true;
                 }
 
+                AmbientOcclusionBakerType oldType = ambientOcclusionBakerType;
                 if (propertyEditor.addCombo(
                         "Ambient Occlusion Mode", (int*)&ambientOcclusionBakerType,
                         AMBIENT_OCCLUSION_BAKER_TYPE_NAMES,
                         IM_ARRAYSIZE(AMBIENT_OCCLUSION_BAKER_TYPE_NAMES))) {
-                    setAmbientOcclusionBaker();
+                    if (ambientOcclusionBakerType != oldType) {
+                        setAmbientOcclusionBaker();
+                    }
                 }
             }
         }

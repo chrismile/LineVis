@@ -242,7 +242,12 @@ public:
         LINE_PRIMITIVES_TUBE_BAND,
         LINE_PRIMITIVES_TRIANGLE_MESH //< Not supported so far.
     };
+    static bool getLinePrimitiveModeUsesGeometryShader(LinePrimitiveMode mode) {
+        return mode == LINE_PRIMITIVES_RIBBON_GEOMETRY_SHADER || mode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
+               || mode == LINE_PRIMITIVES_TUBE_BAND || mode == LINE_PRIMITIVES_BAND;
+    }
     static inline LinePrimitiveMode getLinePrimitiveMode() { return linePrimitiveMode; }
+    static inline void setLinePrimitiveMode(LinePrimitiveMode mode) { linePrimitiveMode = mode; }
     static inline bool getUseBandRendering() {
         return linePrimitiveMode == LINE_PRIMITIVES_BAND || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND;
     }

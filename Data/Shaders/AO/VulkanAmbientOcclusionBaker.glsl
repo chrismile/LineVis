@@ -71,7 +71,7 @@ layout(binding = 0) uniform UniformsBuffer {
 };
 
 #ifdef STRESS_LINE_DATA
-layout (binding = 1) uniform StressLineRenderSettingsBuffer {
+layout (binding = 1) uniform StressLineUniformDataBuffer {
     vec3 lineHierarchySlider;
     float paddingStressLineSettings;
     ivec3 psUseBands;

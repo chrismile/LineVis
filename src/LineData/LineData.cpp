@@ -26,6 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <Utils/Dialog.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Vulkan/Shader/ShaderManager.hpp>
 #include <Graphics/Vulkan/Render/Data.hpp>
@@ -118,6 +119,20 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
         if (lineRenderer->getRenderingMode() != RENDERING_MODE_OPACITY_OPTIMIZATION && propertyEditor.addCombo(
                 "Line Primitives", (int*)&linePrimitiveMode,
                 LINE_PRIMITIVE_MODE_DISPLAYNAMES, numPrimitiveModes)) {
+            sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+            if (getLinePrimitiveModeUsesGeometryShader(linePrimitiveMode)
+                    && !device->getPhysicalDeviceFeatures().geometryShader) {
+                std::string warningText =
+                        "The selected line primitives mode uses geometry shaders, but geometry shaders are not "
+                        "supported by the used GPU.";
+                sgl::Logfile::get()->writeWarning(
+                        "Warning in LineData::renderGuiPropertyEditorNodesRenderer: " + warningText,
+                        false);
+                auto handle = sgl::dialog::openMessageBox(
+                        "Unsupported Line Primitives Mode", warningText, sgl::dialog::Icon::WARNING);
+                lineRenderer->getSceneData()->nonBlockingMsgBoxHandles->push_back(handle);
+                linePrimitiveMode = LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH;
+            }
             dirty = true;
             shallReloadGatherShader = true;
         }
@@ -292,7 +307,8 @@ std::vector<std::string> LineData::getShaderModuleNames() {
                 "GeometryPassNormal.VBO.Geometry",
                 "GeometryPassNormal.Fragment"
         };
-    } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER) {
+    } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
+            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND) {
         return {
                 "GeometryPassNormalTube.VBO.Vertex",
                 "GeometryPassNormalTube.VBO.Geometry",
@@ -303,12 +319,6 @@ std::vector<std::string> LineData::getShaderModuleNames() {
                 "GeometryPassNormalBand.VBO.Vertex",
                 "GeometryPassNormalBand.VBO.Geometry",
                 "GeometryPassNormalBand.Fragment"
-        };
-    } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_BAND) {
-        return {
-                "GeometryPassNormalTube.VBO.Vertex",
-                "GeometryPassNormalTube.VBO.Geometry",
-                "GeometryPassNormalTube.Fragment"
         };
     } else {
         sgl::Logfile::get()->writeError("Error in LineData::getShaderModuleNames: Invalid line primitive mode.");

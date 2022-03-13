@@ -132,6 +132,11 @@ MainApp::MainApp()
     optixInitialized = OptixVptDenoiser::initGlobal();
 #endif
 
+    if (LineData::getLinePrimitiveModeUsesGeometryShader(LineData::getLinePrimitiveMode())
+            && !device->getPhysicalDeviceFeatures().geometryShader) {
+        LineData::setLinePrimitiveMode(LineData::LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH);
+    }
+
 #ifdef USE_PYTHON
     sgl::ColorLegendWidget::setFontScaleStandard(1.0f);
 
@@ -596,7 +601,20 @@ void MainApp::setRenderer(
     } else if (newRenderingMode == RENDERING_MODE_MLAB) {
         newLineRenderer = new MLABRenderer(&sceneDataRef, transferFunctionWindow);
     } else if (newRenderingMode == RENDERING_MODE_OPACITY_OPTIMIZATION) {
-        newLineRenderer = new OpacityOptimizationRenderer(&sceneDataRef, transferFunctionWindow);
+        if (sgl::AppSettings::get()->getPrimaryDevice()->getPhysicalDeviceFeatures().geometryShader) {
+            newLineRenderer = new OpacityOptimizationRenderer(&sceneDataRef, transferFunctionWindow);
+        } else {
+            std::string warningText =
+                    std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
+                    + "supported on this hardware due to the missing the geometry shader physical device feature.";
+            sgl::Logfile::get()->writeWarning(
+                    "Warning in MainApp::setRenderer: " + warningText, false);
+            auto handle = sgl::dialog::openMessageBox(
+                    "Unsupported Renderer", warningText, sgl::dialog::Icon::WARNING);
+            nonBlockingMsgBoxHandles.push_back(handle);
+            newRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+            newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
+        }
     } else if (newRenderingMode == RENDERING_MODE_DEPTH_COMPLEXITY) {
         newLineRenderer = new DepthComplexityRenderer(&sceneDataRef, transferFunctionWindow);
     } else if (newRenderingMode == RENDERING_MODE_MBOIT) {

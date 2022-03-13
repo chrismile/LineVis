@@ -465,7 +465,8 @@ bool LineDataStress::loadFromFile(
         }
 
         // Use bands if possible.
-        if (hasBandsData) {
+        sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+        if (hasBandsData && device->getPhysicalDeviceFeatures().geometryShader) {
             linePrimitiveMode = LINE_PRIMITIVES_TUBE_BAND;
             tubeNumSubdivisions = 8;
         } else if (getUseBandRendering()) {
@@ -2362,7 +2363,11 @@ void LineDataStress::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl:
     LineData::updateVulkanUniformBuffers(lineRenderer, renderer);
 
     stressLineUniformData.lineHierarchySlider = glm::vec3(1.0f) - lineHierarchySliderValues;
-    stressLineUniformData.psUseBands = glm::ivec3(psUseBands[0], psUseBands[1], psUseBands[2]);
+    if (getUseBandRendering()) {
+        stressLineUniformData.psUseBands = glm::ivec3(psUseBands[0], psUseBands[1], psUseBands[2]);
+    } else {
+        stressLineUniformData.psUseBands = glm::ivec3(0, 0, 0);
+    }
     stressLineUniformData.currentSeedIdx = int32_t(currentSeedIdx);
 
     stressLineUniformDataBuffer->updateData(

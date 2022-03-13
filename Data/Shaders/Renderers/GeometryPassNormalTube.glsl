@@ -114,7 +114,7 @@ void main() {
 #version 450 core
 
 layout(lines) in;
-layout(triangle_strip, max_vertices = 32) out;
+layout(triangle_strip, max_vertices = NUM_TUBE_SUBDIVISIONS * 4) out;
 
 #include "LineUniformData.glsl"
 
@@ -150,6 +150,23 @@ layout(location = 1) out vec3 screenSpacePosition;
 layout(location = 2) out float fragmentAttribute;
 layout(location = 3) out vec3 fragmentNormal;
 layout(location = 4) out vec3 fragmentTangent;
+
+/*
+ * maxGeometryTotalOutputComponents is 1024 on NVIDIA hardware. When using stress line bands and ambient occlusion,
+ * this value is exceeded for NUM_TUBE_SUBDIVISIONS = 8. Thus, we need to merge some attributes in this case.
+ */
+#if NUM_TUBE_SUBDIVISIONS >= 8 && defined(USE_AMBIENT_OCCLUSION) && defined(USE_BANDS)
+#define COMPRESSED_GEOMETRY_OUTPUT_DATA
+#endif
+
+#if defined(COMPRESSED_GEOMETRY_OUTPUT_DATA) && (defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)) && defined(VISUALIZE_SEEDING_PROCESS)
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
+layout(location = 5) flat out uint fragmentPrincipalStressIndexAndLineAppearanceOrder;
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+layout(location = 6) flat out float fragmentLineHierarchyLevel;
+#endif
+#else
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
 layout(location = 5) flat out uint fragmentPrincipalStressIndex;
 #endif
@@ -159,12 +176,18 @@ layout(location = 6) flat out float fragmentLineHierarchyLevel;
 #ifdef VISUALIZE_SEEDING_PROCESS
 layout(location = 7) flat out uint fragmentLineAppearanceOrder;
 #endif
+#endif
+
 #ifdef USE_AMBIENT_OCCLUSION
 layout(location = 8) out float interpolationFactorLine;
 layout(location = 9) flat out uint fragmentVertexIdUint;
 #endif
 #ifdef USE_BANDS
+#ifdef COMPRESSED_GEOMETRY_OUTPUT_DATA
+int useBand;
+#else
 layout(location = 10) flat out int useBand;
+#endif
 #if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
 layout(location = 11) out float thickness0;
 layout(location = 12) out float thickness1;
@@ -370,14 +393,18 @@ void main() {
         lineNormal = normalCurrent;
 #endif
 
+#if defined(COMPRESSED_GEOMETRY_OUTPUT_DATA) && (defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)) && defined(VISUALIZE_SEEDING_PROCESS)
+        fragmentPrincipalStressIndexAndLineAppearanceOrder = principalStressIndex | lineLineAppearanceOrder[0] << 2;
+#else
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
         fragmentPrincipalStressIndex = principalStressIndex;
 #endif
-#ifdef USE_LINE_HIERARCHY_LEVEL
-        fragmentLineHierarchyLevel = lineLineHierarchyLevel[0];
-#endif
 #ifdef VISUALIZE_SEEDING_PROCESS
         fragmentLineAppearanceOrder = lineLineAppearanceOrder[0];
+#endif
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+        fragmentLineHierarchyLevel = lineLineHierarchyLevel[0];
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
         interpolationFactorLine = 0.0f;
@@ -420,14 +447,18 @@ void main() {
         lineNormal = normalCurrent;
 #endif
 
+#if defined(COMPRESSED_GEOMETRY_OUTPUT_DATA) && (defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)) && defined(VISUALIZE_SEEDING_PROCESS)
+        fragmentPrincipalStressIndexAndLineAppearanceOrder = principalStressIndex | lineLineAppearanceOrder[0] << 2;
+#else
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
         fragmentPrincipalStressIndex = principalStressIndex;
 #endif
-#ifdef USE_LINE_HIERARCHY_LEVEL
-        fragmentLineHierarchyLevel = lineLineHierarchyLevel[0];
-#endif
 #ifdef VISUALIZE_SEEDING_PROCESS
         fragmentLineAppearanceOrder = lineLineAppearanceOrder[0];
+#endif
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+        fragmentLineHierarchyLevel = lineLineHierarchyLevel[0];
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
         interpolationFactorLine = 0.0f;
@@ -471,14 +502,18 @@ void main() {
         lineNormal = normalNext;
 #endif
 
+#if defined(COMPRESSED_GEOMETRY_OUTPUT_DATA) && (defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)) && defined(VISUALIZE_SEEDING_PROCESS)
+        fragmentPrincipalStressIndexAndLineAppearanceOrder = principalStressIndex | lineLineAppearanceOrder[0] << 2;
+#else
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
         fragmentPrincipalStressIndex = principalStressIndex;
 #endif
+#ifdef VISUALIZE_SEEDING_PROCESS
+        fragmentLineAppearanceOrder = lineLineAppearanceOrder[0];
+#endif
+#endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
         fragmentLineHierarchyLevel = lineLineHierarchyLevel[1];
-#endif
-#ifdef VISUALIZE_SEEDING_PROCESS
-        fragmentLineAppearanceOrder = lineLineAppearanceOrder[1];
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
         interpolationFactorLine = 1.0f;
@@ -520,14 +555,18 @@ void main() {
         lineNormal = normalNext;
 #endif
 
+#if defined(COMPRESSED_GEOMETRY_OUTPUT_DATA) && (defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)) && defined(VISUALIZE_SEEDING_PROCESS)
+        fragmentPrincipalStressIndexAndLineAppearanceOrder = principalStressIndex | lineLineAppearanceOrder[0] << 2;
+#else
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
         fragmentPrincipalStressIndex = principalStressIndex;
 #endif
+#ifdef VISUALIZE_SEEDING_PROCESS
+        fragmentLineAppearanceOrder = lineLineAppearanceOrder[0];
+#endif
+#endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
         fragmentLineHierarchyLevel = lineLineHierarchyLevel[1];
-#endif
-#ifdef VISUALIZE_SEEDING_PROCESS
-        fragmentLineAppearanceOrder = lineLineAppearanceOrder[1];
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
         interpolationFactorLine = 1.0f;
@@ -564,18 +603,34 @@ layout(location = 1) in vec3 screenSpacePosition;
 layout(location = 2) in float fragmentAttribute;
 layout(location = 3) in vec3 fragmentNormal;
 layout(location = 4) in vec3 fragmentTangent;
+
+/*
+ * maxGeometryTotalOutputComponents is 1024 on NVIDIA hardware. When using stress line bands and ambient occlusion,
+ * this value is exceeded for NUM_TUBE_SUBDIVISIONS = 8. Thus, we need to merge some attributes in this case.
+ */
+#if NUM_TUBE_SUBDIVISIONS >= 8 && defined(USE_AMBIENT_OCCLUSION) && defined(USE_BANDS)
+#define COMPRESSED_GEOMETRY_OUTPUT_DATA
+#endif
+
+#if defined(COMPRESSED_GEOMETRY_OUTPUT_DATA) && (defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)) && defined(VISUALIZE_SEEDING_PROCESS)
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
+layout(location = 5) flat in uint fragmentPrincipalStressIndexAndLineAppearanceOrder;
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+layout(location = 6) flat in float fragmentLineHierarchyLevel;
+#endif
+#else
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
 layout(location = 5) flat in uint fragmentPrincipalStressIndex;
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
 layout(location = 6) flat in float fragmentLineHierarchyLevel;
-#ifdef USE_TRANSPARENCY
-layout(binding = LINE_HIERARCHY_IMPORTANCE_MAP_BINDING) uniform sampler1DArray lineHierarchyImportanceMap;
-#endif
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
 layout(location = 7) flat in uint fragmentLineAppearanceOrder;
 #endif
+#endif
+
 #ifdef USE_AMBIENT_OCCLUSION
 layout(location = 8) in float interpolationFactorLine;
 layout(location = 9) flat in uint fragmentVertexIdUint;
@@ -587,7 +642,11 @@ layout(location = 0) out vec4 fragColor;
 #endif
 
 #ifdef USE_BANDS
+#ifdef COMPRESSED_GEOMETRY_OUTPUT_DATA
+int useBand;
+#else
 layout(location = 10) flat in int useBand;
+#endif
 #if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
 layout(location = 11) in float thickness0;
 layout(location = 12) in float thickness1;
@@ -637,7 +696,19 @@ void drawSeparatorStripe(inout vec4 surfaceColor, in float varFraction, in float
 #endif
 
 void main() {
-#if defined(USE_LINE_HIERARCHY_LEVEL) && !defined(USE_TRANSPARENCY)
+#if defined(COMPRESSED_GEOMETRY_OUTPUT_DATA) && (defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)) && defined(VISUALIZE_SEEDING_PROCESS)
+    uint fragmentPrincipalStressIndex = fragmentPrincipalStressIndexAndLineAppearanceOrder & 0x4u;
+    uint fragmentLineAppearanceOrder = fragmentPrincipalStressIndexAndLineAppearanceOrder >> 2u;
+#endif
+#if defined(COMPRESSED_GEOMETRY_OUTPUT_DATA) && defined(USE_BANDS)
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+    useBand = psUseBands[fragmentPrincipalStressIndex];
+#else
+    useBand = 1;
+#endif
+#endif
+
+    #if defined(USE_LINE_HIERARCHY_LEVEL) && !defined(USE_TRANSPARENCY)
     float slider = lineHierarchySlider[fragmentPrincipalStressIndex];
     if (slider > fragmentLineHierarchyLevel) {
         discard;
