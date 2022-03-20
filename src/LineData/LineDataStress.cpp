@@ -2345,11 +2345,15 @@ void LineDataStress::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr
 
     if (usePrincipalStressDirectionIndex
             && renderData->getShaderStages()->hasDescriptorBinding(0, "transferFunctionTexture")) {
-        renderData->setStaticTexture(
-                multiVarTransferFunctionWindow.getTransferFunctionMapTextureVulkan(),
-                "transferFunctionTexture");
-        renderData->setStaticBuffer(
-                multiVarTransferFunctionWindow.getMinMaxSsboVulkan(), "MinMaxBuffer");
+        const sgl::vk::DescriptorInfo& descriptorInfo = renderData->getShaderStages()->getDescriptorInfoByName(
+                0, "transferFunctionTexture");
+        if (descriptorInfo.image.arrayed == 1) {
+            renderData->setStaticTexture(
+                    multiVarTransferFunctionWindow.getTransferFunctionMapTextureVulkan(),
+                    "transferFunctionTexture");
+            renderData->setStaticBuffer(
+                    multiVarTransferFunctionWindow.getMinMaxSsboVulkan(), "MinMaxBuffer");
+        }
     }
     if (useLineHierarchy && rendererSupportsTransparency
             && renderData->getShaderStages()->hasDescriptorBinding(0, "lineHierarchyImportanceMap")) {

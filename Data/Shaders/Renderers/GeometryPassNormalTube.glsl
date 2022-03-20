@@ -664,6 +664,10 @@ layout(location = 16) in float phi;
 layout(location = 17) in float fragmentRotation;
 #endif
 
+#if defined(USE_LINE_HIERARCHY_LEVEL) && defined(USE_TRANSPARENCY)
+layout(binding = LINE_HIERARCHY_IMPORTANCE_MAP_BINDING) uniform sampler1DArray lineHierarchyImportanceMap;
+#endif
+
 #define M_PI 3.14159265358979323846
 
 #include "TransferFunction.glsl"
@@ -708,7 +712,7 @@ void main() {
 #endif
 #endif
 
-    #if defined(USE_LINE_HIERARCHY_LEVEL) && !defined(USE_TRANSPARENCY)
+#if defined(USE_LINE_HIERARCHY_LEVEL) && !defined(USE_TRANSPARENCY)
     float slider = lineHierarchySlider[fragmentPrincipalStressIndex];
     if (slider > fragmentLineHierarchyLevel) {
         discard;
