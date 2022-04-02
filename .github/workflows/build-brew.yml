@@ -87,7 +87,6 @@ jobs:
           fi
           cmake "${{env.sgl_REPO_DIR}}" -B "${{env.sgl_REPO_DIR}}/build" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX="${{env.sgl_DIR}}" -DCMAKE_PREFIX_PATH="$(brew --prefix)" "${params[@]}"
 
-
       - name: Build (sgl)
         run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --parallel 4
 

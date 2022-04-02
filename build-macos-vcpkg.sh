@@ -2,7 +2,7 @@
 
 # BSD 2-Clause License
 #
-# Copyright (c) 2021, Felix Brendel, Christoph Neuhauser
+# Copyright (c) 2021-2022, Christoph Neuhauser, Felix Brendel
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -37,46 +37,32 @@ build_dir_debug=".build_debug"
 build_dir_release=".build_release"
 destination_dir="Shipping"
 
-is_installed_apt() {
+is_installed_brew() {
     local pkg_name="$1"
-    if [ "$(dpkg -l | awk '/'"$pkg_name"'/ {print }'|wc -l)" -ge 1 ]; then
+    if brew list $pkg_name > /dev/null; then
         return 0
     else
         return 1
     fi
 }
 
-is_installed_pacman() {
-    local pkg_name="$1"
-    if pacman -Qs $pkg_name > /dev/null; then
-        return 0
-    else
-        return 1
-    fi
-}
+if ! command -v brew &> /dev/null; then
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+fi
 
-if command -v apt &> /dev/null; then
-    if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
-            || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null; then
-        sudo apt install cmake git curl pkg-config build-essential
+if command -v brew &> /dev/null; then
+    if ! is_installed_brew "git"; then
+        brew install git
     fi
-
-    # Dependencies of vcpkg GLEW port.
-    if ! is_installed_apt "libxmu-dev" || ! is_installed_apt "libxi-dev" || ! is_installed_apt "libgl-dev"; then
-        sudo apt install libxmu-dev libxi-dev libgl-dev
+    if ! is_installed_brew "cmake"; then
+        brew install cmake
     fi
-elif command -v pacman &> /dev/null; then
-    if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
-            || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null; then
-        sudo pacman -S cmake git curl pkgconf base-devel
+    if ! is_installed_brew "llvm"; then
+        brew install llvm
     fi
-
-    # Dependencies of vcpkg GLEW port.
-    if ! is_installed_pacman "libgl" || ! is_installed_pacman "vulkan-devel" || ! is_installed_pacman "shaderc"; then
-        sudo pacman -S libgl vulkan-devel shaderc
+    if ! is_installed_brew "libomp"; then
+        brew install libomp
     fi
-else
-    echo "Warning: Unsupported system package manager detected." >&2
 fi
 
 if ! command -v cmake &> /dev/null; then
@@ -85,14 +71,6 @@ if ! command -v cmake &> /dev/null; then
 fi
 if ! command -v git &> /dev/null; then
     echo "git was not found, but is required to build the program."
-    exit 1
-fi
-if ! command -v curl &> /dev/null; then
-    echo "curl was not found, but is required to build the program."
-    exit 1
-fi
-if ! command -v pkg-config &> /dev/null; then
-    echo "pkg-config was not found, but is required to build the program."
     exit 1
 fi
 
@@ -107,37 +85,33 @@ fi
 [ -d "./third_party/" ] || mkdir "./third_party/"
 pushd third_party > /dev/null
 
-if [[ ! -v VULKAN_SDK ]]; then
+if [ -z "${VULKAN_SDK+1}" ]; then
     echo "------------------------"
     echo "searching for Vulkan SDK"
     echo "------------------------"
 
     found_vulkan=false
 
-    if lsb_release -a 2> /dev/null | grep -q 'Ubuntu'; then
-        if ! compgen -G "/etc/apt/sources.list.d/lunarg-vulkan-*" > /dev/null; then
-            distro_code_name=$(lsb_release -c | grep -oP "\:\s+\K\S+")
-            echo "Setting up Vulkan SDK for Ubuntu $(lsb_release -r | grep -oP "\:\s+\K\S+")..."
-            wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-            sudo curl --silent --show-error --fail \
-            https://packages.lunarg.com/vulkan/1.2.198/lunarg-vulkan-1.2.198-${distro_code_name}.list \
-            --output /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-${distro_code_name}.list
-            sudo apt update
-            sudo apt install vulkan-sdk shaderc
-        fi
-    fi
-
-    if [ -d "/usr/include/vulkan" ]; then
-        if ! grep -q VULKAN_SDK ~/.bashrc; then
-            echo 'export VULKAN_SDK="/usr"' >> ~/.bashrc
-        fi
-        VULKAN_SDK="/usr"
+    if [ -d "$HOME/VulkanSDK" ]; then
+        source "$HOME/VulkanSDK/$(ls $HOME/VulkanSDK)/setup-env.sh"
         found_vulkan=true
+    else
+      VULKAN_SDK_VERSION=1.3.204.1
+      curl -O https://sdk.lunarg.com/sdk/download/$VULKAN_SDK_VERSION/mac/vulkansdk-macos-$VULKAN_SDK_VERSION.dmg
+      sudo hdiutil attach vulkansdk-macos-$VULKAN_SDK_VERSION.dmg
+      sudo /Volumes/vulkansdk-macos-$VULKAN_SDK_VERSION/InstallVulkan.app/Contents/MacOS/InstallVulkan \
+      --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
+      pushd ~/VulkanSDK/$VULKAN_SDK_VERSION
+      sudo ./install_vulkan.py
+      popd
+      sudo hdiutil unmount /Volumes/vulkansdk-macos-$VULKAN_SDK_VERSION
+      source "$HOME/VulkanSDK/$(ls $HOME/VulkanSDK)/setup-env.sh"
+      found_vulkan=true
     fi
 
     if ! $found_vulkan; then
         echo "The environment variable VULKAN_SDK is not set but is required in the installation process."
-        echo "Please refer to https://vulkan.lunarg.com/sdk/home#linux for instructions on how to install the Vulkan SDK."
+        echo "Please refer to https://vulkan.lunarg.com/sdk/home#mac for instructions on how to install the Vulkan SDK."
         exit 1
     fi
 fi
@@ -146,7 +120,7 @@ if [ ! -d "./vcpkg" ]; then
     echo "------------------------"
     echo "   fetching vcpkg       "
     echo "------------------------"
-    if [[ ! -v VULKAN_SDK ]]; then
+    if [ -z "${VULKAN_SDK+1}" ]; then
         echo "The environment variable VULKAN_SDK is not set but is required in the installation process."
         exit 1
     fi
@@ -245,9 +219,21 @@ echo "All done!"
 
 pushd $build_dir >/dev/null
 
-if [[ -z "${LD_LIBRARY_PATH+x}" ]]; then
-    export LD_LIBRARY_PATH="${PROJECTPATH}/third_party/sgl/install/lib"
-elif [[ ! "${LD_LIBRARY_PATH}" == *"${PROJECTPATH}/third_party/sgl/install/lib"* ]]; then
-    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${PROJECTPATH}/third_party/sgl/install/lib"
+# https://stackoverflow.com/questions/2829613/how-do-you-tell-if-a-string-contains-another-string-in-posix-sh
+contains() {
+    string="$1"
+    substring="$2"
+    if test "${string#*$substring}" != "$string"
+    then
+        return 0
+    else
+        return 1
+    fi
+}
+
+if [ -z "${DYLD_LIBRARY_PATH+x}" ]; then
+    export DYLD_LIBRARY_PATH="${PROJECTPATH}/third_party/sgl/install/lib"
+elif contains "${DYLD_LIBRARY_PATH}" "${PROJECTPATH}/third_party/sgl/install/lib"; then
+    export DYLD_LIBRARY_PATH="DYLD_LIBRARY_PATH:${PROJECTPATH}/third_party/sgl/install/lib"
 fi
 ./LineVis

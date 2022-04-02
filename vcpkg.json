@@ -15,7 +15,6 @@
             "features": [ "vulkan" ]
         },
         "tinyxml2",
-        "glew",
         "vulkan-headers",
         "glm",
         "eigen3",
