@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 3.7)
 cmake_policy(VERSION 3.7...3.20)
 
-project (LineVis)
+project(LineVis)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/CMake)
 #MESSAGE(STATUS "CMAKE_MODULE_PATH: " ${CMAKE_MODULE_PATH})
 
@@ -58,7 +58,7 @@ if (USE_GTEST)
     )
 endif()
 
-if ((UNIX AND NOT APPLE) OR MSYS)
+if ((UNIX OR MSYS) AND (NOT APPLE OR NOT VCPKG_TOOLCHAIN))
     find_package(PkgConfig REQUIRED)
 endif()
 
@@ -93,9 +93,6 @@ endif()
 
 find_package(sgl REQUIRED)
 find_package(Boost COMPONENTS system filesystem REQUIRED)
-find_package(GLEW REQUIRED)
-find_package(OpenGL REQUIRED)
-set(FPHSA_NAME_MISMATCHED TRUE)
 if(VCPKG_TOOLCHAIN)
     find_package(netCDF CONFIG REQUIRED)
     find_package(tinyxml2 CONFIG REQUIRED)
@@ -275,8 +272,8 @@ else()
     target_link_libraries(LineVis PUBLIC SDL2::Main)
 endif()
 
-target_link_libraries(LineVis PUBLIC sgl ${Boost_LIBRARIES} ${OPENGL_LIBRARIES} GLEW::GLEW)
-include_directories(${sgl_INCLUDES} ${Boost_INCLUDE_DIR} ${OPENGL_INCLUDE_DIRS} ${GLEW_INCLUDES})
+target_link_libraries(LineVis PUBLIC sgl ${Boost_LIBRARIES})
+include_directories(${sgl_INCLUDES} ${Boost_INCLUDE_DIR})
 
 if(VCPKG_TOOLCHAIN)
     target_link_libraries(LineVis PRIVATE tinyxml2::tinyxml2 netCDF::netcdf)
@@ -288,8 +285,12 @@ target_include_directories(LineVis PRIVATE ${sgl_INCLUDES} ${TINYXML2_INCLUDE_DI
 
 if (JSONCPP_LIBRARIES)
     target_link_libraries(LineVis PRIVATE ${JSONCPP_LIBRARIES})
+    target_link_directories(LineVis PRIVATE ${JSONCPP_LIBRARY_DIRS})
+    target_include_directories(LineVis PRIVATE ${JSONCPP_INCLUDE_DIRS})
     if (USE_GTEST)
         target_link_libraries(LineVis_test PRIVATE ${JSONCPP_LIBRARIES})
+        target_link_directories(LineVis_test PRIVATE ${JSONCPP_LIBRARY_DIRS})
+        target_include_directories(LineVis_test PRIVATE ${JSONCPP_INCLUDE_DIRS})
     endif()
 endif()
 if (TARGET jsoncpp_lib)

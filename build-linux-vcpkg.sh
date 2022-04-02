@@ -32,7 +32,7 @@ SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 PROJECTPATH="$SCRIPTPATH"
 pushd $SCRIPTPATH > /dev/null
 
-debug=true
+debug=false
 build_dir_debug=".build_debug"
 build_dir_release=".build_release"
 destination_dir="Shipping"
