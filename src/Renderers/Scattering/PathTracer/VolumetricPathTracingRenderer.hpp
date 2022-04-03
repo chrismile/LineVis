@@ -34,13 +34,6 @@
 #include "LineData/Scattering/LineDataScattering.hpp"
 #include "Renderers/LineRenderer.hpp"
 
-namespace sgl {
-class Texture;
-typedef std::shared_ptr<Texture> TexturePtr;
-class SemaphoreVkGlInterop;
-typedef std::shared_ptr<SemaphoreVkGlInterop> SemaphoreVkGlInteropPtr;
-}
-
 namespace sgl { namespace vk {
 class Texture;
 typedef std::shared_ptr<Texture> TexturePtr;
@@ -52,7 +45,8 @@ class Renderer;
 class VolumetricPathTracingPass;
 
 /**
- * A dummy renderer for testing OpenGL-Vulkan interoperability.
+ * A volumetric path tracing (VPT) renderer.
+ * For more details, please refer to VolumetricPathTracingPass.hpp.
  */
 class VolumetricPathTracingRenderer : public LineRenderer {
 public:

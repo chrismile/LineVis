@@ -29,7 +29,6 @@
 #include <Utils/File/Logfile.hpp>
 #include <Math/Geometry/MatrixUtil.hpp>
 #include <Graphics/Window.hpp>
-#include <Graphics/Vulkan/Utils/Interop.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Shader/ShaderManager.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>

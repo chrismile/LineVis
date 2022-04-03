@@ -37,10 +37,6 @@
 namespace sgl {
 class Texture;
 typedef std::shared_ptr<Texture> TexturePtr;
-class SemaphoreVkGlInterop;
-typedef std::shared_ptr<SemaphoreVkGlInterop> SemaphoreVkGlInteropPtr;
-class InteropSyncVkGl;
-typedef std::shared_ptr<InteropSyncVkGl> InteropSyncVkGlPtr;
 }
 
 namespace sgl { namespace vk {

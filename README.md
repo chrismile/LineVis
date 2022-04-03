@@ -1,6 +1,6 @@
 # Flow and Stress Line Visualization
 
-LineVis is a visualization tool for rendering dense sets of 3D lines using the graphics APIs OpenGL and Vulkan.
+LineVis is a visualization tool for rendering dense sets of 3D lines using the graphics API Vulkan.
 It supports loading both traditional flow lines as well as stress lines from multiple principal stress directions.
 
 ![Teaser image of different data sets displayed using LineVis.](https://chrismile.net/github/linevis/teaser.png)
@@ -26,8 +26,8 @@ vol. 24, no. 2, pp. 1127-1140, 1 Feb. 2018, doi: 10.1109/TVCG.2017.2655523.
 ### Linux
 
 There are two ways to build the program on Linux systems.
-- Using the system package manager to install all dependencies (tested: apt on Ubuntu, pacman on Arch Linux).
-- Using [vcpkg](https://github.com/microsoft/vcpkg) to install all dependencies.
+- Using the system package manager to install the dependencies (tested: apt on Ubuntu, pacman on Arch Linux).
+- Using [vcpkg](https://github.com/microsoft/vcpkg) to install the dependencies.
 
 In the project root directory, two scripts `build-linux.sh` and `build-linux-vcpkg.sh` can be found. The former uses the
 system package manager to install all dependencies, while the latter uses vcpkg. The build scripts will also launch the
@@ -40,41 +40,40 @@ Below, more information concerning different Linux distributions tested can be f
 
 Arch Linux and its derivative Manjaro are fully supported using both build modes (package manager and vcpkg).
 
-The Vulkan SDK (which is an optional dependency for different advanced rendering modes) will be automatically installed
-using the package manager `pacman` when using the scripts.
+The Vulkan SDK, which is a dependency of this program that cannot be installed using vcpkg, will be automatically
+installed using the package manager `pacman` when using the scripts.
 
 #### Ubuntu 18.04 & 20.04
 
 Ubuntu 20.04 is fully supported.
 
-The Vulkan SDK (which is an optional dependency for different advanced rendering modes) will be automatically installed
-using the official PPA.
+The Vulkan SDK, which is a dependency of this program that cannot be installed using the default package sources or
+vcpkg, will be automatically installed using the official Vulkan SDK PPA.
 
 Please note that Ubuntu 18.04 is only partially supported. It ships an old version of CMake, which causes the build
-process using vcpkg to fail if not updating CMake manually beforehand. Also, an old version of GLEW in the package
-sources causes the Vulkan support to be disabled regardless of whether the Vulkan SDK is installed if the system
-packages are used.
+process using vcpkg to fail if not updating CMake manually beforehand.
 
 #### Other Linux Distributions
 
 If you are using a different Linux distribution and face difficulties when building the program, please feel free to
-open a [bug report](https://github.com/chrismile/LineVis/issues).
+open a [bug report](https://github.com/chrismile/LineVis/issues). In theory, the build scripts should also work on other
+Linux distributions as long as the Vulkan SDK is installed manually beforehand.
 
 
 ### Windows
 
 There are two ways to build the program on Windows.
-- Using [vcpkg](https://github.com/microsoft/vcpkg) to install all dependencies. The program can then be compiled using
+- Using [vcpkg](https://github.com/microsoft/vcpkg) to install the dependencies. The program can then be compiled using
   [Microsoft Visual Studio](https://visualstudio.microsoft.com/vs/).
-- Using [MSYS2](https://www.msys2.org/) to install all dependencies and compile the program using MinGW.
+- Using [MSYS2](https://www.msys2.org/) to install the dependencies and compile the program using MinGW.
 
 In the project folder, a script called `build-windows.bat` can be found automating this build process using vcpkg and
 Visual Studio. It is recommended to run the script using the `Developer PowerShell for VS 2022` (or VS 2019 depending on
 your Visual Studio version). The build script will also launch the program after successfully building it.
 Building the program is regularly tested on Windows 10 and 11 with Microsoft Visual Studio 2019 and 2022.
 
-Please note that the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home#windows) needs to be installed beforehand to make
-sure different advanced rendering modes will be enabled in the program.
+Please note that the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home#windows) needs to be installed beforehand if using
+Microsoft Visual Studio for compilation.
 
 A script `build-windows-msys2.bat` is also available to build the program using MSYS2/MinGW alternatively to using
 Microsoft Visual Studio.
@@ -85,10 +84,24 @@ the directory `docs/compilation`.
 
 ### macOS
 
-Unfortunately, macOS is not supported, and will probably also never be supported, due to not natively supporting Vulkan
-and deprecating OpenGL. MoltenVK, a Vulkan wrapper based on Apple's Metal API, unfortunately neither supports geometry
-shaders (which are used for the non-raytracing renderers) nor OpenGL interoperability, which would be necessary for
-running the program.
+Building the program on macOS is not yet officially supported.
+
+As we do not have access to a real system running macOS, it was only tested that the program can compile in a CI
+pipeline build script on an x86_64 macOS virtual machine provided by GitHub Actions. So please note that it was never
+tested whether the program actually runs on x86_64 macOS, or even compiles on ARM64 macOS.
+
+There are two ways to build the program on macOS.
+- Using [vcpkg](https://github.com/microsoft/vcpkg) to install the dependencies and compile the program using
+  LLVM/Clang.
+- Using [Homebrew](https://brew.sh/) to install the dependencies and compile the program using LLVM/Clang.
+
+In the project root directory, two scripts `build-macos-vcpkg.sh` and `build-macos-brew.sh` can be found.
+As macOS does not natively support Vulkan, MoltenVK, a Vulkan wrapper based on Apple's Metal API, is utilized.
+Installing it via the scripts requires admin rights. MoltenVK can also be installed manually from
+[the website](https://vulkan.lunarg.com/sdk/home#mac).
+
+The program can only run with reduced feature set, as the Metal API does currently neither support geometry shaders nor
+hardware-accelerated ray tracing.
 
 
 ## How to add new data sets
@@ -222,6 +235,11 @@ Below, a list of rendering modes supported in LineVis can be found.
   Implementation of decoupled opacity optimization as described in:
   Tobias Günther, Holger Theisel, and Markus Gross. 2017. Decoupled Opacity Optimization for Points, Lines and Surfaces.
   Comput. Graph. Forum 36, 2 (May 2017), 153–162. DOI:https://doi.org/10.1111/cgf.13115
+
+In the branch https://github.com/chrismile/LineVis/tree/opengl-interop, a legacy version of this program using OpenGL is
+available. It can be used on old systems that do not support Vulkan 1.1. However, we recommend to first try to update
+the graphics drivers on systems that have issues with Vulkan, as this might already solve all problems that might
+eventually occur on older systems.
 
 
 ## How to report bugs

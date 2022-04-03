@@ -1,10 +1,10 @@
 ## Compilation using MSYS2
 
-The build process was tested on Windows 10 64-bit using MSYS2 and Mingw-w64 (http://www.msys2.org/).
+The build process was tested on Windows 10 and Windows 11 64-bit using MSYS2 and Mingw-w64 (http://www.msys2.org/).
 
 As the first step, the library [sgl](https://github.com/chrismile/sgl) (https://github.com/chrismile/sgl) needs to be
 installed somewhere on the system. In the following steps, it is assumed you have set up sgl and installed all of its
-dependencies.
+dependencies. Please follow the instructions in the file `docs/compilation_vcpkg.md` of sgl for the necessary steps.
 
 After that, all obligatory dependencies can be installed using the following command with MSYS2 and Pacman.
 

@@ -28,7 +28,6 @@
 
 #include <utility>
 
-#include <Graphics/Vulkan/Utils/Interop.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Shader/ShaderManager.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>

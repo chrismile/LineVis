@@ -4,9 +4,10 @@
 
 The build process was tested on Ubuntu 18.04 and Ubuntu 20.04.
 
-As the first step, the library [sgl](https://github.com/chrismile/sgl) (https://github.com/chrismile/sgl) needs to be
-installed somewhere on the system. In the following steps, it is assumed you have set up sgl and installed all of its
-dependencies.
+As the first step, the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home#linux) needs to be installed on the system. Next,
+the library [sgl](https://github.com/chrismile/sgl) (https://github.com/chrismile/sgl) needs to be installed somewhere
+on the system. In the following steps, it is assumed you have set up sgl and installed all of its dependencies.
+Please follow the instructions in the file `docs/compilation_vcpkg.md` of sgl for the necessary steps.
 
 After that, all obligatory dependencies can be installed using the following command.
 

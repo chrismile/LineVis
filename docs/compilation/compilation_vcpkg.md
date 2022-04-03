@@ -1,7 +1,9 @@
 ## Compilation using vcpkg
 
-As the first step, the library [sgl](https://github.com/chrismile/sgl) (https://github.com/chrismile/sgl) needs to be
-installed somewhere on the system. In the following steps, it is assumed you have set up sgl using vcpkg and installed
+As the first step, the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home) needs to be installed on the system. It can be
+installed from the official website for Windows and most Linux systems. Arch Linux provides the package `vulkan-devel`
+instead in its package sources. Next, the library [sgl](https://github.com/chrismile/sgl) (https://github.com/chrismile/sgl)
+needs to be installed somewhere on the system. In the following steps, it is assumed you have set up sgl and installed
 all of its dependencies. Please follow the instructions in the file `docs/compilation_vcpkg.md` of sgl for that.
 
 

@@ -68,9 +68,6 @@ class ScatteringLineTracingRequester;
 
 class MainApp : public sgl::SciVisApp {
 public:
-    /**
-     * @param supportsRaytracing Whether raytracing via OpenGL-Vulkan interoperability is supported.
-     */
     MainApp();
     ~MainApp() override;
     void render() override;

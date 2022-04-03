@@ -91,7 +91,7 @@ private:
     // Creates the complete AO texture.
     void bakeAoTexture();
 
-    // OpenGL-Vulkan interoperability data.
+    // Buffer data.
     sgl::vk::BufferPtr aoBufferVk;
 
     // Vulkan render data.

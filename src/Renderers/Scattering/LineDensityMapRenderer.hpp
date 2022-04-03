@@ -50,7 +50,7 @@ class Renderer;
 class LineDensityFieldDvrPass;
 
 /**
- * A dummy renderer for testing OpenGL-Vulkan interoperability.
+ * This renderer uses direct volume rendering for visualizing a line density field.
  */
 class LineDensityMapRenderer : public LineRenderer {
 public:

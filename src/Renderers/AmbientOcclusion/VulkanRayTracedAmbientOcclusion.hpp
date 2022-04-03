@@ -38,14 +38,6 @@
 namespace sgl {
 
 class TransferFunctionWindow;
-class GeometryBuffer;
-typedef std::shared_ptr<GeometryBuffer> GeometryBufferPtr;
-class ShaderProgram;
-typedef std::shared_ptr<ShaderProgram> ShaderProgramPtr;
-class ShaderAttributes;
-typedef std::shared_ptr<ShaderAttributes> ShaderAttributesPtr;
-class SemaphoreVkGlInterop;
-typedef std::shared_ptr<SemaphoreVkGlInterop> SemaphoreVkGlInteropPtr;
 
 namespace vk {
 

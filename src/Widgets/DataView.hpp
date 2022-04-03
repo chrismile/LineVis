@@ -40,8 +40,6 @@
 
 namespace sgl { namespace vk {
 class Renderer;
-class SemaphoreVkGlInterop;
-typedef std::shared_ptr<SemaphoreVkGlInterop> SemaphoreVkGlInteropPtr;
 }}
 
 class LineRenderer;
