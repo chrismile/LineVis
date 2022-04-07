@@ -135,10 +135,18 @@ vec3 sampleSkybox(in vec3 dir) {
     // Sample from equirectangular projection.
     vec2 texcoord = vec2(atan(dir.z, dir.x) / TWO_PI + 0.5, -asin(dir.y) / PI + 0.5);
     vec3 textureColor = texture(environmentMapTexture, texcoord).rgb;
+#ifdef ENV_MAP_IMAGE_USES_LINEAR_RGB
+#ifdef USE_LINEAR_RGB
+    return parameters.environmentMapIntensityFactor * textureColor;
+#else
+    return parameters.environmentMapIntensityFactor * linearRGBTosRGB(textureColor);
+#endif
+#else // !ENV_MAP_IMAGE_USES_LINEAR_RGB
 #ifdef USE_LINEAR_RGB
     return parameters.environmentMapIntensityFactor * sRGBToLinearRGB(textureColor);
 #else
     return parameters.environmentMapIntensityFactor * textureColor;
+#endif
 #endif
 }
 vec3 sampleLight(in vec3 dir) {

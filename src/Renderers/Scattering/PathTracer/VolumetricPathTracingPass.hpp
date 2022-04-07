@@ -148,12 +148,13 @@ private:
     glm::vec3 sunlightDirection = glm::normalize(glm::vec3(0.5826f, 0.7660f, 0.2717f));
     float cloudExtinctionScale = 1024.0f;
     glm::vec3 cloudExtinctionBase = glm::vec3(1.0, 1.0, 1.0);
-    glm::vec3 cloudScatteringAlbedo = glm::vec3(1.0, 1.0, 1.0);
+    glm::vec3 cloudScatteringAlbedo = glm::vec3(0.9, 1.0, 1.0);
 
     // Environment map data.
     void loadEnvironmentMapImage();
     bool isEnvironmentMapLoaded = false;
     bool useEnvironmentMapImage = false;
+    bool envMapImageUsesLinearRgb = false;
     std::string environmentMapFilenameGui;
     std::string loadedEnvironmentMapFilename;
     sgl::vk::TexturePtr environmentMapTexture;

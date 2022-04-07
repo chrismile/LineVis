@@ -325,6 +325,7 @@ void VolumetricPathTracingPass::loadEnvironmentMapImage() {
         return;
     }
 
+    bool newEnvMapImageUsesLinearRgb = true;
     sgl::BitmapPtr bitmap;
 #ifdef SUPPORT_OPENEXR
     OpenExrImageInfo imageInfo;
@@ -332,6 +333,7 @@ void VolumetricPathTracingPass::loadEnvironmentMapImage() {
     if (sgl::FileUtils::get()->hasExtension(environmentMapFilenameGui.c_str(), ".png")) {
         bitmap = std::make_shared<sgl::Bitmap>();
         bitmap->fromFile(environmentMapFilenameGui.c_str());
+        newEnvMapImageUsesLinearRgb = false; // Assume by default that .png images store sRGB.
     }
 #ifdef SUPPORT_OPENEXR
     else if (sgl::FileUtils::get()->hasExtension(environmentMapFilenameGui.c_str(), ".exr")) {
@@ -388,6 +390,11 @@ void VolumetricPathTracingPass::loadEnvironmentMapImage() {
     loadedEnvironmentMapFilename = environmentMapFilenameGui;
     isEnvironmentMapLoaded = true;
     frameInfo.frameCount = 0;
+
+    if (envMapImageUsesLinearRgb != newEnvMapImageUsesLinearRgb) {
+        envMapImageUsesLinearRgb = newEnvMapImageUsesLinearRgb;
+        setShaderDirty();
+    }
 
 #ifdef SUPPORT_OPENEXR
     if (!bitmap) {
@@ -446,6 +453,9 @@ void VolumetricPathTracingPass::loadShader() {
     }
     if (uniformData.useLinearRGB) {
         customPreprocessorDefines.insert({ "USE_LINEAR_RGB", "" });
+    }
+    if (envMapImageUsesLinearRgb) {
+        customPreprocessorDefines.insert({ "ENV_MAP_IMAGE_USES_LINEAR_RGB", "" });
     }
 
     if (device->getPhysicalDeviceProperties().limits.maxComputeWorkGroupInvocations >= 1024) {
@@ -788,6 +798,13 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
                 "Env. Map Intensity", &environmentMapIntensityFactor, 0.0f, 5.0f)) {
             reRender = true;
             frameInfo.frameCount = 0;
+        }
+
+        if (useEnvironmentMapImage && propertyEditor.addCheckbox(
+                "Env. Map Linear RGB", &envMapImageUsesLinearRgb)) {
+            reRender = true;
+            frameInfo.frameCount = 0;
+            setShaderDirty();
         }
 
         bool shallRecreateMomentTextureA = false;
