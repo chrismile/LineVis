@@ -57,6 +57,9 @@ if command -v brew &> /dev/null; then
     if ! is_installed_brew "cmake"; then
         brew install cmake
     fi
+    if ! is_installed_brew "pkg-config"; then
+        brew install pkg-config
+    fi
     if ! is_installed_brew "llvm"; then
         brew install llvm
     fi
