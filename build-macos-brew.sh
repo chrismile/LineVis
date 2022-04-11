@@ -71,6 +71,9 @@ if command -v brew &> /dev/null; then
     #if ! is_installed_brew "molten-vk"; then
     #    brew install molten-vk
     #fi
+    if ! is_installed_brew "zlib"; then
+        brew install zlib
+    fi
     if ! is_installed_brew "libpng"; then
         brew install libpng
     fi
