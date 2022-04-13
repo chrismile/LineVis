@@ -252,11 +252,12 @@ echo "   copying new files    "
 echo "------------------------"
 
 [ -d $destination_dir ]             || mkdir $destination_dir
-#[ -d $destination_dir/python3 ]     || mkdir $destination_dir/python3
-#[ -d $destination_dir/python3/lib ] || mkdir $destination_dir/python3/lib
+[ -d $destination_dir/python3 ]     || mkdir $destination_dir/python3
+[ -d $destination_dir/python3/lib ] || mkdir $destination_dir/python3/lib
 
 # TODO
-#rsync -a "$(eval echo "vcpkg_installed/$(ls --ignore=vcpkg vcpkg_installed)/lib/python*")" $destination_dir/python3/lib
+brew_prefix="$(brew --prefix)"
+rsync -a "$(eval echo "$brew_prefix/lib/python*")" $destination_dir/python3/lib
 rsync -a $build_dir/LineVis $destination_dir
 
 echo ""
