@@ -117,6 +117,9 @@ if command -v brew &> /dev/null; then
     if ! is_installed_brew "python@3.10"; then
         brew install python@3.10
     fi
+    if ! is_installed_brew "numpy"; then
+        brew install numpy
+    fi
 fi
 
 if ! command -v cmake &> /dev/null; then
@@ -233,6 +236,7 @@ mkdir -p $build_dir
 echo "------------------------"
 echo "      generating        "
 echo "------------------------"
+Python3_VERSION=$(cat $build_dir/pythonversion.txt)
 pushd $build_dir >/dev/null
 cmake -DCMAKE_FIND_USE_CMAKE_SYSTEM_PATH=False -DCMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH=False \
       -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_FIND_APPBUNDLE=NEVER -DZLIB_ROOT="/usr/local/opt/zlib" \
@@ -247,26 +251,10 @@ echo "      compiling         "
 echo "------------------------"
 cmake --build $build_dir --parallel
 
+
 echo "------------------------"
 echo "   copying new files    "
 echo "------------------------"
-
-[ -d $destination_dir ]             || mkdir $destination_dir
-[ -d $destination_dir/python3 ]     || mkdir $destination_dir/python3
-[ -d $destination_dir/python3/lib ] || mkdir $destination_dir/python3/lib
-
-brew_prefix="$(brew --prefix)"
-Python3_VERSION=$(cat $build_dir/pythonversion.txt)
-rsync -a "$brew_prefix/lib/$Python3_VERSION" $destination_dir/python3/lib
-#rsync -a "$(eval echo "$brew_prefix/lib/python*")" $destination_dir/python3/lib
-rsync -a $build_dir/LineVis $destination_dir
-
-echo ""
-echo "All done!"
-
-
-pushd $build_dir >/dev/null
-
 # https://stackoverflow.com/questions/2829613/how-do-you-tell-if-a-string-contains-another-string-in-posix-sh
 contains() {
     string="$1"
@@ -278,6 +266,84 @@ contains() {
         return 1
     fi
 }
+startswith() {
+    string="$1"
+    prefix="$2"
+    if test "${string#*$substring}" != "$string"
+    then
+        return 0
+    else
+        return 1
+    fi
+}
+
+brew_prefix="$(brew --prefix)"
+mkdir -p $destination_dir/bin
+
+# Copy sgl to the destination directory.
+if [ $debug = true ] ; then
+    cp "./third_party/sgl/install/lib/libsgld.dylib" "$destination_dir/bin"
+else
+    cp "./third_party/sgl/install/lib/libsgl.dylib" "$destination_dir/bin"
+fi
+
+# Copy LineVis to the destination directory.
+cp "$build_dir/LineVis" "$destination_dir/bin"
+cp "README.md" "$destination_dir"
+
+# Copy all dependencies of LineVis to the destination directory.
+copy_dependencies_recursive() {
+    binary_path="$1"
+    otool_output="$(otool -L "$binary_path")"
+    otool_output=${otool_output#*$'\n'}
+    while read -r line
+    do
+        stringarray=($line)
+        library=${stringarray[0]}
+        library_name=$(basename "$library")
+        library_target_path="$destination_dir/bin/$library_name"
+        if ! startswith "$library" "@rpath/" \
+            && ! startswith "$library" "/System/Library/Frameworks/" \
+            && ! startswith "$library" "/usr/lib/" \
+            && [ ! -f "$library_target_path" ];
+        then
+            cp "$library" "$destination_dir/bin"
+            copy_dependencies_recursive "$library"
+        fi
+    done < <(echo "$otool_output")
+}
+copy_dependencies_recursive "$destination_dir/bin/LineVis"
+if [ $debug = true ] ; then
+    copy_dependencies_recursive "./third_party/sgl/install/lib/libsgld.dylib"
+else
+    copy_dependencies_recursive "./third_party/sgl/install/lib/libsgl.dylib"
+fi
+
+# Copy python3 to the destination directory.
+if [ ! -d "$destination_dir/bin/python3" ]; then
+    mkdir -p "$destination_dir/bin/python3/lib"
+    rsync -a "$brew_prefix/lib/$Python3_VERSION" "$destination_dir/bin/python3/lib"
+    #rsync -a "$(eval echo "$brew_prefix/lib/python*")" $destination_dir/python3/lib
+fi
+if [ ! -d "$destination_dir/LICENSE" ]; then
+    mkdir -p "$destination_dir/LICENSE"
+    cp -r "docs/license-libraries/." "$destination_dir/LICENSE/"
+    cp -r "LICENSE" "$destination_dir/LICENSE/LICENSE-linevis.txt"
+    cp -r "submodules/IsosurfaceCpp/LICENSE" "$destination_dir/LICENSE/graphics/LICENSE-isosurfacecpp.txt"
+fi
+if [ ! -d "$destination_dir/docs" ]; then
+    cp -r "docs" "$destination_dir"
+fi
+
+# Create a run script.
+printf "#!/bin/sh\npushd bin >/dev/null\n./LineVis\npopd\n" > "$destination_dir/run.sh"
+
+echo ""
+echo "All done!"
+
+
+pushd $build_dir >/dev/null
+
 
 if [ -z "${DYLD_LIBRARY_PATH+x}" ]; then
     export DYLD_LIBRARY_PATH="${PROJECTPATH}/third_party/sgl/install/lib"
