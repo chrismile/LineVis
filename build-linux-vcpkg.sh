@@ -2,7 +2,7 @@
 
 # BSD 2-Clause License
 #
-# Copyright (c) 2021, Felix Brendel, Christoph Neuhauser
+# Copyright (c) 2021-2022, Christoph Neuhauser, Felix Brendel
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
