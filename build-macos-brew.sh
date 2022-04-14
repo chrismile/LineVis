@@ -294,6 +294,8 @@ cp "README.md" "$destination_dir"
 # Copy all dependencies of LineVis and sgl to the destination directory.
 copy_dependencies_recursive() {
     binary_path="$1"
+    binary_name=$(basename "$library")
+    binary_target_path="$destination_dir/bin/$binary_name"
     otool_output="$(otool -L "$binary_path")"
     otool_output=${otool_output#*$'\n'}
     while read -r line
@@ -305,11 +307,13 @@ copy_dependencies_recursive() {
         if ! startswith "$library" "@rpath/" \
             && ! startswith "$library" "@loader_path/" \
             && ! startswith "$library" "/System/Library/Frameworks/" \
-            && ! startswith "$library" "/usr/lib/" \
-            && [ ! -f "$library_target_path" ];
+            && ! startswith "$library" "/usr/lib/"
         then
-            cp "$library" "$destination_dir/bin"
-            copy_dependencies_recursive "$library"
+            install_name_tool -change "$library" "@executable_path/$library_name" "$binary_target_path"
+            if [ ! -f "$library_target_path" ]; then
+                cp "$library" "$destination_dir/bin"
+                copy_dependencies_recursive "$library"
+            fi
         fi
     done < <(echo "$otool_output")
 }
