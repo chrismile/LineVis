@@ -269,7 +269,7 @@ contains() {
 startswith() {
     string="$1"
     prefix="$2"
-    if test "${string#$substring}" != "$string"
+    if test "${string#$prefix}" != "$string"
     then
         return 0
     else
