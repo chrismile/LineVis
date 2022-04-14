@@ -269,7 +269,7 @@ contains() {
 startswith() {
     string="$1"
     prefix="$2"
-    if test "${string#*$substring}" != "$string"
+    if test "${string#$substring}" != "$string"
     then
         return 0
     else
@@ -279,17 +279,6 @@ startswith() {
 
 brew_prefix="$(brew --prefix)"
 mkdir -p $destination_dir/bin
-
-# Copy sgl to the destination directory.
-if [ $debug = true ] ; then
-    cp "./third_party/sgl/install/lib/libsgld.dylib" "$destination_dir/bin"
-else
-    cp "./third_party/sgl/install/lib/libsgl.dylib" "$destination_dir/bin"
-fi
-
-# Copy LineVis to the destination directory.
-cp "$build_dir/LineVis" "$destination_dir/bin"
-cp "README.md" "$destination_dir"
 
 # Copy all dependencies of LineVis to the destination directory.
 copy_dependencies_recursive() {
@@ -325,6 +314,7 @@ if [ ! -d "$destination_dir/bin/python3" ]; then
     rsync -a "$brew_prefix/lib/$Python3_VERSION" "$destination_dir/bin/python3/lib"
     #rsync -a "$(eval echo "$brew_prefix/lib/python*")" $destination_dir/python3/lib
 fi
+cp "README.md" "$destination_dir"
 if [ ! -d "$destination_dir/LICENSE" ]; then
     mkdir -p "$destination_dir/LICENSE"
     cp -r "docs/license-libraries/." "$destination_dir/LICENSE/"
