@@ -280,7 +280,18 @@ startswith() {
 brew_prefix="$(brew --prefix)"
 mkdir -p $destination_dir/bin
 
-# Copy all dependencies of LineVis to the destination directory.
+# Copy sgl to the destination directory.
+if [ $debug = true ] ; then
+    cp "./third_party/sgl/install/lib/libsgld.dylib" "$destination_dir/bin"
+else
+    cp "./third_party/sgl/install/lib/libsgl.dylib" "$destination_dir/bin"
+fi
+
+# Copy LineVis to the destination directory.
+cp "$build_dir/LineVis" "$destination_dir/bin"
+cp "README.md" "$destination_dir"
+
+# Copy all dependencies of LineVis and sgl to the destination directory.
 copy_dependencies_recursive() {
     binary_path="$1"
     otool_output="$(otool -L "$binary_path")"
@@ -292,6 +303,7 @@ copy_dependencies_recursive() {
         library_name=$(basename "$library")
         library_target_path="$destination_dir/bin/$library_name"
         if ! startswith "$library" "@rpath/" \
+            && ! startswith "$library" "@loader_path/" \
             && ! startswith "$library" "/System/Library/Frameworks/" \
             && ! startswith "$library" "/usr/lib/" \
             && [ ! -f "$library_target_path" ];
@@ -301,7 +313,7 @@ copy_dependencies_recursive() {
         fi
     done < <(echo "$otool_output")
 }
-copy_dependencies_recursive "$destination_dir/bin/LineVis"
+copy_dependencies_recursive "$build_dir/LineVis"
 if [ $debug = true ] ; then
     copy_dependencies_recursive "./third_party/sgl/install/lib/libsgld.dylib"
 else
@@ -327,6 +339,7 @@ fi
 
 # Create a run script.
 printf "#!/bin/sh\npushd bin >/dev/null\n./LineVis\npopd\n" > "$destination_dir/run.sh"
+chmod +x "$destination_dir/run.sh"
 
 echo ""
 echo "All done!"
