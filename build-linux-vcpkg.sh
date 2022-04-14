@@ -216,12 +216,12 @@ mkdir -p $build_dir
 echo "------------------------"
 echo "      generating        "
 echo "------------------------"
-Python3_VERSION=$(cat $build_dir/pythonversion.txt)
 pushd $build_dir >/dev/null
 cmake -DCMAKE_TOOLCHAIN_FILE="$PROJECTPATH/third_party/vcpkg/scripts/buildsystems/vcpkg.cmake" \
       -DPYTHONHOME="./python3" \
       -DCMAKE_BUILD_TYPE=$cmake_config \
       -Dsgl_DIR="$PROJECTPATH/third_party/sgl/install/lib/cmake/sgl/" ..
+Python3_VERSION=$(cat $build_dir/pythonversion.txt)
 popd >/dev/null
 
 echo "------------------------"

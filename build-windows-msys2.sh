@@ -180,8 +180,6 @@ ls "$build_dir"
 echo "------------------------"
 echo "      generating        "
 echo "------------------------"
-#Python3_VERSION="$(find "$MSYSTEM_PREFIX/lib/" -maxdepth 1 -type d -name 'python*' -printf "%f" -quit)"
-Python3_VERSION=$(cat $build_dir/pythonversion.txt)
 pushd $build_dir >/dev/null
 cmake .. \
     -G "MSYS Makefiles" \
@@ -190,6 +188,8 @@ cmake .. \
     -Dsgl_DIR="$PROJECTPATH/third_party/sgl/install/lib/cmake/sgl/" \
     -DPYTHONHOME="./python3" \
     -DPYTHONPATH="./python3/lib/$Python3_VERSION"
+Python3_VERSION=$(cat $build_dir/pythonversion.txt)
+#Python3_VERSION="$(find "$MSYSTEM_PREFIX/lib/" -maxdepth 1 -type d -name 'python*' -printf "%f" -quit)"
 popd >/dev/null
 
 echo "------------------------"

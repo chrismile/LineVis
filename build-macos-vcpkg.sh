@@ -198,6 +198,7 @@ cmake -DCMAKE_TOOLCHAIN_FILE="$PROJECTPATH/third_party/vcpkg/scripts/buildsystem
       -DPYTHONHOME="./python3" \
       -DCMAKE_BUILD_TYPE=$cmake_config \
       -Dsgl_DIR="$PROJECTPATH/third_party/sgl/install/lib/cmake/sgl/" ..
+Python3_VERSION=$(cat $build_dir/pythonversion.txt)
 popd >/dev/null
 
 echo "------------------------"
@@ -213,7 +214,6 @@ echo "------------------------"
 [ -d $destination_dir/python3 ]     || mkdir $destination_dir/python3
 [ -d $destination_dir/python3/lib ] || mkdir $destination_dir/python3/lib
 
-Python3_VERSION=$(cat $build_dir/pythonversion.txt)
 rsync -a "vcpkg_installed/$(ls vcpkg_installed | grep -Ewv 'vcpkg')/lib/$Python3_VERSION" $destination_dir/python3/lib
 #rsync -a "$(eval echo "vcpkg_installed/$(ls vcpkg_installed | grep -Ewv 'vcpkg')/lib/python*")" $destination_dir/python3/lib
 rsync -a $build_dir/LineVis $destination_dir
