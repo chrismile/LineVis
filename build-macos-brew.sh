@@ -313,10 +313,38 @@ copy_dependencies_recursive() {
             && ! startswith "$library" "/usr/lib/"
         then
             install_name_tool -change "$library" "@executable_path/$library_name" "$binary_target_path"
+
             if [ ! -f "$library_target_path" ]; then
                 cp "$library" "$destination_dir/bin"
                 copy_dependencies_recursive "$library"
             fi
+        elif startswith "$library" "@rpath/"; then
+            install_name_tool -change "$library" "@executable_path/$library_name" "$binary_target_path"
+
+            local rpath_entries=()
+            local rpath_grep_string="$(otool -l "$binary_target_path" | grep RPATH -A2)"
+            local counter=0
+            while read -r grep_rpath_line
+            do
+                if [ $(( counter % 4 )) -eq 2 ]; then
+                    local stringarray_grep_rpath_line=($grep_rpath_line)
+                    local rpath=${stringarray[1]}
+                    rpath_entries+=("$rpath")
+                fi
+                counter=$((counter + 1))
+            done < <(echo "$rpath_grep_string")
+
+            for rpath in $rpath_entries
+            do
+                local library_rpath="${rpath}${library#"@rpath"}"
+                if [ -f "$library_rpath" ]; then
+                    if [ ! -f "$library_target_path" ]; then
+                        cp "$library_rpath" "$destination_dir/bin"
+                        copy_dependencies_recursive "$library_rpath"
+                    fi
+                    break
+                fi
+            done
         fi
     done < <(echo "$otool_output")
 }
