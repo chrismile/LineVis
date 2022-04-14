@@ -292,6 +292,7 @@ cp "$build_dir/LineVis" "$destination_dir/bin"
 cp "README.md" "$destination_dir"
 
 # Copy all dependencies of LineVis and sgl to the destination directory.
+rsync -a "$VULKAN_SDK/lib/libMoltenVK.dylib" "$destination_dir/bin"
 copy_dependencies_recursive() {
     local binary_path="$1"
     local binary_name=$(basename "$binary_path")
@@ -364,6 +365,8 @@ if [ ! -d "$destination_dir/bin/python3" ]; then
     rsync -a "$brew_prefix/lib/$Python3_VERSION" "$destination_dir/bin/python3/lib"
     #rsync -a "$(eval echo "$brew_prefix/lib/python*")" $destination_dir/python3/lib
 fi
+
+# Copy the docs to the destination directory.
 cp "README.md" "$destination_dir"
 if [ ! -d "$destination_dir/LICENSE" ]; then
     mkdir -p "$destination_dir/LICENSE"
@@ -384,7 +387,6 @@ echo "All done!"
 
 
 pushd $build_dir >/dev/null
-
 
 if [ -z "${DYLD_LIBRARY_PATH+x}" ]; then
     export DYLD_LIBRARY_PATH="${PROJECTPATH}/third_party/sgl/install/lib"
