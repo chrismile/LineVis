@@ -297,7 +297,7 @@ copy_dependencies_recursive() {
     local binary_name=$(basename "$binary_path")
     local binary_target_path="$destination_dir/bin/$binary_name"
     if contains "$(file "$binary_target_path")" "dynamically linked shared library"; then
-        install_name_tool -id "@executable_path/$binary_name" "$binary_target_path"
+        install_name_tool -id "@executable_path/$binary_name" "$binary_target_path" &> /dev/null
     fi
     local otool_output="$(otool -L "$binary_path")"
     local otool_output=${otool_output#*$'\n'}
@@ -319,41 +319,44 @@ copy_dependencies_recursive() {
                 copy_dependencies_recursive "$library"
             fi
         elif startswith "$library" "@rpath/"; then
-            install_name_tool -change "$library" "@executable_path/$library_name" "$binary_target_path"
+            install_name_tool -change "$library" "@executable_path/$library_name" "$binary_target_path" &> /dev/null
 
-            local rpath_entries=()
             local rpath_grep_string="$(otool -l "$binary_target_path" | grep RPATH -A2)"
             local counter=0
             while read -r grep_rpath_line
             do
                 if [ $(( counter % 4 )) -eq 2 ]; then
                     local stringarray_grep_rpath_line=($grep_rpath_line)
-                    local rpath=${stringarray[1]}
-                    rpath_entries+=("$rpath")
+                    local rpath=${stringarray_grep_rpath_line[1]}
+                    local library_rpath="${rpath}${library#"@rpath"}"
+
+                    if [ -f "$library_rpath" ]; then
+                        if [ ! -f "$library_target_path" ]; then
+                            cp "$library_rpath" "$destination_dir/bin"
+                            copy_dependencies_recursive "$library_rpath"
+                        fi
+                        break
+                    fi
                 fi
                 counter=$((counter + 1))
             done < <(echo "$rpath_grep_string")
-
-            for rpath in $rpath_entries
-            do
-                local library_rpath="${rpath}${library#"@rpath"}"
-                if [ -f "$library_rpath" ]; then
-                    if [ ! -f "$library_target_path" ]; then
-                        cp "$library_rpath" "$destination_dir/bin"
-                        copy_dependencies_recursive "$library_rpath"
-                    fi
-                    break
-                fi
-            done
         fi
     done < <(echo "$otool_output")
 }
 copy_dependencies_recursive "$build_dir/LineVis"
-if [ $debug = true ] ; then
+if [ $debug = true ]; then
     copy_dependencies_recursive "./third_party/sgl/install/lib/libsgld.dylib"
 else
     copy_dependencies_recursive "./third_party/sgl/install/lib/libsgl.dylib"
 fi
+
+# Fix code signing for arm64.
+for filename in $destination_dir/bin/*
+do
+    if contains "$(file "$filename")" "arm64"; then
+        codesign --force -s - "$filename" &> /dev/null
+    fi
+done
 
 # Copy python3 to the destination directory.
 if [ ! -d "$destination_dir/bin/python3" ]; then
