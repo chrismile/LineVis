@@ -114,8 +114,8 @@ if command -v brew &> /dev/null; then
     if ! is_installed_brew "cppzmq"; then
         brew install cppzmq
     fi
-    if ! is_installed_brew "python@3.9"; then
-        brew install python@3.9
+    if ! is_installed_brew "python@3.10"; then
+        brew install python@3.10
     fi
 fi
 

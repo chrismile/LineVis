@@ -77,7 +77,7 @@ if (USE_PYTHON)
 endif()
 
 if (Python3_FOUND AND USE_PYTHON)
-    MESSAGE(STATUS "Found Python 3. Enabling replay script support.")
+    MESSAGE(STATUS "Found Python ${Python3_VERSION}. Enabling replay script support.")
 else()
     list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Widgets/ReplayWidget.cpp)
     MESSAGE(STATUS "Python 3 couldn't be found. Switching off replay script support.")
