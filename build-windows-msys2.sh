@@ -180,7 +180,8 @@ ls "$build_dir"
 echo "------------------------"
 echo "      generating        "
 echo "------------------------"
-python_name="$(find "$MSYSTEM_PREFIX/lib/" -maxdepth 1 -type d -name 'python*' -printf "%f" -quit)"
+#Python3_VERSION="$(find "$MSYSTEM_PREFIX/lib/" -maxdepth 1 -type d -name 'python*' -printf "%f" -quit)"
+Python3_VERSION=$(cat $build_dir/pythonversion.txt)
 pushd $build_dir >/dev/null
 cmake .. \
     -G "MSYS Makefiles" \
@@ -188,7 +189,7 @@ cmake .. \
     -DCMAKE_BUILD_TYPE=$cmake_config \
     -Dsgl_DIR="$PROJECTPATH/third_party/sgl/install/lib/cmake/sgl/" \
     -DPYTHONHOME="./python3" \
-    -DPYTHONPATH="./python3/lib/$python_name"
+    -DPYTHONPATH="./python3/lib/$Python3_VERSION"
 popd >/dev/null
 
 echo "------------------------"
@@ -228,7 +229,7 @@ do
     if [[ $library == libpython* ]] ;
     then
 	    tmp=${library#*lib}
-	    python_name=${tmp%.dll}
+	    Python3_VERSION=${tmp%.dll}
     fi
 done
 
@@ -246,7 +247,7 @@ done
 # Copy python3 to the destination directory.
 if [ ! -d "$destination_dir/bin/python3" ]; then
     mkdir -p "$destination_dir/bin/python3/lib"
-    cp -r "$MSYSTEM_PREFIX/lib/$python_name" "$destination_dir/bin/python3/lib"
+    cp -r "$MSYSTEM_PREFIX/lib/$Python3_VERSION" "$destination_dir/bin/python3/lib"
 fi
 if [ ! -d "$destination_dir/LICENSE" ]; then
     mkdir -p "$destination_dir/LICENSE"
@@ -260,8 +261,6 @@ fi
 
 # Create a run script.
 printf "@echo off\npushd %%~dp0\npushd bin\nstart \"\" LineVis.exe\n" > "$destination_dir/run.bat"
-
-
 
 
 # Run the program as the last step.

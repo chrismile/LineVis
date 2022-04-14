@@ -236,7 +236,9 @@ echo "------------------------"
 [ -d $destination_dir/python3 ]     || mkdir $destination_dir/python3
 [ -d $destination_dir/python3/lib ] || mkdir $destination_dir/python3/lib
 
-rsync -a "$(eval echo "vcpkg_installed/$(ls --ignore=vcpkg vcpkg_installed)/lib/python*")" $destination_dir/python3/lib
+Python3_VERSION=$(cat $build_dir/pythonversion.txt)
+rsync -a "vcpkg_installed/$(ls --ignore=vcpkg vcpkg_installed)/lib/$Python3_VERSION" $destination_dir/python3/lib
+#rsync -a "$(eval echo "vcpkg_installed/$(ls --ignore=vcpkg vcpkg_installed)/lib/python*")" $destination_dir/python3/lib
 rsync -a $build_dir/LineVis $destination_dir
 
 echo ""
