@@ -172,9 +172,9 @@ private:
     bool useAmbientOcclusion = false;
     AmbientOcclusionBakerPtr ambientOcclusionBaker;
 
-    VulkanTubeTriangleRenderData tubeTriangleRenderData;
-    VulkanTubeAabbRenderData tubeAabbRenderData;
-    VulkanHullTriangleRenderData hullTriangleRenderData;
+    TubeTriangleRenderData tubeTriangleRenderData;
+    TubeAabbRenderData tubeAabbRenderData;
+    HullTriangleRenderData hullTriangleRenderData;
     sgl::vk::TopLevelAccelerationStructurePtr topLevelAS;
 
     // Uniform buffer object storing the line rendering settings.

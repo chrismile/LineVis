@@ -186,7 +186,7 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewD
     gatherPpllFinalPass->setOpacityOptimizationLineDataBuffers(buffers);
 
     if (lineData->getUseBandRendering()) {
-        BandRenderData tubeRenderData = lineData->getBandRenderData();
+        LinePassQuadsRenderData tubeRenderData = lineData->getLinePassQuadsRenderData();
         buffers.indexBuffer = tubeRenderData.indexBuffer;
         buffers.vertexPositionBuffer = tubeRenderData.vertexPositionBuffer;
         buffers.vertexAttributeBuffer = tubeRenderData.vertexAttributeBuffer;
@@ -889,8 +889,8 @@ void PpllOpacitiesLineRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipel
             "vertexLineSegmentId", sizeof(uint32_t));
 
     lineRenderer->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
-    if ((lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TRIANGLE_MESH && lineData->getUseCappedTubes())
-        || (lineRenderer->getIsTransparencyUsed() && lineData->getLinePrimitiveMode() != LineData::LINE_PRIMITIVES_BAND)) {
+    if ((lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TUBE_TRIANGLE_MESH && lineData->getUseCappedTubes())
+        || (lineRenderer->getIsTransparencyUsed() && lineData->getLinePrimitiveMode() != LineData::LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER)) {
         pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
     } else {
         pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
@@ -968,8 +968,8 @@ void PpllFinalLineRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineI
     pipelineInfo.setVertexBufferBindingByLocationIndex("vertexOpacity", sizeof(float));
 
     lineRenderer->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
-    if ((lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TRIANGLE_MESH && lineData->getUseCappedTubes())
-        || (lineRenderer->getIsTransparencyUsed() && lineData->getLinePrimitiveMode() != LineData::LINE_PRIMITIVES_BAND)) {
+    if ((lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TUBE_TRIANGLE_MESH && lineData->getUseCappedTubes())
+        || (lineRenderer->getIsTransparencyUsed() && lineData->getLinePrimitiveMode() != LineData::LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER)) {
         pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
     } else {
         pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);

@@ -134,7 +134,7 @@ MainApp::MainApp()
 
     if (LineData::getLinePrimitiveModeUsesGeometryShader(LineData::getLinePrimitiveMode())
             && !device->getPhysicalDeviceFeatures().geometryShader) {
-        LineData::setLinePrimitiveMode(LineData::LINE_PRIMITIVES_RIBBON_PROGRAMMABLE_FETCH);
+        LineData::setLinePrimitiveMode(LineData::LINE_PRIMITIVES_QUADS_PROGRAMMABLE_PULL);
     }
 
 #ifdef USE_PYTHON

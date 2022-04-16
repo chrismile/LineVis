@@ -1,8 +1,8 @@
 // Binding 0-7 is reserved for the individual rendering modes.
 #define LINE_UNIFORM_DATA_BUFFER_BINDING 8
 #define SPECIALIZATION_LINE_UNIFORM_DATA_BUFFER_BINDING 9
-#define LINE_POINTS_BUFFER_BINDING 10 // for GeometryPassNormal.glsl
-#define LINE_HIERARCHY_LEVELS_BUFFER_BINDING 11 // for GeometryPassNormal.glsl
+#define LINE_POINTS_BUFFER_BINDING 10 // for programmable pull & mesh shader passes
+#define LINE_HIERARCHY_LEVELS_BUFFER_BINDING 11 // for programmable pull & mesh shader passes
 #define DEPTH_MIN_MAX_BUFFER_BINDING 12
 #define AMBIENT_OCCLUSION_TEXTURE_BINDING 13 // for AmbientOcclusion.glsl
 #define AMBIENT_OCCLUSION_FACTORS_BUFFER_BINDING 13 // for AmbientOcclusion.glsl
@@ -10,6 +10,9 @@
 #define MIN_MAX_BUFFER_BINDING 15 // for TransferFunction.glsl
 #define TRANSFER_FUNCTION_TEXTURE_BINDING 16 // for TransferFunction.glsl
 #define LINE_HIERARCHY_IMPORTANCE_MAP_BINDING 17
+#define STRESS_LINE_POINTS_BUFFER_BINDING LINE_HIERARCHY_LEVELS_BUFFER_BINDING // for programmable pull & mesh shader passes
+#define STRESS_LINE_POINTS_PRINCIPAL_STRESS_BUFFER_BINDING 18 // for programmable pull & mesh shader passes
+#define MESHLET_INPUT_DATA_BUFFER_BINDING 19 // for programmable pull & mesh shader passes
 
 layout(binding = LINE_UNIFORM_DATA_BUFFER_BINDING) uniform LineUniformDataBuffer {
     // Camera data.

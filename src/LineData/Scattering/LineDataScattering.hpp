@@ -101,9 +101,9 @@ public:
 
     // --- Retrieve data for rendering for Vulkan. ---
     VulkanLineDataScatteringRenderData getVulkanLineDataScatteringRenderData();
-    VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
-    VulkanTubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) override;
-    VulkanHullTriangleRenderData getVulkanHullTriangleRenderData(bool raytracing) override;
+    TubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
+    TubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) override;
+    HullTriangleRenderData getVulkanHullTriangleRenderData(bool raytracing) override;
 
 protected:
     void recomputeHistogram() override;

@@ -146,7 +146,7 @@ private:
 
     bool changedDenoiserSettings = false;
 
-    VulkanTubeTriangleRenderData tubeTriangleRenderData;
+    TubeTriangleRenderData tubeTriangleRenderData;
     sgl::vk::TopLevelAccelerationStructurePtr topLevelAS;
 
     sgl::vk::BlitRenderPassPtr blitResultRenderPass;

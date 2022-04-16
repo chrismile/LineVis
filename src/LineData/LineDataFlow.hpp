@@ -76,14 +76,16 @@ public:
     void setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) override;
 
     // --- Retrieve data for rendering. ---
-    TubeRenderData getTubeRenderData() override;
-    TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch() override;
+    LinePassTubeRenderData getLinePassTubeRenderData() override;
+    LinePassQuadsRenderDataProgrammablePull getLinePassQuadsRenderDataProgrammablePull() override;
     TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization() override;
-    BandRenderData getBandRenderData() override;
+    LinePassTubeRenderDataMeshShader getLinePassTubeRenderDataMeshShader() override;
+    LinePassTubeRenderDataProgrammablePull getLinePassTubeRenderDataProgrammablePull() override;
+    LinePassQuadsRenderData getLinePassQuadsRenderData() override;
 
     // --- Retrieve data for rendering for Vulkan. ---
-    VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
-    VulkanTubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) override;
+    TubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
+    TubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) override;
     void getVulkanShaderPreprocessorDefines(
             std::map<std::string, std::string>& preprocessorDefines, bool isRasterizer) override;
 

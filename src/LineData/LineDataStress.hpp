@@ -101,15 +101,17 @@ public:
     void setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) override;
 
     // --- Retrieve data for rendering. ---
-    TubeRenderData getTubeRenderData() override;
-    TubeRenderDataProgrammableFetch getTubeRenderDataProgrammableFetch() override;
+    LinePassTubeRenderData getLinePassTubeRenderData() override;
+    LinePassQuadsRenderDataProgrammablePull getLinePassQuadsRenderDataProgrammablePull() override;
     TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization() override;
     PointRenderData getDegeneratePointsRenderData();
-    BandRenderData getBandRenderData() override;
+    LinePassTubeRenderDataMeshShader getLinePassTubeRenderDataMeshShader() override;
+    LinePassTubeRenderDataProgrammablePull getLinePassTubeRenderDataProgrammablePull() override;
+    LinePassQuadsRenderData getLinePassQuadsRenderData() override;
 
     // --- Retrieve data for rendering for Vulkan. ---
-    VulkanTubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
-    VulkanTubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) override;
+    TubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
+    TubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) override;
     void getVulkanShaderPreprocessorDefines(
             std::map<std::string, std::string>& preprocessorDefines, bool isRasterizer) override;
     void setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData) override;
@@ -215,9 +217,6 @@ private:
     bool shallRenderSeedingProcess = false;
     int currentSeedIdx = 0;
     std::vector<glm::vec3> seedPoints;
-
-    /// Stores line point data if useProgrammableFetch is true.
-    sgl::vk::BufferPtr lineHierarchyLevelsSSBO;
 
     // Color legend widgets for different principal stress directions.
     StressLineHierarchyMappingWidget stressLineHierarchyMappingWidget;

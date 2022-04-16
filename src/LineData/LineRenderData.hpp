@@ -43,7 +43,37 @@ typedef std::shared_ptr<Buffer> BufferPtr;
 
 }
 
-struct TubeRenderData {
+// --- For quads ---
+struct LinePassQuadsRenderData {
+    sgl::vk::BufferPtr indexBuffer;
+    sgl::vk::BufferPtr vertexPositionBuffer;
+    sgl::vk::BufferPtr vertexAttributeBuffer;
+    sgl::vk::BufferPtr vertexNormalBuffer;
+    sgl::vk::BufferPtr vertexTangentBuffer;
+    sgl::vk::BufferPtr vertexOffsetLeftBuffer;
+    sgl::vk::BufferPtr vertexOffsetRightBuffer;
+    sgl::vk::BufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
+    sgl::vk::BufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
+    sgl::vk::BufferPtr vertexLineAppearanceOrderBuffer; ///< Empty for flow lines.
+};
+
+struct LinePassQuadsLinePointDataProgrammablePull {
+    glm::vec3 vertexPosition;
+    float vertexAttribute;
+    glm::vec3 vertexTangent;
+    uint32_t principalStressIndex; ///< Padding in case of flow lines.
+};
+
+struct LinePassQuadsRenderDataProgrammablePull {
+    sgl::vk::BufferPtr indexBuffer;
+    sgl::vk::BufferPtr linePointsBuffer;
+    sgl::vk::BufferPtr lineHierarchyLevelsBuffer; ///< Empty for flow lines.
+};
+
+
+// --- For tubes rendered from line input data.
+/// For geometry shader.
+struct LinePassTubeRenderData {
     sgl::vk::BufferPtr indexBuffer;
     sgl::vk::BufferPtr vertexPositionBuffer;
     sgl::vk::BufferPtr vertexAttributeBuffer;
@@ -58,33 +88,54 @@ struct TubeRenderData {
     sgl::vk::BufferPtr vertexMinorStressBuffer; ///< Only for stress lines.
 };
 
-struct BandRenderData {
-    sgl::vk::BufferPtr indexBuffer;
-    sgl::vk::BufferPtr vertexPositionBuffer;
-    sgl::vk::BufferPtr vertexAttributeBuffer;
-    sgl::vk::BufferPtr vertexNormalBuffer;
-    sgl::vk::BufferPtr vertexTangentBuffer;
-    sgl::vk::BufferPtr vertexOffsetLeftBuffer;
-    sgl::vk::BufferPtr vertexOffsetRightBuffer;
-    sgl::vk::BufferPtr vertexPrincipalStressIndexBuffer; ///< Empty for flow lines.
-    sgl::vk::BufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
-    sgl::vk::BufferPtr vertexLineAppearanceOrderBuffer; ///< Empty for flow lines.
-};
-
-/// For internal use of subclasses.
-struct LinePointDataProgrammableFetch {
+/// For mesh shaders and programmable pull.
+struct LinePointDataUnified {
     glm::vec3 vertexPosition;
     float vertexAttribute;
     glm::vec3 vertexTangent;
-    uint32_t principalStressIndex; ///< Padding in case of flow lines.
+    float vertexRotation = 0.0f;
+    glm::vec3 vertexNormal;
+    float paddingLinePointData = 0.0f;
 };
 
-struct TubeRenderDataProgrammableFetch {
+struct StressLinePointDataUnified {
+    uint vertexPrincipalStressIndex;
+    uint vertexLineAppearanceOrder;
+    float vertexLineHierarchyLevel;
+    float stressLinePointPadding;
+};
+
+struct StressLinePointPrincipalStressDataUnified {
+    float vertexMajorStress;
+    float vertexMediumStress;
+    float vertexMinorStress;
+    float principalStressPadding;
+};
+
+struct MeshletData {
+    uint32_t linePointIndexStart;
+    uint32_t numLinePoints;
+    uint32_t padding0 = 0, padding1 = 0;
+};
+
+struct LinePassTubeRenderDataMeshShader {
+    uint32_t numMeshlets = 0;
+    sgl::vk::BufferPtr meshletDataBuffer;
+    sgl::vk::BufferPtr linePointDataBuffer;
+    sgl::vk::BufferPtr stressLinePointDataBuffer;
+    sgl::vk::BufferPtr stressLinePointPrincipalStressDataBuffer;
+};
+
+struct LinePassTubeRenderDataProgrammablePull {
     sgl::vk::BufferPtr indexBuffer;
-    sgl::vk::BufferPtr linePointsBuffer;
-    sgl::vk::BufferPtr lineHierarchyLevelsBuffer; ///< Empty for flow lines.
+    sgl::vk::BufferPtr linePointDataBuffer;
+    sgl::vk::BufferPtr stressLinePointDataBuffer;
+    sgl::vk::BufferPtr stressLinePointPrincipalStressDataBuffer;
 };
 
+
+
+// --- Reduced data for opacity optimization ---
 struct TubeRenderDataOpacityOptimization {
     sgl::vk::BufferPtr indexBuffer;
     sgl::vk::BufferPtr vertexPositionBuffer;
@@ -94,16 +145,22 @@ struct TubeRenderDataOpacityOptimization {
     sgl::vk::BufferPtr vertexLineHierarchyLevelBuffer; ///< Empty for flow lines.
 };
 
+
+// --- For point data ---
 struct PointRenderData {
     sgl::vk::BufferPtr vertexPositionBuffer;
 };
 
+
+// --- For simulation outline triangle mesh ---
 struct SimulationMeshOutlineRenderData {
     sgl::vk::BufferPtr indexBuffer;
     sgl::vk::BufferPtr vertexPositionBuffer;
     sgl::vk::BufferPtr vertexNormalBuffer;
 };
 
+
+// --- For hardware-accelerated ray tracing ---
 struct TubeTriangleVertexData {
     glm::vec3 vertexPosition;
     uint32_t vertexLinePointIndex; ///< Pointer to TubeLinePointData entry.
@@ -137,17 +194,17 @@ struct HullTriangleVertexData {
     float padding1;
 };
 
-struct VulkanTubeTriangleRenderData {
+struct TubeTriangleRenderData {
     sgl::vk::BufferPtr indexBuffer;
     sgl::vk::BufferPtr vertexBuffer; // TubeTriangleVertexData objects.
     sgl::vk::BufferPtr linePointBuffer; // TubeLinePointData objects.
 };
-struct VulkanTubeAabbRenderData {
+struct TubeAabbRenderData {
     sgl::vk::BufferPtr indexBuffer; // Two consecutive uint32_t indices map one AABB to two TubeLinePointData objects.
     sgl::vk::BufferPtr aabbBuffer; // VkAabbPositionsKHR objects.
     sgl::vk::BufferPtr linePointBuffer; // TubeLinePointData objects.
 };
-struct VulkanHullTriangleRenderData {
+struct HullTriangleRenderData {
     sgl::vk::BufferPtr indexBuffer;
     sgl::vk::BufferPtr vertexBuffer; // HullTriangleVertexData objects.
 };

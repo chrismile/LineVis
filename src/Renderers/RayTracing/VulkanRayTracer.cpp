@@ -221,7 +221,7 @@ void RayTracingRenderPass::setOutputImage(sgl::vk::ImageViewPtr& imageView) {
 void RayTracingRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
     this->lineData = lineData;
     if (useAnalyticIntersections) {
-        tubeTriangleRenderData = VulkanTubeTriangleRenderData();
+        tubeTriangleRenderData = TubeTriangleRenderData();
         tubeAabbRenderData = lineData->getVulkanTubeAabbRenderData(vulkanRayTracer);
         if (lineData->getShallRenderSimulationMeshBoundary()) {
             topLevelAS = lineData->getRayTracingTubeAabbAndHullTopLevelAS(vulkanRayTracer);
@@ -230,7 +230,7 @@ void RayTracingRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
         }
     } else {
         tubeTriangleRenderData = lineData->getVulkanTubeTriangleRenderData(vulkanRayTracer, true);
-        tubeAabbRenderData = VulkanTubeAabbRenderData();
+        tubeAabbRenderData = TubeAabbRenderData();
         if (lineData->getShallRenderSimulationMeshBoundary()) {
             topLevelAS = lineData->getRayTracingTubeTriangleAndHullTopLevelAS(vulkanRayTracer);
         } else {
