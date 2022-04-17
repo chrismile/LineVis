@@ -46,11 +46,12 @@ layout(location = 13) out float thickness;
 layout(location = 14) out vec3 lineNormal;
 layout(location = 15) out vec3 linePosition;
 #endif
-#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
-layout(location = 16) out float phi;
-#endif
 #ifdef USE_ROTATING_HELICITY_BANDS
-layout(location = 17) out float fragmentRotation;
+layout(location = 16) out float fragmentRotation;
+#endif
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
+layout(location = 17) out float phi;
+layout(location = 18) flat out int interpolateWrap;
 #endif
 
 #define M_PI 3.14159265358979323846
@@ -60,20 +61,27 @@ void main() {
     uint circleIdx = gl_VertexIndex % NUM_TUBE_SUBDIVISIONS;
     LinePointData linePointData = linePoints[linePointIdx];
 
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL) || defined(VISUALIZE_SEEDING_PROCESS)
+    StressLinePointPrincipalStressData stressLinePointData = stressLinePoints[linePointIdx];
+#endif
+
+#ifdef USE_PRINCIPAL_STRESSES
+    StressLinePointPrincipalStressDataBuffer stressLinePointPrincipalStressData = principalStressLinePoints[linePointIdx];
+#endif
+
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+    uint principalStressIndex = stressLinePointData.vertexPrincipalStressIndex;
+#endif
+
 #ifdef USE_BANDS
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
-    int useBand = psUseBands[principalStressIndex];
+    useBand = psUseBands[principalStressIndex];
 #else
-    int useBand = 1;
+    useBand = 1;
 #endif
 
 #if !defined(USE_NORMAL_STRESS_RATIO_TUBES) && !defined(USE_HYPERSTREAMLINES)
-    float thickness = useBand != 0 ? MIN_THICKNESS : 1.0f;
-#else
-    float thickness0Current[NUM_TUBE_SUBDIVISIONS];
-    float thickness0Next[NUM_TUBE_SUBDIVISIONS];
-    float thickness1Current[NUM_TUBE_SUBDIVISIONS];
-    float thickness1Next[NUM_TUBE_SUBDIVISIONS];
+    thickness = useBand != 0 ? MIN_THICKNESS : 1.0f;
 #endif
 
     const float lineRadius = (useBand != 0 ? bandWidth : lineWidth) * 0.5;
@@ -82,30 +90,117 @@ void main() {
 #endif
     const mat4 pvMatrix = pMatrix * vMatrix;
 
-    vec3 linePosition = (mMatrix * vec4(linePointData.vertexPosition, 1.0)).xyz;
-    vec3 vertexBinormal = cross(linePointData.vertexTangent, linePointData.vertexNormal);
-    mat3 tangentFrameMatrix = mat3(linePointData.vertexNormal, vertexBinormal, linePointData.vertexTangent);
+    vec3 lineCenterPosition = (mMatrix * vec4(linePointData.vertexPosition, 1.0)).xyz;
+    vec3 normal = linePointData.vertexNormal;
+    vec3 tangent = linePointData.vertexTangent;
+    vec3 binormal = cross(linePointData.vertexTangent, linePointData.vertexNormal);
+    mat3 tangentFrameMatrix = mat3(normal, binormal, tangent);
 
     float t = float(circleIdx) / float(NUM_TUBE_SUBDIVISIONS) * 2.0 * M_PI;
     float cosAngle = cos(t);
     float sinAngle = sin(t);
 
 #ifdef USE_BANDS
+
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+    float stressX;
+    float stressZ;
+    if (principalStressIndex == 0) {
+        stressX = stressLinePointPrincipalStressData.vertexMediumStress;
+        stressZ = stressLinePointPrincipalStressData.vertexMinorStress;
+    } else if (principalStressIndex == 1) {
+        stressX = stressLinePointPrincipalStressData.vertexMinorStress;
+        stressZ = stressLinePointPrincipalStressData.vertexMajorStress;
+    } else {
+        stressX = stressLinePointPrincipalStressData.vertexMediumStress;
+        stressZ = stressLinePointPrincipalStressData.vertexMajorStress;
+    }
+#endif
+
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES)
+    float factorX = clamp(abs(stressX / stressZ), 0.0, 1.0f);
+    float factorZ = clamp(abs(stressZ / stressX), 0.0, 1.0f);
+    vec3 localPosition = vec3(cosAngle * factorX, sinAngle * factorZ, 0.0f);
+    vec3 localNormal = vec3(cosAngle * factorZ, sinAngle * factorX, 0.0f);
+    circlePoints = lineRadius * (tangentFrameMatrix * localPosition) + lineCenterPosition;
+    vec3 vertexNormal = normalize(tangentFrameMatrix * localNormal);
+    thickness0 = factorX;
+    thickness1 = factorZ;
+#elif defined(USE_HYPERSTREAMLINES)
+    stressX = abs(stressX);
+    stressZ = abs(stressZ);
+    vec3 localPosition = vec3(cosAngle * stressX, sinAngle * stressZ, 0.0f);
+    vec3 localNormal = vec3(cosAngle * stressZ, sinAngle * stressX, 0.0f);
+    vec3 vertexPosition = lineRadius * (tangentFrameMatrix * localPosition) + lineCenterPosition;
+    vec3 vertexNormal = normalize(tangentFrameMatrix * localNormal);
+    thickness0 = stressX;
+    thickness1 = stressZ;
+#else
     // Bands with minimum thickness.
     vec3 localPosition = vec3(thickness * cosAngle, sinAngle, 0.0f);
     vec3 localNormal = vec3(cosAngle, thickness * sinAngle, 0.0f);
-    vec3 vertexPosition = lineRadius * (tangentFrameMatrix * localPosition) + linePosition;
+    vec3 vertexPosition = lineRadius * (tangentFrameMatrix * localPosition) + lineCenterPosition;
     vec3 vertexNormal = normalize(tangentFrameMatrix * localNormal);
+    thickness = useBand != 0 ? MIN_THICKNESS : 1.0f;
+#endif
 #else
-    // Tubes with circular profile.
     vec3 localPosition = vec3(cosAngle, sinAngle, 0.0f);
     vec3 localNormal = vec3(cosAngle, sinAngle, 0.0f);
-    vec3 vertexPosition = lineRadius * (tangentFrameMatrix * localPosition) + linePosition;
+    vec3 vertexPosition = lineRadius * (tangentFrameMatrix * localPosition) + lineCenterPosition;
     vec3 vertexNormal = normalize(tangentFrameMatrix * localNormal);
 #endif
 
+    
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
+    const float factor = 2.0 * M_PI / float(NUM_TUBE_SUBDIVISIONS);
+#endif
+
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
+    phi = float(circleIdx) * factor;
+    /*
+     * https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#drawing-triangle-lists
+     * The provoking vertex is the first vertex of the triangle. In order to wrap when interpolating between the last
+     * and the first vertex (from pi to 0), interpolateWrap needs to be set to 1 for the final circle index.
+     */
+    interpolateWrap = circleIdx == NUM_TUBE_SUBDIVISIONS - 1 ? 1 : 0;
+#endif
+#ifdef USE_BANDS
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+    useBand = psUseBands[principalStressIndex];
+#else
+    useBand = 1;
+#endif
+#endif
+#ifdef USE_BANDS
+    linePosition = lineCenterPosition;
+    lineNormal = normal;
+#endif
+
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
+    fragmentPrincipalStressIndex = principalStressIndex;
+#endif
+#ifdef VISUALIZE_SEEDING_PROCESS
+    fragmentLineAppearanceOrder = stressLinePointData.vertexLineAppearanceOrder;
+#endif
+#ifdef USE_LINE_HIERARCHY_LEVEL
+    fragmentLineHierarchyLevel = stressLinePointData.vertexLineHierarchyLevel;
+#endif
+#ifdef USE_AMBIENT_OCCLUSION
+    interpolationFactorLine = float(linePointIdx - linePointData.lineStartIndex);
+    fragmentVertexIdUint = linePointData.lineStartIndex;//linePointIdx;
+#endif
+#ifdef USE_ROTATING_HELICITY_BANDS
+    fragmentRotation = linePointData.vertexRotation;
+#endif
+    fragmentAttribute = linePointData.vertexAttribute;
+    fragmentTangent = tangent;
+
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
+    fragmentNormal = vertexNormal;
     fragmentPositionWorld = (mMatrix * vec4(vertexPosition, 1.0)).xyz;
+#ifdef USE_SCREEN_SPACE_POSITION
+    screenSpacePosition = (vMatrix * vec4(vertexPosition, 1.0)).xyz;
+#endif
 }
 
 

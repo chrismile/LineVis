@@ -927,6 +927,7 @@ LinePassTubeRenderDataMeshShader LineDataFlow::getLinePassTubeRenderDataMeshShad
                 linePointData.vertexNormal = normal;
                 linePointData.vertexTangent = tangent;
                 linePointData.vertexAttribute = lineAttributes.at(i);
+                linePointData.lineStartIndex = indexOffset;
                 linePoints.push_back(linePointData);
                 numValidLinePoints++;
             }
@@ -1026,6 +1027,7 @@ LinePassTubeRenderDataMeshShader LineDataFlow::getLinePassTubeRenderDataMeshShad
                 linePointData.vertexTangent = tangent;
                 linePointData.vertexAttribute = lineAttributes.at(i);
                 linePointData.vertexRotation = lineRotations.at(i);
+                linePointData.lineStartIndex = indexOffset;
                 linePoints.push_back(linePointData);
                 numValidLinePoints++;
             }
@@ -1112,6 +1114,7 @@ LinePassTubeRenderDataMeshShader LineDataFlow::getLinePassTubeRenderDataMeshShad
                 linePointData.vertexNormal = normal;
                 linePointData.vertexTangent = tangent;
                 linePointData.vertexAttribute = lineAttributes.at(i);
+                linePointData.lineStartIndex = indexOffset;
                 linePoints.push_back(linePointData);
                 numValidLinePoints++;
             }
@@ -1234,6 +1237,7 @@ LinePassTubeRenderDataProgrammablePull LineDataFlow::getLinePassTubeRenderDataPr
                 linePointData.vertexNormal = normal;
                 linePointData.vertexTangent = tangent;
                 linePointData.vertexAttribute = lineAttributes.at(i);
+                linePointData.lineStartIndex = indexOffset;
                 linePoints.push_back(linePointData);
                 numValidLinePoints++;
             }
@@ -1339,6 +1343,7 @@ LinePassTubeRenderDataProgrammablePull LineDataFlow::getLinePassTubeRenderDataPr
                 linePointData.vertexTangent = tangent;
                 linePointData.vertexAttribute = lineAttributes.at(i);
                 linePointData.vertexRotation = lineRotations.at(i);
+                linePointData.lineStartIndex = indexOffset;
                 linePoints.push_back(linePointData);
                 numValidLinePoints++;
             }
@@ -1431,6 +1436,7 @@ LinePassTubeRenderDataProgrammablePull LineDataFlow::getLinePassTubeRenderDataPr
                 linePointData.vertexNormal = normal;
                 linePointData.vertexTangent = tangent;
                 linePointData.vertexAttribute = lineAttributes.at(i);
+                linePointData.lineStartIndex = indexOffset;
                 linePoints.push_back(linePointData);
                 numValidLinePoints++;
             }

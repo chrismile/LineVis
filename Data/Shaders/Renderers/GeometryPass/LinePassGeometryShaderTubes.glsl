@@ -197,11 +197,11 @@ layout(location = 13) out float thickness;
 layout(location = 14) out vec3 lineNormal;
 layout(location = 15) out vec3 linePosition;
 #endif
-#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
-layout(location = 16) out float phi;
-#endif
 #ifdef USE_ROTATING_HELICITY_BANDS
-layout(location = 17) out float fragmentRotation;
+layout(location = 16) out float fragmentRotation;
+#endif
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
+layout(location = 17) out float phi;
 #endif
 
 #define M_PI 3.14159265358979323846
@@ -234,7 +234,7 @@ void main() {
 #else
     const float lineRadius = lineWidth * 0.5;
 #endif
-    const mat4 pvMatrix = pMatrix * vMatrix;
+    const mat4 vpMatrix = pMatrix * vMatrix;
 
     vec3 circlePointsCurrent[NUM_TUBE_SUBDIVISIONS];
     vec3 circlePointsNext[NUM_TUBE_SUBDIVISIONS];
@@ -257,7 +257,7 @@ void main() {
         float cosAngle = cos(t);
         float sinAngle = sin(t);
 
-#if defined(USE_NORMAL_STRESS_RATIO_TUBES)
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
         float stressXCurrent;
         float stressZCurrent;
         float stressXNext;
@@ -278,6 +278,9 @@ void main() {
             stressXNext = lineMediumStress[1];
             stressZNext = lineMajorStress[1];
         }
+#endif
+
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES)
         float factorXCurrent = clamp(abs(stressXCurrent / stressZCurrent), 0.0, 1.0f);
         float factorZCurrent = clamp(abs(stressZCurrent / stressXCurrent), 0.0, 1.0f);
         float factorXNext = clamp(abs(stressXNext / stressZNext), 0.0, 1.0f);
@@ -295,26 +298,6 @@ void main() {
         thickness1Current[i] = factorZCurrent;
         thickness1Next[i] = factorZNext;
 #elif defined(USE_HYPERSTREAMLINES)
-        float stressXCurrent;
-        float stressZCurrent;
-        float stressXNext;
-        float stressZNext;
-        if (principalStressIndex == 0) {
-            stressXCurrent = lineMediumStress[0];
-            stressZCurrent = lineMinorStress[0];
-            stressXNext = lineMediumStress[1];
-            stressZNext = lineMinorStress[1];
-        } else if (principalStressIndex == 1) {
-            stressXCurrent = lineMinorStress[0];
-            stressZCurrent = lineMajorStress[0];
-            stressXNext = lineMinorStress[1];
-            stressZNext = lineMajorStress[1];
-        } else {
-            stressXCurrent = lineMediumStress[0];
-            stressZCurrent = lineMajorStress[0];
-            stressXNext = lineMediumStress[1];
-            stressZNext = lineMajorStress[1];
-        }
         stressXCurrent = abs(stressXCurrent);
         stressZCurrent = abs(stressZCurrent);
         stressXNext = abs(stressXNext);
@@ -342,6 +325,7 @@ void main() {
 #endif
     }
 #else
+    // Tubes with circular profile.
     const float theta = 2.0 * M_PI / float(NUM_TUBE_SUBDIVISIONS);
     const float tangetialFactor = tan(theta); // opposite / adjacent
     const float radialFactor = cos(theta); // adjacent / hypotenuse
@@ -417,7 +401,7 @@ void main() {
         fragmentAttribute = lineAttribute[0];
         fragmentTangent = tangentCurrent;
 
-        gl_Position = pvMatrix * vec4(circlePointsCurrent[i], 1.0);
+        gl_Position = vpMatrix * vec4(circlePointsCurrent[i], 1.0);
         fragmentNormal = vertexNormalsCurrent[i];
         fragmentPositionWorld = (mMatrix * vec4(circlePointsCurrent[i], 1.0)).xyz;
 #ifdef USE_SCREEN_SPACE_POSITION
@@ -471,7 +455,7 @@ void main() {
         fragmentAttribute = lineAttribute[0];
         fragmentTangent = tangentCurrent;
 
-        gl_Position = pvMatrix * vec4(circlePointsCurrent[iNext], 1.0);
+        gl_Position = vpMatrix * vec4(circlePointsCurrent[iNext], 1.0);
         fragmentNormal = vertexNormalsCurrent[iNext];
         fragmentPositionWorld = (mMatrix * vec4(circlePointsCurrent[iNext], 1.0)).xyz;
 #ifdef USE_SCREEN_SPACE_POSITION
@@ -525,7 +509,7 @@ void main() {
         fragmentAttribute = lineAttribute[1];
         fragmentTangent = tangentNext;
 
-        gl_Position = pvMatrix * vec4(circlePointsNext[i], 1.0);
+        gl_Position = vpMatrix * vec4(circlePointsNext[i], 1.0);
         fragmentNormal = vertexNormalsNext[i];
         fragmentPositionWorld = (mMatrix * vec4(circlePointsNext[i], 1.0)).xyz;
 #ifdef USE_SCREEN_SPACE_POSITION
@@ -578,7 +562,7 @@ void main() {
         fragmentAttribute = lineAttribute[1];
         fragmentTangent = tangentNext;
 
-        gl_Position = pvMatrix * vec4(circlePointsNext[iNext], 1.0);
+        gl_Position = vpMatrix * vec4(circlePointsNext[iNext], 1.0);
         fragmentNormal = vertexNormalsNext[iNext];
         fragmentPositionWorld = (mMatrix * vec4(circlePointsNext[iNext], 1.0)).xyz;
 #ifdef USE_SCREEN_SPACE_POSITION
@@ -637,10 +621,6 @@ layout(location = 9) flat in uint fragmentVertexIdUint;
 float fragmentVertexId;
 #endif
 
-#if defined(DIRECT_BLIT_GATHER)
-layout(location = 0) out vec4 fragColor;
-#endif
-
 #ifdef USE_BANDS
 #ifdef COMPRESSED_GEOMETRY_OUTPUT_DATA
 int useBand;
@@ -657,11 +637,21 @@ layout(location = 13) in float thickness;
 layout(location = 14) in vec3 lineNormal;
 layout(location = 15) in vec3 linePosition;
 #endif
-#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
-layout(location = 16) in float phi;
-#endif
 #ifdef USE_ROTATING_HELICITY_BANDS
-layout(location = 17) in float fragmentRotation;
+layout(location = 16) in float fragmentRotation;
+#endif
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
+#if defined(USE_GEOMETRY_SHADER)
+layout(location = 17) in float phi;
+#else
+float phi;
+layout(location = 17) in float phiNotWrapInterpolated;
+layout(location = 18) flat in int interpolateWrap;
+#endif
+#endif
+
+#if defined(DIRECT_BLIT_GATHER)
+layout(location = 0) out vec4 fragColor;
 #endif
 
 #if defined(USE_LINE_HIERARCHY_LEVEL) && defined(USE_TRANSPARENCY)
@@ -726,6 +716,21 @@ void main() {
 
 #ifdef USE_AMBIENT_OCCLUSION
     fragmentVertexId = interpolationFactorLine + float(fragmentVertexIdUint);
+#endif
+
+#if (defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)) && !defined(USE_GEOMETRY_SHADER)
+    if (interpolateWrap == 0) {
+        phi = phiNotWrapInterpolated;
+    } else {
+        /*
+         * https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#drawing-triangle-lists
+         * The provoking vertex is the first vertex of the triangle. In order to wrap when interpolating between the last
+         * and the first vertex (from pi to 0), interpolateWrap needs to be set to 1 for the final circle index.
+         */
+        float lower = 2.0 * M_PI * float(NUM_TUBE_SUBDIVISIONS - 1) / float(NUM_TUBE_SUBDIVISIONS);
+        float upper = 2.0 * M_PI;
+        phi = lower + (phiNotWrapInterpolated - lower) / (-lower) * (upper - lower);
+    }
 #endif
 
     const vec3 n = normalize(fragmentNormal);

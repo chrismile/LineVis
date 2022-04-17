@@ -49,16 +49,16 @@ bool LineData::renderThickBands = true;
 float LineData::minBandThickness = 0.15f;
 
 const char *const LINE_PRIMITIVE_MODE_DISPLAYNAMES[] = {
-        "Quads (Programmable Fetch)",
+        "Quads (Programmable Pull)",
         "Quads (Geometry Shader)",
-        "Tube (Programmable Fetch)",
+        "Tube (Programmable Pull)",
         "Tube (Geometry Shader)",
         "Tube (Triangle Mesh)",
         "Tube (Compute Shader)",
         "Tube (Mesh Shader)",
         "Ribbon Quads (Geometry Shader)",
         "Tube Ribbons (Geometry Shader)",
-        "Tube Ribbons (Programmable Fetch)",
+        "Tube Ribbons (Programmable Pull)",
         "Tube Ribbons (Triangle Mesh)",
         "Tube Ribbons (Compute Shader)",
         "Tube Ribbons (Mesh Shader)",
@@ -152,8 +152,11 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
     bool isTriangleRepresentationUsed = lineRenderer && lineRenderer->getIsTriangleRepresentationUsed();
     if (isTriangleRepresentationUsed
             || (lineRenderer->getIsRasterizer() && lineRenderer->getRenderingMode() != RENDERING_MODE_OPACITY_OPTIMIZATION
-                && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
-                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER))) {
+                && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL
+                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL
+                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
+                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
+                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER))) {
         if (propertyEditor.addSliderInt("Tube Subdivisions", &tubeNumSubdivisions, 3, 8)) {
             if (lineRenderer->getIsRasterizer()) {
                 shallReloadGatherShader = true;
@@ -332,7 +335,7 @@ std::vector<std::string> LineData::getShaderModuleNames() {
                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL) {
         return {
                 "LinePassProgrammablePullTubes.Vertex",
-                "LinePassProgrammablePullTubes.Fragment"
+                "LinePassGeometryShaderTubes.Fragment"
         };
     } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER) {
@@ -357,7 +360,7 @@ std::vector<std::string> LineData::getShaderModuleNames() {
                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
         return {
                 "LinePassMeshShaderTubes.Mesh",
-                "LinePassMeshShaderTubes.Fragment"
+                "LinePassGeometryShaderTubes.Fragment"
         };
     } else {
         sgl::Logfile::get()->writeError("Error in LineData::getShaderModuleNames: Invalid line primitive mode.");
@@ -710,6 +713,8 @@ void LineData::getVulkanShaderPreprocessorDefines(
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
+        preprocessorDefines.insert(std::make_pair(
+                "NUM_TUBE_SUBDIVISIONS", std::to_string(tubeNumSubdivisions)));
     }
     if (linePrimitiveMode == LINE_PRIMITIVES_QUADS_GEOMETRY_SHADER
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER

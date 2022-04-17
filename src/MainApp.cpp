@@ -765,6 +765,12 @@ void MainApp::render() {
     }
 
     SciVisApp::preRender();
+    if (useDockSpaceMode) {
+        for (DataViewPtr& dataView : dataViews) {
+            dataView->saveScreenshotDataIfAvailable();
+        }
+    }
+
     prepareVisualizationPipeline();
 
     componentOtherThanRendererNeedsReRender = reRender;

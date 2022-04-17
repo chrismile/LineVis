@@ -4,7 +4,7 @@ struct LinePointData {
     vec3 vertexTangent;
     float vertexRotation;
     vec3 vertexNormal;
-    float paddingLinePointData;
+    uint lineStartIndex;
 };
 layout(std430, binding = LINE_POINTS_BUFFER_BINDING) readonly buffer LinePointDataBuffer {
     LinePointData linePoints[];

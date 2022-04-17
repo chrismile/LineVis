@@ -116,9 +116,9 @@ void main() {
         gl_PrimitiveIndicesNV[++writeIdx] = indexOffsetCurrent + kNext;
         gl_PrimitiveIndicesNV[++writeIdx] = indexOffsetNext + k;
 
-        gl_PrimitiveIndicesNV[++writeIdx] = indexOffsetNext + k;
         gl_PrimitiveIndicesNV[++writeIdx] = indexOffsetCurrent + kNext;
         gl_PrimitiveIndicesNV[++writeIdx] = indexOffsetNext + kNext;
+        gl_PrimitiveIndicesNV[++writeIdx] = indexOffsetNext + k;
     }
 }
 

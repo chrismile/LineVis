@@ -95,7 +95,7 @@ struct LinePointDataUnified {
     glm::vec3 vertexTangent;
     float vertexRotation = 0.0f;
     glm::vec3 vertexNormal;
-    float paddingLinePointData = 0.0f;
+    uint32_t lineStartIndex = 0;
 };
 
 struct StressLinePointDataUnified {
