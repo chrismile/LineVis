@@ -165,13 +165,6 @@ void main() {
     interpolateWrap = circleIdx == NUM_TUBE_SUBDIVISIONS - 1 ? 1 : 0;
 #endif
 #ifdef USE_BANDS
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
-    useBand = psUseBands[principalStressIndex];
-#else
-    useBand = 1;
-#endif
-#endif
-#ifdef USE_BANDS
     linePosition = lineCenterPosition;
     lineNormal = normal;
 #endif
@@ -201,55 +194,4 @@ void main() {
 #ifdef USE_SCREEN_SPACE_POSITION
     screenSpacePosition = (vMatrix * vec4(vertexPosition, 1.0)).xyz;
 #endif
-}
-
-
--- Fragment
-
-#version 450 core
-
-#include "LineUniformData.glsl"
-
-layout(location = 0) in vec3 fragmentPositionWorld;
-
-#if defined(DIRECT_BLIT_GATHER)
-layout(location = 0) out vec4 fragColor;
-#endif
-
-#define DEPTH_HELPER_USE_PROJECTION_MATRIX
-#define GEOMETRY_PASS_TUBE
-#include "DepthHelper.glsl"
-
-void main() {
-    // TODO
-    float ribbonPosition = 0.5;
-    vec4 fragmentColor = vec4(0.0, 0.0, 0.0, 1.0);
-
-    float absCoords = abs(ribbonPosition);
-
-    float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
-#ifdef USE_ROTATING_HELICITY_BANDS
-    const float WHITE_THRESHOLD = 0.8;
-#else
-    const float WHITE_THRESHOLD = 0.7;
-#endif
-    float EPSILON_OUTLINE = 0.0;
-#ifdef USE_BANDS
-    //float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDistance / (useBand != 0 ? bandWidth : lineWidth) * 2.0), 0.0, 0.49);
-    float EPSILON_WHITE = fwidth(ribbonPosition);
-#else
-    //float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / lineWidth, 0.0, 0.49);
-    float EPSILON_WHITE = fwidth(ribbonPosition);
-#endif
-    float coverage = 1.0 - smoothstep(1.0 - EPSILON_OUTLINE, 1.0, absCoords);
-    //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(ribbonPosition));
-    vec4 colorOut = vec4(
-            mix(fragmentColor.rgb, foregroundColor.rgb,
-            smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),
-            fragmentColor.a * coverage);
-
-    // TODO
-    colorOut = vec4(0.0, 0.0, 0.0, 1.0);
-
-#include "LinePassGather.glsl"
 }
