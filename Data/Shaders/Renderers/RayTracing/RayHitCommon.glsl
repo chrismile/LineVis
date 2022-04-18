@@ -27,27 +27,12 @@
  */
 
 #include "TubeRayTracingHeader.glsl"
+#include "LineDataSSBO.glsl"
 #include "TransferFunction.glsl"
 
 #ifdef USE_MLAT
 #include "MlatInsert.glsl"
 #endif
-
-struct TubeLinePointData {
-    vec3 linePosition;
-    float lineAttribute;
-    vec3 lineTangent;
-    float lineHierarchyLevel; ///< Zero for flow lines.
-    vec3 lineNormal;
-    float lineAppearanceOrder; ///< Zero for flow lines.
-    uvec2 padding;
-    uint principalStressIndex; ///< Zero for flow lines.
-    float rotation; ///< Used for USE_ROTATING_HELICITY_BANDS.
-};
-
-layout(std430, binding = 5) readonly buffer TubeLinePointDataBuffer {
-    TubeLinePointData tubeLinePointDataBuffer[];
-};
 
 #define RAYTRACING
 #include "Lighting.glsl"
@@ -71,7 +56,7 @@ void drawSeparatorStripe(inout vec4 surfaceColor, in float varFraction, in float
 #endif
 
 void computeFragmentColor(
-        vec3 fragmentPositionWorld, vec3 fragmentNormal, vec3 fragmentTangent, float fragmentAttribute,
+        vec3 fragmentPositionWorld, vec3 fragmentNormal, vec3 fragmentTangent,
 #ifdef USE_CAPPED_TUBES
         bool isCap,
 #endif
@@ -87,10 +72,16 @@ void computeFragmentColor(
 #ifdef USE_ROTATING_HELICITY_BANDS
         float fragmentRotation,
 #endif
-        TubeLinePointData linePointData0, TubeLinePointData linePointData1
+#ifdef STRESS_LINE_DATA
+        uint principalStressIndex, float lineAppearanceOrder,
+#ifdef USE_PRINCIPAL_STRESSES
+        float fragmentMajorStress, float fragmentMediumStress, float fragmentMinorStress,
+#endif
+#endif
+        float fragmentAttribute
 ) {
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
-    vec4 fragmentColor = transferFunction(fragmentAttribute, linePointData0.principalStressIndex);
+    vec4 fragmentColor = transferFunction(fragmentAttribute, principalStressIndex);
 #else
     vec4 fragmentColor = transferFunction(fragmentAttribute);
 #endif
@@ -112,7 +103,7 @@ void computeFragmentColor(
 #else
 
 #ifdef STRESS_LINE_DATA
-    bool useBand = psUseBands[linePointData0.principalStressIndex] > 0;
+    bool useBand = psUseBands[principalStressIndex] > 0;
 #else
     bool useBand = true;
 #endif
@@ -328,14 +319,9 @@ void computeFragmentColor(
             smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),
             fragmentColor.a * coverage);
 
-#ifdef USE_AMBIENT_OCCLUSION
-    //colorOut = vec4(getAoFactor(fragmentVertexId, phi), 0.0, 0.0, 1.0);
-#endif
-
 #ifdef VISUALIZE_SEEDING_PROCESS
     // For letting lines appear one after another in an animation showing the used seeding technique.
-    float fragmentLineAppearanceOrder = linePointData0.lineAppearanceOrder;
-    if (int(fragmentLineAppearanceOrder) > currentSeedIdx) {
+    if (int(lineAppearanceOrder) > currentSeedIdx) {
         colorOut.a = 0.0;
     }
 #endif
