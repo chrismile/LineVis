@@ -102,12 +102,12 @@ public:
 
     // --- Retrieve data for rendering. ---
     LinePassTubeRenderData getLinePassTubeRenderData() override;
-    LinePassQuadsRenderDataProgrammablePull getLinePassQuadsRenderDataProgrammablePull() override;
     TubeRenderDataOpacityOptimization getTubeRenderDataOpacityOptimization() override;
     PointRenderData getDegeneratePointsRenderData();
     LinePassTubeRenderDataMeshShader getLinePassTubeRenderDataMeshShader() override;
     LinePassTubeRenderDataProgrammablePull getLinePassTubeRenderDataProgrammablePull() override;
     LinePassQuadsRenderData getLinePassQuadsRenderData() override;
+    LinePassQuadsRenderDataProgrammablePull getLinePassQuadsRenderDataProgrammablePull() override;
 
     // --- Retrieve data for rendering for Vulkan. ---
     TubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
@@ -175,6 +175,25 @@ private:
     void recomputeHistogram() override;
     void recomputeColorLegend() override;
     void recomputeColorLegendPositions();
+
+    /**
+     * Function used by, e.g., @see getLinePassTubeRenderData, @see getLinePassTubeRenderDataMeshShader and
+     * @see getLinePassTubeRenderDataProgrammablePull.
+     * It encapsulates shared code for creating line vertex and index data.
+     * @param indexOffsetFunctor A functor that returns the line index offset for the next points to be pushed.
+     * @param pointPushFunctor A functor that accepts a new point.
+     * @param pointPopFunctor A functor that gets called when the previous point needs to be removed. This usually
+     * happens when a line doesn't have at least two valid points.
+     * @param indicesPushFunctor A functor that creates line index data for the previously pushed points.
+     */
+    void getLinePassTubeRenderDataGeneral(
+            const std::function<uint32_t()>& indexOffsetFunctor,
+            const std::function<void(
+                    const glm::vec3& lineCenter, const glm::vec3& normal, const glm::vec3& tangent, float lineAttribute,
+                    uint32_t indexOffset, int principalStressIndex, float lineHierarchyLevel, int lineAppearanceOrder,
+                    float majorStress, float mediumStress, float minorStress)>& pointPushFunctor,
+            const std::function<void()>& pointPopFunctor,
+            const std::function<void(int numSegments, uint32_t indexOffset)>& indicesPushFunctor);
 
     // Should we show major, medium and/or minor principal stress lines?
     static bool useMajorPS, useMediumPS, useMinorPS;

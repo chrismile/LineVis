@@ -404,18 +404,18 @@ void main() {
         if (interpolationFactor < 0.0) {
             interpolationFactor = -interpolationFactor;
         }
-        phi = interpolationFactor * M_PI * 0.5;
+        phi = asin(interpolationFactor);
 #endif
     } else {
         // Compute the normal of the billboard tube for shading.
         float interpolationFactor = fragmentNormalFloat;
         vec3 normalCos = normalize(normal0);
         vec3 normalSin = normalize(normal1);
-        if (interpolationFactor < 0.0) {
-            normalSin = -normalSin;
-            interpolationFactor = -interpolationFactor;
-        }
-        float angle = interpolationFactor * M_PI * 0.5;
+        //if (interpolationFactor < 0.0) {
+        //    normalSin = -normalSin;
+        //    interpolationFactor = -interpolationFactor;
+        //}
+        float angle = asin(interpolationFactor);
         fragmentNormal = cos(angle) * normalCos + sin(angle) * normalSin;
 #ifdef USE_AMBIENT_OCCLUSION
         phi = angle;
@@ -430,9 +430,6 @@ void main() {
 #endif
 
 #if defined(USE_LINE_HIERARCHY_LEVEL) && defined(USE_TRANSPARENCY)
-    //float lower = lineHierarchySliderLower[fragmentPrincipalStressIndex];
-    //float upper = lineHierarchySliderUpper[fragmentPrincipalStressIndex];
-    //fragmentColor.a *= (upper - lower) * fragmentLineHierarchyLevel + lower;
     fragmentColor.a *= texture(
             lineHierarchyImportanceMap, vec2(fragmentLineHierarchyLevel, float(fragmentPrincipalStressIndex))).r;
 #endif

@@ -222,8 +222,8 @@ void main() {
 
     vec3 viewDirection0 = normalize(cameraPosition - linePosition0);
     vec3 viewDirection1 = normalize(cameraPosition - linePosition1);
-    vec3 offsetDirection0 = normalize(cross(tangent0, viewDirection0));
-    vec3 offsetDirection1 = normalize(cross(tangent1, viewDirection1));
+    vec3 offsetDirection0 = normalize(cross(viewDirection0, tangent0));
+    vec3 offsetDirection1 = normalize(cross(viewDirection1, tangent1));
     vec3 vertexPosition;
 
     const float lineRadius = lineWidth * 0.5;
@@ -389,6 +389,12 @@ layout(location = 0) out vec4 fragColor;
 #include "Lighting.glsl"
 #include "Antialiasing.glsl"
 
+vec3 slerp(vec3 a, vec3 b, float t) {
+    float cosArc = dot(a, b);
+    float theta = acos(cosArc);
+    return (sin((1.0 - t) * theta) * a + sin(t * theta) * b) / sin(theta);
+}
+
 void main() {
 #if defined(USE_LINE_HIERARCHY_LEVEL) && !defined(USE_TRANSPARENCY)
     float slider = lineHierarchySlider[fragmentPrincipalStressIndex];
@@ -407,11 +413,11 @@ void main() {
     float interpolationFactor = fragmentNormalFloat;
     vec3 normalCos = normalize(normal0);
     vec3 normalSin = normalize(normal1);
-    if (interpolationFactor < 0.0) {
-        normalSin = -normalSin;
-        interpolationFactor = -interpolationFactor;
-    }
-    float angle = interpolationFactor * M_PI * 0.5;
+    //if (interpolationFactor < 0.0) {
+    //    normalSin = -normalSin;
+    //    interpolationFactor = -interpolationFactor;
+    //}
+    float angle = asin(interpolationFactor);
     fragmentNormal = cos(angle) * normalCos + sin(angle) * normalSin;
 #ifdef USE_AMBIENT_OCCLUSION
     phi = angle;
@@ -424,9 +430,6 @@ void main() {
 #endif
 
 #if defined(USE_LINE_HIERARCHY_LEVEL) && defined(USE_TRANSPARENCY)
-    //float lower = lineHierarchySliderLower[fragmentPrincipalStressIndex];
-    //float upper = lineHierarchySliderUpper[fragmentPrincipalStressIndex];
-    //fragmentColor.a *= (upper - lower) * fragmentLineHierarchyLevel + lower;
     fragmentColor.a *= texture(
             lineHierarchyImportanceMap, vec2(fragmentLineHierarchyLevel, float(fragmentPrincipalStressIndex))).r;
 #endif

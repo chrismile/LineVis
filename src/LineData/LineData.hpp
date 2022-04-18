@@ -268,6 +268,8 @@ public:
         return linePrimitiveMode == LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER
                 || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL
                 || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
+                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH
+                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_COMPUTE_SHADER
                 || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER;
     }
     static inline float getMinBandThickness() { return minBandThickness; }

@@ -43,7 +43,7 @@
 #include "Mesh/MeshBoundarySurface.hpp"
 #include "LineData.hpp"
 
-LineData::LinePrimitiveMode LineData::linePrimitiveMode = LineData::LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER;
+LineData::LinePrimitiveMode LineData::linePrimitiveMode = LineData::LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL;
 int LineData::tubeNumSubdivisions = 8;
 bool LineData::renderThickBands = true;
 float LineData::minBandThickness = 0.15f;
@@ -57,8 +57,8 @@ const char *const LINE_PRIMITIVE_MODE_DISPLAYNAMES[] = {
         "Tube (Compute Shader)",
         "Tube (Mesh Shader)",
         "Ribbon Quads (Geometry Shader)",
-        "Tube Ribbons (Geometry Shader)",
         "Tube Ribbons (Programmable Pull)",
+        "Tube Ribbons (Geometry Shader)",
         "Tube Ribbons (Triangle Mesh)",
         "Tube Ribbons (Compute Shader)",
         "Tube Ribbons (Mesh Shader)",
@@ -125,24 +125,37 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
     if (lineRenderer->getIsRasterizer()) {
         int numPrimitiveModes = IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES);
         if (!hasBandsData) {
-            numPrimitiveModes -= 2;
+            numPrimitiveModes -= 6;
         }
         if (lineRenderer->getRenderingMode() != RENDERING_MODE_OPACITY_OPTIMIZATION && propertyEditor.addCombo(
                 "Line Primitives", (int*)&linePrimitiveMode,
                 LINE_PRIMITIVE_MODE_DISPLAYNAMES, numPrimitiveModes)) {
             sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+            bool unsupportedLineRenderingMode = false;
+            std::string warningText;
             if (getLinePrimitiveModeUsesGeometryShader(linePrimitiveMode)
                     && !device->getPhysicalDeviceFeatures().geometryShader) {
-                std::string warningText =
+                unsupportedLineRenderingMode = true;
+                warningText =
                         "The selected line primitives mode uses geometry shaders, but geometry shaders are not "
                         "supported by the used GPU.";
+            }
+            if ((linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
+                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER)
+                        && !device->getPhysicalDeviceMeshShaderFeaturesNV().meshShader) {
+                unsupportedLineRenderingMode = true;
+                warningText =
+                        "The selected line primitives mode uses mesh shaders, but mesh shaders are not "
+                        "supported by the used GPU.";
+            }
+            if (unsupportedLineRenderingMode) {
                 sgl::Logfile::get()->writeWarning(
                         "Warning in LineData::renderGuiPropertyEditorNodesRenderer: " + warningText,
                         false);
                 auto handle = sgl::dialog::openMessageBox(
                         "Unsupported Line Primitives Mode", warningText, sgl::dialog::Icon::WARNING);
                 lineRenderer->getSceneData()->nonBlockingMsgBoxHandles->push_back(handle);
-                linePrimitiveMode = LINE_PRIMITIVES_QUADS_PROGRAMMABLE_PULL;
+                linePrimitiveMode = LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL;
             }
             dirty = true;
             shallReloadGatherShader = true;
@@ -153,9 +166,12 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
     if (isTriangleRepresentationUsed
             || (lineRenderer->getIsRasterizer() && lineRenderer->getRenderingMode() != RENDERING_MODE_OPACITY_OPTIMIZATION
                 && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL
-                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL
                     || linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
+                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
                     || linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
+                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL
+                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
+                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH
                     || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER))) {
         if (propertyEditor.addSliderInt("Tube Subdivisions", &tubeNumSubdivisions, 3, 8)) {
             if (lineRenderer->getIsRasterizer()) {
@@ -383,7 +399,7 @@ void LineData::setGraphicsPipelineInfo(
     if (getLinePrimitiveModeUsesSingleVertexShaderInputs(linePrimitiveMode)) {
         pipelineInfo.setVertexBufferBindingByLocationIndex("vertexPosition", sizeof(glm::vec3));
         pipelineInfo.setVertexBufferBindingByLocationIndex("vertexAttribute", sizeof(float));
-        pipelineInfo.setVertexBufferBindingByLocationIndex("vertexNormal", sizeof(glm::vec3));
+        pipelineInfo.setVertexBufferBindingByLocationIndexOptional("vertexNormal", sizeof(glm::vec3));
         pipelineInfo.setVertexBufferBindingByLocationIndex("vertexTangent", sizeof(glm::vec3));
     }
 }
@@ -395,11 +411,13 @@ void LineData::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
         LinePassQuadsRenderDataProgrammablePull tubeRenderData = this->getLinePassQuadsRenderDataProgrammablePull();
         rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
         rasterData->setStaticBuffer(tubeRenderData.linePointsBuffer, "LinePoints");
-    } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL) {
+    } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL
+            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL) {
         LinePassTubeRenderDataProgrammablePull tubeRenderData = this->getLinePassTubeRenderDataProgrammablePull();
         rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
         rasterData->setStaticBuffer(tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");
-    } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER) {
+    } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
+            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
         LinePassTubeRenderDataMeshShader tubeRenderData = this->getLinePassTubeRenderDataMeshShader();
         rasterData->setStaticBuffer(tubeRenderData.meshletDataBuffer, "MeshletDataBuffer");
         rasterData->setStaticBuffer(tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");

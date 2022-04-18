@@ -90,31 +90,31 @@ struct LinePassTubeRenderData {
 
 /// For mesh shaders and programmable pull.
 struct LinePointDataUnified {
-    glm::vec3 vertexPosition;
-    float vertexAttribute;
-    glm::vec3 vertexTangent;
-    float vertexRotation = 0.0f;
-    glm::vec3 vertexNormal;
+    glm::vec3 linePosition;
+    float lineAttribute;
+    glm::vec3 lineTangent;
+    float lineRotation = 0.0f;
+    glm::vec3 lineNormal;
     uint32_t lineStartIndex = 0;
 };
 
 struct StressLinePointDataUnified {
-    uint vertexPrincipalStressIndex;
-    uint vertexLineAppearanceOrder;
-    float vertexLineHierarchyLevel;
-    float stressLinePointPadding;
+    uint32_t linePrincipalStressIndex = 0;
+    uint32_t lineLineAppearanceOrder = 0;
+    float lineLineHierarchyLevel = 0.0f;
+    float stressLinePointPadding = 0.0f;
 };
 
 struct StressLinePointPrincipalStressDataUnified {
-    float vertexMajorStress;
-    float vertexMediumStress;
-    float vertexMinorStress;
-    float principalStressPadding;
+    float lineMajorStress = 1.0f;
+    float lineMediumStress = 1.0f;
+    float lineMinorStress = 1.0f;
+    float principalStressPadding = 0.0f;
 };
 
 struct MeshletData {
-    uint32_t linePointIndexStart;
-    uint32_t numLinePoints;
+    uint32_t linePointIndexStart = 0;
+    uint32_t numLinePoints = 0;
     uint32_t padding0 = 0, padding1 = 0;
 };
 
@@ -134,8 +134,7 @@ struct LinePassTubeRenderDataProgrammablePull {
 };
 
 
-
-// --- Reduced data for opacity optimization ---
+// --- Reduced tube data for opacity optimization ---
 struct TubeRenderDataOpacityOptimization {
     sgl::vk::BufferPtr indexBuffer;
     sgl::vk::BufferPtr vertexPositionBuffer;
@@ -175,8 +174,9 @@ struct TubeLinePointData {
     float lineHierarchyLevel; ///< Zero for flow lines.
     glm::vec3 lineNormal;
     float lineAppearanceOrder; ///< Zero for flow lines.
-    glm::uvec3 padding;
+    glm::uvec2 padding;
     uint32_t principalStressIndex; ///< Zero for flow lines.
+    float rotation; ///< Used for USE_ROTATING_HELICITY_BANDS.
 };
 
 struct LinePointReference {

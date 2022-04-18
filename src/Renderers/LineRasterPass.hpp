@@ -42,7 +42,17 @@ public:
 
     // Public interface.
     void setLineData(LineDataPtr& lineData, bool isNewData);
-    [[nodiscard]] inline bool getIsDataEmpty() const { return rasterData && rasterData->getNumVertices() == 0; }
+    [[nodiscard]] inline bool getIsDataEmpty() const {
+        if (!rasterData) {
+            return true;
+        }
+        if (rasterData->getShaderStages()->getHasVertexShader()) {
+            return rasterData->getNumVertices() == 0 && rasterData->getNumIndices() == 0;
+        } else {
+            // Assume we are using task/mesh shaders in case no vertex shader is set.
+            return rasterData->getBuffer("MeshletDataBuffer").get() == nullptr;
+        }
+    }
     inline void setUpdateUniformData(bool updateUniforms) { updateUniformData = updateUniforms; }
     void setAttachmentLoadOp(VkAttachmentLoadOp loadOp);
     /**

@@ -40,8 +40,9 @@ struct TubeLinePointData {
     float lineHierarchyLevel; ///< Zero for flow lines.
     vec3 lineNormal;
     float lineAppearanceOrder; ///< Zero for flow lines.
-    uvec3 padding;
+    uvec2 padding;
     uint principalStressIndex; ///< Zero for flow lines.
+    float rotation; ///< Used for USE_ROTATING_HELICITY_BANDS.
 };
 
 layout(std430, binding = 5) readonly buffer TubeLinePointDataBuffer {

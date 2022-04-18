@@ -132,9 +132,10 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
     }
 
     // Use bands if possible.
-    if (hasBandsData) {
-        linePrimitiveMode = LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER;
-        tubeNumSubdivisions = 8;
+    if (hasBandsData && !getUseBandRendering()) {
+        linePrimitiveMode = LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL;
+    } else if (!hasBandsData && getUseBandRendering()) {
+        linePrimitiveMode = LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL;
     }
 
     this->trajectories = trajectories;
@@ -447,265 +448,6 @@ void LineDataFlow::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
 
 // --- Retrieve data for rendering. ---
 
-LinePassTubeRenderData LineDataFlow::getLinePassTubeRenderData() {
-    rebuildInternalRepresentationIfNecessary();
-
-    std::vector<std::vector<glm::vec3>> lineCentersList;
-    std::vector<std::vector<float>> lineAttributesList;
-    std::vector<std::vector<float>> lineRotationsList; //< Used if useRotatingHelicityBands is set to true.
-    std::vector<uint32_t> lineIndices;
-    std::vector<glm::vec3> vertexPositions;
-    std::vector<glm::vec3> vertexNormals;
-    std::vector<glm::vec3> vertexTangents;
-    std::vector<float> vertexAttributes;
-    std::vector<float> vertexRotations; //< Used if useRotatingHelicityBands is set to true.
-
-    lineCentersList.resize(trajectories.size());
-    lineAttributesList.resize(trajectories.size());
-    if (!useRotatingHelicityBands && getUseBandRendering() && useRibbons) {
-        std::vector<std::vector<glm::vec3>> ribbonDirectionsList;
-
-        ribbonDirectionsList.resize(trajectories.size());
-        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
-            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
-                continue;
-            }
-
-            Trajectory& trajectory = trajectories.at(trajectoryIdx);
-            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
-            std::vector<glm::vec3>& ribbonDirections = ribbonsDirections.at(trajectoryIdx);
-            assert(attributes.size() == trajectory.positions.size());
-            std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
-            std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
-            std::vector<glm::vec3>& ribbonDirectionVectors = ribbonDirectionsList.at(trajectoryIdx);
-
-            for (size_t j = 0; j < trajectory.positions.size(); j++) {
-                lineCenters.push_back(trajectory.positions.at(j));
-                lineAttributes.push_back(attributes.at(j));
-                ribbonDirectionVectors.push_back(ribbonDirections.at(j));
-            }
-        }
-
-        for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
-            const std::vector<glm::vec3>& lineCenters = lineCentersList.at(lineId);
-            const std::vector<float>& lineAttributes = lineAttributesList.at(lineId);
-            const std::vector<glm::vec3>& ribbonDirectionVectors = ribbonDirectionsList.at(lineId);
-            assert(lineCenters.size() == lineAttributes.size());
-            size_t n = lineCenters.size();
-            auto indexOffset = uint32_t(vertexPositions.size());
-
-            if (n < 2) {
-                continue;
-            }
-
-            glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
-            int numValidLinePoints = 0;
-            for (size_t i = 0; i < n; i++) {
-                glm::vec3 tangent, normal;
-                if (i == 0) {
-                    tangent = lineCenters[i+1] - lineCenters[i];
-                } else if (i == n - 1) {
-                    tangent = lineCenters[i] - lineCenters[i-1];
-                } else {
-                    tangent = (lineCenters[i+1] - lineCenters[i-1]);
-                }
-                float lineSegmentLength = glm::length(tangent);
-
-                if (lineSegmentLength < 0.0001f) {
-                    // In case the two vertices are almost identical, just skip this path line segment
-                    continue;
-                }
-                tangent = glm::normalize(tangent);
-
-                normal = glm::cross(ribbonDirectionVectors.at(i), tangent);
-
-                vertexPositions.push_back(lineCenters.at(i));
-                vertexNormals.push_back(normal);
-                vertexTangents.push_back(tangent);
-                vertexAttributes.push_back(lineAttributes.at(i));
-                numValidLinePoints++;
-            }
-
-            if (numValidLinePoints == 1) {
-                // Only one vertex left -> Output nothing (tube consisting only of one point).
-                vertexPositions.pop_back();
-                vertexNormals.pop_back();
-                vertexTangents.pop_back();
-                vertexAttributes.pop_back();
-                continue;
-            }
-
-            // Create indices.
-            for (int j = 0; j < numValidLinePoints - 1; j++) {
-                lineIndices.push_back(indexOffset + j);
-                lineIndices.push_back(indexOffset + j + 1);
-            }
-        }
-    } else if (useRotatingHelicityBands) {
-        lineRotationsList.resize(trajectories.size());
-        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
-            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
-                continue;
-            }
-
-            Trajectory& trajectory = trajectories.at(trajectoryIdx);
-            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
-            std::vector<float>& helicities = trajectory.attributes.at(helicityAttributeIndex);
-            assert(attributes.size() == trajectory.positions.size());
-            std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
-            std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
-            std::vector<float>& lineRotations = lineRotationsList.at(trajectoryIdx);
-
-            float rotation = 0.0f;
-            for (size_t j = 0; j < trajectory.positions.size(); j++) {
-                lineCenters.push_back(trajectory.positions.at(j));
-                lineAttributes.push_back(attributes.at(j));
-                lineRotations.push_back(rotation);
-                float lineSegmentLength = 0.0f;
-                if (j < trajectory.positions.size() - 1) {
-                    lineSegmentLength = glm::length(trajectory.positions.at(j + 1) - trajectory.positions.at(j));
-                }
-                rotation += helicities.at(j) / maxHelicity * sgl::PI * helicityRotationFactor * lineSegmentLength / 0.005f;
-            }
-        }
-
-        for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
-            const std::vector<glm::vec3>& lineCenters = lineCentersList.at(lineId);
-            const std::vector<float>& lineAttributes = lineAttributesList.at(lineId);
-            const std::vector<float>& lineRotations = lineRotationsList.at(lineId);
-            assert(lineCenters.size() == lineAttributes.size());
-            size_t n = lineCenters.size();
-            auto indexOffset = uint32_t(vertexPositions.size());
-
-            if (n < 2) {
-                continue;
-            }
-
-            glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
-            int numValidLinePoints = 0;
-            for (size_t i = 0; i < n; i++) {
-                glm::vec3 tangent, normal;
-                if (i == 0) {
-                    tangent = lineCenters[i+1] - lineCenters[i];
-                } else if (i == n - 1) {
-                    tangent = lineCenters[i] - lineCenters[i-1];
-                } else {
-                    tangent = (lineCenters[i+1] - lineCenters[i-1]);
-                }
-                float lineSegmentLength = glm::length(tangent);
-
-                if (lineSegmentLength < 0.0001f) {
-                    // In case the two vertices are almost identical, just skip this path line segment
-                    continue;
-                }
-                tangent = glm::normalize(tangent);
-
-                glm::vec3 helperAxis = lastLineNormal;
-                if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
-                    // If tangent == lastNormal
-                    helperAxis = glm::vec3(0.0f, 1.0f, 0.0f);
-                    if (glm::length(glm::cross(helperAxis, normal)) < 0.01f) {
-                        // If tangent == helperAxis
-                        helperAxis = glm::vec3(0.0f, 0.0f, 1.0f);
-                    }
-                }
-                normal = glm::normalize(helperAxis - tangent * glm::dot(helperAxis, tangent)); // Gram-Schmidt
-                lastLineNormal = normal;
-
-                vertexPositions.push_back(lineCenters.at(i));
-                vertexNormals.push_back(normal);
-                vertexTangents.push_back(tangent);
-                vertexAttributes.push_back(lineAttributes.at(i));
-                vertexRotations.push_back(lineRotations.at(i));
-                numValidLinePoints++;
-            }
-
-            if (numValidLinePoints == 1) {
-                // Only one vertex left -> Output nothing (tube consisting only of one point).
-                vertexPositions.pop_back();
-                vertexNormals.pop_back();
-                vertexTangents.pop_back();
-                vertexAttributes.pop_back();
-                vertexRotations.pop_back();
-                continue;
-            }
-
-            // Create indices.
-            for (int j = 0; j < numValidLinePoints - 1; j++) {
-                lineIndices.push_back(indexOffset + j);
-                lineIndices.push_back(indexOffset + j + 1);
-            }
-        }
-    } else {
-        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
-            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
-                continue;
-            }
-
-            Trajectory& trajectory = trajectories.at(trajectoryIdx);
-            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
-            assert(attributes.size() == trajectory.positions.size());
-            std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
-            std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
-            for (size_t i = 0; i < trajectory.positions.size(); i++) {
-                lineCenters.push_back(trajectory.positions.at(i));
-                lineAttributes.push_back(attributes.at(i));
-            }
-        }
-
-        createLineTubesRenderDataCPU(
-                lineCentersList, lineAttributesList,
-                lineIndices, vertexPositions, vertexNormals, vertexTangents, vertexAttributes);
-    }
-
-
-    if (lineIndices.empty()) {
-        return {};
-    }
-
-    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    LinePassTubeRenderData tubeRenderData;
-
-    // Add the index buffer.
-    tubeRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, lineIndices.size() * sizeof(uint32_t), lineIndices.data(),
-            VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY);
-
-    // Add the position buffer.
-    tubeRenderData.vertexPositionBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, vertexPositions.size() * sizeof(glm::vec3), vertexPositions.data(),
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY);
-
-    // Add the attribute buffer.
-    tubeRenderData.vertexAttributeBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, vertexAttributes.size() * sizeof(float), vertexAttributes.data(),
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY);
-
-    // Add the normal buffer.
-    tubeRenderData.vertexNormalBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, vertexNormals.size() * sizeof(glm::vec3), vertexNormals.data(),
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY);
-
-    // Add the tangent buffer.
-    tubeRenderData.vertexTangentBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, vertexTangents.size() * sizeof(glm::vec3), vertexTangents.data(),
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY);
-
-    if (useRotatingHelicityBands) {
-        tubeRenderData.vertexRotationBuffer = std::make_shared<sgl::vk::Buffer>(
-                device, vertexRotations.size() * sizeof(float), vertexRotations.data(),
-                VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                VMA_MEMORY_USAGE_GPU_ONLY);
-    }
-
-    return tubeRenderData;
-}
-
 LinePassQuadsRenderDataProgrammablePull LineDataFlow::getLinePassQuadsRenderDataProgrammablePull() {
     rebuildInternalRepresentationIfNecessary();
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
@@ -850,15 +592,13 @@ TubeRenderDataOpacityOptimization LineDataFlow::getTubeRenderDataOpacityOptimiza
     return tubeRenderData;
 }
 
-LinePassTubeRenderDataMeshShader LineDataFlow::getLinePassTubeRenderDataMeshShader() {
-    rebuildInternalRepresentationIfNecessary();
-
-    // We can emit a maximum of 64 vertices/primitives from the mesh shader.
-    int numLineSegmentsPerMeshlet = 64 / tubeNumSubdivisions - 1;
-    std::vector<MeshletData> meshlets;
-    MeshletData meshlet{};
-    std::vector<LinePointDataUnified> linePoints;
-
+void LineDataFlow::getLinePassTubeRenderDataGeneral(
+        const std::function<uint32_t()>& indexOffsetFunctor,
+        const std::function<void(
+                const glm::vec3& lineCenter, const glm::vec3& normal, const glm::vec3& tangent, float lineAttribute,
+                float lineRotation, uint32_t indexOffset)>& pointPushFunctor,
+        const std::function<void()>& pointPopFunctor,
+        const std::function<void(int numSegments, uint32_t indexOffset)>& indicesPushFunctor) {
     std::vector<std::vector<glm::vec3>> lineCentersList;
     std::vector<std::vector<float>> lineAttributesList;
     std::vector<std::vector<float>> lineRotationsList; //< Used if useRotatingHelicityBands is set to true.
@@ -895,7 +635,7 @@ LinePassTubeRenderDataMeshShader LineDataFlow::getLinePassTubeRenderDataMeshShad
             const std::vector<glm::vec3>& ribbonDirectionVectors = ribbonDirectionsList.at(lineId);
             assert(lineCenters.size() == lineAttributes.size());
             size_t n = lineCenters.size();
-            auto indexOffset = uint32_t(linePoints.size());
+            uint32_t indexOffset = indexOffsetFunctor();
 
             if (n < 2) {
                 continue;
@@ -922,33 +662,21 @@ LinePassTubeRenderDataMeshShader LineDataFlow::getLinePassTubeRenderDataMeshShad
 
                 normal = glm::cross(ribbonDirectionVectors.at(i), tangent);
 
-                LinePointDataUnified linePointData;
-                linePointData.vertexPosition = lineCenters.at(i);
-                linePointData.vertexNormal = normal;
-                linePointData.vertexTangent = tangent;
-                linePointData.vertexAttribute = lineAttributes.at(i);
-                linePointData.lineStartIndex = indexOffset;
-                linePoints.push_back(linePointData);
+                pointPushFunctor(
+                        lineCenters.at(i), normal, tangent, lineAttributes.at(i),
+                        0.0f, indexOffset);
                 numValidLinePoints++;
             }
 
             if (numValidLinePoints == 1) {
                 // Only one vertex left -> Output nothing (tube consisting only of one point).
-                linePoints.pop_back();
+                pointPopFunctor();
                 continue;
             }
 
             // Create indices.
             int numSegments = numValidLinePoints - 1;
-            int numSegmentsLeft = numSegments;
-            int numMeshlets = sgl::iceil(numSegments, numLineSegmentsPerMeshlet);
-            for (int j = 0; j < numMeshlets; j++) {
-                meshlet.linePointIndexStart = indexOffset + j * numLineSegmentsPerMeshlet;
-                meshlet.numLinePoints =
-                        (numSegmentsLeft > numLineSegmentsPerMeshlet ? numLineSegmentsPerMeshlet : numSegmentsLeft) + 1;
-                meshlets.push_back(meshlet);
-                numSegmentsLeft -= numLineSegmentsPerMeshlet;
-            }
+            indicesPushFunctor(numSegments, indexOffset);
         }
     } else if (useRotatingHelicityBands) {
         lineRotationsList.resize(trajectories.size());
@@ -984,7 +712,7 @@ LinePassTubeRenderDataMeshShader LineDataFlow::getLinePassTubeRenderDataMeshShad
             const std::vector<float>& lineRotations = lineRotationsList.at(lineId);
             assert(lineCenters.size() == lineAttributes.size());
             size_t n = lineCenters.size();
-            auto indexOffset = uint32_t(linePoints.size());
+            uint32_t indexOffset = indexOffsetFunctor();
 
             if (n < 2) {
                 continue;
@@ -1021,34 +749,21 @@ LinePassTubeRenderDataMeshShader LineDataFlow::getLinePassTubeRenderDataMeshShad
                 normal = glm::normalize(helperAxis - tangent * glm::dot(helperAxis, tangent)); // Gram-Schmidt
                 lastLineNormal = normal;
 
-                LinePointDataUnified linePointData;
-                linePointData.vertexPosition = lineCenters.at(i);
-                linePointData.vertexNormal = normal;
-                linePointData.vertexTangent = tangent;
-                linePointData.vertexAttribute = lineAttributes.at(i);
-                linePointData.vertexRotation = lineRotations.at(i);
-                linePointData.lineStartIndex = indexOffset;
-                linePoints.push_back(linePointData);
+                pointPushFunctor(
+                        lineCenters.at(i), normal, tangent, lineAttributes.at(i),
+                        lineRotations.at(i), indexOffset);
                 numValidLinePoints++;
             }
 
             if (numValidLinePoints == 1) {
                 // Only one vertex left -> Output nothing (tube consisting only of one point).
-                linePoints.pop_back();
+                pointPopFunctor();
                 continue;
             }
 
             // Create indices.
             int numSegments = numValidLinePoints - 1;
-            int numSegmentsLeft = numSegments;
-            int numMeshlets = sgl::iceil(numSegments, numLineSegmentsPerMeshlet);
-            for (int j = 0; j < numMeshlets; j++) {
-                meshlet.linePointIndexStart = indexOffset + j * numLineSegmentsPerMeshlet;
-                meshlet.numLinePoints =
-                        (numSegmentsLeft > numLineSegmentsPerMeshlet ? numLineSegmentsPerMeshlet : numSegmentsLeft) + 1;
-                meshlets.push_back(meshlet);
-                numSegmentsLeft -= numLineSegmentsPerMeshlet;
-            }
+            indicesPushFunctor(numSegments, indexOffset);
         }
     } else {
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
@@ -1072,7 +787,7 @@ LinePassTubeRenderDataMeshShader LineDataFlow::getLinePassTubeRenderDataMeshShad
             const std::vector<float>& lineAttributes = lineAttributesList.at(lineId);
             assert(lineCenters.size() == lineAttributes.size());
             size_t n = lineCenters.size();
-            auto indexOffset = uint32_t(linePoints.size());
+            uint32_t indexOffset = indexOffsetFunctor();
 
             if (n < 2) {
                 continue;
@@ -1109,35 +824,149 @@ LinePassTubeRenderDataMeshShader LineDataFlow::getLinePassTubeRenderDataMeshShad
                 normal = glm::normalize(helperAxis - tangent * glm::dot(helperAxis, tangent)); // Gram-Schmidt
                 lastLineNormal = normal;
 
-                LinePointDataUnified linePointData;
-                linePointData.vertexPosition = lineCenters.at(i);
-                linePointData.vertexNormal = normal;
-                linePointData.vertexTangent = tangent;
-                linePointData.vertexAttribute = lineAttributes.at(i);
-                linePointData.lineStartIndex = indexOffset;
-                linePoints.push_back(linePointData);
+                pointPushFunctor(
+                        lineCenters.at(i), normal, tangent, lineAttributes.at(i),
+                        0.0f, indexOffset);
                 numValidLinePoints++;
             }
 
             if (numValidLinePoints == 1) {
                 // Only one vertex left -> Output nothing (tube consisting only of one point).
-                linePoints.pop_back();
+                pointPopFunctor();
                 continue;
             }
 
             // Create indices.
             int numSegments = numValidLinePoints - 1;
-            int numSegmentsLeft = numSegments;
-            int numMeshlets = sgl::iceil(numSegments, numLineSegmentsPerMeshlet);
-            for (int j = 0; j < numMeshlets; j++) {
-                meshlet.linePointIndexStart = indexOffset + j * numLineSegmentsPerMeshlet;
-                meshlet.numLinePoints =
-                        (numSegmentsLeft > numLineSegmentsPerMeshlet ? numLineSegmentsPerMeshlet : numSegmentsLeft) + 1;
-                meshlets.push_back(meshlet);
-                numSegmentsLeft -= numLineSegmentsPerMeshlet;
-            }
+            indicesPushFunctor(numSegments, indexOffset);
         }
     }
+}
+
+LinePassTubeRenderData LineDataFlow::getLinePassTubeRenderData() {
+    rebuildInternalRepresentationIfNecessary();
+
+    std::vector<uint32_t> lineIndices;
+    std::vector<glm::vec3> vertexPositions;
+    std::vector<glm::vec3> vertexNormals;
+    std::vector<glm::vec3> vertexTangents;
+    std::vector<float> vertexAttributes;
+    std::vector<float> vertexRotations; //< Used if useRotatingHelicityBands is set to true.
+
+    getLinePassTubeRenderDataGeneral(
+            [&]() {
+                return uint32_t(vertexPositions.size());
+            },
+            [&](const glm::vec3& lineCenter, const glm::vec3& normal, const glm::vec3& tangent,
+                    float lineAttribute, float lineRotation, uint32_t indexOffset) {
+                vertexPositions.push_back(lineCenter);
+                vertexNormals.push_back(normal);
+                vertexTangents.push_back(tangent);
+                vertexAttributes.push_back(lineAttribute);
+                vertexRotations.push_back(lineRotation);
+            },
+            [&] {
+                vertexPositions.pop_back();
+                vertexNormals.pop_back();
+                vertexTangents.pop_back();
+                vertexAttributes.pop_back();
+                vertexRotations.pop_back();
+            },
+            [&](int numSegments, uint32_t indexOffset) {
+                for (int j = 0; j < numSegments; j++) {
+                    lineIndices.push_back(indexOffset + j);
+                    lineIndices.push_back(indexOffset + j + 1);
+                }
+            }
+    );
+
+
+    if (lineIndices.empty()) {
+        return {};
+    }
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    LinePassTubeRenderData tubeRenderData;
+
+    // Add the index buffer.
+    tubeRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, lineIndices.size() * sizeof(uint32_t), lineIndices.data(),
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+    // Add the position buffer.
+    tubeRenderData.vertexPositionBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexPositions.size() * sizeof(glm::vec3), vertexPositions.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+    // Add the attribute buffer.
+    tubeRenderData.vertexAttributeBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexAttributes.size() * sizeof(float), vertexAttributes.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+    // Add the normal buffer.
+    tubeRenderData.vertexNormalBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexNormals.size() * sizeof(glm::vec3), vertexNormals.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+    // Add the tangent buffer.
+    tubeRenderData.vertexTangentBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexTangents.size() * sizeof(glm::vec3), vertexTangents.data(),
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+    if (useRotatingHelicityBands) {
+        tubeRenderData.vertexRotationBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, vertexRotations.size() * sizeof(float), vertexRotations.data(),
+                VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VMA_MEMORY_USAGE_GPU_ONLY);
+    }
+
+    return tubeRenderData;
+}
+
+LinePassTubeRenderDataMeshShader LineDataFlow::getLinePassTubeRenderDataMeshShader() {
+    rebuildInternalRepresentationIfNecessary();
+
+    // We can emit a maximum of 64 vertices/primitives from the mesh shader.
+    int numLineSegmentsPerMeshlet = 64 / tubeNumSubdivisions - 1;
+    std::vector<MeshletData> meshlets;
+    MeshletData meshlet{};
+    std::vector<LinePointDataUnified> linePoints;
+
+    getLinePassTubeRenderDataGeneral(
+            [&]() {
+                return uint32_t(linePoints.size());
+            },
+            [&](const glm::vec3& lineCenter, const glm::vec3& normal, const glm::vec3& tangent,
+                    float lineAttribute, float lineRotation, uint32_t indexOffset) {
+                LinePointDataUnified linePointData;
+                linePointData.linePosition = lineCenter;
+                linePointData.lineNormal = normal;
+                linePointData.lineTangent = tangent;
+                linePointData.lineAttribute = lineAttribute;
+                linePointData.lineRotation = lineRotation;
+                linePointData.lineStartIndex = indexOffset;
+                linePoints.push_back(linePointData);
+            },
+            [&] {
+                linePoints.pop_back();
+            },
+            [&](int numSegments, uint32_t indexOffset) {
+                int numSegmentsLeft = numSegments;
+                int numMeshlets = sgl::iceil(numSegments, numLineSegmentsPerMeshlet);
+                for (int j = 0; j < numMeshlets; j++) {
+                    meshlet.linePointIndexStart = indexOffset + j * numLineSegmentsPerMeshlet;
+                    meshlet.numLinePoints =
+                            (numSegmentsLeft > numLineSegmentsPerMeshlet ? numLineSegmentsPerMeshlet : numSegmentsLeft) + 1;
+                    meshlets.push_back(meshlet);
+                    numSegmentsLeft -= numLineSegmentsPerMeshlet;
+                }
+            }
+    );
 
 
     if (meshlets.empty()) {
@@ -1169,303 +998,42 @@ LinePassTubeRenderDataProgrammablePull LineDataFlow::getLinePassTubeRenderDataPr
     std::vector<uint32_t> triangleIndices;
     std::vector<LinePointDataUnified> linePoints;
 
-    std::vector<std::vector<glm::vec3>> lineCentersList;
-    std::vector<std::vector<float>> lineAttributesList;
-    std::vector<std::vector<float>> lineRotationsList; //< Used if useRotatingHelicityBands is set to true.
-
-    lineCentersList.resize(trajectories.size());
-    lineAttributesList.resize(trajectories.size());
-    if (!useRotatingHelicityBands && getUseBandRendering() && useRibbons) {
-        std::vector<std::vector<glm::vec3>> ribbonDirectionsList;
-
-        ribbonDirectionsList.resize(trajectories.size());
-        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
-            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
-                continue;
-            }
-
-            Trajectory& trajectory = trajectories.at(trajectoryIdx);
-            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
-            std::vector<glm::vec3>& ribbonDirections = ribbonsDirections.at(trajectoryIdx);
-            assert(attributes.size() == trajectory.positions.size());
-            std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
-            std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
-            std::vector<glm::vec3>& ribbonDirectionVectors = ribbonDirectionsList.at(trajectoryIdx);
-
-            for (size_t j = 0; j < trajectory.positions.size(); j++) {
-                lineCenters.push_back(trajectory.positions.at(j));
-                lineAttributes.push_back(attributes.at(j));
-                ribbonDirectionVectors.push_back(ribbonDirections.at(j));
-            }
-        }
-
-        for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
-            const std::vector<glm::vec3>& lineCenters = lineCentersList.at(lineId);
-            const std::vector<float>& lineAttributes = lineAttributesList.at(lineId);
-            const std::vector<glm::vec3>& ribbonDirectionVectors = ribbonDirectionsList.at(lineId);
-            assert(lineCenters.size() == lineAttributes.size());
-            size_t n = lineCenters.size();
-            auto indexOffset = uint32_t(linePoints.size());
-
-            if (n < 2) {
-                continue;
-            }
-
-            glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
-            int numValidLinePoints = 0;
-            for (size_t i = 0; i < n; i++) {
-                glm::vec3 tangent, normal;
-                if (i == 0) {
-                    tangent = lineCenters[i+1] - lineCenters[i];
-                } else if (i == n - 1) {
-                    tangent = lineCenters[i] - lineCenters[i-1];
-                } else {
-                    tangent = (lineCenters[i+1] - lineCenters[i-1]);
-                }
-                float lineSegmentLength = glm::length(tangent);
-
-                if (lineSegmentLength < 0.0001f) {
-                    // In case the two vertices are almost identical, just skip this path line segment
-                    continue;
-                }
-                tangent = glm::normalize(tangent);
-
-                normal = glm::cross(ribbonDirectionVectors.at(i), tangent);
-
+    getLinePassTubeRenderDataGeneral(
+            [&]() {
+                return uint32_t(linePoints.size());
+            },
+            [&](const glm::vec3& lineCenter, const glm::vec3& normal, const glm::vec3& tangent,
+                    float lineAttribute, float lineRotation, uint32_t indexOffset) {
                 LinePointDataUnified linePointData;
-                linePointData.vertexPosition = lineCenters.at(i);
-                linePointData.vertexNormal = normal;
-                linePointData.vertexTangent = tangent;
-                linePointData.vertexAttribute = lineAttributes.at(i);
+                linePointData.linePosition = lineCenter;
+                linePointData.lineNormal = normal;
+                linePointData.lineTangent = tangent;
+                linePointData.lineAttribute = lineAttribute;
+                linePointData.lineRotation = lineRotation;
                 linePointData.lineStartIndex = indexOffset;
                 linePoints.push_back(linePointData);
-                numValidLinePoints++;
-            }
-
-            if (numValidLinePoints == 1) {
-                // Only one vertex left -> Output nothing (tube consisting only of one point).
+            },
+            [&] {
                 linePoints.pop_back();
-                continue;
-            }
+            },
+            [&](int numSegments, uint32_t indexOffset) {
+                for (int j = 0; j < numSegments; j++) {
+                    uint32_t indexOffsetCurrent = (indexOffset + j) * tubeNumSubdivisions;
+                    uint32_t indexOffsetNext = (indexOffset + j + 1) * tubeNumSubdivisions;
+                    for (int k = 0; k < tubeNumSubdivisions; k++) {
+                        int kNext = (k + 1) % tubeNumSubdivisions;
 
-            // Create indices.
-            int numSegments = numValidLinePoints - 1;
-            for (int j = 0; j < numSegments; j++) {
-                uint32_t indexOffsetCurrent = (indexOffset + j) * tubeNumSubdivisions;
-                uint32_t indexOffsetNext = (indexOffset + j + 1) * tubeNumSubdivisions;
-                for (int k = 0; k < tubeNumSubdivisions; k++) {
-                    int kNext = (k + 1) % tubeNumSubdivisions;
+                        triangleIndices.push_back(indexOffsetCurrent + k);
+                        triangleIndices.push_back(indexOffsetCurrent + kNext);
+                        triangleIndices.push_back(indexOffsetNext + k);
 
-                    triangleIndices.push_back(indexOffsetCurrent + k);
-                    triangleIndices.push_back(indexOffsetCurrent + kNext);
-                    triangleIndices.push_back(indexOffsetNext + k);
-
-                    triangleIndices.push_back(indexOffsetNext + k);
-                    triangleIndices.push_back(indexOffsetCurrent + kNext);
-                    triangleIndices.push_back(indexOffsetNext + kNext);
-                }
-            }
-        }
-    } else if (useRotatingHelicityBands) {
-        lineRotationsList.resize(trajectories.size());
-        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
-            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
-                continue;
-            }
-
-            Trajectory& trajectory = trajectories.at(trajectoryIdx);
-            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
-            std::vector<float>& helicities = trajectory.attributes.at(helicityAttributeIndex);
-            assert(attributes.size() == trajectory.positions.size());
-            std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
-            std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
-            std::vector<float>& lineRotations = lineRotationsList.at(trajectoryIdx);
-
-            float rotation = 0.0f;
-            for (size_t j = 0; j < trajectory.positions.size(); j++) {
-                lineCenters.push_back(trajectory.positions.at(j));
-                lineAttributes.push_back(attributes.at(j));
-                lineRotations.push_back(rotation);
-                float lineSegmentLength = 0.0f;
-                if (j < trajectory.positions.size() - 1) {
-                    lineSegmentLength = glm::length(trajectory.positions.at(j + 1) - trajectory.positions.at(j));
-                }
-                rotation += helicities.at(j) / maxHelicity * sgl::PI * helicityRotationFactor * lineSegmentLength / 0.005f;
-            }
-        }
-
-        for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
-            const std::vector<glm::vec3>& lineCenters = lineCentersList.at(lineId);
-            const std::vector<float>& lineAttributes = lineAttributesList.at(lineId);
-            const std::vector<float>& lineRotations = lineRotationsList.at(lineId);
-            assert(lineCenters.size() == lineAttributes.size());
-            size_t n = lineCenters.size();
-            auto indexOffset = uint32_t(linePoints.size());
-
-            if (n < 2) {
-                continue;
-            }
-
-            glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
-            int numValidLinePoints = 0;
-            for (size_t i = 0; i < n; i++) {
-                glm::vec3 tangent, normal;
-                if (i == 0) {
-                    tangent = lineCenters[i+1] - lineCenters[i];
-                } else if (i == n - 1) {
-                    tangent = lineCenters[i] - lineCenters[i-1];
-                } else {
-                    tangent = (lineCenters[i+1] - lineCenters[i-1]);
-                }
-                float lineSegmentLength = glm::length(tangent);
-
-                if (lineSegmentLength < 0.0001f) {
-                    // In case the two vertices are almost identical, just skip this path line segment
-                    continue;
-                }
-                tangent = glm::normalize(tangent);
-
-                glm::vec3 helperAxis = lastLineNormal;
-                if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
-                    // If tangent == lastNormal
-                    helperAxis = glm::vec3(0.0f, 1.0f, 0.0f);
-                    if (glm::length(glm::cross(helperAxis, normal)) < 0.01f) {
-                        // If tangent == helperAxis
-                        helperAxis = glm::vec3(0.0f, 0.0f, 1.0f);
+                        triangleIndices.push_back(indexOffsetNext + k);
+                        triangleIndices.push_back(indexOffsetCurrent + kNext);
+                        triangleIndices.push_back(indexOffsetNext + kNext);
                     }
                 }
-                normal = glm::normalize(helperAxis - tangent * glm::dot(helperAxis, tangent)); // Gram-Schmidt
-                lastLineNormal = normal;
-
-                LinePointDataUnified linePointData;
-                linePointData.vertexPosition = lineCenters.at(i);
-                linePointData.vertexNormal = normal;
-                linePointData.vertexTangent = tangent;
-                linePointData.vertexAttribute = lineAttributes.at(i);
-                linePointData.vertexRotation = lineRotations.at(i);
-                linePointData.lineStartIndex = indexOffset;
-                linePoints.push_back(linePointData);
-                numValidLinePoints++;
             }
-
-            if (numValidLinePoints == 1) {
-                // Only one vertex left -> Output nothing (tube consisting only of one point).
-                linePoints.pop_back();
-                continue;
-            }
-
-            // Create indices.
-            int numSegments = numValidLinePoints - 1;
-            for (int j = 0; j < numSegments; j++) {
-                uint32_t indexOffsetCurrent = (indexOffset + j) * tubeNumSubdivisions;
-                uint32_t indexOffsetNext = (indexOffset + j + 1) * tubeNumSubdivisions;
-                for (int k = 0; k < tubeNumSubdivisions; k++) {
-                    int kNext = (k + 1) % tubeNumSubdivisions;
-
-                    triangleIndices.push_back(indexOffsetCurrent + k);
-                    triangleIndices.push_back(indexOffsetCurrent + kNext);
-                    triangleIndices.push_back(indexOffsetNext + k);
-
-                    triangleIndices.push_back(indexOffsetNext + k);
-                    triangleIndices.push_back(indexOffsetCurrent + kNext);
-                    triangleIndices.push_back(indexOffsetNext + kNext);
-                }
-            }
-        }
-    } else {
-        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
-            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
-                continue;
-            }
-
-            Trajectory& trajectory = trajectories.at(trajectoryIdx);
-            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
-            assert(attributes.size() == trajectory.positions.size());
-            std::vector<glm::vec3>& lineCenters = lineCentersList.at(trajectoryIdx);
-            std::vector<float>& lineAttributes = lineAttributesList.at(trajectoryIdx);
-            for (size_t i = 0; i < trajectory.positions.size(); i++) {
-                lineCenters.push_back(trajectory.positions.at(i));
-                lineAttributes.push_back(attributes.at(i));
-            }
-        }
-
-        for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
-            const std::vector<glm::vec3>& lineCenters = lineCentersList.at(lineId);
-            const std::vector<float>& lineAttributes = lineAttributesList.at(lineId);
-            assert(lineCenters.size() == lineAttributes.size());
-            size_t n = lineCenters.size();
-            auto indexOffset = uint32_t(linePoints.size());
-
-            if (n < 2) {
-                continue;
-            }
-
-            glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
-            int numValidLinePoints = 0;
-            for (size_t i = 0; i < n; i++) {
-                glm::vec3 tangent, normal;
-                if (i == 0) {
-                    tangent = lineCenters[i+1] - lineCenters[i];
-                } else if (i == n - 1) {
-                    tangent = lineCenters[i] - lineCenters[i-1];
-                } else {
-                    tangent = (lineCenters[i+1] - lineCenters[i-1]);
-                }
-                float lineSegmentLength = glm::length(tangent);
-
-                if (lineSegmentLength < 0.0001f) {
-                    // In case the two vertices are almost identical, just skip this path line segment
-                    continue;
-                }
-                tangent = glm::normalize(tangent);
-
-                glm::vec3 helperAxis = lastLineNormal;
-                if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
-                    // If tangent == lastNormal
-                    helperAxis = glm::vec3(0.0f, 1.0f, 0.0f);
-                    if (glm::length(glm::cross(helperAxis, normal)) < 0.01f) {
-                        // If tangent == helperAxis
-                        helperAxis = glm::vec3(0.0f, 0.0f, 1.0f);
-                    }
-                }
-                normal = glm::normalize(helperAxis - tangent * glm::dot(helperAxis, tangent)); // Gram-Schmidt
-                lastLineNormal = normal;
-
-                LinePointDataUnified linePointData;
-                linePointData.vertexPosition = lineCenters.at(i);
-                linePointData.vertexNormal = normal;
-                linePointData.vertexTangent = tangent;
-                linePointData.vertexAttribute = lineAttributes.at(i);
-                linePointData.lineStartIndex = indexOffset;
-                linePoints.push_back(linePointData);
-                numValidLinePoints++;
-            }
-
-            if (numValidLinePoints == 1) {
-                // Only one vertex left -> Output nothing (tube consisting only of one point).
-                linePoints.pop_back();
-                continue;
-            }
-
-            // Create indices.
-            int numSegments = numValidLinePoints - 1;
-            for (int j = 0; j < numSegments; j++) {
-                uint32_t indexOffsetCurrent = (indexOffset + j) * tubeNumSubdivisions;
-                uint32_t indexOffsetNext = (indexOffset + j + 1) * tubeNumSubdivisions;
-                for (int k = 0; k < tubeNumSubdivisions; k++) {
-                    int kNext = (k + 1) % tubeNumSubdivisions;
-
-                    triangleIndices.push_back(indexOffsetCurrent + k);
-                    triangleIndices.push_back(indexOffsetCurrent + kNext);
-                    triangleIndices.push_back(indexOffsetNext + k);
-
-                    triangleIndices.push_back(indexOffsetNext + k);
-                    triangleIndices.push_back(indexOffsetCurrent + kNext);
-                    triangleIndices.push_back(indexOffsetNext + kNext);
-                }
-            }
-        }
-    }
+    );
 
 
     if (triangleIndices.empty()) {

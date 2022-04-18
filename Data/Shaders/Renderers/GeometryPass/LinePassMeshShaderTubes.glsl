@@ -92,15 +92,15 @@ void main() {
         uint circleIdx = vertexIdx % NUM_TUBE_SUBDIVISIONS;
 
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL) || defined(VISUALIZE_SEEDING_PROCESS)
-        StressLinePointPrincipalStressData stressLinePointData = stressLinePoints[linePointIdx];
+        StressLinePointData stressLinePointData = stressLinePoints[globalLinePointIdx];
 #endif
 
 #ifdef USE_PRINCIPAL_STRESSES
-        StressLinePointPrincipalStressDataBuffer stressLinePointPrincipalStressData = principalStressLinePoints[linePointIdx];
+        StressLinePointPrincipalStressDataBuffer stressLinePointPrincipalStressData = principalStressLinePoints[globalLinePointIdx];
 #endif
 
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
-        uint principalStressIndex = stressLinePointData.vertexPrincipalStressIndex;
+        uint principalStressIndex = stressLinePointData.linePrincipalStressIndex;
 #endif
 
 #ifdef USE_BANDS
@@ -110,16 +110,19 @@ void main() {
         int useBandLocal = 1;
 #endif
 
+#if !defined(USE_NORMAL_STRESS_RATIO_TUBES) && !defined(USE_HYPERSTREAMLINES)
+        float thicknessLocal = useBandLocal != 0 ? MIN_THICKNESS : 1.0f;
+#endif
+
         const float lineRadius = (useBandLocal != 0 ? bandWidth : lineWidth) * 0.5;
 #else
         const float lineRadius = lineWidth * 0.5;
 #endif
-        const mat4 pvMatrix = pMatrix * vMatrix;
 
-        vec3 lineCenterPosition = (mMatrix * vec4(linePointData.vertexPosition, 1.0)).xyz;
-        vec3 normal = linePointData.vertexNormal;
-        vec3 tangent = linePointData.vertexTangent;
-        vec3 binormal = cross(linePointData.vertexTangent, linePointData.vertexNormal);
+        vec3 lineCenterPosition = (mMatrix * vec4(linePointData.linePosition, 1.0)).xyz;
+        vec3 normal = linePointData.lineNormal;
+        vec3 tangent = linePointData.lineTangent;
+        vec3 binormal = cross(linePointData.lineTangent, linePointData.lineNormal);
         mat3 tangentFrameMatrix = mat3(normal, binormal, tangent);
 
         float t = float(circleIdx) / float(NUM_TUBE_SUBDIVISIONS) * 2.0 * M_PI;
@@ -132,14 +135,14 @@ void main() {
         float stressX;
         float stressZ;
         if (principalStressIndex == 0) {
-            stressX = stressLinePointPrincipalStressData.vertexMediumStress;
-            stressZ = stressLinePointPrincipalStressData.vertexMinorStress;
+            stressX = stressLinePointPrincipalStressData.lineMediumStress;
+            stressZ = stressLinePointPrincipalStressData.lineMinorStress;
         } else if (principalStressIndex == 1) {
-            stressX = stressLinePointPrincipalStressData.vertexMinorStress;
-            stressZ = stressLinePointPrincipalStressData.vertexMajorStress;
+            stressX = stressLinePointPrincipalStressData.lineMinorStress;
+            stressZ = stressLinePointPrincipalStressData.lineMajorStress;
         } else {
-            stressX = stressLinePointPrincipalStressData.vertexMediumStress;
-            stressZ = stressLinePointPrincipalStressData.vertexMajorStress;
+            stressX = stressLinePointPrincipalStressData.lineMediumStress;
+            stressZ = stressLinePointPrincipalStressData.lineMajorStress;
         }
     #endif
 
@@ -163,11 +166,11 @@ void main() {
         thickness1[vertexIdx] = stressZ;
 #else
         // Bands with minimum thickness.
-        vec3 localPosition = vec3(thickness * cosAngle, sinAngle, 0.0f);
-        vec3 localNormal = vec3(cosAngle, thickness * sinAngle, 0.0f);
+        vec3 localPosition = vec3(thicknessLocal * cosAngle, sinAngle, 0.0f);
+        vec3 localNormal = vec3(cosAngle, thicknessLocal * sinAngle, 0.0f);
         vec3 vertexPosition = lineRadius * (tangentFrameMatrix * localPosition) + lineCenterPosition;
         vec3 vertexNormal = normalize(tangentFrameMatrix * localNormal);
-        thickness[vertexIdx] = useBandLocal != 0 ? MIN_THICKNESS : 1.0f;
+        thickness[vertexIdx] = thicknessLocal;
 #endif
 #else
         vec3 localPosition = vec3(cosAngle, sinAngle, 0.0f);
@@ -200,19 +203,19 @@ void main() {
         fragmentPrincipalStressIndex[vertexIdx] = principalStressIndex;
 #endif
 #ifdef VISUALIZE_SEEDING_PROCESS
-        fragmentLineAppearanceOrder[vertexIdx] = stressLinePointData.vertexLineAppearanceOrder;
+        fragmentLineAppearanceOrder[vertexIdx] = stressLinePointData.lineLineAppearanceOrder;
 #endif
 #ifdef USE_LINE_HIERARCHY_LEVEL
-        fragmentLineHierarchyLevel[vertexIdx] = stressLinePointData.vertexLineHierarchyLevel;
+        fragmentLineHierarchyLevel[vertexIdx] = stressLinePointData.lineLineHierarchyLevel;
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-        interpolationFactorLine[vertexIdx] = float(linePointIdx - linePointData.lineStartIndex);
-        fragmentVertexIdUint[vertexIdx] = linePointData.lineStartIndex;//linePointIdx;
+        interpolationFactorLine[vertexIdx] = float(globalLinePointIdx - linePointData.lineStartIndex);
+        fragmentVertexIdUint[vertexIdx] = linePointData.lineStartIndex;//globalLinePointIdx;
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
-        fragmentRotation[vertexIdx] = linePointData.vertexRotation;
+        fragmentRotation[vertexIdx] = linePointData.lineRotation;
 #endif
-        fragmentAttribute[vertexIdx] = linePointData.vertexAttribute;
+        fragmentAttribute[vertexIdx] = linePointData.lineAttribute;
         fragmentTangent[vertexIdx] = tangent;
 
         gl_MeshVerticesNV[vertexIdx].gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
