@@ -275,7 +275,7 @@ void main() {
 
 struct TubeTriangleVertexData {
     vec3 vertexPosition;
-    uint vertexLinePointIndex; ///< Pointer to TubeLinePointData entry.
+    uint vertexLinePointIndex; ///< Pointer to LinePointData entry.
     vec3 vertexNormal;
     float phi; ///< Angle.
 };
@@ -300,9 +300,9 @@ void main() {
     uint vertexLinePointIndex0 = vertexData0.vertexLinePointIndex & 0x7FFFFFFFu;
     uint vertexLinePointIndex1 = vertexData1.vertexLinePointIndex & 0x7FFFFFFFu;
     uint vertexLinePointIndex2 = vertexData2.vertexLinePointIndex & 0x7FFFFFFFu;
-    TubeLinePointData linePointData0 = linePoints[vertexLinePointIndex0];
-    TubeLinePointData linePointData1 = linePoints[vertexLinePointIndex1];
-    TubeLinePointData linePointData2 = linePoints[vertexLinePointIndex2];
+    LinePointData linePointData0 = linePoints[vertexLinePointIndex0];
+    LinePointData linePointData1 = linePoints[vertexLinePointIndex1];
+    LinePointData linePointData2 = linePoints[vertexLinePointIndex2];
     bool isCap =
             bitfieldExtract(vertexData0.vertexLinePointIndex, 31, 1) > 0u
             || bitfieldExtract(vertexData1.vertexLinePointIndex, 31, 1) > 0u

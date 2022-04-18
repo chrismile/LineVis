@@ -162,7 +162,7 @@ struct SimulationMeshOutlineRenderData {
 // --- For hardware-accelerated ray tracing ---
 struct TubeTriangleVertexData {
     glm::vec3 vertexPosition;
-    uint32_t vertexLinePointIndex; ///< Pointer to TubeLinePointData entry.
+    uint32_t vertexLinePointIndex; ///< Pointer to LinePointDataUnified entry.
     glm::vec3 vertexNormal;
     float phi; ///< Angle.
 };
