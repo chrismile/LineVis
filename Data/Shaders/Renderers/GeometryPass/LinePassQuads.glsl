@@ -389,12 +389,6 @@ layout(location = 0) out vec4 fragColor;
 #include "Lighting.glsl"
 #include "Antialiasing.glsl"
 
-vec3 slerp(vec3 a, vec3 b, float t) {
-    float cosArc = dot(a, b);
-    float theta = acos(cosArc);
-    return (sin((1.0 - t) * theta) * a + sin(t * theta) * b) / sin(theta);
-}
-
 void main() {
 #if defined(USE_LINE_HIERARCHY_LEVEL) && !defined(USE_TRANSPARENCY)
     float slider = lineHierarchySlider[fragmentPrincipalStressIndex];
