@@ -246,7 +246,7 @@ void VulkanRayTracedAmbientOcclusionPass::createComputeData(
     computeData->setStaticBuffer(
             tubeTriangleRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
     computeData->setStaticBuffer(
-            tubeTriangleRenderData.linePointBuffer, "TubeLinePointDataBuffer");
+            tubeTriangleRenderData.linePointDataBuffer, "LinePointDataBuffer");
 }
 
 void VulkanRayTracedAmbientOcclusionPass::_render() {

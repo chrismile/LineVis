@@ -1233,7 +1233,7 @@ TubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(
     std::vector<glm::vec3> lineNormals;
     std::vector<TubeTriangleVertexData> tubeTriangleVertexDataList;
     std::vector<LinePointReference> linePointReferences;
-    std::vector<TubeLinePointData> tubeTriangleLinePointDataList;
+    std::vector<LinePointDataUnified> tubeTriangleLinePointDataList;
 
     lineCentersList.resize(trajectories.size());
     for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
@@ -1288,7 +1288,7 @@ TubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(
     float rotation = 0.0f; //< Used if useRotatingHelicityBands is set to true.
     for (size_t i = 0; i < linePointReferences.size(); i++) {
         LinePointReference& linePointReference = linePointReferences.at(i);
-        TubeLinePointData& tubeTriangleLinePointData = tubeTriangleLinePointDataList.at(i);
+        LinePointDataUnified& tubeTriangleLinePointData = tubeTriangleLinePointDataList.at(i);
         Trajectory& trajectory = trajectories.at(linePointReference.trajectoryIndex);
         std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
 
@@ -1297,7 +1297,7 @@ TubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(
         tubeTriangleLinePointData.lineTangent = lineTangents.at(i);
         tubeTriangleLinePointData.lineNormal = lineNormals.at(i);
         if (useRotatingHelicityBands) {
-            tubeTriangleLinePointData.lineHierarchyLevel = rotation;
+            tubeTriangleLinePointData.lineRotation = rotation;
             float helicity = trajectory.attributes.at(helicityAttributeIndex).at(
                     linePointReference.linePointIndex);
             float lineSegmentLength = 0.0f;
@@ -1341,8 +1341,8 @@ TubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(
             tubeTriangleVertexDataList.data(),
             vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    vulkanTubeTriangleRenderData.linePointBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, tubeTriangleLinePointDataList.size() * sizeof(TubeLinePointData),
+    vulkanTubeTriangleRenderData.linePointDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, tubeTriangleLinePointDataList.size() * sizeof(LinePointDataUnified),
             tubeTriangleLinePointDataList.data(),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
@@ -1360,7 +1360,7 @@ TubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData(LineRenderer* lineR
 
     std::vector<uint32_t> lineSegmentPointIndices;
     std::vector<sgl::AABB3> lineSegmentAabbs;
-    std::vector<TubeLinePointData> tubeLinePointDataList;
+    std::vector<LinePointDataUnified> tubeLinePointDataList;
     lineSegmentPointIndices.reserve(getNumLineSegments() * 2);
     lineSegmentAabbs.reserve(getNumLineSegments());
     tubeLinePointDataList.reserve(getNumLinePoints());
@@ -1403,13 +1403,13 @@ TubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData(LineRenderer* lineR
             glm::vec3 normal = glm::normalize(helperAxis - glm::dot(helperAxis, tangent) * tangent); // Gram-Schmidt
             lastLineNormal = normal;
 
-            TubeLinePointData linePointData{};
+            LinePointDataUnified linePointData{};
             linePointData.linePosition = trajectory.positions.at(i);
             linePointData.lineAttribute = trajectory.attributes.at(selectedAttributeIndex).at(i);
             linePointData.lineTangent = tangent;
             linePointData.lineNormal = lastLineNormal;
             if (useRotatingHelicityBands) {
-                linePointData.lineHierarchyLevel = rotation;
+                linePointData.lineRotation = rotation;
                 float helicity = trajectory.attributes.at(helicityAttributeIndex).at(i);
 
                 float lineSegmentLength = 0.0f;
@@ -1468,8 +1468,8 @@ TubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData(LineRenderer* lineR
             device, lineSegmentAabbs.size() * sizeof(VkAabbPositionsKHR), lineSegmentAabbs.data(),
             vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    vulkanTubeAabbRenderData.linePointBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, tubeLinePointDataList.size() * sizeof(TubeLinePointData),
+    vulkanTubeAabbRenderData.linePointDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, tubeLinePointDataList.size() * sizeof(LinePointDataUnified),
             tubeLinePointDataList.data(),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
             | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,

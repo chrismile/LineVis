@@ -79,30 +79,7 @@ layout (binding = 1) uniform StressLineUniformDataBuffer {
 };
 #endif
 
-struct LinePoint {
-    vec3 position;
-    vec3 tangent;
-    vec3 normal;
-    vec3 binormal;
-#ifdef STRESS_LINE_DATA
-    uint principalStressIndex;
-#endif
-};
-
-struct TubeLinePointData {
-    vec3 linePosition;
-    float lineAttribute;
-    vec3 lineTangent;
-    float lineHierarchyLevel; ///< Zero for flow lines.
-    vec3 lineNormal;
-    float lineAppearanceOrder; ///< Zero for flow lines.
-    uvec3 padding;
-    uint principalStressIndex; ///< Zero for flow lines.
-};
-
-layout(std430, binding = 2) readonly buffer TubeLinePointDataBuffer {
-    TubeLinePointData linePoints[];
-};
+layout(binding = 2) uniform accelerationStructureEXT topLevelAS;
 
 layout(std430, binding = 3) readonly buffer SamplingLocationsBuffer {
     float samplingLocations[];
@@ -112,7 +89,25 @@ layout(std430, binding = 4) buffer AmbientOcclusionFactorsBuffer {
     float ambientOcclusionFactors[];
 };
 
-layout(binding = 5) uniform accelerationStructureEXT topLevelAS;
+struct LinePoint {
+    vec3 position;
+    vec3 tangent;
+    vec3 normal;
+    vec3 binormal;
+#ifdef STRESS_LINE_DATA
+    uint principalStressIndex;
+#ifdef USE_PRINCIPAL_STRESSES
+    float majorStress;
+    float mediumStress;
+    float minorStress;
+#endif
+#endif
+};
+
+#define LINE_POINTS_BUFFER_BINDING 5
+#define STRESS_LINE_POINTS_BUFFER_BINDING 6
+#define STRESS_LINE_POINTS_PRINCIPAL_STRESS_BUFFER_BINDING 7
+#include "LineDataSSBO.glsl"
 
 LinePoint getInterpolatedLinePoint(uint lineSamplingIdx) {
     float samplingLocation = samplingLocations[lineSamplingIdx];
@@ -120,8 +115,9 @@ LinePoint getInterpolatedLinePoint(uint lineSamplingIdx) {
     uint upperIdx = min(lowerIdx + 1u, numLinePoints - 1u);
     float interpolationFactor = fract(samplingLocation);
 
-    TubeLinePointData lowerLinePoint = linePoints[lowerIdx];
-    TubeLinePointData upperLinePoint = linePoints[upperIdx];
+    LinePointData lowerLinePoint = linePoints[lowerIdx];
+    LinePointData upperLinePoint = linePoints[upperIdx];
+
     vec3 binormalLower = cross(lowerLinePoint.lineTangent.xyz, lowerLinePoint.lineNormal.xyz);
     vec3 binormalUpper = cross(upperLinePoint.lineTangent.xyz, upperLinePoint.lineNormal.xyz);
 
@@ -135,7 +131,24 @@ LinePoint getInterpolatedLinePoint(uint lineSamplingIdx) {
     interpolatedLinePoint.binormal =
             normalize(mix(binormalLower, binormalUpper, interpolationFactor));
 #ifdef STRESS_LINE_DATA
-    interpolatedLinePoint.principalStressIndex = lowerLinePoint.principalStressIndex;
+    StressLinePointData lowerStressLinePoint = stressLinePoints[lowerIdx];
+    interpolatedLinePoint.principalStressIndex = lowerStressLinePoint.linePrincipalStressIndex;
+#ifdef USE_PRINCIPAL_STRESSES
+    StressLinePointPrincipalStressDataBuffer lowerStressLinePointPrincipalStressData = principalStressLinePoints[lowerIdx];
+    StressLinePointPrincipalStressDataBuffer upperStressLinePointPrincipalStressData = principalStressLinePoints[upperIdx];
+    interpolatedLinePoint.majorStress = mix(
+            lowerStressLinePointPrincipalStressData.lineMajorStress,
+            upperStressLinePointPrincipalStressData.lineMajorStress,
+            interpolationFactor);
+    interpolatedLinePoint.mediumStress = mix(
+            lowerStressLinePointPrincipalStressData.lineMediumStress,
+            upperStressLinePointPrincipalStressData.lineMediumStress,
+            interpolationFactor);
+    interpolatedLinePoint.minorStress = mix(
+            lowerStressLinePointPrincipalStressData.lineMinorStress,
+            upperStressLinePointPrincipalStressData.lineMinorStress,
+            interpolationFactor);
+#endif
 #endif
     return interpolatedLinePoint;
 }
@@ -184,6 +197,44 @@ void main() {
 
     LinePoint linePoint = getInterpolatedLinePoint(lineSamplingIdx);
 
+#ifdef USE_BANDS
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+    float stressX;
+    float stressZ;
+    if (principalStressIndex == 0) {
+        stressX = stressLinePointPrincipalStressData.lineMediumStress;
+        stressZ = stressLinePointPrincipalStressData.lineMinorStress;
+    } else if (principalStressIndex == 1) {
+        stressX = stressLinePointPrincipalStressData.lineMinorStress;
+        stressZ = stressLinePointPrincipalStressData.lineMajorStress;
+    } else {
+        stressX = stressLinePointPrincipalStressData.lineMediumStress;
+        stressZ = stressLinePointPrincipalStressData.lineMajorStress;
+    }
+#endif
+
+#ifdef STRESS_LINE_DATA
+    bool useBand = psUseBands[linePoint.principalStressIndex] > 0;
+#else
+    bool useBand = true;
+#endif
+
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES)
+    float factorX = clamp(abs(stressX / stressZ), 0.0, 1.0f);
+    float factorZ = clamp(abs(stressZ / stressX), 0.0, 1.0f);
+    const float thickness0 = factorX;
+    const float thickness1 = factorZ;
+#elif defined(USE_HYPERSTREAMLINES)
+    stressX = abs(stressX);
+    stressZ = abs(stressZ);
+    const float thickness0 = stressX;
+    const float thickness1 = stressZ;
+#else
+    // Bands with minimum thickness.
+    const float thickness = useBand ? minBandThickness : 1.0;
+#endif
+#endif
+
     for (uint tubeSudivIdx = 0; tubeSudivIdx < numTubeSubdivisions; tubeSudivIdx++) {
         float angle = float(tubeSudivIdx) / float(numTubeSubdivisions) * 2.0 * M_PI;
         float sinAngle = sin(angle);
@@ -191,17 +242,18 @@ void main() {
 
         // Get the ray origin on the tube surface (pushed out by a small epsilon to avoid self intersections).
 #ifdef USE_BANDS
-#ifdef STRESS_LINE_DATA
-        bool useBand = psUseBands[linePoint.principalStressIndex] > 0;
-        const float thickness = useBand ? minBandThickness : 1.0;
         const float tubeRadius = (useBand ? bandRadius : lineRadius);
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+        vec3 surfaceNormal =
+                normalize(thickness1 * cosAngle * linePoint.normal + thickness0 * sinAngle * linePoint.binormal);
+        vec3 rayOrigin = linePoint.position + (tubeRadius + 1e-3) *
+                (thickness0 * cosAngle * linePoint.normal + thickness1 * sinAngle * linePoint.binormal);
 #else
-        const float thickness = minBandThickness;
-        const float tubeRadius = bandRadius;
+        vec3 surfaceNormal =
+                normalize(cosAngle * linePoint.normal + thickness * sinAngle * linePoint.binormal);
+        vec3 rayOrigin = linePoint.position + (tubeRadius + 1e-3) *
+                (thickness * cosAngle * linePoint.normal + sinAngle * linePoint.binormal);
 #endif
-        vec3 surfaceNormal = normalize(cosAngle * linePoint.normal + thickness * sinAngle * linePoint.binormal);
-        vec3 rayOrigin = linePoint.position
-                + (tubeRadius + 1e-3) * (thickness * cosAngle * linePoint.normal + sinAngle * linePoint.binormal);
 #else
         vec3 surfaceNormal = cosAngle * linePoint.normal + sinAngle * linePoint.binormal;
         vec3 rayOrigin = linePoint.position + (lineRadius + 1e-6) * surfaceNormal;

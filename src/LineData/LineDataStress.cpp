@@ -1215,8 +1215,8 @@ void LineDataStress::getLinePassTubeRenderDataGeneral(
     int mediumStressIdx = -1;
     int minorStressIdx = -1;
 
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
-        && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+    if (getLinePrimitiveModeSupportsLineMultiWidth(linePrimitiveMode)
+            && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
         majorStressIdx = getAttributeNameIndex("Major Stress");
         mediumStressIdx = getAttributeNameIndex("Medium Stress");
         minorStressIdx = getAttributeNameIndex("Minor Stress");
@@ -1281,8 +1281,8 @@ void LineDataStress::getLinePassTubeRenderDataGeneral(
                     bandRightVectors.push_back(bandPointsRight.at(j));
 
 #ifdef USE_EIGEN
-                    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
-                        && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+                    if (getLinePrimitiveModeSupportsLineMultiWidth(linePrimitiveMode)
+                            && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
                         lineMajorStresses.push_back(trajectory.attributes.at(majorStressIdx).at(i));
                         lineMediumStresses.push_back(trajectory.attributes.at(mediumStressIdx).at(i));
                         lineMinorStresses.push_back(trajectory.attributes.at(minorStressIdx).at(i));
@@ -1332,7 +1332,7 @@ void LineDataStress::getLinePassTubeRenderDataGeneral(
                         lineHierarchyLevel = stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType));
                     }
 #ifdef USE_EIGEN
-                    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
+                    if (getLinePrimitiveModeSupportsLineMultiWidth(linePrimitiveMode)
                             && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
                         majorStress = lineMajorStressesList.at(lineId).at(i);
                         mediumStress = lineMediumStressesList.at(lineId).at(i);
@@ -1484,7 +1484,7 @@ LinePassTubeRenderData LineDataStress::getLinePassTubeRenderData() {
                 }
                 vertexLineAppearanceOrders.push_back(lineAppearanceOrder);
 #ifdef USE_EIGEN
-                if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
+                if (getLinePrimitiveModeSupportsLineMultiWidth(linePrimitiveMode)
                         && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
                     vertexMajorStresses.push_back(majorStress);
                     vertexMediumStresses.push_back(mediumStress);
@@ -1501,8 +1501,8 @@ LinePassTubeRenderData LineDataStress::getLinePassTubeRenderData() {
                 vertexLineHierarchyLevels.pop_back();
                 vertexLineAppearanceOrders.pop_back();
 #ifdef USE_EIGEN
-                if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
-                    && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+                if (getLinePrimitiveModeSupportsLineMultiWidth(linePrimitiveMode)
+                        && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
                     vertexMajorStresses.pop_back();
                     vertexMediumStresses.pop_back();
                     vertexMinorStresses.pop_back();
@@ -1575,7 +1575,8 @@ LinePassTubeRenderData LineDataStress::getLinePassTubeRenderData() {
             VMA_MEMORY_USAGE_GPU_ONLY);
 
 #ifdef USE_EIGEN
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+    if (getLinePrimitiveModeSupportsLineMultiWidth(linePrimitiveMode)
+            && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
         tubeRenderData.vertexMajorStressBuffer = std::make_shared<sgl::vk::Buffer>(
                 device, vertexMajorStresses.size() * sizeof(float), vertexMajorStresses.data(),
                 VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -1880,8 +1881,8 @@ LinePassTubeRenderDataMeshShader LineDataStress::getLinePassTubeRenderDataMeshSh
                 stressLinePoints.push_back(stressLinePointData);
 
 #ifdef USE_EIGEN
-                if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
-                    && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+                if (getLinePrimitiveModeSupportsLineMultiWidth(linePrimitiveMode)
+                        && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
                     StressLinePointPrincipalStressDataUnified stressLinePointPrincipalStressData;
                     stressLinePointPrincipalStressData.lineMajorStress = majorStress;
                     stressLinePointPrincipalStressData.lineMediumStress = mediumStress;
@@ -1894,8 +1895,8 @@ LinePassTubeRenderDataMeshShader LineDataStress::getLinePassTubeRenderDataMeshSh
                 linePoints.pop_back();
                 stressLinePoints.pop_back();
 #ifdef USE_EIGEN
-                if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
-                    && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+                if (getLinePrimitiveModeSupportsLineMultiWidth(linePrimitiveMode)
+                        && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
                     stressLinePointsPrincipalStress.pop_back();
                 }
 #endif
@@ -1941,7 +1942,7 @@ LinePassTubeRenderDataMeshShader LineDataStress::getLinePassTubeRenderDataMeshSh
 
 #ifdef USE_EIGEN
     if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL
-        && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+            && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
         renderData.stressLinePointPrincipalStressDataBuffer = std::make_shared<sgl::vk::Buffer>(
                 device, stressLinePointsPrincipalStress.size() * sizeof(StressLinePointPrincipalStressDataUnified),
                 stressLinePointsPrincipalStress.data(),
@@ -1985,7 +1986,7 @@ LinePassTubeRenderDataProgrammablePull LineDataStress::getLinePassTubeRenderData
                 stressLinePoints.push_back(stressLinePointData);
 
 #ifdef USE_EIGEN
-                if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
+                if (getLinePrimitiveModeSupportsLineMultiWidth(linePrimitiveMode)
                         && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
                     StressLinePointPrincipalStressDataUnified stressLinePointPrincipalStressData;
                     stressLinePointPrincipalStressData.lineMajorStress = majorStress;
@@ -1999,7 +2000,7 @@ LinePassTubeRenderDataProgrammablePull LineDataStress::getLinePassTubeRenderData
                 linePoints.pop_back();
                 stressLinePoints.pop_back();
 #ifdef USE_EIGEN
-                if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
+                if (getLinePrimitiveModeSupportsLineMultiWidth(linePrimitiveMode)
                         && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
                     stressLinePointsPrincipalStress.pop_back();
                 }
@@ -2303,7 +2304,23 @@ TubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(
 
     std::vector<uint32_t> tubeTriangleIndices;
     std::vector<TubeTriangleVertexData> tubeTriangleVertexDataList;
-    std::vector<TubeLinePointData> tubeTriangleLinePointDataList;
+    std::vector<LinePointDataUnified> tubeTriangleLinePointDataList;
+    std::vector<StressLinePointDataUnified> tubeTriangleStressLinePointDataList;
+#ifdef USE_EIGEN
+    std::vector<StressLinePointPrincipalStressDataUnified> tubeTriangleStressLinePointPrincipalStressDataList;
+#endif
+
+#ifdef USE_EIGEN
+    int majorStressIdx = -1;
+    int mediumStressIdx = -1;
+    int minorStressIdx = -1;
+
+    if (bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+        majorStressIdx = getAttributeNameIndex("Major Stress");
+        mediumStressIdx = getAttributeNameIndex("Medium Stress");
+        minorStressIdx = getAttributeNameIndex("Minor Stress");
+    }
+#endif
 
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
         int psIdx = loadedPsIndices.at(i);
@@ -2378,9 +2395,17 @@ TubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(
 
         size_t offset = tubeTriangleLinePointDataList.size();
         tubeTriangleLinePointDataList.resize(offset + linePointReferences.size());
+        tubeTriangleStressLinePointDataList.resize(offset + linePointReferences.size());
+#ifdef USE_EIGEN
+        if (bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+            tubeTriangleStressLinePointPrincipalStressDataList.resize(offset + linePointReferences.size());
+        }
+#endif
         for (size_t ptIdx = 0; ptIdx < linePointReferences.size(); ptIdx++) {
             LinePointReference& linePointReference = linePointReferences.at(ptIdx);
-            TubeLinePointData& tubeTriangleLinePointData = tubeTriangleLinePointDataList.at(offset + ptIdx);
+            LinePointDataUnified& tubeTriangleLinePointData = tubeTriangleLinePointDataList.at(offset + ptIdx);
+            StressLinePointDataUnified& tubeTriangleStressLinePointData =
+                    tubeTriangleStressLinePointDataList.at(offset + ptIdx);
             Trajectory& trajectory = trajectories.at(linePointReference.trajectoryIndex);
             StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(linePointReference.trajectoryIndex);
             std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
@@ -2389,15 +2414,28 @@ TubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(
             tubeTriangleLinePointData.lineAttribute = attributes.at(linePointReference.linePointIndex);
             tubeTriangleLinePointData.lineTangent = lineTangents.at(ptIdx);
             tubeTriangleLinePointData.lineNormal = lineNormals.at(ptIdx);
-            tubeTriangleLinePointData.principalStressIndex = uint32_t(psIdx);
-            tubeTriangleLinePointData.lineHierarchyLevel =
+
+            tubeTriangleStressLinePointData.linePrincipalStressIndex = uint32_t(psIdx);
+            tubeTriangleStressLinePointData.lineLineHierarchyLevel =
                     stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType));
-            tubeTriangleLinePointData.lineAppearanceOrder = float(stressTrajectoryData.appearanceOrder);
+            tubeTriangleStressLinePointData.lineLineAppearanceOrder = uint32_t(stressTrajectoryData.appearanceOrder);
+
+#ifdef USE_EIGEN
+            if (bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+                StressLinePointPrincipalStressDataUnified& stressLinePointPrincipalStressData =
+                        tubeTriangleStressLinePointPrincipalStressDataList.at(offset + ptIdx);
+                stressLinePointPrincipalStressData.lineMajorStress =
+                        trajectory.attributes.at(majorStressIdx).at(linePointReference.linePointIndex);
+                stressLinePointPrincipalStressData.lineMediumStress =
+                        trajectory.attributes.at(mediumStressIdx).at(linePointReference.linePointIndex);
+                stressLinePointPrincipalStressData.lineMinorStress =
+                        trajectory.attributes.at(minorStressIdx).at(linePointReference.linePointIndex);
+            }
+#endif
         }
 
         lineCentersList.clear();
     }
-
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     vulkanTubeTriangleRenderData = {};
@@ -2426,11 +2464,27 @@ TubeTriangleRenderData LineDataStress::getVulkanTubeTriangleRenderData(
             tubeTriangleVertexDataList.data(),
             vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    vulkanTubeTriangleRenderData.linePointBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, tubeTriangleLinePointDataList.size() * sizeof(TubeLinePointData),
+    vulkanTubeTriangleRenderData.linePointDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, tubeTriangleLinePointDataList.size() * sizeof(LinePointDataUnified),
             tubeTriangleLinePointDataList.data(),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
             | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    vulkanTubeTriangleRenderData.stressLinePointDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, tubeTriangleStressLinePointDataList.size() * sizeof(StressLinePointDataUnified),
+            tubeTriangleStressLinePointDataList.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+            | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+
+#ifdef USE_EIGEN
+    if (bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+        vulkanTubeTriangleRenderData.stressLinePointPrincipalStressDataBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, tubeTriangleStressLinePointPrincipalStressDataList.size() * sizeof(StressLinePointPrincipalStressDataUnified),
+                tubeTriangleStressLinePointPrincipalStressDataList.data(),
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+                | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    }
+#endif
 
     return vulkanTubeTriangleRenderData;
 }
@@ -2446,10 +2500,30 @@ TubeAabbRenderData LineDataStress::getVulkanTubeAabbRenderData(LineRenderer* lin
 
     std::vector<uint32_t> lineSegmentPointIndices;
     std::vector<sgl::AABB3> lineSegmentAabbs;
-    std::vector<TubeLinePointData> tubeLinePointDataList;
+    std::vector<LinePointDataUnified> tubeLinePointDataList;
+    std::vector<StressLinePointDataUnified> tubeStressLinePointDataList;
+#ifdef USE_EIGEN
+    std::vector<StressLinePointPrincipalStressDataUnified> tubeStressLinePointPrincipalStressDataList;
+#endif
+
+#ifdef USE_EIGEN
+    int majorStressIdx = -1;
+    int mediumStressIdx = -1;
+    int minorStressIdx = -1;
+
+    if (bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+        majorStressIdx = getAttributeNameIndex("Major Stress");
+        mediumStressIdx = getAttributeNameIndex("Medium Stress");
+        minorStressIdx = getAttributeNameIndex("Minor Stress");
+    }
+#endif
+
     lineSegmentPointIndices.reserve(getNumLineSegments() * 2);
     lineSegmentAabbs.reserve(getNumLineSegments());
-    tubeLinePointDataList.reserve(getNumLinePoints());
+    const size_t numLinePointsEstimated = getNumLinePoints();
+    tubeLinePointDataList.reserve(numLinePointsEstimated);
+    tubeStressLinePointDataList.reserve(numLinePointsEstimated);
+    tubeStressLinePointPrincipalStressDataList.reserve(numLinePointsEstimated);
     uint32_t lineSegmentIndexCounter = 0;
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
         int psIdx = loadedPsIndices.at(i);
@@ -2503,15 +2577,31 @@ TubeAabbRenderData LineDataStress::getVulkanTubeAabbRenderData(LineRenderer* lin
                 glm::vec3 normal = glm::normalize(helperAxis - glm::dot(helperAxis, tangent) * tangent); // Gram-Schmidt
                 lastLineNormal = normal;
 
-                TubeLinePointData linePointData{};
+                LinePointDataUnified linePointData{};
                 linePointData.linePosition = trajectory.positions.at(i);
                 linePointData.lineAttribute = trajectory.attributes.at(selectedAttributeIndex).at(i);
                 linePointData.lineTangent = tangent;
                 linePointData.lineNormal = lastLineNormal;
-                linePointData.lineHierarchyLevel = stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType));
-                linePointData.lineAppearanceOrder = float(stressTrajectoryData.appearanceOrder);
-                linePointData.principalStressIndex = uint32_t(psIdx);
                 tubeLinePointDataList.push_back(linePointData);
+
+                StressLinePointDataUnified stressLinePointData{};
+                stressLinePointData.lineLineHierarchyLevel = stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType));
+                stressLinePointData.lineLineAppearanceOrder = uint32_t(stressTrajectoryData.appearanceOrder);
+                stressLinePointData.linePrincipalStressIndex = uint32_t(psIdx);
+                tubeStressLinePointDataList.push_back(stressLinePointData);
+
+#ifdef USE_EIGEN
+                if (bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+                    StressLinePointPrincipalStressDataUnified stressLinePointPrincipalStressData{};
+                    stressLinePointPrincipalStressData.lineMajorStress =
+                            trajectory.attributes.at(majorStressIdx).at(i);
+                    stressLinePointPrincipalStressData.lineMediumStress =
+                            trajectory.attributes.at(mediumStressIdx).at(i);
+                    stressLinePointPrincipalStressData.lineMinorStress =
+                            trajectory.attributes.at(minorStressIdx).at(i);
+                    tubeStressLinePointPrincipalStressDataList.push_back(stressLinePointPrincipalStressData);
+                }
+#endif
 
                 numValidLinePoints++;
             }
@@ -2566,12 +2656,28 @@ TubeAabbRenderData LineDataStress::getVulkanTubeAabbRenderData(LineRenderer* lin
             device, lineSegmentAabbs.size() * sizeof(VkAabbPositionsKHR), lineSegmentAabbs.data(),
             vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    vulkanTubeAabbRenderData.linePointBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, tubeLinePointDataList.size() * sizeof(TubeLinePointData),
+    vulkanTubeAabbRenderData.linePointDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, tubeLinePointDataList.size() * sizeof(LinePointDataUnified),
             tubeLinePointDataList.data(),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
             | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
+
+    vulkanTubeAabbRenderData.stressLinePointDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, tubeStressLinePointDataList.size() * sizeof(StressLinePointDataUnified),
+            tubeStressLinePointDataList.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+            | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+
+#ifdef USE_EIGEN
+    if (bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+        vulkanTubeAabbRenderData.stressLinePointPrincipalStressDataBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, tubeStressLinePointPrincipalStressDataList.size() * sizeof(StressLinePointPrincipalStressDataUnified),
+                tubeStressLinePointPrincipalStressDataList.data(),
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+                | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    }
+#endif
 
     return vulkanTubeAabbRenderData;
 }
@@ -2613,14 +2719,15 @@ void LineDataStress::getVulkanShaderPreprocessorDefines(
     }
 
 #ifdef USE_EIGEN
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+    if (getLinePrimitiveModeSupportsLineMultiWidth(linePrimitiveMode)
+            && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
         preprocessorDefines.insert(std::make_pair("USE_PRINCIPAL_STRESSES", ""));
     }
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
+    if (getLinePrimitiveModeSupportsLineMultiWidth(linePrimitiveMode)
             && bandRenderMode == LineDataStress::BandRenderMode::EIGENVALUE_RATIO) {
         preprocessorDefines.insert(std::make_pair("USE_NORMAL_STRESS_RATIO_TUBES", ""));
     }
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
+    if (getLinePrimitiveModeSupportsLineMultiWidth(linePrimitiveMode)
             && bandRenderMode == LineDataStress::BandRenderMode::HYPERSTREAMLINES) {
         preprocessorDefines.insert(std::make_pair("USE_HYPERSTREAMLINES", ""));
     }
@@ -2675,7 +2782,7 @@ void LineDataStress::getTriangleMesh(
     rebuildInternalRepresentationIfNecessary();
 
     std::vector<TubeTriangleVertexData> tubeTriangleVertexDataList;
-    std::vector<TubeLinePointData> tubeTriangleLinePointDataList;
+    std::vector<LinePointDataUnified> tubeTriangleLinePointDataList;
 
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
         int psIdx = loadedPsIndices.at(i);

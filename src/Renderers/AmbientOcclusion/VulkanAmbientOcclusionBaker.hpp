@@ -177,12 +177,9 @@ private:
     // Data for multi-threading.
     sgl::vk::BufferPtr aoBufferVkTmp;
 
-    struct LinePoint {
-        glm::vec4 position;
-        glm::vec4 tangent;
-        glm::vec4 normal;
-    };
-    sgl::vk::BufferPtr linePointsBuffer;
+    sgl::vk::BufferPtr linePointDataBuffer;
+    sgl::vk::BufferPtr stressLinePointDataBuffer;
+    sgl::vk::BufferPtr stressLinePointPrincipalStressDataBuffer;
 
     sgl::vk::BufferPtr blendingWeightParametrizationBuffer;
     sgl::vk::BufferPtr lineSegmentVertexConnectivityBuffer;

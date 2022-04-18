@@ -167,18 +167,6 @@ struct TubeTriangleVertexData {
     float phi; ///< Angle.
 };
 
-struct TubeLinePointData {
-    glm::vec3 linePosition;
-    float lineAttribute;
-    glm::vec3 lineTangent;
-    float lineHierarchyLevel; ///< Zero for flow lines.
-    glm::vec3 lineNormal;
-    float lineAppearanceOrder; ///< Zero for flow lines.
-    glm::uvec2 padding;
-    uint32_t principalStressIndex; ///< Zero for flow lines.
-    float rotation; ///< Used for USE_ROTATING_HELICITY_BANDS.
-};
-
 struct LinePointReference {
     LinePointReference() = default;
     LinePointReference(uint32_t trajectoryIndex, uint32_t linePointIndex)
@@ -197,12 +185,16 @@ struct HullTriangleVertexData {
 struct TubeTriangleRenderData {
     sgl::vk::BufferPtr indexBuffer;
     sgl::vk::BufferPtr vertexBuffer; // TubeTriangleVertexData objects.
-    sgl::vk::BufferPtr linePointBuffer; // TubeLinePointData objects.
+    sgl::vk::BufferPtr linePointDataBuffer; // LinePointDataUnified objects.
+    sgl::vk::BufferPtr stressLinePointDataBuffer; // StressLinePointDataUnified objects.
+    sgl::vk::BufferPtr stressLinePointPrincipalStressDataBuffer; // StressLinePointPrincipalStressDataUnified objects.
 };
 struct TubeAabbRenderData {
-    sgl::vk::BufferPtr indexBuffer; // Two consecutive uint32_t indices map one AABB to two TubeLinePointData objects.
+    sgl::vk::BufferPtr indexBuffer; // Two consecutive uint32_t indices map one AABB to two LinePointDataUnified objects.
     sgl::vk::BufferPtr aabbBuffer; // VkAabbPositionsKHR objects.
-    sgl::vk::BufferPtr linePointBuffer; // TubeLinePointData objects.
+    sgl::vk::BufferPtr linePointDataBuffer; // LinePointDataUnified objects.
+    sgl::vk::BufferPtr stressLinePointDataBuffer; // StressLinePointDataUnified objects.
+    sgl::vk::BufferPtr stressLinePointPrincipalStressDataBuffer; // StressLinePointPrincipalStressDataUnified objects.
 };
 struct HullTriangleRenderData {
     sgl::vk::BufferPtr indexBuffer;

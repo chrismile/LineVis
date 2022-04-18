@@ -323,13 +323,22 @@ void RayTracingRenderPass::createRayTracingData(
             rayTracingData->setStaticBuffer(
                     tubeAabbRenderData.indexBuffer, "BoundingBoxLinePointIndexBuffer");
             rayTracingData->setStaticBuffer(
-                    tubeAabbRenderData.linePointBuffer, "TubeLinePointDataBuffer");
+                    tubeAabbRenderData.linePointDataBuffer, "LinePointDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    tubeAabbRenderData.stressLinePointDataBuffer, "StressLinePointDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    tubeAabbRenderData.stressLinePointPrincipalStressDataBuffer,
+                    "StressLinePointPrincipalStressDataBuffer");
         } else {
             // Just bind anything in order for sgl to not complain...
             rayTracingData->setStaticBuffer(
                     hullTriangleRenderData.indexBuffer, "BoundingBoxLinePointIndexBuffer");
             rayTracingData->setStaticBuffer(
-                    hullTriangleRenderData.vertexBuffer, "TubeLinePointDataBuffer");
+                    hullTriangleRenderData.vertexBuffer, "LinePointDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    hullTriangleRenderData.vertexBuffer, "StressLinePointDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    hullTriangleRenderData.vertexBuffer, "StressLinePointPrincipalStressDataBuffer");
         }
     } else {
         if (tubeTriangleRenderData.indexBuffer) {
@@ -338,7 +347,12 @@ void RayTracingRenderPass::createRayTracingData(
             rayTracingData->setStaticBuffer(
                     tubeTriangleRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
             rayTracingData->setStaticBuffer(
-                    tubeTriangleRenderData.linePointBuffer, "TubeLinePointDataBuffer");
+                    tubeTriangleRenderData.linePointDataBuffer, "LinePointDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    tubeTriangleRenderData.stressLinePointDataBuffer, "StressLinePointDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    tubeTriangleRenderData.stressLinePointPrincipalStressDataBuffer,
+                    "StressLinePointPrincipalStressDataBuffer");
         } else {
             // Just bind anything in order for sgl to not complain...
             rayTracingData->setStaticBuffer(
@@ -346,7 +360,11 @@ void RayTracingRenderPass::createRayTracingData(
             rayTracingData->setStaticBuffer(
                     hullTriangleRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
             rayTracingData->setStaticBuffer(
-                    hullTriangleRenderData.vertexBuffer, "TubeLinePointDataBuffer");
+                    hullTriangleRenderData.vertexBuffer, "LinePointDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    hullTriangleRenderData.vertexBuffer, "StressLinePointDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    hullTriangleRenderData.vertexBuffer, "StressLinePointPrincipalStressDataBuffer");
         }
     }
     if (hullTriangleRenderData.indexBuffer) {
@@ -358,7 +376,7 @@ void RayTracingRenderPass::createRayTracingData(
         sgl::vk::BufferPtr indexBuffer =
                 useAnalyticIntersections ? tubeAabbRenderData.indexBuffer : tubeTriangleRenderData.indexBuffer;
         sgl::vk::BufferPtr vertexBuffer =
-                useAnalyticIntersections ? tubeAabbRenderData.linePointBuffer : tubeTriangleRenderData.vertexBuffer;
+                useAnalyticIntersections ? tubeAabbRenderData.linePointDataBuffer : tubeTriangleRenderData.vertexBuffer;
         rayTracingData->setStaticBuffer(indexBuffer, "HullIndexBuffer");
         rayTracingData->setStaticBuffer(vertexBuffer, "HullTriangleVertexDataBuffer");
     }

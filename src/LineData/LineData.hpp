@@ -253,10 +253,17 @@ public:
     };
     static inline bool getLinePrimitiveModeUsesSingleVertexShaderInputs(LinePrimitiveMode mode) {
         return mode != LINE_PRIMITIVES_QUADS_PROGRAMMABLE_PULL
-                && mode != LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL
-                && mode != LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL
-                && mode != LINE_PRIMITIVES_TUBE_MESH_SHADER
-                && mode != LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER;
+               && mode != LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL
+               && mode != LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL
+               && mode != LINE_PRIMITIVES_TUBE_MESH_SHADER
+               && mode != LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER;
+    }
+    static inline bool getLinePrimitiveModeSupportsLineMultiWidth(LinePrimitiveMode mode) {
+        return mode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL
+               || mode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
+               || mode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH
+               || mode == LINE_PRIMITIVES_TUBE_RIBBONS_COMPUTE_SHADER
+               || mode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER;
     }
     static bool getLinePrimitiveModeUsesGeometryShader(LinePrimitiveMode mode) {
         return mode == LINE_PRIMITIVES_QUADS_GEOMETRY_SHADER || mode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER

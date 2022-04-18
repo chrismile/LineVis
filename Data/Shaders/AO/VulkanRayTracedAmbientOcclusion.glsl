@@ -81,19 +81,17 @@ layout(std430, binding = 7) readonly buffer TubeTriangleVertexDataBuffer {
     TubeTriangleVertexData tubeTriangleVertexDataBuffer[];
 };
 
-struct TubeLinePointData {
+struct LinePointData {
     vec3 linePosition;
     float lineAttribute;
     vec3 lineTangent;
-    float lineHierarchyLevel; ///< Zero for flow lines.
+    float lineRotation;
     vec3 lineNormal;
-    float lineAppearanceOrder; ///< Zero for flow lines.
-    uvec3 padding;
-    uint principalStressIndex; ///< Zero for flow lines.
+    uint lineStartIndex;
 };
 
-layout(std430, binding = 8) readonly buffer TubeLinePointDataBuffer {
-    TubeLinePointData tubeLinePointDataBuffer[];
+layout(std430, binding = 8) readonly buffer LinePointDataBuffer {
+    LinePointData linePoints[];
 };
 
 
@@ -178,9 +176,9 @@ void main() {
         //    uint vertexLinePointIndex1 = vertexData1.vertexLinePointIndex;
         //    uint vertexLinePointIndex2 = vertexData2.vertexLinePointIndex;
         //#endif
-        TubeLinePointData linePointData0 = tubeLinePointDataBuffer[vertexLinePointIndex0];
-        TubeLinePointData linePointData1 = tubeLinePointDataBuffer[vertexLinePointIndex1];
-        TubeLinePointData linePointData2 = tubeLinePointDataBuffer[vertexLinePointIndex2];
+        LinePointData linePointData0 = linePoints[vertexLinePointIndex0];
+        LinePointData linePointData1 = linePoints[vertexLinePointIndex1];
+        LinePointData linePointData2 = linePoints[vertexLinePointIndex2];
 
         vec3 vertexPositionWorld = interpolateVec3(
                 vertexData0.vertexPosition, vertexData1.vertexPosition, vertexData2.vertexPosition, barycentricCoordinates);

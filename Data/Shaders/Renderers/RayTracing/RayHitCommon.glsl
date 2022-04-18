@@ -95,21 +95,51 @@ void computeFragmentColor(
     const vec3 n = normalize(fragmentNormal);
     const vec3 v = normalize(cameraPosition - fragmentPositionWorld);
     const vec3 t = normalize(fragmentTangent);
-
+    // Project v into plane perpendicular to t to get newV.
+    vec3 helperVec = normalize(cross(t, v));
+    vec3 newV = normalize(cross(helperVec, t));
 
 #ifdef USE_BANDS
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+    float stressX;
+    float stressZ;
+    if (principalStressIndex == 0) {
+        stressX = stressLinePointPrincipalStressData.lineMediumStress;
+        stressZ = stressLinePointPrincipalStressData.lineMinorStress;
+    } else if (principalStressIndex == 1) {
+        stressX = stressLinePointPrincipalStressData.lineMinorStress;
+        stressZ = stressLinePointPrincipalStressData.lineMajorStress;
+    } else {
+        stressX = stressLinePointPrincipalStressData.lineMediumStress;
+        stressZ = stressLinePointPrincipalStressData.lineMajorStress;
+    }
+#endif
+
 #ifdef ANALYTIC_TUBE_INTERSECTIONS
     bool useBand = false; // Bands not supported (yet) for analytic tube intersections.
 #else
-
 #ifdef STRESS_LINE_DATA
     bool useBand = psUseBands[principalStressIndex] > 0;
 #else
     bool useBand = true;
 #endif
-
 #endif
+
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES)
+    float factorX = clamp(abs(stressX / stressZ), 0.0, 1.0f);
+    float factorZ = clamp(abs(stressZ / stressX), 0.0, 1.0f);
+    const float thickness0 = factorX;
+    const float thickness1 = factorZ;
+#elif defined(USE_HYPERSTREAMLINES)
+    stressX = abs(stressX);
+    stressZ = abs(stressZ);
+    const float thickness0 = stressX;
+    const float thickness1 = stressZ;
+#else
+    // Bands with minimum thickness.
     const float thickness = useBand ? MIN_THICKNESS : 1.0;
+#endif
+
 #endif
 
     float ribbonPosition;
@@ -118,10 +148,6 @@ void computeFragmentColor(
     if (isCap) {
         vec3 crossProdVn = cross(v, n);
         ribbonPosition = length(crossProdVn);
-
-        // Project v into plane perpendicular to t to get newV.
-        vec3 helperVec = normalize(cross(t, v));
-        vec3 newV = normalize(cross(helperVec, t));
 
         // Get the symmetric ribbon position (ribbon direction is perpendicular to line direction) between 0 and 1.
         // NOTE: len(cross(a, b)) == area of parallelogram spanned by a and b.
@@ -157,15 +183,25 @@ void computeFragmentColor(
 
 #ifdef USE_ORTHOGRAPHIC_TUBE_PROJECTION
         vec2 localV = normalize((transpose(tangentFrameMatrix) * newV).xy);
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+        vec2 p = vec2(thickness0 * cos(phi), thickness1 * sin(phi));
+#else
         vec2 p = vec2(thickness * cos(phi), sin(phi));
+#endif
         float d = length(p);
         p = normalize(p);
         float alpha = acos(dot(localV, p));
 
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+        float phiMax = atan(thickness1 * localV.x, -thickness0 * localV.y);
+        vec2 pointMax0 = vec2(thickness0 * cos(phiMax), thickness1 * sin(phiMax));
+        vec2 pointMax1 = vec2(thickness0 * cos(phiMax + M_PI), thickness1 * sin(phiMax + M_PI));
+#else
         float phiMax = atan(localV.x, -thickness * localV.y);
-
         vec2 pointMax0 = vec2(thickness * cos(phiMax), sin(phiMax));
         vec2 pointMax1 = vec2(thickness * cos(phiMax + M_PI), sin(phiMax + M_PI));
+#endif
+
         vec2 planeDir = pointMax1 - pointMax0;
         float totalDist = length(planeDir);
         planeDir = normalize(planeDir);
@@ -195,17 +231,31 @@ void computeFragmentColor(
         //const vec3 l = A * c;
 
         // Polar of c.
-        const float a = 1.0 / (thickness*thickness);
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+        const float a = 1.0 / (thickness0 * thickness0);
+        const float b = 1.0 / (thickness1 * thickness1);
+        const vec3 l = vec3(a * c.x, b * c.y, -1.0);
+#else
+        const float a = 1.0 / (thickness * thickness);
         const vec3 l = vec3(a * c.x, c.y, -1.0);
+#endif
 
         const mat3 M_l = shearSymmetricMatrix(l);
         //const mat3 B = transpose(M_l) * A * M_l;
 
+        #if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
         const mat3 B = mat3(
-                l.z*l.z - l.y*l.y, l.x*l.y, -l.x*l.z,
-                l.x*l.y, a*l.z*l.z - l.x*l.x, -a*l.y*l.z,
-                -l.x*l.z, -a*l.y*l.z, a*l.y*l.y + l.x*l.x
+            b*l.z*l.z - l.y*l.y, l.x*l.y, -b*l.x*l.z,
+            l.x*l.y, a*l.z*l.z - l.x*l.x, -a*l.y*l.z,
+            -b*l.x*l.z, -a*l.y*l.z, a*l.y*l.y + b*l.x*l.x
         );
+        #else
+        const mat3 B = mat3(
+            l.z*l.z - l.y*l.y, l.x*l.y, -l.x*l.z,
+            l.x*l.y, a*l.z*l.z - l.x*l.x, -a*l.y*l.z,
+            -l.x*l.z, -a*l.y*l.z, a*l.y*l.y + l.x*l.x
+        );
+        #endif
 
         const float EPSILON = 1e-4;
         float alpha = 0.0;
@@ -232,7 +282,11 @@ void computeFragmentColor(
             }
         }
 
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+        vec2 p = vec2(thickness0 * cos(phi), thickness1 * sin(phi));
+#else
         vec2 p = vec2(thickness * cos(phi), sin(phi));
+#endif
 
         vec3 pLineHomogeneous = cross(l, cross(c, vec3(p, 1.0)));
         vec2 pLine = pLineHomogeneous.xy / pLineHomogeneous.z;
@@ -241,10 +295,6 @@ void computeFragmentColor(
 #endif
 
 #else
-        // Project v into plane perpendicular to t to get newV.
-        vec3 helperVec = normalize(cross(t, v));
-        vec3 newV = normalize(cross(helperVec, t));
-
         // Get the symmetric ribbon position (ribbon direction is perpendicular to line direction) between 0 and 1.
         // NOTE: len(cross(a, b)) == area of parallelogram spanned by a and b.
         vec3 crossProdVn = cross(newV, n);
