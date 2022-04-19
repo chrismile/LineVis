@@ -394,8 +394,9 @@ if (Python3_FOUND AND USE_PYTHON)
     endif()
 endif()
 
-find_package(Vulkan REQUIRED)
-if (${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.21.0")
+# sgl provides Vulkan headers in its interface, which are provided if Vulkan was not found during its build.
+find_package(Vulkan QUIET)
+if (${Vulkan_FOUND} AND ${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.21.0")
     target_link_libraries(LineVis PUBLIC Vulkan::Headers)
 endif()
 
