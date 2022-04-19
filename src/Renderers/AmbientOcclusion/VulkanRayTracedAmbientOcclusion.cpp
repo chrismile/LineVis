@@ -276,7 +276,9 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
         int height = int(imageSettings.height);
         int groupCountX = sgl::iceil(width, 16);
         int groupCountY = sgl::iceil(height, 16);
-        renderer->dispatch(computeData, groupCountX, groupCountY, 1);
+        if (topLevelAS) {
+            renderer->dispatch(computeData, groupCountX, groupCountY, 1);
+        }
     }
     changedDenoiserSettings = false;
 

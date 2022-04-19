@@ -134,8 +134,8 @@ LinePoint getInterpolatedLinePoint(uint lineSamplingIdx) {
     StressLinePointData lowerStressLinePoint = stressLinePoints[lowerIdx];
     interpolatedLinePoint.principalStressIndex = lowerStressLinePoint.linePrincipalStressIndex;
 #ifdef USE_PRINCIPAL_STRESSES
-    StressLinePointPrincipalStressDataBuffer lowerStressLinePointPrincipalStressData = principalStressLinePoints[lowerIdx];
-    StressLinePointPrincipalStressDataBuffer upperStressLinePointPrincipalStressData = principalStressLinePoints[upperIdx];
+    StressLinePointPrincipalStressData lowerStressLinePointPrincipalStressData = principalStressLinePoints[lowerIdx];
+    StressLinePointPrincipalStressData upperStressLinePointPrincipalStressData = principalStressLinePoints[upperIdx];
     interpolatedLinePoint.majorStress = mix(
             lowerStressLinePointPrincipalStressData.lineMajorStress,
             upperStressLinePointPrincipalStressData.lineMajorStress,
@@ -201,15 +201,15 @@ void main() {
 #if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
     float stressX;
     float stressZ;
-    if (principalStressIndex == 0) {
-        stressX = stressLinePointPrincipalStressData.lineMediumStress;
-        stressZ = stressLinePointPrincipalStressData.lineMinorStress;
-    } else if (principalStressIndex == 1) {
-        stressX = stressLinePointPrincipalStressData.lineMinorStress;
-        stressZ = stressLinePointPrincipalStressData.lineMajorStress;
+    if (linePoint.principalStressIndex == 0) {
+        stressX = linePoint.mediumStress;
+        stressZ = linePoint.minorStress;
+    } else if (linePoint.principalStressIndex == 1) {
+        stressX = linePoint.minorStress;
+        stressZ = linePoint.majorStress;
     } else {
-        stressX = stressLinePointPrincipalStressData.lineMediumStress;
-        stressZ = stressLinePointPrincipalStressData.lineMajorStress;
+        stressX = linePoint.mediumStress;
+        stressZ = linePoint.majorStress;
     }
 #endif
 
@@ -222,13 +222,13 @@ void main() {
 #if defined(USE_NORMAL_STRESS_RATIO_TUBES)
     float factorX = clamp(abs(stressX / stressZ), 0.0, 1.0f);
     float factorZ = clamp(abs(stressZ / stressX), 0.0, 1.0f);
-    const float thickness0 = factorX;
-    const float thickness1 = factorZ;
+    const float thickness0 = useBand ? factorX : 1.0;
+    const float thickness1 = useBand ? factorZ : 1.0;
 #elif defined(USE_HYPERSTREAMLINES)
     stressX = abs(stressX);
     stressZ = abs(stressZ);
-    const float thickness0 = stressX;
-    const float thickness1 = stressZ;
+    const float thickness0 = useBand ? stressX : 1.0;
+    const float thickness1 = useBand ? stressZ : 1.0;
 #else
     // Bands with minimum thickness.
     const float thickness = useBand ? minBandThickness : 1.0;

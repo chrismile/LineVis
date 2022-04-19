@@ -293,10 +293,10 @@ void main() {
         circlePointsNext[i] = lineRadius * (tangentFrameMatrixNext * localPositionNext) + linePosition1;
         vertexNormalsCurrent[i] = normalize(tangentFrameMatrixCurrent * localNormalCurrent);
         vertexNormalsNext[i] = normalize(tangentFrameMatrixNext * localNormalNext);
-        thickness0Current[i] = factorXCurrent;
-        thickness0Next[i] = factorXNext;
-        thickness1Current[i] = factorZCurrent;
-        thickness1Next[i] = factorZNext;
+        thickness0Current[i] = useBand != 0 ? factorXCurrent : 1.0;
+        thickness0Next[i] = useBand != 0 ? factorXNext : 1.0;
+        thickness1Current[i] = useBand != 0 ? factorZCurrent : 1.0;
+        thickness1Next[i] = useBand != 0 ? factorZNext : 1.0;
 #elif defined(USE_HYPERSTREAMLINES)
         stressXCurrent = abs(stressXCurrent);
         stressZCurrent = abs(stressZCurrent);
@@ -310,10 +310,10 @@ void main() {
         circlePointsNext[i] = lineRadius * (tangentFrameMatrixNext * localPositionNext) + linePosition1;
         vertexNormalsCurrent[i] = normalize(tangentFrameMatrixCurrent * localNormalCurrent);
         vertexNormalsNext[i] = normalize(tangentFrameMatrixNext * localNormalNext);
-        thickness0Current[i] = stressXCurrent;
-        thickness0Next[i] = stressXNext;
-        thickness1Current[i] = stressZCurrent;
-        thickness1Next[i] = stressZNext;
+        thickness0Current[i] = useBand != 0 ? stressXCurrent : 1.0;
+        thickness0Next[i] = useBand != 0 ? stressXNext : 1.0;
+        thickness1Current[i] = useBand != 0 ? stressZCurrent : 1.0;
+        thickness1Next[i] = useBand != 0 ? stressZNext : 1.0;
 #else
         // Bands with minimum thickness.
         vec3 localPosition = vec3(thickness * cosAngle, sinAngle, 0.0);

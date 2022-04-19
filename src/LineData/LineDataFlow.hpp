@@ -63,6 +63,7 @@ public:
 
     // Public interface for filtering trajectories.
     void iterateOverTrajectories(std::function<void(const Trajectory&)> callback) override;
+    void iterateOverTrajectoriesNotFiltered(std::function<void(const Trajectory&)> callback) override;
     void filterTrajectories(std::function<bool(const Trajectory&)> callback) override;
     void resetTrajectoryFilter() override;
 

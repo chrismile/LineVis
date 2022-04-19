@@ -111,7 +111,8 @@ void WBOITRenderer::onResolutionChanged() {
     sgl::vk::ImageSettings imageSettings;
     imageSettings.width = width;
     imageSettings.height = height;
-    imageSettings.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    imageSettings.usage =
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     imageSettings.format =  VK_FORMAT_R32G32B32A32_SFLOAT;
     accumulationRenderTexture = std::make_shared<sgl::vk::Texture>(
             device, imageSettings, sgl::vk::ImageSamplerSettings(), VK_IMAGE_ASPECT_COLOR_BIT);
@@ -140,6 +141,7 @@ void WBOITRenderer::render() {
     // Gather passes.
     LineRenderer::renderBase();
 
+    lineRasterPass->buildIfNecessary();
     if (lineRasterPass->getIsDataEmpty()) {
         renderer->transitionImageLayout(
                 accumulationRenderTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -149,9 +151,9 @@ void WBOITRenderer::render() {
                 { 0.0f, 0.0f, 0.0f, 0.0f }, renderer->getVkCommandBuffer());
         revealageRenderTexture->getImageView()->clearColor(
                 { 1.0f, 0.0f, 0.0f, 0.0f }, renderer->getVkCommandBuffer());
+    } else {
+        lineRasterPass->render();
     }
-
-    lineRasterPass->render();
     renderHull();
 
     // Resolve pass.

@@ -126,7 +126,15 @@ void VulkanRayTracer::render() {
 
     rayTracingRenderPass->setFrameNumber(accumulatedFramesCounter);
     rayTracingRenderPass->setDepthMinMaxBuffer(depthMinMaxBuffers[outputDepthMinMaxBufferIndex]);
-    rayTracingRenderPass->render();
+    rayTracingRenderPass->buildIfNecessary();
+    if (rayTracingRenderPass->getIsAccelerationStructureEmpty()) {
+        renderer->transitionImageLayout(
+                (*sceneData->sceneTexture)->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        (*sceneData->sceneTexture)->getImage()->clearColor(
+                sceneData->clearColor->getFloatColorRGBA(), renderer->getVkCommandBuffer());
+    } else {
+        rayTracingRenderPass->render();
+    }
 
     accumulatedFramesCounter++;
 }

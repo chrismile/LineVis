@@ -169,12 +169,18 @@ void MLABBucketRenderer::gather() {
     //renderer->setViewMatrix(sceneData->camera->getViewMatrix());
     //renderer->setModelMatrix(sgl::matrixIdentity());
 
-    minDepthRasterPass->render();
+    minDepthRasterPass->buildIfNecessary();
+    if (!minDepthRasterPass->getIsDataEmpty()) {
+        minDepthRasterPass->render();
+    }
     renderer->insertMemoryBarrier(
             VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 
-    lineRasterPass->render();
+    lineRasterPass->buildIfNecessary();
+    if (!lineRasterPass->getIsDataEmpty()) {
+        lineRasterPass->render();
+    }
     renderHull();
     renderer->insertMemoryBarrier(
             VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,

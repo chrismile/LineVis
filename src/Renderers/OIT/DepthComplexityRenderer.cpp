@@ -188,7 +188,10 @@ void DepthComplexityRenderer::gather() {
     //renderer->setViewMatrix(sceneData->camera->getViewMatrix());
     //renderer->setModelMatrix(sgl::matrixIdentity());
 
-    lineRasterPass->render();
+    lineRasterPass->buildIfNecessary();
+    if (!lineRasterPass->getIsDataEmpty()) {
+        lineRasterPass->render();
+    }
     renderHull();
     renderer->insertMemoryBarrier(
             VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,

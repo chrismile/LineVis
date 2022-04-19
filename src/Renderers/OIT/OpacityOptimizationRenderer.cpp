@@ -206,18 +206,25 @@ void OpacityOptimizationRenderer::setLineData(LineDataPtr& lineData, bool isNewD
         buffers.vertexLineHierarchyLevelBuffer = tubeRenderData.vertexLineHierarchyLevelBuffer;
     }
 
-    numLineVertices = uint32_t(buffers.vertexPositionBuffer->getSizeInBytes() / sizeof(glm::vec3));
+    size_t sizeInBytes = 0;
+    if (buffers.vertexPositionBuffer) {
+        sizeInBytes = buffers.vertexPositionBuffer->getSizeInBytes();
+    }
+    numLineVertices = uint32_t(sizeInBytes / sizeof(glm::vec3));
     generateBlendingWeightParametrization(isNewData);
 
-    vertexOpacityBuffer = std::make_shared<sgl::vk::Buffer>(
-            renderer->getDevice(), numLineVertices * sizeof(float),
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY);
-    vertexOpacityBuffer->fill(0, renderer->getVkCommandBuffer());
-    renderer->insertBufferMemoryBarrier(
-            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-            vertexOpacityBuffer);
+    vertexOpacityBuffer = {};
+    if (numLineVertices > 0) {
+        vertexOpacityBuffer = std::make_shared<sgl::vk::Buffer>(
+                renderer->getDevice(), numLineVertices * sizeof(float),
+                VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VMA_MEMORY_USAGE_GPU_ONLY);
+        vertexOpacityBuffer->fill(0, renderer->getVkCommandBuffer());
+        renderer->insertBufferMemoryBarrier(
+                VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                vertexOpacityBuffer);
+    }
 
     buffers.lineSegmentIdBuffer = lineSegmentIdBuffer;
     buffers.vertexOpacityBuffer = vertexOpacityBuffer;
@@ -339,6 +346,17 @@ void OpacityOptimizationRenderer::recomputeStaticParametrization() {
         segmentIdOffset += numLineSubdivs;
     }
     numLineSegments = uint32_t(lineSegmentConnectivityData.size());
+
+    lineSegmentIdBuffer = {};
+    blendingWeightParametrizationBuffer = {};
+    lineSegmentConnectivityBuffer = {};
+    segmentVisibilityBuffer = {};
+    segmentOpacityUintBuffer = {};
+    segmentOpacityBuffers[0] = {};
+    segmentOpacityBuffers[1] = {};
+    if (numLineVertices == 0) {
+        return;
+    }
 
     // Upload the data to the GPU.
     lineSegmentIdBuffer = std::make_shared<sgl::vk::Buffer>(
@@ -617,6 +635,14 @@ void OpacityOptimizationRenderer::onClearColorChanged() {
 void OpacityOptimizationRenderer::render() {
     LineRenderer::renderBase();
 
+    if (numLineVertices == 0) {
+        renderer->transitionImageLayout(
+                (*sceneData->sceneTexture)->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        (*sceneData->sceneTexture)->getImageView()->clearColor(
+                sceneData->clearColor->getFloatColorRGBA(), renderer->getVkCommandBuffer());
+        return;
+    }
+
     setUniformData();
     isOpacitiesStep = true;
     clearPpllOpacities();
@@ -629,6 +655,15 @@ void OpacityOptimizationRenderer::render() {
     clearPpllFinal();
     gatherPpllFinal();
     resolvePpllFinal();
+
+    if (useMultisampling) {
+        renderer->transitionImageLayout(
+                colorRenderTargetImageFinal->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        renderer->transitionImageLayout(
+                (*sceneData->sceneTexture)->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        renderer->resolveImage(
+                colorRenderTargetImageFinal, (*sceneData->sceneTexture)->getImageView());
+    }
 }
 
 void OpacityOptimizationRenderer::setUniformData() {
@@ -676,7 +711,10 @@ void OpacityOptimizationRenderer::clearPpllOpacities() {
 }
 
 void OpacityOptimizationRenderer::gatherPpllOpacities() {
-    gatherPpllOpacitiesPass->render();
+    gatherPpllOpacitiesPass->buildIfNecessary();
+    if (!gatherPpllOpacitiesPass->getIsDataEmpty()) {
+        gatherPpllOpacitiesPass->render();
+    }
     renderer->insertMemoryBarrier(
             VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
@@ -738,7 +776,10 @@ void OpacityOptimizationRenderer::clearPpllFinal() {
 }
 
 void OpacityOptimizationRenderer::gatherPpllFinal() {
-    gatherPpllFinalPass->render();
+    gatherPpllFinalPass->buildIfNecessary();
+    if (!gatherPpllFinalPass->getIsDataEmpty()) {
+        gatherPpllFinalPass->render();
+    }
     renderer->insertMemoryBarrier(
             VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
@@ -905,6 +946,10 @@ void PpllOpacitiesLineRasterPass::createRasterData(
     rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
     lineData->setVulkanRenderDataDescriptors(rasterData);
     lineRenderer->setRenderDataBindings(rasterData);
+
+    if (!buffers.indexBuffer) {
+        return;
+    }
 
     rasterData->setIndexBuffer(buffers.indexBuffer);
     rasterData->setVertexBuffer(buffers.vertexPositionBuffer, "vertexPosition");

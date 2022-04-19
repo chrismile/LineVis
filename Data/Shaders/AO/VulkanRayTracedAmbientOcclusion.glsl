@@ -137,7 +137,8 @@ void main() {
     }
 
     // 1. Trace primary ray to tube and get the closest hit.
-    vec3 rayOrigin = (inverseViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+    vec3 cameraPosition = (inverseViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+    vec3 rayOrigin = cameraPosition;
 
     uint seed = tea(gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * outputImageSize.x, frameNumber);
 
@@ -153,7 +154,7 @@ void main() {
             rayOrigin, 0.0001, rayDirection, 1000.0);
     while(rayQueryProceedEXT(rayQueryPrimary)) {}
 
-    const float offsetFactor = subdivisionCorrectionFactor + 0.001;
+    //const float offsetFactor = subdivisionCorrectionFactor + 0.001;
 
     float aoFactor = 1.0;
     if (rayQueryGetIntersectionTypeEXT(rayQueryPrimary, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
@@ -204,6 +205,7 @@ void main() {
             vec3 rayDirection = normalize(frame * sampleHemisphere(xi));
 
             rayQueryEXT rayQuery;
+            const float offsetFactor = length(cameraPosition - vertexPositionWorld) * 1e-3;
             float occlusionFactor = traceAoRay(rayQuery, vertexPositionWorld + rayDirection * offsetFactor, rayDirection);
             aoFactor += occlusionFactor;
         }

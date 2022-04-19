@@ -771,13 +771,15 @@ void MainApp::render() {
         }
     }
 
-    prepareVisualizationPipeline();
+    if (!useDockSpaceMode) {
+        prepareVisualizationPipeline();
 
-    componentOtherThanRendererNeedsReRender = reRender;
-    if (lineData != nullptr) {
-        bool lineDataNeedsReRender = lineData->needsReRender();
-        reRender = reRender || lineDataNeedsReRender;
-        componentOtherThanRendererNeedsReRender = componentOtherThanRendererNeedsReRender || lineDataNeedsReRender;
+        componentOtherThanRendererNeedsReRender = reRender;
+        if (lineData != nullptr) {
+            bool lineDataNeedsReRender = lineData->needsReRender();
+            reRender = reRender || lineDataNeedsReRender;
+            componentOtherThanRendererNeedsReRender = componentOtherThanRendererNeedsReRender || lineDataNeedsReRender;
+        }
     }
 
     if (!useDockSpaceMode) {
@@ -931,6 +933,15 @@ void MainApp::renderGui() {
 
         if (showPropertyEditor) {
             renderGuiPropertyEditorWindow();
+        }
+
+        prepareVisualizationPipeline();
+
+        componentOtherThanRendererNeedsReRender = reRender;
+        if (lineData != nullptr) {
+            bool lineDataNeedsReRender = lineData->needsReRender();
+            reRender = reRender || lineDataNeedsReRender;
+            componentOtherThanRendererNeedsReRender = componentOtherThanRendererNeedsReRender || lineDataNeedsReRender;
         }
 
         for (int i = 0; i < int(dataViews.size()); i++) {

@@ -91,6 +91,15 @@ void VoxelCurveDiscretizer::createVoxelGridGpu() {
         offsetCounter += uint32_t(curveNumPoints);
         lineOffsets.push_back(offsetCounter);
     }
+
+    voxelGridLineSegmentOffsetsBuffer = {};
+    voxelGridNumLineSegmentsBuffer = {};
+    voxelGridLineSegmentsBuffer = {};
+
+    if (linePoints.empty()) {
+        return;
+    }
+
     sgl::vk::BufferPtr linePointBuffer = std::make_shared<sgl::vk::Buffer>(
             renderer->getDevice(), (linePoints.size() + 1) * sizeof(LinePoint), &linePoints.front(),
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,

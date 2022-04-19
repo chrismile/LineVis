@@ -287,6 +287,18 @@ void LineDataFlow::iterateOverTrajectories(std::function<void(const Trajectory&)
     }
 }
 
+void LineDataFlow::iterateOverTrajectoriesNotFiltered(std::function<void(const Trajectory&)> callback) {
+    size_t trajectoryIndex = 0;
+    for (const Trajectory& trajectory : trajectories) {
+        if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIndex)) {
+            trajectoryIndex++;
+            continue;
+        }
+        callback(trajectory);
+        trajectoryIndex++;
+    }
+}
+
 void LineDataFlow::filterTrajectories(std::function<bool(const Trajectory&)> callback) {
     size_t trajectoryIdx = 0;
     for (const Trajectory& trajectory : trajectories) {

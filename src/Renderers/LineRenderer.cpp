@@ -42,6 +42,10 @@
 
 float LineRenderer::lineWidth = STANDARD_LINE_WIDTH;
 float LineRenderer::bandWidth = STANDARD_BAND_WIDTH;
+float LineRenderer::displayLineWidth = STANDARD_LINE_WIDTH;
+float LineRenderer::displayBandWidth = STANDARD_BAND_WIDTH;
+float LineRenderer::displayLineWidthStaging = STANDARD_LINE_WIDTH;
+float LineRenderer::displayBandWidthStaging = STANDARD_BAND_WIDTH;
 
 LineRenderer::LineRenderer(
         std::string windowName, SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
@@ -430,6 +434,9 @@ void LineRenderer::reloadGatherShaderExternal() {
 }
 
 bool LineRenderer::getCanUseLiveUpdate(LineDataAccessType accessType) const {
+    if (ambientOcclusionStrength > 0.0f) {
+        return false;
+    }
     if (lineData) {
         if (accessType == LineDataAccessType::TRIANGLE_MESH) {
             return !getIsTriangleRepresentationUsed() || lineData->getIsSmallDataSet();
@@ -456,10 +463,20 @@ void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
     bool shallReloadGatherShader = false;
 
     bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
+    if (lineWidth != displayLineWidthStaging) {
+        displayLineWidthStaging = lineWidth;
+        displayLineWidth = lineWidth;
+        if (lineData) {
+            lineData->setTriangleRepresentationDirty();
+        }
+        reRender = true;
+        internalReRender = true;
+    }
     ImGui::EditMode editMode = propertyEditor.addSliderFloatEdit(
-            "Line Width", &lineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f");
+            "Line Width", &displayLineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f");
     if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
-        || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
+            || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
+        lineWidth = displayLineWidth;
         if (lineData) {
             lineData->setTriangleRepresentationDirty();
         }

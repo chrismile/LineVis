@@ -218,11 +218,18 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
 bool LineData::renderGuiRenderingSettingsPropertyEditor(sgl::PropertyEditor& propertyEditor) {
     if (getUseBandRendering()) {
         bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
+        if (LineRenderer::bandWidth != LineRenderer::displayBandWidthStaging) {
+            LineRenderer::displayBandWidthStaging = LineRenderer::bandWidth;
+            LineRenderer::displayBandWidth = LineRenderer::bandWidth;
+            reRender = true;
+            setTriangleRepresentationDirty();
+        }
         ImGui::EditMode editMode = propertyEditor.addSliderFloatEdit(
-                "Band Width", &LineRenderer::bandWidth,
+                "Band Width", &LineRenderer::displayBandWidth,
                 LineRenderer::MIN_BAND_WIDTH, LineRenderer::MAX_BAND_WIDTH, "%.4f");
         if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
                 || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
+            LineRenderer::bandWidth = LineRenderer::displayBandWidth;
             reRender = true;
             setTriangleRepresentationDirty();
         }
@@ -407,6 +414,9 @@ void LineData::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
     } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL
                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL) {
         LinePassTubeRenderDataProgrammablePull tubeRenderData = this->getLinePassTubeRenderDataProgrammablePull();
+        if (!tubeRenderData.indexBuffer) {
+            return;
+        }
         rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
         rasterData->setStaticBuffer(tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");
     } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER

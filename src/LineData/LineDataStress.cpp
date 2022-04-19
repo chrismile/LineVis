@@ -801,6 +801,27 @@ void LineDataStress::iterateOverTrajectories(std::function<void(const Trajectory
     }
 }
 
+void LineDataStress::iterateOverTrajectoriesNotFiltered(std::function<void(const Trajectory&)> callback) {
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        int psIdx = loadedPsIndices.at(i);
+        const Trajectories& trajectories = trajectoriesPs.at(i);
+        if (!usedPsDirections.at(psIdx)) {
+            continue;
+        }
+
+        std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
+        size_t trajectoryIdx = 0;
+        for (const Trajectory& trajectory : trajectories) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                trajectoryIdx++;
+                continue;
+            }
+            callback(trajectory);
+            trajectoryIdx++;
+        }
+    }
+}
+
 void LineDataStress::filterTrajectories(std::function<bool(const Trajectory&)> callback) {
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
         Trajectories& trajectories = trajectoriesPs.at(i);
@@ -1142,7 +1163,8 @@ void LineDataStress::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
                     tubeRenderData.stressLinePointDataBuffer,
                     "StressLinePointDataBuffer");
         }
-        if (tubeRenderData.stressLinePointPrincipalStressDataBuffer) {
+        if (tubeRenderData.stressLinePointPrincipalStressDataBuffer
+                && linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL) {
             rasterData->setStaticBuffer(
                     tubeRenderData.stressLinePointPrincipalStressDataBuffer,
                     "StressLinePointPrincipalStressDataBuffer");
@@ -1157,7 +1179,8 @@ void LineDataStress::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
                     tubeRenderData.stressLinePointDataBuffer,
                     "StressLinePointDataBuffer");
         }
-        if (tubeRenderData.stressLinePointPrincipalStressDataBuffer) {
+        if (tubeRenderData.stressLinePointPrincipalStressDataBuffer
+                && linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
             rasterData->setStaticBuffer(
                     tubeRenderData.stressLinePointPrincipalStressDataBuffer,
                     "StressLinePointPrincipalStressDataBuffer");
@@ -1175,7 +1198,8 @@ void LineDataStress::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
                     tubeRenderData.stressLinePointDataBuffer,
                     "StressLinePointDataBuffer");
         }
-        if (tubeRenderData.stressLinePointPrincipalStressDataBuffer) {
+        if (tubeRenderData.stressLinePointPrincipalStressDataBuffer
+                && linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH) {
             rasterData->setStaticBuffer(
                     tubeRenderData.stressLinePointPrincipalStressDataBuffer,
                     "StressLinePointPrincipalStressDataBuffer");
@@ -1302,9 +1326,9 @@ void LineDataStress::getLinePassTubeRenderDataGeneral(
 #ifdef USE_EIGEN
                     if (getLinePrimitiveModeSupportsLineMultiWidth(linePrimitiveMode)
                             && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
-                        lineMajorStresses.push_back(trajectory.attributes.at(majorStressIdx).at(i));
-                        lineMediumStresses.push_back(trajectory.attributes.at(mediumStressIdx).at(i));
-                        lineMinorStresses.push_back(trajectory.attributes.at(minorStressIdx).at(i));
+                        lineMajorStresses.push_back(trajectory.attributes.at(majorStressIdx).at(j));
+                        lineMediumStresses.push_back(trajectory.attributes.at(mediumStressIdx).at(j));
+                        lineMinorStresses.push_back(trajectory.attributes.at(minorStressIdx).at(j));
                     }
 #endif
                 }

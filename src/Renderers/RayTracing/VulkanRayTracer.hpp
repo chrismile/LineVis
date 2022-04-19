@@ -149,6 +149,7 @@ public:
     inline void setUseAnalyticIntersections(bool analyticIntersections) { useAnalyticIntersections = analyticIntersections; }
     inline void setUseMlat(bool mlat) { useMlat = mlat; }
     inline void setMlatNumNodes(int numNodes) { mlatNumNodes = numNodes; }
+    inline bool getIsAccelerationStructureEmpty() { return topLevelAS.get() == nullptr; }
 
 private:
     void updateUseJitteredSamples();

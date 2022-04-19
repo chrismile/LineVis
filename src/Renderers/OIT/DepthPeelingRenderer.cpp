@@ -298,10 +298,12 @@ void DepthPeelingRenderer::gather() {
 
         // 1. Peel one layer of the scene.
         depthPeelingRasterPasses[i % 2]->buildIfNecessary();
-        renderer->pushConstants(
-                depthPeelingRasterPasses[i % 2]->getGraphicsPipeline(),
-                VK_SHADER_STAGE_FRAGMENT_BIT, 0, int(i));
-        depthPeelingRasterPasses[i % 2]->render();
+        if (!depthPeelingRasterPasses[i % 2]->getIsDataEmpty()) {
+            renderer->pushConstants(
+                    depthPeelingRasterPasses[i % 2]->getGraphicsPipeline(),
+                    VK_SHADER_STAGE_FRAGMENT_BIT, 0, int(i));
+            depthPeelingRasterPasses[i % 2]->render();
+        }
 
         // 2. Store it in the accumulator.
         depthPeelingBlitPasses[i % 2]->render();
@@ -335,7 +337,10 @@ void DepthPeelingRenderer::computeDepthComplexity() {
     //renderer->setViewMatrix(sceneData->camera->getViewMatrix());
     //renderer->setModelMatrix(sgl::matrixIdentity());
 
-    depthComplexityRasterPass->render();
+    depthComplexityRasterPass->buildIfNecessary();
+    if (!depthComplexityRasterPass->getIsDataEmpty()) {
+        depthComplexityRasterPass->render();
+    }
     renderer->insertBufferMemoryBarrier(
             VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_TRANSFER_READ_BIT,
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,

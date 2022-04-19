@@ -318,7 +318,7 @@ void createTrianglePrincipalStressTubesRenderDataCPU(
                 tubeTriangleVertexData.vertexPosition = transformedPoint;
                 tubeTriangleVertexData.vertexLinePointIndex = vertexLinePointIndex;
                 tubeTriangleVertexData.vertexNormal = transformedNormal;
-                tubeTriangleVertexData.phi = float(i) / float(numEllipseSubdivisions) * sgl::TWO_PI;
+                tubeTriangleVertexData.phi = float(j) / float(numEllipseSubdivisions) * sgl::TWO_PI;
                 vertexDataList.push_back(tubeTriangleVertexData);
             }
 

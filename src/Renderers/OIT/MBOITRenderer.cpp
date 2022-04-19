@@ -429,7 +429,11 @@ void MBOITRenderer::gather() {
     //renderer->setViewMatrix(sceneData->camera->getViewMatrix());
     //renderer->setModelMatrix(sgl::matrixIdentity());
 
-    mboitPass1->render();
+    mboitPass1->buildIfNecessary();
+    if (!mboitPass1->getIsDataEmpty()) {
+        mboitPass1->render();
+    }
+
     if (syncMode == SYNC_SPINLOCK) {
         renderer->insertMemoryBarrier(
                 VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
@@ -441,7 +445,10 @@ void MBOITRenderer::gather() {
             VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
             VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
 
-    mboitPass2->render();
+    mboitPass2->buildIfNecessary();
+    if (!mboitPass2->getIsDataEmpty()) {
+        mboitPass2->render();
+    }
 
     renderer->insertImageMemoryBarriers(
             momentImageArray, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,

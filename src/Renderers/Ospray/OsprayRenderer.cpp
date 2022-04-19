@@ -204,8 +204,18 @@ void OsprayRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 
     if (geometryMode == GeometryMode::TRIANGLE_MESH) {
         loadTriangleMeshData(lineData);
+        if (triangleMesh.triangleIndices.empty()) {
+            dirty = false;
+            reRender = true;
+            return;
+        }
     } else if (geometryMode == GeometryMode::CURVES) {
         loadCurvesData(lineData);
+        if (curvesData.curveIndices.empty()) {
+            dirty = false;
+            reRender = true;
+            return;
+        }
     }
 
     onHasMoved();
@@ -257,6 +267,11 @@ void OsprayRenderer::loadTriangleMeshData(LineDataPtr& lineData) {
 
     if (ospGeometry) {
         ospRelease(ospGeometry);
+        ospGeometry = nullptr;
+    }
+
+    if (triangleMesh.triangleIndices.empty()) {
+        return;
     }
 
     ospGeometry = ospNewGeometry("mesh");
@@ -329,7 +344,13 @@ void OsprayRenderer::loadCurvesData(LineDataPtr& lineData) {
 
     if (ospGeometry) {
         ospRelease(ospGeometry);
+        ospGeometry = nullptr;
     }
+
+    if (curvesData.curveIndices.empty()) {
+        return;
+    }
+
     ospGeometry = ospNewGeometry("curve");
     ospSetParam(ospGeometry, "type", OSP_UCHAR, &curveType);
     ospSetParam(ospGeometry, "basis", OSP_UCHAR, &curveBasis);
@@ -522,6 +543,14 @@ void OsprayRenderer::onHasMoved() {
 
 void OsprayRenderer::render() {
     LineRenderer::renderBase();
+
+    if (!ospGeometry) {
+        renderer->transitionImageLayout(
+                (*sceneData->sceneTexture)->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        (*sceneData->sceneTexture)->getImageView()->clearColor(
+                sceneData->clearColor->getFloatColorRGBA(), renderer->getVkCommandBuffer());
+        return;
+    }
 
     if (currentLineWidth != LineRenderer::getLineWidth()) {
         currentLineWidth = LineRenderer::getLineWidth();

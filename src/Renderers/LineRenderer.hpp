@@ -238,6 +238,10 @@ protected:
     static constexpr float MAX_BAND_WIDTH = 0.020f;
     static float lineWidth;
     static float bandWidth;
+    static float displayLineWidth;
+    static float displayBandWidth;
+    static float displayLineWidthStaging;
+    static float displayBandWidthStaging;
     static float minBandThickness;
 };
 

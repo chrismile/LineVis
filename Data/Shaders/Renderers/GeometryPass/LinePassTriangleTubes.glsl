@@ -129,8 +129,8 @@ void main() {
 #if defined(USE_NORMAL_STRESS_RATIO_TUBES)
     float factorX = clamp(abs(stressX / stressZ), 0.0, 1.0);
     float factorZ = clamp(abs(stressZ / stressX), 0.0, 1.0);
-    thickness0 = factorX;
-    thickness1 = factorZ;
+    thickness0 = useBand != 0 ? factorX : 1.0;
+    thickness1 = useBand != 0 ? factorZ : 1.0;
 #elif defined(USE_HYPERSTREAMLINES)
     stressX = abs(stressX);
     stressZ = abs(stressZ);

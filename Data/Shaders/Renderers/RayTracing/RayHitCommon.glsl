@@ -128,13 +128,13 @@ void computeFragmentColor(
 #if defined(USE_NORMAL_STRESS_RATIO_TUBES)
     float factorX = clamp(abs(stressX / stressZ), 0.0, 1.0f);
     float factorZ = clamp(abs(stressZ / stressX), 0.0, 1.0f);
-    const float thickness0 = factorX;
-    const float thickness1 = factorZ;
+    const float thickness0 = useBand ? factorX : 1.0;
+    const float thickness1 = useBand ? factorZ : 1.0;
 #elif defined(USE_HYPERSTREAMLINES)
     stressX = abs(stressX);
     stressZ = abs(stressZ);
-    const float thickness0 = stressX;
-    const float thickness1 = stressZ;
+    const float thickness0 = useBand ? stressX : 1.0;
+    const float thickness1 = useBand ? stressZ : 1.0;
 #else
     // Bands with minimum thickness.
     const float thickness = useBand ? MIN_THICKNESS : 1.0;
@@ -354,7 +354,7 @@ void computeFragmentColor(
     float EPSILON_WHITE = clamp(getAntialiasingFactor(fragmentDepth / (useBand ? bandWidth : lineWidth) * 2.0), 0.0, 0.49);
 #else
     //float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / lineWidth, 0.0, 0.49);
-    float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDepth / lineWidth * 2.0), 0.0, 0.49);
+    float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDepth / lineWidth * 0.1), 0.0, 0.49);
     float EPSILON_WHITE = clamp(getAntialiasingFactor(fragmentDepth / lineWidth * 2.0), 0.0, 0.49);
 #endif
 

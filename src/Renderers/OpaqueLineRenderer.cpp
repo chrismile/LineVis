@@ -190,14 +190,15 @@ void OpaqueLineRenderer::onClearColorChanged() {
 void OpaqueLineRenderer::render() {
     LineRenderer::renderBase();
 
+    lineRasterPass->buildIfNecessary();
     if (lineRasterPass->getIsDataEmpty()) {
         renderer->transitionImageLayout(
                 colorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         colorRenderTargetImage->clearColor(
                 sceneData->clearColor->getFloatColorRGBA(), renderer->getVkCommandBuffer());
+    } else {
+        lineRasterPass->render();
     }
-
-    lineRasterPass->render();
 
     if (showDegeneratePoints && hasDegeneratePoints && supportsGeometryShaders) {
         degeneratePointsRasterPass->setPointWidth(pointWidth);

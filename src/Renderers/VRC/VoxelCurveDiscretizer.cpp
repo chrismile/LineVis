@@ -101,7 +101,8 @@ void VoxelCurveDiscretizer::loadLineData(
     curves.clear();
     int selectedAttributeIndex = lineData->getSelectedAttributeIndex();
     lineData->rebuildInternalRepresentationIfNecessary();
-    lineData->iterateOverTrajectories([this, selectedAttributeIndex](const Trajectory& trajectory) {
+    lineData->iterateOverTrajectoriesNotFiltered([this, selectedAttributeIndex](
+            const Trajectory& trajectory) {
         Curve curve;
         for (size_t pointIdx = 0; pointIdx < trajectory.positions.size(); pointIdx++) {
             curve.points.push_back(sgl::transformPoint(linesToVoxel, trajectory.positions.at(pointIdx)));

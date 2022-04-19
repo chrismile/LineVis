@@ -270,6 +270,14 @@ void VoxelCurveDiscretizer::compressData() {
         lineOffset += numLines;
     }
 
+    voxelGridLineSegmentOffsetsBuffer = {};
+    voxelGridNumLineSegmentsBuffer = {};
+    voxelGridLineSegmentsBuffer = {};
+
+    if (lineSegments.empty()) {
+        return;
+    }
+
     //std::vector<float> voxelAOFactors;
     //voxelAOFactors.resize(n);
     //generateVoxelAOFactorsFromDensity(voxelDensities, voxelAOFactors, gridResolution, isHairDataset);
@@ -504,6 +512,13 @@ bool VoxelCurveDiscretizer::isVoxelFilledDilated(
 }
 
 void VoxelCurveDiscretizer::createLineHullMesh() {
+    lineHullIndexBuffer = {};
+    lineHullVertexBuffer = {};
+
+    if (!voxelGridNumLineSegmentsBuffer) {
+        return;
+    }
+
     std::vector<uint32_t> lineHullIndices;
     std::vector<glm::vec3> lineHullVertices;
 

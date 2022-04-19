@@ -218,7 +218,14 @@ void VoxelRayCastingRenderer::render() {
     }
 
     // 2. Execute the VRC rendering pass.
-    voxelRayCastingPass->render();
+    if (voxelGridLineSegmentsBuffer) {
+        voxelRayCastingPass->render();
+    } else {
+        renderer->transitionImageLayout(
+                (*sceneData->sceneTexture)->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        (*sceneData->sceneTexture)->getImageView()->clearColor(
+                sceneData->clearColor->getFloatColorRGBA(), renderer->getVkCommandBuffer());
+    }
 }
 
 void VoxelRayCastingRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
@@ -310,6 +317,9 @@ void LineHullRasterPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::
     rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
     lineData->setVulkanRenderDataDescriptors(rasterData);
     rasterData->setStaticBuffer(uniformDataBuffer, "UniformDataBuffer");
+    if (!voxelCurveDiscretizer->getLineHullIndexBuffer()) {
+        return;
+    }
     rasterData->setIndexBuffer(voxelCurveDiscretizer->getLineHullIndexBuffer());
     rasterData->setVertexBuffer(voxelCurveDiscretizer->getLineHullVertexBuffer(), 0);
 }
