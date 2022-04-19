@@ -389,6 +389,10 @@ void OpacityOptimizationRenderer::recomputeStaticParametrization() {
                 renderer->getDevice(), numLineSegments * sizeof(float),
                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     }
+
+    if (resolvePpllOpacitiesPass) {
+        resolvePpllOpacitiesPass->setDataDirty();
+    }
 }
 
 void OpacityOptimizationRenderer::getVulkanShaderPreprocessorDefines(

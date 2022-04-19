@@ -21,7 +21,7 @@ struct MeshletData {
 };
 
 layout(std430, binding = MESHLET_INPUT_DATA_BUFFER_BINDING) readonly buffer MeshletDataBuffer {
-    uvec4 meshlets[];
+    uvec2 meshlets[];
 };
 
 layout(location = 0) out vec3 fragmentPositionWorld[];
@@ -79,7 +79,7 @@ void main() {
     uint meshletIdx = gl_WorkGroupID.x;
     uint threadIdx = gl_LocalInvocationID.x;
 
-    uvec4 meshletVec = meshlets[meshletIdx];
+    uvec2 meshletVec = meshlets[meshletIdx];
     MeshletData meshletData;
     meshletData.linePointIndexStart = meshletVec.x;
     meshletData.numLinePoints = meshletVec.y;

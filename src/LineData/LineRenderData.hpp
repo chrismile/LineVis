@@ -115,7 +115,6 @@ struct StressLinePointPrincipalStressDataUnified {
 struct MeshletData {
     uint32_t linePointIndexStart = 0;
     uint32_t numLinePoints = 0;
-    uint32_t padding0 = 0, padding1 = 0;
 };
 
 struct LinePassTubeRenderDataMeshShader {
