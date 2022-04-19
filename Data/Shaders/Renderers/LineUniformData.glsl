@@ -13,6 +13,7 @@
 #define STRESS_LINE_POINTS_BUFFER_BINDING LINE_HIERARCHY_LEVELS_BUFFER_BINDING // for programmable pull & mesh shader passes
 #define STRESS_LINE_POINTS_PRINCIPAL_STRESS_BUFFER_BINDING 18 // for programmable pull & mesh shader passes
 #define MESHLET_INPUT_DATA_BUFFER_BINDING 19 // for programmable pull & mesh shader passes
+#define TUBE_TRIANGLE_MESH_VERTEX_BUFFER_BINDING MESHLET_INPUT_DATA_BUFFER_BINDING // for programmable pull of triangle mesh data
 
 layout(binding = LINE_UNIFORM_DATA_BUFFER_BINDING) uniform LineUniformDataBuffer {
     // Camera data.

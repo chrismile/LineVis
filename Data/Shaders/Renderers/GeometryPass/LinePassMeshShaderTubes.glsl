@@ -96,7 +96,7 @@ void main() {
 #endif
 
 #ifdef USE_PRINCIPAL_STRESSES
-        StressLinePointPrincipalStressDataBuffer stressLinePointPrincipalStressData = principalStressLinePoints[globalLinePointIdx];
+        StressLinePointPrincipalStressData stressLinePointPrincipalStressData = principalStressLinePoints[globalLinePointIdx];
 #endif
 
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
@@ -111,7 +111,7 @@ void main() {
 #endif
 
 #if !defined(USE_NORMAL_STRESS_RATIO_TUBES) && !defined(USE_HYPERSTREAMLINES)
-        float thicknessLocal = useBandLocal != 0 ? MIN_THICKNESS : 1.0f;
+        float thicknessLocal = useBandLocal != 0 ? MIN_THICKNESS : 1.0;
 #endif
 
         const float lineRadius = (useBandLocal != 0 ? bandWidth : lineWidth) * 0.5;
@@ -146,35 +146,35 @@ void main() {
         }
     #endif
 
-    #if defined(USE_NORMAL_STRESS_RATIO_TUBES)
-        float factorX = clamp(abs(stressX / stressZ), 0.0, 1.0f);
-        float factorZ = clamp(abs(stressZ / stressX), 0.0, 1.0f);
-        vec3 localPosition = vec3(cosAngle * factorX, sinAngle * factorZ, 0.0f);
-        vec3 localNormal = vec3(cosAngle * factorZ, sinAngle * factorX, 0.0f);
-        circlePoints = lineRadius * (tangentFrameMatrix * localPosition) + lineCenterPosition;
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES)
+        float factorX = clamp(abs(stressX / stressZ), 0.0, 1.0);
+        float factorZ = clamp(abs(stressZ / stressX), 0.0, 1.0);
+        vec3 localPosition = vec3(cosAngle * factorX, sinAngle * factorZ, 0.0);
+        vec3 localNormal = vec3(cosAngle * factorZ, sinAngle * factorX, 0.0);
+        vec3 vertexPosition = lineRadius * (tangentFrameMatrix * localPosition) + lineCenterPosition;
         vec3 vertexNormal = normalize(tangentFrameMatrix * localNormal);
         thickness0[vertexIdx] = factorX;
         thickness1[vertexIdx] = factorZ;
 #elif defined(USE_HYPERSTREAMLINES)
         stressX = abs(stressX);
         stressZ = abs(stressZ);
-        vec3 localPosition = vec3(cosAngle * stressX, sinAngle * stressZ, 0.0f);
-        vec3 localNormal = vec3(cosAngle * stressZ, sinAngle * stressX, 0.0f);
+        vec3 localPosition = vec3(cosAngle * stressX, sinAngle * stressZ, 0.0);
+        vec3 localNormal = vec3(cosAngle * stressZ, sinAngle * stressX, 0.0);
         vec3 vertexPosition = lineRadius * (tangentFrameMatrix * localPosition) + lineCenterPosition;
         vec3 vertexNormal = normalize(tangentFrameMatrix * localNormal);
         thickness0[vertexIdx] = stressX;
         thickness1[vertexIdx] = stressZ;
 #else
         // Bands with minimum thickness.
-        vec3 localPosition = vec3(thicknessLocal * cosAngle, sinAngle, 0.0f);
-        vec3 localNormal = vec3(cosAngle, thicknessLocal * sinAngle, 0.0f);
+        vec3 localPosition = vec3(thicknessLocal * cosAngle, sinAngle, 0.0);
+        vec3 localNormal = vec3(cosAngle, thicknessLocal * sinAngle, 0.0);
         vec3 vertexPosition = lineRadius * (tangentFrameMatrix * localPosition) + lineCenterPosition;
         vec3 vertexNormal = normalize(tangentFrameMatrix * localNormal);
         thickness[vertexIdx] = thicknessLocal;
 #endif
 #else
-        vec3 localPosition = vec3(cosAngle, sinAngle, 0.0f);
-        vec3 localNormal = vec3(cosAngle, sinAngle, 0.0f);
+        vec3 localPosition = vec3(cosAngle, sinAngle, 0.0);
+        vec3 localNormal = vec3(cosAngle, sinAngle, 0.0);
         vec3 vertexPosition = lineRadius * (tangentFrameMatrix * localPosition) + lineCenterPosition;
         vec3 vertexNormal = normalize(tangentFrameMatrix * localNormal);
 #endif

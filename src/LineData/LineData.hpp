@@ -166,15 +166,13 @@ public:
     virtual LinePassTubeRenderDataMeshShader getLinePassTubeRenderDataMeshShader()=0;
     virtual LinePassTubeRenderDataProgrammablePull getLinePassTubeRenderDataProgrammablePull()=0;
     virtual LinePassQuadsRenderData getLinePassQuadsRenderData() { return {}; }
-
-    // --- Retrieve data for rendering for Vulkan. ---
-    virtual TubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing)=0;
-    virtual TubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer)=0;
-    virtual HullTriangleRenderData getVulkanHullTriangleRenderData(bool raytracing);
-    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleTopLevelAS(LineRenderer* lineRenderer);
-    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleAndHullTopLevelAS(LineRenderer* lineRenderer);
-    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbTopLevelAS(LineRenderer* lineRenderer);
-    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbAndHullTopLevelAS(LineRenderer* lineRenderer);
+    virtual TubeTriangleRenderData getLinePassTubeTriangleMeshRenderData(bool isRasterizer, bool vulkanRayTracing)=0;
+    virtual TubeAabbRenderData getLinePassTubeAabbRenderData(bool isRasterizer)=0;
+    virtual HullTriangleRenderData getVulkanHullTriangleRenderData(bool vulkanRayTracing);
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleTopLevelAS();
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleAndHullTopLevelAS();
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbTopLevelAS();
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbAndHullTopLevelAS();
     inline void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) {
         getVulkanShaderPreprocessorDefines(preprocessorDefines, true);
     }
@@ -242,13 +240,11 @@ public:
         LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL,
         LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER,
         LINE_PRIMITIVES_TUBE_TRIANGLE_MESH,
-        LINE_PRIMITIVES_TUBE_COMPUTE_SHADER,
         LINE_PRIMITIVES_TUBE_MESH_SHADER,
         LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER,
         LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL,
         LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER,
         LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH,
-        LINE_PRIMITIVES_TUBE_RIBBONS_COMPUTE_SHADER,
         LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER,
     };
     static inline bool getLinePrimitiveModeUsesSingleVertexShaderInputs(LinePrimitiveMode mode) {
@@ -256,13 +252,14 @@ public:
                && mode != LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL
                && mode != LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL
                && mode != LINE_PRIMITIVES_TUBE_MESH_SHADER
-               && mode != LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER;
+               && mode != LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER
+               && mode != LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
+               && mode != LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH;
     }
     static inline bool getLinePrimitiveModeSupportsLineMultiWidth(LinePrimitiveMode mode) {
         return mode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL
                || mode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
                || mode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH
-               || mode == LINE_PRIMITIVES_TUBE_RIBBONS_COMPUTE_SHADER
                || mode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER;
     }
     static bool getLinePrimitiveModeUsesGeometryShader(LinePrimitiveMode mode) {
@@ -276,7 +273,6 @@ public:
                 || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL
                 || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
                 || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH
-                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_COMPUTE_SHADER
                 || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER;
     }
     static inline float getMinBandThickness() { return minBandThickness; }
@@ -326,12 +322,13 @@ protected:
 
     // Caches the rendering data when using Vulkan (as, e.g., the Vulkan ray tracer and AO baking could be used at the
     // same time).
-    sgl::vk::BottomLevelAccelerationStructurePtr getTubeTriangleBottomLevelAS(LineRenderer* lineRenderer);
-    sgl::vk::BottomLevelAccelerationStructurePtr getTubeAabbBottomLevelAS(LineRenderer* lineRenderer);
+    sgl::vk::BottomLevelAccelerationStructurePtr getTubeTriangleBottomLevelAS();
+    sgl::vk::BottomLevelAccelerationStructurePtr getTubeAabbBottomLevelAS();
     sgl::vk::BottomLevelAccelerationStructurePtr getHullTriangleBottomLevelAS();
     TubeTriangleRenderData vulkanTubeTriangleRenderData;
     TubeAabbRenderData vulkanTubeAabbRenderData;
     HullTriangleRenderData vulkanHullTriangleRenderData;
+    bool vulkanTubeTriangleRenderDataIsRayTracing = false;
     sgl::vk::BottomLevelAccelerationStructurePtr tubeTriangleBottomLevelAS;
     sgl::vk::BottomLevelAccelerationStructurePtr tubeAabbBottomLevelAS;
     sgl::vk::BottomLevelAccelerationStructurePtr hullTriangleBottomLevelAS;

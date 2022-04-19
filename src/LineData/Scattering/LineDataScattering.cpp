@@ -239,18 +239,18 @@ VulkanLineDataScatteringRenderData LineDataScattering::getVulkanLineDataScatteri
     return vulkanScatteredLinesGridRenderData;
 }
 
-TubeTriangleRenderData LineDataScattering::getVulkanTubeTriangleRenderData(
-        LineRenderer* lineRenderer, bool raytracing) {
+TubeTriangleRenderData LineDataScattering::getLinePassTubeTriangleMeshRenderData(
+        bool isRasterizer, bool vulkanRayTracing) {
     recomputeHistogram();
-    return LineDataFlow::getVulkanTubeTriangleRenderData(lineRenderer, raytracing);
+    return LineDataFlow::getLinePassTubeTriangleMeshRenderData(isRasterizer, vulkanRayTracing);
 }
-TubeAabbRenderData LineDataScattering::getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) {
+TubeAabbRenderData LineDataScattering::getLinePassTubeAabbRenderData(bool isRasterizer) {
     recomputeHistogram();
-    return LineDataFlow::getVulkanTubeAabbRenderData(lineRenderer);
+    return LineDataFlow::getLinePassTubeAabbRenderData(isRasterizer);
 }
-HullTriangleRenderData LineDataScattering::getVulkanHullTriangleRenderData(bool raytracing) {
+HullTriangleRenderData LineDataScattering::getVulkanHullTriangleRenderData(bool vulkanRayTracing) {
     recomputeHistogram();
-    return LineDataFlow::getVulkanHullTriangleRenderData(raytracing);
+    return LineDataFlow::getVulkanHullTriangleRenderData(vulkanRayTracing);
 }
 
 

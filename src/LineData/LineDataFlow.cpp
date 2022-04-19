@@ -1219,10 +1219,9 @@ LinePassQuadsRenderData LineDataFlow::getLinePassQuadsRenderData() {
 }
 
 
-TubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(
-        LineRenderer* lineRenderer, bool raytracing) {
+TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderData(bool isRasterizer, bool vulkanRayTracing) {
     rebuildInternalRepresentationIfNecessary();
-    if (vulkanTubeTriangleRenderData.vertexBuffer) {
+    if (vulkanTubeTriangleRenderData.vertexBuffer && vulkanTubeTriangleRenderDataIsRayTracing == vulkanRayTracing) {
         return vulkanTubeTriangleRenderData;
     }
 
@@ -1316,19 +1315,22 @@ TubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     vulkanTubeTriangleRenderData = {};
+    vulkanTubeTriangleRenderDataIsRayTracing = vulkanRayTracing;
 
     if (tubeTriangleIndices.empty()) {
         return vulkanTubeTriangleRenderData;
     }
 
-    uint32_t indexBufferFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    uint32_t vertexBufferFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    if (raytracing) {
+    uint32_t indexBufferFlags =
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    uint32_t vertexBufferFlags =
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    if (vulkanRayTracing) {
         indexBufferFlags |=
                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
                 | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
         vertexBufferFlags |=
-                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
                 | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
     }
 
@@ -1350,7 +1352,7 @@ TubeTriangleRenderData LineDataFlow::getVulkanTubeTriangleRenderData(
     return vulkanTubeTriangleRenderData;
 }
 
-TubeAabbRenderData LineDataFlow::getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) {
+TubeAabbRenderData LineDataFlow::getLinePassTubeAabbRenderData(bool isRasterizer) {
     rebuildInternalRepresentationIfNecessary();
     if (vulkanTubeAabbRenderData.indexBuffer) {
         return vulkanTubeAabbRenderData;

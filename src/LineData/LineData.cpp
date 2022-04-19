@@ -54,13 +54,11 @@ const char *const LINE_PRIMITIVE_MODE_DISPLAYNAMES[] = {
         "Tube (Programmable Pull)",
         "Tube (Geometry Shader)",
         "Tube (Triangle Mesh)",
-        "Tube (Compute Shader)",
         "Tube (Mesh Shader)",
         "Ribbon Quads (Geometry Shader)",
         "Tube Ribbons (Programmable Pull)",
         "Tube Ribbons (Geometry Shader)",
         "Tube Ribbons (Triangle Mesh)",
-        "Tube Ribbons (Compute Shader)",
         "Tube Ribbons (Mesh Shader)",
 };
 
@@ -125,7 +123,7 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
     if (lineRenderer->getIsRasterizer()) {
         int numPrimitiveModes = IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES);
         if (!hasBandsData) {
-            numPrimitiveModes -= 6;
+            numPrimitiveModes -= 5;
         }
         if (lineRenderer->getRenderingMode() != RENDERING_MODE_OPACITY_OPTIMIZATION && propertyEditor.addCombo(
                 "Line Primitives", (int*)&linePrimitiveMode,
@@ -185,7 +183,8 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
         }
     }
 
-    if (lineRenderer && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH || !lineRenderer->isRasterizer)) {
+    if (lineRenderer && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
+            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH || !lineRenderer->isRasterizer)) {
         if (propertyEditor.addCheckbox("Capped Tubes", &useCappedTubes)) {
             triangleRepresentationDirty = true;
             if (!lineRenderer->isRasterizer) {
@@ -223,7 +222,7 @@ bool LineData::renderGuiRenderingSettingsPropertyEditor(sgl::PropertyEditor& pro
                 "Band Width", &LineRenderer::bandWidth,
                 LineRenderer::MIN_BAND_WIDTH, LineRenderer::MAX_BAND_WIDTH, "%.4f");
         if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
-            || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
+                || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
             reRender = true;
             setTriangleRepresentationDirty();
         }
@@ -364,13 +363,7 @@ std::vector<std::string> LineData::getShaderModuleNames() {
                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH) {
         return {
                 "LinePassTriangleTubes.Vertex",
-                "LinePassTriangleTubes.Fragment"
-        };
-    } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_COMPUTE_SHADER
-               || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_COMPUTE_SHADER) {
-        return {
-                "LinePassTriangleTubes.Vertex",
-                "LinePassTriangleTubes.Fragment"
+                "LinePassGeometryShaderTubes.Fragment"
         };
     } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
@@ -412,16 +405,23 @@ void LineData::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
         rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
         rasterData->setStaticBuffer(tubeRenderData.linePointsBuffer, "LinePoints");
     } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL
-            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL) {
+               || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL) {
         LinePassTubeRenderDataProgrammablePull tubeRenderData = this->getLinePassTubeRenderDataProgrammablePull();
         rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
         rasterData->setStaticBuffer(tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");
     } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
-            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
+               || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
         LinePassTubeRenderDataMeshShader tubeRenderData = this->getLinePassTubeRenderDataMeshShader();
         rasterData->setStaticBuffer(tubeRenderData.meshletDataBuffer, "MeshletDataBuffer");
         rasterData->setStaticBuffer(tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");
         rasterData->setMeshTasks(tubeRenderData.numMeshlets, 0);
+    } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
+               || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH) {
+        TubeTriangleRenderData tubeRenderData = this->getLinePassTubeTriangleMeshRenderData(
+                true, false);
+        rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
+        rasterData->setStaticBuffer(tubeRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
+        rasterData->setStaticBuffer(tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");
     } else {
         LinePassTubeRenderData tubeRenderData = this->getLinePassTubeRenderData();
         rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
@@ -471,14 +471,15 @@ void LineData::loadSimulationMeshOutlineFromFile(
             simulationMeshOutlineVertexNormals);
 }
 
-sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLevelAS(LineRenderer* lineRenderer) {
+sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLevelAS() {
     rebuildInternalRepresentationIfNecessary();
     if (tubeTriangleBottomLevelAS) {
         return tubeTriangleBottomLevelAS;
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    TubeTriangleRenderData tubeTriangleRenderData = getVulkanTubeTriangleRenderData(lineRenderer, true);
+    TubeTriangleRenderData tubeTriangleRenderData = getLinePassTubeTriangleMeshRenderData(
+            false, true);
 
     if (!tubeTriangleRenderData.indexBuffer) {
         return tubeTriangleBottomLevelAS;
@@ -507,14 +508,14 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLeve
     return tubeTriangleBottomLevelAS;
 }
 
-sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeAabbBottomLevelAS(LineRenderer* lineRenderer) {
+sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeAabbBottomLevelAS() {
     rebuildInternalRepresentationIfNecessary();
     if (tubeAabbBottomLevelAS) {
         return tubeAabbBottomLevelAS;
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    TubeAabbRenderData tubeAabbRenderData = getVulkanTubeAabbRenderData(lineRenderer);
+    TubeAabbRenderData tubeAabbRenderData = getLinePassTubeAabbRenderData(false);
 
     if (!tubeAabbRenderData.indexBuffer) {
         return tubeAabbBottomLevelAS;
@@ -573,14 +574,14 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getHullTriangleBottomLeve
     return hullTriangleBottomLevelAS;
 }
 
-sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleTopLevelAS(LineRenderer* lineRenderer) {
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleTopLevelAS() {
     rebuildInternalRepresentationIfNecessary();
     if (tubeTriangleTopLevelAS) {
         return tubeTriangleTopLevelAS;
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    tubeTriangleBottomLevelAS = getTubeTriangleBottomLevelAS(lineRenderer);
+    tubeTriangleBottomLevelAS = getTubeTriangleBottomLevelAS();
 
     if (!tubeTriangleBottomLevelAS) {
         return tubeTriangleTopLevelAS;
@@ -592,18 +593,17 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleTop
     return tubeTriangleTopLevelAS;
 }
 
-sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleAndHullTopLevelAS(
-        LineRenderer* lineRenderer) {
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleAndHullTopLevelAS() {
     rebuildInternalRepresentationIfNecessary();
     if (tubeTriangleAndHullTopLevelAS) {
         return tubeTriangleAndHullTopLevelAS;
     }
     if (simulationMeshOutlineTriangleIndices.empty()) {
-        return getRayTracingTubeTriangleTopLevelAS(lineRenderer);
+        return getRayTracingTubeTriangleTopLevelAS();
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    tubeTriangleBottomLevelAS = getTubeTriangleBottomLevelAS(lineRenderer);
+    tubeTriangleBottomLevelAS = getTubeTriangleBottomLevelAS();
     hullTriangleBottomLevelAS = getHullTriangleBottomLevelAS();
 
     if (!tubeTriangleBottomLevelAS && !hullTriangleBottomLevelAS) {
@@ -626,14 +626,14 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleAnd
     return tubeTriangleAndHullTopLevelAS;
 }
 
-sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbTopLevelAS(LineRenderer* lineRenderer) {
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbTopLevelAS() {
     rebuildInternalRepresentationIfNecessary();
     if (tubeAabbTopLevelAS) {
         return tubeAabbTopLevelAS;
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    tubeAabbBottomLevelAS = getTubeAabbBottomLevelAS(lineRenderer);
+    tubeAabbBottomLevelAS = getTubeAabbBottomLevelAS();
 
     if (!tubeAabbBottomLevelAS) {
         return tubeAabbTopLevelAS;
@@ -645,17 +645,17 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbTopLeve
     return tubeAabbTopLevelAS;
 }
 
-sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbAndHullTopLevelAS(LineRenderer* lineRenderer) {
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbAndHullTopLevelAS() {
     rebuildInternalRepresentationIfNecessary();
     if (tubeAabbAndHullTopLevelAS) {
         return tubeAabbAndHullTopLevelAS;
     }
     if (simulationMeshOutlineTriangleIndices.empty()) {
-        return getRayTracingTubeAabbTopLevelAS(lineRenderer);
+        return getRayTracingTubeAabbTopLevelAS();
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    tubeAabbBottomLevelAS = getTubeAabbBottomLevelAS(lineRenderer);
+    tubeAabbBottomLevelAS = getTubeAabbBottomLevelAS();
     hullTriangleBottomLevelAS = getHullTriangleBottomLevelAS();
 
     if (!tubeAabbBottomLevelAS && !hullTriangleBottomLevelAS) {
@@ -678,7 +678,7 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbAndHull
     return tubeAabbAndHullTopLevelAS;
 }
 
-HullTriangleRenderData LineData::getVulkanHullTriangleRenderData(bool raytracing) {
+HullTriangleRenderData LineData::getVulkanHullTriangleRenderData(bool vulkanRayTracing) {
     rebuildInternalRepresentationIfNecessary();
     if (vulkanHullTriangleRenderData.vertexBuffer) {
         return vulkanHullTriangleRenderData;
@@ -701,7 +701,7 @@ HullTriangleRenderData LineData::getVulkanHullTriangleRenderData(bool raytracing
 
     uint32_t indexBufferFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
     uint32_t vertexBufferFlags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    if (raytracing) {
+    if (vulkanRayTracing) {
         indexBufferFlags |=
                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
                 | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
@@ -730,7 +730,9 @@ void LineData::getVulkanShaderPreprocessorDefines(
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
-            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
+            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER
+            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
+            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH) {
         preprocessorDefines.insert(std::make_pair(
                 "NUM_TUBE_SUBDIVISIONS", std::to_string(tubeNumSubdivisions)));
     }
@@ -739,7 +741,8 @@ void LineData::getVulkanShaderPreprocessorDefines(
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER) {
         preprocessorDefines.insert(std::make_pair("USE_GEOMETRY_SHADER", ""));
     }
-    if (useCappedTubes) {
+    if (useCappedTubes && (!isRasterizer || linePrimitiveMode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
+            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH)) {
         preprocessorDefines.insert(std::make_pair("USE_CAPPED_TUBES", ""));
     }
     if (renderThickBands) {

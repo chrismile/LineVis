@@ -356,9 +356,9 @@ void main() {
     uint principalStressIndex = stressLinePointData0.linePrincipalStressIndex;
     float lineAppearanceOrder = stressLinePointData0.lineLineAppearanceOrder;
 #ifdef USE_PRINCIPAL_STRESSES
-    StressLinePointPrincipalStressDataBuffer stressLinePointPrincipalStressData0 = principalStressLinePoints[vertexLinePointIndex0];
-    StressLinePointPrincipalStressDataBuffer stressLinePointPrincipalStressData1 = principalStressLinePoints[vertexLinePointIndex1];
-    StressLinePointPrincipalStressDataBuffer stressLinePointPrincipalStressData2 = principalStressLinePoints[vertexLinePointIndex2];
+    StressLinePointPrincipalStressData stressLinePointPrincipalStressData0 = principalStressLinePoints[vertexLinePointIndex0];
+    StressLinePointPrincipalStressData stressLinePointPrincipalStressData1 = principalStressLinePoints[vertexLinePointIndex1];
+    StressLinePointPrincipalStressData stressLinePointPrincipalStressData2 = principalStressLinePoints[vertexLinePointIndex2];
     float fragmentMajorStress = interpolateFloat(
             stressLinePointPrincipalStressData0.lineMajorStress,
             stressLinePointPrincipalStressData1.lineMajorStress,
@@ -402,7 +402,6 @@ void main() {
 #endif
             fragmentAttribute
     );
-
 }
 
 
@@ -624,8 +623,8 @@ void main() {
     uint principalStressIndex = stressLinePointData0.linePrincipalStressIndex;
     float lineAppearanceOrder = stressLinePointData0.lineLineAppearanceOrder;
 #ifdef USE_PRINCIPAL_STRESSES
-    StressLinePointPrincipalStressDataBuffer stressLinePointPrincipalStressData0 = principalStressLinePoints[linePointIndices.x];
-    StressLinePointPrincipalStressDataBuffer stressLinePointPrincipalStressData1 = principalStressLinePoints[linePointIndices.y];
+    StressLinePointPrincipalStressData stressLinePointPrincipalStressData0 = principalStressLinePoints[linePointIndices.x];
+    StressLinePointPrincipalStressData stressLinePointPrincipalStressData1 = principalStressLinePoints[linePointIndices.y];
     float fragmentMajorStress =
             (1.0 - t) * stressLinePointPrincipalStressData0.lineMajorStress
             + t * stressLinePointPrincipalStressData1.lineMajorStress;

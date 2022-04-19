@@ -222,19 +222,19 @@ void RayTracingRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
     this->lineData = lineData;
     if (useAnalyticIntersections) {
         tubeTriangleRenderData = TubeTriangleRenderData();
-        tubeAabbRenderData = lineData->getVulkanTubeAabbRenderData(vulkanRayTracer);
+        tubeAabbRenderData = lineData->getLinePassTubeAabbRenderData(false);
         if (lineData->getShallRenderSimulationMeshBoundary()) {
-            topLevelAS = lineData->getRayTracingTubeAabbAndHullTopLevelAS(vulkanRayTracer);
+            topLevelAS = lineData->getRayTracingTubeAabbAndHullTopLevelAS();
         } else {
-            topLevelAS = lineData->getRayTracingTubeAabbTopLevelAS(vulkanRayTracer);
+            topLevelAS = lineData->getRayTracingTubeAabbTopLevelAS();
         }
     } else {
-        tubeTriangleRenderData = lineData->getVulkanTubeTriangleRenderData(vulkanRayTracer, true);
+        tubeTriangleRenderData = lineData->getLinePassTubeTriangleMeshRenderData(false, true);
         tubeAabbRenderData = TubeAabbRenderData();
         if (lineData->getShallRenderSimulationMeshBoundary()) {
-            topLevelAS = lineData->getRayTracingTubeTriangleAndHullTopLevelAS(vulkanRayTracer);
+            topLevelAS = lineData->getRayTracingTubeTriangleAndHullTopLevelAS();
         } else {
-            topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS(vulkanRayTracer);
+            topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS();
         }
     }
 

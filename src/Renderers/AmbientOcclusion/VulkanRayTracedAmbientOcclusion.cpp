@@ -214,8 +214,8 @@ void VulkanRayTracedAmbientOcclusionPass::recreateSwapchain(uint32_t width, uint
 
 void VulkanRayTracedAmbientOcclusionPass::setLineData(LineDataPtr& data, bool isNewData) {
     lineData = data;
-    tubeTriangleRenderData = lineData->getVulkanTubeTriangleRenderData(nullptr, true);
-    topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS(nullptr);
+    tubeTriangleRenderData = lineData->getLinePassTubeTriangleMeshRenderData(false, true);
+    topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS();
 
     uniformData.frameNumber = 0;
     setDataDirty();

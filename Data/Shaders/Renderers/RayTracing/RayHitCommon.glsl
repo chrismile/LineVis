@@ -104,14 +104,14 @@ void computeFragmentColor(
     float stressX;
     float stressZ;
     if (principalStressIndex == 0) {
-        stressX = stressLinePointPrincipalStressData.lineMediumStress;
-        stressZ = stressLinePointPrincipalStressData.lineMinorStress;
+        stressX = fragmentMediumStress;
+        stressZ = fragmentMinorStress;
     } else if (principalStressIndex == 1) {
-        stressX = stressLinePointPrincipalStressData.lineMinorStress;
-        stressZ = stressLinePointPrincipalStressData.lineMajorStress;
+        stressX = fragmentMinorStress;
+        stressZ = fragmentMajorStress;
     } else {
-        stressX = stressLinePointPrincipalStressData.lineMediumStress;
-        stressZ = stressLinePointPrincipalStressData.lineMajorStress;
+        stressX = fragmentMediumStress;
+        stressZ = fragmentMajorStress;
     }
 #endif
 

@@ -61,6 +61,22 @@ void createTriangleEllipticTubesRenderDataCPU(
         std::vector<glm::vec3>& lineTangents,
         std::vector<glm::vec3>& lineNormals);
 
+void createTrianglePrincipalStressTubesRenderDataCPU(
+        const std::vector<std::vector<glm::vec3>>& lineCentersList,
+        const std::vector<std::vector<glm::vec3>>& lineRightVectorsList,
+        const std::vector<uint32_t>& linePrincipalStressIndexList,
+        const std::vector<std::vector<float>>& lineMajorStressesList,
+        const std::vector<std::vector<float>>& lineMediumStressesList,
+        const std::vector<std::vector<float>>& lineMinorStressesList,
+        float tubeRadius, int numEllipseSubdivisions,
+        bool hyperstreamline, // Hyperstreamline or normal stress ratio tube?
+        std::vector<uint32_t>& triangleIndices,
+        std::vector<TubeTriangleVertexData>& vertexDataList,
+        std::vector<LinePointReference>& linePointReferenceList,
+        uint32_t linePointOffset,
+        std::vector<glm::vec3>& lineTangents,
+        std::vector<glm::vec3>& lineNormals);
+
 void createTriangleTubesRenderDataGPU(
         const std::vector<std::vector<glm::vec3>>& lineCentersList,
         const std::vector<std::vector<float>>& lineAttributesList,
@@ -85,7 +101,23 @@ void createCappedTriangleTubesRenderDataCPU(
 void createCappedTriangleEllipticTubesRenderDataCPU(
         const std::vector<std::vector<glm::vec3>>& lineCentersList,
         const std::vector<std::vector<glm::vec3>>& lineRightVectorsList,
-        float tubeNormalRadius, float tubeBinormalRadius, int numCircleSubdivisions, bool tubeClosed,
+        float tubeNormalRadius, float tubeBinormalRadius, int numEllipseSubdivisions, bool tubeClosed,
+        std::vector<uint32_t>& triangleIndices,
+        std::vector<TubeTriangleVertexData>& vertexDataList,
+        std::vector<LinePointReference>& linePointReferenceList,
+        uint32_t linePointOffset,
+        std::vector<glm::vec3>& lineTangents,
+        std::vector<glm::vec3>& lineNormals);
+
+void createCappedTrianglePrincipalStressTubesRenderDataCPU(
+        const std::vector<std::vector<glm::vec3>>& lineCentersList,
+        const std::vector<std::vector<glm::vec3>>& lineRightVectorsList,
+        const std::vector<uint32_t>& linePrincipalStressIndexList,
+        const std::vector<std::vector<float>>& lineMajorStressesList,
+        const std::vector<std::vector<float>>& lineMediumStressesList,
+        const std::vector<std::vector<float>>& lineMinorStressesList,
+        float tubeRadius, int numEllipseSubdivisions, bool tubeClosed,
+        bool hyperstreamline, // Hyperstreamline or normal stress ratio tube?
         std::vector<uint32_t>& triangleIndices,
         std::vector<TubeTriangleVertexData>& vertexDataList,
         std::vector<LinePointReference>& linePointReferenceList,

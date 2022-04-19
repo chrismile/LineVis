@@ -108,10 +108,8 @@ public:
     LinePassTubeRenderDataProgrammablePull getLinePassTubeRenderDataProgrammablePull() override;
     LinePassQuadsRenderData getLinePassQuadsRenderData() override;
     LinePassQuadsRenderDataProgrammablePull getLinePassQuadsRenderDataProgrammablePull() override;
-
-    // --- Retrieve data for rendering for Vulkan. ---
-    TubeTriangleRenderData getVulkanTubeTriangleRenderData(LineRenderer* lineRenderer, bool raytracing) override;
-    TubeAabbRenderData getVulkanTubeAabbRenderData(LineRenderer* lineRenderer) override;
+    TubeTriangleRenderData getLinePassTubeTriangleMeshRenderData(bool isRasterizer, bool vulkanRayTracing) override;
+    TubeAabbRenderData getLinePassTubeAabbRenderData(bool isRasterizer) override;
     void getVulkanShaderPreprocessorDefines(
             std::map<std::string, std::string>& preprocessorDefines, bool isRasterizer) override;
     void setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData) override;

@@ -462,7 +462,7 @@ AmbientOcclusionComputeRenderPass::AmbientOcclusionComputeRenderPass(sgl::vk::Re
 }
 
 void AmbientOcclusionComputeRenderPass::setLineData(LineDataPtr& lineData) {
-    topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS(nullptr);
+    topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS();
     lines = lineData->getFilteredLines(nullptr);
 
     if (this->lineData && this->lineData->getType() != lineData->getType()) {
@@ -470,12 +470,14 @@ void AmbientOcclusionComputeRenderPass::setLineData(LineDataPtr& lineData) {
     }
     this->lineData = lineData;
 
-    auto renderData = lineData->getVulkanTubeTriangleRenderData(nullptr, true);
+    auto renderData = lineData->getLinePassTubeTriangleMeshRenderData(
+            false, true);
     linePointDataBuffer = renderData.linePointDataBuffer;
     stressLinePointDataBuffer = renderData.stressLinePointDataBuffer;
     stressLinePointPrincipalStressDataBuffer = renderData.stressLinePointPrincipalStressDataBuffer;
 
-    numLineVertices = linePointDataBuffer ? uint32_t(linePointDataBuffer->getSizeInBytes() / sizeof(LinePointDataUnified)) : 0;
+    numLineVertices =
+            linePointDataBuffer ? uint32_t(linePointDataBuffer->getSizeInBytes() / sizeof(LinePointDataUnified)) : 0;
     if (numLineVertices != 0) {
         generateBlendingWeightParametrization();
     } else {

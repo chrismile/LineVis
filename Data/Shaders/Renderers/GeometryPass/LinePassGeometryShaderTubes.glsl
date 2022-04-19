@@ -222,7 +222,7 @@ void main() {
 #endif
 
 #if !defined(USE_NORMAL_STRESS_RATIO_TUBES) && !defined(USE_HYPERSTREAMLINES)
-    thickness = useBand != 0 ? MIN_THICKNESS : 1.0f;
+    thickness = useBand != 0 ? MIN_THICKNESS : 1.0;
 #else
     float thickness0Current[NUM_TUBE_SUBDIVISIONS];
     float thickness0Next[NUM_TUBE_SUBDIVISIONS];
@@ -281,14 +281,14 @@ void main() {
 #endif
 
 #if defined(USE_NORMAL_STRESS_RATIO_TUBES)
-        float factorXCurrent = clamp(abs(stressXCurrent / stressZCurrent), 0.0, 1.0f);
-        float factorZCurrent = clamp(abs(stressZCurrent / stressXCurrent), 0.0, 1.0f);
-        float factorXNext = clamp(abs(stressXNext / stressZNext), 0.0, 1.0f);
-        float factorZNext = clamp(abs(stressZNext / stressXNext), 0.0, 1.0f);
-        vec3 localPositionCurrent = vec3(cosAngle * factorXCurrent, sinAngle * factorZCurrent, 0.0f);
-        vec3 localNormalCurrent = vec3(cosAngle * factorZCurrent, sinAngle * factorXCurrent, 0.0f);
-        vec3 localPositionNext = vec3(cosAngle * factorXNext, sinAngle * factorZNext, 0.0f);
-        vec3 localNormalNext = vec3(cosAngle * factorZNext, sinAngle * factorXNext, 0.0f);
+        float factorXCurrent = clamp(abs(stressXCurrent / stressZCurrent), 0.0, 1.0);
+        float factorZCurrent = clamp(abs(stressZCurrent / stressXCurrent), 0.0, 1.0);
+        float factorXNext = clamp(abs(stressXNext / stressZNext), 0.0, 1.0);
+        float factorZNext = clamp(abs(stressZNext / stressXNext), 0.0, 1.0);
+        vec3 localPositionCurrent = vec3(cosAngle * factorXCurrent, sinAngle * factorZCurrent, 0.0);
+        vec3 localNormalCurrent = vec3(cosAngle * factorZCurrent, sinAngle * factorXCurrent, 0.0);
+        vec3 localPositionNext = vec3(cosAngle * factorXNext, sinAngle * factorZNext, 0.0);
+        vec3 localNormalNext = vec3(cosAngle * factorZNext, sinAngle * factorXNext, 0.0);
         circlePointsCurrent[i] = lineRadius * (tangentFrameMatrixCurrent * localPositionCurrent) + linePosition0;
         circlePointsNext[i] = lineRadius * (tangentFrameMatrixNext * localPositionNext) + linePosition1;
         vertexNormalsCurrent[i] = normalize(tangentFrameMatrixCurrent * localNormalCurrent);
@@ -302,10 +302,10 @@ void main() {
         stressZCurrent = abs(stressZCurrent);
         stressXNext = abs(stressXNext);
         stressZNext = abs(stressZNext);
-        vec3 localPositionCurrent = vec3(cosAngle * stressXCurrent, sinAngle * stressZCurrent, 0.0f);
-        vec3 localNormalCurrent = vec3(cosAngle * stressZCurrent, sinAngle * stressXCurrent, 0.0f);
-        vec3 localPositionNext = vec3(cosAngle * stressXNext, sinAngle * stressZNext, 0.0f);
-        vec3 localNormalNext = vec3(cosAngle * stressZNext, sinAngle * stressXNext, 0.0f);
+        vec3 localPositionCurrent = vec3(cosAngle * stressXCurrent, sinAngle * stressZCurrent, 0.0);
+        vec3 localNormalCurrent = vec3(cosAngle * stressZCurrent, sinAngle * stressXCurrent, 0.0);
+        vec3 localPositionNext = vec3(cosAngle * stressXNext, sinAngle * stressZNext, 0.0);
+        vec3 localNormalNext = vec3(cosAngle * stressZNext, sinAngle * stressXNext, 0.0);
         circlePointsCurrent[i] = lineRadius * (tangentFrameMatrixCurrent * localPositionCurrent) + linePosition0;
         circlePointsNext[i] = lineRadius * (tangentFrameMatrixNext * localPositionNext) + linePosition1;
         vertexNormalsCurrent[i] = normalize(tangentFrameMatrixCurrent * localNormalCurrent);
@@ -316,8 +316,8 @@ void main() {
         thickness1Next[i] = stressZNext;
 #else
         // Bands with minimum thickness.
-        vec3 localPosition = vec3(thickness * cosAngle, sinAngle, 0.0f);
-        vec3 localNormal = vec3(cosAngle, thickness * sinAngle, 0.0f);
+        vec3 localPosition = vec3(thickness * cosAngle, sinAngle, 0.0);
+        vec3 localNormal = vec3(cosAngle, thickness * sinAngle, 0.0);
         circlePointsCurrent[i] = lineRadius * (tangentFrameMatrixCurrent * localPosition) + linePosition0;
         circlePointsNext[i] = lineRadius * (tangentFrameMatrixNext * localPosition) + linePosition1;
         vertexNormalsCurrent[i] = normalize(tangentFrameMatrixCurrent * localNormal);
@@ -366,7 +366,7 @@ void main() {
 #endif
 #endif
 #if defined(USE_BANDS) && !defined(USE_NORMAL_STRESS_RATIO_TUBES) && !defined(USE_HYPERSTREAMLINES)
-        thickness = useBand != 0 ? MIN_THICKNESS : 1.0f;
+        thickness = useBand != 0 ? MIN_THICKNESS : 1.0;
 #endif
 #if defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
         thickness0 = thickness0Current[i];
@@ -391,7 +391,7 @@ void main() {
         fragmentLineHierarchyLevel = lineLineHierarchyLevel[0];
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-        interpolationFactorLine = 0.0f;
+        interpolationFactorLine = 0.0;
         fragmentVertexIdUint = lineVertexId[0];
         //fragmentVertexId = float(lineVertexId[0]);
 #endif
@@ -420,7 +420,7 @@ void main() {
 #endif
 #endif
 #if defined(USE_BANDS) && !defined(USE_NORMAL_STRESS_RATIO_TUBES) && !defined(USE_HYPERSTREAMLINES)
-        thickness = useBand != 0 ? MIN_THICKNESS : 1.0f;
+        thickness = useBand != 0 ? MIN_THICKNESS : 1.0;
 #endif
 #if defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
         thickness0 = thickness0Current[iNext];
@@ -445,7 +445,7 @@ void main() {
         fragmentLineHierarchyLevel = lineLineHierarchyLevel[0];
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-        interpolationFactorLine = 0.0f;
+        interpolationFactorLine = 0.0;
         fragmentVertexIdUint = lineVertexId[0];
         //fragmentVertexId = float(lineVertexId[0]);
 #endif
@@ -475,7 +475,7 @@ void main() {
 #endif
 #endif
 #if defined(USE_BANDS) && !defined(USE_NORMAL_STRESS_RATIO_TUBES) && !defined(USE_HYPERSTREAMLINES)
-        thickness = useBand != 0 ? MIN_THICKNESS : 1.0f;
+        thickness = useBand != 0 ? MIN_THICKNESS : 1.0;
 #endif
 #if defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
         thickness0 = thickness0Next[i];
@@ -500,7 +500,7 @@ void main() {
         fragmentLineHierarchyLevel = lineLineHierarchyLevel[1];
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-        interpolationFactorLine = 1.0f;
+        interpolationFactorLine = 1.0;
         //fragmentVertexId = float(lineVertexId[1]);
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
@@ -528,7 +528,7 @@ void main() {
 #endif
 #endif
 #if defined(USE_BANDS) && !defined(USE_NORMAL_STRESS_RATIO_TUBES) && !defined(USE_HYPERSTREAMLINES)
-        thickness = useBand != 0 ? MIN_THICKNESS : 1.0f;
+        thickness = useBand != 0 ? MIN_THICKNESS : 1.0;
 #endif
 #if defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
         thickness0 = thickness0Next[iNext];
@@ -553,7 +553,7 @@ void main() {
         fragmentLineHierarchyLevel = lineLineHierarchyLevel[1];
 #endif
 #ifdef USE_AMBIENT_OCCLUSION
-        interpolationFactorLine = 1.0f;
+        interpolationFactorLine = 1.0;
         //fragmentVertexId = float(lineVertexId[1]);
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
@@ -649,6 +649,9 @@ layout(location = 17) in float phiNotWrapInterpolated;
 layout(location = 18) flat in int interpolateWrap;
 #endif
 #endif
+#ifdef USE_CAPPED_TUBES
+layout(location = 19) in float isCap;
+#endif
 
 #if defined(DIRECT_BLIT_GATHER)
 layout(location = 0) out vec4 fragColor;
@@ -740,147 +743,185 @@ void main() {
     vec3 helperVec = normalize(cross(t, v));
     vec3 newV = normalize(cross(helperVec, t));
 
-#ifdef USE_BANDS
-    vec3 lineN = normalize(lineNormal);
-    vec3 lineB = cross(t, lineN);
-    mat3 tangentFrameMatrix = mat3(lineN, lineB, t);
+    float ribbonPosition;
 
-#ifdef USE_ORTHOGRAPHIC_TUBE_PROJECTION
-    vec2 localV = normalize((transpose(tangentFrameMatrix) * newV).xy);
-#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
-    vec2 p = vec2(thickness0 * cos(phi), thickness1 * sin(phi));
-#else
-    vec2 p = vec2(thickness * cos(phi), sin(phi));
-#endif
-    float d = length(p);
-    p = normalize(p);
-    float alpha = acos(dot(localV, p));
-
-#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
-    float phiMax = atan(thickness1 * localV.x, -thickness0 * localV.y);
-    vec2 pointMax0 = vec2(thickness0 * cos(phiMax), thickness1 * sin(phiMax));
-    vec2 pointMax1 = vec2(thickness0 * cos(phiMax + M_PI), thickness1 * sin(phiMax + M_PI));
-#else
-    float phiMax = atan(localV.x, -thickness * localV.y);
-    vec2 pointMax0 = vec2(thickness * cos(phiMax), sin(phiMax));
-    vec2 pointMax1 = vec2(thickness * cos(phiMax + M_PI), sin(phiMax + M_PI));
-#endif
-
-    vec2 planeDir = pointMax1 - pointMax0;
-    float totalDist = length(planeDir);
-    planeDir = normalize(planeDir);
-
-    float beta = acos(dot(planeDir, localV));
-
-    float x = d / sin(beta) * sin(alpha);
-    float ribbonPosition = x / totalDist * 2.0;
-#else
-    // Project onto the tangent plane.
-    const vec3 cNorm = cameraPosition - linePosition;
-    const float dist = dot(cNorm, fragmentTangent);
-    const vec3 cHat = transpose(tangentFrameMatrix) * (cNorm - dist * fragmentTangent);
-    const float lineRadius = (useBand != 0 ? bandWidth : lineWidth) * 0.5;
-
-    // Homogeneous, normalized coordinates of the camera position in the tangent plane.
-    const vec3 c = vec3(cHat.xy / lineRadius, 1.0);
-
-    // Primal conic section matrix.
-    //const mat3 A = mat3(
-    //        1.0 / (thickness * thickness), 0.0, 0.0,
-    //        0.0, 1.0, 0.0,
-    //        0.0, 0.0, -1.0
-    //);
-
-    // Polar of c.
-    //const vec3 l = A * c;
-
-    // Polar of c.
-#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
-    const float a = 1.0 / (thickness0 * thickness0);
-    const float b = 1.0 / (thickness1 * thickness1);
-    const vec3 l = vec3(a * c.x, b * c.y, -1.0);
-#else
-    const float a = 1.0 / (thickness * thickness);
-    const vec3 l = vec3(a * c.x, c.y, -1.0);
-#endif
-
-    const mat3 M_l = shearSymmetricMatrix(l);
-    //const mat3 B = transpose(M_l) * A * M_l;
-
-#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
-    const mat3 B = mat3(
-        b*l.z*l.z - l.y*l.y, l.x*l.y, -b*l.x*l.z,
-        l.x*l.y, a*l.z*l.z - l.x*l.x, -a*l.y*l.z,
-        -b*l.x*l.z, -a*l.y*l.z, a*l.y*l.y + b*l.x*l.x
-    );
-#else
-    const mat3 B = mat3(
-        l.z*l.z - l.y*l.y, l.x*l.y, -l.x*l.z,
-        l.x*l.y, a*l.z*l.z - l.x*l.x, -a*l.y*l.z,
-        -l.x*l.z, -a*l.y*l.z, a*l.y*l.y + l.x*l.x
-    );
-#endif
-
-    const float EPSILON = 1e-4;
-    float alpha = 0.0;
-    float discr = 0.0;
-    if (abs(l.z) > EPSILON) {
-        discr = -B[0][0] * B[1][1] + B[0][1] * B[1][0];
-        alpha = sqrt(discr) / l.z;
-    } else if (abs(l.y) > EPSILON) {
-        discr = -B[0][0] * B[2][2] + B[0][2] * B[2][0];
-        alpha = sqrt(discr) / l.y;
-    } else if (abs(l.x) > EPSILON) {
-        discr = -B[1][1] * B[2][2] + B[1][2] * B[2][1];
-        alpha = sqrt(discr) / l.x;
-    }
-
-    mat3 C = B + alpha * M_l;
-
-    vec2 pointMax0 = vec2(0.0);
-    vec2 pointMax1 = vec2(0.0);
-    for (int i = 0; i < 2; ++i) {
-        if (abs(C[i][i]) > EPSILON) {
-            pointMax0 = C[i].xy / C[i].z; // column vector
-            pointMax1 = vec2(C[0][i], C[1][i]) / C[2][i]; // row vector
+#ifdef USE_CAPPED_TUBES
+    if (isCap > 1e-6) {
+        vec3 crossProdVn = cross(v, n);
+        ribbonPosition = length(crossProdVn);
+    
+        // Get the symmetric ribbon position (ribbon direction is perpendicular to line direction) between 0 and 1.
+        // NOTE: len(cross(a, b)) == area of parallelogram spanned by a and b.
+        vec3 crossProdVn2 = cross(newV, n);
+        float ribbonPosition2 = length(crossProdVn2);
+    
+        // Side note: We can also use the code below, as for a, b with length 1:
+        // sqrt(1 - dot^2(a,b)) = len(cross(a,b))
+        // Due to:
+        // - dot(a,b) = ||a|| ||b|| cos(phi)
+        // - len(cross(a,b)) = ||a|| ||b|| |sin(phi)|
+        // - sin^2(phi) + cos^2(phi) = 1
+        //ribbonPosition = dot(newV, n);
+        //ribbonPosition = sqrt(1 - ribbonPosition * ribbonPosition);
+    
+        // Get the winding of newV relative to n, taking into account that t is the normal of the plane both vectors lie in.
+        // NOTE: dot(a, cross(b, c)) = det(a, b, c), which is the signed volume of the parallelepiped spanned by a, b, c.
+        if (dot(t, crossProdVn) < 0.0) {
+            ribbonPosition2 = -ribbonPosition2;
         }
-    }
+        // Normalize the ribbon position: [-1, 1] -> [0, 1].
+        //ribbonPosition = ribbonPosition / 2.0 + 0.5;
+        ribbonPosition2 = clamp(ribbonPosition2, -1.0, 1.0);
+    
+        ribbonPosition = min(ribbonPosition, abs(ribbonPosition2));
+    } else {
+#endif
 
+#ifdef USE_BANDS
+        vec3 lineN = normalize(lineNormal);
+        vec3 lineB = cross(t, lineN);
+        mat3 tangentFrameMatrix = mat3(lineN, lineB, t);
+    
+#ifdef USE_ORTHOGRAPHIC_TUBE_PROJECTION
+        vec2 localV = normalize((transpose(tangentFrameMatrix) * newV).xy);
 #if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
-    vec2 p = vec2(thickness0 * cos(phi), thickness1 * sin(phi));
+        vec2 p = vec2(thickness0 * cos(phi), thickness1 * sin(phi));
 #else
-    vec2 p = vec2(thickness * cos(phi), sin(phi));
+        vec2 p = vec2(thickness * cos(phi), sin(phi));
 #endif
-
-    vec3 pLineHomogeneous = cross(l, cross(c, vec3(p, 1.0)));
-    vec2 pLine = pLineHomogeneous.xy / pLineHomogeneous.z;
-
-    float ribbonPosition = length(pLine - pointMax0) / length(pointMax1 - pointMax0) * 2.0 - 1.0;
-#endif
-
+        float d = length(p);
+        p = normalize(p);
+        float alpha = acos(dot(localV, p));
+    
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+        float phiMax = atan(thickness1 * localV.x, -thickness0 * localV.y);
+        vec2 pointMax0 = vec2(thickness0 * cos(phiMax), thickness1 * sin(phiMax));
+        vec2 pointMax1 = vec2(thickness0 * cos(phiMax + M_PI), thickness1 * sin(phiMax + M_PI));
 #else
-    // Get the symmetric ribbon position (ribbon direction is perpendicular to line direction) between 0 and 1.
-    // NOTE: len(cross(a, b)) == area of parallelogram spanned by a and b.
-    vec3 crossProdVn = cross(newV, n);
-    float ribbonPosition = length(crossProdVn);
-
-    // Side note: We can also use the code below, as for a, b with length 1:
-    // sqrt(1 - dot^2(a,b)) = len(cross(a,b))
-    // Due to:
-    // - dot(a,b) = ||a|| ||b|| cos(phi)
-    // - len(cross(a,b)) = ||a|| ||b|| |sin(phi)|
-    // - sin^2(phi) + cos^2(phi) = 1
-    //ribbonPosition = dot(newV, n);
-    //ribbonPosition = sqrt(1 - ribbonPosition * ribbonPosition);
-
-    // Get the winding of newV relative to n, taking into account that t is the normal of the plane both vectors lie in.
-    // NOTE: dot(a, cross(b, c)) = det(a, b, c), which is the signed volume of the parallelepiped spanned by a, b, c.
-    if (dot(t, crossProdVn) < 0.0) {
-        ribbonPosition = -ribbonPosition;
+        float phiMax = atan(localV.x, -thickness * localV.y);
+        vec2 pointMax0 = vec2(thickness * cos(phiMax), sin(phiMax));
+        vec2 pointMax1 = vec2(thickness * cos(phiMax + M_PI), sin(phiMax + M_PI));
+#endif
+    
+        vec2 planeDir = pointMax1 - pointMax0;
+        float totalDist = length(planeDir);
+        planeDir = normalize(planeDir);
+    
+        float beta = acos(dot(planeDir, localV));
+    
+        float x = d / sin(beta) * sin(alpha);
+        ribbonPosition = x / totalDist * 2.0;
+#else
+        // Project onto the tangent plane.
+        const vec3 cNorm = cameraPosition - linePosition;
+        const float dist = dot(cNorm, fragmentTangent);
+        const vec3 cHat = transpose(tangentFrameMatrix) * (cNorm - dist * fragmentTangent);
+        const float lineRadius = (useBand != 0 ? bandWidth : lineWidth) * 0.5;
+    
+        // Homogeneous, normalized coordinates of the camera position in the tangent plane.
+        const vec3 c = vec3(cHat.xy / lineRadius, 1.0);
+    
+        // Primal conic section matrix.
+        //const mat3 A = mat3(
+        //        1.0 / (thickness * thickness), 0.0, 0.0,
+        //        0.0, 1.0, 0.0,
+        //        0.0, 0.0, -1.0
+        //);
+    
+        // Polar of c.
+        //const vec3 l = A * c;
+    
+        // Polar of c.
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+        const float a = 1.0 / (thickness0 * thickness0);
+        const float b = 1.0 / (thickness1 * thickness1);
+        const vec3 l = vec3(a * c.x, b * c.y, -1.0);
+#else
+        const float a = 1.0 / (thickness * thickness);
+        const vec3 l = vec3(a * c.x, c.y, -1.0);
+#endif
+    
+        const mat3 M_l = shearSymmetricMatrix(l);
+        //const mat3 B = transpose(M_l) * A * M_l;
+    
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+        const mat3 B = mat3(
+            b*l.z*l.z - l.y*l.y, l.x*l.y, -b*l.x*l.z,
+            l.x*l.y, a*l.z*l.z - l.x*l.x, -a*l.y*l.z,
+            -b*l.x*l.z, -a*l.y*l.z, a*l.y*l.y + b*l.x*l.x
+        );
+#else
+        const mat3 B = mat3(
+            l.z*l.z - l.y*l.y, l.x*l.y, -l.x*l.z,
+            l.x*l.y, a*l.z*l.z - l.x*l.x, -a*l.y*l.z,
+            -l.x*l.z, -a*l.y*l.z, a*l.y*l.y + l.x*l.x
+        );
+#endif
+    
+        const float EPSILON = 1e-4;
+        float alpha = 0.0;
+        float discr = 0.0;
+        if (abs(l.z) > EPSILON) {
+            discr = -B[0][0] * B[1][1] + B[0][1] * B[1][0];
+            alpha = sqrt(discr) / l.z;
+        } else if (abs(l.y) > EPSILON) {
+            discr = -B[0][0] * B[2][2] + B[0][2] * B[2][0];
+            alpha = sqrt(discr) / l.y;
+        } else if (abs(l.x) > EPSILON) {
+            discr = -B[1][1] * B[2][2] + B[1][2] * B[2][1];
+            alpha = sqrt(discr) / l.x;
+        }
+    
+        mat3 C = B + alpha * M_l;
+    
+        vec2 pointMax0 = vec2(0.0);
+        vec2 pointMax1 = vec2(0.0);
+        for (int i = 0; i < 2; ++i) {
+            if (abs(C[i][i]) > EPSILON) {
+                pointMax0 = C[i].xy / C[i].z; // column vector
+                pointMax1 = vec2(C[0][i], C[1][i]) / C[2][i]; // row vector
+            }
+        }
+    
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+        vec2 p = vec2(thickness0 * cos(phi), thickness1 * sin(phi));
+#else
+        vec2 p = vec2(thickness * cos(phi), sin(phi));
+#endif
+    
+        vec3 pLineHomogeneous = cross(l, cross(c, vec3(p, 1.0)));
+        vec2 pLine = pLineHomogeneous.xy / pLineHomogeneous.z;
+    
+        ribbonPosition = length(pLine - pointMax0) / length(pointMax1 - pointMax0) * 2.0 - 1.0;
+#endif
+    
+#else
+        // Get the symmetric ribbon position (ribbon direction is perpendicular to line direction) between 0 and 1.
+        // NOTE: len(cross(a, b)) == area of parallelogram spanned by a and b.
+        vec3 crossProdVn = cross(newV, n);
+        ribbonPosition = length(crossProdVn);
+    
+        // Side note: We can also use the code below, as for a, b with length 1:
+        // sqrt(1 - dot^2(a,b)) = len(cross(a,b))
+        // Due to:
+        // - dot(a,b) = ||a|| ||b|| cos(phi)
+        // - len(cross(a,b)) = ||a|| ||b|| |sin(phi)|
+        // - sin^2(phi) + cos^2(phi) = 1
+        //ribbonPosition = dot(newV, n);
+        //ribbonPosition = sqrt(1 - ribbonPosition * ribbonPosition);
+    
+        // Get the winding of newV relative to n, taking into account that t is the normal of the plane both vectors lie in.
+        // NOTE: dot(a, cross(b, c)) = det(a, b, c), which is the signed volume of the parallelepiped spanned by a, b, c.
+        if (dot(t, crossProdVn) < 0.0) {
+            ribbonPosition = -ribbonPosition;
+        }
+        // Normalize the ribbon position: [-1, 1] -> [0, 1].
+        //ribbonPosition = ribbonPosition / 2.0 + 0.5;
+        ribbonPosition = clamp(ribbonPosition, -1.0, 1.0);
+#endif
+    
+#ifdef USE_CAPPED_TUBES
     }
-    // Normalize the ribbon position: [-1, 1] -> [0, 1].
-    //ribbonPosition = ribbonPosition / 2.0 + 0.5;
-    ribbonPosition = clamp(ribbonPosition, -1.0, 1.0);
 #endif
 
 
