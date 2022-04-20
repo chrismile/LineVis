@@ -286,6 +286,7 @@ protected:
             const std::string& simulationMeshFilename, const sgl::AABB3& oldAABB, glm::mat4* transformationMatrixPtr);
     virtual void recomputeColorLegend();
     int getAttributeNameIndex(const std::string& attributeName);
+    bool updateLinePrimitiveMode(LineRenderer* lineRenderer);
 
     ///< The maximum number of line points to be considered a small data set (important, e.g., for live UI updates).
     const size_t SMALL_DATASET_LINE_POINTS_MAX = 10000;

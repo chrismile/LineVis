@@ -74,6 +74,8 @@ LineData::LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetT
 LineData::~LineData() = default;
 
 bool LineData::setNewSettings(const SettingsMap& settings) {
+    bool reloadGatherShader = false;
+
     std::string attributeName;
     if (settings.getValueOpt("attribute", attributeName)) {
         int i;
@@ -87,11 +89,45 @@ bool LineData::setNewSettings(const SettingsMap& settings) {
             setSelectedAttributeIndex(selectedAttributeIndexUi);
         } else {
             sgl::Logfile::get()->writeError(
-                    "LineData::setNewSettings: Invalid attribute name \"" + attributeName + "\".");
+                    "Error in LineData::setNewSettings: Invalid attribute name \"" + attributeName + "\".");
         }
     }
 
-    return false;
+    std::string linePrimitiveModeName;
+    if (settings.getValueOpt("linePrimitiveMode", linePrimitiveModeName)) {
+        int i;
+        for (i = 0; i < IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES); i++) {
+            if (LINE_PRIMITIVE_MODE_DISPLAYNAMES[i] == attributeName) {
+                linePrimitiveMode = LinePrimitiveMode(i);
+                break;
+            }
+        }
+        if (i != IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES)) {
+            if (!lineRenderersCached.empty()) {
+                updateLinePrimitiveMode(lineRenderersCached.front());
+                reloadGatherShader = true;
+            }
+        } else {
+            sgl::Logfile::get()->writeError(
+                    "Error in LineData::setNewSettings: Invalid line primitive mode name \""
+                    + linePrimitiveModeName + "\".");
+        }
+    }
+
+    int linePrimitiveModeIndex = 0;
+    if (settings.getValueOpt("linePrimitiveModeIndex", linePrimitiveModeIndex)) {
+        if (linePrimitiveModeIndex < 0 || linePrimitiveModeIndex >= IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES)) {
+            sgl::Logfile::get()->writeError(
+                    "Error in LineData::setNewSettings: Invalid attribute name \"" + attributeName + "\".");
+        }
+        linePrimitiveMode = LinePrimitiveMode(linePrimitiveModeIndex);
+        if (!lineRenderersCached.empty()) {
+            updateLinePrimitiveMode(lineRenderersCached.front());
+            reloadGatherShader = true;
+        }
+    }
+
+    return reloadGatherShader;
 }
 
 bool LineData::getCanUseLiveUpdate(LineDataAccessType accessType) const {
@@ -117,6 +153,40 @@ bool LineData::setUseCappedTubes(LineRenderer* lineRenderer, bool cappedTubes) {
     return false;
 }
 
+bool LineData::updateLinePrimitiveMode(LineRenderer* lineRenderer) {
+    bool shallReloadGatherShader = false;
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    bool unsupportedLineRenderingMode = false;
+    std::string warningText;
+    if (getLinePrimitiveModeUsesGeometryShader(linePrimitiveMode)
+        && !device->getPhysicalDeviceFeatures().geometryShader) {
+        unsupportedLineRenderingMode = true;
+        warningText =
+                "The selected line primitives mode uses geometry shaders, but geometry shaders are not "
+                "supported by the used GPU.";
+    }
+    if ((linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
+         || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER)
+        && !device->getPhysicalDeviceMeshShaderFeaturesNV().meshShader) {
+        unsupportedLineRenderingMode = true;
+        warningText =
+                "The selected line primitives mode uses mesh shaders, but mesh shaders are not "
+                "supported by the used GPU.";
+    }
+    if (unsupportedLineRenderingMode) {
+        sgl::Logfile::get()->writeWarning(
+                "Warning in LineData::renderGuiPropertyEditorNodesRenderer: " + warningText,
+                false);
+        auto handle = sgl::dialog::openMessageBox(
+                "Unsupported Line Primitives Mode", warningText, sgl::dialog::Icon::WARNING);
+        lineRenderer->getSceneData()->nonBlockingMsgBoxHandles->push_back(handle);
+        linePrimitiveMode = LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL;
+    }
+    dirty = true;
+    shallReloadGatherShader = true;
+    return shallReloadGatherShader;
+}
+
 bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer) {
     bool shallReloadGatherShader = false;
 
@@ -128,35 +198,9 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
         if (lineRenderer->getRenderingMode() != RENDERING_MODE_OPACITY_OPTIMIZATION && propertyEditor.addCombo(
                 "Line Primitives", (int*)&linePrimitiveMode,
                 LINE_PRIMITIVE_MODE_DISPLAYNAMES, numPrimitiveModes)) {
-            sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-            bool unsupportedLineRenderingMode = false;
-            std::string warningText;
-            if (getLinePrimitiveModeUsesGeometryShader(linePrimitiveMode)
-                    && !device->getPhysicalDeviceFeatures().geometryShader) {
-                unsupportedLineRenderingMode = true;
-                warningText =
-                        "The selected line primitives mode uses geometry shaders, but geometry shaders are not "
-                        "supported by the used GPU.";
+            if (updateLinePrimitiveMode(lineRenderer)) {
+                shallReloadGatherShader = true;
             }
-            if ((linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
-                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER)
-                        && !device->getPhysicalDeviceMeshShaderFeaturesNV().meshShader) {
-                unsupportedLineRenderingMode = true;
-                warningText =
-                        "The selected line primitives mode uses mesh shaders, but mesh shaders are not "
-                        "supported by the used GPU.";
-            }
-            if (unsupportedLineRenderingMode) {
-                sgl::Logfile::get()->writeWarning(
-                        "Warning in LineData::renderGuiPropertyEditorNodesRenderer: " + warningText,
-                        false);
-                auto handle = sgl::dialog::openMessageBox(
-                        "Unsupported Line Primitives Mode", warningText, sgl::dialog::Icon::WARNING);
-                lineRenderer->getSceneData()->nonBlockingMsgBoxHandles->push_back(handle);
-                linePrimitiveMode = LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL;
-            }
-            dirty = true;
-            shallReloadGatherShader = true;
         }
     }
 

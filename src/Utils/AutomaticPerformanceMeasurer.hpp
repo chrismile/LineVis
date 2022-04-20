@@ -41,13 +41,14 @@ const float TIME_PERFORMANCE_MEASUREMENT = 128.0f;
 class AutomaticPerformanceMeasurer {
 public:
     AutomaticPerformanceMeasurer(
-            std::vector<InternalState> _states,
+            sgl::vk::Renderer* renderer, std::vector<InternalState> _states,
             const std::string& _csvFilename, const std::string& _depthComplexityFilename,
             std::function<void(const InternalState&)> _newStateCallback);
     void cleanup();
     ~AutomaticPerformanceMeasurer();
 
     // To be called by the application
+    void beginRenderFunction();
     void startMeasure(float timeStamp);
     void endMeasure();
 
@@ -71,6 +72,11 @@ private:
     /// Returns amount of used video memory size in GiB.
     float getUsedVideoMemorySizeGiB();
 
+    sgl::vk::Renderer* renderer;
+    bool isInitialized = false;
+    bool shallSetNextState = false;
+    bool isCleanup = false;
+
     std::vector<InternalState> states;
     size_t currentStateIndex;
     InternalState currentState;
@@ -79,7 +85,7 @@ private:
     float nextModeCounter = 0.0f;
 
     sgl::vk::TimerPtr timerVk;
-    int initialFreeMemKilobytes;
+    int initialFreeMemKilobytes{};
     sgl::CsvWriter file;
     sgl::CsvWriter depthComplexityFile;
     sgl::CsvWriter perfFile;

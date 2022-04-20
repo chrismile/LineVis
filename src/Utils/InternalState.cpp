@@ -27,35 +27,36 @@
  */
 
 #include "Renderers/OIT/SyncMode.hpp"
+#include "LineData/LineData.hpp"
 #include "InternalState.hpp"
 
-void getTestModesOpaque(std::vector<InternalState> &states, InternalState state) {
+void getTestModesOpaque(std::vector<InternalState>& states, InternalState state) {
     state.renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
     state.name = "Opaque";
     states.push_back(state);
 }
 
-void getTestModesDepthComplexity(std::vector<InternalState> &states, InternalState state) {
+void getTestModesDepthComplexity(std::vector<InternalState>& states, InternalState state) {
     state.renderingMode = RENDERING_MODE_DEPTH_COMPLEXITY;
     state.name = "Depth Complexity";
     states.push_back(state);
 }
 
-void getTestModesPerPixelLinkedLists(std::vector<InternalState> &states, InternalState state) {
+void getTestModesPerPixelLinkedLists(std::vector<InternalState>& states, InternalState state) {
     state.renderingMode = RENDERING_MODE_PER_PIXEL_LINKED_LIST;
     state.name = "PPLL";
     state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{})};
     states.push_back(state);
 }
 
-void getTestModesOpacityOptimization(std::vector<InternalState> &states, InternalState state) {
+void getTestModesOpacityOptimization(std::vector<InternalState>& states, InternalState state) {
     state.renderingMode = RENDERING_MODE_PER_PIXEL_LINKED_LIST;
     state.name = "Opacity Optimization";
     state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{})};
     states.push_back(state);
 }
 
-void getTestModesMlab(std::vector<InternalState> &states, InternalState state) {
+void getTestModesMlab(std::vector<InternalState>& states, InternalState state) {
     state.renderingMode = RENDERING_MODE_MLAB;
 
     state.name = "MLAB (No Sync)";
@@ -85,7 +86,7 @@ void getTestModesMlab(std::vector<InternalState> &states, InternalState state) {
     states.push_back(state);
 }
 
-void getTestModesPaperForMesh(std::vector<InternalState> &states, InternalState state) {
+void getTestModesOITForDataSet(std::vector<InternalState>& states, InternalState state) {
     //getTestModesDepthComplexity(states, state);
     //getTestModesPerPixelLinkedLists(states, state);
     //getTestModesOpacityOptimization(states, state);
@@ -96,7 +97,7 @@ void getTestModesPaperForMesh(std::vector<InternalState> &states, InternalState 
     getTestModesMlab(states, state);
 }
 
-std::vector<InternalState> getTestModesPaper()
+std::vector<InternalState> getTestModesOIT()
 {
     std::vector<InternalState> states;
     //std::vector<glm::ivec2> windowResolutions = {
@@ -121,23 +122,23 @@ std::vector<InternalState> getTestModesPaper()
             if (transferFunctionNames.size() > 0) {
                 state.transferFunctionName = transferFunctionNames.at(j);
             }
-            getTestModesPaperForMesh(states, state);
+            getTestModesOITForDataSet(states, state);
         }
     }*/
     for (size_t i = 0; i < dataSetDescriptors.size(); i++) {
         state.dataSetDescriptor = dataSetDescriptors.at(i);
         for (size_t j = 0; j < windowResolutions.size(); j++) {
             state.windowResolution = windowResolutions.at(j);
-            if (transferFunctionNames.size() > 0) {
+            if (!transferFunctionNames.empty()) {
                 state.transferFunctionName = transferFunctionNames.at(i);
             }
-            getTestModesPaperForMesh(states, state);
+            getTestModesOITForDataSet(states, state);
         }
     }
 
     // Append model name to state name if more than one model is loaded
-    if (dataSetDescriptors.size() >= 1 || windowResolutions.size() > 1) {
-        for (InternalState &state : states) {
+    if (!dataSetDescriptors.empty() || windowResolutions.size() > 1) {
+        for (InternalState& state : states) {
             state.name =
                     sgl::toString(state.windowResolution.x) + "x" + sgl::toString(state.windowResolution.y)
                     + " " + state.dataSetDescriptor.name + " " + state.name;
@@ -145,4 +146,95 @@ std::vector<InternalState> getTestModesPaper()
     }
 
     return states;
+}
+
+
+void setLinePrimitiveMode(InternalState& state, LineData::LinePrimitiveMode linePrimitiveMode) {
+    state.dataSetSettings = { SettingsMap(
+            {
+                    { "linePrimitiveModeIndex", std::to_string(int(linePrimitiveMode)) }
+            })};
+}
+void getTestModesRasterization(std::vector<InternalState>& states, InternalState state) {
+    state.renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+
+    state.name = "Rasterization (Quads Programmable Pull)";
+    setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_QUADS_PROGRAMMABLE_PULL);
+    states.push_back(state);
+
+    state.name = "Rasterization (Geometry Shader)";
+    setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER);
+    states.push_back(state);
+
+    state.name = "Rasterization (Mesh Shader)";
+    setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_MESH_SHADER);
+    states.push_back(state);
+}
+
+void getTestModesVulkanRayTracing(std::vector<InternalState>& states, InternalState state) {
+    state.renderingMode = RENDERING_MODE_VULKAN_RAY_TRACER;
+    state.name = "Depth Complexity";
+    states.push_back(state);
+}
+
+void getTestModesVoxelRayCasting(std::vector<InternalState>& states, InternalState state) {
+    state.renderingMode = RENDERING_MODE_VOXEL_RAY_CASTING;
+    state.name = "PPLL";
+    state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{})};
+    states.push_back(state);
+}
+
+void getTestModesOspray(std::vector<InternalState>& states, InternalState state) {
+    state.renderingMode = RENDERING_MODE_OSPRAY_RAY_TRACER;
+    state.name = "Opacity Optimization";
+    state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{})};
+    states.push_back(state);
+}
+
+void getTestModesOpaqueRenderingForDataSet(std::vector<InternalState>& states, InternalState state) {
+    getTestModesRasterization(states, state);
+    //getTestModesVulkanRayTracing(states, state);
+    //getTestModesVoxelRayCasting(states, state);
+    //getTestModesOspray(states, state);
+}
+
+std::vector<InternalState> getTestModesOpaqueRendering()
+{
+    std::vector<InternalState> states;
+    std::vector<glm::ivec2> windowResolutions = { glm::ivec2(1920, 1080) };
+    std::vector<DataSetDescriptor> dataSetDescriptors = {
+            //DataSetDescriptor("Aneurysm"),
+            DataSetDescriptor("Convection Rolls"),
+            //DataSetDescriptor("Femur (Vis2021)"),
+    };
+    std::vector<std::string> transferFunctionNames = {
+            //"Standard.xml"
+    };
+    InternalState state;
+
+    for (size_t i = 0; i < dataSetDescriptors.size(); i++) {
+        state.dataSetDescriptor = dataSetDescriptors.at(i);
+        for (size_t j = 0; j < windowResolutions.size(); j++) {
+            state.windowResolution = windowResolutions.at(j);
+            if (!transferFunctionNames.empty()) {
+                state.transferFunctionName = transferFunctionNames.at(i);
+            }
+            getTestModesOpaqueRenderingForDataSet(states, state);
+        }
+    }
+
+    // Append model name to state name if more than one model is loaded
+    if (!dataSetDescriptors.empty() || windowResolutions.size() > 1) {
+        for (InternalState& state : states) {
+            state.name =
+                    sgl::toString(state.windowResolution.x) + "x" + sgl::toString(state.windowResolution.y)
+                    + " " + state.dataSetDescriptor.name + " " + state.name;
+        }
+    }
+
+    return states;
+}
+
+std::vector<InternalState> getTestModes() {
+    return getTestModesOpaqueRendering();
 }

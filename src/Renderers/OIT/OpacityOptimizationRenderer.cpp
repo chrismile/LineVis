@@ -153,6 +153,7 @@ void OpacityOptimizationRenderer::setNewState(const InternalState& newState) {
     if ((*sceneData->performanceMeasurer) && !timerDataIsWritten) {
         timer = {};
         timer = std::make_shared<sgl::vk::Timer>(renderer);
+        timer->setStoreFrameTimeList(true);
         (*sceneData->performanceMeasurer)->setPpllTimer(timer);
     }
 }

@@ -27,19 +27,23 @@
  */
 
 #include <algorithm>
+#include <utility>
 
 #include <Utils/File/Logfile.hpp>
 #include <Utils/AppSettings.hpp>
 #include <Utils/File/FileUtils.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 
 #include "AutomaticPerformanceMeasurer.hpp"
 
-AutomaticPerformanceMeasurer::AutomaticPerformanceMeasurer(std::vector<InternalState> _states,
-                                   const std::string& _csvFilename, const std::string& _depthComplexityFilename,
-                                   std::function<void(const InternalState&)> _newStateCallback)
-        : states(_states), currentStateIndex(0), newStateCallback(_newStateCallback), file(_csvFilename),
-          depthComplexityFile(_depthComplexityFilename), perfFile("performance_list.csv"),
-          ppllFile("PPLLUnified.csv") {
+AutomaticPerformanceMeasurer::AutomaticPerformanceMeasurer(
+        sgl::vk::Renderer* renderer, std::vector<InternalState> _states,
+        const std::string& _csvFilename, const std::string& _depthComplexityFilename,
+        std::function<void(const InternalState&)> _newStateCallback)
+        : renderer(renderer), states(std::move(_states)), currentStateIndex(0),
+          newStateCallback(std::move(_newStateCallback)),
+          file(_csvFilename), depthComplexityFile(_depthComplexityFilename),
+          perfFile("performance_list.csv"), ppllFile("PPLLUnified.csv") {
     sgl::FileUtils::get()->ensureDirectoryExists("images/");
 
     // Write header
@@ -53,9 +57,6 @@ AutomaticPerformanceMeasurer::AutomaticPerformanceMeasurer(std::vector<InternalS
              "Fragment Buffer Memory (GiB)"});
     perfFile.writeRow({"Name", "Time per frame (ms)"});
     ppllFile.writeRow({"Mode Name", "Time PPLL Clear (ms)", "Time F+C Gather (ms)", "Time PPLL Resolve (ms)"});
-
-    // Set initial state
-    setNextState(true);
 }
 
 /*
@@ -64,7 +65,15 @@ AutomaticPerformanceMeasurer::AutomaticPerformanceMeasurer(std::vector<InternalS
  * 'AutomaticPerformanceMeasurer::~AutomaticPerformanceMeasurer': destructor never returns, potential memory leak"
  */
 void AutomaticPerformanceMeasurer::cleanup() {
-    timerVk->finishGPU();
+    isCleanup = true;
+
+    VkCommandBuffer commandBuffer = renderer->getDevice()->beginSingleTimeCommands();
+    timerVk->finishGPU(commandBuffer);
+    if (ppllTimer) {
+        ppllTimer->finishGPU(commandBuffer);
+    }
+    renderer->getDevice()->endSingleTimeCommands(commandBuffer);
+
     writeCurrentModeData();
     file.close();
     depthComplexityFile.close();
@@ -79,10 +88,10 @@ bool AutomaticPerformanceMeasurer::update(float currentTime) {
     nextModeCounter = currentTime;
     if (nextModeCounter >= TIME_PERFORMANCE_MEASUREMENT + 0.5f) {
         nextModeCounter = 0.0f;
-        if (currentStateIndex == states.size()-1) {
+        if (currentStateIndex == states.size() - 1) {
             return false; // Terminate program
         }
-        setNextState();
+        shallSetNextState = true;
     }
     return true;
 }
@@ -93,14 +102,19 @@ void AutomaticPerformanceMeasurer::writeCurrentModeData() {
     std::vector<uint64_t> frameTimesNS;
 
     if (!ppllTimer) {
-        timerVk->finishGPU();
+        if (!isCleanup) {
+            renderer->getDevice()->waitIdle();
+            VkCommandBuffer commandBuffer = renderer->getDevice()->beginSingleTimeCommands();
+            timerVk->finishGPU(commandBuffer);
+            renderer->getDevice()->endSingleTimeCommands(commandBuffer);
+            //timerVk->finishGPU();
+        }
         timeMS = timerVk->getTimeMS(currentState.name);
-        /*auto& performanceProfile = timerVk->getCurrentFrameTimeList();
-        for (auto& perfPair : performanceProfile) {
-            frameTimesNS.push_back(perfPair.second);
-        }*/
+        frameTimesNS = timerVk->getFrameTimeList(currentState.name);
     } else {
-        ppllTimer->finishGPU();
+        if (!isCleanup) {
+            ppllTimer->finishGPU();
+        }
         double timePPLLClear = ppllTimer->getTimeMS("PPLLClear");
         double timeFCGather = ppllTimer->getTimeMS("FCGather");
         double timePPLLResolve = ppllTimer->getTimeMS("PPLLResolve");
@@ -110,19 +124,11 @@ void AutomaticPerformanceMeasurer::writeCurrentModeData() {
         ppllFile.writeCell(std::to_string(timePPLLResolve));
         ppllFile.newRow();
 
-        // Push data for performance measurer.
-        /*std::map<float, uint64_t> frameTimeMap;
-        auto& performanceProfile = ppllTimer->getCurrentFrameTimeList();
-        for (auto &perfPair : performanceProfile) {
-            frameTimeMap[perfPair.first] += perfPair.second;
-        }
-        for (auto &perfPair : frameTimeMap) {
-            frameTimesNS.push_back(perfPair.second);
-        }*/
+        frameTimesNS = ppllTimer->getFrameTimeList(currentState.name);
         timeMS = timePPLLClear + timeFCGather + timePPLLResolve;
     }
 
-    // Write row with performance metrics of this mode
+    // Write row with performance metrics of this mode.
     file.writeCell(currentState.name);
     perfFile.writeCell(currentState.name);
     file.writeCell(sgl::toString(timeMS));
@@ -147,8 +153,8 @@ void AutomaticPerformanceMeasurer::writeCurrentModeData() {
     float averageFps = 1.0f / averageFrametime;
     int percentile5Index = int(double(frameTimes.size()) * 0.5);
     int percentile95Index = int(double(frameTimes.size()) * 0.95);
-    float percentile5Fps = 1.0f / frameTimes.at(percentile95Index);
-    float percentile95Fps = 1.0f / frameTimes.at(percentile5Index);
+    float percentile5Fps = frameTimes.empty() ? 0.0f : 1.0f / frameTimes.at(percentile95Index);
+    float percentile95Fps = frameTimes.empty() ? 0.0f : 1.0f / frameTimes.at(percentile5Index);
     file.writeCell(sgl::toString(averageFps));
     file.writeCell(sgl::toString(percentile5Fps));
     file.writeCell(sgl::toString(percentile95Fps));
@@ -165,6 +171,9 @@ void AutomaticPerformanceMeasurer::setNextState(bool first) {
         currentStateIndex++;
     }
 
+    timerVk = std::make_shared<sgl::vk::Timer>(renderer);
+    timerVk->setStoreFrameTimeList(true);
+
     depthComplexityFrameNumber = 0;
     currentAlgorithmsBufferSizeBytes = 0;
     currentState = states.at(currentStateIndex);
@@ -173,6 +182,18 @@ void AutomaticPerformanceMeasurer::setNextState(bool first) {
         newDepthComplexityMode = true;
     }
     newStateCallback(currentState);
+}
+
+void AutomaticPerformanceMeasurer::beginRenderFunction() {
+    if (!isInitialized) {
+        // Set initial state
+        setNextState(true);
+        isInitialized = true;
+        shallSetNextState = false;
+    } else if (shallSetNextState) {
+        setNextState();
+        shallSetNextState = false;
+    }
 }
 
 void AutomaticPerformanceMeasurer::startMeasure(float timeStamp) {

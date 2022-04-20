@@ -289,6 +289,11 @@ MainApp::MainApp()
 
     CAMERA_PATH_TIME_PERFORMANCE_MEASUREMENT = TIME_PERFORMANCE_MEASUREMENT;
     usePerformanceMeasurementMode = false;
+    if (sgl::FileUtils::get()->get_argc() > 1) {
+        if (strcmp(sgl::FileUtils::get()->get_argv()[1], "--perf") == 0) {
+            usePerformanceMeasurementMode = true;
+        }
+    }
     cameraPath.setApplicationCallback([this](
             const std::string& modelFilename, glm::vec3& centerOffset, float& startAngle, float& pulseFactor,
             float& standardZoom) {
@@ -329,6 +334,8 @@ MainApp::MainApp()
     useDockSpaceMode = true;
     sgl::AppSettings::get()->getSettings().getValueOpt("useDockSpaceMode", useDockSpaceMode);
     sgl::AppSettings::get()->getSettings().getValueOpt("useFixedSizeViewport", useFixedSizeViewport);
+    sgl::AppSettings::get()->getSettings().getValueOpt("fixedViewportSizeX", fixedViewportSize.x);
+    sgl::AppSettings::get()->getSettings().getValueOpt("fixedViewportSizeY", fixedViewportSize.y);
     showPropertyEditor = useDockSpaceMode;
     sgl::ImGuiWrapper::get()->setUseDockSpaceMode(useDockSpaceMode);
 
@@ -394,7 +401,8 @@ MainApp::MainApp()
     if (usePerformanceMeasurementMode) {
         sgl::FileUtils::get()->ensureDirectoryExists("images");
         performanceMeasurer = new AutomaticPerformanceMeasurer(
-                getTestModesPaper(), "performance.csv", "depth_complexity.csv",
+                rendererVk, getTestModes(),
+                "performance.csv", "depth_complexity.csv",
                 [this](const InternalState &newState) { this->setNewState(newState); });
     }
 
@@ -455,7 +463,11 @@ MainApp::~MainApp() {
     nonBlockingMsgBoxHandles.clear();
 
     sgl::AppSettings::get()->getSettings().addKeyValue("useDockSpaceMode", useDockSpaceMode);
-    sgl::AppSettings::get()->getSettings().addKeyValue("useFixedSizeViewport", useFixedSizeViewport);
+    if (!usePerformanceMeasurementMode) {
+        sgl::AppSettings::get()->getSettings().addKeyValue("useFixedSizeViewport", useFixedSizeViewport);
+        sgl::AppSettings::get()->getSettings().addKeyValue("fixedViewportSizeX", fixedViewportSize.x);
+        sgl::AppSettings::get()->getSettings().addKeyValue("fixedViewportSizeY", fixedViewportSize.y);
+    }
     sgl::AppSettings::get()->getSettings().addKeyValue("showFpsOverlay", showFpsOverlay);
     sgl::AppSettings::get()->getSettings().addKeyValue("showCoordinateAxesOverlay", showCoordinateAxesOverlay);
 }
@@ -463,18 +475,26 @@ MainApp::~MainApp() {
 void MainApp::setNewState(const InternalState &newState) {
     ZoneScoped;
 
+    rendererVk->getDevice()->waitIdle();
+
     if (performanceMeasurer) {
         performanceMeasurer->setCurrentAlgorithmBufferSizeBytes(0);
     }
 
     // 1. Change the window resolution?
-    sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
-    int currentWindowWidth = window->getWidth();
-    int currentWindowHeight = window->getHeight();
     glm::ivec2 newResolution = newState.windowResolution;
-    if (newResolution.x > 0 && newResolution.y > 0 && currentWindowWidth != newResolution.x
-            && currentWindowHeight != newResolution.y) {
-        window->setWindowSize(newResolution.x, newResolution.y);
+    if (useDockSpaceMode) {
+        useFixedSizeViewport = true;
+        fixedViewportSizeEdit = newResolution;
+        fixedViewportSize = newResolution;
+    } else {
+        sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
+        int currentWindowWidth = window->getWidth();
+        int currentWindowHeight = window->getHeight();
+        if (newResolution.x > 0 && newResolution.y > 0 && currentWindowWidth != newResolution.x
+                && currentWindowHeight != newResolution.y) {
+            window->setWindowSize(newResolution.x, newResolution.y);
+        }
     }
 
     // 1.1. Handle the new tiling mode for SSBO accesses.
@@ -491,28 +511,47 @@ void MainApp::setNewState(const InternalState &newState) {
 
     // 2.1. Do we need to load new renderers?
     if (firstState || newState.renderingMode != lastState.renderingMode
-        || newState.rendererSettings != lastState.rendererSettings) {
+            || newState.rendererSettings != lastState.rendererSettings) {
         dataViews.clear();
-        renderingMode = newState.renderingMode;
         if (useDockSpaceMode) {
             if (dataViews.empty()) {
                 addNewDataView();
             }
+            RenderingMode newRenderingMode = newState.renderingMode;
             setRenderer(
-                    dataViews[0]->sceneData, dataViews[0]->oldRenderingMode, dataViews[0]->renderingMode,
+                    dataViews[0]->sceneData, dataViews[0]->oldRenderingMode, newRenderingMode,
                     dataViews[0]->lineRenderer, 0);
             dataViews[0]->updateCameraMode();
         } else {
+            renderingMode = newState.renderingMode;
             setRenderer(sceneData, oldRenderingMode, renderingMode, lineRenderer, 0);
         }
     }
 
     // 2.2. Pass state change to renderers to handle internally necessary state changes.
     bool reloadGatherShader = false;
-    lineRenderer->setNewState(newState);
-    reloadGatherShader |= lineRenderer->setNewSettings(newState.rendererSettings);
-    if (reloadGatherShader) {
-        lineRenderer->reloadGatherShaderExternal();
+    if (lineData) {
+        reloadGatherShader |= lineData->setNewSettings(newState.dataSetSettings);
+    }
+    if (useDockSpaceMode) {
+        for (DataViewPtr& dataView : dataViews) {
+            bool reloadGatherShaderLocal = reloadGatherShader;
+            if (dataView->lineRenderer) {
+                dataView->lineRenderer->setNewState(newState);
+                reloadGatherShaderLocal |= dataView->lineRenderer->setNewSettings(newState.rendererSettings);
+                if (reloadGatherShaderLocal) {
+                    dataView->lineRenderer->reloadGatherShaderExternal();
+                }
+            }
+        }
+    } else {
+        if (lineRenderer) {
+            lineRenderer->setNewState(newState);
+            reloadGatherShader |= lineRenderer->setNewSettings(newState.rendererSettings);
+        }
+        if (reloadGatherShader) {
+            lineRenderer->reloadGatherShaderExternal();
+        }
     }
 
     // 3. Pass state change to filters to handle internally necessary state changes.
@@ -737,6 +776,10 @@ void MainApp::updateColorSpaceMode() {
 
 void MainApp::render() {
     ZoneScoped;
+
+    if (usePerformanceMeasurementMode) {
+        performanceMeasurer->beginRenderFunction();
+    }
 
     if (scheduledRecreateSceneFramebuffer) {
         device->waitIdle();
