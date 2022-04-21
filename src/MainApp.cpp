@@ -632,9 +632,9 @@ void MainApp::setRenderer(
                 || oldRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
             VkFormat depthFormat;
             if (newRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
-                depthFormat = VK_FORMAT_D32_SFLOAT;
+                depthFormat = device->getSupportedDepthFormat();
             } else {
-                depthFormat = VK_FORMAT_D24_UNORM_S8_UINT;
+                depthFormat = device->getSupportedDepthStencilFormat();
             }
             if (useDockSpaceMode) {
                 dataViews.at(dataViewIndex)->sceneDepthTextureVkFormat = depthFormat;
