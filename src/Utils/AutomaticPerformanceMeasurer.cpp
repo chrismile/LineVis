@@ -38,6 +38,9 @@
 
 // See: https://stackoverflow.com/questions/2513505/how-to-get-available-memory-c-g
 #if defined(_WIN32)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include <windows.h>
 size_t getUsedSystemMemoryBytes() {
     MEMORYSTATUSEX status;
