@@ -172,6 +172,9 @@ private:
     void setRenderer(
             SceneData& sceneDataRef, RenderingMode& oldRenderingMode, RenderingMode& newRenderingMode,
             LineRenderer*& newLineRenderer, int dataViewIndex);
+    void onUnuspportedRendererSelected(
+            const std::string& warningText,
+            SceneData& sceneDataRef, RenderingMode& newRenderingMode, LineRenderer*& newLineRenderer);
 
     /// A list of filters that are applied sequentially on the data.
     std::vector<LineFilter*> dataFilters;

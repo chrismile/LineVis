@@ -660,13 +660,7 @@ void MainApp::setRenderer(
             std::string warningText =
                     std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
                     + "supported on this hardware due to the missing the geometry shader physical device feature.";
-            sgl::Logfile::get()->writeWarning(
-                    "Warning in MainApp::setRenderer: " + warningText, false);
-            auto handle = sgl::dialog::openMessageBox(
-                    "Unsupported Renderer", warningText, sgl::dialog::Icon::WARNING);
-            nonBlockingMsgBoxHandles.push_back(handle);
-            newRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
-            newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
+            onUnuspportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
         }
     } else if (newRenderingMode == RENDERING_MODE_DEPTH_COMPLEXITY) {
         newLineRenderer = new DepthComplexityRenderer(&sceneDataRef, transferFunctionWindow);
@@ -681,13 +675,7 @@ void MainApp::setRenderer(
             std::string warningText =
                     std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
                     + "supported on this hardware due to the missing independentBlend physical device feature.";
-            sgl::Logfile::get()->writeWarning(
-                    "Warning in MainApp::setRenderer: " + warningText, false);
-            auto handle = sgl::dialog::openMessageBox(
-                    "Unsupported Renderer", warningText, sgl::dialog::Icon::WARNING);
-            nonBlockingMsgBoxHandles.push_back(handle);
-            newRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
-            newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
+            onUnuspportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
         }
     } else if (newRenderingMode == RENDERING_MODE_DEPTH_PEELING) {
         newLineRenderer = new DepthPeelingRenderer(&sceneDataRef, transferFunctionWindow);
@@ -698,13 +686,7 @@ void MainApp::setRenderer(
             std::string warningText =
                     std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
                     + "supported on this hardware due to missing Vulkan ray pipelines.";
-            sgl::Logfile::get()->writeWarning(
-                    "Warning in MainApp::setRenderer: " + warningText, false);
-            auto handle = sgl::dialog::openMessageBox(
-                    "Unsupported Renderer", warningText, sgl::dialog::Icon::WARNING);
-            nonBlockingMsgBoxHandles.push_back(handle);
-            newRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
-            newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
+            onUnuspportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
         }
     } else if (newRenderingMode == RENDERING_MODE_VOXEL_RAY_CASTING) {
         newLineRenderer = new VoxelRayCastingRenderer(&sceneDataRef, transferFunctionWindow);
@@ -725,12 +707,7 @@ void MainApp::setRenderer(
         std::string warningText =
                 std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[idx] + "\" is not "
                 + "supported in this build configuration or incompatible with this system.";
-        sgl::Logfile::get()->writeWarning("Warning in MainApp::setRenderer: " + warningText, false);
-        auto handle = sgl::dialog::openMessageBox(
-                "Unsupported Renderer", warningText, sgl::dialog::Icon::WARNING);
-        nonBlockingMsgBoxHandles.push_back(handle);
-        newRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
-        newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
+        onUnuspportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
     }
 
     newLineRenderer->initialize();
@@ -755,6 +732,18 @@ void MainApp::setRenderer(
         }
         lineData->setRenderingModes({ newRenderingMode });
     }
+}
+
+void MainApp::onUnuspportedRendererSelected(
+        const std::string& warningText,
+        SceneData& sceneDataRef, RenderingMode& newRenderingMode, LineRenderer*& newLineRenderer) {
+    sgl::Logfile::get()->writeWarning(
+            "Warning in MainApp::setRenderer: " + warningText, false);
+    auto handle = sgl::dialog::openMessageBox(
+            "Unsupported Renderer", warningText, sgl::dialog::Icon::WARNING);
+    nonBlockingMsgBoxHandles.push_back(handle);
+    newRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+    newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
 }
 
 void MainApp::resolutionChanged(sgl::EventPtr event) {

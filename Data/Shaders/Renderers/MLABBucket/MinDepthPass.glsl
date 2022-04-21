@@ -43,14 +43,22 @@ layout(early_fragment_tests, pixel_interlock_ordered) in;
 layout(early_fragment_tests) in;
 #endif
 
+#if defined(USE_SYNC_SPINLOCK)
+// Viewport-sized spinlock buffer.
+// 0 means pixel is unlocked, and 1 means pixel is locked by a fragment shader invocation.
+layout (std430, binding = 0) coherent buffer SpinlockViewportBuffer {
+    uint spinlockViewportBuffer[];
+};
+#endif
+
 in vec4 gl_FragCoord;
 
-layout(binding = 0) uniform UniformDataBuffer {
+layout(binding = 1) uniform UniformDataBuffer {
     // Size of the viewport in x direction (in pixels).
     int viewportW;
 };
 
-layout(binding = 1) uniform UniformBucketDataBuffer {
+layout(binding = 2) uniform UniformBucketDataBuffer {
     // Range of logarithmic depth.
     float logDepthMin;
     float logDepthMax;
@@ -64,7 +72,7 @@ struct MinDepthNode {
     float minOpaqueDepth;
 };
 
-layout (std430, binding = 2) coherent buffer MinDepthBuffer {
+layout (std430, binding = 3) coherent buffer MinDepthBuffer {
     MinDepthNode depthBuffer[];
 };
 

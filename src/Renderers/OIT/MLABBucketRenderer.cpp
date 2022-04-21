@@ -63,7 +63,7 @@ MLABBucketRenderer::~MLABBucketRenderer() = default;
 
 void MLABBucketRenderer::reloadGatherShader() {
     MLABRenderer::reloadGatherShader();
-    minDepthRasterPass->setDataDirty();
+    minDepthRasterPass->setShaderDirty();
 }
 
 void MLABBucketRenderer::setNewState(const InternalState& newState) {
