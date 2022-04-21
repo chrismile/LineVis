@@ -99,12 +99,12 @@ void main() {
         StressLinePointPrincipalStressData stressLinePointPrincipalStressData = principalStressLinePoints[globalLinePointIdx];
 #endif
 
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA) || defined(USE_LINE_HIERARCHY_LEVEL)
         uint principalStressIndex = stressLinePointData.linePrincipalStressIndex;
 #endif
 
 #ifdef USE_BANDS
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA) || defined(USE_LINE_HIERARCHY_LEVEL)
         int useBandLocal = psUseBands[principalStressIndex];
 #else
         int useBandLocal = 1;

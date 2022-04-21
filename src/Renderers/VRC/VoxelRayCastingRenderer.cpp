@@ -266,6 +266,35 @@ void VoxelRayCastingRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& 
     }
 }
 
+void VoxelRayCastingRenderer::setNewState(const InternalState& newState) {
+    bool voxelGridDirty = false;
+
+    if (newState.rendererSettings.getValueOpt("useGpuForVoxelization", useGpuForVoxelization)) {
+        voxelGridDirty = true;
+    }
+
+    if (newState.rendererSettings.getValueOpt(
+            "computeNearestFurthestHitsUsingHull", computeNearestFurthestHitsUsingHull)) {
+        reloadGatherShader();
+        internalReRender = true;
+        reRender = true;
+    }
+
+    if (newState.rendererSettings.getValueOpt("gridResolution", gridResolution1D)) {
+        voxelGridDirty = true;
+    }
+    if (newState.rendererSettings.getValueOpt(
+            "quantizationResolution", quantizationResolution1D)) {
+        voxelGridDirty = true;
+    }
+
+    if (voxelGridDirty) {
+        dirty = true;
+        internalReRender = true;
+        reRender = true;
+    }
+}
+
 
 
 LineHullRasterPass::LineHullRasterPass(LineRenderer* lineRenderer, VoxelCurveDiscretizer* voxelCurveDiscretizer)

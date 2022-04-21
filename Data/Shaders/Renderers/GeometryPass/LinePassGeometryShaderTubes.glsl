@@ -210,12 +210,12 @@ void main() {
     vec3 linePosition0 = (mMatrix * vec4(linePositionIn[0], 1.0)).xyz;
     vec3 linePosition1 = (mMatrix * vec4(linePositionIn[1], 1.0)).xyz;
 
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA) || defined(USE_LINE_HIERARCHY_LEVEL)
     uint principalStressIndex = linePrincipalStressIndex[0];
 #endif
 
 #ifdef USE_BANDS
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA) || defined(USE_LINE_HIERARCHY_LEVEL)
     useBand = psUseBands[principalStressIndex];
 #else
     useBand = 1;
@@ -359,7 +359,7 @@ void main() {
         phi = float(i) * factor;
 #endif
 #ifdef USE_BANDS
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA) || defined(USE_LINE_HIERARCHY_LEVEL)
         useBand = psUseBands[principalStressIndex];
 #else
         useBand = 1;
@@ -413,7 +413,7 @@ void main() {
         phi = float(i + 1) * factor;
 #endif
 #ifdef USE_BANDS
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA) || defined(USE_LINE_HIERARCHY_LEVEL)
         useBand = psUseBands[principalStressIndex];
 #else
         useBand = 1;
@@ -468,7 +468,7 @@ void main() {
         phi = float(i) * factor;
 #endif
 #ifdef USE_BANDS
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA) || defined(USE_LINE_HIERARCHY_LEVEL)
         useBand = psUseBands[principalStressIndex];
 #else
         useBand = 1;
@@ -521,7 +521,7 @@ void main() {
         phi = float(i + 1) * factor;
 #endif
 #ifdef USE_BANDS
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA) || defined(USE_LINE_HIERARCHY_LEVEL)
         useBand = psUseBands[principalStressIndex];
 #else
         useBand = 1;
@@ -698,7 +698,7 @@ void main() {
     uint fragmentLineAppearanceOrder = fragmentPrincipalStressIndexAndLineAppearanceOrder >> 2u;
 #endif
 #if defined(COMPRESSED_GEOMETRY_OUTPUT_DATA) && defined(USE_BANDS)
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA) || defined(USE_LINE_HIERARCHY_LEVEL)
     useBand = psUseBands[fragmentPrincipalStressIndex];
 #else
     useBand = 1;

@@ -67,6 +67,9 @@ public:
     /// Renders the entries in the property editor.
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
+    /// For changing performance measurement modes.
+    void setNewState(const InternalState& newState) override;
+
     /// For visualizing the seeding order in an animation (called by MainApp).
     void setVisualizeSeedingProcess(bool visualizeSeeding) override;
 

@@ -178,6 +178,11 @@ void DataView::endRender() {
     }
 }
 
+void DataView::syncCamera() {
+    const sgl::CameraPtr& parentCamera = parentSceneData->camera;
+    camera->copyState(parentCamera);
+}
+
 void DataView::saveScreenshot(const std::string& filename) {
     renderer->transitionImageLayout(
             compositedTextureVk->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);

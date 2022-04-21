@@ -87,6 +87,9 @@ public:
     // Called when the camera has moved.
     void onHasMoved() override;
 
+    /// For changing performance measurement modes.
+    void setNewState(const InternalState& newState) override;
+
     /// Returns whether the triangle representation is used by the renderer.
     [[nodiscard]] bool getIsTriangleRepresentationUsed() const override;
 

@@ -472,6 +472,9 @@ bool LineDataStress::loadFromFile(
         } else if (!hasBandsData && getUseBandRendering()) {
             linePrimitiveMode = LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL;
         }
+        if (hasBandsData) {
+            tubeNumSubdivisions = std::max(tubeNumSubdivisions, 8);
+        }
 
         //recomputeHistogram(); ///< Called after data is loaded using LineDataRequester.
     }
@@ -2909,7 +2912,7 @@ void LineDataStress::getTriangleMesh(
     rebuildInternalRepresentationIfNecessary();
 
     std::vector<TubeTriangleVertexData> tubeTriangleVertexDataList;
-    std::vector<LinePointDataUnified> tubeTriangleLinePointDataList;
+    size_t numTubeTriangleLinePoints = 0;
 
 #ifdef USE_EIGEN
     int majorStressIdx = -1;
@@ -3007,13 +3010,13 @@ void LineDataStress::getTriangleMesh(
                             lineCentersList, bandPointsListRight, normalRadius,
                             binormalRadius, tubeNumSubdivisions,
                             false, triangleIndices, tubeTriangleVertexDataList, linePointReferences,
-                            uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
+                            uint32_t(numTubeTriangleLinePoints), lineTangents, lineNormals);
                 } else {
                     createTriangleEllipticTubesRenderDataCPU(
                             lineCentersList, bandPointsListRight, normalRadius,
                             binormalRadius, tubeNumSubdivisions,
                             triangleIndices, tubeTriangleVertexDataList, linePointReferences,
-                            uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
+                            uint32_t(numTubeTriangleLinePoints), lineTangents, lineNormals);
                 }
 #ifdef USE_EIGEN
             } else {
@@ -3025,14 +3028,14 @@ void LineDataStress::getTriangleMesh(
                             lineMajorStressesList, lineMediumStressesList, lineMinorStressesList,
                             radius, tubeNumSubdivisions, false,
                             hyperstreamline, triangleIndices, tubeTriangleVertexDataList, linePointReferences,
-                            uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
+                            uint32_t(numTubeTriangleLinePoints), lineTangents, lineNormals);
                 } else {
                     createTrianglePrincipalStressTubesRenderDataCPU(
                             lineCentersList, bandPointsListRight, linePrincipalStressIndexList,
                             lineMajorStressesList, lineMediumStressesList, lineMinorStressesList,
                             radius, tubeNumSubdivisions, hyperstreamline,
                             triangleIndices, tubeTriangleVertexDataList, linePointReferences,
-                            uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
+                            uint32_t(numTubeTriangleLinePoints), lineTangents, lineNormals);
                 }
             }
 #endif
@@ -3042,27 +3045,18 @@ void LineDataStress::getTriangleMesh(
                         lineCentersList, LineRenderer::getLineWidth() * 0.5f,
                         tubeNumSubdivisions, false,
                         triangleIndices, tubeTriangleVertexDataList, linePointReferences,
-                        uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
+                        uint32_t(numTubeTriangleLinePoints), lineTangents, lineNormals);
             } else {
                 createTriangleTubesRenderDataCPU(
                         lineCentersList, LineRenderer::getLineWidth() * 0.5f,
                         tubeNumSubdivisions,
                         triangleIndices, tubeTriangleVertexDataList, linePointReferences,
-                        uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
+                        uint32_t(numTubeTriangleLinePoints), lineTangents, lineNormals);
             }
         }
 
-        size_t offset = tubeTriangleLinePointDataList.size();
-        tubeTriangleLinePointDataList.resize(offset + linePointReferences.size());
-        for (size_t ptIdx = 0; ptIdx < linePointReferences.size(); ptIdx++) {
-            LinePointReference& linePointReference = linePointReferences.at(ptIdx);
-            Trajectory& trajectory = trajectories.at(linePointReference.trajectoryIndex);
-            std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
-            float attributeValue = attributes.at(linePointReference.linePointIndex);
-            for (int subdivIdx = 0; subdivIdx < tubeNumSubdivisions; subdivIdx++) {
-                vertexAttributes.push_back(attributeValue);
-            }
-        }
+        size_t offset = numTubeTriangleLinePoints;
+        numTubeTriangleLinePoints = offset + linePointReferences.size();
 
         for (size_t vertexIdx = offsetVertices; vertexIdx < tubeTriangleVertexDataList.size(); vertexIdx++) {
             TubeTriangleVertexData& tubeTriangleVertexData = tubeTriangleVertexDataList.at(vertexIdx);
@@ -3070,7 +3064,7 @@ void LineDataStress::getTriangleMesh(
             vertexNormals.push_back(tubeTriangleVertexData.vertexNormal);
 
             LinePointReference& linePointReference = linePointReferences.at(
-                    tubeTriangleVertexData.vertexLinePointIndex & 0x7FFFFFFFu);
+                    (tubeTriangleVertexData.vertexLinePointIndex & 0x7FFFFFFFu) - offset);
             Trajectory& trajectory = trajectories.at(linePointReference.trajectoryIndex);
             std::vector<float>& attributes = trajectory.attributes.at(selectedAttributeIndex);
             float attributeValue = attributes.at(linePointReference.linePointIndex);

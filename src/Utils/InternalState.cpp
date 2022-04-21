@@ -157,6 +157,9 @@ void getTestModesRasterization(std::vector<InternalState>& states, InternalState
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
 
     state.renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+    state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
+            { "numSamples", "1" }
+    })};
 
     state.name = "Rasterization (Warm-up Run)";
     setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_QUADS_PROGRAMMABLE_PULL);
@@ -190,7 +193,19 @@ void getTestModesRasterization(std::vector<InternalState>& states, InternalState
 void getTestModesVulkanRayTracing(std::vector<InternalState>& states, InternalState state) {
     if (sgl::AppSettings::get()->getPrimaryDevice()->getRayTracingPipelineSupported()) {
         state.renderingMode = RENDERING_MODE_VULKAN_RAY_TRACER;
-        state.name = "Vulkan Ray Tracer";
+
+        state.name = "Vulkan Ray Tracer (Analytic)";
+        state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
+                { "useAnalyticIntersections", "true" },
+                { "numSamplesPerFrame", "1" }
+        })};
+        states.push_back(state);
+
+        state.name = "Vulkan Ray Tracer (Triangle Mesh)";
+        state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
+                { "useAnalyticIntersections", "false" },
+                { "numSamplesPerFrame", "1" }
+        })};
         states.push_back(state);
     }
 }
@@ -198,18 +213,22 @@ void getTestModesVulkanRayTracing(std::vector<InternalState>& states, InternalSt
 void getTestModesVoxelRayCasting(std::vector<InternalState>& states, InternalState state) {
     state.renderingMode = RENDERING_MODE_VOXEL_RAY_CASTING;
     state.name = "Voxel Ray Casting";
-    state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{})};
+    state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
+            { "gridResolution", "128" }
+    })};
     states.push_back(state);
 }
 
 #ifdef USE_OSPRAY
 void getTestModesOspray(std::vector<InternalState>& states, InternalState state) {
     state.renderingMode = RENDERING_MODE_OSPRAY_RAY_TRACER;
+
     state.name = "OSPRay (Linear Curves)";
     state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
             { "geometryMode", "curves" }
     })};
     states.push_back(state);
+
     state.name = "OSPRay (Triangle Mesh)";
     state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
             { "geometryMode", "triangle_mesh" }
@@ -233,10 +252,11 @@ std::vector<InternalState> getTestModesOpaqueRendering() {
     std::vector<InternalState> states;
     std::vector<glm::ivec2> windowResolutions = { glm::ivec2(1920, 1080) };
     std::vector<DataSetDescriptor> dataSetDescriptors = {
-            DataSetDescriptor("Rings"),
+            //DataSetDescriptor("Rings"),
             //DataSetDescriptor("Aneurysm"),
             //DataSetDescriptor("Convection Rolls"),
             //DataSetDescriptor("Femur (Vis2021)"),
+            DataSetDescriptor("Bearing"),
     };
     std::vector<std::string> transferFunctionNames = {
             //"Standard.xml"

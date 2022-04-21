@@ -187,6 +187,31 @@ void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& property
     }
 }
 
+void VulkanRayTracer::setNewState(const InternalState& newState) {
+    if (newState.rendererSettings.getValueOpt("useAnalyticIntersections", useAnalyticIntersections)) {
+        rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
+        rayTracingRenderPass->setShaderDirty();
+        if (lineData) {
+            rayTracingRenderPass->setLineData(lineData, false);
+        }
+        accumulatedFramesCounter = 0;
+    }
+    if (newState.rendererSettings.getValueOpt("numSamplesPerFrame", numSamplesPerFrame)) {
+        rayTracingRenderPass->setNumSamplesPerFrame(numSamplesPerFrame);
+        accumulatedFramesCounter = 0;
+    }
+    if (newState.rendererSettings.getValueOpt("useMlat", useMlat)) {
+        rayTracingRenderPass->setUseMlat(useMlat);
+        rayTracingRenderPass->setShaderDirty();
+        accumulatedFramesCounter = 0;
+    }
+    if (newState.rendererSettings.getValueOpt("mlatNumNodes", mlatNumNodes)) {
+        rayTracingRenderPass->setMlatNumNodes(mlatNumNodes);
+        rayTracingRenderPass->setShaderDirty();
+        accumulatedFramesCounter = 0;
+    }
+}
+
 bool VulkanRayTracer::needsReRender() {
     bool reRender = LineRenderer::needsReRender();
     if (accumulatedFramesCounter < maxNumAccumulatedFrames) {

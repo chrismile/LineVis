@@ -147,7 +147,7 @@ void main() {
     vec3 tangent0 = normalize(lineTangent[0]);
     vec3 tangent1 = normalize(lineTangent[1]);
 
-#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA) || defined(USE_LINE_HIERARCHY_LEVEL)
     int useBandValue = psUseBands[linePrincipalStressIndex[0]];
 #else
     int useBandValue = 1;

@@ -44,7 +44,7 @@
 #include "LineData.hpp"
 
 LineData::LinePrimitiveMode LineData::linePrimitiveMode = LineData::LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL;
-int LineData::tubeNumSubdivisions = 8;
+int LineData::tubeNumSubdivisions = 6;
 bool LineData::renderThickBands = true;
 float LineData::minBandThickness = 0.15f;
 

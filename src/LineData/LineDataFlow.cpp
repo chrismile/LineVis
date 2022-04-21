@@ -137,6 +137,9 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
     } else if (!hasBandsData && getUseBandRendering()) {
         linePrimitiveMode = LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL;
     }
+    if (hasBandsData) {
+        tubeNumSubdivisions = std::max(tubeNumSubdivisions, 8);
+    }
 
     this->trajectories = trajectories;
 

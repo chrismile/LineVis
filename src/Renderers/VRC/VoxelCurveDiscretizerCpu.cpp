@@ -616,6 +616,10 @@ void VoxelCurveDiscretizer::createLineHullMesh() {
     delete[] voxelGridNumLineSegmentsArray;
     delete[] voxelGridDilatedNumSegmentsArray;
 
+    if (lineHullIndices.empty() || lineHullVertices.empty()) {
+        return;
+    }
+
     lineHullIndexBuffer = std::make_shared<sgl::vk::Buffer>(
             renderer->getDevice(), sizeof(uint32_t) * lineHullIndices.size(), lineHullIndices.data(),
             VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,

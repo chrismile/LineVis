@@ -1920,6 +1920,7 @@ void MainApp::hasMoved() {
         if (hasMovedIndex < 0) {
             for (DataViewPtr& dataView : dataViews) {
                 if (dataView->lineRenderer != nullptr && dataView->syncWithParentCamera) {
+                    dataView->syncCamera();
                     dataView->lineRenderer->onHasMoved();
                 }
             }

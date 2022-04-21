@@ -228,16 +228,21 @@ void AutomaticPerformanceMeasurer::beginRenderFunction() {
 }
 
 void AutomaticPerformanceMeasurer::startMeasure(float timeStamp) {
-    //if (currentState.oitAlgorithm == RENDER_MODE_RAYTRACING) {
+    if (currentState.renderingMode == RENDERING_MODE_OSPRAY_RAY_TRACER) {
         // CPU rendering algorithm, thus use a CPU timer and not a GPU timer.
-        //timerVk->startCPU(currentState.name, timeStamp);
-    //} else {
-    timerVk->startGPU(currentState.name);
-    //}
+        timerVk->startCPU(currentState.name);
+    } else {
+        timerVk->startGPU(currentState.name);
+    }
 }
 
 void AutomaticPerformanceMeasurer::endMeasure() {
-    timerVk->endGPU(currentState.name);
+    if (currentState.renderingMode == RENDERING_MODE_OSPRAY_RAY_TRACER) {
+        // CPU rendering algorithm, thus use a CPU timer and not a GPU timer.
+        timerVk->endCPU(currentState.name);
+    } else {
+        timerVk->endGPU(currentState.name);
+    }
 }
 
 void AutomaticPerformanceMeasurer::pushDepthComplexityFrame(

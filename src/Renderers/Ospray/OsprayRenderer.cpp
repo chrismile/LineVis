@@ -183,7 +183,10 @@ void OsprayRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     }
     ospWorld = ospNewWorld();
 
-    size_t memoryPrev = getUsedSystemMemoryBytes();
+    size_t memoryPrev = 0;
+    if ((*sceneData->performanceMeasurer)) {
+        memoryPrev = getUsedSystemMemoryBytes();
+    }
     if (geometryMode == GeometryMode::TRIANGLE_MESH) {
         loadTriangleMeshData(lineData);
         if (triangleMesh.triangleIndices.empty()) {
@@ -204,8 +207,10 @@ void OsprayRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 
     ospSetObject(ospWorld, "light", ospLights);
     ospCommit(ospWorld);
-    size_t memoryAfter = getUsedSystemMemoryBytes();
-    (*sceneData->performanceMeasurer)->setCurrentDataSetBufferSizeBytes(memoryAfter - memoryPrev);
+    if ((*sceneData->performanceMeasurer)) {
+        size_t memoryAfter = getUsedSystemMemoryBytes();
+        (*sceneData->performanceMeasurer)->setCurrentDataSetBufferSizeBytes(memoryAfter - memoryPrev);
+    }
 
     if (lineData->getType() != currentDataSetType) {
         //ospSetInt(ospMaterial, "ns", lineData->getType() == DATA_SET_TYPE_STRESS_LINES ? 30 : 50);
@@ -442,7 +447,7 @@ void OsprayRenderer::onResolutionChanged() {
         ospRelease(ospFrameBuffer);
     }
     ospFrameBuffer = ospNewFrameBuffer(
-            width, height, frameBufferFormat,
+            int(width), int(height), frameBufferFormat,
             OSP_FB_COLOR | OSP_FB_ACCUM | OSP_FB_VARIANCE);
     if (useDenoiser) {
         updateDenoiserMode();
