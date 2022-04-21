@@ -155,6 +155,7 @@ void PerPixelLinkedListLineRenderer::setGraphicsPipelineInfo(
         sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) {
     pipelineInfo.setColorWriteEnabled(false);
     pipelineInfo.setDepthWriteEnabled(false);
+    pipelineInfo.setDepthTestEnabled(false);
 }
 
 void PerPixelLinkedListLineRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) {

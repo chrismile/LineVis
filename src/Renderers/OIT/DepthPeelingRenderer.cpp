@@ -398,4 +398,5 @@ void DepthComplexityRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelin
     LineRasterPass::setGraphicsPipelineInfo(pipelineInfo);
     pipelineInfo.setColorWriteEnabled(false);
     pipelineInfo.setDepthWriteEnabled(false);
+    pipelineInfo.setDepthTestEnabled(false);
 }
