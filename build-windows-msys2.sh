@@ -181,6 +181,7 @@ echo "------------------------"
 echo "      generating        "
 echo "------------------------"
 pushd $build_dir >/dev/null
+Python3_VERSION="$(find "$MSYSTEM_PREFIX/lib/" -maxdepth 1 -type d -name 'python*' -printf "%f" -quit)"
 cmake .. \
     -G "MSYS Makefiles" \
     -DPython3_FIND_REGISTRY=NEVER \
@@ -189,7 +190,6 @@ cmake .. \
     -DPYTHONHOME="./python3" \
     -DPYTHONPATH="./python3/lib/$Python3_VERSION"
 Python3_VERSION=$(cat pythonversion.txt)
-#Python3_VERSION="$(find "$MSYSTEM_PREFIX/lib/" -maxdepth 1 -type d -name 'python*' -printf "%f" -quit)"
 popd >/dev/null
 
 echo "------------------------"
