@@ -143,6 +143,7 @@ public:
     virtual size_t getNumLines()=0;
     virtual size_t getNumLinePoints()=0;
     virtual size_t getNumLineSegments()=0;
+    virtual size_t getBaseSizeInBytes()=0;
 
     // Public interface for filtering trajectories.
     virtual void iterateOverTrajectories(std::function<void(const Trajectory&)> callback)=0;

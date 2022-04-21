@@ -159,14 +159,14 @@ bool LineData::updateLinePrimitiveMode(LineRenderer* lineRenderer) {
     bool unsupportedLineRenderingMode = false;
     std::string warningText;
     if (getLinePrimitiveModeUsesGeometryShader(linePrimitiveMode)
-        && !device->getPhysicalDeviceFeatures().geometryShader) {
+            && !device->getPhysicalDeviceFeatures().geometryShader) {
         unsupportedLineRenderingMode = true;
         warningText =
                 "The selected line primitives mode uses geometry shaders, but geometry shaders are not "
                 "supported by the used GPU.";
     }
     if ((linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
-         || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER)
+             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER)
         && !device->getPhysicalDeviceMeshShaderFeaturesNV().meshShader) {
         unsupportedLineRenderingMode = true;
         warningText =

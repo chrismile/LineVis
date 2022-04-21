@@ -128,7 +128,9 @@ private:
 
 class RayTracingRenderPass : public sgl::vk::RayTracingPass {
 public:
-    RayTracingRenderPass(VulkanRayTracer* vulkanRayTracer, sgl::vk::Renderer* renderer, sgl::CameraPtr* camera);
+    RayTracingRenderPass(
+            SceneData* sceneData, VulkanRayTracer* vulkanRayTracer, sgl::vk::Renderer* renderer,
+            sgl::CameraPtr* camera);
 
     // Public interface.
     void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
@@ -158,6 +160,7 @@ private:
     void createRayTracingData(sgl::vk::Renderer* renderer, sgl::vk::RayTracingPipelinePtr& rayTracingPipeline) override;
     void _render() override;
 
+    SceneData* sceneData = nullptr;
     VulkanRayTracer* vulkanRayTracer = nullptr;
 
     sgl::CameraPtr* camera;

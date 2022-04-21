@@ -28,6 +28,8 @@
 
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
+
+#include "Utils/AutomaticPerformanceMeasurer.hpp"
 #include "LineRenderer.hpp"
 #include "LineRasterPass.hpp"
 
@@ -99,6 +101,14 @@ void LineRasterPass::_render() {
         renderer->insertMemoryBarrier(
                 VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
                 VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT);
+    }
+
+    if ((*sceneData->performanceMeasurer)) {
+        auto renderDataSize = rasterData->getRenderDataSize();
+        (*sceneData->performanceMeasurer)->setCurrentDataSetBufferSizeBytes(
+                renderDataSize.vertexBufferSize
+                + renderDataSize.indexBufferSize
+                + renderDataSize.storageBufferSize);
     }
 
     RasterPass::_render();

@@ -36,6 +36,29 @@
 
 #include "AutomaticPerformanceMeasurer.hpp"
 
+// See: https://stackoverflow.com/questions/2513505/how-to-get-available-memory-c-g
+#if defined(_WIN32)
+#include <windows.h>
+size_t getUsedSystemMemoryBytes() {
+    MEMORYSTATUSEX status;
+    status.dwLength = sizeof(status);
+    GlobalMemoryStatusEx(&status);
+    return status.ullTotalPhys - status.ullAvailPhys;
+}
+#elif defined(__linux__)
+#include <unistd.h>
+size_t getUsedSystemMemoryBytes() {
+    size_t totalNumPages = sysconf(_SC_PHYS_PAGES);
+    size_t availablePages = sysconf(_SC_AVPHYS_PAGES);
+    size_t pageSizeBytes = sysconf(_SC_PAGE_SIZE);
+    return (totalNumPages - availablePages) * pageSizeBytes;
+}
+#else
+size_t getUsedSystemMemoryBytes() {
+    return 0;
+}
+#endif
+
 AutomaticPerformanceMeasurer::AutomaticPerformanceMeasurer(
         sgl::vk::Renderer* renderer, std::vector<InternalState> _states,
         const std::string& _csvFilename, const std::string& _depthComplexityFilename,
@@ -49,8 +72,8 @@ AutomaticPerformanceMeasurer::AutomaticPerformanceMeasurer(
     // Write header
     //file.writeRow({"Name", "Average Time (ms)", "Memory (GiB)", "Buffer Size (GiB)", "Time Stamp (s), Frame Time (ns)"});
     file.writeRow({
-        "Name", "Average Time (ms)", "Memory (GiB)", "Buffer Size (GiB)", "Average FPS",
-        "5% Percentile FPS", "95% Percentile FPS", "PPLL Entries", "PPLL Size (GiB)"});
+        "Name", "Average Time (ms)", "Base Data Size (GiB)", "Buffer Size (GiB)", "OIT Buffer Size (GiB)",
+        "Average FPS", "5% Percentile FPS", "95% Percentile FPS", "PPLL Entries", "PPLL Size (GiB)"});
     depthComplexityFile.writeRow(
             {"Current State", "Frame Number", "Min Depth Complexity", "Max Depth Complexity",
              "Avg Depth Complexity Used", "Avg Depth Complexity All", "Total Number of Fragments",
@@ -82,7 +105,6 @@ void AutomaticPerformanceMeasurer::cleanup() {
 }
 
 AutomaticPerformanceMeasurer::~AutomaticPerformanceMeasurer() = default;
-
 
 bool AutomaticPerformanceMeasurer::update(float currentTime) {
     nextModeCounter = currentTime;
@@ -134,8 +156,10 @@ void AutomaticPerformanceMeasurer::writeCurrentModeData() {
     file.writeCell(sgl::toString(timeMS));
 
     // Write current memory consumption in gigabytes
-    file.writeCell(sgl::toString(getUsedVideoMemorySizeGiB()));
-    file.writeCell(sgl::toString(double(currentAlgorithmsBufferSizeBytes) / 1024.0 / 1024.0 / 1024.0));
+    double scaleFactorGiB = 1.0 / (1024.0 * 1024.0 * 1024.0);
+    file.writeCell(sgl::toString(double(currentDataSetBaseSizeBytes) * scaleFactorGiB));
+    file.writeCell(sgl::toString(double(currentDataSetBufferSizeBytes) * scaleFactorGiB));
+    file.writeCell(sgl::toString(double(currentAlgorithmsBufferSizeBytes) * scaleFactorGiB));
 
 
     std::vector<float> frameTimes;
@@ -170,6 +194,10 @@ void AutomaticPerformanceMeasurer::setNextState(bool first) {
         writeCurrentModeData();
         currentStateIndex++;
     }
+
+    currentAlgorithmsBufferSizeBytes = 0;
+    currentDataSetBufferSizeBytes = 0;
+    currentDataSetBaseSizeBytes = 0;
 
     timerVk = std::make_shared<sgl::vk::Timer>(renderer);
     timerVk->setStoreFrameTimeList(true);
@@ -229,8 +257,16 @@ void AutomaticPerformanceMeasurer::pushDepthComplexityFrame(
     depthComplexityFrameNumber++;
 }
 
-void AutomaticPerformanceMeasurer::setCurrentAlgorithmBufferSizeBytes(size_t numBytes) {
-    currentAlgorithmsBufferSizeBytes = numBytes;
+void AutomaticPerformanceMeasurer::setCurrentAlgorithmBufferSizeBytes(size_t sizeInBytes) {
+    currentAlgorithmsBufferSizeBytes = sizeInBytes;
+}
+
+void AutomaticPerformanceMeasurer::setCurrentDataSetBufferSizeBytes(size_t sizeInBytes) {
+    currentDataSetBufferSizeBytes = sizeInBytes;
+}
+
+void AutomaticPerformanceMeasurer::setCurrentDataSetBaseSizeBytes(size_t sizeInBytes) {
+    currentDataSetBaseSizeBytes = sizeInBytes;
 }
 
 float AutomaticPerformanceMeasurer::getUsedVideoMemorySizeGiB() {

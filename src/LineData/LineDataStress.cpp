@@ -792,6 +792,32 @@ size_t LineDataStress::getNumLineSegments() {
     return numLineSegments;
 }
 
+size_t LineDataStress::getBaseSizeInBytes() {
+    size_t baseSizeInBytes = 0;
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        const Trajectories& trajectories = trajectoriesPs.at(i);
+        const StressTrajectoriesData& stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
+        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            const Trajectory& trajectory = trajectories.at(trajectoryIdx);
+            const StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
+            baseSizeInBytes += trajectory.positions.size() * sizeof(glm::vec3);
+            for (size_t attributeIdx = 0; attributeIdx < trajectory.attributes.size(); attributeIdx++) {
+                baseSizeInBytes += trajectory.attributes.at(attributeIdx).size() * sizeof(float);
+            }
+            baseSizeInBytes += stressTrajectoryData.hierarchyLevels.size() * sizeof(float);
+            baseSizeInBytes += sizeof(int); // appearanceOrder
+            baseSizeInBytes += sizeof(glm::vec3); // seedPosition
+            baseSizeInBytes += stressTrajectoryData.majorPs.size() * sizeof(float);
+            baseSizeInBytes += stressTrajectoryData.mediumPs.size() * sizeof(float);
+            baseSizeInBytes += stressTrajectoryData.minorPs.size() * sizeof(float);
+            baseSizeInBytes += stressTrajectoryData.majorPsDir.size() * sizeof(glm::vec3);
+            baseSizeInBytes += stressTrajectoryData.mediumPsDir.size() * sizeof(glm::vec3);
+            baseSizeInBytes += stressTrajectoryData.minorPsDir.size() * sizeof(glm::vec3);
+        }
+    }
+    return baseSizeInBytes;
+}
+
 
 void LineDataStress::iterateOverTrajectories(std::function<void(const Trajectory&)> callback) {
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {

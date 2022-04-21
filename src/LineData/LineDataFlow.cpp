@@ -280,6 +280,18 @@ size_t LineDataFlow::getNumLineSegments() {
     return numLineSegments;
 }
 
+size_t LineDataFlow::getBaseSizeInBytes() {
+    size_t baseSizeInBytes = 0;
+    for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+        const Trajectory& trajectory = trajectories.at(trajectoryIdx);
+        baseSizeInBytes += trajectory.positions.size() * sizeof(glm::vec3);
+        for (size_t attributeIdx = 0; attributeIdx < trajectory.attributes.size(); attributeIdx++) {
+            baseSizeInBytes += trajectory.attributes.at(attributeIdx).size() * sizeof(float);
+        }
+    }
+    return baseSizeInBytes;
+}
+
 
 void LineDataFlow::iterateOverTrajectories(std::function<void(const Trajectory&)> callback) {
     for (const Trajectory& trajectory : trajectories) {

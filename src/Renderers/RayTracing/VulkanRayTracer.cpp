@@ -39,6 +39,7 @@
 #include <ImGui/imgui_custom.h>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
+#include "Utils/AutomaticPerformanceMeasurer.hpp"
 #include "VulkanRayTracer.hpp"
 
 using namespace sgl;
@@ -48,7 +49,7 @@ VulkanRayTracer::VulkanRayTracer(SceneData* sceneData, sgl::TransferFunctionWind
     isRasterizer = false;
 
     rayTracingRenderPass = std::make_shared<RayTracingRenderPass>(
-            this, renderer, &sceneData->camera);
+            sceneData, this, renderer, &sceneData->camera);
     rayTracingRenderPass->setNumSamplesPerFrame(numSamplesPerFrame);
     rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
     rayTracingRenderPass->setMaxDepthComplexity(maxDepthComplexity);
@@ -210,8 +211,8 @@ void VulkanRayTracer::update(float dt) {
 
 
 RayTracingRenderPass::RayTracingRenderPass(
-        VulkanRayTracer* vulkanRayTracer, sgl::vk::Renderer* renderer, sgl::CameraPtr* camera)
-        : RayTracingPass(renderer), vulkanRayTracer(vulkanRayTracer), camera(camera) {
+        SceneData* sceneData, VulkanRayTracer* vulkanRayTracer, sgl::vk::Renderer* renderer, sgl::CameraPtr* camera)
+        : RayTracingPass(renderer), sceneData(sceneData), vulkanRayTracer(vulkanRayTracer), camera(camera) {
     rayTracerSettingsBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(RayTracerSettings),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -409,6 +410,12 @@ void RayTracingRenderPass::_render() {
     rayTracingData->setShaderGroupSettings(shaderGroupSettings);
 
     lineData->updateVulkanUniformBuffers(vulkanRayTracer, renderer);
+
+    if ((*sceneData->performanceMeasurer)) {
+        auto renderDataSize = rayTracingData->getRenderDataSize();
+        (*sceneData->performanceMeasurer)->setCurrentDataSetBufferSizeBytes(
+                renderDataSize.storageBufferSize + renderDataSize.accelerationStructureSize);
+    }
 
     renderer->transitionImageLayout(sceneImageView->getImage(), VK_IMAGE_LAYOUT_GENERAL);
     renderer->traceRays(rayTracingData, launchSizeX, launchSizeY, launchSizeZ);

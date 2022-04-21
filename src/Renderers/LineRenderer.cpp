@@ -33,6 +33,7 @@
 #include <ImGui/imgui_custom.h>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
+#include "Utils/AutomaticPerformanceMeasurer.hpp"
 #include "Renderers/AmbientOcclusion/VulkanAmbientOcclusionBaker.hpp"
 #include "Renderers/AmbientOcclusion/VulkanRayTracedAmbientOcclusion.hpp"
 #include "Renderers/RayTracing/VulkanRayTracer.hpp"
@@ -593,6 +594,10 @@ void LineRenderer::updateNewLineData(LineDataPtr& lineData, bool isNewData) {
     depthMinMaxBuffers[1] = {};
     if (useDepthCues) {
         updateDepthCueGeometryData();
+    }
+
+    if ((*sceneData->performanceMeasurer)) {
+        (*sceneData->performanceMeasurer)->setCurrentDataSetBaseSizeBytes(lineData->getBaseSizeInBytes());
     }
 
     if (isRasterizer) {

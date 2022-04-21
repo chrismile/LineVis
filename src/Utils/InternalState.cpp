@@ -60,26 +60,26 @@ void getTestModesMlab(std::vector<InternalState>& states, InternalState state) {
     state.renderingMode = RENDERING_MODE_MLAB;
 
     state.name = "MLAB (No Sync)";
-    state.rendererSettings = { SettingsMap({
+    state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
             { "syncMode", std::to_string((int)NO_SYNC) }
     })};
     states.push_back(state);
 
     state.name = "MLAB (Spinlock)";
-    state.rendererSettings = { SettingsMap({
+    state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
             { "syncMode", std::to_string((int)SYNC_SPINLOCK) }
     })};
     states.push_back(state);
 
     state.name = "MLAB (Unordered Interlock)";
-    state.rendererSettings = { SettingsMap({
+    state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
             { "syncMode", std::to_string((int)SYNC_FRAGMENT_SHADER_INTERLOCK) },
             { "useOrderedFragmentShaderInterlock", "false" }
     })};
     states.push_back(state);
 
     state.name = "MLAB (Ordered Interlock)";
-    state.rendererSettings = { SettingsMap({
+    state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
             { "syncMode", std::to_string((int)SYNC_FRAGMENT_SHADER_INTERLOCK) },
             { "useOrderedFragmentShaderInterlock", "true" }
     })};
@@ -97,8 +97,7 @@ void getTestModesOITForDataSet(std::vector<InternalState>& states, InternalState
     getTestModesMlab(states, state);
 }
 
-std::vector<InternalState> getTestModesOIT()
-{
+std::vector<InternalState> getTestModesOIT() {
     std::vector<InternalState> states;
     //std::vector<glm::ivec2> windowResolutions = {
     //        glm::ivec2(1280, 720), glm::ivec2(1920, 1080), glm::ivec2(2560, 1440) };
@@ -150,61 +149,93 @@ std::vector<InternalState> getTestModesOIT()
 
 
 void setLinePrimitiveMode(InternalState& state, LineData::LinePrimitiveMode linePrimitiveMode) {
-    state.dataSetSettings = { SettingsMap(
-            {
-                    { "linePrimitiveModeIndex", std::to_string(int(linePrimitiveMode)) }
-            })};
+    state.dataSetSettings = { SettingsMap(std::map<std::string, std::string>{
+            { "linePrimitiveModeIndex", std::to_string(int(linePrimitiveMode)) }
+    })};
 }
 void getTestModesRasterization(std::vector<InternalState>& states, InternalState state) {
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+
     state.renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+
+    state.name = "Rasterization (Warm-up Run)";
+    setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_QUADS_PROGRAMMABLE_PULL);
+    states.push_back(state);
 
     state.name = "Rasterization (Quads Programmable Pull)";
     setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_QUADS_PROGRAMMABLE_PULL);
     states.push_back(state);
 
-    state.name = "Rasterization (Geometry Shader)";
-    setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER);
+    if (device->getPhysicalDeviceFeatures().geometryShader) {
+        state.name = "Rasterization (Quads Geometry Shader)";
+        setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_QUADS_GEOMETRY_SHADER);
+        states.push_back(state);
+
+        state.name = "Rasterization (Geometry Shader)";
+        setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER);
+        states.push_back(state);
+    }
+
+    state.name = "Rasterization (Programmable Pull)";
+    setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL);
     states.push_back(state);
 
-    state.name = "Rasterization (Mesh Shader)";
-    setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_MESH_SHADER);
-    states.push_back(state);
+    if (device->getPhysicalDeviceMeshShaderFeaturesNV().meshShader) {
+        state.name = "Rasterization (Mesh Shader)";
+        setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_MESH_SHADER);
+        states.push_back(state);
+    }
 }
 
 void getTestModesVulkanRayTracing(std::vector<InternalState>& states, InternalState state) {
-    state.renderingMode = RENDERING_MODE_VULKAN_RAY_TRACER;
-    state.name = "Depth Complexity";
-    states.push_back(state);
+    if (sgl::AppSettings::get()->getPrimaryDevice()->getRayTracingPipelineSupported()) {
+        state.renderingMode = RENDERING_MODE_VULKAN_RAY_TRACER;
+        state.name = "Vulkan Ray Tracer";
+        states.push_back(state);
+    }
 }
 
 void getTestModesVoxelRayCasting(std::vector<InternalState>& states, InternalState state) {
     state.renderingMode = RENDERING_MODE_VOXEL_RAY_CASTING;
-    state.name = "PPLL";
+    state.name = "Voxel Ray Casting";
     state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{})};
     states.push_back(state);
 }
 
+#ifdef USE_OSPRAY
 void getTestModesOspray(std::vector<InternalState>& states, InternalState state) {
     state.renderingMode = RENDERING_MODE_OSPRAY_RAY_TRACER;
-    state.name = "Opacity Optimization";
-    state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{})};
+    state.name = "OSPRay (Linear Curves)";
+    state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
+            { "geometryMode", "curves" }
+    })};
+    states.push_back(state);
+    state.name = "OSPRay (Triangle Mesh)";
+    state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
+            { "geometryMode", "triangle_mesh" }
+    })};
     states.push_back(state);
 }
+#endif
 
-void getTestModesOpaqueRenderingForDataSet(std::vector<InternalState>& states, InternalState state) {
+void getTestModesOpaqueRenderingForDataSet(std::vector<InternalState>& states, const InternalState& state) {
     getTestModesRasterization(states, state);
-    //getTestModesVulkanRayTracing(states, state);
-    //getTestModesVoxelRayCasting(states, state);
-    //getTestModesOspray(states, state);
+    getTestModesVulkanRayTracing(states, state);
+    getTestModesVoxelRayCasting(states, state);
+#ifdef USE_OSPRAY
+    getTestModesOspray(states, state);
+#endif
 }
 
-std::vector<InternalState> getTestModesOpaqueRendering()
-{
+std::vector<InternalState> getTestModesOpaqueRendering() {
+    std::string deviceName = sgl::AppSettings::get()->getPrimaryDevice()->getDeviceName();
+
     std::vector<InternalState> states;
     std::vector<glm::ivec2> windowResolutions = { glm::ivec2(1920, 1080) };
     std::vector<DataSetDescriptor> dataSetDescriptors = {
+            DataSetDescriptor("Rings"),
             //DataSetDescriptor("Aneurysm"),
-            DataSetDescriptor("Convection Rolls"),
+            //DataSetDescriptor("Convection Rolls"),
             //DataSetDescriptor("Femur (Vis2021)"),
     };
     std::vector<std::string> transferFunctionNames = {
@@ -227,7 +258,8 @@ std::vector<InternalState> getTestModesOpaqueRendering()
     if (!dataSetDescriptors.empty() || windowResolutions.size() > 1) {
         for (InternalState& state : states) {
             state.name =
-                    sgl::toString(state.windowResolution.x) + "x" + sgl::toString(state.windowResolution.y)
+                    deviceName + " - " + sgl::toString(state.windowResolution.x)
+                    + "x" + sgl::toString(state.windowResolution.y)
                     + " " + state.dataSetDescriptor.name + " " + state.name;
         }
     }

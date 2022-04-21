@@ -33,6 +33,7 @@
 #include <ImGui/imgui_custom.h>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
+#include "Utils/AutomaticPerformanceMeasurer.hpp"
 #include "VoxelRayCastingRenderer.hpp"
 
 VoxelRayCastingRenderer::VoxelRayCastingRenderer(
@@ -139,6 +140,13 @@ void VoxelRayCastingRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr
     }
     //renderData->setStaticTextureOptional(densityTexture, "densityTexture");
     //renderData->setStaticTextureOptional(aoTexture, "aoTexture");
+    if ((*sceneData->performanceMeasurer)) {
+        if (renderData->getShaderStages()->getShaderModules().front()->getShaderModuleId() == "VoxelRayCasting.Vertex") {
+            auto renderDataSize = renderData->getRenderDataSize();
+            (*sceneData->performanceMeasurer)->setCurrentDataSetBufferSizeBytes(
+                    renderDataSize.storageBufferSize);
+        }
+    }
 }
 
 void VoxelRayCastingRenderer::updateVulkanUniformBuffers() {

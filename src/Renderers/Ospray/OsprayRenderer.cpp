@@ -36,27 +36,8 @@
 #include <Graphics/Vulkan/Render/Passes/BlitRenderPass.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
+#include "Utils/AutomaticPerformanceMeasurer.hpp"
 #include "OsprayRenderer.hpp"
-
-// See: https://stackoverflow.com/questions/2513505/how-to-get-available-memory-c-g
-#ifdef __linux__
-#include <unistd.h>
-size_t getUsedSystemMemoryBytes() {
-    size_t totalNumPages = sysconf(_SC_PHYS_PAGES);
-    size_t availablePages = sysconf(_SC_AVPHYS_PAGES);
-    size_t pageSizeBytes = sysconf(_SC_PAGE_SIZE);
-    return (totalNumPages - availablePages) * pageSizeBytes;
-}
-#endif
-#ifdef _WIN32
-#include <windows.h>
-size_t getUsedSystemMemoryBytes() {
-    MEMORYSTATUSEX status;
-    status.dwLength = sizeof(status);
-    GlobalMemoryStatusEx(&status);
-    return status.ullTotalPhys - status.ullAvailPhys;
-}
-#endif
 
 bool OsprayRenderer::isOsprayInitialized = false;
 bool OsprayRenderer::denoiserAvailable = false;
@@ -202,6 +183,7 @@ void OsprayRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     }
     ospWorld = ospNewWorld();
 
+    size_t memoryPrev = getUsedSystemMemoryBytes();
     if (geometryMode == GeometryMode::TRIANGLE_MESH) {
         loadTriangleMeshData(lineData);
         if (triangleMesh.triangleIndices.empty()) {
@@ -222,6 +204,8 @@ void OsprayRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 
     ospSetObject(ospWorld, "light", ospLights);
     ospCommit(ospWorld);
+    size_t memoryAfter = getUsedSystemMemoryBytes();
+    (*sceneData->performanceMeasurer)->setCurrentDataSetBufferSizeBytes(memoryAfter - memoryPrev);
 
     if (lineData->getType() != currentDataSetType) {
         //ospSetInt(ospMaterial, "ns", lineData->getType() == DATA_SET_TYPE_STRESS_LINES ? 30 : 50);

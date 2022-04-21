@@ -82,6 +82,7 @@ public:
     size_t getNumLines() override;
     size_t getNumLinePoints() override;
     size_t getNumLineSegments() override;
+    size_t getBaseSizeInBytes() override;
 
     // Public interface for filtering trajectories.
     void iterateOverTrajectories(std::function<void(const Trajectory&)> callback) override;

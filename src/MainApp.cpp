@@ -528,20 +528,16 @@ void MainApp::setNewState(const InternalState &newState) {
         }
     }
 
-    // 2.2. Pass state change to renderers to handle internally necessary state changes.
+    // 2.2. Set the new renderer settings.
     bool reloadGatherShader = false;
-    if (lineData) {
-        reloadGatherShader |= lineData->setNewSettings(newState.dataSetSettings);
-    }
+    std::vector<bool> reloadGatherShaderDataViewList;
     if (useDockSpaceMode) {
         for (DataViewPtr& dataView : dataViews) {
             bool reloadGatherShaderLocal = reloadGatherShader;
             if (dataView->lineRenderer) {
                 dataView->lineRenderer->setNewState(newState);
                 reloadGatherShaderLocal |= dataView->lineRenderer->setNewSettings(newState.rendererSettings);
-                if (reloadGatherShaderLocal) {
-                    dataView->lineRenderer->reloadGatherShaderExternal();
-                }
+                reloadGatherShaderDataViewList.push_back(reloadGatherShaderLocal);
             }
         }
     } else {
@@ -549,20 +545,9 @@ void MainApp::setNewState(const InternalState &newState) {
             lineRenderer->setNewState(newState);
             reloadGatherShader |= lineRenderer->setNewSettings(newState.rendererSettings);
         }
-        if (reloadGatherShader) {
-            lineRenderer->reloadGatherShaderExternal();
-        }
     }
 
-    // 3. Pass state change to filters to handle internally necessary state changes.
-    for (LineFilter* filter : dataFilters) {
-        filter->setNewState(newState);
-    }
-    for (size_t i = 0; i < newState.filterSettings.size(); i++) {
-        dataFilters.at(i)->setNewSettings(newState.filterSettings.at(i));
-    }
-
-    // 4. Load the correct mesh file.
+    // 3. Load the correct data set file.
     if (newState.dataSetDescriptor != lastState.dataSetDescriptor) {
         selectedDataSetIndex = 0;
         std::string nameLower = boost::algorithm::to_lower_copy(newState.dataSetDescriptor.name);
@@ -574,20 +559,49 @@ void MainApp::setNewState(const InternalState &newState) {
         }
         if (selectedDataSetIndex == 0) {
             if (dataSetInformationList.at(selectedDataSetIndex - NUM_MANUAL_LOADERS)->type
-                    == DATA_SET_TYPE_STRESS_LINES && newState.dataSetDescriptor.enabledFileIndices.size() == 3) {
+                == DATA_SET_TYPE_STRESS_LINES && newState.dataSetDescriptor.enabledFileIndices.size() == 3) {
                 LineDataStress::setUseMajorPS(newState.dataSetDescriptor.enabledFileIndices.at(0));
                 LineDataStress::setUseMediumPS(newState.dataSetDescriptor.enabledFileIndices.at(1));
                 LineDataStress::setUseMinorPS(newState.dataSetDescriptor.enabledFileIndices.at(2));
             }
-            loadLineDataSet(newState.dataSetDescriptor.filenames);
+            loadLineDataSet(newState.dataSetDescriptor.filenames, true);
         } else {
             if (newState.dataSetDescriptor.type == DATA_SET_TYPE_STRESS_LINES
-                    && newState.dataSetDescriptor.enabledFileIndices.size() == 3) {
+                && newState.dataSetDescriptor.enabledFileIndices.size() == 3) {
                 LineDataStress::setUseMajorPS(newState.dataSetDescriptor.enabledFileIndices.at(0));
                 LineDataStress::setUseMediumPS(newState.dataSetDescriptor.enabledFileIndices.at(1));
                 LineDataStress::setUseMinorPS(newState.dataSetDescriptor.enabledFileIndices.at(2));
             }
-            loadLineDataSet(getSelectedLineDataSetFilenames());
+            loadLineDataSet(getSelectedLineDataSetFilenames(), true);
+        }
+    }
+
+    // 4. Pass state change to filters to handle internally necessary state changes.
+    for (LineFilter* filter : dataFilters) {
+        filter->setNewState(newState);
+    }
+    for (size_t i = 0; i < newState.filterSettings.size(); i++) {
+        dataFilters.at(i)->setNewSettings(newState.filterSettings.at(i));
+    }
+
+    // 5. Pass state change to renderers to handle internally necessary state changes.
+    if (lineData) {
+        reloadGatherShader |= lineData->setNewSettings(newState.dataSetSettings);
+    }
+
+    // 6. Reload the gather shader if necessary.
+    if (useDockSpaceMode) {
+        size_t idx = 0;
+        for (DataViewPtr& dataView : dataViews) {
+            bool reloadGatherShaderLocal = reloadGatherShader || reloadGatherShaderDataViewList.at(idx);
+            if (dataView->lineRenderer && reloadGatherShaderLocal) {
+                dataView->lineRenderer->reloadGatherShaderExternal();
+            }
+            idx++;
+        }
+    } else {
+        if (lineRenderer && reloadGatherShader) {
+            lineRenderer->reloadGatherShaderExternal();
         }
     }
 
