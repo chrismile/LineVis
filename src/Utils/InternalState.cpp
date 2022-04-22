@@ -188,6 +188,10 @@ void getTestModesRasterization(std::vector<InternalState>& states, InternalState
         setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_MESH_SHADER);
         states.push_back(state);
     }
+
+    state.name = "Rasterization (Triangle Mesh)";
+    setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_TRIANGLE_MESH);
+    states.push_back(state);
 }
 
 void getTestModesVulkanRayTracing(std::vector<InternalState>& states, InternalState state) {
