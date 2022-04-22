@@ -211,12 +211,18 @@ void getTestModesVulkanRayTracing(std::vector<InternalState>& states, InternalSt
 }
 
 void getTestModesVoxelRayCasting(std::vector<InternalState>& states, InternalState state) {
-    state.renderingMode = RENDERING_MODE_VOXEL_RAY_CASTING;
-    state.name = "Voxel Ray Casting";
-    state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
-            { "gridResolution", "128" }
-    })};
-    states.push_back(state);
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    // Intel integrated GPUs are too slow at the time of writing this code and TDR might be triggered for this mode.
+    if ((device->getDeviceDriverId() != VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS
+             && device->getDeviceDriverId() != VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA)
+            || device->getDeviceType() != VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
+        state.renderingMode = RENDERING_MODE_VOXEL_RAY_CASTING;
+        state.name = "Voxel Ray Casting";
+        state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
+                { "gridResolution", "128" }
+        })};
+        states.push_back(state);
+    }
 }
 
 #ifdef USE_OSPRAY
