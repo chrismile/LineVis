@@ -91,6 +91,7 @@ int main(int argc, char *argv[]) {
     optionalDeviceExtensions.insert(
             optionalDeviceExtensions.end(),
             raytracingDeviceExtensions.begin(), raytracingDeviceExtensions.end());
+    optionalDeviceExtensions.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
     optionalDeviceExtensions.push_back(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME);
     optionalDeviceExtensions.push_back(VK_NV_MESH_SHADER_EXTENSION_NAME);
 
@@ -105,8 +106,7 @@ int main(int argc, char *argv[]) {
     device->createDeviceSwapchain(
             instance, window,
             {
-                    VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME,
-                    VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME
+                    VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME
             },
             optionalDeviceExtensions, requestedDeviceFeatures);
     sgl::vk::Swapchain* swapchain = new sgl::vk::Swapchain(device);
@@ -121,7 +121,7 @@ int main(int argc, char *argv[]) {
     if (!pythonhomeEnvVar || strlen(pythonhomeEnvVar) == 0) {
         Py_SetPythonHome(PYTHONHOME);
         // As of 2022-01-25, "lib-dynload" is not automatically found when using MSYS2 together with MinGW.
-#if defined(__MINGW32__) && defined(PYTHONPATH)
+#if (defined(__MINGW32__) || defined(__APPLE__)) && defined(PYTHONPATH)
         Py_SetPath(PYTHONPATH ";" PYTHONPATH "/site-packages;" PYTHONPATH "/lib-dynload");
 #endif
     }
