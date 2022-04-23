@@ -185,7 +185,7 @@ struct InternalState {
     }
 
     DataSetDescriptor dataSetDescriptor;
-    std::string name;
+    std::string name, nameRaw;
     RenderingMode renderingMode;
     SettingsMap rendererSettings;
     SettingsMap dataSetSettings;

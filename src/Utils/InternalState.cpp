@@ -161,35 +161,35 @@ void getTestModesRasterization(std::vector<InternalState>& states, InternalState
             { "numSamples", "1" }
     })};
 
-    state.name = "Rasterization (Warm-up Run)";
+    state.name = "Warm-up Run";
     setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_QUADS_PROGRAMMABLE_PULL);
     states.push_back(state);
 
-    state.name = "Rasterization (Quads Programmable Pull)";
+    state.name = "Quads Programmable Pull";
     setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_QUADS_PROGRAMMABLE_PULL);
     states.push_back(state);
 
     if (device->getPhysicalDeviceFeatures().geometryShader) {
-        state.name = "Rasterization (Quads Geometry Shader)";
+        state.name = "Quads Geometry Shader";
         setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_QUADS_GEOMETRY_SHADER);
         states.push_back(state);
 
-        state.name = "Rasterization (Geometry Shader)";
+        state.name = "Geometry Shader";
         setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER);
         states.push_back(state);
     }
 
-    state.name = "Rasterization (Programmable Pull)";
+    state.name = "Programmable Pull";
     setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL);
     states.push_back(state);
 
     if (device->getPhysicalDeviceMeshShaderFeaturesNV().meshShader) {
-        state.name = "Rasterization (Mesh Shader)";
+        state.name = "Mesh Shader";
         setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_MESH_SHADER);
         states.push_back(state);
     }
 
-    state.name = "Rasterization (Triangle Mesh)";
+    state.name = "Triangle Mesh";
     setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_TRIANGLE_MESH);
     states.push_back(state);
 }
@@ -198,14 +198,14 @@ void getTestModesVulkanRayTracing(std::vector<InternalState>& states, InternalSt
     if (sgl::AppSettings::get()->getPrimaryDevice()->getRayTracingPipelineSupported()) {
         state.renderingMode = RENDERING_MODE_VULKAN_RAY_TRACER;
 
-        state.name = "Vulkan Ray Tracer (Analytic)";
+        state.name = "VRT Analytic";
         state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
                 { "useAnalyticIntersections", "true" },
                 { "numSamplesPerFrame", "1" }
         })};
         states.push_back(state);
 
-        state.name = "Vulkan Ray Tracer (Triangle Mesh)";
+        state.name = "VRT Triangle Mesh";
         state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
                 { "useAnalyticIntersections", "false" },
                 { "numSamplesPerFrame", "1" }
@@ -233,13 +233,13 @@ void getTestModesVoxelRayCasting(std::vector<InternalState>& states, InternalSta
 void getTestModesOspray(std::vector<InternalState>& states, InternalState state) {
     state.renderingMode = RENDERING_MODE_OSPRAY_RAY_TRACER;
 
-    state.name = "OSPRay (Linear Curves)";
+    state.name = "OSPRay Linear Curves";
     state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
             { "geometryMode", "curves" }
     })};
     states.push_back(state);
 
-    state.name = "OSPRay (Triangle Mesh)";
+    state.name = "OSPRay Triangle Mesh";
     state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
             { "geometryMode", "triangle_mesh" }
     })};
@@ -257,8 +257,6 @@ void getTestModesOpaqueRenderingForDataSet(std::vector<InternalState>& states, c
 }
 
 std::vector<InternalState> getTestModesOpaqueRendering() {
-    std::string deviceName = sgl::AppSettings::get()->getPrimaryDevice()->getDeviceName();
-
     std::vector<InternalState> states;
     std::vector<glm::ivec2> windowResolutions = { glm::ivec2(1920, 1080) };
     std::vector<DataSetDescriptor> dataSetDescriptors = {
@@ -285,10 +283,13 @@ std::vector<InternalState> getTestModesOpaqueRendering() {
     }
 
     // Append model name to state name if more than one model is loaded
-    if (!dataSetDescriptors.empty() || windowResolutions.size() > 1) {
+    for (InternalState& state : states) {
+        state.nameRaw = state.name;
+    }
+    if (dataSetDescriptors.size() > 1 || windowResolutions.size() > 1) {
         for (InternalState& state : states) {
             state.name =
-                    deviceName + " - " + sgl::toString(state.windowResolution.x)
+                    sgl::toString(state.windowResolution.x)
                     + "x" + sgl::toString(state.windowResolution.y)
                     + " " + state.dataSetDescriptor.name + " " + state.name;
         }

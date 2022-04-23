@@ -75,10 +75,12 @@ AutomaticPerformanceMeasurer::AutomaticPerformanceMeasurer(
     // Write header
     //file.writeRow({"Name", "Average Time (ms)", "Memory (GiB)", "Buffer Size (GiB)", "Time Stamp (s), Frame Time (ns)"});
     file.writeRow({
-        "Name", "Average Time (ms)", "Base Data Size (GiB)", "Buffer Size (GiB)", "OIT Buffer Size (GiB)",
-        "Average FPS", "5% Percentile FPS", "95% Percentile FPS", "PPLL Entries", "PPLL Size (GiB)"});
+        "State Name", "Data Set Name", "Device Name", "Resolution",
+        "Average Time (ms)", "Base Data Size (GiB)", "Buffer Size (GiB)", "OIT Buffer Size (GiB)",
+        "Average FPS", "5% Percentile FPS", "95% Percentile FPS", "StdDev FPS", "PPLL Entries", "PPLL Size (GiB)"});
     depthComplexityFile.writeRow(
-            {"Current State", "Frame Number", "Min Depth Complexity", "Max Depth Complexity",
+            {"State Name", "Data Set Name", "Device Name", "Resolution",
+             "Frame Number", "Min Depth Complexity", "Max Depth Complexity",
              "Avg Depth Complexity Used", "Avg Depth Complexity All", "Total Number of Fragments",
              "Fragment Buffer Memory (GiB)"});
     perfFile.writeRow({"Name", "Time per frame (ms)"});
@@ -154,8 +156,19 @@ void AutomaticPerformanceMeasurer::writeCurrentModeData() {
     }
 
     // Write row with performance metrics of this mode.
-    file.writeCell(currentState.name);
-    perfFile.writeCell(currentState.name);
+    //         "State Name", "Data Set Name", "Device Name", "Resolution",
+    file.writeCell(currentState.nameRaw);
+    file.writeCell(currentState.dataSetDescriptor.name);
+    file.writeCell(sgl::AppSettings::get()->getPrimaryDevice()->getDeviceName());
+    file.writeCell(
+            sgl::toString(currentState.windowResolution.x) + "x"
+            + sgl::toString(currentState.windowResolution.y));
+    perfFile.writeCell(currentState.nameRaw);
+    perfFile.writeCell(currentState.dataSetDescriptor.name);
+    perfFile.writeCell(sgl::AppSettings::get()->getPrimaryDevice()->getDeviceName());
+    perfFile.writeCell(
+            sgl::toString(currentState.windowResolution.x) + "x"
+            + sgl::toString(currentState.windowResolution.y));
     file.writeCell(sgl::toString(timeMS));
 
     // Write current memory consumption in gigabytes
@@ -176,8 +189,16 @@ void AutomaticPerformanceMeasurer::writeCurrentModeData() {
     }
     std::sort(frameTimes.begin(), frameTimes.end());
     averageFrametime /= float(frameTimes.size());
-
     float averageFps = 1.0f / averageFrametime;
+
+    float fpsVariance = 0.0f;
+    for (uint64_t frameTimeNS : frameTimesNS) {
+        auto fps = float(double(1e9) / double(frameTimeNS));
+        float diff = fps - averageFps;
+        fpsVariance += diff * diff;
+    }
+    fpsVariance /= float(int(frameTimes.size()) - 1); //< Unbiased estimator uses N - 1.
+
     int percentile5Index = int(double(frameTimes.size()) * 0.5);
     int percentile95Index = int(double(frameTimes.size()) * 0.95);
     float percentile5Fps = frameTimes.empty() ? 0.0f : 1.0f / frameTimes.at(percentile95Index);
@@ -185,6 +206,7 @@ void AutomaticPerformanceMeasurer::writeCurrentModeData() {
     file.writeCell(sgl::toString(averageFps));
     file.writeCell(sgl::toString(percentile5Fps));
     file.writeCell(sgl::toString(percentile95Fps));
+    file.writeCell(sgl::toString(std::sqrt(fpsVariance)));
     file.writeCell(sgl::toString(maxPPLLNumFragments));
     file.writeCell(sgl::toString(double(maxPPLLNumFragments * 12ull) / 1024.0 / 1024.0 / 1024.0));
 

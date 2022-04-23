@@ -193,8 +193,6 @@ else
     # Build OSPRay and its dependencies.
     git clone https://github.com/ospray/ospray.git ospray-repo
     mkdir ospray-build
-    cd ospray-build
-    mkdir -p ospray-build
     pushd "./ospray-build" >/dev/null
     cmake ../ospray-repo/scripts/superbuild -DCMAKE_INSTALL_PREFIX="$PROJECTPATH/third_party/ospray" \
     -DBUILD_JOBS=$(sysctl -n hw.ncpu) -DBUILD_OSPRAY_APPS=Off
