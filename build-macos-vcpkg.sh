@@ -174,7 +174,7 @@ fi
 # CMake parameters for building the application.
 params=()
 
-if [ -d "./ospray/lib" ]; then
+if [ -d "./ospray/ospray/libcmake" ]; then
     is_ospray_installed=true
 else
     is_ospray_installed=false
@@ -201,6 +201,9 @@ else
     popd >/dev/null
 
     is_ospray_installed=true
+fi
+
+if $is_ospray_installed; then
     params+=(-Dospray_DIR="${PROJECTPATH}/third_party/ospray/embree/lib/cmake/$(ls "${PROJECTPATH}/third_party/ospray/embree/lib/cmake")")
     params+=(-Dospray_DIR="${PROJECTPATH}/third_party/ospray/ospray/lib/cmake/$(ls "${PROJECTPATH}/third_party/ospray/ospray/lib/cmake")")
 fi
