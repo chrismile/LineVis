@@ -217,7 +217,7 @@ fi
 # CMake parameters for building the application.
 params=()
 
-if [ -d "./ospray/ospray/libcmake" ]; then
+if [ -d "./ospray/ospray/lib/cmake" ]; then
     is_ospray_installed=true
 else
     is_ospray_installed=false
