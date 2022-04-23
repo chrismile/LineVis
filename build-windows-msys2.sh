@@ -191,7 +191,7 @@ else
 fi
 
 if $is_ospray_installed; then
-    params+=(-Dospray_DIR="${PROJECTPATH}/third_party/ospray/embree/lib/cmake/$(ls "${PROJECTPATH}/third_party/ospray/embree/lib/cmake")")
+    params+=(-Dembree_DIR="${PROJECTPATH}/third_party/ospray/embree/lib/cmake/$(ls "${PROJECTPATH}/third_party/ospray/embree/lib/cmake")")
     params+=(-Dospray_DIR="${PROJECTPATH}/third_party/ospray/ospray/lib/cmake/$(ls "${PROJECTPATH}/third_party/ospray/ospray/lib/cmake")")
 fi
 
