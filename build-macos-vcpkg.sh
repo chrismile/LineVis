@@ -171,6 +171,42 @@ if [ ! -d "./sgl/install" ]; then
     popd >/dev/null
 fi
 
+# CMake parameters for building the application.
+params=()
+
+if [ -d "./ospray/lib" ]; then
+    is_ospray_installed=true
+else
+    is_ospray_installed=false
+
+    # Make sure we have no leftovers from a failed build attempt.
+    if [ -d "./ospray-repo" ]; then
+        rm -rf "./ospray-repo"
+    fi
+    if [ -d "./ospray-build" ]; then
+        rm -rf "./ospray-build"
+    fi
+    if [ -d "./ospray" ]; then
+        rm -rf "./ospray"
+    fi
+
+    # Build OSPRay and its dependencies.
+    git clone https://github.com/ospray/ospray.git ospray-repo
+    mkdir ospray-build
+    cd ospray-build
+    mkdir -p ospray-build
+    pushd "./ospray-build" >/dev/null
+    cmake ../ospray-repo/scripts/superbuild -DCMAKE_INSTALL_PREFIX="$PROJECTPATH/third_party/ospray" \
+    -DBUILD_JOBS=$(sysctl -n hw.ncpu) -DBUILD_OSPRAY_APPS=Off
+    cmake --build . --parallel $(sysctl -n hw.ncpu)
+    cmake --build . --parallel $(sysctl -n hw.ncpu)
+    popd >/dev/null
+
+    is_ospray_installed=true
+    params+=(-Dospray_DIR="${PROJECTPATH}/third_party/ospray/embree/lib/cmake/$(ls "${PROJECTPATH}/third_party/ospray/embree/lib/cmake")")
+    params+=(-Dospray_DIR="${PROJECTPATH}/third_party/ospray/ospray/lib/cmake/$(ls "${PROJECTPATH}/third_party/ospray/ospray/lib/cmake")")
+fi
+
 popd >/dev/null # back to project root
 
 if [ $debug = true ] ; then
@@ -197,7 +233,7 @@ pushd $build_dir >/dev/null
 cmake -DCMAKE_TOOLCHAIN_FILE="$PROJECTPATH/third_party/vcpkg/scripts/buildsystems/vcpkg.cmake" \
       -DPYTHONHOME="./python3" \
       -DCMAKE_BUILD_TYPE=$cmake_config \
-      -Dsgl_DIR="$PROJECTPATH/third_party/sgl/install/lib/cmake/sgl/" ..
+      -Dsgl_DIR="$PROJECTPATH/third_party/sgl/install/lib/cmake/sgl/" "${params[@]}" ..
 Python3_VERSION=$(cat pythonversion.txt)
 popd >/dev/null
 

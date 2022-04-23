@@ -221,7 +221,7 @@ if ! $is_embree_installed && [ ! -d "./embree-${embree_version}.x86_64.linux" ];
     echo "------------------------"
     wget "https://github.com/embree/embree/releases/download/v${embree_version}/embree-${embree_version}.x86_64.linux.tar.gz"
     tar -xvzf "embree-${embree_version}.x86_64.linux.tar.gz"
-    params+=(-Dembree_DIR=${PROJECTPATH}/third_party/embree-${embree_version}.x86_64.linux/lib/cmake/embree-${embree_version})
+    params+=(-Dembree_DIR="${PROJECTPATH}/third_party/embree-${embree_version}.x86_64.linux/lib/cmake/embree-${embree_version}")
 fi
 
 ospray_version="2.9.0"
@@ -231,7 +231,7 @@ if ! $is_ospray_installed && [ ! -d "./ospray-${ospray_version}.x86_64.linux" ];
     echo "------------------------"
     wget "https://github.com/ospray/OSPRay/releases/download/v${ospray_version}/ospray-${ospray_version}.x86_64.linux.tar.gz"
     tar -xvzf "ospray-${ospray_version}.x86_64.linux.tar.gz"
-    params+=(-Dospray_DIR=${PROJECTPATH}/third_party/ospray-${ospray_version}.x86_64.linux/lib/cmake/ospray-${ospray_version})
+    params+=(-Dospray_DIR="${PROJECTPATH}/third_party/ospray-${ospray_version}.x86_64.linux/lib/cmake/ospray-${ospray_version}")
 fi
 
 popd >/dev/null # back to project root
