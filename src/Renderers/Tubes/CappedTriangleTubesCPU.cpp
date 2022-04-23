@@ -69,7 +69,8 @@ void addHemisphereToMesh(
             tubeTriangleVertexData.vertexPosition = transformedPoint;
             tubeTriangleVertexData.vertexLinePointIndex = vertexLinePointIndex | 0x80000000u;
             tubeTriangleVertexData.vertexNormal = vertexNormal;
-            tubeTriangleVertexData.phi = theta;
+            float tubeAngle = sgl::TWO_PI + theta;
+            tubeTriangleVertexData.phi = isStartHemisphere ? tubeAngle : sgl::TWO_PI - tubeAngle;//glm::mod(-theta + sgl::TWO_PI, sgl::TWO_PI);
             vertexDataList.push_back(tubeTriangleVertexData);
 
             if (lat == numLatitudeSubdivisions) {
@@ -141,6 +142,7 @@ void createCappedTriangleTubesRenderDataCPU(
         uint32_t linePointOffset,
         std::vector<glm::vec3>& lineTangents,
         std::vector<glm::vec3>& lineNormals) {
+    numCircleSubdivisions = std::max(numCircleSubdivisions, 4);
     if (size_t(numCircleSubdivisions) != globalCircleVertexPositions.size() || tubeRadius != globalTubeRadius) {
         initGlobalCircleVertexPositions(numCircleSubdivisions, tubeRadius);
     }
@@ -394,6 +396,7 @@ void createCappedTriangleEllipticTubesRenderDataCPU(
         uint32_t linePointOffset,
         std::vector<glm::vec3>& lineTangents,
         std::vector<glm::vec3>& lineNormals) {
+    numEllipseSubdivisions = std::max(numEllipseSubdivisions, 4);
     if (size_t(numEllipseSubdivisions) != globalEllipseVertexPositions.size()
             || tubeNormalRadius != globalTubeNormalRadius
             || tubeBinormalRadius != globalTubeBinormalRadius) {
@@ -553,6 +556,7 @@ void createCappedTrianglePrincipalStressTubesRenderDataCPU(
         uint32_t linePointOffset,
         std::vector<glm::vec3>& lineTangents,
         std::vector<glm::vec3>& lineNormals) {
+    numEllipseSubdivisions = std::max(numEllipseSubdivisions, 4);
     for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
         const std::vector<glm::vec3>& lineCenters = lineCentersList.at(lineId);
         const std::vector<glm::vec3> &lineRightVectors = lineRightVectorsList.at(lineId);

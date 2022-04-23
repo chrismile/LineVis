@@ -283,7 +283,6 @@ void ScatteringLineTracingRequester::requestNewData() {
     request.dataset_filename = boost::filesystem::absolute(gridDataSetFilename).generic_string();
 
     queueRequestStruct(request);
-    isProcessingRequest = true;
     if (!supportsMultiThreadedLoading) {
         mainLoop();
     }
@@ -291,7 +290,6 @@ void ScatteringLineTracingRequester::requestNewData() {
 
 bool ScatteringLineTracingRequester::getHasNewData(DataSetInformation& dataSetInformation, LineDataPtr& lineData) {
     if (getReply(lineData)) {
-        isProcessingRequest = false;
         return true;
     }
     return false;

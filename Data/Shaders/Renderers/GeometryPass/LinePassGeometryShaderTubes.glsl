@@ -687,8 +687,9 @@ mat3 shearSymmetricMatrix(vec3 p) {
 #ifdef USE_ROTATING_HELICITY_BANDS
 void drawSeparatorStripe(inout vec4 surfaceColor, in float varFraction, in float separatorWidth) {
     float aaf = fwidth(varFraction);
-    float alphaBorder = smoothstep(separatorWidth - aaf, separatorWidth + aaf, varFraction);
-    surfaceColor.rgb = surfaceColor.rgb * alphaBorder;
+    float alphaBorder1 = smoothstep(2.0 * aaf, 0.0, varFraction);
+    float alphaBorder2 = smoothstep(separatorWidth - aaf, separatorWidth + aaf, varFraction);
+    surfaceColor.rgb = surfaceColor.rgb * max(alphaBorder1, alphaBorder2);
 }
 #endif
 

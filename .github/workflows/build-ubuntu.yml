@@ -23,9 +23,9 @@ jobs:
       sgl_REPO_DIR: ${{ github.workspace }}/sgl-repo
       sgl_DIR: ${{ github.workspace }}/sgl
       USE_EMBREE: true
-      EMBREE_VERSION: "3.13.2"
+      EMBREE_VERSION: "3.13.3"
       USE_OSPRAY: true
-      OSPRAY_VERSION: "2.8.0"
+      OSPRAY_VERSION: "2.9.0"
 
     steps:
     - uses: actions/checkout@v2

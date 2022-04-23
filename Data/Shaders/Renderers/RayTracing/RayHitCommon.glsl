@@ -359,8 +359,8 @@ void computeFragmentColor(
 #endif
 
 #ifdef USE_ROTATING_HELICITY_BANDS
-    float varFraction = mod(phi + fragmentRotation, 0.25 * float(M_PI));
-    drawSeparatorStripe(fragmentColor, varFraction, 0.1, EPSILON_OUTLINE);
+    float varFraction = mod(phi + fragmentRotation, (1.0 / 3.0) * float(M_PI));
+    drawSeparatorStripe(fragmentColor, varFraction, 0.2, EPSILON_OUTLINE);
 #endif
 
     float coverage = 1.0 - smoothstep(1.0 - EPSILON_OUTLINE, 1.0, absCoords);

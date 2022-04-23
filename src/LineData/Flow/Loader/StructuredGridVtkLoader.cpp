@@ -431,7 +431,6 @@ void StructuredGridVtkLoader::load(const std::string& dataSourceFilename, Stream
             computeHelicityField(velocityField, vorticityField, helicityField, xs, ys, zs);
             scalarFields.insert(std::make_pair("Helicity", helicityField));
         }
-        delete[] vorticityField;
     }
 
     for (auto& it : vectorFields) {

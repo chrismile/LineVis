@@ -76,7 +76,7 @@ void StreamlineTracingGrid::addVectorField(float* vectorField, const std::string
 
     float maxVectorMagnitude = 0.0f;
 #if _OPENMP >= 201107
-    #pragma omp parallel for shared(vectorField) reduction(max: maxVectorMagnitude) default(none)
+    //#pragma omp parallel for shared(vectorField) reduction(max: maxVectorMagnitude) default(none)
 #endif
     for (int z = 0; z < zs; z++) {
         for (int y = 0; y < ys; y++) {
@@ -717,7 +717,7 @@ void StreamlineTracingGrid::_pushRibbonDirections(
 
         float tangentLength = glm::length(tangent);
         if (tangentLength < 1e-7f) {
-            sgl::Logfile::get()->writeError(
+            sgl::Logfile::get()->writeWarning(
                     "Warning in StreamlineTracingGrid::_pushRibbonDirections: "
                     "The line segment length is smaller than 1e-7.");
         }
@@ -840,7 +840,8 @@ void StreamlineTracingGrid::_trace(
             int(std::round(float(tracingSettings.maxNumIterations) / tracingSettings.timeStepScale)),
             tracingSettings.maxNumIterations * 10);
     float lineLength = 0.0;
-    const float MAX_LINE_LENGTH = glm::length(box.getDimensions());
+    const float MAX_LINE_LENGTH =
+            glm::length(box.getDimensions()) * (float(tracingSettings.maxNumIterations) / float(2000));
     while (iterationCounter <= MAX_ITERATIONS && lineLength <= MAX_LINE_LENGTH) {
         oldParticlePosition = particlePosition;
 

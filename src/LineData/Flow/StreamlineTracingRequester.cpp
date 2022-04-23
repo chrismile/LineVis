@@ -494,12 +494,10 @@ void StreamlineTracingRequester::requestNewData() {
     request.dataSourceFilename = boost::filesystem::absolute(gridDataSetFilename).generic_string();
 
     queueRequestStruct(request);
-    isProcessingRequest = true;
 }
 
 bool StreamlineTracingRequester::getHasNewData(DataSetInformation& dataSetInformation, LineDataPtr& lineData) {
     if (getReply(lineData)) {
-        isProcessingRequest = false;
         return true;
     }
     return false;

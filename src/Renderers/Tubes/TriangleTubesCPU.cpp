@@ -40,6 +40,7 @@ void createTriangleTubesRenderDataCPU(
         uint32_t linePointOffset,
         std::vector<glm::vec3>& lineTangents,
         std::vector<glm::vec3>& lineNormals) {
+    numCircleSubdivisions = std::max(numCircleSubdivisions, 4);
     if (size_t(numCircleSubdivisions) != globalCircleVertexPositions.size() || tubeRadius != globalTubeRadius) {
         initGlobalCircleVertexPositions(numCircleSubdivisions, tubeRadius);
     }
@@ -130,6 +131,7 @@ void createTriangleEllipticTubesRenderDataCPU(
         uint32_t linePointOffset,
         std::vector<glm::vec3>& lineTangents,
         std::vector<glm::vec3>& lineNormals) {
+    numEllipseSubdivisions = std::max(numEllipseSubdivisions, 4);
     if (size_t(numEllipseSubdivisions) != globalEllipseVertexPositions.size()
             || tubeNormalRadius != globalTubeNormalRadius
             || tubeBinormalRadius != globalTubeBinormalRadius) {
@@ -226,6 +228,7 @@ void createTrianglePrincipalStressTubesRenderDataCPU(
         uint32_t linePointOffset,
         std::vector<glm::vec3>& lineTangents,
         std::vector<glm::vec3>& lineNormals) {
+    numEllipseSubdivisions = std::max(numEllipseSubdivisions, 4);
     for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
         const std::vector<glm::vec3> &lineCenters = lineCentersList.at(lineId);
         const std::vector<glm::vec3> &lineRightVectors = lineRightVectorsList.at(lineId);
