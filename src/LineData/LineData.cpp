@@ -539,6 +539,16 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLeve
         return tubeTriangleBottomLevelAS;
     }
 
+    /*
+     * TODO:
+     * On NVIDIA hardware, we noticed that a 151MiB base data size, or 1922MiB triangle vertices and 963MiB triangle
+     * indices object, was too large and sometimes caused timeout detection and recovery (TDR) in the graphics driver.
+     * Thus, everything with more than 256MiB of triangle vertices is split into multiple acceleration structures.
+     */
+    //bool needsSplit =
+    //        getBaseSizeInBytes() > (1024 * 1024 * 32)
+    //        || tubeTriangleRenderData.vertexBuffer->getSizeInBytes() > (1024 * 1024 * 256);
+
     auto asTubeInput = new sgl::vk::TrianglesAccelerationStructureInput(
             device, VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR);
     asTubeInput->setIndexBuffer(tubeTriangleRenderData.indexBuffer);

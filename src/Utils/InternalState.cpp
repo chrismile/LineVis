@@ -205,12 +205,14 @@ void getTestModesVulkanRayTracing(std::vector<InternalState>& states, InternalSt
         })};
         states.push_back(state);
 
-        state.name = "VRT Triangle Mesh";
-        state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
-                { "useAnalyticIntersections", "false" },
-                { "numSamplesPerFrame", "1" }
-        })};
-        states.push_back(state);
+        if (state.dataSetDescriptor.name != "Convection Rolls") {
+            state.name = "VRT Triangle Mesh";
+            state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
+                    { "useAnalyticIntersections", "false" },
+                    { "numSamplesPerFrame", "1" }
+            })};
+            states.push_back(state);
+        }
     }
 }
 
@@ -258,13 +260,14 @@ void getTestModesOpaqueRenderingForDataSet(std::vector<InternalState>& states, c
 
 std::vector<InternalState> getTestModesOpaqueRendering() {
     std::vector<InternalState> states;
-    std::vector<glm::ivec2> windowResolutions = { glm::ivec2(1920, 1080) };
+    std::vector<glm::ivec2> windowResolutions = { glm::ivec2(1920, 1080), glm::ivec2(3840, 2160) };
     std::vector<DataSetDescriptor> dataSetDescriptors = {
             //DataSetDescriptor("Rings"),
             //DataSetDescriptor("Aneurysm"),
             //DataSetDescriptor("Convection Rolls"),
             //DataSetDescriptor("Femur (Vis2021)"),
             DataSetDescriptor("Bearing"),
+            DataSetDescriptor("Convection Rolls")
     };
     std::vector<std::string> transferFunctionNames = {
             //"Standard.xml"
@@ -282,10 +285,23 @@ std::vector<InternalState> getTestModesOpaqueRendering() {
         }
     }
 
-    // Append model name to state name if more than one model is loaded
+    bool runStatesTwoTimesForErrorMeasure = true;
+    if (runStatesTwoTimesForErrorMeasure) {
+        std::vector<InternalState> oldStates = states;
+        states.clear();
+        for (size_t i = 0; i < oldStates.size(); i++) {
+            InternalState state = oldStates.at(i);
+            states.push_back(state);
+            state.name += "(2)";
+            states.push_back(state);
+        }
+    }
+
     for (InternalState& state : states) {
         state.nameRaw = state.name;
     }
+
+    // Append model name to state name if more than one model is loaded
     if (dataSetDescriptors.size() > 1 || windowResolutions.size() > 1) {
         for (InternalState& state : states) {
             state.name =

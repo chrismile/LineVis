@@ -212,6 +212,8 @@ void AutomaticPerformanceMeasurer::writeCurrentModeData() {
 
     file.newRow();
     perfFile.newRow();
+    file.flush();
+    perfFile.flush();
 }
 
 void AutomaticPerformanceMeasurer::setNextState(bool first) {
