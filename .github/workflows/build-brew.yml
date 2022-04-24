@@ -83,7 +83,7 @@ jobs:
             export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig"
           elif [ "$RUNNER_OS" == "macOS" ]; then
             source "$HOME/VulkanSDK/$(ls $HOME/VulkanSDK)/setup-env.sh"
-            params+=(-DCMAKE_FIND_USE_CMAKE_SYSTEM_PATH=False -DCMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH=False -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_FIND_APPBUNDLE=NEVER -DZLIB_ROOT="/usr/local/opt/zlib")
+            params+=(-DCMAKE_FIND_USE_CMAKE_SYSTEM_PATH=False -DCMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH=False -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_FIND_APPBUNDLE=NEVER -DZLIB_ROOT="$(brew --prefix)/opt/zlib")
           fi
           cmake "${{env.sgl_REPO_DIR}}" -B "${{env.sgl_REPO_DIR}}/build" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX="${{env.sgl_DIR}}" -DCMAKE_PREFIX_PATH="$(brew --prefix)" "${params[@]}"
 
@@ -101,7 +101,7 @@ jobs:
             export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig"
           elif [ "$RUNNER_OS" == "macOS" ]; then
             source "$HOME/VulkanSDK/$(ls $HOME/VulkanSDK)/setup-env.sh"
-            params+=(-DCMAKE_FIND_USE_CMAKE_SYSTEM_PATH=False -DCMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH=False -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_FIND_APPBUNDLE=NEVER -DZLIB_ROOT="/usr/local/opt/zlib")
+            params+=(-DCMAKE_FIND_USE_CMAKE_SYSTEM_PATH=False -DCMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH=False -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_FIND_APPBUNDLE=NEVER -DZLIB_ROOT="$(brew --prefix)/opt/zlib")
           fi
           cmake -B "${{github.workspace}}/build" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dsgl_DIR=${{env.sgl_DIR}}/lib/cmake/sgl -DCMAKE_PREFIX_PATH="$(brew --prefix)" "${params[@]}"
 
