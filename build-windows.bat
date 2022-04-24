@@ -86,7 +86,7 @@ set cmake_args=-DCMAKE_TOOLCHAIN_FILE="third_party/vcpkg/scripts/buildsystems/vc
                -Dsgl_DIR="third_party/sgl/install/lib/cmake/sgl/"
 
 set embree_version=3.13.3
-if not exist ".\embree-%embree_version%.x86_64.windows" (
+if not exist ".\third_party\embree-%embree_version%.x86_64.windows" (
     echo ------------------------
     echo    downloading Embree
     echo ------------------------
@@ -96,7 +96,7 @@ if not exist ".\embree-%embree_version%.x86_64.windows" (
 )
 
 set ospray_version=2.9.0
-if not exist ".\ospray-%ospray_version%.x86_64.windows" (
+if not exist ".\third_party\ospray-%ospray_version%.x86_64.windows" (
     echo ------------------------
     echo    downloading OSPRay
     echo ------------------------
@@ -147,15 +147,17 @@ if %debug% == true (
    if not exist %destination_dir%\*.pdb (
       del %destination_dir%\*.dll
    )
-   robocopy %build_dir%\Debug\             %destination_dir%  >NUL
-   robocopy third_party\sgl\.build\Debug   %destination_dir% *.dll *.pdb >NUL
+   robocopy %build_dir%\Debug\  %destination_dir%  >NUL
+   robocopy third_party\sgl\.build\Debug %destination_dir% *.dll *.pdb >NUL
+   robocopy third_party\ospray-%ospray_version%.x86_64.windows\bin %destination_dir% *.dll >NUL
 ) else (
    if exist %destination_dir%\*.pdb (
       del %destination_dir%\*.dll
       del %destination_dir%\*.pdb
    )
-   robocopy %build_dir%\Release\           %destination_dir% >NUL
+   robocopy %build_dir%\Release\ %destination_dir% >NUL
    robocopy third_party\sgl\.build\Release %destination_dir% *.dll >NUL
+   robocopy third_party\ospray-%ospray_version%.x86_64.windows\bin %destination_dir% *.dll >NUL
 )
 
 echo.
