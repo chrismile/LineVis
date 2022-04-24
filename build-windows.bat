@@ -86,7 +86,7 @@ set cmake_args=-DCMAKE_TOOLCHAIN_FILE="third_party/vcpkg/scripts/buildsystems/vc
                -Dsgl_DIR="third_party/sgl/install/lib/cmake/sgl/"
 
 set embree_version=3.13.3
-if not exist ".\third_party\embree-%embree_version%.x86_64.windows" (
+if not exist ".\embree-%embree_version%.x64.vc14.windows" (
     echo ------------------------
     echo    downloading Embree
     echo ------------------------
@@ -96,7 +96,7 @@ if not exist ".\third_party\embree-%embree_version%.x86_64.windows" (
 )
 
 set ospray_version=2.9.0
-if not exist ".\third_party\ospray-%ospray_version%.x86_64.windows" (
+if not exist ".\ospray-%ospray_version%.x86_64.windows" (
     echo ------------------------
     echo    downloading OSPRay
     echo ------------------------
