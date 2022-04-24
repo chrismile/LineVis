@@ -248,7 +248,6 @@ else
     git clone https://github.com/ospray/ospray.git ospray-repo
     mkdir ospray-build
     pushd "./ospray-build" >/dev/null
-    BUILD_TBB_FROM_SOURCE
     cmake ../ospray-repo/scripts/superbuild -DCMAKE_INSTALL_PREFIX="$PROJECTPATH/third_party/ospray" \
     -DBUILD_JOBS=$(sysctl -n hw.ncpu) -DBUILD_OSPRAY_APPS=Off  "${params_ospray[@]}"
     cmake --build . --parallel $(sysctl -n hw.ncpu)
