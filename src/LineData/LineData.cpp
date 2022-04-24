@@ -540,14 +540,13 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLeve
     }
 
     /*
-     * TODO:
      * On NVIDIA hardware, we noticed that a 151MiB base data size, or 1922MiB triangle vertices and 963MiB triangle
      * indices object, was too large and sometimes caused timeout detection and recovery (TDR) in the graphics driver.
      * Thus, everything with more than 256MiB of triangle vertices is split into multiple acceleration structures.
      */
-    //bool needsSplit =
-    //        getBaseSizeInBytes() > (1024 * 1024 * 32)
-    //        || tubeTriangleRenderData.vertexBuffer->getSizeInBytes() > (1024 * 1024 * 256);
+    bool needsSplit =
+            getBaseSizeInBytes() > (1024 * 1024 * 32)
+            || tubeTriangleRenderData.vertexBuffer->getSizeInBytes() > (1024 * 1024 * 256);
 
     auto asTubeInput = new sgl::vk::TrianglesAccelerationStructureInput(
             device, VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR);
@@ -564,10 +563,22 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLeve
             "Input vertices size: " + sgl::toString(double(inputVerticesSize) / 1024.0 / 1024.0) + "MiB");
     sgl::Logfile::get()->writeInfo(
             "Input indices size: " + sgl::toString(double(inputIndicesSize) / 1024.0 / 1024.0) + "MiB");
-    tubeTriangleBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(
-            asTubeInputPtr,
-            VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
-            | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR, true);
+
+    /*
+     * For now, disable compaction support for large data sets, as NVIDIA and AMD drivers seem to easily trigger TDR
+     * when not building smaller chunks of data.
+     * TODO: Implement splitting.
+     */
+    if (needsSplit) {
+        tubeTriangleBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(
+                asTubeInputPtr,
+                VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, true);
+    } else {
+        tubeTriangleBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(
+                asTubeInputPtr,
+                VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
+                | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR, true);
+    }
 
     return tubeTriangleBottomLevelAS;
 }
