@@ -27,7 +27,7 @@
 @echo off
 pushd %~dp0
 
-set debug=true
+set debug=false
 set build_dir=".build"
 set destination_dir="Shipping"
 
