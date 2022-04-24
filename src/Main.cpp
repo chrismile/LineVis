@@ -122,7 +122,11 @@ int main(int argc, char *argv[]) {
         Py_SetPythonHome(PYTHONHOME);
         // As of 2022-01-25, "lib-dynload" is not automatically found when using MSYS2 together with MinGW.
 #if (defined(__MINGW32__) || defined(__APPLE__)) && defined(PYTHONPATH)
+#ifdef __MINGW32__
         Py_SetPath(PYTHONPATH ";" PYTHONPATH "/site-packages;" PYTHONPATH "/lib-dynload");
+#else
+        Py_SetPath(PYTHONPATH ":" PYTHONPATH "/site-packages:" PYTHONPATH "/lib-dynload");
+#endif
 #endif
     }
 #endif
