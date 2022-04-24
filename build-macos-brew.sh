@@ -249,7 +249,7 @@ else
     mkdir ospray-build
     pushd "./ospray-build" >/dev/null
     cmake ../ospray-repo/scripts/superbuild -DCMAKE_INSTALL_PREFIX="$PROJECTPATH/third_party/ospray" \
-    -DBUILD_JOBS=$(sysctl -n hw.ncpu) -DBUILD_OSPRAY_APPS=Off  "${params_ospray[@]}"
+    -DBUILD_JOBS=$(sysctl -n hw.ncpu) -DBUILD_OSPRAY_APPS=Off "${params_ospray[@]}"
     cmake --build . --parallel $(sysctl -n hw.ncpu)
     cmake --build . --parallel $(sysctl -n hw.ncpu)
     popd >/dev/null
@@ -343,6 +343,7 @@ cp "README.md" "$destination_dir"
 rsync -a "$VULKAN_SDK/lib/libMoltenVK.dylib" "$destination_dir/bin"
 copy_dependencies_recursive() {
     local binary_path="$1"
+    local binary_source_folder=$(dirname "$binary_path")
     local binary_name=$(basename "$binary_path")
     local binary_target_path="$destination_dir/bin/$binary_name"
     if contains "$(file "$binary_target_path")" "dynamically linked shared library"; then
@@ -377,6 +378,9 @@ copy_dependencies_recursive() {
                 if [ $(( counter % 4 )) -eq 2 ]; then
                     local stringarray_grep_rpath_line=($grep_rpath_line)
                     local rpath=${stringarray_grep_rpath_line[1]}
+                    if startswith "$rpath" "@loader_path"; then
+                        rpath="${rpath/@loader_path/$binary_source_folder}"
+                    fi
                     local library_rpath="${rpath}${library#"@rpath"}"
 
                     if [ -f "$library_rpath" ]; then
