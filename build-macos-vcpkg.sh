@@ -289,4 +289,5 @@ if [ -z "${DYLD_LIBRARY_PATH+x}" ]; then
 elif contains "${DYLD_LIBRARY_PATH}" "${PROJECTPATH}/third_party/sgl/install/lib"; then
     export DYLD_LIBRARY_PATH="DYLD_LIBRARY_PATH:${PROJECTPATH}/third_party/sgl/install/lib"
 fi
+export PYTHONHOME="$PYTHONHOME_global"
 ./LineVis

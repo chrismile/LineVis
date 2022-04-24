@@ -414,10 +414,10 @@ done
 # Copy python3 to the destination directory.
 python_version=${Python3_VERSION#python}
 python_subdir="$brew_prefix/Cellar/python@${Python3_VERSION#python}"
-PYTHONHOME_global="$python_subdir/$(ls "$python_subdir")/Frameworks/Python.framework/Versions/$python_version/lib/$Python3_VERSION"
+PYTHONHOME_global="$python_subdir/$(ls "$python_subdir")/Frameworks/Python.framework/Versions/$python_version"
 if [ ! -d "$destination_dir/bin/python3" ]; then
     mkdir -p "$destination_dir/bin/python3/lib"
-    rsync -a "$PYTHONHOME_global" "$destination_dir/bin/python3/lib"
+    rsync -a "$PYTHONHOME_global/lib/$Python3_VERSION" "$destination_dir/bin/python3/lib"
     rsync -a "$brew_prefix/lib/$Python3_VERSION" "$destination_dir/bin/python3/lib"
     #rsync -a "$(eval echo "$brew_prefix/lib/python*")" $destination_dir/python3/lib
 fi
