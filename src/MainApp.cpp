@@ -521,6 +521,7 @@ void MainApp::setNewState(const InternalState &newState) {
             setRenderer(
                     dataViews[0]->sceneData, dataViews[0]->oldRenderingMode, newRenderingMode,
                     dataViews[0]->lineRenderer, 0);
+            dataViews[0]->renderingMode = newRenderingMode;
             dataViews[0]->updateCameraMode();
         } else {
             renderingMode = newState.renderingMode;
@@ -943,7 +944,9 @@ void MainApp::renderGui() {
 
     if (useDockSpaceMode) {
         if (isFirstFrame && dataViews.size() == 1) {
-            initializeFirstDataView();
+            if (dataViews.front()->renderingMode == RENDERING_MODE_NONE) {
+                initializeFirstDataView();
+            }
             isFirstFrame = false;
         }
 

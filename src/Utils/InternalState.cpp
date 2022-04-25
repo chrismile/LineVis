@@ -251,9 +251,9 @@ void getTestModesOspray(std::vector<InternalState>& states, InternalState state)
 #endif
 
 void getTestModesOpaqueRenderingForDataSet(std::vector<InternalState>& states, const InternalState& state) {
-    getTestModesRasterization(states, state);
-    getTestModesVulkanRayTracing(states, state);
-    getTestModesVoxelRayCasting(states, state);
+    //getTestModesRasterization(states, state);
+    //getTestModesVulkanRayTracing(states, state);
+    //getTestModesVoxelRayCasting(states, state);
 #ifdef USE_OSPRAY
     getTestModesOspray(states, state);
 #endif
