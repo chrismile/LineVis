@@ -336,7 +336,7 @@ else
 fi
 
 # Copy LineVis to the destination directory.
-cp "$build_dir/LineVis" "$destination_dir/bin"
+cp "$build_dir/LineVis.app/Contents/MacOS/LineVis" "$destination_dir/bin"
 cp "README.md" "$destination_dir"
 
 # Copy all dependencies of LineVis and sgl to the destination directory.
@@ -396,7 +396,7 @@ copy_dependencies_recursive() {
         fi
     done < <(echo "$otool_output")
 }
-copy_dependencies_recursive "$build_dir/LineVis"
+copy_dependencies_recursive "$build_dir/LineVis.app/Contents/MacOS/LineVis"
 if [ $debug = true ]; then
     copy_dependencies_recursive "./third_party/sgl/install/lib/libsgld.dylib"
 else

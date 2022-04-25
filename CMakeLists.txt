@@ -219,13 +219,13 @@ else()
 endif()
 
 if (APPLE)
-    set(BUNDLE_PATH ${CMAKE_CURRENT_BINARY_DIR}/CloudRendering.app)
+    set(BUNDLE_PATH ${CMAKE_CURRENT_BINARY_DIR}/LineVis.app)
     set_target_properties(
-            CloudRendering PROPERTIES
-            OUTPUT_NAME "CloudRendering"
-            MACOSX_BUNDLE_EXECUTABLE_NAME "CloudRendering"
-            MACOSX_BUNDLE_BUNDLE_NAME "CloudRendering"
-            FOLDER "CloudRendering"
+            LineVis PROPERTIES
+            OUTPUT_NAME "LineVis"
+            MACOSX_BUNDLE_EXECUTABLE_NAME "LineVis"
+            MACOSX_BUNDLE_BUNDLE_NAME "LineVis"
+            FOLDER "LineVis"
             MACOSX_BUNDLE_SHORT_VERSION_STRING ""
             MACOSX_BUNDLE_LONG_VERSION_STRING ""
             MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/CMake/MacOSXBundleInfo.plist.in")
