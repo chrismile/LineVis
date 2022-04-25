@@ -62,11 +62,6 @@ PerPixelLinkedListLineRenderer::PerPixelLinkedListLineRenderer(
     clearRasterPass->setOutputImageInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
     clearRasterPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-    // SORTING_ALGORITHM_MODE_PRIORITY_QUEUE produces incorrect results on AMD GPUs for whatever reasons...
-    if (device->getDeviceDriverId() == VK_DRIVER_ID_AMD_PROPRIETARY) {
-        sortingAlgorithmMode = SORTING_ALGORITHM_MODE_SHELL_SORT;
-    }
-
     onClearColorChanged();
 }
 
@@ -134,6 +129,7 @@ void PerPixelLinkedListLineRenderer::getVulkanShaderPreprocessorDefines(
 
     if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_PRIORITY_QUEUE) {
         preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "frontToBackPQ"));
+        preprocessorDefines.insert(std::make_pair("INITIALIZE_ARRAY_POW2", ""));
     } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_BUBBLE_SORT) {
         preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "bubbleSort"));
     } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_INSERTION_SORT) {
