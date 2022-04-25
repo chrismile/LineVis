@@ -659,7 +659,7 @@ void MainApp::setRenderer(
         } else {
             std::string warningText =
                     std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
-                    + "supported on this hardware due to the missing the geometry shader physical device feature.";
+                    + "supported on this hardware due to the missing geometry shader physical device feature.";
             onUnuspportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
         }
     } else if (newRenderingMode == RENDERING_MODE_DEPTH_COMPLEXITY) {
