@@ -62,6 +62,13 @@ void main() {
     // Get start offset from array
     uint fragOffset = startOffset[pixelIndex];
 
+#ifdef INITIALIZE_ARRAY_POW2
+    for (int i = 0; i < MAX_NUM_FRAGS; i++) {
+        colorList[i] = 0;
+        depthList[i] = 0.0;
+    }
+#endif
+
     // Collect all fragments for this pixel
     int numFrags = 0;
     LinkedListFragmentNode fragment;
@@ -79,13 +86,6 @@ void main() {
 
         numFrags++;
     }
-
-#ifdef INITIALIZE_ARRAY_POW2
-    for (int i = numFrags; i < MAX_NUM_FRAGS; i++) {
-        colorList[i] = 0;
-        depthList[i] = 0.0;
-    }
-#endif
 
     if (numFrags == 0) {
         discard;
