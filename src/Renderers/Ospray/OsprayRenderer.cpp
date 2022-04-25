@@ -127,6 +127,10 @@ OsprayRenderer::~OsprayRenderer() {
     if (ospCamera) {
         ospRelease(ospCamera);
     }
+    if (ospGeometry) {
+        ospRelease(ospGeometry);
+        ospGeometry = nullptr;
+    }
     if (ospWorld) {
         ospRelease(ospWorld);
     }
@@ -416,6 +420,10 @@ void OsprayRenderer::onResolutionChanged() {
     uint32_t width = *sceneData->viewportWidth;
     uint32_t height = *sceneData->viewportHeight;
 
+    if (previousWidth != width || previousHeight != height) {
+        onHasMoved();
+    }
+
     size_t bufferSize = width * height;
     sgl::vk::ImageSamplerSettings samplerSettings;
     sgl::vk::ImageSettings imageSettings;
@@ -437,6 +445,7 @@ void OsprayRenderer::onResolutionChanged() {
     blitRenderPass->recreateSwapchain(width, height);
 
     auto* swapchain = sgl::AppSettings::get()->getSwapchain();
+    stagingBuffers.clear();
     stagingBuffers.reserve(swapchain->getNumImages());
     for (size_t i = 0; i < swapchain->getNumImages(); i++) {
         stagingBuffers.push_back(std::make_shared<sgl::vk::Buffer>(
@@ -505,8 +514,10 @@ void OsprayRenderer::notifyReRenderTriggeredExternally() {
 void OsprayRenderer::onHasMoved() {
     LineRenderer::onHasMoved();
 
-    int width = int(*sceneData->viewportWidth);
-    int height = int(*sceneData->viewportHeight);
+    previousWidth = *sceneData->viewportWidth;
+    previousHeight = *sceneData->viewportHeight;
+    int width = std::max(int(*sceneData->viewportWidth), 1);
+    int height = std::max(int(*sceneData->viewportHeight), 1);
     glm::mat4 invViewMatrix = glm::inverse(sceneData->camera->getViewMatrix());
     glm::vec3 upDir = invViewMatrix[1];
     glm::vec3 lookDir = -invViewMatrix[2];

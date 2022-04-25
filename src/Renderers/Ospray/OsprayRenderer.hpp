@@ -116,6 +116,7 @@ private:
     std::vector<sgl::vk::BufferPtr> stagingBuffers;
     sgl::vk::TexturePtr renderTexture;
     sgl::vk::BlitRenderPassPtr blitRenderPass;
+    uint32_t previousWidth = 0, previousHeight = 0;
 
     // The relative change in frame variance is used for deciding whether to stop refining the current (still) frame.
     float lastFrameVariance = 1e9f;
