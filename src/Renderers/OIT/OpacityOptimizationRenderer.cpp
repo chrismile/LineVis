@@ -56,6 +56,11 @@ OpacityOptimizationRenderer::OpacityOptimizationRenderer(
 void OpacityOptimizationRenderer::initialize() {
     LineRenderer::initialize();
 
+    // SORTING_ALGORITHM_MODE_PRIORITY_QUEUE produces incorrect results on AMD GPUs for whatever reasons...
+    if (renderer->getDevice()->getDeviceDriverId() == VK_DRIVER_ID_AMD_PROPRIETARY) {
+        sortingAlgorithmMode = SORTING_ALGORITHM_MODE_SHELL_SORT;
+    }
+
     // Get all available multisampling modes.
     maximumNumberOfSamples = (*sceneData->renderer)->getDevice()->getMaxUsableSampleCount();
     if (maximumNumberOfSamples <= 1) {
