@@ -205,7 +205,8 @@ void getTestModesVulkanRayTracing(std::vector<InternalState>& states, InternalSt
         })};
         states.push_back(state);
 
-        if (state.dataSetDescriptor.name != "Convection Rolls") {
+        if (state.dataSetDescriptor.name != "Convection Rolls"
+                || sgl::AppSettings::get()->getPrimaryDevice()->getDeviceDriverId() != VK_DRIVER_ID_AMD_PROPRIETARY) {
             state.name = "VRT Triangle Mesh";
             state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
                     { "useAnalyticIntersections", "false" },
