@@ -403,6 +403,23 @@ else
     copy_dependencies_recursive "./third_party/sgl/install/lib/libsgl.dylib"
 fi
 
+copy_ospray_lib_symlinked() {
+    local lib_name="$1"
+    local lib_path_1="./third_party/ospray/ospray/lib/$lib_name"
+    local lib_path_2="./third_party/ospray/ospray/lib/$(readlink $lib_path_1)"
+    local lib_path_3="./third_party/ospray/ospray/lib/$(readlink $lib_path_2)"
+    cp "$lib_path_1" "$destination_dir/bin"
+    cp "$lib_path_2" "$destination_dir/bin"
+    cp "$lib_path_3" "$destination_dir/bin"
+    copy_dependencies_recursive "$lib_path_1"
+    copy_dependencies_recursive "$lib_path_2"
+    copy_dependencies_recursive "$lib_path_3"
+}
+copy_ospray_lib_symlinked "libopenvkl.dylib"
+copy_ospray_lib_symlinked "libopenvkl_module_cpu_device.dylib"
+copy_ospray_lib_symlinked "libopenvkl_module_cpu_device_4.dylib"
+copy_ospray_lib_symlinked "libospray_module_cpu.dylib"
+
 # Fix code signing for arm64.
 for filename in $destination_dir/bin/*
 do
@@ -450,4 +467,7 @@ elif contains "${DYLD_LIBRARY_PATH}" "${PROJECTPATH}/third_party/sgl/install/lib
     export DYLD_LIBRARY_PATH="DYLD_LIBRARY_PATH:${PROJECTPATH}/third_party/sgl/install/lib"
 fi
 export PYTHONHOME="$PYTHONHOME_global"
-open ./LineVis.app
+#open ./LineVis.app
+#open ./LineVis.app --args --perf
+./LineVis.app/Contents/MacOS/LineVis
+#./LineVis.app/Contents/MacOS/LineVis --perf
