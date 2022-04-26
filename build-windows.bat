@@ -36,6 +36,13 @@ set optix_install_dir=""
 
 where cmake >NUL 2>&1 || echo cmake was not found but is required to build the program && exit /b 1
 
+:: Creates a string with, e.g., -G "Visual Studio 17 2022".
+:: Needs to be run from a Visual Studio developer PowerShell or command prompt.
+set VCINSTALLDIR_ESC=%VCINSTALLDIR:\=\\%
+set "x=%VCINSTALLDIR_ESC:Microsoft Visual Studio\\=" & set "VsPathEnd=%"
+set VsYear=%VsPathEnd:~0,4%
+set cmake_generator=-G "Visual Studio %VisualStudioVersion:~0,2% %VsYear%"
+
 if not exist .\third_party\ mkdir .\third_party\
 pushd third_party
 
@@ -70,7 +77,8 @@ if not exist .\sgl\install (
    mkdir sgl\.build 2> NUL
    pushd sgl\.build
 
-   cmake .. -DCMAKE_TOOLCHAIN_FILE=../../vcpkg/scripts/buildsystems/vcpkg.cmake ^
+   cmake .. %cmake_generator% ^
+            -DCMAKE_TOOLCHAIN_FILE=../../vcpkg/scripts/buildsystems/vcpkg.cmake ^
             -DCMAKE_INSTALL_PREFIX=../install -DCMAKE_CXX_FLAGS="/MP" || exit /b 1
    cmake --build . --config Debug   -- /m            || exit /b 1
    cmake --build . --config Debug   --target install || exit /b 1
@@ -130,7 +138,7 @@ if not %optix_install_dir% == "" (
    set cmake_args=%cmake_args% -DOptiX_INSTALL_DIR=%optix_install_dir%
 )
 
-cmake %cmake_args% -S . -B %build_dir%
+cmake %cmake_generator% %cmake_args% -S . -B %build_dir%
 
 echo ------------------------
 echo       compiling
