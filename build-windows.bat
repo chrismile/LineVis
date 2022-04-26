@@ -100,8 +100,8 @@ if not exist ".\embree-%embree_version%.x64.vc14.windows" (
     echo ------------------------
     curl.exe -L "https://github.com/embree/embree/releases/download/v%embree_version%/embree-%embree_version%.x64.vc14.windows.zip" --output embree-%embree_version%.x64.vc14.windows.zip
     tar -xvzf "embree-%embree_version%.x64.vc14.windows.zip"
-    set cmake_args=%cmake_args% -Dembree_DIR="third_party/embree-%embree_version%.x64.vc14.windows/lib/cmake/embree-%embree_version%"
 )
+set cmake_args=%cmake_args% -Dembree_DIR="third_party/embree-%embree_version%.x64.vc14.windows/lib/cmake/embree-%embree_version%"
 
 set ospray_version=2.9.0
 if not exist ".\ospray-%ospray_version%.x86_64.windows" (
@@ -110,8 +110,8 @@ if not exist ".\ospray-%ospray_version%.x86_64.windows" (
     echo ------------------------
     curl.exe -L "https://github.com/ospray/OSPRay/releases/download/v%ospray_version%/ospray-%ospray_version%.x86_64.windows.zip" --output ospray-%ospray_version%.x86_64.windows.zip
     tar -xvzf "ospray-%ospray_version%.x86_64.windows.zip"
-    set cmake_args=%cmake_args% -Dospray_DIR="third_party/ospray-%ospray_version%.x86_64.windows/lib/cmake/ospray-%ospray_version%"
 )
+set cmake_args=%cmake_args% -Dospray_DIR="third_party/ospray-%ospray_version%.x86_64.windows/lib/cmake/ospray-%ospray_version%"
 
 popd
 
