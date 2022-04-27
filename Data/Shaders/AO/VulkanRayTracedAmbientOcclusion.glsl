@@ -81,6 +81,12 @@ layout(std430, binding = 7) readonly buffer TubeTriangleVertexDataBuffer {
     TubeTriangleVertexData tubeTriangleVertexDataBuffer[];
 };
 
+#ifdef USE_INSTANCE_TRIANGLE_INDEX_OFFSET
+layout(std430, binding = 10) readonly buffer InstanceTriangleIndexOffsetBuffer {
+    uint instanceTriangleIndexOffsets[];
+};
+#endif
+
 struct LinePointData {
     vec3 linePosition;
     float lineAttribute;
@@ -160,7 +166,15 @@ void main() {
     if (rayQueryGetIntersectionTypeEXT(rayQueryPrimary, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
         // 2. Get the surface normal of the hit tube.
         int primitiveId = rayQueryGetIntersectionPrimitiveIndexEXT(rayQueryPrimary, true);
+#ifdef USE_INSTANCE_TRIANGLE_INDEX_OFFSET
+        // rayQueryGetIntersectionInstanceCustomIndexEXT and rayQueryGetIntersectionInstanceIdEXT should be the same,
+        // as hull instances are always specified last.
+        int instanceId = rayQueryGetIntersectionInstanceIdEXT(rayQueryPrimary, true);
+        uint instanceTriangleIndexOffset = instanceTriangleIndexOffsets[instanceId];
+        uvec3 triangleIndices = indexBuffer[instanceTriangleIndexOffset + primitiveId];
+#else
         uvec3 triangleIndices = indexBuffer[primitiveId];
+#endif
         vec2 attribs = rayQueryGetIntersectionBarycentricsEXT(rayQueryPrimary, true);
         const vec3 barycentricCoordinates = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
 

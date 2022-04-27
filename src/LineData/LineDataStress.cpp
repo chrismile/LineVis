@@ -2368,7 +2368,8 @@ LinePassQuadsRenderData LineDataStress::getLinePassQuadsRenderData() {
     return bandRenderData;
 }
 
-TubeTriangleRenderData LineDataStress::getLinePassTubeTriangleMeshRenderData(bool isRasterizer, bool vulkanRayTracing) {
+TubeTriangleRenderData LineDataStress::getLinePassTubeTriangleMeshRenderDataStatistics(
+        bool isRasterizer, bool vulkanRayTracing, std::vector<LineStatistics>* lineStatistics) {
     rebuildInternalRepresentationIfNecessary();
     if (vulkanTubeTriangleRenderData.vertexBuffer && vulkanTubeTriangleRenderDataIsRayTracing == vulkanRayTracing) {
         return vulkanTubeTriangleRenderData;

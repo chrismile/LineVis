@@ -110,7 +110,8 @@ public:
     LinePassTubeRenderDataProgrammablePull getLinePassTubeRenderDataProgrammablePull() override;
     LinePassQuadsRenderData getLinePassQuadsRenderData() override;
     LinePassQuadsRenderDataProgrammablePull getLinePassQuadsRenderDataProgrammablePull() override;
-    TubeTriangleRenderData getLinePassTubeTriangleMeshRenderData(bool isRasterizer, bool vulkanRayTracing) override;
+    TubeTriangleRenderData getLinePassTubeTriangleMeshRenderDataStatistics(
+            bool isRasterizer, bool vulkanRayTracing, std::vector<LineStatistics>* lineStatistics) override;
     TubeAabbRenderData getLinePassTubeAabbRenderData(bool isRasterizer) override;
     void getVulkanShaderPreprocessorDefines(
             std::map<std::string, std::string>& preprocessorDefines, bool isRasterizer) override;

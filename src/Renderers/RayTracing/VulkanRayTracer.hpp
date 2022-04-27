@@ -183,6 +183,7 @@ private:
     TubeAabbRenderData tubeAabbRenderData;
     HullTriangleRenderData hullTriangleRenderData;
     sgl::vk::TopLevelAccelerationStructurePtr topLevelAS;
+    bool useSplitBlases = false;
 
     // Uniform buffer object storing the line rendering settings.
     void updateLineRenderSettings();

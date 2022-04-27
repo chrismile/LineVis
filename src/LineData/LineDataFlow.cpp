@@ -1246,7 +1246,8 @@ LinePassQuadsRenderData LineDataFlow::getLinePassQuadsRenderData() {
 }
 
 
-TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderData(bool isRasterizer, bool vulkanRayTracing) {
+TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderDataStatistics(
+        bool isRasterizer, bool vulkanRayTracing, std::vector<LineStatistics>* lineStatistics) {
     rebuildInternalRepresentationIfNecessary();
     if (vulkanTubeTriangleRenderData.vertexBuffer && vulkanTubeTriangleRenderDataIsRayTracing == vulkanRayTracing) {
         return vulkanTubeTriangleRenderData;
@@ -1339,6 +1340,46 @@ TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderData(bool 
         }
     }
 
+    if (lineStatistics) {
+        uint32_t numIndices = 0;
+        uint32_t prevTrajectoryIdx = linePointReferences.empty() ? 0 : linePointReferences.front().trajectoryIndex;
+        uint32_t lineStartVertexIdx = 0;
+        for (size_t triangleIdx = 0; triangleIdx < tubeTriangleIndices.size(); triangleIdx += 3) {
+            uint32_t idx0 = tubeTriangleIndices.at(triangleIdx);
+            uint32_t idx1 = tubeTriangleIndices.at(triangleIdx+1);
+            uint32_t idx2 = tubeTriangleIndices.at(triangleIdx+2);
+            const TubeTriangleVertexData& tubeTriangleVertexData = tubeTriangleVertexDataList.at(idx0);
+            const LinePointReference& linePointReference = linePointReferences.at(
+                    tubeTriangleVertexData.vertexLinePointIndex & 0x7FFFFFFFu);
+            if (linePointReference.trajectoryIndex != prevTrajectoryIdx) {
+                LineStatistics lineInfo;
+
+                lineInfo.numIndices = numIndices;
+                numIndices = 0;
+
+                uint32_t nextLineStartVertexIdx = std::max(idx0, std::max(idx1, idx2)) + 1;
+                lineInfo.numVertices = nextLineStartVertexIdx - lineStartVertexIdx;
+                lineStartVertexIdx = nextLineStartVertexIdx;
+
+                lineStatistics->push_back(lineInfo);
+                prevTrajectoryIdx = linePointReference.trajectoryIndex;
+            }
+            numIndices += 3;
+        }
+        if (numIndices != 0) {
+            LineStatistics lineInfo;
+
+            lineInfo.numIndices = numIndices;
+
+            auto nextLineStartVertexIdx = uint32_t(tubeTriangleVertexDataList.size());
+            lineInfo.numVertices = nextLineStartVertexIdx - lineStartVertexIdx;
+            lineStartVertexIdx = nextLineStartVertexIdx;
+
+            lineStatistics->push_back(lineInfo);
+            numIndices = 0;
+        }
+    }
+
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     vulkanTubeTriangleRenderData = {};
@@ -1375,6 +1416,26 @@ TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderData(bool 
             tubeTriangleLinePointDataList.data(),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
+
+    if (lineStatistics) {
+        std::vector<uint32_t> instanceTriangleIndexOffsets;
+
+        size_t batchNumIndices = 0;
+        uint32_t batchIndexOffset = 0;
+        for (const LineStatistics& lineInfo : *lineStatistics) {
+            batchNumIndices += lineInfo.numIndices;
+            if (batchNumIndices > batchSizeLimit) {
+                instanceTriangleIndexOffsets.push_back(batchIndexOffset);
+                batchIndexOffset += batchNumIndices;
+                batchNumIndices = 0;
+            }
+        }
+
+        vulkanTubeTriangleRenderData.instanceTriangleIndexOffsetBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, instanceTriangleIndexOffsets.size() * sizeof(uint32_t),
+                instanceTriangleIndexOffsets.data(),
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    }
 
     return vulkanTubeTriangleRenderData;
 }

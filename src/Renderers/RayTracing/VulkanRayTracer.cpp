@@ -255,20 +255,25 @@ void RayTracingRenderPass::setOutputImage(sgl::vk::ImageViewPtr& imageView) {
 void RayTracingRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
     this->lineData = lineData;
     if (useAnalyticIntersections) {
-        tubeTriangleRenderData = TubeTriangleRenderData();
-        tubeAabbRenderData = lineData->getLinePassTubeAabbRenderData(false);
         if (lineData->getShallRenderSimulationMeshBoundary()) {
             topLevelAS = lineData->getRayTracingTubeAabbAndHullTopLevelAS();
         } else {
             topLevelAS = lineData->getRayTracingTubeAabbTopLevelAS();
         }
+        tubeTriangleRenderData = TubeTriangleRenderData();
+        tubeAabbRenderData = lineData->getLinePassTubeAabbRenderData(false);
     } else {
-        tubeTriangleRenderData = lineData->getLinePassTubeTriangleMeshRenderData(false, true);
-        tubeAabbRenderData = TubeAabbRenderData();
         if (lineData->getShallRenderSimulationMeshBoundary()) {
             topLevelAS = lineData->getRayTracingTubeTriangleAndHullTopLevelAS();
         } else {
             topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS();
+        }
+        tubeTriangleRenderData = lineData->getLinePassTubeTriangleMeshRenderData(false, true);
+        tubeAabbRenderData = TubeAabbRenderData();
+        bool useSplitBlasesNew = tubeTriangleRenderData.instanceTriangleIndexOffsetBuffer.get() != nullptr;
+        if (useSplitBlases != useSplitBlasesNew) {
+            useSplitBlases = useSplitBlasesNew;
+            setShaderDirty();
         }
     }
 
@@ -295,6 +300,9 @@ void RayTracingRenderPass::loadShader() {
     std::map<std::string, std::string> preprocessorDefines;
     lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines, false);
     vulkanRayTracer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    if (useSplitBlases) {
+        preprocessorDefines.insert(std::make_pair("USE_INSTANCE_TRIANGLE_INDEX_OFFSET", ""));
+    }
     if (useJitteredSamples) {
         preprocessorDefines.insert(std::make_pair("USE_JITTERED_RAYS", ""));
     }
@@ -387,6 +395,11 @@ void RayTracingRenderPass::createRayTracingData(
             rayTracingData->setStaticBufferOptional(
                     tubeTriangleRenderData.stressLinePointPrincipalStressDataBuffer,
                     "StressLinePointPrincipalStressDataBuffer");
+            if (useSplitBlases) {
+                rayTracingData->setStaticBufferOptional(
+                        tubeTriangleRenderData.instanceTriangleIndexOffsetBuffer,
+                        "InstanceTriangleIndexOffsetBuffer");
+            }
         } else {
             // Just bind anything in order for sgl to not complain...
             rayTracingData->setStaticBuffer(
@@ -399,6 +412,8 @@ void RayTracingRenderPass::createRayTracingData(
                     hullTriangleRenderData.vertexBuffer, "StressLinePointDataBuffer");
             rayTracingData->setStaticBufferOptional(
                     hullTriangleRenderData.vertexBuffer, "StressLinePointPrincipalStressDataBuffer");
+            //rayTracingData->setStaticBufferOptional(
+            //        hullTriangleRenderData.vertexBuffer, "InstanceTriangleIndexOffsetBuffer");
         }
     }
     if (hullTriangleRenderData.indexBuffer) {

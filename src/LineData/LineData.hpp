@@ -168,7 +168,11 @@ public:
     virtual LinePassTubeRenderDataMeshShader getLinePassTubeRenderDataMeshShader()=0;
     virtual LinePassTubeRenderDataProgrammablePull getLinePassTubeRenderDataProgrammablePull()=0;
     virtual LinePassQuadsRenderData getLinePassQuadsRenderData() { return {}; }
-    virtual TubeTriangleRenderData getLinePassTubeTriangleMeshRenderData(bool isRasterizer, bool vulkanRayTracing)=0;
+    virtual TubeTriangleRenderData getLinePassTubeTriangleMeshRenderDataStatistics(
+            bool isRasterizer, bool vulkanRayTracing, std::vector<LineStatistics>* lineStatistics)=0;
+    TubeTriangleRenderData getLinePassTubeTriangleMeshRenderData(bool isRasterizer, bool vulkanRayTracing) {
+        return getLinePassTubeTriangleMeshRenderDataStatistics(isRasterizer, vulkanRayTracing, nullptr);
+    }
     virtual TubeAabbRenderData getLinePassTubeAabbRenderData(bool isRasterizer)=0;
     virtual HullTriangleRenderData getVulkanHullTriangleRenderData(bool vulkanRayTracing);
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleTopLevelAS();
@@ -325,14 +329,16 @@ protected:
 
     // Caches the rendering data when using Vulkan (as, e.g., the Vulkan ray tracer and AO baking could be used at the
     // same time).
-    sgl::vk::BottomLevelAccelerationStructurePtr getTubeTriangleBottomLevelAS();
+    std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> getTubeTriangleBottomLevelAS();
     sgl::vk::BottomLevelAccelerationStructurePtr getTubeAabbBottomLevelAS();
     sgl::vk::BottomLevelAccelerationStructurePtr getHullTriangleBottomLevelAS();
     TubeTriangleRenderData vulkanTubeTriangleRenderData;
     TubeAabbRenderData vulkanTubeAabbRenderData;
     HullTriangleRenderData vulkanHullTriangleRenderData;
     bool vulkanTubeTriangleRenderDataIsRayTracing = false;
-    sgl::vk::BottomLevelAccelerationStructurePtr tubeTriangleBottomLevelAS;
+    const size_t batchSizeLimit = 1024 * 1024;
+    //constexpr size_t batchSizeLimit = 1024 * 1024 * 32;
+    std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> tubeTriangleBottomLevelASes;
     sgl::vk::BottomLevelAccelerationStructurePtr tubeAabbBottomLevelAS;
     sgl::vk::BottomLevelAccelerationStructurePtr hullTriangleBottomLevelAS;
     sgl::vk::TopLevelAccelerationStructurePtr tubeTriangleTopLevelAS;
