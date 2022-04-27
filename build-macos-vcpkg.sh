@@ -264,7 +264,7 @@ echo "------------------------"
 
 rsync -a "vcpkg_installed/$(ls vcpkg_installed | grep -Ewv 'vcpkg')/lib/$Python3_VERSION" $destination_dir/python3/lib
 #rsync -a "$(eval echo "vcpkg_installed/$(ls vcpkg_installed | grep -Ewv 'vcpkg')/lib/python*")" $destination_dir/python3/lib
-rsync -a $build_dir/LineVis $destination_dir
+rsync -a "$build_dir/LineVis.app/Contents/MacOS/LineVis" $destination_dir
 
 echo ""
 echo "All done!"
@@ -290,4 +290,7 @@ elif contains "${DYLD_LIBRARY_PATH}" "${PROJECTPATH}/third_party/sgl/install/lib
     export DYLD_LIBRARY_PATH="DYLD_LIBRARY_PATH:${PROJECTPATH}/third_party/sgl/install/lib"
 fi
 export PYTHONHOME="../$destination_dir/python3"
-./LineVis
+#open ./LineVis.app
+#open ./LineVis.app --args --perf
+./LineVis.app/Contents/MacOS/LineVis
+#./LineVis.app/Contents/MacOS/LineVis --perf

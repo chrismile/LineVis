@@ -84,16 +84,10 @@ the directory `docs/compilation`.
 
 ### macOS
 
-Building the program on macOS is not yet officially supported.
-
-As we do not have access to a real system running macOS, it was only tested that the program can compile in a CI
-pipeline build script on an x86_64 macOS virtual machine provided by GitHub Actions. So please note that it was never
-tested whether the program actually runs on x86_64 macOS, or even compiles on ARM64 macOS.
-
 There are two ways to build the program on macOS.
+- Using [Homebrew](https://brew.sh/) to install the dependencies and compile the program using LLVM/Clang (recommended).
 - Using [vcpkg](https://github.com/microsoft/vcpkg) to install the dependencies and compile the program using
   LLVM/Clang.
-- Using [Homebrew](https://brew.sh/) to install the dependencies and compile the program using LLVM/Clang.
 
 In the project root directory, two scripts `build-macos-vcpkg.sh` and `build-macos-brew.sh` can be found.
 As macOS does not natively support Vulkan, MoltenVK, a Vulkan wrapper based on Apple's Metal API, is utilized.
@@ -102,6 +96,16 @@ Installing it via the scripts requires admin rights. MoltenVK can also be instal
 
 The program can only run with reduced feature set, as the Metal API does currently neither support geometry shaders nor
 hardware-accelerated ray tracing.
+
+Notes:
+- I rented Apple hardware for a few days once for testing that running the program works on macOS.
+  As I do not regularly have access to a real system running macOS, it is only tested that the program can compile in a
+  CI pipeline build script on an x86_64 macOS virtual machine provided by GitHub Actions. So please note that it is not
+  guaranteed that the program will continue working correctly on macOS indefinitely due to the lack of regular testing.
+- To enable high DPI support, the program needs to be run from an app bundle. This happens automatically when the script
+  `build-macos-brew.sh` has finished building the program. Please note that the app bundle only contains the Info.plist
+  file necessary for high DPI support and is currently not yet redistributable. If you want to help with improving the
+  macOS app bundle support for this project by contributing development time, please feel free to contact me.
 
 
 ## How to add new data sets
