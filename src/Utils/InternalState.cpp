@@ -189,9 +189,18 @@ void getTestModesRasterization(std::vector<InternalState>& states, InternalState
         states.push_back(state);
     }
 
-    state.name = "Triangle Mesh";
-    setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_TRIANGLE_MESH);
-    states.push_back(state);
+    // An out of memory error is triggered on Intel iGPUs for large data sets when trying to store the triangle mesh.
+    bool isIntelIntegratedGpu =
+            (device->getDeviceDriverId() == VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS
+             || device->getDeviceDriverId() == VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA)
+            && device->getDeviceType() == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
+    bool isLargeDataSet =
+            state.dataSetDescriptor.name == "Convection Rolls" || state.dataSetDescriptor.name == "Turbulence";
+    if (!isIntelIntegratedGpu || !isLargeDataSet) {
+        state.name = "Triangle Mesh";
+        setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_TRIANGLE_MESH);
+        states.push_back(state);
+    }
 }
 
 void getTestModesVulkanRayTracing(std::vector<InternalState>& states, InternalState state) {
@@ -227,13 +236,6 @@ void getTestModesVoxelRayCasting(std::vector<InternalState>& states, InternalSta
     //        || device->getDeviceType() != VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
     state.renderingMode = RENDERING_MODE_VOXEL_RAY_CASTING;
     state.name = "Voxel Ray Casting";
-    //int gridResolution = 128;
-    //if (state.dataSetDescriptor.name == "Convection Rolls") {
-    //    gridResolution = 512;
-    //}
-    //state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
-    //        { "gridResolution", std::to_string(gridResolution) }
-    //})};
     if (state.dataSetDescriptor.name == "Convection Rolls") {
         state.rendererSettings.addKeyValue("computeNearestFurthestHitsUsingHull", false);
     }
