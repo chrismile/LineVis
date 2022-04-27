@@ -72,6 +72,11 @@ void VoxelRayCastingRenderer::reloadGatherShader() {
 void VoxelRayCastingRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
 
+    if (!gridResolutionSetManually) {
+        double avgLineSegsPerAxis = std::cbrt(lineData->getNumLineSegments());
+        gridResolution1D = glm::clamp(sgl::nextPowerOfTwo(int(avgLineSegsPerAxis)) * 2, 64, 512);
+    }
+
     voxelCurveDiscretizer.loadLineData(lineData, gridResolution1D, quantizationResolution1D);
     if (useGpuForVoxelization) {
         voxelCurveDiscretizer.createVoxelGridGpu();
@@ -253,10 +258,12 @@ void VoxelRayCastingRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& 
 
     if (propertyEditor.addSliderInt("Grid Resolution", &gridResolution1D, 4, 256)) {
         voxelGridDirty = true;
+        gridResolutionSetManually = true;
     }
     if (propertyEditor.addSliderIntPowerOfTwo(
             "Quantization Resolution", &quantizationResolution1D, 1, 64)) {
         voxelGridDirty = true;
+        gridResolutionSetManually = true;
     }
 
     if (voxelGridDirty) {
@@ -282,10 +289,12 @@ void VoxelRayCastingRenderer::setNewState(const InternalState& newState) {
 
     if (newState.rendererSettings.getValueOpt("gridResolution", gridResolution1D)) {
         voxelGridDirty = true;
+        gridResolutionSetManually = true;
     }
     if (newState.rendererSettings.getValueOpt(
             "quantizationResolution", quantizationResolution1D)) {
         voxelGridDirty = true;
+        gridResolutionSetManually = true;
     }
 
     if (voxelGridDirty) {

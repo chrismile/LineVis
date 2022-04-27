@@ -1195,6 +1195,7 @@ void MainApp::renderGui() {
         videoWriter = new sgl::VideoWriter(
                 saveDirectoryVideos + saveFilenameVideos
                 + "_" + sgl::toString(videoNumber++) + ".mp4", FRAME_RATE_VIDEOS);
+        videoWriter->setRenderer(rendererVk);
     }
     if (replayWidgetUpdateType == ReplayWidget::REPLAY_WIDGET_UPDATE_STOP_RECORDING) {
         recording = false;

@@ -112,6 +112,7 @@ private:
 
     // Rendering settings.
     int gridResolution1D = 64, quantizationResolution1D = 64;
+    bool gridResolutionSetManually = false;
     int maxNumLinesPerVoxel = 32;
     int maxNumHits = 8;
     bool useGpuForVoxelization = true;

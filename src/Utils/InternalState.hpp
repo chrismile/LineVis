@@ -49,7 +49,7 @@ public:
     inline float getFloatValue(const char *key) const { return sgl::fromString<float>(getValue(key)); }
     inline bool getBoolValue(const char *key) const { std::string val = getValue(key); if (val == "false" || val == "0") return false; return val.length() > 0; }
     inline void addKeyValue(const std::string &key, const std::string &value) { settings[key] = value; }
-    template<typename T> inline void addKeyValue(const std::string &key, const T &value) { settings[key] = toString(value); }
+    template<typename T> inline void addKeyValue(const std::string &key, const T &value) { settings[key] = sgl::toString(value); }
     inline void clear() { settings.clear(); }
 
     bool getValueOpt(const char *key, std::string &toset) const {

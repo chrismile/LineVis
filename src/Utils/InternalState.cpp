@@ -218,18 +218,27 @@ void getTestModesVulkanRayTracing(std::vector<InternalState>& states, InternalSt
 }
 
 void getTestModesVoxelRayCasting(std::vector<InternalState>& states, InternalState state) {
-    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    //sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     // Intel integrated GPUs are too slow at the time of writing this code and TDR might be triggered for this mode.
-    if ((device->getDeviceDriverId() != VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS
-             && device->getDeviceDriverId() != VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA)
-            || device->getDeviceType() != VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
-        state.renderingMode = RENDERING_MODE_VOXEL_RAY_CASTING;
-        state.name = "Voxel Ray Casting";
-        state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
-                { "gridResolution", "128" }
-        })};
-        states.push_back(state);
+    // I increased the timeout using the following method to allow it to run anyways:
+    // https://substance3d.adobe.com/documentation/spdoc/gpu-drivers-crash-with-long-computations-tdr-crash-128745489.html
+    //if ((device->getDeviceDriverId() != VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS
+    //         && device->getDeviceDriverId() != VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA)
+    //        || device->getDeviceType() != VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU) {
+    state.renderingMode = RENDERING_MODE_VOXEL_RAY_CASTING;
+    state.name = "Voxel Ray Casting";
+    //int gridResolution = 128;
+    //if (state.dataSetDescriptor.name == "Convection Rolls") {
+    //    gridResolution = 512;
+    //}
+    //state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
+    //        { "gridResolution", std::to_string(gridResolution) }
+    //})};
+    if (state.dataSetDescriptor.name == "Convection Rolls") {
+        state.rendererSettings.addKeyValue("computeNearestFurthestHitsUsingHull", false);
     }
+    states.push_back(state);
+    //}
 }
 
 #ifdef USE_OSPRAY

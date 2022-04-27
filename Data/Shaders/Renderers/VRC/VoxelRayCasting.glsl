@@ -103,7 +103,7 @@ void main() {
             //entrancePoint = rayOrigin; // TODO
         }
 
-        vec3 EPSILON_VEC3 = sign(rayDirection) * vec3(2e-3);
+        vec3 EPSILON_VEC3 = sign(rayDirection) * vec3(2e-5) * length(cameraPosition - rayOrigin);
         entrancePoint = entrancePoint + EPSILON_VEC3;
         exitPoint = exitPoint - EPSILON_VEC3;
 
