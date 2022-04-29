@@ -37,6 +37,9 @@ build_dir_debug=".build_debug"
 build_dir_release=".build_release"
 destination_dir="Shipping"
 
+program_name="LineVis"
+binaries_dest_dir="$destination_dir/$program_name.app/Contents/MacOS"
+
 is_installed_brew() {
     local pkg_name="$1"
     if brew list $pkg_name > /dev/null; then
@@ -326,26 +329,26 @@ startswith() {
 }
 
 brew_prefix="$(brew --prefix)"
-mkdir -p $destination_dir/bin
+mkdir -p $destination_dir
+
+# Copy the application to the destination directory.
+cp -a "$build_dir/$program_name.app" "$destination_dir"
+cp "README.md" "$destination_dir"
 
 # Copy sgl to the destination directory.
 if [ $debug = true ] ; then
-    cp "./third_party/sgl/install/lib/libsgld.dylib" "$destination_dir/bin"
+    cp "./third_party/sgl/install/lib/libsgld.dylib" "$binaries_dest_dir"
 else
-    cp "./third_party/sgl/install/lib/libsgl.dylib" "$destination_dir/bin"
+    cp "./third_party/sgl/install/lib/libsgl.dylib" "$binaries_dest_dir"
 fi
 
-# Copy LineVis to the destination directory.
-cp "$build_dir/LineVis.app/Contents/MacOS/LineVis" "$destination_dir/bin"
-cp "README.md" "$destination_dir"
-
-# Copy all dependencies of LineVis and sgl to the destination directory.
-rsync -a "$VULKAN_SDK/lib/libMoltenVK.dylib" "$destination_dir/bin"
+# Copy all dependencies of the application and sgl to the destination directory.
+rsync -a "$VULKAN_SDK/lib/libMoltenVK.dylib" "$binaries_dest_dir"
 copy_dependencies_recursive() {
     local binary_path="$1"
     local binary_source_folder=$(dirname "$binary_path")
     local binary_name=$(basename "$binary_path")
-    local binary_target_path="$destination_dir/bin/$binary_name"
+    local binary_target_path="$binaries_dest_dir/$binary_name"
     if contains "$(file "$binary_target_path")" "dynamically linked shared library"; then
         install_name_tool -id "@executable_path/$binary_name" "$binary_target_path" &> /dev/null
     fi
@@ -356,7 +359,7 @@ copy_dependencies_recursive() {
         local stringarray=($line)
         local library=${stringarray[0]}
         local library_name=$(basename "$library")
-        local library_target_path="$destination_dir/bin/$library_name"
+        local library_target_path="$binaries_dest_dir/$library_name"
         if ! startswith "$library" "@rpath/" \
             && ! startswith "$library" "@loader_path/" \
             && ! startswith "$library" "/System/Library/Frameworks/" \
@@ -365,7 +368,7 @@ copy_dependencies_recursive() {
             install_name_tool -change "$library" "@executable_path/$library_name" "$binary_target_path" &> /dev/null
 
             if [ ! -f "$library_target_path" ]; then
-                cp "$library" "$destination_dir/bin"
+                cp "$library" "$binaries_dest_dir"
                 copy_dependencies_recursive "$library"
             fi
         elif startswith "$library" "@rpath/"; then
@@ -385,7 +388,7 @@ copy_dependencies_recursive() {
 
                     if [ -f "$library_rpath" ]; then
                         if [ ! -f "$library_target_path" ]; then
-                            cp "$library_rpath" "$destination_dir/bin"
+                            cp "$library_rpath" "$binaries_dest_dir"
                             copy_dependencies_recursive "$library_rpath"
                         fi
                         break
@@ -408,9 +411,9 @@ copy_ospray_lib_symlinked() {
     local lib_path_1="./third_party/ospray/ospray/lib/$lib_name"
     local lib_path_2="./third_party/ospray/ospray/lib/$(readlink $lib_path_1)"
     local lib_path_3="./third_party/ospray/ospray/lib/$(readlink $lib_path_2)"
-    cp "$lib_path_1" "$destination_dir/bin"
-    cp "$lib_path_2" "$destination_dir/bin"
-    cp "$lib_path_3" "$destination_dir/bin"
+    cp "$lib_path_1" "$binaries_dest_dir"
+    cp "$lib_path_2" "$binaries_dest_dir"
+    cp "$lib_path_3" "$binaries_dest_dir"
     copy_dependencies_recursive "$lib_path_1"
     copy_dependencies_recursive "$lib_path_2"
     copy_dependencies_recursive "$lib_path_3"
@@ -421,7 +424,7 @@ copy_ospray_lib_symlinked "libopenvkl_module_cpu_device_4.dylib"
 copy_ospray_lib_symlinked "libospray_module_cpu.dylib"
 
 # Fix code signing for arm64.
-for filename in $destination_dir/bin/*
+for filename in $binaries_dest_dir/*
 do
     if contains "$(file "$filename")" "arm64"; then
         codesign --force -s - "$filename" &> /dev/null
@@ -432,11 +435,11 @@ done
 python_version=${Python3_VERSION#python}
 python_subdir="$brew_prefix/Cellar/python@${Python3_VERSION#python}"
 PYTHONHOME_global="$python_subdir/$(ls "$python_subdir")/Frameworks/Python.framework/Versions/$python_version"
-if [ ! -d "$destination_dir/bin/python3" ]; then
-    mkdir -p "$destination_dir/bin/python3/lib"
-    rsync -a "$PYTHONHOME_global/lib/$Python3_VERSION" "$destination_dir/bin/python3/lib"
-    rsync -a "$brew_prefix/lib/$Python3_VERSION" "$destination_dir/bin/python3/lib"
-    #rsync -a "$(eval echo "$brew_prefix/lib/python*")" $destination_dir/python3/lib
+if [ ! -d "$binaries_dest_dir/python3" ]; then
+    mkdir -p "$binaries_dest_dir/python3/lib"
+    rsync -a "$PYTHONHOME_global/lib/$Python3_VERSION" "$binaries_dest_dir/python3/lib"
+    rsync -a "$brew_prefix/lib/$Python3_VERSION" "$binaries_dest_dir/python3/lib"
+    #rsync -a "$(eval echo "$brew_prefix/lib/python*")" $binaries_dest_dir/python3/lib
 fi
 
 # Copy the docs to the destination directory.
@@ -452,7 +455,7 @@ if [ ! -d "$destination_dir/docs" ]; then
 fi
 
 # Create a run script.
-printf "#!/bin/sh\npushd bin >/dev/null\n./LineVis\npopd\n" > "$destination_dir/run.sh"
+printf "#!/bin/sh\npushd \"\$(dirname \"\$0\")\" >/dev/null\n./LineVis.app/Contents/MacOS/LineVis\npopd\n" > "$destination_dir/run.sh"
 chmod +x "$destination_dir/run.sh"
 
 echo ""
@@ -467,7 +470,7 @@ elif contains "${DYLD_LIBRARY_PATH}" "${PROJECTPATH}/third_party/sgl/install/lib
     export DYLD_LIBRARY_PATH="DYLD_LIBRARY_PATH:${PROJECTPATH}/third_party/sgl/install/lib"
 fi
 export PYTHONHOME="$PYTHONHOME_global"
-#open ./LineVis.app
-#open ./LineVis.app --args --perf
-./LineVis.app/Contents/MacOS/LineVis
-#./LineVis.app/Contents/MacOS/LineVis --perf
+#open ./$program_name.app
+#open ./$program_name.app --args --perf
+./$program_name.app/Contents/MacOS/$program_name
+#./$program_name.app/Contents/MacOS/$program_name --perf
