@@ -331,6 +331,10 @@ startswith() {
 brew_prefix="$(brew --prefix)"
 mkdir -p $destination_dir
 
+if [ -d "$destination_dir/$program_name.app" ]; then
+    rm -rf "$destination_dir/$program_name.app"
+fi
+
 # Copy the application to the destination directory.
 cp -a "$build_dir/$program_name.app" "$destination_dir"
 cp "README.md" "$destination_dir"
