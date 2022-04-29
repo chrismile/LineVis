@@ -134,20 +134,33 @@ int main(int argc, char *argv[]) {
         std::wstring pythonhomeWide = PYTHONHOME;
         std::string pythonhomeNormal(pythonhomeWide.size(), ' ');
         pythonhomeNormal.resize(std::wcstombs(
-            &pythonhomeNormal[0], pythonhomeWide.c_str(), pythonhomeWide.size()));
+                &pythonhomeNormal[0], pythonhomeWide.c_str(), pythonhomeWide.size()));
+        std::wstring pythonpathWide = PYTHONPATH;
+        std::string pythonpathNormal(pythonpathWide.size(), ' ');
+        pythonpathNormal.resize(std::wcstombs(
+                &pythonpathNormal[0], pythonpathWide.c_str(), pythonpathWide.size()));
         if (!sgl::FileUtils::get()->exists(pythonhomeNormal)) {
             uint32_t pathBufferSize = 0;
             _NSGetExecutablePath(nullptr, &pathBufferSize);
             char* pathBuffer = new char[pathBufferSize];
             _NSGetExecutablePath(pathBuffer, &pathBufferSize);
-            std::string executablePythonPath = std::string() + pathBuffer + "/python3";
-            if (sgl::FileUtils::get()->exists(executablePythonPath)) {
-                std::wstring pythonPathLocal(executablePythonPath.size(), L' ');
-                pythonPathLocal.resize(std::mbstowcs(
-                    &pythonPathLocal[0], executablePythonPath.c_str(), executablePythonPath.size()));
+            std::string executablePythonHome =
+                    sgl::FileUtils::get()->getPathToFile(std::string() + pathBuffer) + "python3";
+            if (sgl::FileUtils::get()->exists(executablePythonHome)) {
+                std::wstring pythonHomeLocal(executablePythonHome.size(), L' ');
+                pythonHomeLocal.resize(std::mbstowcs(
+                        &pythonHomeLocal[0], executablePythonHome.c_str(), executablePythonHome.size()));
+                std::string pythonVersionString = sgl::FileUtils::get()->getPathAsList(pythonpathNormal).back();
+                 std::wstring pythonVersionStringWide(pythonVersionString.size(), L' ');
+                pythonVersionStringWide.resize(std::mbstowcs(
+                        &pythonVersionStringWide[0], pythonVersionString.c_str(), pythonVersionString.size()));
+               std::wstring pythonPathLocal =
+                        pythonHomeLocal + L"/lib/" + pythonVersionStringWide;
                 std::wstring inputPath =
-                        pythonPathLocal + L":" + pythonPathLocal + L"/site-packages:" + pythonPathLocal + L"/lib-dynload";
-                Py_SetPythonHome(pythonPathLocal.c_str());
+                        pythonPathLocal + L":"
+                        + pythonPathLocal + L"/site-packages:"
+                        + pythonPathLocal + L"/lib-dynload";
+                Py_SetPythonHome(pythonHomeLocal.c_str());
                 Py_SetPath(inputPath.c_str());
             } else {
                 sgl::Logfile::get()->throwError("Fatal error: Couldn't find Python home.");
