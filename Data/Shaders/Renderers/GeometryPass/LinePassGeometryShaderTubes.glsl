@@ -577,6 +577,7 @@ void main() {
 -- Fragment
 
 #version 450 core
+//#extension GL_NV_fragment_shader_barycentric : require // for DEBUG_MESHLETS
 
 #include "LineUniformData.glsl"
 
@@ -651,6 +652,11 @@ layout(location = 18) flat in int interpolateWrap;
 #endif
 #ifdef USE_CAPPED_TUBES
 layout(location = 19) in float isCap;
+#endif
+
+//#define DEBUG_MESHLETS
+#ifdef DEBUG_MESHLETS
+layout(location = 20) flat in uint fragmentMeshletIdx;
 #endif
 
 #if defined(DIRECT_BLIT_GATHER)
@@ -966,6 +972,26 @@ void main() {
             mix(fragmentColor.rgb, foregroundColor.rgb,
             smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),
             fragmentColor.a * coverage);
+
+#ifdef DEBUG_MESHLETS
+    vec3 colorMap[2] = {
+        vec3(0.6196078431372549, 0.792156862745098, 0.8823529411764706),
+        vec3(0.19215686274509805, 0.5098039215686274, 0.7411764705882353),
+    };
+    colorOut.rgb = colorMap[fragmentMeshletIdx % 2];
+    vec3 baryCoord = gl_BaryCoordNV;
+    vec3 derivatives = fwidth(baryCoord);
+    vec3 thickness = derivatives * 0.75;
+    baryCoord = smoothstep(thickness, thickness + derivatives, baryCoord);
+    float minBaryCoord = min(baryCoord.x, min(baryCoord.y, baryCoord.z));
+    colorOut.rgb *= minBaryCoord;
+    if (fragmentPositionWorld.z < -0.2) {
+        discard;
+    }
+    float depthCueFactor = clamp((-screenSpacePosition.z - minDepth) / (maxDepth - minDepth), 0.0, 1.0);
+    depthCueFactor = depthCueFactor * depthCueFactor * depthCueStrength;
+    colorOut.rgb = mix(colorOut.rgb, vec3(0.5, 0.5, 0.5), depthCueFactor * 4.0);
+#endif
 
 #include "LinePassGather.glsl"
 }

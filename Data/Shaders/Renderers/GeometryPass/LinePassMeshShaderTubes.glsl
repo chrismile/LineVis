@@ -73,6 +73,11 @@ layout(location = 17) out float phi[];
 layout(location = 18) flat out int interpolateWrap[];
 #endif
 
+//#define DEBUG_MESHLETS
+#ifdef DEBUG_MESHLETS
+layout(location = 20) flat out uint fragmentMeshletIdx[];
+#endif
+
 #define M_PI 3.14159265358979323846
 
 void main() {
@@ -223,6 +228,10 @@ void main() {
         fragmentPositionWorld[vertexIdx] = (mMatrix * vec4(vertexPosition, 1.0)).xyz;
 #ifdef USE_SCREEN_SPACE_POSITION
         screenSpacePosition[vertexIdx] = (vMatrix * vec4(vertexPosition, 1.0)).xyz;
+#endif
+
+#ifdef DEBUG_MESHLETS
+        fragmentMeshletIdx[vertexIdx] = meshletIdx;
 #endif
     }
 
