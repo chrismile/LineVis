@@ -159,7 +159,7 @@ void OpaqueLineRenderer::onResolutionChanged() {
 
         imageSettings = (*sceneData->sceneDepthTexture)->getImage()->getImageSettings();
         imageSettings.numSamples = VkSampleCountFlagBits(numSamples);
-        imageSettings.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        imageSettings.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         depthRenderTargetImage = std::make_shared<sgl::vk::ImageView>(
                 std::make_shared<sgl::vk::Image>(device, imageSettings), VK_IMAGE_ASPECT_DEPTH_BIT);
     } else {
@@ -196,6 +196,14 @@ void OpaqueLineRenderer::render() {
                 colorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         colorRenderTargetImage->clearColor(
                 sceneData->clearColor->getFloatColorRGBA(), renderer->getVkCommandBuffer());
+        renderer->transitionImageLayout(
+                colorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+        renderer->transitionImageLayout(
+                depthRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        depthRenderTargetImage->clearDepthStencil(1.0f, 0, renderer->getVkCommandBuffer());
+        renderer->transitionImageLayout(
+                depthRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     } else {
         lineRasterPass->render();
     }

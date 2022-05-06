@@ -449,6 +449,9 @@ void LineDataFlow::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
 
     if (linePrimitiveMode == LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER) {
         LinePassQuadsRenderData tubeRenderData = this->getLinePassQuadsRenderData();
+        if (!tubeRenderData.indexBuffer) {
+            return;
+        }
         rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
         rasterData->setVertexBuffer(tubeRenderData.vertexPositionBuffer, "vertexPosition");
         rasterData->setVertexBuffer(tubeRenderData.vertexAttributeBuffer, "vertexAttribute");
@@ -458,6 +461,9 @@ void LineDataFlow::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
         rasterData->setVertexBuffer(tubeRenderData.vertexOffsetRightBuffer, "vertexOffsetRight");
     } else if (getLinePrimitiveModeUsesSingleVertexShaderInputs(linePrimitiveMode)) {
         LinePassTubeRenderData tubeRenderData = this->getLinePassTubeRenderData();
+        if (!tubeRenderData.indexBuffer) {
+            return;
+        }
         rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
         rasterData->setVertexBuffer(tubeRenderData.vertexPositionBuffer, "vertexPosition");
         rasterData->setVertexBuffer(tubeRenderData.vertexAttributeBuffer, "vertexAttribute");

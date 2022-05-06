@@ -453,6 +453,9 @@ void LineData::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
 
     if (linePrimitiveMode == LINE_PRIMITIVES_QUADS_PROGRAMMABLE_PULL) {
         LinePassQuadsRenderDataProgrammablePull tubeRenderData = this->getLinePassQuadsRenderDataProgrammablePull();
+        if (!tubeRenderData.indexBuffer) {
+            return;
+        }
         rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
         rasterData->setStaticBuffer(tubeRenderData.linePointsBuffer, "LinePoints");
     } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL
@@ -466,6 +469,9 @@ void LineData::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
     } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
         LinePassTubeRenderDataMeshShader tubeRenderData = this->getLinePassTubeRenderDataMeshShader();
+        if (!tubeRenderData.meshletDataBuffer) {
+            return;
+        }
         rasterData->setStaticBuffer(tubeRenderData.meshletDataBuffer, "MeshletDataBuffer");
         rasterData->setStaticBuffer(tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");
         rasterData->setMeshTasks(tubeRenderData.numMeshlets, 0);
@@ -473,11 +479,17 @@ void LineData::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH) {
         TubeTriangleRenderData tubeRenderData = this->getLinePassTubeTriangleMeshRenderData(
                 true, false);
+        if (!tubeRenderData.indexBuffer) {
+            return;
+        }
         rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
         rasterData->setStaticBuffer(tubeRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
         rasterData->setStaticBuffer(tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");
     } else {
         LinePassTubeRenderData tubeRenderData = this->getLinePassTubeRenderData();
+        if (!tubeRenderData.indexBuffer) {
+            return;
+        }
         rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
         rasterData->setVertexBuffer(tubeRenderData.vertexPositionBuffer, "vertexPosition");
         rasterData->setVertexBuffer(tubeRenderData.vertexAttributeBuffer, "vertexAttribute");
