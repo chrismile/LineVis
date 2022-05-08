@@ -120,8 +120,8 @@ if [[ ! -v VULKAN_SDK ]]; then
             echo "Setting up Vulkan SDK for Ubuntu $(lsb_release -r | grep -oP "\:\s+\K\S+")..."
             wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
             sudo curl --silent --show-error --fail \
-            https://packages.lunarg.com/vulkan/1.2.198/lunarg-vulkan-1.2.198-${distro_code_name}.list \
-            --output /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-${distro_code_name}.list
+            https://packages.lunarg.com/vulkan/lunarg-vulkan-${distro_code_name}.list \
+            --output /etc/apt/sources.list.d/lunarg-vulkan-${distro_code_name}.list
             sudo apt update
             sudo apt install vulkan-sdk shaderc
         fi

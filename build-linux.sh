@@ -180,7 +180,7 @@ if [[ ! -v VULKAN_SDK ]]; then
         curl --silent --show-error --fail -O https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.gz
         mkdir -p VulkanSDK
         tar -xvzf vulkan-sdk.tar.gz -C VulkanSDK
-        source "VulkanSDK/$(ls VulkanSDK)/x86_64/setup-env.sh"
+        source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
         found_vulkan=true
     fi
 
