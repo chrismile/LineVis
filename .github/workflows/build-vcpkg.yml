@@ -137,7 +137,13 @@ jobs:
       shell: bash
       run: |
         if [ "$RUNNER_OS" == "Linux" ]; then
-          export VULKAN_SDK="/usr"
+          if [ "${{env.PKG_CONFIG_PATH}}" != "" ]; then
+            VK_LAYER_PATH=""
+            source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
+            export PKG_CONFIG_PATH="${{env.PKG_CONFIG_PATH}}"
+          else
+            export VULKAN_SDK="/usr"
+          fi
         elif [ "$RUNNER_OS" == "Windows" ]; then
           export VULKAN_SDK="C:/VulkanSDK/$(ls C:/VulkanSDK)"
         elif [ "$RUNNER_OS" == "macOS" ]; then
@@ -146,6 +152,7 @@ jobs:
         cmake -B "${{github.workspace}}/build" -DCMAKE_TOOLCHAIN_FILE="${{env.VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DVCPKG_TARGET_TRIPLET=${{env.VCPKG_DEFAULT_TRIPLET}} -Dsgl_DIR=${{env.sgl_DIR}}/lib/cmake/sgl
 
     - name: Build (LineVis)
+      shell: bash
       run: |
         if [ "$RUNNER_OS" == "Linux" ]; then
           if [ "${{env.PKG_CONFIG_PATH}}" != "" ]; then
