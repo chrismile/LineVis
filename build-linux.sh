@@ -68,7 +68,7 @@ if command -v apt &> /dev/null; then
         echo "------------------------"
         echo "installing build essentials"
         echo "------------------------"
-        sudo apt install cmake git curl pkg-config build-essential
+        sudo apt install -y cmake git curl pkg-config build-essential
     fi
 
     # Dependencies of sgl and LineVis.
@@ -82,7 +82,7 @@ if command -v apt &> /dev/null; then
         echo "------------------------"
         echo "installing dependencies "
         echo "------------------------"
-        sudo apt install libglm-dev libsdl2-dev libsdl2-image-dev libpng-dev libboost-filesystem-dev libtinyxml2-dev \
+        sudo apt install -y libglm-dev libsdl2-dev libsdl2-image-dev libpng-dev libboost-filesystem-dev libtinyxml2-dev \
         libarchive-dev libglew-dev libjsoncpp-dev libeigen3-dev python3-dev libzmq3-dev libnetcdf-dev libopenexr-dev
     fi
 elif command -v pacman &> /dev/null; then
@@ -150,15 +150,16 @@ if [[ ! -v VULKAN_SDK ]]; then
     found_vulkan=false
 
     if lsb_release -a 2> /dev/null | grep -q 'Ubuntu'; then
-        if ! compgen -G "/etc/apt/sources.list.d/lunarg-vulkan-*" > /dev/null; then
+        if ! compgen -G "/etc/apt/sources.list.d/lunarg-vulkan-*" > /dev/null \
+              && ! curl -s -I https://packages.lunarg.com/vulkan/lunarg-vulkan-${distro_code_name}.list | grep "404"; then
             distro_code_name=$(lsb_release -c | grep -oP "\:\s+\K\S+")
             echo "Setting up Vulkan SDK for Ubuntu $(lsb_release -r | grep -oP "\:\s+\K\S+")..."
             wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
             sudo curl --silent --show-error --fail \
-            https://packages.lunarg.com/vulkan/1.2.198/lunarg-vulkan-1.2.198-${distro_code_name}.list \
-            --output /etc/apt/sources.list.d/lunarg-vulkan-1.2.198-${distro_code_name}.list
+            https://packages.lunarg.com/vulkan/lunarg-vulkan-${distro_code_name}.list \
+            --output /etc/apt/sources.list.d/lunarg-vulkan-${distro_code_name}.list
             sudo apt update
-            sudo apt install vulkan-sdk shaderc
+            sudo apt install -y vulkan-sdk shaderc
         fi
     fi
 
