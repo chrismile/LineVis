@@ -105,10 +105,11 @@ if [ -z "${VULKAN_SDK+1}" ]; then
         source "$HOME/VulkanSDK/$(ls $HOME/VulkanSDK)/setup-env.sh"
         found_vulkan=true
     else
-      VULKAN_SDK_VERSION=1.3.211.0
-      curl -O https://sdk.lunarg.com/sdk/download/$VULKAN_SDK_VERSION/mac/vulkansdk-macos-$VULKAN_SDK_VERSION.dmg
-      sudo hdiutil attach vulkansdk-macos-$VULKAN_SDK_VERSION.dmg
-      sudo /Volumes/vulkansdk-macos-$VULKAN_SDK_VERSION/InstallVulkan.app/Contents/MacOS/InstallVulkan \
+      vulkansdk_filename=$(curl -sIkL https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.dmg | sed -r '/filename=/!d;s/.*filename=(.*)$/\1/')
+      VULKAN_SDK_VERSION=$(echo $vulkansdk_filename | sed -r 's/^.*vulkansdk-macos-(.*)\.dmg.*$/\1/')
+      curl -O https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.dmg
+      sudo hdiutil attach vulkan-sdk.dmg
+      sudo /Volumes/vulkan-sdk/InstallVulkan.app/Contents/MacOS/InstallVulkan \
       --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
       pushd ~/VulkanSDK/$VULKAN_SDK_VERSION
       sudo python3 ./install_vulkan.py

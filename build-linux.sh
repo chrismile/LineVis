@@ -150,7 +150,9 @@ if [[ ! -v VULKAN_SDK ]]; then
     found_vulkan=false
 
     if [ -d "VulkanSDK" ]; then
-        source "VulkanSDK/$(ls VulkanSDK)/x86_64/setup-env.sh"
+        VK_LAYER_PATH=""
+        source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
+        export PKG_CONFIG_PATH="$(realpath "VulkanSDK/$(ls VulkanSDK)/x86_64/lib/pkgconfig")"
         found_vulkan=true
     fi
 
@@ -179,8 +181,16 @@ if [[ ! -v VULKAN_SDK ]]; then
     if ! $found_vulkan; then
         curl --silent --show-error --fail -O https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.gz
         mkdir -p VulkanSDK
-        tar -xvzf vulkan-sdk.tar.gz -C VulkanSDK
+        tar -xzf vulkan-sdk.tar.gz -C VulkanSDK
+        VK_LAYER_PATH=""
         source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
+
+        # Fix pkgconfig file.
+        shaderc_pkgconfig_file="VulkanSDK/$(ls VulkanSDK)/x86_64/lib/pkgconfig/shaderc.pc"
+        prefix_path=$(realpath "VulkanSDK/$(ls VulkanSDK)/x86_64")
+        sed -i '3s;.*;prefix=\"'$prefix_path'\";' "$shaderc_pkgconfig_file"
+        sed -i '5s;.*;libdir=${prefix}/lib;' "$shaderc_pkgconfig_file"
+        export PKG_CONFIG_PATH="$(realpath "VulkanSDK/$(ls VulkanSDK)/x86_64/lib/pkgconfig")"
         found_vulkan=true
     fi
 
@@ -211,7 +221,7 @@ if [ ! -d "./sgl/install" ]; then
     cmake .. \
          -DCMAKE_BUILD_TYPE=Debug \
          -DCMAKE_INSTALL_PREFIX="../install"
-    make -j
+    make -j $(nproc)
     make install
     popd >/dev/null
 
@@ -219,7 +229,7 @@ if [ ! -d "./sgl/install" ]; then
     cmake .. \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="../install"
-    make -j
+    make -j $(nproc)
     make install
     popd >/dev/null
 
@@ -282,7 +292,7 @@ echo "------------------------"
 echo "      compiling         "
 echo "------------------------"
 pushd "$build_dir" >/dev/null
-make -j
+make -j $(nproc)
 popd >/dev/null
 
 echo ""
