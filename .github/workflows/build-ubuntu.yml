@@ -58,15 +58,12 @@ jobs:
           curl --silent --show-error --fail -O https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.gz
           mkdir -p VulkanSDK
           tar -xzf vulkan-sdk.tar.gz -C VulkanSDK
-          VK_LAYER_PATH=""
-          source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
-        
           # Fix pkgconfig file.
           shaderc_pkgconfig_file="VulkanSDK/$(ls VulkanSDK)/x86_64/lib/pkgconfig/shaderc.pc"
           prefix_path=$(realpath "VulkanSDK/$(ls VulkanSDK)/x86_64")
           sed -i '3s;.*;prefix=\"'$prefix_path'\";' "$shaderc_pkgconfig_file"
           sed -i '5s;.*;libdir=${prefix}/lib;' "$shaderc_pkgconfig_file"
-          export PKG_CONFIG_PATH="$(realpath "VulkanSDK/$(ls VulkanSDK)/x86_64/lib/pkgconfig")"
+          echo "PKG_CONFIG_PATH=\"$(realpath "VulkanSDK/$(ls VulkanSDK)/x86_64/lib/pkgconfig")\"" >> $GITHUB_ENV
         fi
 
     - name: Download Embree
@@ -84,7 +81,16 @@ jobs:
         tar -xvzf "ospray-${{env.OSPRAY_VERSION}}.x86_64.linux.tar.gz"
 
     - name: Configure CMake (sgl)
-      run: cmake ${{env.sgl_REPO_DIR}} -B ${{env.sgl_REPO_DIR}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{env.sgl_DIR}}
+      shell: bash
+      run: |
+        if [ "${{env.PKG_CONFIG_PATH}}" == "" ]; then
+          VK_LAYER_PATH=""
+          source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
+          export PKG_CONFIG_PATH="${{env.PKG_CONFIG_PATH}}"
+        else
+          export VULKAN_SDK="/usr"
+        fi
+        cmake ${{env.sgl_REPO_DIR}} -B ${{env.sgl_REPO_DIR}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{env.sgl_DIR}}
 
     - name: Build (sgl)
       run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --parallel 4
