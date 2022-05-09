@@ -195,7 +195,7 @@ private:
     int xs = 0, ys = 0, zs = 0; ///< Size of the grid in data points.
     float dx = 0.0f, dy = 0.0f, dz = 0.0f; ///< Distance between two neighboring points in x/y/z direction.
     float minimumSeparationDistance = 0.0f;
-    TerminationCheckType terminationCheckType = TerminationCheckType::KD_TREE_BASED;
+    TerminationCheckType terminationCheckType = TerminationCheckType::GRID_BASED;
     int gridSubsamplingFactor = 1;
     KdTree<Empty> kdTree; ///< For terminationCheckType == TerminationCheckType::KD_TREE_BASED.
     HashedGrid<Empty> hashedGrid; ///< For terminationCheckType == TerminationCheckType::HASHED_GRID_BASED.

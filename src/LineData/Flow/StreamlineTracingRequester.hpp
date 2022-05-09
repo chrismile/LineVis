@@ -34,6 +34,7 @@
 #include <json/json.h>
 
 #include "Loaders/DataSetList.hpp"
+#include "Loader/AbcFlowGenerator.hpp"
 #include "../LineDataFlow.hpp"
 #include "StreamlineTracingDefines.hpp"
 
@@ -123,6 +124,7 @@ private:
     std::vector<std::string> gridDataSetNames;
     std::vector<std::string> gridDataSetFilenames;
     int selectedGridDataSetIndex = 0;
+    AbcFlowGenerator abcFlowGenerator;
 };
 
 #endif //LINEVIS_STREAMLINETRACINGREQUESTER_HPP

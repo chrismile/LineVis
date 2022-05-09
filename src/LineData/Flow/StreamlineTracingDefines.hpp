@@ -32,6 +32,7 @@
 #include <string>
 #include <memory>
 #include <glm/vec3.hpp>
+#include "Loader/AbcFlowGenerator.hpp"
 
 enum class StreamlineTracingDataSource {
     // A .vtk file storing a STRUCTURED_GRID data set.
@@ -107,6 +108,7 @@ class StreamlineTracingGrid;
 #define IDXS_C(x,y,z) ((z)*(xs-1)*(ys-1) + (y)*(xs-1) + (x))
 
 struct StreamlineTracingSettings {
+    bool isAbcDataSet = false;
     std::string dataSourceFilename{};
     FlowPrimitives flowPrimitives = FlowPrimitives::STREAMRIBBONS;
     int numPrimitives = 1024;
@@ -117,12 +119,13 @@ struct StreamlineTracingSettings {
     float terminationDistance = 1.0f;
     float minimumLength = 0.7f;
     float minimumSeparationDistance = 0.08f;
-    TerminationCheckType terminationCheckType = TerminationCheckType::KD_TREE_BASED;
+    TerminationCheckType terminationCheckType = TerminationCheckType::GRID_BASED;
     bool showSimulationGridOutline = true;
     bool smoothedSimulationGridOutline = true;
     StreamlineIntegrationMethod integrationMethod = StreamlineIntegrationMethod::RK4;
     StreamlineIntegrationDirection integrationDirection = StreamlineIntegrationDirection::BOTH;
     int vectorFieldIndex = 0;
+    AbcFlowGenerator abcFlowGenerator;
 
     // For flowPrimitives == FlowPrimitives::STREAMRIBBONS.
     bool useHelicity = true;

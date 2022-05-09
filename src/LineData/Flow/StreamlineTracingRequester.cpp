@@ -83,6 +83,7 @@ void StreamlineTracingRequester::loadGridDataSetList() {
     gridDataSetNames.clear();
     gridDataSetFilenames.clear();
     gridDataSetNames.emplace_back("Local file...");
+    gridDataSetNames.emplace_back("Arnold-Beltrami-Childress flow generator");
 
     std::string filename = lineDataSetsDirectory + "flow_grids.json";
     if (sgl::FileUtils::get()->exists(filename)) {
@@ -126,8 +127,12 @@ void StreamlineTracingRequester::renderGui() {
         if (ImGui::Combo(
                 "Data Set", &selectedGridDataSetIndex, gridDataSetNames.data(),
                 int(gridDataSetNames.size()))) {
-            if (selectedGridDataSetIndex >= 1) {
-                const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+            if (selectedGridDataSetIndex == 1) {
+                guiTracingSettings.exportPath = lineDataSetsDirectory + "abc_flow.binlines";
+                changed = true;
+            }
+            if (selectedGridDataSetIndex >= 2) {
+                const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 2);
 #ifdef _WIN32
                 bool isAbsolutePath =
                         (pathString.size() > 1 && pathString.at(1) == ':')
@@ -152,6 +157,9 @@ void StreamlineTracingRequester::renderGui() {
             if (ImGui::Button("Load File")) {
                 changed = true;
             }
+        }
+        if (selectedGridDataSetIndex == 1 && abcFlowGenerator.renderGui()) {
+            changed = true;
         }
 
         if (ImGui::Combo(
@@ -292,8 +300,8 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
     if (settings.getValueOpt("dataset", datasetName)) {
         for (int i = 0; i < int(gridDataSetNames.size()); i++) {
             if (datasetName == gridDataSetNames.at(i)) {
-                selectedGridDataSetIndex = i + 1;
-                const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+                selectedGridDataSetIndex = i + 2;
+                const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 2);
 #ifdef _WIN32
                 bool isAbsolutePath =
                     (pathString.size() > 1 && pathString.at(1) == ':')
@@ -454,8 +462,8 @@ void StreamlineTracingRequester::setDatasetFilename(const std::string& newDatase
         auto currentDataSetPath = boost::filesystem::absolute(
                 lineDataSetsDirectory + gridDataSetFilenames.at(i));
         if (boost::filesystem::equivalent(newDataSetPath, currentDataSetPath)) {
-            selectedGridDataSetIndex = i + 1;
-            const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
+            selectedGridDataSetIndex = i + 2;
+            const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 2);
 #ifdef _WIN32
             bool isAbsolutePath =
                     (pathString.size() > 1 && pathString.at(1) == ':')
@@ -485,13 +493,19 @@ void StreamlineTracingRequester::setDatasetFilename(const std::string& newDatase
 }
 
 void StreamlineTracingRequester::requestNewData() {
-    if (gridDataSetFilename.empty()) {
+    if (selectedGridDataSetIndex != 1 && gridDataSetFilename.empty()) {
         return;
     }
 
     StreamlineTracingSettings request = guiTracingSettings;
     request.seeder = StreamlineSeederPtr(guiTracingSettings.seeder->copy());
-    request.dataSourceFilename = boost::filesystem::absolute(gridDataSetFilename).generic_string();
+    request.isAbcDataSet = selectedGridDataSetIndex == 1;
+    if (selectedGridDataSetIndex == 1) {
+        request.dataSourceFilename = "ABC_" + abcFlowGenerator.getSettingsString();
+        request.abcFlowGenerator = abcFlowGenerator;
+    } else {
+        request.dataSourceFilename = boost::filesystem::absolute(gridDataSetFilename).generic_string();
+    }
 
     queueRequestStruct(request);
 }
@@ -593,7 +607,9 @@ void StreamlineTracingRequester::traceLines(
         cachedGridFilename = request.dataSourceFilename;
 
         cachedGrid = new StreamlineTracingGrid;
-        if (boost::ends_with(request.dataSourceFilename, ".vtk")) {
+        if (request.isAbcDataSet) {
+            request.abcFlowGenerator.load(cachedGrid);
+        } else if (boost::ends_with(request.dataSourceFilename, ".vtk")) {
             StructuredGridVtkLoader::load(request.dataSourceFilename, cachedGrid);
         } else if (boost::ends_with(request.dataSourceFilename, ".bin")) {
             RbcBinFileLoader::load(request.dataSourceFilename, cachedGrid);
