@@ -146,6 +146,7 @@ private:
     std::map<std::string, float*> vectorFields;
     std::map<std::string, float> maxVectorFieldMagnitudes;
     std::map<std::string, float*> scalarFields;
+    float terminationDistanceStart = 0.0f;
 };
 
 #endif //LINEVIS_STREAMLINETRACINGGRID_HPP

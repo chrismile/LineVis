@@ -26,6 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <iostream>
 #include <Math/Geometry/AABB3.hpp>
 #include <Math/Geometry/Sphere.hpp>
 #include <ImGui/imgui.h>
@@ -354,6 +355,10 @@ bool StreamlineVolumeSeeder::setNewSettings(const SettingsMap& settings) {
 }
 
 
+StreamlineMaxHelicityFirstSeeder::StreamlineMaxHelicityFirstSeeder() = default;
+
+StreamlineMaxHelicityFirstSeeder::~StreamlineMaxHelicityFirstSeeder() = default;
+
 void StreamlineMaxHelicityFirstSeeder::reset(
         StreamlineTracingSettings& tracingSettings, StreamlineTracingGrid* newGrid) {
     grid = newGrid;
@@ -377,6 +382,7 @@ void StreamlineMaxHelicityFirstSeeder::reset(
 
     float* helicityField = grid->getHelicityField();
     if (gridSubsamplingFactor == 1) {
+        samplePriorityQueue.reserve((xs - 2) * (ys - 2) * (zs - 2));
         for (int z = 1; z < zs - 1; z++) {
             for (int y = 1; y < ys - 1; y++) {
                 for (int x = 1; x < xs - 1; x++) {
@@ -386,7 +392,7 @@ void StreamlineMaxHelicityFirstSeeder::reset(
                             boxMin.x + dimensions.x * float(x) / float(xs),
                             boxMin.y + dimensions.y * float(y) / float(ys),
                             boxMin.z + dimensions.z * float(z) / float(zs));
-                    samplePriorityQueue.push(GridSample(helicityField[IDXS(x, y, z)], samplePoint));
+                    samplePriorityQueue.emplace_back(helicityField[IDXS(x, y, z)], samplePoint);
                 }
             }
         }
@@ -394,6 +400,7 @@ void StreamlineMaxHelicityFirstSeeder::reset(
         int numCellsX = (xs - 1) / gridSubsamplingFactor;
         int numCellsY = (ys - 1) / gridSubsamplingFactor;
         int numCellsZ = (zs - 1) / gridSubsamplingFactor;
+        samplePriorityQueue.reserve(numCellsX * numCellsY * numCellsZ);
         for (int z = 0; z < numCellsZ; z++) {
             for (int y = 0; y < numCellsY; y++) {
                 for (int x = 0; x < numCellsX; x++) {
@@ -406,18 +413,20 @@ void StreamlineMaxHelicityFirstSeeder::reset(
                     int xgrid = std::min(x * gridSubsamplingFactor, xs - 1);
                     int ygrid = std::min(y * gridSubsamplingFactor, ys - 1);
                     int zgrid = std::min(z * gridSubsamplingFactor, zs - 1);
-                    samplePriorityQueue.push(GridSample(
-                            helicityField[IDXS(xgrid, ygrid, zgrid)], samplePoint));
+                    samplePriorityQueue.emplace_back(
+                            std::abs(helicityField[IDXS(xgrid, ygrid, zgrid)]), samplePoint);
                 }
             }
         }
     }
+    samplePriorityQueue.shrink_to_fit();
+    std::sort(samplePriorityQueue.begin(), samplePriorityQueue.end());
 }
 
 bool StreamlineMaxHelicityFirstSeeder::hasNextPoint() {
     while (!samplePriorityQueue.empty()) {
-        nextSamplePoint = samplePriorityQueue.top().samplePosition;
-        samplePriorityQueue.pop();
+        nextSamplePoint = samplePriorityQueue.back().samplePosition;
+        samplePriorityQueue.pop_back();
 
         if (terminationCheckType == TerminationCheckType::GRID_BASED) {
             glm::vec3 gridPositionFloat = nextSamplePoint - box.getMinimum();

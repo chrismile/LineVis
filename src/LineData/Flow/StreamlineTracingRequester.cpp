@@ -205,6 +205,11 @@ void StreamlineTracingRequester::renderGui() {
                 changed = true;
             }
             if (ImGui::SliderFloatEdit(
+                    "Term. Dist. Self", &guiTracingSettings.terminationDistanceSelf, 0.01f, 100.0f,
+                    "%.2f", ImGuiSliderFlags_Logarithmic) == ImGui::EditMode::INPUT_FINISHED) {
+                changed = true;
+            }
+            if (ImGui::SliderFloatEdit(
                     "Min. Line Length", &guiTracingSettings.minimumLength, 0.001f, 2.0f,
                     "%.3f") == ImGui::EditMode::INPUT_FINISHED) {
                 changed = true;
@@ -436,6 +441,7 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
     changed |= settings.getValueOpt("time_step_scale", guiTracingSettings.timeStepScale);
     changed |= settings.getValueOpt("max_num_iterations", guiTracingSettings.maxNumIterations);
     changed |= settings.getValueOpt("termination_distance", guiTracingSettings.terminationDistance);
+    changed |= settings.getValueOpt("termination_distance_self", guiTracingSettings.terminationDistanceSelf);
     changed |= settings.getValueOpt("min_line_length", guiTracingSettings.minimumLength);
     changed |= settings.getValueOpt("min_separation_distance", guiTracingSettings.minimumSeparationDistance);
     changed |= settings.getValueOpt("show_boundary_mesh", guiTracingSettings.showSimulationGridOutline);

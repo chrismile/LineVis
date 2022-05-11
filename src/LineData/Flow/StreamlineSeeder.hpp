@@ -175,9 +175,10 @@ private:
  * A stream ribbon seeding strategy. In Proceedings of the Eurographics/IEEE VGTC Conference on Visualization:
  * Short Papers, EuroVis '17, page 67-71, Goslar, DEU, 2017. Eurographics Association.
  */
-class StreamlineMaxHelicityFirstSeeder: public StreamlineSeeder {
+class StreamlineMaxHelicityFirstSeeder : public StreamlineSeeder {
 public:
-    ~StreamlineMaxHelicityFirstSeeder() override = default;
+    StreamlineMaxHelicityFirstSeeder();
+    ~StreamlineMaxHelicityFirstSeeder() override;
     StreamlineSeeder* copy() override { return new StreamlineMaxHelicityFirstSeeder; }
     [[nodiscard]] bool getIsRegular() const override { return true; }
     void setNewGridBox(const sgl::AABB3& gridBox) override {}
@@ -213,7 +214,7 @@ private:
         }
     };
 
-    std::priority_queue<GridSample> samplePriorityQueue;
+    std::vector<GridSample> samplePriorityQueue;
     std::vector<bool> cellOccupancyGrid;
     glm::vec3 nextSamplePoint{};
 };

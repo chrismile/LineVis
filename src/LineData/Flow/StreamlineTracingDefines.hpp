@@ -117,6 +117,7 @@ struct StreamlineTracingSettings {
     float timeStepScale = 1.0f;
     int maxNumIterations = 2000;
     float terminationDistance = 1.0f;
+    float terminationDistanceSelf = 1.0f;
     float minimumLength = 0.7f;
     float minimumSeparationDistance = 0.08f;
     TerminationCheckType terminationCheckType = TerminationCheckType::GRID_BASED;
