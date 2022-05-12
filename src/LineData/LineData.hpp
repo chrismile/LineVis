@@ -332,8 +332,8 @@ protected:
     TubeAabbRenderData vulkanTubeAabbRenderData;
     HullTriangleRenderData vulkanHullTriangleRenderData;
     bool vulkanTubeTriangleRenderDataIsRayTracing = false;
-    const size_t batchSizeLimit = 1024 * 1024;
-    //const size_t batchSizeLimit = 1024 * 1024 * 32;
+    //const size_t batchSizeLimit = 1024 * 1024;
+    const size_t batchSizeLimit = 1024 * 1024 * 32;
     std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> tubeTriangleBottomLevelASes;
     sgl::vk::BottomLevelAccelerationStructurePtr tubeAabbBottomLevelAS;
     sgl::vk::BottomLevelAccelerationStructurePtr hullTriangleBottomLevelAS;

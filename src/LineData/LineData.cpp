@@ -585,10 +585,9 @@ std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> LineData::getTubeTrian
     sgl::Logfile::get()->writeInfo(
             "Input indices size: " + sgl::toString(double(inputIndicesSize) / 1024.0 / 1024.0) + "MiB");
 
-    needsSplit = false;
-    if (needsSplit) {
-        // TODO: Enable this again once a good splitting strategy was found.
-        /*size_t numIndicesTotal = 0;
+    // TODO: Enable this again once a good splitting strategy was found.
+    /*if (needsSplit) {
+        size_t numIndicesTotal = 0;
         size_t numVerticesTotal = 0;
         for (const LineStatistics& lineInfo : lineStatistics) {
             numIndicesTotal += lineInfo.numIndices;
@@ -622,21 +621,32 @@ std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> LineData::getTubeTrian
         tubeTriangleBottomLevelASes = sgl::vk::buildBottomLevelAccelerationStructuresFromInputList(
                 blasInputs,
                 VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
-                | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR, true);*/
-    } else {
-        auto asTubeInput = new sgl::vk::TrianglesAccelerationStructureInput(
-                device, VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR);
-        asTubeInput->setIndexBuffer(tubeTriangleRenderData.indexBuffer);
-        asTubeInput->setVertexBuffer(
-                tubeTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
-                sizeof(TubeTriangleVertexData));
-        auto asTubeInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asTubeInput);
-
-        tubeTriangleBottomLevelASes = sgl::vk::buildBottomLevelAccelerationStructuresFromInputListBatched(
-                { asTubeInputPtr },
-                VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
                 | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR, true);
+    } else {*/
+    auto asTubeInput = new sgl::vk::TrianglesAccelerationStructureInput(
+            device, VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR);
+    asTubeInput->setIndexBuffer(tubeTriangleRenderData.indexBuffer);
+    asTubeInput->setVertexBuffer(
+            tubeTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
+            sizeof(TubeTriangleVertexData));
+    auto asTubeInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asTubeInput);
+
+    /*
+     * For now, disable compaction support for large data sets, as NVIDIA and AMD drivers seem to easily trigger TDR
+     * when not building smaller chunks of data.
+     * TODO: Implement splitting.
+     */
+    VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+    if (!needsSplit) {
+        flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
     }
+    tubeTriangleBottomLevelASes = sgl::vk::buildBottomLevelAccelerationStructuresFromInputListBatched(
+            { asTubeInputPtr }, flags, true);
+    //tubeTriangleBottomLevelASes = sgl::vk::buildBottomLevelAccelerationStructuresFromInputListBatched(
+    //        { asTubeInputPtr },
+    //        VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
+    //        | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR, true);
+    //}
 
     return tubeTriangleBottomLevelASes;
 }
