@@ -214,8 +214,14 @@ void VulkanRayTracedAmbientOcclusionPass::recreateSwapchain(uint32_t width, uint
 
 void VulkanRayTracedAmbientOcclusionPass::setLineData(LineDataPtr& data, bool isNewData) {
     lineData = data;
-    tubeTriangleRenderData = lineData->getLinePassTubeTriangleMeshRenderData(false, true);
     topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS();
+    tubeTriangleRenderData = lineData->getLinePassTubeTriangleMeshRenderData(false, true);
+
+    bool useSplitBlasesNew = tubeTriangleRenderData.instanceTriangleIndexOffsetBuffer.get() != nullptr;
+    if (useSplitBlases != useSplitBlasesNew) {
+        useSplitBlases = useSplitBlasesNew;
+        setShaderDirty();
+    }
 
     uniformData.frameNumber = 0;
     setDataDirty();
@@ -227,7 +233,12 @@ void VulkanRayTracedAmbientOcclusionPass::onHasMoved() {
 
 void VulkanRayTracedAmbientOcclusionPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
-    shaderStages = sgl::vk::ShaderManager->getShaderStages({"VulkanRayTracedAmbientOcclusion.Compute"});
+    std::map<std::string, std::string> preprocessorDefines;
+    if (useSplitBlases) {
+        preprocessorDefines.insert(std::make_pair("USE_INSTANCE_TRIANGLE_INDEX_OFFSET", ""));
+    }
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            { "VulkanRayTracedAmbientOcclusion.Compute" }, preprocessorDefines);
 }
 
 void VulkanRayTracedAmbientOcclusionPass::setComputePipelineInfo(sgl::vk::ComputePipelineInfo& pipelineInfo) {
@@ -247,6 +258,11 @@ void VulkanRayTracedAmbientOcclusionPass::createComputeData(
             tubeTriangleRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
     computeData->setStaticBuffer(
             tubeTriangleRenderData.linePointDataBuffer, "LinePointDataBuffer");
+    if (tubeTriangleRenderData.instanceTriangleIndexOffsetBuffer) {
+        computeData->setStaticBuffer(
+                tubeTriangleRenderData.instanceTriangleIndexOffsetBuffer,
+                "InstanceTriangleIndexOffsetBuffer");
+    }
 }
 
 void VulkanRayTracedAmbientOcclusionPass::_render() {

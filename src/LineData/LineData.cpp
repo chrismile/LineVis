@@ -365,7 +365,7 @@ void LineData::rebuildInternalRepresentationIfNecessary() {
         vulkanTubeTriangleRenderData = {};
         vulkanTubeAabbRenderData = {};
         vulkanHullTriangleRenderData = {};
-        tubeTriangleBottomLevelAS = {};
+        tubeTriangleBottomLevelASes = {};
         tubeAabbBottomLevelAS = {};
         hullTriangleBottomLevelAS = {};
         tubeTriangleTopLevelAS = {};
@@ -553,36 +553,29 @@ void LineData::loadSimulationMeshOutlineFromFile(
             simulationMeshOutlineVertexNormals);
 }
 
-sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLevelAS() {
+std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> LineData::getTubeTriangleBottomLevelAS() {
     rebuildInternalRepresentationIfNecessary();
-    if (tubeTriangleBottomLevelAS) {
-        return tubeTriangleBottomLevelAS;
+    if (!tubeTriangleBottomLevelASes.empty()) {
+        return tubeTriangleBottomLevelASes;
     }
+
+    /*
+     * On NVIDIA hardware, we noticed that a 151MiB base data size, or 1922MiB triangle vertices and 963MiB triangle
+     * indices object, was too large and sometimes caused timeout detection and recovery (TDR) in the graphics driver.
+     * Thus, everything with more than approximately 256MiB of triangle vertices is split into multiple acceleration
+     * structures.
+     */
+    bool needsSplit = getBaseSizeInBytes() > batchSizeLimit;
+    //|| tubeTriangleRenderData.vertexBuffer->getSizeInBytes() > (1024 * 1024 * 256);
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     TubeTriangleRenderData tubeTriangleRenderData = getLinePassTubeTriangleMeshRenderData(
             false, true);
 
     if (!tubeTriangleRenderData.indexBuffer) {
-        return tubeTriangleBottomLevelAS;
+        return tubeTriangleBottomLevelASes;
     }
 
-    /*
-     * On NVIDIA hardware, we noticed that a 151MiB base data size, or 1922MiB triangle vertices and 963MiB triangle
-     * indices object, was too large and sometimes caused timeout detection and recovery (TDR) in the graphics driver.
-     * Thus, everything with more than 256MiB of triangle vertices is split into multiple acceleration structures.
-     */
-    bool needsSplit =
-            getBaseSizeInBytes() > (1024 * 1024 * 32)
-            || tubeTriangleRenderData.vertexBuffer->getSizeInBytes() > (1024 * 1024 * 256);
-
-    auto asTubeInput = new sgl::vk::TrianglesAccelerationStructureInput(
-            device, VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR);
-    asTubeInput->setIndexBuffer(tubeTriangleRenderData.indexBuffer);
-    asTubeInput->setVertexBuffer(
-            tubeTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
-            sizeof(TubeTriangleVertexData));
-    auto asTubeInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asTubeInput);
     sgl::Logfile::get()->writeInfo("Building tube triangle bottom level ray tracing acceleration structure...");
     size_t inputVerticesSize = tubeTriangleRenderData.indexBuffer->getSizeInBytes();
     size_t inputIndicesSize =
@@ -592,23 +585,60 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeTriangleBottomLeve
     sgl::Logfile::get()->writeInfo(
             "Input indices size: " + sgl::toString(double(inputIndicesSize) / 1024.0 / 1024.0) + "MiB");
 
-    /*
-     * For now, disable compaction support for large data sets, as NVIDIA and AMD drivers seem to easily trigger TDR
-     * when not building smaller chunks of data.
-     * TODO: Implement splitting.
-     */
+    needsSplit = false;
     if (needsSplit) {
-        tubeTriangleBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(
-                asTubeInputPtr,
-                VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, true);
+        // TODO: Enable this again once a good splitting strategy was found.
+        /*size_t numIndicesTotal = 0;
+        size_t numVerticesTotal = 0;
+        for (const LineStatistics& lineInfo : lineStatistics) {
+            numIndicesTotal += lineInfo.numIndices;
+            numVerticesTotal += lineInfo.numVertices;
+        }
+        assert(numIndicesTotal == tubeTriangleRenderData.indexBuffer->getSizeInBytes() / sizeof(uint32_t));
+        assert(numVerticesTotal == tubeTriangleRenderData.vertexBuffer->getSizeInBytes() / sizeof(TubeTriangleVertexData));
+
+        std::vector<sgl::vk::BottomLevelAccelerationStructureInputPtr> blasInputs;
+        size_t batchNumIndices = 0;
+        uint32_t batchIndexBufferOffset = 0;
+        for (const LineStatistics& lineInfo : lineStatistics) {
+            batchNumIndices += lineInfo.numIndices;
+
+            if (batchNumIndices > batchSizeLimit) {
+                auto asTubeInput = new sgl::vk::TrianglesAccelerationStructureInput(
+                        device, VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR);
+                asTubeInput->setIndexBufferOffset(
+                        tubeTriangleRenderData.indexBuffer,
+                        batchIndexBufferOffset, batchNumIndices);
+                asTubeInput->setVertexBuffer(
+                        tubeTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
+                        sizeof(TubeTriangleVertexData));
+                auto asTubeInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asTubeInput);
+                blasInputs.push_back(asTubeInputPtr);
+
+                batchIndexBufferOffset += uint32_t(batchNumIndices);
+                batchNumIndices = 0;
+            }
+        }
+        tubeTriangleBottomLevelASes = sgl::vk::buildBottomLevelAccelerationStructuresFromInputList(
+                blasInputs,
+                VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
+                | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR, true);*/
     } else {
-        tubeTriangleBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(
-                asTubeInputPtr,
+        auto asTubeInput = new sgl::vk::TrianglesAccelerationStructureInput(
+                device, VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR);
+        asTubeInput->setIndexBuffer(tubeTriangleRenderData.indexBuffer);
+        asTubeInput->setVertexBuffer(
+                tubeTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
+                sizeof(TubeTriangleVertexData));
+        auto asTubeInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asTubeInput);
+
+        tubeTriangleBottomLevelASes = sgl::vk::buildBottomLevelAccelerationStructuresFromInputListBatched(
+                { asTubeInputPtr },
                 VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
                 | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR, true);
     }
 
-    return tubeTriangleBottomLevelAS;
+    return tubeTriangleBottomLevelASes;
 }
 
 sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeAabbBottomLevelAS() {
@@ -684,14 +714,22 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleTop
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    tubeTriangleBottomLevelAS = getTubeTriangleBottomLevelAS();
+    tubeTriangleBottomLevelASes = getTubeTriangleBottomLevelAS();
 
-    if (!tubeTriangleBottomLevelAS) {
+    if (tubeTriangleBottomLevelASes.empty()) {
         return tubeTriangleTopLevelAS;
     }
 
+    std::vector<sgl::vk::BlasInstance> blasInstances;
+    for (size_t i = 0; i < tubeTriangleBottomLevelASes.size(); i++) {
+        sgl::vk::BlasInstance tubeBlasInstance;
+        tubeBlasInstance.blasIdx = uint32_t(i);
+        tubeBlasInstance.instanceCustomIndex = size_t(i);
+        blasInstances.push_back(tubeBlasInstance);
+    }
+
     tubeTriangleTopLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
-    tubeTriangleTopLevelAS->build({ tubeTriangleBottomLevelAS }, { sgl::vk::BlasInstance() });
+    tubeTriangleTopLevelAS->build(tubeTriangleBottomLevelASes, blasInstances);
 
     return tubeTriangleTopLevelAS;
 }
@@ -706,21 +744,32 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleAnd
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    tubeTriangleBottomLevelAS = getTubeTriangleBottomLevelAS();
+    tubeTriangleBottomLevelASes = getTubeTriangleBottomLevelAS();
     hullTriangleBottomLevelAS = getHullTriangleBottomLevelAS();
 
-    if (!tubeTriangleBottomLevelAS && !hullTriangleBottomLevelAS) {
+    if (tubeTriangleBottomLevelASes.empty() && !hullTriangleBottomLevelAS) {
         return tubeTriangleAndHullTopLevelAS;
     }
 
-    sgl::vk::BlasInstance tubeBlasInstance, hullBlasInstance;
+    sgl::vk::BlasInstance hullBlasInstance;
     hullBlasInstance.shaderBindingTableRecordOffset = 1;
     tubeTriangleAndHullTopLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
-    if (tubeTriangleBottomLevelAS) {
-        hullBlasInstance.blasIdx = 1;
-        tubeTriangleAndHullTopLevelAS->build(
-                { tubeTriangleBottomLevelAS, hullTriangleBottomLevelAS },
-                { tubeBlasInstance, hullBlasInstance });
+    if (!tubeTriangleBottomLevelASes.empty()) {
+        hullBlasInstance.blasIdx = uint32_t(tubeTriangleBottomLevelASes.size());
+        hullBlasInstance.instanceCustomIndex = uint32_t(tubeTriangleBottomLevelASes.size());
+        std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> blases = tubeTriangleBottomLevelASes;
+        blases.push_back(hullTriangleBottomLevelAS);
+
+        std::vector<sgl::vk::BlasInstance> blasInstances;
+        for (size_t i = 0; i < tubeTriangleBottomLevelASes.size(); i++) {
+            sgl::vk::BlasInstance tubeBlasInstance;
+            tubeBlasInstance.blasIdx = uint32_t(i);
+            tubeBlasInstance.instanceCustomIndex = size_t(i);
+            blasInstances.push_back(tubeBlasInstance);
+        }
+        blasInstances.push_back(hullBlasInstance);
+
+        tubeTriangleAndHullTopLevelAS->build(blases, blasInstances);
     } else {
         hullBlasInstance.blasIdx = 0;
         tubeTriangleAndHullTopLevelAS->build({ hullTriangleBottomLevelAS }, { hullBlasInstance });

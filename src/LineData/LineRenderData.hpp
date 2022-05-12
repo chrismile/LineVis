@@ -185,12 +185,14 @@ struct HullTriangleVertexData {
 };
 
 struct TubeTriangleRenderData {
-    sgl::vk::BufferPtr indexBuffer;
+    sgl::vk::BufferPtr indexBuffer; // uvec3 objects.
     sgl::vk::BufferPtr vertexBuffer; // TubeTriangleVertexData objects.
     sgl::vk::BufferPtr linePointDataBuffer; // LinePointDataUnified objects.
     sgl::vk::BufferPtr stressLinePointDataBuffer; // StressLinePointDataUnified objects.
     sgl::vk::BufferPtr stressLinePointPrincipalStressDataBuffer; // StressLinePointPrincipalStressDataUnified objects.
     sgl::vk::BufferPtr multiVarAttributeDataBuffer; ///< Only for flow lines with multi-var rendering mode.
+    // If the acceleration structure was split, the buffer below stores the triangle index offset of each instance.
+    sgl::vk::BufferPtr instanceTriangleIndexOffsetBuffer; // uint32_t objects.
 };
 struct TubeAabbRenderData {
     sgl::vk::BufferPtr indexBuffer; // Two consecutive uint32_t indices map one AABB to two LinePointDataUnified objects.

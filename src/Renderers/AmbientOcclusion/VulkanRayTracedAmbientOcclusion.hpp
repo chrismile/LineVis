@@ -148,6 +148,7 @@ private:
 
     TubeTriangleRenderData tubeTriangleRenderData;
     sgl::vk::TopLevelAccelerationStructurePtr topLevelAS;
+    bool useSplitBlases = false;
 
     sgl::vk::BlitRenderPassPtr blitResultRenderPass;
 

@@ -288,8 +288,21 @@ layout(std430, binding = 4) readonly buffer TubeTriangleVertexDataBuffer {
     TubeTriangleVertexData tubeTriangleVertexDataBuffer[];
 };
 
+#ifdef USE_INSTANCE_TRIANGLE_INDEX_OFFSET
+layout(std430, binding = INSTANCE_INDEX_OFFSET_BUFFER_BINDING) readonly buffer InstanceTriangleIndexOffsetBuffer {
+    uint instanceTriangleIndexOffsets[];
+};
+#endif
+
 void main() {
+#ifdef USE_INSTANCE_TRIANGLE_INDEX_OFFSET
+    // gl_InstanceID and gl_InstanceCustomIndexEXT should be the same, as hull instances are always specified last.
+    uint instanceTriangleIndexOffset = instanceTriangleIndexOffsets[gl_InstanceID];
+    uvec3 triangleIndices = indexBuffer[0 + gl_PrimitiveID];
+#else
     uvec3 triangleIndices = indexBuffer[gl_PrimitiveID];
+#endif
+
     const vec3 barycentricCoordinates = vec3(1.0 - attribs.x - attribs.y, attribs.x, attribs.y);
 
     TubeTriangleVertexData vertexData0 = tubeTriangleVertexDataBuffer[triangleIndices.x];

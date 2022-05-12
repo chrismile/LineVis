@@ -325,14 +325,16 @@ protected:
 
     // Caches the rendering data when using Vulkan (as, e.g., the Vulkan ray tracer and AO baking could be used at the
     // same time).
-    sgl::vk::BottomLevelAccelerationStructurePtr getTubeTriangleBottomLevelAS();
+    std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> getTubeTriangleBottomLevelAS();
     sgl::vk::BottomLevelAccelerationStructurePtr getTubeAabbBottomLevelAS();
     sgl::vk::BottomLevelAccelerationStructurePtr getHullTriangleBottomLevelAS();
     TubeTriangleRenderData vulkanTubeTriangleRenderData;
     TubeAabbRenderData vulkanTubeAabbRenderData;
     HullTriangleRenderData vulkanHullTriangleRenderData;
     bool vulkanTubeTriangleRenderDataIsRayTracing = false;
-    sgl::vk::BottomLevelAccelerationStructurePtr tubeTriangleBottomLevelAS;
+    const size_t batchSizeLimit = 1024 * 1024;
+    //const size_t batchSizeLimit = 1024 * 1024 * 32;
+    std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> tubeTriangleBottomLevelASes;
     sgl::vk::BottomLevelAccelerationStructurePtr tubeAabbBottomLevelAS;
     sgl::vk::BottomLevelAccelerationStructurePtr hullTriangleBottomLevelAS;
     sgl::vk::TopLevelAccelerationStructurePtr tubeTriangleTopLevelAS;
