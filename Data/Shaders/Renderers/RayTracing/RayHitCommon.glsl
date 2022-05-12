@@ -37,6 +37,7 @@
 #define RAYTRACING
 #include "Lighting.glsl"
 #include "Antialiasing.glsl"
+#include "MultiVar.glsl"
 
 #define M_PI 3.14159265358979323846
 
@@ -63,7 +64,7 @@ void computeFragmentColor(
 #if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
         float phi,
 #endif
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
         float fragmentVertexId,
 #endif
 #ifdef USE_BANDS
@@ -80,10 +81,30 @@ void computeFragmentColor(
 #endif
         float fragmentAttribute
 ) {
+#ifdef USE_ROTATING_HELICITY_BANDS
+#ifdef USE_MULTI_VAR_RENDERING
+    int numSubdivisions = 6;
+    float varFraction = mod(phi + fragmentRotation, 2.0 / float(numSubdivisions) * float(M_PI));
+#else
+    float varFraction = mod(phi + fragmentRotation, (1.0 / 3.0) * float(M_PI));
+    //float varFraction = mod(phi + fragmentRotation, 0.25 * float(M_PI));
+#endif
+#endif
+
+#ifdef USE_MULTI_VAR_RENDERING
+    vec4 fragmentColor = vec4(vec3(0.5), 1.0);
+    if (numSelectedAttributes > 0u) {
+        uint attributeIdx = uint(mod((phi + fragmentRotation) * 0.5  / float(M_PI), 1.0) * float(numSubdivisions)) % numSelectedAttributes;
+        uint attributeIdxReal = getRealAttributeIndex(attributeIdx);
+        float sampledFragmentAttribute = sampleAttributeLinear(fragmentVertexId, attributeIdxReal);
+        fragmentColor = transferFunction(fragmentAttribute, attributeIdxReal);
+    }
+#else
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
     vec4 fragmentColor = transferFunction(fragmentAttribute, principalStressIndex);
 #else
     vec4 fragmentColor = transferFunction(fragmentAttribute);
+#endif
 #endif
 
 #ifdef USE_MLAT
@@ -359,8 +380,11 @@ void computeFragmentColor(
 #endif
 
 #ifdef USE_ROTATING_HELICITY_BANDS
-    float varFraction = mod(phi + fragmentRotation, (1.0 / 3.0) * float(M_PI));
-    drawSeparatorStripe(fragmentColor, varFraction, 0.2, EPSILON_OUTLINE);
+#ifdef USE_MULTI_VAR_RENDERING
+    drawSeparatorStripe(fragmentColor, mod(phi + fragmentRotation + 0.1, 2.0 / float(numSubdivisions) * float(M_PI)), 0.2, EPSILON_OUTLINE);
+#else
+    drawSeparatorStripe(fragmentColor, mod(phi + fragmentRotation + 0.1, (1.0 / 3.0) * float(M_PI)), 0.2, EPSILON_OUTLINE);
+#endif
 #endif
 
     float coverage = 1.0 - smoothstep(1.0 - EPSILON_OUTLINE, 1.0, absCoords);

@@ -50,7 +50,7 @@ layout(location = 6) flat out float fragmentLineHierarchyLevel[];
 layout(location = 7) flat out uint fragmentLineAppearanceOrder[];
 #endif
 
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
 layout(location = 8) out float interpolationFactorLine[];
 layout(location = 9) flat out uint fragmentVertexIdUint[];
 #endif
@@ -213,7 +213,7 @@ void main() {
 #ifdef USE_LINE_HIERARCHY_LEVEL
         fragmentLineHierarchyLevel[vertexIdx] = stressLinePointData.lineLineHierarchyLevel;
 #endif
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
         interpolationFactorLine[vertexIdx] = float(globalLinePointIdx - linePointData.lineStartIndex);
         fragmentVertexIdUint[vertexIdx] = linePointData.lineStartIndex;//globalLinePointIdx;
 #endif

@@ -466,6 +466,10 @@ void LineData::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
         }
         rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
         rasterData->setStaticBuffer(tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");
+        if (tubeRenderData.multiVarAttributeDataBuffer) {
+            rasterData->setStaticBuffer(
+                    tubeRenderData.multiVarAttributeDataBuffer, "AttributeDataArrayBuffer");
+        }
     } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
         LinePassTubeRenderDataMeshShader tubeRenderData = this->getLinePassTubeRenderDataMeshShader();
@@ -475,6 +479,10 @@ void LineData::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
         rasterData->setStaticBuffer(tubeRenderData.meshletDataBuffer, "MeshletDataBuffer");
         rasterData->setStaticBuffer(tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");
         rasterData->setMeshTasks(tubeRenderData.numMeshlets, 0);
+        if (tubeRenderData.multiVarAttributeDataBuffer) {
+            rasterData->setStaticBuffer(
+                    tubeRenderData.multiVarAttributeDataBuffer, "AttributeDataArrayBuffer");
+        }
     } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH) {
         TubeTriangleRenderData tubeRenderData = this->getLinePassTubeTriangleMeshRenderData(
@@ -485,6 +493,10 @@ void LineData::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
         rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
         rasterData->setStaticBuffer(tubeRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
         rasterData->setStaticBuffer(tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");
+        if (tubeRenderData.multiVarAttributeDataBuffer) {
+            rasterData->setStaticBuffer(
+                    tubeRenderData.multiVarAttributeDataBuffer, "AttributeDataArrayBuffer");
+        }
     } else {
         LinePassTubeRenderData tubeRenderData = this->getLinePassTubeRenderData();
         if (!tubeRenderData.indexBuffer) {
@@ -495,6 +507,10 @@ void LineData::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
         rasterData->setVertexBuffer(tubeRenderData.vertexAttributeBuffer, "vertexAttribute");
         rasterData->setVertexBuffer(tubeRenderData.vertexNormalBuffer, "vertexNormal");
         rasterData->setVertexBuffer(tubeRenderData.vertexTangentBuffer, "vertexTangent");
+        if (tubeRenderData.multiVarAttributeDataBuffer) {
+            rasterData->setStaticBuffer(
+                    tubeRenderData.multiVarAttributeDataBuffer, "AttributeDataArrayBuffer");
+        }
     }
 }
 

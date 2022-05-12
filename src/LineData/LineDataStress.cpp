@@ -64,7 +64,6 @@ const char* const bandRenderModeNames[] = { "Ribbons", "Eigenvalue Ratio", "Hype
 
 LineDataStress::LineDataStress(sgl::TransferFunctionWindow &transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_STRESS_LINES),
-          //multiVarTransferFunctionWindow("stress", { "reds.xml", "greens.xml", "blues.xml" }) {
           multiVarTransferFunctionWindow(
                   "stress",
                   { "qualitative-ocher.xml", "qualitative-emerald.xml", "qualitative-pale-lilac.xml" }) {

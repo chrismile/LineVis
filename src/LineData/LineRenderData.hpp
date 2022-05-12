@@ -80,6 +80,7 @@ struct LinePassTubeRenderData {
     sgl::vk::BufferPtr vertexNormalBuffer;
     sgl::vk::BufferPtr vertexTangentBuffer;
     sgl::vk::BufferPtr vertexRotationBuffer; ///< Only for flow lines.
+    sgl::vk::BufferPtr multiVarAttributeDataBuffer; ///< Only for flow lines with multi-var rendering mode.
     sgl::vk::BufferPtr vertexPrincipalStressIndexBuffer; ///< Only for stress lines.
     sgl::vk::BufferPtr vertexLineHierarchyLevelBuffer; ///< Only for stress lines.
     sgl::vk::BufferPtr vertexLineAppearanceOrderBuffer; ///< Only for stress lines.
@@ -123,6 +124,7 @@ struct LinePassTubeRenderDataMeshShader {
     sgl::vk::BufferPtr linePointDataBuffer;
     sgl::vk::BufferPtr stressLinePointDataBuffer;
     sgl::vk::BufferPtr stressLinePointPrincipalStressDataBuffer;
+    sgl::vk::BufferPtr multiVarAttributeDataBuffer; ///< Only for flow lines with multi-var rendering mode.
 };
 
 struct LinePassTubeRenderDataProgrammablePull {
@@ -130,6 +132,7 @@ struct LinePassTubeRenderDataProgrammablePull {
     sgl::vk::BufferPtr linePointDataBuffer;
     sgl::vk::BufferPtr stressLinePointDataBuffer;
     sgl::vk::BufferPtr stressLinePointPrincipalStressDataBuffer;
+    sgl::vk::BufferPtr multiVarAttributeDataBuffer; ///< Only for flow lines with multi-var rendering mode.
 };
 
 
@@ -187,6 +190,7 @@ struct TubeTriangleRenderData {
     sgl::vk::BufferPtr linePointDataBuffer; // LinePointDataUnified objects.
     sgl::vk::BufferPtr stressLinePointDataBuffer; // StressLinePointDataUnified objects.
     sgl::vk::BufferPtr stressLinePointPrincipalStressDataBuffer; // StressLinePointPrincipalStressDataUnified objects.
+    sgl::vk::BufferPtr multiVarAttributeDataBuffer; ///< Only for flow lines with multi-var rendering mode.
 };
 struct TubeAabbRenderData {
     sgl::vk::BufferPtr indexBuffer; // Two consecutive uint32_t indices map one AABB to two LinePointDataUnified objects.
@@ -194,6 +198,7 @@ struct TubeAabbRenderData {
     sgl::vk::BufferPtr linePointDataBuffer; // LinePointDataUnified objects.
     sgl::vk::BufferPtr stressLinePointDataBuffer; // StressLinePointDataUnified objects.
     sgl::vk::BufferPtr stressLinePointPrincipalStressDataBuffer; // StressLinePointPrincipalStressDataUnified objects.
+    sgl::vk::BufferPtr multiVarAttributeDataBuffer; ///< Only for flow lines with multi-var rendering mode.
 };
 struct HullTriangleRenderData {
     sgl::vk::BufferPtr indexBuffer;

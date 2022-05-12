@@ -26,9 +26,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <boost/algorithm/string/split.hpp>
+
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
 #include <Graphics/Vulkan/Render/Data.hpp>
+#include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 #include <ImGui/imgui_custom.h>
 
@@ -41,14 +44,29 @@ bool LineDataFlow::useRibbons = true;
 bool LineDataFlow::useRotatingHelicityBands = false;
 
 LineDataFlow::LineDataFlow(sgl::TransferFunctionWindow& transferFunctionWindow)
-        : LineData(transferFunctionWindow, DATA_SET_TYPE_FLOW_LINES) {
+        : LineData(transferFunctionWindow, DATA_SET_TYPE_FLOW_LINES),
+          multiVarTransferFunctionWindow("multivar", {
+                  "reds.xml", "blues.xml", "greens.xml", "purples.xml", "oranges.xml", "pinks.xml", "golds.xml",
+                  "dark-blues.xml" }) {
     lineDataWindowName = "Line Data (Flow)";
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    multiVarUniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(MultiVarUniformData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 }
 
 LineDataFlow::~LineDataFlow() = default;
 
 bool LineDataFlow::settingsDiffer(LineData* other) {
     return hasBandsData != static_cast<LineDataFlow*>(other)->hasBandsData;
+}
+
+void LineDataFlow::update(float dt) {
+    if (useMultiVarRendering) {
+        multiVarTransferFunctionWindow.update(dt);
+    }
 }
 
 bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
@@ -79,6 +97,10 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                 if (propertyEditor.addCheckbox("Show Helicity Bands", &useRotatingHelicityBands)) {
                     if (useRotatingHelicityBands) {
                         useRibbons = false;
+                    } else {
+                        useMultiVarRendering = false;
+                        recomputeColorLegend();
+                        recomputeWidgetPositions();
                     }
                     dirty = true;
                     shallReloadGatherShader = true;
@@ -92,11 +114,125 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                 }
             }
 
+            if (useRotatingHelicityBands) {
+                if (propertyEditor.addCheckbox("Use Multi-Var Rendering", &useMultiVarRendering)) {
+                    dirty = true;
+                    shallReloadGatherShader = true;
+                    recomputeColorLegend();
+                    recomputeWidgetPositions();
+                }
+            }
+
+            if (useMultiVarRendering) {
+                bool itemHasChanged = false;
+                std::vector<std::string> comboSelVec(0);
+                if (propertyEditor.addBeginCombo(
+                        "Variables", comboValue, ImGuiComboFlags_NoArrowButton)) {
+                    for (size_t v = 0; v < isAttributeSelectedArray.size(); ++v) {
+                        if (ImGui::Selectable(
+                                attributeNames.at(v).c_str(),
+                                reinterpret_cast<bool*>(&isAttributeSelectedArray[v]),
+                                ImGuiSelectableFlags_::ImGuiSelectableFlags_DontClosePopups)) {
+                            itemHasChanged = true;
+                        }
+
+                        if (static_cast<bool>(isAttributeSelectedArray.at(v))) {
+                            ImGui::SetItemDefaultFocus();
+                            comboSelVec.push_back(attributeNames.at(v));
+                        }
+                    }
+
+                    comboValue = "";
+                    for (size_t v = 0; v < comboSelVec.size(); ++v) {
+                        comboValue += comboSelVec[v];
+                        if (comboSelVec.size() > 1 && v + 1 != comboSelVec.size()) {
+                            comboValue += ",";
+                        }
+                    }
+
+                    if (itemHasChanged) {
+                        selectedAttributes.clear();
+                        for (size_t varIdx = 0; varIdx < isAttributeSelectedArray.size(); ++varIdx) {
+                            if (isAttributeSelectedArray.at(varIdx) != 0) {
+                                selectedAttributes.push_back(varIdx);
+                            }
+                        }
+                        recomputeWidgetPositions();
+                        reRender = true;
+                    }
+
+                    propertyEditor.addEndCombo();
+                }
+            }
+
             propertyEditor.endNode();
         }
     }
 
     return shallReloadGatherShader;
+}
+
+bool LineDataFlow::renderGuiWindowSecondary()  {
+    if (useMultiVarRendering && multiVarTransferFunctionWindow.renderGui()) {
+        reRender = true;
+        if (multiVarTransferFunctionWindow.getTransferFunctionMapRebuilt()) {
+            onTransferFunctionMapRebuilt();
+            sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(
+                    ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT));
+        }
+    }
+
+    return LineData::renderGuiWindowSecondary();
+}
+
+bool LineDataFlow::renderGuiOverlay() {
+    bool shallReloadGatherShader = false;
+    if (useMultiVarRendering && shallRenderColorLegendWidgets) {
+        for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
+            if (isAttributeSelectedArray.at(i)) {
+                colorLegendWidgets.at(i).setAttributeMinValue(
+                        multiVarTransferFunctionWindow.getSelectedRangeMin(int(i)));
+                colorLegendWidgets.at(i).setAttributeMaxValue(
+                        multiVarTransferFunctionWindow.getSelectedRangeMax(int(i)));
+                colorLegendWidgets.at(i).renderGui();
+            }
+        }
+    } else {
+        shallReloadGatherShader = LineData::renderGuiOverlay() || shallReloadGatherShader;
+    }
+    return shallReloadGatherShader;
+}
+
+void LineDataFlow::setClearColor(const sgl::Color& clearColor) {
+    LineData::setClearColor(clearColor);
+    multiVarTransferFunctionWindow.setClearColor(clearColor);
+}
+
+void LineDataFlow::setUseLinearRGB(bool useLinearRGB) {
+    multiVarTransferFunctionWindow.setUseLinearRGB(useLinearRGB);
+}
+
+void LineDataFlow::recomputeWidgetPositions() {
+    if (!useMultiVarRendering) {
+        for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
+            colorLegendWidgets.at(i).setPositionIndex(0, 1);
+        }
+        return;
+    }
+
+    int numWidgetsVisible = 0;
+    for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
+        if (isAttributeSelectedArray.at(i)) {
+            numWidgetsVisible++;
+        }
+    }
+    int positionCounter = 0;
+    for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
+        colorLegendWidgets.at(i).setPositionIndex(positionCounter, numWidgetsVisible);
+        if (isAttributeSelectedArray.at(i)) {
+            positionCounter++;
+        }
+    }
 }
 
 bool LineDataFlow::loadFromFile(
@@ -118,6 +254,15 @@ bool LineDataFlow::loadFromFile(
         simulationMeshOutlineVertexPositions = binLinesData.simulationMeshOutlineVertexPositions;
         simulationMeshOutlineVertexNormals = binLinesData.simulationMeshOutlineVertexNormals;
         setTrajectoryData(binLinesData.trajectories);
+        isAttributeSelectedArray.resize(attributeNames.size(), 0);
+    }
+
+    if (!attributeNames.empty()) {
+        sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+        multiVarSelectedAttributesBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, sizeof(uint32_t) * attributeNames.size(),
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                VMA_MEMORY_USAGE_GPU_ONLY);
     }
 
     return dataLoaded;
@@ -250,7 +395,32 @@ void LineDataFlow::recomputeHistogram() {
     }
     transferFunctionWindow.computeHistogram(
             attributeList, minMaxAttributes.x, minMaxAttributes.y);
+
+    const size_t numAttributes = attributeNames.size();
+    std::vector<std::vector<float>> attributesList(numAttributes);
+    for (const Trajectory& trajectory : trajectories) {
+        for (size_t attrIdx = 0; attrIdx < numAttributes; attrIdx++) {
+            std::vector<float>& attributeList = attributesList.at(attrIdx);
+            for (float val : trajectory.attributes.at(attrIdx)) {
+                attributeList.push_back(val);
+            }
+        }
+    }
+    multiVarTransferFunctionWindow.setAttributesValues(attributeNames, attributesList);
+
     recomputeColorLegend();
+}
+
+void LineDataFlow::recomputeColorLegend() {
+    if (useMultiVarRendering) {
+        for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
+            std::vector<sgl::Color16> transferFunctionColorMap =
+                    multiVarTransferFunctionWindow.getTransferFunctionMap_sRGB(int(i));
+            colorLegendWidgets.at(i).setTransferFunctionColorMap(transferFunctionColorMap);
+        }
+    } else {
+        LineData::recomputeColorLegend();
+    }
 }
 
 size_t LineDataFlow::getNumAttributes() {
@@ -444,6 +614,47 @@ void LineDataFlow::setGraphicsPipelineInfo(
     }
 }
 
+void LineDataFlow::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData) {
+    LineData::setVulkanRenderDataDescriptors(renderData);
+
+    if (useMultiVarRendering) {
+        renderData->setStaticBufferOptional(
+                multiVarUniformDataBuffer, "MultiVarUniformDataBuffer");
+        renderData->setStaticBufferOptional(
+                multiVarSelectedAttributesBuffer, "AttributeSelectionMapBuffer");
+    }
+
+    if (useMultiVarRendering
+            && renderData->getShaderStages()->hasDescriptorBinding(0, "transferFunctionTexture")) {
+        const sgl::vk::DescriptorInfo& descriptorInfo = renderData->getShaderStages()->getDescriptorInfoByName(
+                0, "transferFunctionTexture");
+        if (descriptorInfo.image.arrayed == 1) {
+            renderData->setStaticTexture(
+                    multiVarTransferFunctionWindow.getTransferFunctionMapTextureVulkan(),
+                    "transferFunctionTexture");
+            renderData->setStaticBuffer(
+                    multiVarTransferFunctionWindow.getMinMaxSsboVulkan(), "MinMaxBuffer");
+        }
+    }
+}
+
+void LineDataFlow::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::Renderer* renderer) {
+    LineData::updateVulkanUniformBuffers(lineRenderer, renderer);
+
+    if (useMultiVarRendering) {
+        multiVarUniformData.numSelectedAttributes = uint32_t(selectedAttributes.size());
+        multiVarUniformData.totalNumAttributes = uint32_t(attributeNames.size());
+        multiVarUniformDataBuffer->updateData(
+                sizeof(MultiVarUniformData), &multiVarUniformData,
+                renderer->getVkCommandBuffer());
+        if (!selectedAttributes.empty()) {
+            multiVarSelectedAttributesBuffer->updateData(
+                    sizeof(uint32_t) * selectedAttributes.size(), selectedAttributes.data(),
+                    renderer->getVkCommandBuffer());
+        }
+    }
+}
+
 void LineDataFlow::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
     setVulkanRenderDataDescriptors(rasterData);
 
@@ -471,6 +682,10 @@ void LineDataFlow::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
         rasterData->setVertexBuffer(tubeRenderData.vertexTangentBuffer, "vertexTangent");
         if (useRotatingHelicityBands) {
             rasterData->setVertexBuffer(tubeRenderData.vertexRotationBuffer, "vertexRotation");
+        }
+        if (useMultiVarRendering) {
+            rasterData->setStaticBuffer(
+                    tubeRenderData.multiVarAttributeDataBuffer, "AttributeDataArrayBuffer");
         }
     } else {
         LineData::setRasterDataBindings(rasterData);
@@ -629,7 +844,7 @@ void LineDataFlow::getLinePassTubeRenderDataGeneral(
         const std::function<uint32_t()>& indexOffsetFunctor,
         const std::function<void(
                 const glm::vec3& lineCenter, const glm::vec3& normal, const glm::vec3& tangent, float lineAttribute,
-                float lineRotation, uint32_t indexOffset)>& pointPushFunctor,
+                float lineRotation, uint32_t indexOffset, size_t lineIdx, size_t pointIdx)>& pointPushFunctor,
         const std::function<void()>& pointPopFunctor,
         const std::function<void(int numSegments, uint32_t indexOffset)>& indicesPushFunctor) {
     std::vector<std::vector<glm::vec3>> lineCentersList;
@@ -697,7 +912,7 @@ void LineDataFlow::getLinePassTubeRenderDataGeneral(
 
                 pointPushFunctor(
                         lineCenters.at(i), normal, tangent, lineAttributes.at(i),
-                        0.0f, indexOffset);
+                        0.0f, indexOffset, lineId, i);
                 numValidLinePoints++;
             }
 
@@ -784,7 +999,7 @@ void LineDataFlow::getLinePassTubeRenderDataGeneral(
 
                 pointPushFunctor(
                         lineCenters.at(i), normal, tangent, lineAttributes.at(i),
-                        lineRotations.at(i), indexOffset);
+                        lineRotations.at(i), indexOffset, lineId, i);
                 numValidLinePoints++;
             }
 
@@ -859,7 +1074,7 @@ void LineDataFlow::getLinePassTubeRenderDataGeneral(
 
                 pointPushFunctor(
                         lineCenters.at(i), normal, tangent, lineAttributes.at(i),
-                        0.0f, indexOffset);
+                        0.0f, indexOffset, lineId, i);
                 numValidLinePoints++;
             }
 
@@ -885,18 +1100,27 @@ LinePassTubeRenderData LineDataFlow::getLinePassTubeRenderData() {
     std::vector<glm::vec3> vertexTangents;
     std::vector<float> vertexAttributes;
     std::vector<float> vertexRotations; //< Used if useRotatingHelicityBands is set to true.
+    std::vector<float> multiVarAttributeData;
 
     getLinePassTubeRenderDataGeneral(
             [&]() {
                 return uint32_t(vertexPositions.size());
             },
             [&](const glm::vec3& lineCenter, const glm::vec3& normal, const glm::vec3& tangent,
-                    float lineAttribute, float lineRotation, uint32_t indexOffset) {
+                    float lineAttribute, float lineRotation, uint32_t indexOffset,
+                    size_t lineIdx, size_t pointIdx) {
                 vertexPositions.push_back(lineCenter);
                 vertexNormals.push_back(normal);
                 vertexTangents.push_back(tangent);
                 vertexAttributes.push_back(lineAttribute);
                 vertexRotations.push_back(lineRotation);
+
+                if (useMultiVarRendering) {
+                    for (size_t attrIdx = 0; attrIdx < attributeNames.size(); attrIdx++) {
+                        multiVarAttributeData.push_back(
+                                trajectories.at(lineIdx).attributes.at(attrIdx).at(pointIdx));
+                    }
+                }
             },
             [&] {
                 vertexPositions.pop_back();
@@ -904,6 +1128,12 @@ LinePassTubeRenderData LineDataFlow::getLinePassTubeRenderData() {
                 vertexTangents.pop_back();
                 vertexAttributes.pop_back();
                 vertexRotations.pop_back();
+
+                if (useMultiVarRendering) {
+                    for (size_t attrIdx = 0; attrIdx < attributeNames.size(); attrIdx++) {
+                        multiVarAttributeData.pop_back();
+                    }
+                }
             },
             [&](int numSegments, uint32_t indexOffset) {
                 for (int j = 0; j < numSegments; j++) {
@@ -958,6 +1188,13 @@ LinePassTubeRenderData LineDataFlow::getLinePassTubeRenderData() {
                 VMA_MEMORY_USAGE_GPU_ONLY);
     }
 
+    if (useMultiVarRendering) {
+        tubeRenderData.multiVarAttributeDataBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, multiVarAttributeData.size() * sizeof(float), multiVarAttributeData.data(),
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VMA_MEMORY_USAGE_GPU_ONLY);
+    }
+
     return tubeRenderData;
 }
 
@@ -969,13 +1206,15 @@ LinePassTubeRenderDataMeshShader LineDataFlow::getLinePassTubeRenderDataMeshShad
     std::vector<MeshletData> meshlets;
     MeshletData meshlet{};
     std::vector<LinePointDataUnified> linePoints;
+    std::vector<float> multiVarAttributeData;
 
     getLinePassTubeRenderDataGeneral(
             [&]() {
                 return uint32_t(linePoints.size());
             },
             [&](const glm::vec3& lineCenter, const glm::vec3& normal, const glm::vec3& tangent,
-                    float lineAttribute, float lineRotation, uint32_t indexOffset) {
+                    float lineAttribute, float lineRotation, uint32_t indexOffset,
+                    size_t lineIdx, size_t pointIdx) {
                 LinePointDataUnified linePointData;
                 linePointData.linePosition = lineCenter;
                 linePointData.lineNormal = normal;
@@ -984,9 +1223,22 @@ LinePassTubeRenderDataMeshShader LineDataFlow::getLinePassTubeRenderDataMeshShad
                 linePointData.lineRotation = lineRotation;
                 linePointData.lineStartIndex = indexOffset;
                 linePoints.push_back(linePointData);
+
+                if (useMultiVarRendering) {
+                    for (size_t attrIdx = 0; attrIdx < attributeNames.size(); attrIdx++) {
+                        multiVarAttributeData.push_back(
+                                trajectories.at(lineIdx).attributes.at(attrIdx).at(pointIdx));
+                    }
+                }
             },
             [&] {
                 linePoints.pop_back();
+
+                if (useMultiVarRendering) {
+                    for (size_t attrIdx = 0; attrIdx < attributeNames.size(); attrIdx++) {
+                        multiVarAttributeData.pop_back();
+                    }
+                }
             },
             [&](int numSegments, uint32_t indexOffset) {
                 int numSegmentsLeft = numSegments;
@@ -1022,6 +1274,13 @@ LinePassTubeRenderDataMeshShader LineDataFlow::getLinePassTubeRenderDataMeshShad
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
 
+    if (useMultiVarRendering) {
+        renderData.multiVarAttributeDataBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, multiVarAttributeData.size() * sizeof(float), multiVarAttributeData.data(),
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VMA_MEMORY_USAGE_GPU_ONLY);
+    }
+
     return renderData;
 }
 
@@ -1030,13 +1289,15 @@ LinePassTubeRenderDataProgrammablePull LineDataFlow::getLinePassTubeRenderDataPr
 
     std::vector<uint32_t> triangleIndices;
     std::vector<LinePointDataUnified> linePoints;
+    std::vector<float> multiVarAttributeData;
 
     getLinePassTubeRenderDataGeneral(
             [&]() {
                 return uint32_t(linePoints.size());
             },
             [&](const glm::vec3& lineCenter, const glm::vec3& normal, const glm::vec3& tangent,
-                    float lineAttribute, float lineRotation, uint32_t indexOffset) {
+                    float lineAttribute, float lineRotation, uint32_t indexOffset,
+                    size_t lineIdx, size_t pointIdx) {
                 LinePointDataUnified linePointData;
                 linePointData.linePosition = lineCenter;
                 linePointData.lineNormal = normal;
@@ -1045,9 +1306,22 @@ LinePassTubeRenderDataProgrammablePull LineDataFlow::getLinePassTubeRenderDataPr
                 linePointData.lineRotation = lineRotation;
                 linePointData.lineStartIndex = indexOffset;
                 linePoints.push_back(linePointData);
+
+                if (useMultiVarRendering) {
+                    for (size_t attrIdx = 0; attrIdx < attributeNames.size(); attrIdx++) {
+                        multiVarAttributeData.push_back(
+                                trajectories.at(lineIdx).attributes.at(attrIdx).at(pointIdx));
+                    }
+                }
             },
             [&] {
                 linePoints.pop_back();
+
+                if (useMultiVarRendering) {
+                    for (size_t attrIdx = 0; attrIdx < attributeNames.size(); attrIdx++) {
+                        multiVarAttributeData.pop_back();
+                    }
+                }
             },
             [&](int numSegments, uint32_t indexOffset) {
                 for (int j = 0; j < numSegments; j++) {
@@ -1087,6 +1361,13 @@ LinePassTubeRenderDataProgrammablePull LineDataFlow::getLinePassTubeRenderDataPr
             device, linePoints.size() * sizeof(LinePointDataUnified), linePoints.data(),
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
+
+    if (useMultiVarRendering) {
+        renderData.multiVarAttributeDataBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, multiVarAttributeData.size() * sizeof(float), multiVarAttributeData.data(),
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VMA_MEMORY_USAGE_GPU_ONLY);
+    }
 
     return renderData;
 }
@@ -1266,6 +1547,7 @@ TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderData(bool 
     std::vector<TubeTriangleVertexData> tubeTriangleVertexDataList;
     std::vector<LinePointReference> linePointReferences;
     std::vector<LinePointDataUnified> tubeTriangleLinePointDataList;
+    std::vector<float> multiVarAttributeData;
 
     lineCentersList.resize(trajectories.size());
     for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
@@ -1317,6 +1599,9 @@ TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderData(bool 
     }
 
     tubeTriangleLinePointDataList.resize(linePointReferences.size());
+    if (useMultiVarRendering) {
+        multiVarAttributeData.reserve(attributeNames.size() * linePointReferences.size());
+    }
     float rotation = 0.0f; //< Used if useRotatingHelicityBands is set to true.
     for (size_t i = 0; i < linePointReferences.size(); i++) {
         LinePointReference& linePointReference = linePointReferences.at(i);
@@ -1342,6 +1627,13 @@ TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderData(bool 
                 }
             }
             rotation += helicity / maxHelicity * sgl::PI * helicityRotationFactor * lineSegmentLength / 0.005f;
+        }
+
+        if (useMultiVarRendering) {
+            for (size_t attrIdx = 0; attrIdx < attributeNames.size(); attrIdx++) {
+                multiVarAttributeData.push_back(
+                        trajectory.attributes.at(attrIdx).at(linePointReference.linePointIndex));
+            }
         }
     }
 
@@ -1382,6 +1674,13 @@ TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderData(bool 
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
 
+    if (useMultiVarRendering) {
+        vulkanTubeTriangleRenderData.multiVarAttributeDataBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, multiVarAttributeData.size() * sizeof(float), multiVarAttributeData.data(),
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VMA_MEMORY_USAGE_GPU_ONLY);
+    }
+
     return vulkanTubeTriangleRenderData;
 }
 
@@ -1396,9 +1695,14 @@ TubeAabbRenderData LineDataFlow::getLinePassTubeAabbRenderData(bool isRasterizer
     std::vector<uint32_t> lineSegmentPointIndices;
     std::vector<sgl::AABB3> lineSegmentAabbs;
     std::vector<LinePointDataUnified> tubeLinePointDataList;
+    std::vector<float> multiVarAttributeData;
     lineSegmentPointIndices.reserve(getNumLineSegments() * 2);
     lineSegmentAabbs.reserve(getNumLineSegments());
     tubeLinePointDataList.reserve(getNumLinePoints());
+    if (useMultiVarRendering) {
+        multiVarAttributeData.reserve(attributeNames.size() * getNumLinePoints());
+    }
+
     uint32_t lineSegmentIndexCounter = 0;
     for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
         if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
@@ -1455,12 +1759,25 @@ TubeAabbRenderData LineDataFlow::getLinePassTubeAabbRenderData(bool isRasterizer
             }
             tubeLinePointDataList.push_back(linePointData);
 
+            if (useMultiVarRendering) {
+                for (size_t attrIdx = 0; attrIdx < attributeNames.size(); attrIdx++) {
+                    multiVarAttributeData.push_back(trajectory.attributes.at(attrIdx).at(i));
+                }
+            }
+
             numValidLinePoints++;
         }
 
         if (numValidLinePoints == 1) {
             // Only one vertex left -> output nothing (tube consisting only of one point).
             tubeLinePointDataList.pop_back();
+
+            if (useMultiVarRendering) {
+                for (size_t attrIdx = 0; attrIdx < attributeNames.size(); attrIdx++) {
+                    multiVarAttributeData.pop_back();
+                }
+            }
+
             continue;
         }
 
@@ -1510,6 +1827,13 @@ TubeAabbRenderData LineDataFlow::getLinePassTubeAabbRenderData(bool isRasterizer
             | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
 
+    if (useMultiVarRendering) {
+        vulkanTubeTriangleRenderData.multiVarAttributeDataBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, multiVarAttributeData.size() * sizeof(float), multiVarAttributeData.data(),
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VMA_MEMORY_USAGE_GPU_ONLY);
+    }
+
     return vulkanTubeAabbRenderData;
 }
 
@@ -1527,6 +1851,14 @@ void LineDataFlow::getVulkanShaderPreprocessorDefines(
     }
     if (useRotatingHelicityBands) {
         preprocessorDefines.insert(std::make_pair("USE_ROTATING_HELICITY_BANDS", ""));
+    }
+    bool isQuadsMode =
+            linePrimitiveMode == LINE_PRIMITIVES_QUADS_PROGRAMMABLE_PULL
+            || linePrimitiveMode == LINE_PRIMITIVES_QUADS_GEOMETRY_SHADER
+            || linePrimitiveMode == LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER;
+    if (useMultiVarRendering && (!isRasterizer || !isQuadsMode)) {
+        preprocessorDefines.insert(std::make_pair("USE_MULTI_VAR_RENDERING", ""));
+        preprocessorDefines.insert(std::make_pair("USE_MULTI_VAR_TRANSFER_FUNCTION", ""));
     }
 }
 

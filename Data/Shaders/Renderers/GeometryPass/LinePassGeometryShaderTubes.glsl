@@ -66,7 +66,7 @@ layout(location = 5) out float lineLineHierarchyLevel;
 #ifdef VISUALIZE_SEEDING_PROCESS
 layout(location = 6) out uint lineLineAppearanceOrder;
 #endif
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
 layout(location = 7) out uint lineVertexId;
 #endif
 #ifdef USE_PRINCIPAL_STRESSES
@@ -103,7 +103,7 @@ void main() {
 #ifdef USE_ROTATING_HELICITY_BANDS
     lineRotation = vertexRotation;
 #endif
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
     lineVertexId = uint(gl_VertexIndex);
 #endif
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
@@ -131,7 +131,7 @@ layout(location = 5) in float lineLineHierarchyLevel[];
 #ifdef VISUALIZE_SEEDING_PROCESS
 layout(location = 6) in uint lineLineAppearanceOrder[];
 #endif
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
 layout(location = 7) in uint lineVertexId[];
 #endif
 #ifdef USE_PRINCIPAL_STRESSES
@@ -178,7 +178,7 @@ layout(location = 7) flat out uint fragmentLineAppearanceOrder;
 #endif
 #endif
 
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
 layout(location = 8) out float interpolationFactorLine;
 layout(location = 9) flat out uint fragmentVertexIdUint;
 #endif
@@ -390,7 +390,7 @@ void main() {
 #ifdef USE_LINE_HIERARCHY_LEVEL
         fragmentLineHierarchyLevel = lineLineHierarchyLevel[0];
 #endif
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
         interpolationFactorLine = 0.0;
         fragmentVertexIdUint = lineVertexId[0];
         //fragmentVertexId = float(lineVertexId[0]);
@@ -444,7 +444,7 @@ void main() {
 #ifdef USE_LINE_HIERARCHY_LEVEL
         fragmentLineHierarchyLevel = lineLineHierarchyLevel[0];
 #endif
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
         interpolationFactorLine = 0.0;
         fragmentVertexIdUint = lineVertexId[0];
         //fragmentVertexId = float(lineVertexId[0]);
@@ -499,8 +499,9 @@ void main() {
 #ifdef USE_LINE_HIERARCHY_LEVEL
         fragmentLineHierarchyLevel = lineLineHierarchyLevel[1];
 #endif
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
         interpolationFactorLine = 1.0;
+        fragmentVertexIdUint = lineVertexId[1];
         //fragmentVertexId = float(lineVertexId[1]);
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
@@ -552,8 +553,9 @@ void main() {
 #ifdef USE_LINE_HIERARCHY_LEVEL
         fragmentLineHierarchyLevel = lineLineHierarchyLevel[1];
 #endif
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
         interpolationFactorLine = 1.0;
+        fragmentVertexIdUint = lineVertexId[1];
         //fragmentVertexId = float(lineVertexId[1]);
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
@@ -616,7 +618,7 @@ layout(location = 7) flat in uint fragmentLineAppearanceOrder;
 #endif
 #endif
 
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
 layout(location = 8) in float interpolationFactorLine;
 layout(location = 9) flat in uint fragmentVertexIdUint;
 float fragmentVertexId;
@@ -680,6 +682,7 @@ layout(binding = LINE_HIERARCHY_IMPORTANCE_MAP_BINDING) uniform sampler1DArray l
 #include "DepthHelper.glsl"
 #include "Lighting.glsl"
 #include "Antialiasing.glsl"
+#include "MultiVar.glsl"
 
 //#define USE_ORTHOGRAPHIC_TUBE_PROJECTION
 
@@ -691,8 +694,8 @@ mat3 shearSymmetricMatrix(vec3 p) {
 
 
 #ifdef USE_ROTATING_HELICITY_BANDS
-void drawSeparatorStripe(inout vec4 surfaceColor, in float varFraction, in float separatorWidth) {
-    float aaf = fwidth(varFraction);
+void drawSeparatorStripe(inout vec4 surfaceColor, in float varFraction, in float globalPos, in float separatorWidth) {
+    float aaf = fwidth(globalPos);
     float alphaBorder1 = smoothstep(2.0 * aaf, 0.0, varFraction);
     float alphaBorder2 = smoothstep(separatorWidth - aaf, separatorWidth + aaf, varFraction);
     surfaceColor.rgb = surfaceColor.rgb * max(alphaBorder1, alphaBorder2);
@@ -724,7 +727,7 @@ void main() {
     }
 #endif
 
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
     fragmentVertexId = interpolationFactorLine + float(fragmentVertexIdUint);
 #endif
 
@@ -932,10 +935,29 @@ void main() {
 #endif
 
 
+#ifdef USE_ROTATING_HELICITY_BANDS
+#ifdef USE_MULTI_VAR_RENDERING
+    int numSubdivisions = 8;
+    float varFraction = mod(phi + fragmentRotation, 2.0 / float(numSubdivisions) * float(M_PI));
+#else
+    float varFraction = mod(phi + fragmentRotation, 0.25 * float(M_PI));
+#endif
+#endif
+
+#ifdef USE_MULTI_VAR_RENDERING
+    vec4 fragmentColor = vec4(vec3(0.5), 1.0);
+    if (numSelectedAttributes > 0u) {
+        uint attributeIdx = uint(mod((phi + fragmentRotation) * 0.5  / float(M_PI), 1.0) * float(numSubdivisions)) % numSelectedAttributes;
+        uint attributeIdxReal = getRealAttributeIndex(attributeIdx);
+        float sampledFragmentAttribute = sampleAttributeLinear(fragmentVertexId, attributeIdxReal);
+        fragmentColor = transferFunction(fragmentAttribute, attributeIdxReal);
+    }
+#else
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
     vec4 fragmentColor = transferFunction(fragmentAttribute, fragmentPrincipalStressIndex);
 #else
     vec4 fragmentColor = transferFunction(fragmentAttribute);
+#endif
 #endif
 
 #if defined(USE_LINE_HIERARCHY_LEVEL) && defined(USE_TRANSPARENCY)
@@ -946,8 +968,12 @@ void main() {
     fragmentColor = blinnPhongShadingTube(fragmentColor, n, t);
 
 #ifdef USE_ROTATING_HELICITY_BANDS
-    float varFraction = mod(phi + fragmentRotation, 0.25 * float(M_PI));
-    drawSeparatorStripe(fragmentColor, varFraction, 0.2);
+#ifdef USE_MULTI_VAR_RENDERING
+    drawSeparatorStripe(fragmentColor, mod(phi + fragmentRotation + 0.1, 2.0 / float(numSubdivisions) * float(M_PI)), phi + fragmentRotation, 0.2);
+    //drawSeparatorStripe(fragmentColor, varFraction, phi + fragmentRotation, 0.2);
+#else
+    drawSeparatorStripe(fragmentColor, mod(phi + fragmentRotation + 0.1, 0.25 * float(M_PI)), phi + fragmentRotation, 0.2);
+#endif
 #endif
 
     float absCoords = abs(ribbonPosition);

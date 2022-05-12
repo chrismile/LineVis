@@ -332,7 +332,7 @@ void main() {
     float phi = interpolateAngle(
             vertexData0.phi, vertexData1.phi, vertexData2.phi, barycentricCoordinates);
 #endif
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
     float fragmentVertexId = interpolateFloat(
             float(vertexLinePointIndex0), float(vertexLinePointIndex1), float(vertexLinePointIndex2),
             barycentricCoordinates);
@@ -385,7 +385,7 @@ void main() {
 #if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
             phi,
 #endif
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
             fragmentVertexId,
 #endif
 #ifdef USE_BANDS
@@ -611,7 +611,7 @@ void main() {
         phi = 2.0 * float(M_PI) - phi;
     }
 #endif
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
     float fragmentVertexId = (1.0 - t) * linePointIndices.x + t * linePointIndices.y;
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
@@ -645,7 +645,7 @@ void main() {
 #if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
             phi,
 #endif
-#ifdef USE_AMBIENT_OCCLUSION
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
             fragmentVertexId,
 #endif
 #ifdef USE_BANDS

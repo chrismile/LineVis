@@ -363,6 +363,10 @@ void RayTracingRenderPass::createRayTracingData(
             rayTracingData->setStaticBufferOptional(
                     tubeAabbRenderData.stressLinePointPrincipalStressDataBuffer,
                     "StressLinePointPrincipalStressDataBuffer");
+            if (tubeAabbRenderData.multiVarAttributeDataBuffer) {
+                rayTracingData->setStaticBufferOptional(
+                        tubeAabbRenderData.multiVarAttributeDataBuffer, "AttributeDataArrayBuffer");
+            }
         } else {
             // Just bind anything in order for sgl to not complain...
             rayTracingData->setStaticBuffer(
@@ -373,6 +377,8 @@ void RayTracingRenderPass::createRayTracingData(
                     hullTriangleRenderData.vertexBuffer, "StressLinePointDataBuffer");
             rayTracingData->setStaticBufferOptional(
                     hullTriangleRenderData.vertexBuffer, "StressLinePointPrincipalStressDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    hullTriangleRenderData.vertexBuffer, "AttributeDataArrayBuffer");
         }
     } else {
         if (tubeTriangleRenderData.indexBuffer) {
@@ -387,6 +393,10 @@ void RayTracingRenderPass::createRayTracingData(
             rayTracingData->setStaticBufferOptional(
                     tubeTriangleRenderData.stressLinePointPrincipalStressDataBuffer,
                     "StressLinePointPrincipalStressDataBuffer");
+            if (tubeTriangleRenderData.multiVarAttributeDataBuffer) {
+                rayTracingData->setStaticBufferOptional(
+                        tubeTriangleRenderData.multiVarAttributeDataBuffer, "AttributeDataArrayBuffer");
+            }
         } else {
             // Just bind anything in order for sgl to not complain...
             rayTracingData->setStaticBuffer(
@@ -399,6 +409,8 @@ void RayTracingRenderPass::createRayTracingData(
                     hullTriangleRenderData.vertexBuffer, "StressLinePointDataBuffer");
             rayTracingData->setStaticBufferOptional(
                     hullTriangleRenderData.vertexBuffer, "StressLinePointPrincipalStressDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    hullTriangleRenderData.vertexBuffer, "AttributeDataArrayBuffer");
         }
     }
     if (hullTriangleRenderData.indexBuffer) {

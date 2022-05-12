@@ -29,6 +29,7 @@
 #ifndef STRESSLINEVIS_LINEDATAFLOW_HPP
 #define STRESSLINEVIS_LINEDATAFLOW_HPP
 
+#include "Widgets/MultiVarTransferFunctionWindow.hpp"
 #include "LineData.hpp"
 
 class LineDataFlow : public LineData {
@@ -37,6 +38,7 @@ public:
     explicit LineDataFlow(sgl::TransferFunctionWindow& transferFunctionWindow);
     ~LineDataFlow() override;
     bool settingsDiffer(LineData* other) override;
+    void update(float dt) override;
     virtual void setTrajectoryData(const Trajectories& trajectories);
     [[nodiscard]] bool getIsSmallDataSet() const override;
 
@@ -75,6 +77,8 @@ public:
     // --- Retrieve data for rendering. Preferred way. ---
     void setGraphicsPipelineInfo(
             sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) override;
+    void setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData) override;
+    void updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::Renderer* renderer) override;
     void setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) override;
 
     // --- Retrieve data for rendering. ---
@@ -103,9 +107,27 @@ public:
      * @return true if the gather shader needs to be reloaded.
      */
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
+    /**
+     * For rendering secondary ImGui windows (e.g., for transfer function widgets).
+     * @return true if the gather shader needs to be reloaded.
+     */
+    bool renderGuiWindowSecondary() override;
+    /**
+     * For rendering secondary, overlay ImGui windows.
+     * @return true if the gather shader needs to be reloaded.
+     */
+    bool renderGuiOverlay() override;
+
+    /// Certain GUI widgets might need the clear color.
+    void setClearColor(const sgl::Color& clearColor) override;
+    /// Whether to use linear RGB when rendering.
+    void setUseLinearRGB(bool useLinearRGB) override;
+    bool shallRenderTransferFunctionWindow() override { return !useMultiVarRendering; }
 
 protected:
     void recomputeHistogram() override;
+    void recomputeColorLegend() override;
+    void recomputeWidgetPositions();
 
     /**
      * Function used by, e.g., @see getLinePassTubeRenderData, @see getLinePassTubeRenderDataMeshShader and
@@ -121,7 +143,7 @@ protected:
             const std::function<uint32_t()>& indexOffsetFunctor,
             const std::function<void(
                     const glm::vec3& lineCenter, const glm::vec3& normal, const glm::vec3& tangent, float lineAttribute,
-                    float lineRotation, uint32_t indexOffset)>& pointPushFunctor,
+                    float lineRotation, uint32_t indexOffset, size_t lineIdx, size_t pointIdx)>& pointPushFunctor,
             const std::function<void()>& pointPopFunctor,
             const std::function<void(int numSegments, uint32_t indexOffset)>& indicesPushFunctor);
 
@@ -142,6 +164,25 @@ protected:
     static bool useRotatingHelicityBands;
     float helicityRotationFactor = 1.0f;
     float maxHelicity = 0.0f;
+
+    /**
+     * Multi-var rendering can be used (at the moment only together with helicity data).
+     */
+    bool useMultiVarRendering = false;
+    std::string comboValue = "";
+    std::vector<uint32_t> isAttributeSelectedArray;
+    MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
+    // Uniform buffers with settings for rendering.
+    struct MultiVarUniformData {
+        uint32_t numSelectedAttributes{};
+        uint32_t totalNumAttributes{};
+        glm::uvec2 multiVarPadding{};
+    };
+    MultiVarUniformData multiVarUniformData;
+    sgl::vk::BufferPtr multiVarUniformDataBuffer;
+    sgl::vk::BufferPtr multiVarAttributeDataBuffer;
+    std::vector<uint32_t> selectedAttributes;
+    sgl::vk::BufferPtr multiVarSelectedAttributesBuffer;
 };
 
 #endif //STRESSLINEVIS_LINEDATAFLOW_HPP
