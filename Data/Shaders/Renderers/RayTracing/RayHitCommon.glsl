@@ -49,7 +49,7 @@ mat3 shearSymmetricMatrix(vec3 p) {
 }
 #endif
 
-#ifdef USE_ROTATING_HELICITY_BANDS
+#if defined(USE_ROTATING_HELICITY_BANDS) || defined(USE_MULTI_VAR_RENDERING)
 void drawSeparatorStripe(inout vec4 surfaceColor, in float varFraction, in float separatorWidth, in float aaf) {
     float alphaBorder = smoothstep(separatorWidth - aaf, separatorWidth + aaf, varFraction);
     surfaceColor.rgb = surfaceColor.rgb * alphaBorder;
@@ -91,7 +91,7 @@ void computeFragmentColor(
 #endif
 #endif
 
-#ifdef USE_MULTI_VAR_RENDERING
+#if defined(USE_MULTI_VAR_RENDERING) && defined(USE_ROTATING_HELICITY_BANDS)
     vec4 fragmentColor = vec4(vec3(0.5), 1.0);
     if (numSelectedAttributes > 0u) {
         uint attributeIdx = uint(mod((phi + fragmentRotation) * 0.5  / float(M_PI), 1.0) * float(numSubdivisions)) % numSelectedAttributes;
@@ -99,7 +99,7 @@ void computeFragmentColor(
         float sampledFragmentAttribute = sampleAttributeLinear(fragmentVertexId, attributeIdxReal);
         fragmentColor = transferFunction(fragmentAttribute, attributeIdxReal);
     }
-#else
+#elif !defined(USE_MULTI_VAR_RENDERING)
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
     vec4 fragmentColor = transferFunction(fragmentAttribute, principalStressIndex);
 #else
@@ -107,7 +107,7 @@ void computeFragmentColor(
 #endif
 #endif
 
-#ifdef USE_MLAT
+#if defined(USE_MLAT) && !(defined(USE_MULTI_VAR_RENDERING) && !defined(USE_ROTATING_HELICITY_BANDS))
     if (fragmentColor.a == 0.0) {
         ignoreIntersectionEXT;
     }
@@ -348,6 +348,25 @@ void computeFragmentColor(
     vec3 screenSpacePosition = (viewMatrix * vec4(fragmentPositionWorld, 1.0)).xyz;
 #endif
 
+#if defined(USE_MULTI_VAR_RENDERING) && !defined(USE_ROTATING_HELICITY_BANDS)
+    int numSubdivisions = int(numSelectedAttributes);
+    float varFraction = mod((ribbonPosition * 0.5 + 0.5) * float(numSubdivisions), 1.0);
+
+    vec4 fragmentColor = vec4(vec3(0.5), 1.0);
+    if (numSelectedAttributes > 0u) {
+        uint attributeIdx = uint((ribbonPosition * 0.5 + 0.5) * float(numSubdivisions)) % numSelectedAttributes;
+        uint attributeIdxReal = getRealAttributeIndex(attributeIdx);
+        float sampledFragmentAttribute = sampleAttributeLinear(fragmentVertexId, attributeIdxReal);
+        fragmentColor = transferFunction(fragmentAttribute, attributeIdxReal);
+    }
+
+#if defined(USE_MLAT)
+    if (fragmentColor.a == 0.0) {
+        ignoreIntersectionEXT;
+    }
+#endif
+#endif
+
     fragmentColor = blinnPhongShadingTube(
             fragmentColor, fragmentPositionWorld,
 #if defined(USE_DEPTH_CUES) || (defined(USE_AMBIENT_OCCLUSION) && !defined(STATIC_AMBIENT_OCCLUSION_PREBAKING))
@@ -361,14 +380,8 @@ void computeFragmentColor(
 #endif
             n, t);
 
-
     float absCoords = abs(ribbonPosition);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
-#ifdef USE_ROTATING_HELICITY_BANDS
-    const float WHITE_THRESHOLD = 0.8;
-#else
-    const float WHITE_THRESHOLD = 0.7;
-#endif
 #ifdef USE_BANDS
     //float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / (useBand ? bandWidth : lineWidth), 0.0, 0.49);
     float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDepth / (useBand ? bandWidth : lineWidth) * 2.0), 0.0, 0.49);
@@ -385,6 +398,21 @@ void computeFragmentColor(
 #else
     drawSeparatorStripe(fragmentColor, mod(phi + fragmentRotation + 0.1, (1.0 / 3.0) * float(M_PI)), 0.2, EPSILON_OUTLINE);
 #endif
+#elif defined(USE_MULTI_VAR_RENDERING)
+    float separatorWidth = numSelectedAttributes > 1 ? 0.4 / float(numSelectedAttributes) : 0.2;
+    if (numSelectedAttributes > 0) {
+        drawSeparatorStripe(
+                fragmentColor, mod((ribbonPosition * 0.5 + 0.5) * float(numSubdivisions) + 0.5 * separatorWidth, 1.0),
+                0.2, EPSILON_OUTLINE);
+    }
+#endif
+
+#if defined(USE_ROTATING_HELICITY_BANDS)
+    const float WHITE_THRESHOLD = 0.8;
+#elif defined(USE_MULTI_VAR_RENDERING)
+    const float WHITE_THRESHOLD = max(1.0 - separatorWidth, 0.8);
+#else
+    const float WHITE_THRESHOLD = 0.7;
 #endif
 
     float coverage = 1.0 - smoothstep(1.0 - EPSILON_OUTLINE, 1.0, absCoords);

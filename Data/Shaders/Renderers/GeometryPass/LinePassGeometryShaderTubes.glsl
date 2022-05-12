@@ -693,7 +693,7 @@ mat3 shearSymmetricMatrix(vec3 p) {
 #endif
 
 
-#ifdef USE_ROTATING_HELICITY_BANDS
+#if defined(USE_ROTATING_HELICITY_BANDS) || defined(USE_MULTI_VAR_RENDERING)
 void drawSeparatorStripe(inout vec4 surfaceColor, in float varFraction, in float globalPos, in float separatorWidth) {
     float aaf = fwidth(globalPos);
     float alphaBorder1 = smoothstep(2.0 * aaf, 0.0, varFraction);
@@ -942,12 +942,19 @@ void main() {
 #else
     float varFraction = mod(phi + fragmentRotation, 0.25 * float(M_PI));
 #endif
+#elif defined(USE_MULTI_VAR_RENDERING)
+    int numSubdivisions = int(numSelectedAttributes);
+    float varFraction = mod((ribbonPosition * 0.5 + 0.5) * float(numSubdivisions), 1.0);
 #endif
 
 #ifdef USE_MULTI_VAR_RENDERING
     vec4 fragmentColor = vec4(vec3(0.5), 1.0);
     if (numSelectedAttributes > 0u) {
+#ifdef USE_ROTATING_HELICITY_BANDS
         uint attributeIdx = uint(mod((phi + fragmentRotation) * 0.5  / float(M_PI), 1.0) * float(numSubdivisions)) % numSelectedAttributes;
+#else
+        uint attributeIdx = uint((ribbonPosition * 0.5 + 0.5) * float(numSubdivisions)) % numSelectedAttributes;
+#endif
         uint attributeIdxReal = getRealAttributeIndex(attributeIdx);
         float sampledFragmentAttribute = sampleAttributeLinear(fragmentVertexId, attributeIdxReal);
         fragmentColor = transferFunction(fragmentAttribute, attributeIdxReal);
@@ -974,13 +981,22 @@ void main() {
 #else
     drawSeparatorStripe(fragmentColor, mod(phi + fragmentRotation + 0.1, 0.25 * float(M_PI)), phi + fragmentRotation, 0.2);
 #endif
+#elif defined(USE_MULTI_VAR_RENDERING)
+    float separatorWidth = numSelectedAttributes > 1 ? 0.4 / float(numSelectedAttributes) : 0.2;
+    if (numSelectedAttributes > 0) {
+        drawSeparatorStripe(
+                fragmentColor, mod((ribbonPosition * 0.5 + 0.5) * float(numSubdivisions) + 0.5 * separatorWidth, 1.0),
+                (ribbonPosition * 0.5 + 0.5) * float(numSubdivisions), separatorWidth);
+    }
 #endif
 
     float absCoords = abs(ribbonPosition);
 
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
-#ifdef USE_ROTATING_HELICITY_BANDS
+#if defined(USE_ROTATING_HELICITY_BANDS)
     const float WHITE_THRESHOLD = 0.8;
+#elif defined(USE_MULTI_VAR_RENDERING)
+    const float WHITE_THRESHOLD = max(1.0 - separatorWidth, 0.8);
 #else
     const float WHITE_THRESHOLD = 0.7;
 #endif

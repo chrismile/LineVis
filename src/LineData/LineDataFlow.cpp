@@ -97,10 +97,6 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                 if (propertyEditor.addCheckbox("Show Helicity Bands", &useRotatingHelicityBands)) {
                     if (useRotatingHelicityBands) {
                         useRibbons = false;
-                    } else {
-                        useMultiVarRendering = false;
-                        recomputeColorLegend();
-                        recomputeWidgetPositions();
                     }
                     dirty = true;
                     shallReloadGatherShader = true;
@@ -114,13 +110,11 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                 }
             }
 
-            if (useRotatingHelicityBands) {
-                if (propertyEditor.addCheckbox("Use Multi-Var Rendering", &useMultiVarRendering)) {
-                    dirty = true;
-                    shallReloadGatherShader = true;
-                    recomputeColorLegend();
-                    recomputeWidgetPositions();
-                }
+            if (propertyEditor.addCheckbox("Use Multi-Var Rendering", &useMultiVarRendering)) {
+                dirty = true;
+                shallReloadGatherShader = true;
+                recomputeColorLegend();
+                recomputeWidgetPositions();
             }
 
             if (useMultiVarRendering) {
@@ -374,6 +368,12 @@ bool LineDataFlow::setNewSettings(const SettingsMap& settings) {
             }
             dirty = true;
             shallReloadGatherShader = true;
+        }
+        if (settings.getValueOpt("use_multi_var_rendering", useMultiVarRendering)) {
+            dirty = true;
+            shallReloadGatherShader = true;
+            recomputeColorLegend();
+            recomputeWidgetPositions();
         }
     }
 
