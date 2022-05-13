@@ -43,7 +43,9 @@ layout(binding = LINE_UNIFORM_DATA_BUFFER_BINDING) uniform LineUniformDataBuffer
     uint numAoTubeSubdivisions;
     uint numLineVertices;
     uint numParametrizationVertices;
-    uint lineUniformDataPadding2;
+
+    // Multi-var & twist line settings.
+    uint numSubdivisionsBands;
 
     // Hull render settings.
     vec4 hullColor;

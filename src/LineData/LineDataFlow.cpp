@@ -110,11 +110,21 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                 }
             }
 
-            if (propertyEditor.addCheckbox("Use Multi-Var Rendering", &useMultiVarRendering)) {
+            if (useRotatingHelicityBands && propertyEditor.addSliderInt(
+                    "Band Subdivisions", reinterpret_cast<int*>(&numSubdivisionsBands),
+                    2, 16)) {
+                reRender = true;
+                setNumSubdivisionsManually = true;
+            }
+
+            if (propertyEditor.addCheckbox("Multi-Var Rendering", &useMultiVarRendering)) {
                 dirty = true;
                 shallReloadGatherShader = true;
                 recomputeColorLegend();
                 recomputeWidgetPositions();
+                if (!setNumSubdivisionsManually) {
+                    numSubdivisionsBands = useMultiVarRendering ? 8 : 6;
+                }
             }
 
             if (useMultiVarRendering) {
@@ -639,6 +649,10 @@ void LineDataFlow::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& 
 }
 
 void LineDataFlow::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::Renderer* renderer) {
+    if (useMultiVarRendering || useRotatingHelicityBands) {
+        lineUniformData.numSubdivisionsBands = numSubdivisionsBands;
+    }
+
     LineData::updateVulkanUniformBuffers(lineRenderer, renderer);
 
     if (useMultiVarRendering) {

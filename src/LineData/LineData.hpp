@@ -342,27 +342,6 @@ protected:
     sgl::vk::TopLevelAccelerationStructurePtr tubeAabbTopLevelAS;
     sgl::vk::TopLevelAccelerationStructurePtr tubeAabbAndHullTopLevelAS;
 
-    /*struct LineRenderSettings {
-        float lineWidth = 0.0f;
-        float bandWidth = 0.0f;
-        float depthCueStrength = 0.0f;
-        float ambientOcclusionStrength = 0.0f;
-        float ambientOcclusionGamma = 1.0f;
-        float minBandThickness = 0.0f;
-        float paddingLineRenderSettings0{}, paddingLineRenderSettings1{};
-
-        uint32_t hasHullMesh = 0;
-
-        // Ambient occlusion settings.
-        uint32_t numAoTubeSubdivisions = 0;
-        uint32_t numLineVertices = 0;
-        uint32_t numParametrizationVertices = 0;
-    };
-    struct HullRenderSettings {
-        glm::vec4 color;
-        glm::ivec3 padding;
-        uint32_t useShading;
-    };*/
     struct LineUniformData {
         // Camera data.
         glm::vec3 cameraPosition{};
@@ -387,7 +366,9 @@ protected:
         uint32_t numAoTubeSubdivisions = 0;
         uint32_t numLineVertices = 0;
         uint32_t numParametrizationVertices = 0;
-        uint32_t lineUniformDataPadding2 = 0;
+
+        // Multi-var & twist line settings.
+        uint32_t numSubdivisionsBands = 6;
 
         // Hull render settings.
         glm::vec4 hullColor{};

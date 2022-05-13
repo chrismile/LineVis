@@ -169,7 +169,9 @@ protected:
      * Multi-var rendering can be used (at the moment only together with helicity data).
      */
     bool useMultiVarRendering = false;
-    std::string comboValue = "";
+    uint32_t numSubdivisionsBands = 6;
+    bool setNumSubdivisionsManually = false;
+    std::string comboValue;
     std::vector<uint32_t> isAttributeSelectedArray;
     MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
     // Uniform buffers with settings for rendering.

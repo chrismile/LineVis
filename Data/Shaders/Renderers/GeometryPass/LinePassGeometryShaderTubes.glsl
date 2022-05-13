@@ -937,23 +937,22 @@ void main() {
 
 #ifdef USE_ROTATING_HELICITY_BANDS
 #ifdef USE_MULTI_VAR_RENDERING
-    int numSubdivisions = 8;
-    float varFraction = mod(phi + fragmentRotation, 2.0 / float(numSubdivisions) * float(M_PI));
+    float varFraction = mod(phi + fragmentRotation, 2.0 / float(numSubdivisionsBands) * float(M_PI));
 #else
-    float varFraction = mod(phi + fragmentRotation, 0.25 * float(M_PI));
+    float varFraction = mod(phi + fragmentRotation, 2.0 / float(numSubdivisionsBands) * float(M_PI));
 #endif
 #elif defined(USE_MULTI_VAR_RENDERING)
-    int numSubdivisions = int(numSelectedAttributes);
-    float varFraction = mod((ribbonPosition * 0.5 + 0.5) * float(numSubdivisions), 1.0);
+    int numSubdivisionsView = int(numSelectedAttributes);
+    float varFraction = mod((ribbonPosition * 0.5 + 0.5) * float(numSubdivisionsView), 1.0);
 #endif
 
 #ifdef USE_MULTI_VAR_RENDERING
     vec4 fragmentColor = vec4(vec3(0.5), 1.0);
     if (numSelectedAttributes > 0u) {
 #ifdef USE_ROTATING_HELICITY_BANDS
-        uint attributeIdx = uint(mod((phi + fragmentRotation) * 0.5  / float(M_PI), 1.0) * float(numSubdivisions)) % numSelectedAttributes;
+        uint attributeIdx = uint(mod((phi + fragmentRotation) * 0.5  / float(M_PI), 1.0) * float(numSubdivisionsBands)) % numSelectedAttributes;
 #else
-        uint attributeIdx = uint((ribbonPosition * 0.5 + 0.5) * float(numSubdivisions)) % numSelectedAttributes;
+        uint attributeIdx = uint((ribbonPosition * 0.5 + 0.5) * float(numSubdivisionsView)) % numSelectedAttributes;
 #endif
         uint attributeIdxReal = getRealAttributeIndex(attributeIdx);
         float sampledFragmentAttribute = sampleAttributeLinear(fragmentVertexId, attributeIdxReal);
@@ -976,17 +975,17 @@ void main() {
 
 #ifdef USE_ROTATING_HELICITY_BANDS
 #ifdef USE_MULTI_VAR_RENDERING
-    drawSeparatorStripe(fragmentColor, mod(phi + fragmentRotation + 0.1, 2.0 / float(numSubdivisions) * float(M_PI)), phi + fragmentRotation, 0.2);
+    drawSeparatorStripe(fragmentColor, mod(phi + fragmentRotation + 0.1, 2.0 / float(numSubdivisionsBands) * float(M_PI)), phi + fragmentRotation, 0.2);
     //drawSeparatorStripe(fragmentColor, varFraction, phi + fragmentRotation, 0.2);
 #else
-    drawSeparatorStripe(fragmentColor, mod(phi + fragmentRotation + 0.1, 0.25 * float(M_PI)), phi + fragmentRotation, 0.2);
+    drawSeparatorStripe(fragmentColor, mod(phi + fragmentRotation + 0.1, 2.0 / float(numSubdivisionsBands) * float(M_PI)), phi + fragmentRotation, 0.2);
 #endif
 #elif defined(USE_MULTI_VAR_RENDERING)
     float separatorWidth = numSelectedAttributes > 1 ? 0.4 / float(numSelectedAttributes) : 0.2;
     if (numSelectedAttributes > 0) {
         drawSeparatorStripe(
-                fragmentColor, mod((ribbonPosition * 0.5 + 0.5) * float(numSubdivisions) + 0.5 * separatorWidth, 1.0),
-                (ribbonPosition * 0.5 + 0.5) * float(numSubdivisions), separatorWidth);
+                fragmentColor, mod((ribbonPosition * 0.5 + 0.5) * float(numSubdivisionsView) + 0.5 * separatorWidth, 1.0),
+                (ribbonPosition * 0.5 + 0.5) * float(numSubdivisionsView), separatorWidth);
     }
 #endif
 
