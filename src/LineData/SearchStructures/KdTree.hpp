@@ -80,7 +80,9 @@ public:
      * @param dataArray The data array.
      */
     void build(const std::vector<std::pair<glm::vec3, T>>& pointsAndData) override {
+#ifdef TRACY_PROFILE_TRACING
         ZoneScoped;
+#endif
 
         if (pointsAndData.empty()) {
             return;
@@ -111,7 +113,9 @@ public:
      * @param data The corresponding data to add.
      */
     void add(const glm::vec3& point, const T& data) override {
+#ifdef TRACY_PROFILE_TRACING
         ZoneScoped;
+#endif
         //root = _addPoint(root, 0, point, data);
 
         const int k = 3; // Number of dimensions
@@ -186,7 +190,9 @@ public:
      * @return Whether there is at least one point stored in the k-d-tree inside of the search radius.
      */
     bool getHasPointCloserThan(const glm::vec3& center, float radius) override {
+#ifdef TRACY_PROFILE_TRACING
         ZoneScoped;
+#endif
 
         auto closestNeighbor = findNearestNeighbor(center);
         glm::vec3 differenceVector = closestNeighbor->first - center;

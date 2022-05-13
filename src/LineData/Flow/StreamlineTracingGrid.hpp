@@ -34,6 +34,8 @@
 
 #include "Loaders/TrajectoryFile.hpp"
 
+template<class T>
+class HashedGrid;
 struct StreamlineTracingSettings;
 class StreamlineSeeder;
 
@@ -147,6 +149,8 @@ private:
     std::map<std::string, float> maxVectorFieldMagnitudes;
     std::map<std::string, float*> scalarFields;
     float terminationDistanceStart = 0.0f;
+    HashedGrid<glm::vec3>* gridSelf = nullptr;
+    std::vector<std::pair<glm::vec3, glm::vec3>> closePoints;
 };
 
 #endif //LINEVIS_STREAMLINETRACINGGRID_HPP

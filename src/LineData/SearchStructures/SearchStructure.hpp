@@ -38,6 +38,8 @@
 #include <variant>
 #endif
 
+//#define TRACY_PROFILE_TRACING
+
 /**
  * An axis aligned (bounding) box data structures used for search queries.
  */
@@ -55,7 +57,7 @@ public:
      * @param pt The point.
      * @return True if the box contains the point.
      */
-    inline bool contains(const glm::vec3 &pt) const {
+    [[nodiscard]] inline bool contains(const glm::vec3 &pt) const {
         if (pt.x >= min.x && pt.y >= min.y && pt.z >= min.z
             && pt.x <= max.x && pt.y <= max.y && pt.z <= max.z)
             return true;
@@ -225,7 +227,9 @@ public:
     }
     virtual std::optional<T> findDataClosest(
             const glm::vec3& center, float radius, std::vector<std::pair<glm::vec3, T>>& searchCache) {
+#ifdef TRACY_PROFILE_TRACING
         ZoneScoped;
+#endif
 
         findPointsAndDataInSphere(center, radius, searchCache);
         float minDistance = std::numeric_limits<float>::max();

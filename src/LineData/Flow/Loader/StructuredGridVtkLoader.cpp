@@ -155,6 +155,10 @@ void StructuredGridVtkLoader::load(const std::string& dataSourceFilename, Stream
 
         splitLineString.clear();
         sgl::splitStringWhitespace(lineBuffer, splitLineString);
+        if (splitLineString.empty()) {
+            continue;
+        }
+
         if (splitLineString.front() == "BINARY") {
             isBinaryMode = true;
         } else if (splitLineString.front() == "ASCII") {

@@ -53,7 +53,9 @@ public:
      * @param points The point and data array.
      */
     void build(const std::vector<std::pair<glm::vec3, T>>& pointsAndData) override {
+#ifdef TRACY_PROFILE_TRACING
         ZoneScoped;
+#endif
 
         // Clear the table entries.
         for (std::vector<std::pair<glm::vec3, T>>& hashTableEntry : hashTableEntries) {
@@ -80,13 +82,24 @@ public:
     }
 
     /**
+     * Clear the table entries.
+     */
+    void clear() {
+        for (std::vector<std::pair<glm::vec3, T>>& hashTableEntry : hashTableEntries) {
+            hashTableEntry.clear();
+        }
+    }
+
+    /**
      * Adds the passed point to the hashed grid.
      * WARNING: This function may be less efficient than @see build if the points are added in an order suboptimal
      * for the search structure.
      * @param pointAndData The point and data to add.
      */
     void add(const std::pair<glm::vec3, T>& pointAndData) override {
+#ifdef TRACY_PROFILE_TRACING
         ZoneScoped;
+#endif
 
         size_t tableIndex = convertPointPositionToTableIndex(pointAndData.first);
         hashTableEntries.at(tableIndex).push_back(pointAndData);
@@ -100,7 +113,9 @@ public:
      */
     void findPointsAndDataInAxisAlignedBox(
             const AxisAlignedBox& box, std::vector<std::pair<glm::vec3, T>>& pointsAndData) override {
+#ifdef TRACY_PROFILE_TRACING
         ZoneScoped;
+#endif
 
         ptrdiff_t lowerGrid[3];
         ptrdiff_t upperGrid[3];
@@ -135,7 +150,35 @@ public:
         // First, find all points within the bounding box containing the search circle.
         glm::vec3 lower = center - glm::vec3(radius, radius, radius);
         glm::vec3 upper = center + glm::vec3(radius, radius, radius);
-        std::vector<std::pair<glm::vec3, T>> pointsInRect;
+        ptrdiff_t lowerGrid[3];
+        ptrdiff_t upperGrid[3];
+
+        // Compute lower and upper grid positions.
+        for (int i = 0; i < 3; i++) {
+            convertPointToGridPosition(lower, lowerGrid[0], lowerGrid[1], lowerGrid[2]);
+            convertPointToGridPosition(upper, upperGrid[0], upperGrid[1], upperGrid[2]);
+        }
+
+        // Iterate over all covered cells and filter all points out that are not within the search radius.
+        float squaredRadius = radius * radius;
+        glm::vec3 differenceVector;
+        for (ptrdiff_t z = lowerGrid[2]; z <= upperGrid[2]; z++) {
+            for (ptrdiff_t y = lowerGrid[1]; y <= upperGrid[1]; y++) {
+                for (ptrdiff_t x = lowerGrid[0]; x <= upperGrid[0]; x++) {
+                    size_t tableIndex = hashFunction(x, y, z);
+                    std::vector<std::pair<glm::vec3, T>>& hashTableEntry = hashTableEntries.at(tableIndex);
+                    for (const std::pair<glm::vec3, T>& pointAndIndex : hashTableEntry) {
+                        differenceVector = pointAndIndex.first - center;
+                        if (differenceVector.x * differenceVector.x + differenceVector.y * differenceVector.y
+                                + differenceVector.z * differenceVector.z <= squaredRadius) {
+                            pointsWithDistance.push_back(pointAndIndex);
+                        }
+                    }
+                }
+            }
+        }
+
+        /*std::vector<std::pair<glm::vec3, T>> pointsInRect;
         findPointsAndDataInAxisAlignedBox(AxisAlignedBox(lower, upper), pointsInRect);
 
         // Now, filter all points out that are not within the search radius.
@@ -147,7 +190,7 @@ public:
                     + differenceVector.z * differenceVector.z <= squaredRadius) {
                 pointsWithDistance.push_back(pointAndIndex);
             }
-        }
+        }*/
     }
 
     /**
@@ -156,7 +199,9 @@ public:
      * @return Whether there is at least one point stored in the hashed grid inside of the search radius.
      */
     bool getHasPointCloserThan(const glm::vec3& center, float radius) override {
+#ifdef TRACY_PROFILE_TRACING
         ZoneScoped;
+#endif
 
         glm::vec3 lower = center - glm::vec3(radius, radius, radius);
         glm::vec3 upper = center + glm::vec3(radius, radius, radius);

@@ -34,16 +34,25 @@
 #include "RbcBinFileLoader.hpp"
 
 void RbcBinFileLoader::load(const std::string& dataSourceFilename, StreamlineTracingGrid* grid) {
-    FILE* file = fopen(dataSourceFilename.c_str(), "rb");
-    if (!file) {
+    uint8_t* buffer = nullptr;
+    size_t length = 0;
+    bool loaded = sgl::loadFileFromSource(dataSourceFilename, buffer, length, false);
+    if (!loaded) {
         sgl::Logfile::get()->throwError(
                 "Error in RbcBinFileLoader::load: Couldn't open file \"" + dataSourceFilename + "\".");
     }
+    auto* dataField = reinterpret_cast<float*>(buffer);
 
     int xs = 1024;
     int ys = 32;
     int zs = 1024;
     float cellStep = 1.0f / 1023.0f;
+
+    if (length != size_t(xs) * size_t(ys) * size_t(zs) * sizeof(float) * 4) {
+        sgl::Logfile::get()->throwError(
+                "Error in RbcBinFileLoader::load: Inconsistent number of bytes read from file \""
+                + dataSourceFilename + "\".");
+    }
 
     int vectorFieldNumEntries = xs * ys * zs * 3;
     int scalarFieldNumEntries = xs * ys * zs;
@@ -54,15 +63,6 @@ void RbcBinFileLoader::load(const std::string& dataSourceFilename, StreamlineTra
     auto* vorticityMagnitudeField = new float[scalarFieldNumEntries];
     auto* helicityField = new float[scalarFieldNumEntries];
     auto* temperatureField = new float[scalarFieldNumEntries];
-
-    auto* dataField = new float[xs * ys * zs * 4];
-    size_t readSizeBytes = fread(dataField, sizeof(float) * 4, xs * ys * zs, file);
-    if (readSizeBytes != size_t(xs) * size_t(ys) * size_t(zs)) {
-        sgl::Logfile::get()->throwError(
-                "Error in RbcBinFileLoader::load: Inconsistent number of bytes read from file \""
-                + dataSourceFilename + "\".");
-    }
-    fclose(file);
 
     for (int z = 0; z < zs; z++) {
         for (int y = 0; y < ys; y++) {
@@ -88,5 +88,5 @@ void RbcBinFileLoader::load(const std::string& dataSourceFilename, StreamlineTra
     grid->addScalarField(vorticityMagnitudeField, "Vorticity Magnitude");
     grid->addScalarField(temperatureField, "Temperature");
 
-    delete[] dataField;
+    delete[] buffer;
 }

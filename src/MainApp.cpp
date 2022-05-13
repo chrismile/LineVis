@@ -45,6 +45,7 @@
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/FileUtils.hpp>
 #include <Utils/Regex/TransformString.hpp>
+#include <Utils/File/FileLoader.hpp>
 #include <Input/Keyboard.hpp>
 #include <Input/Mouse.hpp>
 #include <Math/Math.hpp>
@@ -913,7 +914,51 @@ void MainApp::renderGui() {
             }
 
             std::string filenameLower = boost::to_lower_copy(filename);
-            if (boost::ends_with(filenameLower, ".vtk") || boost::ends_with(filenameLower, ".bin")) {
+            bool isDatFile = boost::ends_with(filenameLower, ".dat");
+
+            /*
+             * The program supports two types of .dat file:
+             * - .dat files containing a volume description.
+             * - .dat files containing PSLs (DATA_SET_TYPE_STRESS_LINES).
+             * We try to use a good heuristic for determining the right type.
+             */
+            bool isDatVolumeFile = false;
+            if (isDatFile) {
+                if (sgl::FileUtils::get()->exists(filename)) {
+                    // If the .dat file is > 100KiB, there is no way it can be a volume descriptor file.
+                    size_t fileSize = sgl::FileUtils::get()->getFileSizeInBytes(filename);
+                    if (fileSize < 100 * 1024) {
+                        // Loading the < 100kiB file should be cheap. Load it and check the type.
+                        uint8_t* bufferDat = nullptr;
+                        size_t lengthDat = 0;
+                        bool loadedDat = sgl::loadFileFromSource(
+                                filename, bufferDat, lengthDat, false);
+                        if (!loadedDat) {
+                            sgl::Logfile::get()->throwError(
+                                    "Error in MainApp::renderGui: Couldn't open file \"" + filename + "\".");
+                        }
+                        char* fileBuffer = reinterpret_cast<char*>(bufferDat);
+                        for (size_t charPtr = 0; charPtr < lengthDat; charPtr++) {
+                            char currentChar = fileBuffer[charPtr];
+                            if (currentChar == '\n' || currentChar == '\r') {
+                                break;
+                            }
+                            // ':' is the key-value delimiter in .dat volume descriptor files.
+                            if (currentChar == ':') {
+                                isDatVolumeFile = true;
+                                break;
+                            }
+                        }
+                        delete[] bufferDat;
+                    }
+                }
+            }
+
+            if (boost::ends_with(filenameLower, ".vtk")
+                    || boost::ends_with(filenameLower, ".bin")
+                    || boost::ends_with(filenameLower, ".field")
+                    || (isDatFile && isDatVolumeFile)
+                    || boost::ends_with(filenameLower, ".raw")) {
                 selectedDataSetIndex = 1;
                 streamlineTracingRequester->setDatasetFilename(filename);
             } else if (boost::ends_with(filenameLower, ".stress")
@@ -930,7 +975,7 @@ void MainApp::renderGui() {
                         || boost::ends_with(filenameLower, ".nc")
                         || boost::ends_with(filenameLower, ".binlines")) {
                     dataSetType = DATA_SET_TYPE_FLOW_LINES;
-                } else if (boost::ends_with(filenameLower, ".dat")) {
+                } else if (isDatFile) {
                     dataSetType = DATA_SET_TYPE_STRESS_LINES;
                 } else {
                     sgl::Logfile::get()->writeError("The selected file name has an unknown extension.");

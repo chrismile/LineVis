@@ -42,8 +42,6 @@
 #include "StreamlineSeeder.hpp"
 #include "StreamlineTracingGrid.hpp"
 
-//#define TRACY_PROFILE_TRACING
-
 StreamlineTracingGrid::~StreamlineTracingGrid() {
     for (auto& it : vectorFields) {
         delete[] it.second;
@@ -375,19 +373,44 @@ bool StreamlineTracingGrid::_isTerminated(
         return true;
     }
 
+    // Check whether there is a loop.
     if (currentTrajectory.positions.size() > 1) {
-        const glm::vec3& pt0 = currentTrajectory.positions.at(0);
-        const glm::vec3& pt1 = currentTrajectory.positions.at(1);
-        glm::vec3 dir0 = pt1 - pt0;
-        float dist0 = glm::length(dir0);
-        dir0 /= dist0;
-        glm::vec3 dirNow = currentPoint - pt0;
-        float distNow = glm::length(dirNow);
-        dirNow /= distNow;
-        sgl::Plane plane0(dir0, pt0);
-        bool approachesPt0 = plane0.getDistance(currentPoint) < 0.0f;
-        if (approachesPt0 && distNow < terminationDistanceStart) {
-            return true;
+        if (!tracingSettings.useAllPointsForLoopCheck) {
+            const glm::vec3& pt0 = currentTrajectory.positions.at(0);
+            const glm::vec3& pt1 = currentTrajectory.positions.at(1);
+            glm::vec3 dir0 = pt1 - pt0;
+            float dist0 = glm::length(dir0);
+            dir0 /= dist0;
+
+            //glm::vec3 dirNow = currentPoint - pt0;
+            glm::vec3 dirNow = currentPoint - currentTrajectory.positions.back();
+            float distNow = glm::length(dirNow);
+            dirNow /= distNow;
+
+            float distToStart = glm::length(currentPoint - pt0);
+
+            sgl::Plane plane0(dir0, pt0);
+            bool approachesPt0 = plane0.getDistance(currentPoint) < 0.0f;
+            if (approachesPt0 && distToStart < terminationDistanceStart && glm::dot(dir0, dirNow) > 0.0f) {
+                return true;
+            }
+        } else {
+            closePoints.clear();
+            gridSelf->findPointsAndDataInSphere(currentPoint, terminationDistanceStart, closePoints);
+            for (auto& closePoint : closePoints) {
+                const glm::vec3& pt0 = closePoint.first;
+                const glm::vec3& dir0 = closePoint.second;
+                sgl::Plane plane0(dir0, pt0);
+
+                glm::vec3 dirNow = currentPoint - currentTrajectory.positions.back();
+                float distNow = glm::length(dirNow);
+                dirNow /= distNow;
+
+                bool approachesPt0 = plane0.getDistance(currentPoint) < 0.0f;
+                if (approachesPt0 && distNow < terminationDistanceStart && glm::dot(dir0, dirNow) > 0.0f) {
+                    return true;
+                }
+            }
         }
     }
 
@@ -404,6 +427,11 @@ bool StreamlineTracingGrid::_isTerminated(
         if (seeder->isPointTerminated(currentPoint)) {
             return true;
         }
+    }
+
+    if (tracingSettings.useAllPointsForLoopCheck && !currentTrajectory.positions.empty()) {
+        glm::vec3 dir = glm::normalize(currentPoint - currentTrajectory.positions.back());
+        gridSelf->add(std::make_pair(currentPoint, dir));
     }
 
     return false;
@@ -436,6 +464,10 @@ void StreamlineTracingGrid::_traceStreamlineDecreasingHelicity(
         iterationCounter++;
         segmentLength += glm::length(currentPoint - lastPoint);
         lastPoint = currentPoint;
+    }
+
+    if (tracingSettings.terminationCheckType != TerminationCheckType::NAIVE) {
+        gridSelf->clear();
     }
 }
 
@@ -472,6 +504,11 @@ void StreamlineTracingGrid::_traceStreamribbonsDecreasingHelicity(
     seeder->reset(tracingSettings, this);
 
     float dt = 1.0f / maxVectorMagnitude * std::min(dx, std::min(dy, dz)) * tracingSettings.timeStepScale;
+
+    if (tracingSettings.terminationCheckType != TerminationCheckType::NAIVE) {
+        gridSelf = new HashedGrid<glm::vec3>(
+                tracingSettings.maxNumIterations + 17, std::min(dx, std::min(dy, dz)));
+    }
 
     while (seeder->hasNextPoint()) {
         glm::vec3 seedPoint = seeder->getNextPoint();
@@ -537,6 +574,10 @@ void StreamlineTracingGrid::_traceStreamribbonsDecreasingHelicity(
             }
             seeder->addFinishedTrajectory(trajectory);
         }
+    }
+
+    if (tracingSettings.terminationCheckType != TerminationCheckType::NAIVE) {
+        delete gridSelf;
     }
 }
 

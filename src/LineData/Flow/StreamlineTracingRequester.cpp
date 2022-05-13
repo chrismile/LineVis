@@ -48,6 +48,8 @@
 #include "StreamlineTracingGrid.hpp"
 #include "Loader/StructuredGridVtkLoader.hpp"
 #include "Loader/RbcBinFileLoader.hpp"
+#include "Loader/FieldFileLoader.hpp"
+#include "Loader/DatRawFileLoader.hpp"
 #include "Loaders/BinLinesLoader.hpp"
 #include "StreamlineTracingRequester.hpp"
 
@@ -133,14 +135,7 @@ void StreamlineTracingRequester::renderGui() {
             }
             if (selectedGridDataSetIndex >= 2) {
                 const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 2);
-#ifdef _WIN32
-                bool isAbsolutePath =
-                        (pathString.size() > 1 && pathString.at(1) == ':')
-                        || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
-#else
-                bool isAbsolutePath =
-                        boost::starts_with(pathString, "/");
-#endif
+                bool isAbsolutePath = sgl::FileUtils::get()->getIsPathAbsolute(pathString);
                 if (isAbsolutePath) {
                     gridDataSetFilename = pathString;
                 } else {
@@ -226,6 +221,9 @@ void StreamlineTracingRequester::renderGui() {
                     changed = true;
                 }
             }
+            if (ImGui::Checkbox("Loop Check All Points", &guiTracingSettings.useAllPointsForLoopCheck)) {
+                changed = true;
+            }
             if (ImGui::Checkbox("Show Boundary Mesh", &guiTracingSettings.showSimulationGridOutline)) {
                 changed = true;
             }
@@ -307,14 +305,7 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
             if (datasetName == gridDataSetNames.at(i)) {
                 selectedGridDataSetIndex = i + 2;
                 const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 2);
-#ifdef _WIN32
-                bool isAbsolutePath =
-                    (pathString.size() > 1 && pathString.at(1) == ':')
-                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
-#else
-                bool isAbsolutePath =
-                        boost::starts_with(pathString, "/");
-#endif
+                bool isAbsolutePath = sgl::FileUtils::get()->getIsPathAbsolute(pathString);
                 if (isAbsolutePath) {
                     gridDataSetFilename = pathString;
                 } else {
@@ -444,6 +435,7 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
     changed |= settings.getValueOpt("termination_distance_self", guiTracingSettings.terminationDistanceSelf);
     changed |= settings.getValueOpt("min_line_length", guiTracingSettings.minimumLength);
     changed |= settings.getValueOpt("min_separation_distance", guiTracingSettings.minimumSeparationDistance);
+    changed |= settings.getValueOpt("use_all_points_for_loop_check", guiTracingSettings.useAllPointsForLoopCheck);
     changed |= settings.getValueOpt("show_boundary_mesh", guiTracingSettings.showSimulationGridOutline);
     changed |= settings.getValueOpt("smooth_boundary", guiTracingSettings.smoothedSimulationGridOutline);
     changed |= settings.getValueOpt("use_helicity", guiTracingSettings.useHelicity);
@@ -470,14 +462,7 @@ void StreamlineTracingRequester::setDatasetFilename(const std::string& newDatase
         if (boost::filesystem::equivalent(newDataSetPath, currentDataSetPath)) {
             selectedGridDataSetIndex = i + 2;
             const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 2);
-#ifdef _WIN32
-            bool isAbsolutePath =
-                    (pathString.size() > 1 && pathString.at(1) == ':')
-                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
-#else
-            bool isAbsolutePath =
-                    boost::starts_with(pathString, "/");
-#endif
+            bool isAbsolutePath = sgl::FileUtils::get()->getIsPathAbsolute(pathString);
             if (isAbsolutePath) {
                 gridDataSetFilename = pathString;
             } else {
@@ -619,6 +604,11 @@ void StreamlineTracingRequester::traceLines(
             StructuredGridVtkLoader::load(request.dataSourceFilename, cachedGrid);
         } else if (boost::ends_with(request.dataSourceFilename, ".bin")) {
             RbcBinFileLoader::load(request.dataSourceFilename, cachedGrid);
+        } else if (boost::ends_with(request.dataSourceFilename, ".field")) {
+            FieldFileLoader::load(request.dataSourceFilename, cachedGrid);
+        } else if (boost::ends_with(request.dataSourceFilename, ".dat")
+                || boost::ends_with(request.dataSourceFilename, ".raw")) {
+            DatRawFileLoader::load(request.dataSourceFilename, cachedGrid);
         }
 
         {

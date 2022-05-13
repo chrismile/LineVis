@@ -127,6 +127,7 @@ struct StreamlineTracingSettings {
     StreamlineIntegrationDirection integrationDirection = StreamlineIntegrationDirection::BOTH;
     int vectorFieldIndex = 0;
     AbcFlowGenerator abcFlowGenerator;
+    bool useAllPointsForLoopCheck = false;
 
     // For flowPrimitives == FlowPrimitives::STREAMRIBBONS.
     bool useHelicity = true;
