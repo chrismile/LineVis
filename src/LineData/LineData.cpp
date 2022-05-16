@@ -634,8 +634,8 @@ void LineData::splitTriangleIndices(
     #pragma omp parallel for shared(tubeTriangleVertexDataList) default(none) reduction(min: minX) \
     reduction(min: minY)  reduction(min: minZ) reduction(max: maxX) reduction(max: maxY) reduction(max: maxZ)
 #endif
-    for (const auto& vertexData : tubeTriangleVertexDataList) {
-        const glm::vec3& pt = vertexData.vertexPosition;
+    for (size_t i = 0; i < tubeTriangleVertexDataList.size(); i++) {
+        const glm::vec3& pt = tubeTriangleVertexDataList.at(i).vertexPosition;
         minX = std::min(minX, pt.x);
         minY = std::min(minY, pt.y);
         minZ = std::min(minZ, pt.z);
