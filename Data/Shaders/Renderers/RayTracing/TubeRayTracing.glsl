@@ -298,7 +298,7 @@ void main() {
 #ifdef USE_INSTANCE_TRIANGLE_INDEX_OFFSET
     // gl_InstanceID and gl_InstanceCustomIndexEXT should be the same, as hull instances are always specified last.
     uint instanceTriangleIndexOffset = instanceTriangleIndexOffsets[gl_InstanceID];
-    uvec3 triangleIndices = indexBuffer[0 + gl_PrimitiveID];
+    uvec3 triangleIndices = indexBuffer[instanceTriangleIndexOffset + gl_PrimitiveID];
 #else
     uvec3 triangleIndices = indexBuffer[gl_PrimitiveID];
 #endif

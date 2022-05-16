@@ -567,10 +567,12 @@ std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> LineData::getTubeTrian
      */
     bool needsSplit = getBaseSizeInBytes() > batchSizeLimit;
     //|| tubeTriangleRenderData.vertexBuffer->getSizeInBytes() > (1024 * 1024 * 256);
+    generateSplitTriangleData = true;//needsSplit;
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     TubeTriangleRenderData tubeTriangleRenderData = getLinePassTubeTriangleMeshRenderData(
             false, true);
+    generateSplitTriangleData = false;
 
     if (!tubeTriangleRenderData.indexBuffer) {
         return tubeTriangleBottomLevelASes;
@@ -585,70 +587,118 @@ std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> LineData::getTubeTrian
     sgl::Logfile::get()->writeInfo(
             "Input indices size: " + sgl::toString(double(inputIndicesSize) / 1024.0 / 1024.0) + "MiB");
 
-    // TODO: Enable this again once a good splitting strategy was found.
-    /*if (needsSplit) {
-        size_t numIndicesTotal = 0;
-        size_t numVerticesTotal = 0;
-        for (const LineStatistics& lineInfo : lineStatistics) {
-            numIndicesTotal += lineInfo.numIndices;
-            numVerticesTotal += lineInfo.numVertices;
-        }
-        assert(numIndicesTotal == tubeTriangleRenderData.indexBuffer->getSizeInBytes() / sizeof(uint32_t));
-        assert(numVerticesTotal == tubeTriangleRenderData.vertexBuffer->getSizeInBytes() / sizeof(TubeTriangleVertexData));
+    VkBuildAccelerationStructureFlagsKHR flags =
+            VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
+            | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
 
+    if (needsSplit && !tubeTriangleSplitData.numBatchIndices.empty()) {
         std::vector<sgl::vk::BottomLevelAccelerationStructureInputPtr> blasInputs;
-        size_t batchNumIndices = 0;
+        blasInputs.reserve(tubeTriangleSplitData.numBatchIndices.size());
         uint32_t batchIndexBufferOffset = 0;
-        for (const LineStatistics& lineInfo : lineStatistics) {
-            batchNumIndices += lineInfo.numIndices;
-
-            if (batchNumIndices > batchSizeLimit) {
-                auto asTubeInput = new sgl::vk::TrianglesAccelerationStructureInput(
-                        device, VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR);
-                asTubeInput->setIndexBufferOffset(
-                        tubeTriangleRenderData.indexBuffer,
-                        batchIndexBufferOffset, batchNumIndices);
-                asTubeInput->setVertexBuffer(
-                        tubeTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
-                        sizeof(TubeTriangleVertexData));
-                auto asTubeInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asTubeInput);
-                blasInputs.push_back(asTubeInputPtr);
-
-                batchIndexBufferOffset += uint32_t(batchNumIndices);
-                batchNumIndices = 0;
-            }
+        for (const uint32_t& batchNumIndices : tubeTriangleSplitData.numBatchIndices) {
+            auto asTubeInput = new sgl::vk::TrianglesAccelerationStructureInput(
+                    device, VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR);
+            asTubeInput->setIndexBufferOffset(
+                    tubeTriangleRenderData.indexBuffer,
+                    batchIndexBufferOffset * sizeof(uint32_t), batchNumIndices);
+            asTubeInput->setVertexBuffer(
+                    tubeTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
+                    sizeof(TubeTriangleVertexData));
+            auto asTubeInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asTubeInput);
+            blasInputs.push_back(asTubeInputPtr);
+            batchIndexBufferOffset += uint32_t(batchNumIndices);
         }
+        tubeTriangleBottomLevelASes = sgl::vk::buildBottomLevelAccelerationStructuresFromInputListBatched(
+                blasInputs, flags, true);
+    } else {
+        auto asTubeInput = new sgl::vk::TrianglesAccelerationStructureInput(
+                device, VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR);
+        asTubeInput->setIndexBuffer(tubeTriangleRenderData.indexBuffer);
+        asTubeInput->setVertexBuffer(
+                tubeTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
+                sizeof(TubeTriangleVertexData));
+        auto asTubeInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asTubeInput);
         tubeTriangleBottomLevelASes = sgl::vk::buildBottomLevelAccelerationStructuresFromInputList(
-                blasInputs,
-                VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
-                | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR, true);
-    } else {*/
-    auto asTubeInput = new sgl::vk::TrianglesAccelerationStructureInput(
-            device, VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR);
-    asTubeInput->setIndexBuffer(tubeTriangleRenderData.indexBuffer);
-    asTubeInput->setVertexBuffer(
-            tubeTriangleRenderData.vertexBuffer, VK_FORMAT_R32G32B32_SFLOAT,
-            sizeof(TubeTriangleVertexData));
-    auto asTubeInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asTubeInput);
-
-    /*
-     * For now, disable compaction support for large data sets, as NVIDIA and AMD drivers seem to easily trigger TDR
-     * when not building smaller chunks of data.
-     * TODO: Implement splitting.
-     */
-    VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
-    if (!needsSplit) {
-        flags |= VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR;
+                { asTubeInputPtr }, flags, true);
     }
-    tubeTriangleBottomLevelASes = sgl::vk::buildBottomLevelAccelerationStructuresFromInputListBatched(
-            { asTubeInputPtr }, flags, true);
-    //tubeTriangleBottomLevelASes = sgl::vk::buildBottomLevelAccelerationStructuresFromInputListBatched(
-    //        { asTubeInputPtr },
-    //        VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
-    //        | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR, true);
-    //}
 
     return tubeTriangleBottomLevelASes;
+}
+
+void LineData::splitTriangleIndices(
+        std::vector<uint32_t>& tubeTriangleIndices,
+        const std::vector<TubeTriangleVertexData> &tubeTriangleVertexDataList) {
+    sgl::AABB3 geometryAABB;
+    float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX, maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
+#if _OPENMP >= 201107
+    #pragma omp parallel for shared(tubeTriangleVertexDataList) default(none) reduction(min: minX) \
+    reduction(min: minY)  reduction(min: minZ) reduction(max: maxX) reduction(max: maxY) reduction(max: maxZ)
+#endif
+    for (const auto& vertexData : tubeTriangleVertexDataList) {
+        const glm::vec3& pt = vertexData.vertexPosition;
+        minX = std::min(minX, pt.x);
+        minY = std::min(minY, pt.y);
+        minZ = std::min(minZ, pt.z);
+        maxX = std::max(maxX, pt.x);
+        maxY = std::max(maxY, pt.y);
+        maxZ = std::max(maxZ, pt.z);
+    }
+    geometryAABB.min = glm::vec3(minX, minY, minZ);
+    geometryAABB.max = glm::vec3(maxX, maxY, maxZ);
+
+    // Assume here that in all subdivisions we have the same amount of data.
+    size_t numIndicesPerBatch = batchSizeLimit;
+
+    int numBatches = sgl::nextPowerOfTwo(int(tubeTriangleIndices.size() / numIndicesPerBatch));
+    numBatches = std::max(numBatches, 1);
+    auto numSubdivisions = sgl::intlog2(numBatches);
+    std::vector<std::vector<uint32_t>> batchIndicesList;
+    batchIndicesList.resize(numBatches);
+
+    tubeTriangleSplitData = {};
+    for (uint32_t triangleIdx = 0; triangleIdx < tubeTriangleIndices.size(); triangleIdx += 3) {
+        uint32_t idx0 = tubeTriangleIndices.at(triangleIdx);
+        uint32_t idx1 = tubeTriangleIndices.at(triangleIdx + 1);
+        uint32_t idx2 = tubeTriangleIndices.at(triangleIdx + 2);
+        glm::vec3 p0 = tubeTriangleVertexDataList.at(idx0).vertexPosition;
+        glm::vec3 p1 = tubeTriangleVertexDataList.at(idx1).vertexPosition;
+        glm::vec3 p2 = tubeTriangleVertexDataList.at(idx2).vertexPosition;
+        glm::vec3 triangleCentroid = (p0 + p1 + p2) / 3.0f;
+
+        sgl::AABB3 regionAABB = geometryAABB;
+        //const int k = 3; // Number of dimensions
+        int batchIdx = 0;
+        for (int depth = 0; depth < numSubdivisions; depth++) {
+            // Assign axis depending on the largest axis of extent of regionAABB.
+            //int axis = depth % k;
+            glm::vec3 dimensions = regionAABB.getDimensions();
+            int axis;
+            if (dimensions.x > dimensions.y && dimensions.x > dimensions.z) {
+                axis = 0;
+            } else if (dimensions.y > dimensions.z) {
+                axis = 1;
+            } else {
+                axis = 2;
+            }
+            float splitPosition = (regionAABB.min[axis] + regionAABB.max[axis]) / 2.0f;
+            if (triangleCentroid[axis] <= splitPosition) {
+                regionAABB.max[axis] = splitPosition;
+            } else {
+                regionAABB.min[axis] = splitPosition;
+                batchIdx += 1 << (numSubdivisions - depth - 1);
+            }
+        }
+        std::vector<uint32_t>& batchIndices = batchIndicesList.at(batchIdx);
+        batchIndices.push_back(idx0);
+        batchIndices.push_back(idx1);
+        batchIndices.push_back(idx2);
+    }
+
+    tubeTriangleIndices.clear();
+    for (std::vector<uint32_t>& batchIndices : batchIndicesList) {
+        tubeTriangleSplitData.numBatchIndices.push_back(batchIndices.size());
+        tubeTriangleIndices.insert(tubeTriangleIndices.end(), batchIndices.begin(), batchIndices.end());
+    }
 }
 
 sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeAabbBottomLevelAS() {

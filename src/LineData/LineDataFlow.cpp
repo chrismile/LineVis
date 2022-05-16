@@ -1660,6 +1660,10 @@ TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderData(bool 
         return vulkanTubeTriangleRenderData;
     }
 
+    if (generateSplitTriangleData) {
+        splitTriangleIndices(tubeTriangleIndices, tubeTriangleVertexDataList);
+    }
+
     uint32_t indexBufferFlags =
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
     uint32_t vertexBufferFlags =
@@ -1692,6 +1696,20 @@ TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderData(bool 
         vulkanTubeTriangleRenderData.multiVarAttributeDataBuffer = std::make_shared<sgl::vk::Buffer>(
                 device, multiVarAttributeData.size() * sizeof(float), multiVarAttributeData.data(),
                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VMA_MEMORY_USAGE_GPU_ONLY);
+    }
+
+    if (generateSplitTriangleData) {
+        std::vector<uint32_t> instanceTriangleIndexOffsets;
+        uint32_t batchIndexBufferOffset = 0;
+        for (const uint32_t& batchNumIndices : tubeTriangleSplitData.numBatchIndices) {
+            instanceTriangleIndexOffsets.push_back(batchIndexBufferOffset);
+            batchIndexBufferOffset += uint32_t(batchNumIndices) / 3u;
+        }
+        vulkanTubeTriangleRenderData.instanceTriangleIndexOffsetBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, instanceTriangleIndexOffsets.size() * sizeof(uint32_t),
+                instanceTriangleIndexOffsets.data(),
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                 VMA_MEMORY_USAGE_GPU_ONLY);
     }
 

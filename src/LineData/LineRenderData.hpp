@@ -207,4 +207,8 @@ struct HullTriangleRenderData {
     sgl::vk::BufferPtr vertexBuffer; // HullTriangleVertexData objects.
 };
 
+struct TubeTriangleSplitData {
+    std::vector<uint32_t> numBatchIndices;
+};
+
 #endif //LINEVIS_LINERENDERDATA_HPP

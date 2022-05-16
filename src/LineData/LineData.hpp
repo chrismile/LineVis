@@ -328,12 +328,16 @@ protected:
     std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> getTubeTriangleBottomLevelAS();
     sgl::vk::BottomLevelAccelerationStructurePtr getTubeAabbBottomLevelAS();
     sgl::vk::BottomLevelAccelerationStructurePtr getHullTriangleBottomLevelAS();
+    void splitTriangleIndices(
+            std::vector<uint32_t>& tubeTriangleIndices,
+            const std::vector<TubeTriangleVertexData> &tubeTriangleVertexDataList);
     TubeTriangleRenderData vulkanTubeTriangleRenderData;
+    TubeTriangleSplitData tubeTriangleSplitData;
     TubeAabbRenderData vulkanTubeAabbRenderData;
     HullTriangleRenderData vulkanHullTriangleRenderData;
     bool vulkanTubeTriangleRenderDataIsRayTracing = false;
-    //const size_t batchSizeLimit = 1024 * 1024;
     const size_t batchSizeLimit = 1024 * 1024 * 32;
+    bool generateSplitTriangleData = false;
     std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> tubeTriangleBottomLevelASes;
     sgl::vk::BottomLevelAccelerationStructurePtr tubeAabbBottomLevelAS;
     sgl::vk::BottomLevelAccelerationStructurePtr hullTriangleBottomLevelAS;
