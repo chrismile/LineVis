@@ -1617,6 +1617,8 @@ TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderData(bool 
         multiVarAttributeData.reserve(attributeNames.size() * linePointReferences.size());
     }
     float rotation = 0.0f; //< Used if useRotatingHelicityBands is set to true.
+    uint32_t lineStartIndex = 0;
+    uint32_t lastTrajectoryIndex = 0;
     for (size_t i = 0; i < linePointReferences.size(); i++) {
         LinePointReference& linePointReference = linePointReferences.at(i);
         LinePointDataUnified& tubeTriangleLinePointData = tubeTriangleLinePointDataList.at(i);
@@ -1627,6 +1629,13 @@ TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderData(bool 
         tubeTriangleLinePointData.lineAttribute = attributes.at(linePointReference.linePointIndex);
         tubeTriangleLinePointData.lineTangent = lineTangents.at(i);
         tubeTriangleLinePointData.lineNormal = lineNormals.at(i);
+
+        if (lastTrajectoryIndex != linePointReference.trajectoryIndex) {
+            lastTrajectoryIndex = linePointReference.trajectoryIndex;
+            lineStartIndex = uint32_t(i);
+        }
+        tubeTriangleLinePointData.lineStartIndex = lineStartIndex;
+
         if (useRotatingHelicityBands) {
             tubeTriangleLinePointData.lineRotation = rotation;
             float helicity = trajectory.attributes.at(helicityAttributeIndex).at(

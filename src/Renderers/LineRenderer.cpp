@@ -164,8 +164,18 @@ void LineRenderer::setGraphicsPipelineInfo(
 
 void LineRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) {
     if (useDepthCues) {
-        renderData->setStaticBufferOptional(
-                depthMinMaxBuffers[outputDepthMinMaxBufferIndex], "DepthMinMaxBuffer");
+        if (!depthMinMaxBuffers[outputDepthMinMaxBufferIndex]
+                && renderData->getShaderStages()->hasDescriptorBinding(0, "DepthMinMaxBuffer")) {
+            if (!dummyBuffer) {
+                dummyBuffer = std::make_shared<sgl::vk::Buffer>(
+                        renderer->getDevice(), sizeof(glm::vec4),
+                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+            }
+            renderData->setStaticBufferOptional(dummyBuffer, "DepthMinMaxBuffer");
+        } else {
+            renderData->setStaticBufferOptional(
+                    depthMinMaxBuffers[outputDepthMinMaxBufferIndex], "DepthMinMaxBuffer");
+        }
     }
     if (useAmbientOcclusion && ambientOcclusionBaker) {
         if (ambientOcclusionBaker->getIsStaticPrebaker()) {

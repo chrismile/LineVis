@@ -420,6 +420,20 @@ void computeFragmentColor(
             smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),
             fragmentColor.a * coverage);
 
+    // Code for debugging acceleration structure instances.
+    // https://colorbrewer2.org/#type=qualitative&scheme=Set1&n=8
+    /*vec3 colorMap[8] = {
+        vec3(228.0, 26.0 , 28.0 ) / 255.0,
+        vec3(55.0 , 126.0, 184.0) / 255.0,
+        vec3(77.0 , 175.0, 74.0 ) / 255.0,
+        vec3(152.0, 78.0 , 163.0) / 255.0,
+        vec3(255.0, 127.0, 0.0  ) / 255.0,
+        vec3(255.0, 255.0, 51.0 ) / 255.0,
+        vec3(166.0, 86.0 , 40.0 ) / 255.0,
+        vec3(247.0, 129.0, 191.0) / 255.0
+    };
+    colorOut.rgb = colorMap[gl_InstanceID % 8];*/
+
 #ifdef VISUALIZE_SEEDING_PROCESS
     // For letting lines appear one after another in an animation showing the used seeding technique.
     if (int(lineAppearanceOrder) > currentSeedIdx) {

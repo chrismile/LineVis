@@ -2546,6 +2546,8 @@ TubeTriangleRenderData LineDataStress::getLinePassTubeTriangleMeshRenderData(boo
             tubeTriangleStressLinePointPrincipalStressDataList.resize(offset + linePointReferences.size());
         }
 #endif
+        uint32_t lineStartIndex = 0;
+        uint32_t lastTrajectoryIndex = 0;
         for (size_t ptIdx = 0; ptIdx < linePointReferences.size(); ptIdx++) {
             LinePointReference& linePointReference = linePointReferences.at(ptIdx);
             LinePointDataUnified& tubeTriangleLinePointData = tubeTriangleLinePointDataList.at(offset + ptIdx);
@@ -2559,6 +2561,12 @@ TubeTriangleRenderData LineDataStress::getLinePassTubeTriangleMeshRenderData(boo
             tubeTriangleLinePointData.lineAttribute = attributes.at(linePointReference.linePointIndex);
             tubeTriangleLinePointData.lineTangent = lineTangents.at(ptIdx);
             tubeTriangleLinePointData.lineNormal = lineNormals.at(ptIdx);
+
+            if (lastTrajectoryIndex != linePointReference.trajectoryIndex) {
+                lastTrajectoryIndex = linePointReference.trajectoryIndex;
+                lineStartIndex = uint32_t(i);
+            }
+            tubeTriangleLinePointData.lineStartIndex = lineStartIndex;
 
             tubeTriangleStressLinePointData.linePrincipalStressIndex = uint32_t(psIdx);
             tubeTriangleStressLinePointData.lineLineHierarchyLevel =

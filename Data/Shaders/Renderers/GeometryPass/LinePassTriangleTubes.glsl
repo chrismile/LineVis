@@ -168,9 +168,38 @@ void main() {
     interpolationFactorLine = float(linePointIdx - linePointData.lineStartIndex);
     fragmentVertexIdUint = linePointData.lineStartIndex;//linePointIdx;
 #endif
-#ifdef USE_ROTATING_HELICITY_BANDS
+
+#if defined(USE_ROTATING_HELICITY_BANDS) && defined(USE_CAPPED_TUBES)
+    float fragmentRotationAdapted = linePointData.lineRotation;
+    if (bitfieldExtract(vertexData.vertexLinePointIndex, 31, 1) > 0u) {
+        float fragmentRotationDelta = 0.0;
+        float segmentLength = 1.0;
+        vec3 planeNormal = vec3(0.0);
+        LinePointData linePointDataOther;
+        bool found = false;
+        if (vertexLinePointIndex0 != 0) {
+            linePointDataOther = linePoints[vertexLinePointIndex0 - 1];
+            found = linePointDataOther.lineStartIndex == linePointData.lineStartIndex;
+            fragmentRotationDelta = linePointData.lineRotation - linePointDataOther.lineRotation;
+            planeNormal = linePointData.linePosition - linePointDataOther.linePosition;
+        }
+        if (!found) {
+            linePointDataOther = linePoints[vertexLinePointIndex0 + 1];
+            fragmentRotationDelta = linePointData.lineRotation - linePointDataOther.lineRotation;
+            planeNormal = linePointData.linePosition - linePointDataOther.linePosition;
+        }
+        segmentLength = length(planeNormal);
+        planeNormal /= segmentLength;
+        //planeNormal = linePointData.lineTangent;
+        float planeDist = -dot(planeNormal, linePointData.linePosition);
+        float distToPlane = dot(planeNormal, fragmentPositionWorld) + planeDist;
+        fragmentRotationAdapted += fragmentRotationDelta * distToPlane / segmentLength;
+    }
+    fragmentRotation = fragmentRotationAdapted;
+#elif defined(USE_ROTATING_HELICITY_BANDS)
     fragmentRotation = linePointData.lineRotation;
 #endif
+
     fragmentAttribute = linePointData.lineAttribute;
     fragmentTangent = linePointData.lineTangent;
 

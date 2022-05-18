@@ -364,6 +364,33 @@ void main() {
             barycentricCoordinates);
 #endif
 
+#if defined(USE_ROTATING_HELICITY_BANDS) && defined(USE_CAPPED_TUBES)
+    if (isCap) {
+        float fragmentRotationDelta = 0.0;
+        float segmentLength = 1.0;
+        vec3 planeNormal = vec3(0.0);
+        LinePointData linePointDataOther;
+        bool found = false;
+        if (vertexLinePointIndex0 != 0) {
+            linePointDataOther = linePoints[vertexLinePointIndex0 - 1];
+            found = linePointDataOther.lineStartIndex == linePointData0.lineStartIndex;
+            fragmentRotationDelta = linePointData0.lineRotation - linePointDataOther.lineRotation;
+            planeNormal = linePointData0.linePosition - linePointDataOther.linePosition;
+        }
+        if (!found) {
+            linePointDataOther = linePoints[vertexLinePointIndex0 + 1];
+            fragmentRotationDelta = linePointData0.lineRotation - linePointDataOther.lineRotation;
+            planeNormal = linePointData0.linePosition - linePointDataOther.linePosition;
+        }
+        segmentLength = length(planeNormal);
+        planeNormal /= segmentLength;
+        //planeNormal = linePointData0.lineTangent;
+        float planeDist = -dot(planeNormal, linePointData0.linePosition);
+        float distToPlane = dot(planeNormal, fragmentPositionWorld) + planeDist;
+        fragmentRotation += fragmentRotationDelta * distToPlane / segmentLength;
+    }
+#endif
+
 #ifdef STRESS_LINE_DATA
     StressLinePointData stressLinePointData0 = stressLinePoints[vertexLinePointIndex0];
     uint principalStressIndex = stressLinePointData0.linePrincipalStressIndex;
