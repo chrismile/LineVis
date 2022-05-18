@@ -135,7 +135,7 @@ These files then appear with their specified name in the menu "File > Datasets".
 the folder `Data/LineDataSets/` (unless they are global, like `C:/path/file.dat` or `/path/file.dat`).
 
 Supported formats currently are:
-- .obj, .ncf (NetCDF format), and the custom .binlines format for flow lines and ribbons.
+- .obj, .nc (NetCDF format), and the custom .binlines format for flow lines and ribbons.
 - .dat files for principal stress lines (PSLs), stress ribbons and hyperstreamlines.
 
 The format of the .obj files is expected to be as follows.
@@ -161,7 +161,7 @@ The repository of the backend can be found here: https://github.com/Junpeng-Wang
 
 3D-TSV is a visual analysis tool for the exploration of the principal stress directions in 3D solids under load.
 It was created for the paper "3D-TSV: The 3D Trajectory-based Stress Visualizer" by Junpeng Wang, Christoph Neuhauser,
-Jun Wu, Xifeng Gao and Rüdiger Westermann (to be published).
+Jun Wu, Xifeng Gao and Rüdiger Westermann (https://www.sciencedirect.com/science/article/pii/S0965997822000552).
 
 Under `Data/LineDataSets/mesh.json`, available simulation meshes can be specified. For example, when using the sample
 meshes of 3D-TSV, the following file content can be specified:
