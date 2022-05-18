@@ -37,7 +37,8 @@ layout(binding = LINE_UNIFORM_DATA_BUFFER_BINDING) uniform LineUniformDataBuffer
     float depthCueStrength;
     float ambientOcclusionStrength;
     float ambientOcclusionGamma;
-    float lineUniformDataPadding0, lineUniformDataPadding1;
+    float separatorBaseWidth;
+    float lineUniformDataPadding;
 
     // Pre-baked ambient occlusion settings (STATIC_AMBIENT_OCCLUSION_PREBAKING).
     uint numAoTubeSubdivisions;

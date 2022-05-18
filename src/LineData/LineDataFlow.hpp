@@ -162,6 +162,8 @@ protected:
     int helicityAttributeIndex = -1;
     bool hasHelicity = false;
     static bool useRotatingHelicityBands;
+    static bool useUniformTwistLineWidth;
+    static float separatorWidth;
     float helicityRotationFactor = 1.0f;
     float maxHelicity = 0.0f;
 

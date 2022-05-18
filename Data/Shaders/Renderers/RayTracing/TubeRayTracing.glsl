@@ -374,14 +374,12 @@ void main() {
         if (vertexLinePointIndex0 != 0) {
             linePointDataOther = linePoints[vertexLinePointIndex0 - 1];
             found = linePointDataOther.lineStartIndex == linePointData0.lineStartIndex;
-            fragmentRotationDelta = linePointData0.lineRotation - linePointDataOther.lineRotation;
-            planeNormal = linePointData0.linePosition - linePointDataOther.linePosition;
         }
         if (!found) {
             linePointDataOther = linePoints[vertexLinePointIndex0 + 1];
-            fragmentRotationDelta = linePointData0.lineRotation - linePointDataOther.lineRotation;
-            planeNormal = linePointData0.linePosition - linePointDataOther.linePosition;
         }
+        fragmentRotationDelta = linePointData0.lineRotation - linePointDataOther.lineRotation;
+        planeNormal = linePointData0.linePosition - linePointDataOther.linePosition;
         segmentLength = length(planeNormal);
         planeNormal /= segmentLength;
         //planeNormal = linePointData0.lineTangent;
@@ -389,6 +387,25 @@ void main() {
         float distToPlane = dot(planeNormal, fragmentPositionWorld) + planeDist;
         fragmentRotation += fragmentRotationDelta * distToPlane / segmentLength;
     }
+#endif
+
+#if defined(USE_ROTATING_HELICITY_BANDS) && defined(UNIFORM_HELICITY_BAND_WIDTH)
+    float rotDx;
+    float rotDy;
+    bool found = false;
+    LinePointData linePointDataOther;
+    if (vertexLinePointIndex0 != 0) {
+        linePointDataOther = linePoints[vertexLinePointIndex0 - 1];
+        found = linePointDataOther.lineStartIndex == linePointData0.lineStartIndex;
+        rotDy = linePointData0.lineRotation - linePointDataOther.lineRotation;
+    }
+    if (!found) {
+        linePointDataOther = linePoints[vertexLinePointIndex0 + 1];
+        rotDy = linePointDataOther.lineRotation - linePointData0.lineRotation;
+    }
+    rotDx = length(linePointData0.linePosition - linePointDataOther.linePosition);
+    // Space conversion world <-> surface: circumference / arc length == M_PI * lineWidth / (2.0 * M_PI) == 0.5 * lineWidth
+    float rotationSeparatorScale = cos(atan(rotDy * 0.5 * lineWidth, rotDx));
 #endif
 
 #ifdef STRESS_LINE_DATA
@@ -433,6 +450,9 @@ void main() {
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
             fragmentRotation,
+#endif
+#if defined(USE_ROTATING_HELICITY_BANDS) && defined(UNIFORM_HELICITY_BAND_WIDTH)
+            rotationSeparatorScale,
 #endif
 #ifdef STRESS_LINE_DATA
             principalStressIndex, lineAppearanceOrder,
@@ -544,7 +564,7 @@ layout(std430, binding = 3) readonly buffer BoundingBoxLinePointIndexBuffer {
 };
 
 void main() {
-    const float lineRadius = lineWidth / 2.0;
+    const float lineRadius = lineWidth * 0.5;
 
     uvec2 linePointIndices = boundingBoxLinePointIndices[gl_PrimitiveID];
     vec3 lineSegmentPoint0 = linePoints[linePointIndices.x].linePosition;

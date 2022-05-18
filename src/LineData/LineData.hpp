@@ -364,7 +364,8 @@ protected:
         float depthCueStrength = 0.0f;
         float ambientOcclusionStrength = 0.0f;
         float ambientOcclusionGamma = 1.0f;
-        float lineUniformDataPadding0 = 0, lineUniformDataPadding1 = 0;
+        float separatorBaseWidth = 0.2f;
+        float lineUniformDataPadding = 0.0f;
 
         // Pre-baked ambient occlusion settings (STATIC_AMBIENT_OCCLUSION_PREBAKING).
         uint32_t numAoTubeSubdivisions = 0;

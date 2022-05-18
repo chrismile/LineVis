@@ -42,6 +42,8 @@
 
 bool LineDataFlow::useRibbons = true;
 bool LineDataFlow::useRotatingHelicityBands = false;
+bool LineDataFlow::useUniformTwistLineWidth = true;
+float LineDataFlow::separatorWidth = 0.2f;
 
 LineDataFlow::LineDataFlow(sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_FLOW_LINES),
@@ -117,6 +119,12 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                 setNumSubdivisionsManually = true;
             }
 
+            if (useRotatingHelicityBands && propertyEditor.addCheckbox(
+                    "Uniform Twist Lines", &useUniformTwistLineWidth)) {
+                reRender = true;
+                shallReloadGatherShader = true;
+            }
+
             if (propertyEditor.addCheckbox("Multi-Var Rendering", &useMultiVarRendering)) {
                 dirty = true;
                 shallReloadGatherShader = true;
@@ -167,6 +175,11 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
 
                     propertyEditor.addEndCombo();
                 }
+            }
+
+            if ((useMultiVarRendering || useRotatingHelicityBands) && propertyEditor.addSliderFloat(
+                    "Separator Width", &separatorWidth, 0.0f, 1.0f)) {
+                reRender = true;
             }
 
             propertyEditor.endNode();
@@ -377,6 +390,12 @@ bool LineDataFlow::setNewSettings(const SettingsMap& settings) {
                 useRibbons = false;
             }
             dirty = true;
+            shallReloadGatherShader = true;
+        }
+        if (settings.getValueOpt("separator_width", separatorWidth)) {
+            reRender = true;
+        }
+        if (settings.getValueOpt("use_uniform_twist_line_width", useUniformTwistLineWidth)) {
             shallReloadGatherShader = true;
         }
         if (settings.getValueOpt("use_multi_var_rendering", useMultiVarRendering)) {
@@ -651,6 +670,7 @@ void LineDataFlow::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& 
 void LineDataFlow::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::Renderer* renderer) {
     if (useMultiVarRendering || useRotatingHelicityBands) {
         lineUniformData.numSubdivisionsBands = numSubdivisionsBands;
+        lineUniformData.separatorBaseWidth = separatorWidth;
     }
 
     LineData::updateVulkanUniformBuffers(lineRenderer, renderer);
@@ -696,6 +716,10 @@ void LineDataFlow::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
         rasterData->setVertexBuffer(tubeRenderData.vertexTangentBuffer, "vertexTangent");
         if (useRotatingHelicityBands) {
             rasterData->setVertexBuffer(tubeRenderData.vertexRotationBuffer, "vertexRotation");
+            if (useUniformTwistLineWidth) {
+                rasterData->setStaticBuffer(tubeRenderData.vertexPositionBuffer, "LinePositionsBuffer");
+                rasterData->setStaticBuffer(tubeRenderData.vertexRotationBuffer, "LineRotationsBuffer");
+            }
         }
         if (useMultiVarRendering) {
             rasterData->setStaticBuffer(
@@ -867,7 +891,7 @@ void LineDataFlow::getLinePassTubeRenderDataGeneral(
 
     lineCentersList.resize(trajectories.size());
     lineAttributesList.resize(trajectories.size());
-    if (!useRotatingHelicityBands && getUseBandRendering() && useRibbons) {
+    if (!useRotatingHelicityBands && getUseBandRendering() && useRibbons && hasBandsData) {
         std::vector<std::vector<glm::vec3>> ribbonDirectionsList;
 
         ribbonDirectionsList.resize(trajectories.size());
@@ -1165,6 +1189,11 @@ LinePassTubeRenderData LineDataFlow::getLinePassTubeRenderData() {
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     LinePassTubeRenderData tubeRenderData;
 
+    VkBufferUsageFlags flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    if (useRotatingHelicityBands && useUniformTwistLineWidth) {
+        flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    }
+
     // Add the index buffer.
     tubeRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
             device, lineIndices.size() * sizeof(uint32_t), lineIndices.data(),
@@ -1174,8 +1203,7 @@ LinePassTubeRenderData LineDataFlow::getLinePassTubeRenderData() {
     // Add the position buffer.
     tubeRenderData.vertexPositionBuffer = std::make_shared<sgl::vk::Buffer>(
             device, vertexPositions.size() * sizeof(glm::vec3), vertexPositions.data(),
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY);
+            flags, VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Add the attribute buffer.
     tubeRenderData.vertexAttributeBuffer = std::make_shared<sgl::vk::Buffer>(
@@ -1198,8 +1226,7 @@ LinePassTubeRenderData LineDataFlow::getLinePassTubeRenderData() {
     if (useRotatingHelicityBands) {
         tubeRenderData.vertexRotationBuffer = std::make_shared<sgl::vk::Buffer>(
                 device, vertexRotations.size() * sizeof(float), vertexRotations.data(),
-                VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                VMA_MEMORY_USAGE_GPU_ONLY);
+                flags, VMA_MEMORY_USAGE_GPU_ONLY);
     }
 
     if (useMultiVarRendering) {
@@ -1399,7 +1426,7 @@ LinePassQuadsRenderData LineDataFlow::getLinePassQuadsRenderData() {
     std::vector<glm::vec3> vertexOffsetsLeft;
     std::vector<glm::vec3> vertexOffsetsRight;
 
-    if (useRibbons) {
+    if (useRibbons && hasBandsData) {
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
             if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
                 continue;
@@ -1571,7 +1598,7 @@ TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderData(bool 
         lineCentersList.at(trajectoryIdx) = trajectories.at(trajectoryIdx).positions;
     }
 
-    if (getUseBandRendering() && useRibbons) {
+    if (getUseBandRendering() && useRibbons && hasBandsData) {
         std::vector<std::vector<glm::vec3>> ribbonDirectionsList;
         ribbonDirectionsList.resize(trajectories.size());
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
@@ -1881,7 +1908,7 @@ TubeAabbRenderData LineDataFlow::getLinePassTubeAabbRenderData(bool isRasterizer
 void LineDataFlow::getVulkanShaderPreprocessorDefines(
         std::map<std::string, std::string>& preprocessorDefines, bool isRasterizer) {
     LineData::getVulkanShaderPreprocessorDefines(preprocessorDefines, isRasterizer);
-    if (useRibbons && !useRotatingHelicityBands && (!isRasterizer || getUseBandRendering())) {
+    if (useRibbons && hasBandsData && !useRotatingHelicityBands && (!isRasterizer || getUseBandRendering())) {
         preprocessorDefines.insert(std::make_pair("USE_BANDS", ""));
         if (renderThickBands) {
             preprocessorDefines.insert(std::make_pair("BAND_RENDERING_THICK", ""));
@@ -1892,6 +1919,9 @@ void LineDataFlow::getVulkanShaderPreprocessorDefines(
     }
     if (useRotatingHelicityBands) {
         preprocessorDefines.insert(std::make_pair("USE_ROTATING_HELICITY_BANDS", ""));
+        if (useUniformTwistLineWidth) {
+            preprocessorDefines.insert(std::make_pair("UNIFORM_HELICITY_BAND_WIDTH", ""));
+        }
     }
     bool isQuadsMode =
             linePrimitiveMode == LINE_PRIMITIVES_QUADS_PROGRAMMABLE_PULL
@@ -1924,7 +1954,7 @@ void LineDataFlow::getTriangleMesh(
         lineCentersList.at(trajectoryIdx) = trajectories.at(trajectoryIdx).positions;
     }
 
-    if (getUseBandRendering() && useRibbons) {
+    if (getUseBandRendering() && useRibbons && hasBandsData) {
         std::vector<std::vector<glm::vec3>> ribbonDirectionsList;
         ribbonDirectionsList.resize(trajectories.size());
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {

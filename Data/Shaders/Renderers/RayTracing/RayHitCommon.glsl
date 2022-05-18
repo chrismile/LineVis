@@ -73,6 +73,9 @@ void computeFragmentColor(
 #ifdef USE_ROTATING_HELICITY_BANDS
         float fragmentRotation,
 #endif
+#if defined(USE_ROTATING_HELICITY_BANDS) && defined(UNIFORM_HELICITY_BAND_WIDTH)
+        float rotationSeparatorScale,
+#endif
 #ifdef STRESS_LINE_DATA
         uint principalStressIndex, float lineAppearanceOrder,
 #ifdef USE_PRINCIPAL_STRESSES
@@ -93,7 +96,7 @@ void computeFragmentColor(
 #if defined(USE_MULTI_VAR_RENDERING) && defined(USE_ROTATING_HELICITY_BANDS)
     vec4 fragmentColor = vec4(vec3(0.5), 1.0);
     if (numSelectedAttributes > 0u) {
-        uint attributeIdx = uint(mod((phi + fragmentRotation) * 0.5  / float(M_PI), 1.0) * float(numSubdivisionsBands)) % numSelectedAttributes;
+        uint attributeIdx = uint(mod((phi + fragmentRotation) * 0.5 / float(M_PI), 1.0) * float(numSubdivisionsBands)) % numSelectedAttributes;
         uint attributeIdxReal = getRealAttributeIndex(attributeIdx);
         float sampledFragmentAttribute = sampleAttributeLinear(fragmentVertexId, attributeIdxReal);
         fragmentColor = transferFunction(fragmentAttribute, attributeIdxReal);
@@ -392,17 +395,25 @@ void computeFragmentColor(
 #endif
 
 #ifdef USE_ROTATING_HELICITY_BANDS
+    float separatorWidth = separatorBaseWidth;
+#ifdef UNIFORM_HELICITY_BAND_WIDTH
+    separatorWidth = separatorWidth / rotationSeparatorScale;
+#endif
 #ifdef USE_MULTI_VAR_RENDERING
-    drawSeparatorStripe(fragmentColor, mod(phi + fragmentRotation + 0.1, 2.0 / float(numSubdivisionsBands) * float(M_PI)), 0.2, EPSILON_OUTLINE);
+    drawSeparatorStripe(
+            fragmentColor, mod(phi + fragmentRotation + separatorWidth * 0.5, 2.0 / float(numSubdivisionsBands) * float(M_PI)),
+            separatorWidth, EPSILON_OUTLINE);
 #else
-    drawSeparatorStripe(fragmentColor, mod(phi + fragmentRotation + 0.1, 2.0 / float(numSubdivisionsBands) * float(M_PI)), 0.2, EPSILON_OUTLINE);
+    drawSeparatorStripe(
+            fragmentColor, mod(phi + fragmentRotation + separatorWidth * 0.5, 2.0 / float(numSubdivisionsBands) * float(M_PI)),
+            separatorWidth, EPSILON_OUTLINE);
 #endif
 #elif defined(USE_MULTI_VAR_RENDERING)
-    float separatorWidth = numSelectedAttributes > 1 ? 0.4 / float(numSelectedAttributes) : 0.2;
+    float separatorWidth = numSelectedAttributes > 1 ? 0.4 / float(numSelectedAttributes) : separatorBaseWidth;
     if (numSelectedAttributes > 0) {
         drawSeparatorStripe(
                 fragmentColor, mod((ribbonPosition * 0.5 + 0.5) * float(numSubdivisionsView) + 0.5 * separatorWidth, 1.0),
-                0.2, EPSILON_OUTLINE);
+                separatorBaseWidth, EPSILON_OUTLINE);
     }
 #endif
 
