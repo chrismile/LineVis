@@ -177,14 +177,14 @@ void main() {
         vec3 planeNormal = vec3(0.0);
         LinePointData linePointDataOther;
         bool found = false;
-        if (vertexLinePointIndex0 != 0) {
-            linePointDataOther = linePoints[vertexLinePointIndex0 - 1];
+        if (linePointIdx != 0) {
+            linePointDataOther = linePoints[linePointIdx - 1];
             found = linePointDataOther.lineStartIndex == linePointData.lineStartIndex;
             fragmentRotationDelta = linePointData.lineRotation - linePointDataOther.lineRotation;
             planeNormal = linePointData.linePosition - linePointDataOther.linePosition;
         }
         if (!found) {
-            linePointDataOther = linePoints[vertexLinePointIndex0 + 1];
+            linePointDataOther = linePoints[linePointIdx + 1];
             fragmentRotationDelta = linePointData.lineRotation - linePointDataOther.lineRotation;
             planeNormal = linePointData.linePosition - linePointDataOther.linePosition;
         }
@@ -192,7 +192,7 @@ void main() {
         planeNormal /= segmentLength;
         //planeNormal = linePointData.lineTangent;
         float planeDist = -dot(planeNormal, linePointData.linePosition);
-        float distToPlane = dot(planeNormal, fragmentPositionWorld) + planeDist;
+        float distToPlane = dot(planeNormal, vertexPosition) + planeDist;
         fragmentRotationAdapted += fragmentRotationDelta * distToPlane / segmentLength;
     }
     fragmentRotation = fragmentRotationAdapted;
