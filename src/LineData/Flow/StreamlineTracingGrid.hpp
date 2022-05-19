@@ -31,6 +31,9 @@
 
 #include <string>
 #include <map>
+#include <fstream>
+
+#include <Utils/CircularQueue.hpp>
 
 #include "Loaders/TrajectoryFile.hpp"
 
@@ -45,6 +48,7 @@ class StreamlineSeeder;
  */
 class StreamlineTracingGrid {
 public:
+    StreamlineTracingGrid();
     ~StreamlineTracingGrid();
     void setGridMetadata(int xs, int ys, int zs, float dx, float dy, float dz);
     void addVectorField(float* vectorField, const std::string& vectorName);
@@ -148,9 +152,20 @@ private:
     std::map<std::string, float*> vectorFields;
     std::map<std::string, float> maxVectorFieldMagnitudes;
     std::map<std::string, float*> scalarFields;
+    // LoopCheckMode::START_POINT and LoopCheckMode::ALL_POINTS
     float terminationDistanceStart = 0.0f;
-    HashedGrid<glm::vec3>* gridSelf = nullptr;
+    // LoopCheckMode::ALL_POINTS
+    HashedGrid<glm::vec3>* hashedGridLoop = nullptr;
     std::vector<std::pair<glm::vec3, glm::vec3>> closePoints;
+    // LoopCheckMode::GRID
+    std::vector<bool> selfOccupationGrid;
+    size_t oldCellPosition = std::numeric_limits<size_t>::max();
+    CircularQueue<size_t> cellPositionQueue;
+    //  LoopCheckMode::CURVATURE
+    double curvatureSum = 0.0;
+    size_t segmentSum = 0;
+    // TODO: Test.
+    std::ofstream curvatureFile;
 };
 
 #endif //LINEVIS_STREAMLINETRACINGGRID_HPP

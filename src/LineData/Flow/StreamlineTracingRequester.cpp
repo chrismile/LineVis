@@ -199,7 +199,8 @@ void StreamlineTracingRequester::renderGui() {
                     "%.2f", ImGuiSliderFlags_Logarithmic) == ImGui::EditMode::INPUT_FINISHED) {
                 changed = true;
             }
-            if (ImGui::SliderFloatEdit(
+            if ((guiTracingSettings.loopCheckMode == LoopCheckMode::START_POINT
+                    || guiTracingSettings.loopCheckMode == LoopCheckMode::ALL_POINTS) && ImGui::SliderFloatEdit(
                     "Term. Dist. Self", &guiTracingSettings.terminationDistanceSelf, 0.01f, 100.0f,
                     "%.2f", ImGuiSliderFlags_Logarithmic) == ImGui::EditMode::INPUT_FINISHED) {
                 changed = true;
@@ -221,7 +222,9 @@ void StreamlineTracingRequester::renderGui() {
                     changed = true;
                 }
             }
-            if (ImGui::Checkbox("Loop Check All Points", &guiTracingSettings.useAllPointsForLoopCheck)) {
+            if (ImGui::Combo(
+                    "Loop Check Mode", (int*)&guiTracingSettings.loopCheckMode,
+                    LOOP_CHECK_MODE_NAMES, IM_ARRAYSIZE(LOOP_CHECK_MODE_NAMES))) {
                 changed = true;
             }
             if (ImGui::Checkbox("Show Boundary Mesh", &guiTracingSettings.showSimulationGridOutline)) {
@@ -428,6 +431,24 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
         }
     }
 
+    std::string loopCheckModeName;
+    if (settings.getValueOpt("loop_check_mode", loopCheckModeName)) {
+        int i;
+        for (i = 0; i < IM_ARRAYSIZE(LOOP_CHECK_MODE_NAMES); i++) {
+            if (boost::to_lower_copy(loopCheckModeName)
+                == boost::to_lower_copy(std::string(LOOP_CHECK_MODE_NAMES[i]))) {
+                guiTracingSettings.loopCheckMode = LoopCheckMode(i);
+                changed = true;
+                break;
+            }
+        }
+        if (i == IM_ARRAYSIZE(LOOP_CHECK_MODE_NAMES)) {
+            sgl::Logfile::get()->writeError(
+                    "Error in StreamlineTracingRequester::setLineTracerSettings: Unknown loop check mode \""
+                    + loopCheckModeName + "\".");
+        }
+    }
+
     changed |= settings.getValueOpt("num_primitives", guiTracingSettings.numPrimitives);
     changed |= settings.getValueOpt("time_step_scale", guiTracingSettings.timeStepScale);
     changed |= settings.getValueOpt("max_num_iterations", guiTracingSettings.maxNumIterations);
@@ -435,7 +456,6 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
     changed |= settings.getValueOpt("termination_distance_self", guiTracingSettings.terminationDistanceSelf);
     changed |= settings.getValueOpt("min_line_length", guiTracingSettings.minimumLength);
     changed |= settings.getValueOpt("min_separation_distance", guiTracingSettings.minimumSeparationDistance);
-    changed |= settings.getValueOpt("use_all_points_for_loop_check", guiTracingSettings.useAllPointsForLoopCheck);
     changed |= settings.getValueOpt("show_boundary_mesh", guiTracingSettings.showSimulationGridOutline);
     changed |= settings.getValueOpt("smooth_boundary", guiTracingSettings.smoothedSimulationGridOutline);
     changed |= settings.getValueOpt("use_helicity", guiTracingSettings.useHelicity);

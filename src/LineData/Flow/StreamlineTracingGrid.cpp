@@ -26,6 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <iostream>
 #include <algorithm>
 #include <queue>
 
@@ -42,6 +43,10 @@
 #include "StreamlineSeeder.hpp"
 #include "StreamlineTracingGrid.hpp"
 
+StreamlineTracingGrid::StreamlineTracingGrid() {
+    curvatureFile.open("curvatures.txt");
+}
+
 StreamlineTracingGrid::~StreamlineTracingGrid() {
     for (auto& it : vectorFields) {
         delete[] it.second;
@@ -52,6 +57,9 @@ StreamlineTracingGrid::~StreamlineTracingGrid() {
         delete[] it.second;
     }
     scalarFields.clear();
+
+    // TODO
+    curvatureFile.close();
 }
 
 void StreamlineTracingGrid::setGridMetadata(int xs, int ys, int zs, float dx, float dy, float dz) {
@@ -375,7 +383,7 @@ bool StreamlineTracingGrid::_isTerminated(
 
     // Check whether there is a loop.
     if (currentTrajectory.positions.size() > 1) {
-        if (!tracingSettings.useAllPointsForLoopCheck) {
+        if (tracingSettings.loopCheckMode == LoopCheckMode::START_POINT) {
             const glm::vec3& pt0 = currentTrajectory.positions.at(0);
             const glm::vec3& pt1 = currentTrajectory.positions.at(1);
             glm::vec3 dir0 = pt1 - pt0;
@@ -394,9 +402,10 @@ bool StreamlineTracingGrid::_isTerminated(
             if (approachesPt0 && distToStart < terminationDistanceStart && glm::dot(dir0, dirNow) > 0.0f) {
                 return true;
             }
-        } else {
+        } else if (tracingSettings.loopCheckMode == LoopCheckMode::ALL_POINTS) {
             closePoints.clear();
-            gridSelf->findPointsAndDataInSphere(currentPoint, terminationDistanceStart, closePoints);
+            hashedGridLoop->findPointsAndDataInSphere(
+                    currentPoint, terminationDistanceStart, closePoints);
             for (auto& closePoint : closePoints) {
                 const glm::vec3& pt0 = closePoint.first;
                 const glm::vec3& dir0 = closePoint.second;
@@ -410,6 +419,50 @@ bool StreamlineTracingGrid::_isTerminated(
                 if (approachesPt0 && distNow < terminationDistanceStart && glm::dot(dir0, dirNow) > 0.0f) {
                     return true;
                 }
+            }
+        } else if (tracingSettings.loopCheckMode == LoopCheckMode::GRID) {
+            glm::vec3 gridPositionFloat = currentPoint - box.getMinimum();
+            gridPositionFloat *= glm::vec3(1.0f / dx, 1.0f / dy, 1.0f / dz);
+            auto gridPosition = glm::ivec3(gridPositionFloat);
+            gridPosition.x = glm::clamp(gridPosition.x, 0, xs - 2);
+            gridPosition.y = glm::clamp(gridPosition.y, 0, ys - 2);
+            gridPosition.z = glm::clamp(gridPosition.z, 0, zs - 2);
+            size_t cellPosition = IDXS_C(gridPosition.x, gridPosition.y, gridPosition.z);
+            bool occupied = selfOccupationGrid.at(cellPosition);
+            selfOccupationGrid.at(cellPosition) = true;
+            if (occupied && !cellPositionQueue.contains(cellPosition)) {
+                return true;
+            }
+            /*if (occupied && cellPosition != oldCellPosition) {
+                 return true;
+             }*/
+            if (cellPosition != oldCellPosition) {
+                if (cellPositionQueue.size() == cellPositionQueue.capacity()) {
+                    cellPositionQueue.pop_front();
+                }
+                cellPositionQueue.push_back(cellPosition);
+            }
+            oldCellPosition = cellPosition;
+        } else if (tracingSettings.loopCheckMode == LoopCheckMode::CURVATURE) {
+            if (currentTrajectory.positions.size() > 1) {
+                const glm::vec3& p0 = currentTrajectory.positions.at(currentTrajectory.positions.size() - 2);
+                const glm::vec3& p1 = currentTrajectory.positions.at(currentTrajectory.positions.size() - 1);
+                const glm::vec3& p2 = currentPoint;
+                glm::vec3 dir0 = p1 - p0;
+                glm::vec3 dir1 = p2 - p1;
+                float length0 = glm::length(dir0);
+                float length1 = glm::length(dir1);
+                if (length0 > 1e-8f) {
+                    dir0 /= length0;
+                }
+                if (length1 > 1e-8f) {
+                    dir1 /= length1;
+                }
+                curvatureSum += double(glm::acos(glm::dot(dir0, dir1))) * double(length0 + length1);
+                segmentSum++;
+            }
+            if (segmentSum > 100 && curvatureSum > 2.5f) {
+                return true;
             }
         }
     }
@@ -429,9 +482,9 @@ bool StreamlineTracingGrid::_isTerminated(
         }
     }
 
-    if (tracingSettings.useAllPointsForLoopCheck && !currentTrajectory.positions.empty()) {
+    if (tracingSettings.loopCheckMode == LoopCheckMode::ALL_POINTS && !currentTrajectory.positions.empty()) {
         glm::vec3 dir = glm::normalize(currentPoint - currentTrajectory.positions.back());
-        gridSelf->add(std::make_pair(currentPoint, dir));
+        hashedGridLoop->add(std::make_pair(currentPoint, dir));
     }
 
     return false;
@@ -452,8 +505,9 @@ void StreamlineTracingGrid::_traceStreamlineDecreasingHelicity(
     int iterationCounter = 0;
     while (true) {
         if (_isTerminated(
-                tracingSettings, currentTrajectory, currentPoint, trajectories, segmentLength, iterationCounter)) {
-            return;
+                tracingSettings, currentTrajectory, currentPoint, trajectories, segmentLength,
+                iterationCounter)) {
+            break;
         } else {
             currentTrajectory.positions.push_back(currentPoint);
             _pushTrajectoryAttributes(currentTrajectory);
@@ -466,8 +520,16 @@ void StreamlineTracingGrid::_traceStreamlineDecreasingHelicity(
         lastPoint = currentPoint;
     }
 
-    if (tracingSettings.terminationCheckType != TerminationCheckType::NAIVE) {
-        gridSelf->clear();
+    if (tracingSettings.loopCheckMode == LoopCheckMode::ALL_POINTS) {
+        hashedGridLoop->clear();
+    } else if (tracingSettings.loopCheckMode == LoopCheckMode::GRID) {
+        std::fill(selfOccupationGrid.begin(), selfOccupationGrid.end(), false);
+        oldCellPosition = std::numeric_limits<size_t>::max();
+        cellPositionQueue.clear();
+    } else if (tracingSettings.loopCheckMode == LoopCheckMode::CURVATURE) {
+        curvatureFile << std::to_string(curvatureSum) << '\n';
+        curvatureSum = 0.0;
+        segmentSum = 0;
     }
 }
 
@@ -505,9 +567,12 @@ void StreamlineTracingGrid::_traceStreamribbonsDecreasingHelicity(
 
     float dt = 1.0f / maxVectorMagnitude * std::min(dx, std::min(dy, dz)) * tracingSettings.timeStepScale;
 
-    if (tracingSettings.terminationCheckType != TerminationCheckType::NAIVE) {
-        gridSelf = new HashedGrid<glm::vec3>(
+    if (tracingSettings.loopCheckMode == LoopCheckMode::ALL_POINTS) {
+        hashedGridLoop = new HashedGrid<glm::vec3>(
                 tracingSettings.maxNumIterations + 17, std::min(dx, std::min(dy, dz)));
+    } else if (tracingSettings.loopCheckMode == LoopCheckMode::GRID) {
+        selfOccupationGrid.resize((xs - 1) * (ys - 1) * (zs - 1), false);
+        cellPositionQueue = CircularQueue<size_t>(32);
     }
 
     while (seeder->hasNextPoint()) {
@@ -576,8 +641,11 @@ void StreamlineTracingGrid::_traceStreamribbonsDecreasingHelicity(
         }
     }
 
-    if (tracingSettings.terminationCheckType != TerminationCheckType::NAIVE) {
-        delete gridSelf;
+    if (tracingSettings.loopCheckMode == LoopCheckMode::ALL_POINTS) {
+        delete hashedGridLoop;
+    } else if (tracingSettings.loopCheckMode == LoopCheckMode::GRID) {
+        selfOccupationGrid.clear();
+        selfOccupationGrid.shrink_to_fit();
     }
 }
 

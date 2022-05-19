@@ -96,6 +96,12 @@ const char* const TERMINATION_CHECK_TYPE_NAMES[] = {
         "Naive (O(n^2))", "Grid-based", "k-d Tree-based", "Hashed Grid-based"
 };
 
+enum class LoopCheckMode {
+    NONE, START_POINT, ALL_POINTS, GRID, CURVATURE
+};
+const char* const LOOP_CHECK_MODE_NAMES[] = {
+        "None", "Start Point", "All Points", "Grid", "Curvature"
+};
 
 class StreamlineSeeder;
 typedef std::shared_ptr<StreamlineSeeder> StreamlineSeederPtr;
@@ -127,7 +133,7 @@ struct StreamlineTracingSettings {
     StreamlineIntegrationDirection integrationDirection = StreamlineIntegrationDirection::BOTH;
     int vectorFieldIndex = 0;
     AbcFlowGenerator abcFlowGenerator;
-    bool useAllPointsForLoopCheck = false;
+    LoopCheckMode loopCheckMode = LoopCheckMode::START_POINT;
 
     // For flowPrimitives == FlowPrimitives::STREAMRIBBONS.
     bool useHelicity = true;
