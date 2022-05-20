@@ -270,10 +270,16 @@ bool LineDataFlow::loadFromFile(
         simulationMeshOutlineTriangleIndices = binLinesData.simulationMeshOutlineTriangleIndices;
         simulationMeshOutlineVertexPositions = binLinesData.simulationMeshOutlineVertexPositions;
         simulationMeshOutlineVertexNormals = binLinesData.simulationMeshOutlineVertexNormals;
+        onAttributeNamesSet();
         setTrajectoryData(binLinesData.trajectories);
-        isAttributeSelectedArray.resize(attributeNames.size(), 0);
     }
 
+    return dataLoaded;
+}
+
+void LineDataFlow::onAttributeNamesSet() {
+    isAttributeSelectedArray.clear();
+    isAttributeSelectedArray.resize(attributeNames.size(), 0);
     if (!attributeNames.empty()) {
         sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
         multiVarSelectedAttributesBuffer = std::make_shared<sgl::vk::Buffer>(
@@ -281,8 +287,6 @@ bool LineDataFlow::loadFromFile(
                 VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                 VMA_MEMORY_USAGE_GPU_ONLY);
     }
-
-    return dataLoaded;
 }
 
 void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {

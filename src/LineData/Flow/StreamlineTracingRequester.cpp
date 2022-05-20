@@ -699,5 +699,6 @@ void StreamlineTracingRequester::traceLines(
 
     lineData->fileNames = { request.dataSourceFilename };
     lineData->attributeNames = cachedGrid->getScalarFieldNames();
+    lineData->onAttributeNamesSet();
     lineData->setTrajectoryData(trajectories);
 }

@@ -128,6 +128,7 @@ protected:
     void recomputeHistogram() override;
     void recomputeColorLegend() override;
     void recomputeWidgetPositions();
+    void onAttributeNamesSet();
 
     /**
      * Function used by, e.g., @see getLinePassTubeRenderData, @see getLinePassTubeRenderDataMeshShader and

@@ -37,6 +37,7 @@
 
 struct Trajectory {
     std::vector<glm::vec3> positions;
+    // Outer array: Num. attributes. Inner array: Number of positions.
     std::vector<std::vector<float>> attributes;
 };
 typedef std::vector<Trajectory> Trajectories;
