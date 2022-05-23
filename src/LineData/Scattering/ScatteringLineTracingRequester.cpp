@@ -121,6 +121,10 @@ void ScatteringLineTracingRequester::loadGridDataSetList() {
 }
 
 void ScatteringLineTracingRequester::renderGui() {
+    if (!showWindow) {
+        return;
+    }
+
 #ifndef NDEBUG
     int windowHeight = 645;
 #else

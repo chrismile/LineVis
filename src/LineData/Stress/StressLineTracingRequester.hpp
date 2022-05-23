@@ -74,7 +74,9 @@ public:
     /**
      * @return Whether a request is currently processed (for UI progress spinner).
      */
-    inline bool getIsProcessingRequest() const { return worker.getIsProcessingRequest(); }
+    [[nodiscard]] inline bool getIsProcessingRequest() const { return worker.getIsProcessingRequest(); }
+
+    inline void setShowWindow(bool _showWindow) { showWindow = _showWindow; }
 
 private:
     void loadMeshList();

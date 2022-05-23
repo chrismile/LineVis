@@ -260,8 +260,8 @@ bool LineDataFlow::loadFromFile(
     BinLinesData binLinesData = loadFlowTrajectoriesFromFile(
             fileNames.front(), attributeNames, true,
             false, transformationMatrixPtr);
-    trajectories = binLinesData.trajectories;
-    bool dataLoaded = !trajectories.empty();
+    trajectories = {};
+    bool dataLoaded = !binLinesData.trajectories.empty();
 
     if (dataLoaded) {
         attributeNames = binLinesData.attributeNames;
@@ -309,6 +309,13 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
 
     this->trajectories = trajectories;
 
+    if (getNumAttributes() == 0) {
+        for (Trajectory& trajectory : this->trajectories) {
+            trajectory.attributes.resize(1);
+            trajectory.attributes.front().resize(trajectory.positions.size());
+        }
+    }
+
     for (size_t attrIdx = attributeNames.size(); attrIdx < getNumAttributes(); attrIdx++) {
         attributeNames.push_back(std::string() + "Attribute #" + std::to_string(attrIdx + 1));
     }
@@ -330,7 +337,7 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
     for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
         float minAttr = std::numeric_limits<float>::max();
         float maxAttr = std::numeric_limits<float>::lowest();
-        for (const Trajectory& trajectory : trajectories) {
+        for (const Trajectory& trajectory : this->trajectories) {
             for (float val : trajectory.attributes.at(i)) {
                 minAttr = std::min(minAttr, val);
                 maxAttr = std::max(maxAttr, val);
@@ -363,7 +370,7 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
         numTotalTrajectoryPoints += trajectory.positions.size();
     }
 
-    modelBoundingBox = computeTrajectoriesAABB3(trajectories);
+    modelBoundingBox = computeTrajectoriesAABB3(this->trajectories);
     focusBoundingBox = modelBoundingBox;
 
     dirty = true;
@@ -415,9 +422,11 @@ bool LineDataFlow::setNewSettings(const SettingsMap& settings) {
 
 void LineDataFlow::recomputeHistogram() {
     std::vector<float> attributeList;
-    for (const Trajectory& trajectory : trajectories) {
-        for (float val : trajectory.attributes.at(selectedAttributeIndex)) {
-            attributeList.push_back(val);
+    if (!attributeNames.empty()) {
+        for (const Trajectory& trajectory : trajectories) {
+            for (float val : trajectory.attributes.at(selectedAttributeIndex)) {
+                attributeList.push_back(val);
+            }
         }
     }
     glm::vec2 minMaxAttributes;

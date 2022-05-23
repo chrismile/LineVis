@@ -468,6 +468,7 @@ MainApp::~MainApp() {
         sgl::AppSettings::get()->getSettings().addKeyValue("useFixedSizeViewport", useFixedSizeViewport);
         sgl::AppSettings::get()->getSettings().addKeyValue("fixedViewportSizeX", fixedViewportSize.x);
         sgl::AppSettings::get()->getSettings().addKeyValue("fixedViewportSizeY", fixedViewportSize.y);
+        fixedViewportSizeEdit = fixedViewportSize;
     }
     sgl::AppSettings::get()->getSettings().addKeyValue("showFpsOverlay", showFpsOverlay);
     sgl::AppSettings::get()->getSettings().addKeyValue("showCoordinateAxesOverlay", showCoordinateAxesOverlay);
@@ -913,6 +914,8 @@ void MainApp::renderGui() {
                 currentPath = nullptr;
             }
 
+            fileDialogDirectory = sgl::FileUtils::get()->getPathToFile(filename);
+
             std::string filenameLower = boost::to_lower_copy(filename);
             bool isDatFile = boost::ends_with(filenameLower, ".dat");
 
@@ -961,14 +964,17 @@ void MainApp::renderGui() {
                     || boost::ends_with(filenameLower, ".raw")) {
                 selectedDataSetIndex = 1;
                 streamlineTracingRequester->setDatasetFilename(filename);
+                streamlineTracingRequester->setShowWindow(true);
             } else if (boost::ends_with(filenameLower, ".stress")
                     || boost::ends_with(filenameLower, ".carti")) {
                 selectedDataSetIndex = 2;
                 stressLineTracingRequester->setDatasetFilename(filename);
+                stressLineTracingRequester->setShowWindow(true);
             } else if (boost::ends_with(filenameLower, ".xyz")
                     || boost::ends_with(filenameLower, ".nvdb")) {
                 selectedDataSetIndex = 3;
                 scatteringLineTracingRequester->setDatasetFilename(filename);
+                scatteringLineTracingRequester->setShowWindow(true);
             } else {
                 selectedDataSetIndex = 0;
                 if (boost::ends_with(filenameLower, ".obj")
@@ -1452,9 +1458,11 @@ void MainApp::initializeFirstDataView() {
 
 void MainApp::openFileDialog() {
     selectedDataSetIndex = 0;
-    std::string fileDialogDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
-    if (!sgl::FileUtils::get()->exists(fileDialogDirectory)) {
-        fileDialogDirectory = sgl::AppSettings::get()->getDataDirectory();
+    if (fileDialogDirectory.empty() || !sgl::FileUtils::get()->directoryExists(fileDialogDirectory)) {
+        fileDialogDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
+        if (!sgl::FileUtils::get()->exists(fileDialogDirectory)) {
+            fileDialogDirectory = sgl::AppSettings::get()->getDataDirectory();
+        }
     }
     IGFD_OpenModal(
             fileDialogInstance,
@@ -1476,6 +1484,13 @@ void MainApp::renderGuiMenuBar() {
                 for (int i = 1; i < NUM_MANUAL_LOADERS; i++) {
                     if (ImGui::MenuItem(dataSetNames.at(i).c_str())) {
                         selectedDataSetIndex = i;
+                        if (selectedDataSetIndex == 1) {
+                            streamlineTracingRequester->setShowWindow(true);
+                        } else if (selectedDataSetIndex == 2) {
+                            stressLineTracingRequester->setShowWindow(true);
+                        } else if (selectedDataSetIndex == 3) {
+                            scatteringLineTracingRequester->setShowWindow(true);
+                        }
                     }
                 }
 

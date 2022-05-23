@@ -112,6 +112,10 @@ void StreamlineTracingRequester::loadGridDataSetList() {
 }
 
 void StreamlineTracingRequester::renderGui() {
+    if (!showWindow) {
+        return;
+    }
+
     sgl::ImGuiWrapper::get()->setNextWindowStandardPosSizeLocation(
             sgl::LOCATION_RIGHT | sgl::LOCATION_BOTTOM, 22, 22, 780, 1190);
     if (ImGui::Begin("Streamline Tracer", &showWindow)) {

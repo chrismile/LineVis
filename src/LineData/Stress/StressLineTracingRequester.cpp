@@ -106,6 +106,10 @@ void setNextWindowStandardPosSizeLocation(int location, int offsetX, int offsetY
 }
 
 void StressLineTracingRequester::renderGui() {
+    if (!showWindow) {
+        return;
+    }
+
     sgl::ImGuiWrapper::get()->setNextWindowStandardPosSizeLocation(
             sgl::LOCATION_RIGHT | sgl::LOCATION_BOTTOM, 22, 22, 760, 700);
     if (ImGui::Begin("Stress Line Tracing", &showWindow)) {

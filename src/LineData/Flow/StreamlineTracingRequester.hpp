@@ -57,6 +57,8 @@ public:
      */
     [[nodiscard]] inline bool getIsProcessingRequest() const { return isProcessingRequest; }
 
+    inline void setShowWindow(bool _showWindow) { showWindow = _showWindow; }
+
 private:
     void loadGridDataSetList();
     void requestNewData();

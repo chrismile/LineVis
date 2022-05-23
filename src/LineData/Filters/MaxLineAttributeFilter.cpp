@@ -42,24 +42,26 @@ void MaxLineAttributeFilter::onDataLoaded(LineDataPtr lineDataIn) {
     maxTrajectoryAttributes.clear();
     selectedAttributeIdx = lineDataIn->getSelectedAttributeIndex();
 
-    lineDataIn->iterateOverTrajectories([this, lineDataIn](const Trajectory& trajectory) {
-        int n = int(trajectory.positions.size());
-        int attributeIdx = lineDataIn->getSelectedAttributeIndex();
-        attributeIdx = std::min(attributeIdx, int(lineDataIn->getNumAttributes()) - 1);
+    if (!lineDataIn->getAttributeNames().empty()) {
+        lineDataIn->iterateOverTrajectories([this, lineDataIn](const Trajectory& trajectory) {
+            int n = int(trajectory.positions.size());
+            int attributeIdx = lineDataIn->getSelectedAttributeIndex();
+            attributeIdx = std::min(attributeIdx, int(lineDataIn->getNumAttributes()) - 1);
 
-        float minTrajectoryAttribute = std::numeric_limits<float>::max();
-        float maxTrajectoryAttribute = std::numeric_limits<float>::lowest();
-        for (int i = 0; i < n; i++) {
-            float attr = trajectory.attributes.at(attributeIdx).at(i);
-            minTrajectoryAttribute = std::min(minTrajectoryAttribute, attr);
-            maxTrajectoryAttribute = std::max(maxTrajectoryAttribute, attr);
-        }
+            float minTrajectoryAttribute = std::numeric_limits<float>::max();
+            float maxTrajectoryAttribute = std::numeric_limits<float>::lowest();
+            for (int i = 0; i < n; i++) {
+                float attr = trajectory.attributes.at(attributeIdx).at(i);
+                minTrajectoryAttribute = std::min(minTrajectoryAttribute, attr);
+                maxTrajectoryAttribute = std::max(maxTrajectoryAttribute, attr);
+            }
 
-        minTrajectoryAttributes.push_back(minTrajectoryAttribute);
-        maxTrajectoryAttributes.push_back(maxTrajectoryAttribute);
-        minGlobalAttribute = std::min(minGlobalAttribute, minTrajectoryAttribute);
-        maxGlobalAttribute = std::max(maxGlobalAttribute, maxTrajectoryAttribute);
-    });
+            minTrajectoryAttributes.push_back(minTrajectoryAttribute);
+            maxTrajectoryAttributes.push_back(maxTrajectoryAttribute);
+            minGlobalAttribute = std::min(minGlobalAttribute, minTrajectoryAttribute);
+            maxGlobalAttribute = std::max(maxGlobalAttribute, maxTrajectoryAttribute);
+        });
+    }
     trajectoryFilteringThresholdMin = minGlobalAttribute;
     trajectoryFilteringThresholdMax = maxGlobalAttribute;
 
@@ -67,8 +69,14 @@ void MaxLineAttributeFilter::onDataLoaded(LineDataPtr lineDataIn) {
 }
 
 void MaxLineAttributeFilter::filterData(LineDataPtr lineDataIn) {
+    dirty = false;
+
     if (maxTrajectoryAttributes.empty() || selectedAttributeIdx != lineDataIn->getSelectedAttributeIndex()) {
         onDataLoaded(lineDataIn);
+    }
+
+    if (maxTrajectoryAttributes.empty()) {
+        return;
     }
 
     size_t trajectoryIdx = 0;
@@ -76,10 +84,13 @@ void MaxLineAttributeFilter::filterData(LineDataPtr lineDataIn) {
         float attributeValue = maxTrajectoryAttributes.at(trajectoryIdx++);
         return attributeValue < trajectoryFilteringThresholdMin || attributeValue > trajectoryFilteringThresholdMax;
     });
-    dirty = false;
 }
 
 void MaxLineAttributeFilter::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    if (maxTrajectoryAttributes.empty()) {
+        return;
+    }
+
     glm::vec2 newRange(trajectoryFilteringThresholdMin, trajectoryFilteringThresholdMax);
     ImGui::EditMode editMode = propertyEditor.addSliderFloat2Edit(
             "Attribute Range", &newRange.x, minGlobalAttribute, maxGlobalAttribute);

@@ -201,6 +201,10 @@ void createCappedTriangleTubesRenderDataCPU(
             continue;
         }
 
+        if (numValidLinePoints == 0) {
+            continue;
+        }
+
         for (int i = 0; i < numValidLinePoints-1; i++) {
             for (int j = 0; j < numCircleSubdivisions; j++) {
                 // Build two CCW triangles (one quad) for each side

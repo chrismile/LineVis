@@ -819,7 +819,9 @@ void MultiVarTransferFunctionWindow::setAttributesValues(
         GuiVarData& varData = guiVarData.at(varIdx);
         varData.setAttributeValues(names.at(varIdx), allAttributes.at(varIdx));
     }
-    currVarData = &guiVarData.at(selectedVarIndex);
+    if (!guiVarData.empty()) {
+        currVarData = &guiVarData.at(selectedVarIndex);
+    }
 
     updateAvailableFiles();
     rebuildTransferFunctionMapComplete();
@@ -909,6 +911,10 @@ void MultiVarTransferFunctionWindow::rebuildTransferFunctionMapComplete() {
 }
 
 void MultiVarTransferFunctionWindow::rebuildRangeSsbo() {
+    if (!minMaxSsboVulkan) {
+        return;
+    }
+
     for (size_t varIdx = 0; varIdx < guiVarData.size(); varIdx++) {
         GuiVarData& varData = guiVarData.at(varIdx);
         const glm::vec2& range = varData.getSelectedRange();
@@ -919,6 +925,12 @@ void MultiVarTransferFunctionWindow::rebuildRangeSsbo() {
 }
 
 void MultiVarTransferFunctionWindow::rebuildTransferFunctionMap() {
+    transferFunctionMapRebuilt = true;
+
+    if (!tfMapTextureVulkan) {
+        return;
+    }
+
     if (useLinearRGB) {
         tfMapTextureVulkan->getImage()->uploadData(
                 TRANSFER_FUNCTION_TEXTURE_SIZE * uint32_t(varNames.size()) * 8,
@@ -928,8 +940,6 @@ void MultiVarTransferFunctionWindow::rebuildTransferFunctionMap() {
                 TRANSFER_FUNCTION_TEXTURE_SIZE * uint32_t(varNames.size()) * 8,
                 transferFunctionMap_sRGB.data());
     }
-
-    transferFunctionMapRebuilt = true;
 }
 
 bool MultiVarTransferFunctionWindow::renderGui() {
@@ -940,7 +950,9 @@ bool MultiVarTransferFunctionWindow::renderGui() {
                 for (size_t i = 0; i < varNames.size(); ++i) {
                     if (ImGui::Selectable(varNames.at(i).c_str(), selectedVarIndex == i)) {
                         selectedVarIndex = i;
-                        currVarData = &guiVarData.at(selectedVarIndex);
+                        if (!guiVarData.empty()) {
+                            currVarData = &guiVarData.at(selectedVarIndex);
+                        }
                     }
                 }
                 ImGui::EndCombo();

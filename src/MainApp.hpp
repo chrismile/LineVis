@@ -136,6 +136,7 @@ private:
     bool visualizeSeedingProcess = false; ///< Only for stress line data.
     const float TIME_PER_SEED_POINT = 0.25f;
     ImGuiFileDialog* fileDialogInstance = nullptr;
+    std::string fileDialogDirectory;
     std::vector<sgl::dialog::MsgBoxHandlePtr> nonBlockingMsgBoxHandles;
 
     // Coloring & filtering dependent on importance criteria.
