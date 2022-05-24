@@ -94,6 +94,8 @@ void createLineTubesRenderDataCPU(
             vertexNormals.pop_back();
             vertexTangents.pop_back();
             vertexAttributes.pop_back();
+        }
+        if (numValidLinePoints <= 1) {
             continue;
         }
 
@@ -195,14 +197,16 @@ void createLineTubesRenderDataCPU(
             vertexNormals.pop_back();
             vertexTangents.pop_back();
             vertexAttributes.pop_back();
+        }
+        if (numValidLinePoints <= 1) {
             continue;
-        } else if (numValidLinePoints > 1) {
-            validLineIndices.push_back(lineId);
-            numValidLineVertices.push_back(numValidLinePoints);
         }
 
+        validLineIndices.push_back(lineId);
+        numValidLineVertices.push_back(numValidLinePoints);
+
         // Create indices
-        for (int i = 0; i < numValidLinePoints-1; i++) {
+        for (int i = 0; i < numValidLinePoints - 1; i++) {
             lineIndices.push_back(indexOffset + i);
             lineIndices.push_back(indexOffset + i + 1);
         }

@@ -91,6 +91,8 @@ void createTriangleTubesRenderDataCPU(
             linePointReferenceList.pop_back();
             lineTangents.pop_back();
             lineNormals.pop_back();
+        }
+        if (numValidLinePoints <= 1) {
             continue;
         }
 
@@ -185,6 +187,8 @@ void createTriangleEllipticTubesRenderDataCPU(
             linePointReferenceList.pop_back();
             lineTangents.pop_back();
             lineNormals.pop_back();
+        }
+        if (numValidLinePoints <= 1) {
             continue;
         }
 
@@ -339,6 +343,8 @@ void createTrianglePrincipalStressTubesRenderDataCPU(
             linePointReferenceList.pop_back();
             lineTangents.pop_back();
             lineNormals.pop_back();
+        }
+        if (numValidLinePoints <= 1) {
             continue;
         }
 

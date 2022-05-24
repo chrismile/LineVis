@@ -198,10 +198,8 @@ void createCappedTriangleTubesRenderDataCPU(
             linePointReferenceList.pop_back();
             lineTangents.pop_back();
             lineNormals.pop_back();
-            continue;
         }
-
-        if (numValidLinePoints == 0) {
+        if (numValidLinePoints <= 1) {
             continue;
         }
 
@@ -459,6 +457,8 @@ void createCappedTriangleEllipticTubesRenderDataCPU(
             linePointReferenceList.pop_back();
             lineTangents.pop_back();
             lineNormals.pop_back();
+        }
+        if (numValidLinePoints <= 1) {
             continue;
         }
 
@@ -688,6 +688,8 @@ void createCappedTrianglePrincipalStressTubesRenderDataCPU(
             linePointReferenceList.pop_back();
             lineTangents.pop_back();
             lineNormals.pop_back();
+        }
+        if (numValidLinePoints <= 1) {
             continue;
         }
 

@@ -1440,6 +1440,8 @@ void LineDataStress::getLinePassTubeRenderDataGeneral(
                 if (numValidLinePoints == 1) {
                     // Only one vertex left -> Output nothing (tube consisting only of one point).
                     pointPopFunctor();
+                }
+                if (numValidLinePoints <= 1) {
                     continue;
                 }
 
@@ -1528,6 +1530,8 @@ void LineDataStress::getLinePassTubeRenderDataGeneral(
                 if (numValidLinePoints == 1) {
                     // Only one vertex left -> Output nothing (tube consisting only of one point).
                     pointPopFunctor();
+                }
+                if (numValidLinePoints <= 1) {
                     continue;
                 }
 
@@ -2252,6 +2256,8 @@ LinePassQuadsRenderData LineDataStress::getLinePassQuadsRenderData() {
                     vertexAttributes.pop_back();
                     vertexLineHierarchyLevels.pop_back();
                     vertexLineAppearanceOrders.pop_back();
+                }
+                if (numValidLinePoints <= 1) {
                     continue;
                 }
 
@@ -2783,6 +2789,8 @@ TubeAabbRenderData LineDataStress::getLinePassTubeAabbRenderData(bool isRasteriz
             if (numValidLinePoints == 1) {
                 // Only one vertex left -> output nothing (tube consisting only of one point).
                 tubeLinePointDataList.pop_back();
+            }
+            if (numValidLinePoints <= 1) {
                 continue;
             }
 

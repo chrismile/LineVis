@@ -970,6 +970,8 @@ void LineDataFlow::getLinePassTubeRenderDataGeneral(
             if (numValidLinePoints == 1) {
                 // Only one vertex left -> Output nothing (tube consisting only of one point).
                 pointPopFunctor();
+            }
+            if (numValidLinePoints <= 1) {
                 continue;
             }
 
@@ -1057,6 +1059,8 @@ void LineDataFlow::getLinePassTubeRenderDataGeneral(
             if (numValidLinePoints == 1) {
                 // Only one vertex left -> Output nothing (tube consisting only of one point).
                 pointPopFunctor();
+            }
+            if (numValidLinePoints <= 1) {
                 continue;
             }
 
@@ -1132,6 +1136,8 @@ void LineDataFlow::getLinePassTubeRenderDataGeneral(
             if (numValidLinePoints == 1) {
                 // Only one vertex left -> Output nothing (tube consisting only of one point).
                 pointPopFunctor();
+            }
+            if (numValidLinePoints <= 1) {
                 continue;
             }
 
@@ -1490,6 +1496,8 @@ LinePassQuadsRenderData LineDataFlow::getLinePassQuadsRenderData() {
                 vertexNormals.pop_back();
                 vertexTangents.pop_back();
                 vertexAttributes.pop_back();
+            }
+            if (numValidLinePoints <= 1) {
                 continue;
             }
 
@@ -1858,7 +1866,8 @@ TubeAabbRenderData LineDataFlow::getLinePassTubeAabbRenderData(bool isRasterizer
                     multiVarAttributeData.pop_back();
                 }
             }
-
+        }
+        if (numValidLinePoints <= 1) {
             continue;
         }
 

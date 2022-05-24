@@ -337,6 +337,7 @@ MainApp::MainApp()
     sgl::AppSettings::get()->getSettings().getValueOpt("useFixedSizeViewport", useFixedSizeViewport);
     sgl::AppSettings::get()->getSettings().getValueOpt("fixedViewportSizeX", fixedViewportSize.x);
     sgl::AppSettings::get()->getSettings().getValueOpt("fixedViewportSizeY", fixedViewportSize.y);
+    fixedViewportSizeEdit = fixedViewportSize;
     showPropertyEditor = useDockSpaceMode;
     sgl::ImGuiWrapper::get()->setUseDockSpaceMode(useDockSpaceMode);
 
@@ -468,7 +469,6 @@ MainApp::~MainApp() {
         sgl::AppSettings::get()->getSettings().addKeyValue("useFixedSizeViewport", useFixedSizeViewport);
         sgl::AppSettings::get()->getSettings().addKeyValue("fixedViewportSizeX", fixedViewportSize.x);
         sgl::AppSettings::get()->getSettings().addKeyValue("fixedViewportSizeY", fixedViewportSize.y);
-        fixedViewportSizeEdit = fixedViewportSize;
     }
     sgl::AppSettings::get()->getSettings().addKeyValue("showFpsOverlay", showFpsOverlay);
     sgl::AppSettings::get()->getSettings().addKeyValue("showCoordinateAxesOverlay", showCoordinateAxesOverlay);
