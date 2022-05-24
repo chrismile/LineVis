@@ -1291,7 +1291,7 @@ void LineDataStress::getLinePassTubeRenderDataGeneral(
                 float majorStress, float mediumStress, float minorStress)>& pointPushFunctor,
         const std::function<void()>& pointPopFunctor,
         const std::function<void(int numSegments, uint32_t indexOffset)>& indicesPushFunctor) {
-    std::vector<std::vector<std::vector<glm::vec3>>>* bandPointsListRightPs;
+    std::vector<std::vector<std::vector<glm::vec3>>>* bandPointsListRightPs = nullptr;
     if (getUseBandRendering()) {
         if (useSmoothedBands) {
             bandPointsListRightPs = &bandPointsSmoothedListRightPs;
