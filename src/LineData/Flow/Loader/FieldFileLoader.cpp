@@ -26,11 +26,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <boost/algorithm/string/case_conv.hpp>
+
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/FileUtils.hpp>
 #include <Utils/File/FileLoader.hpp>
 #include "../StreamlineTracingDefines.hpp"
 #include "../StreamlineTracingGrid.hpp"
+#include "half/half.h"
 #include "GridLoader.hpp"
 #include "FieldFileLoader.hpp"
 
@@ -53,37 +56,55 @@ void FieldFileLoader::load(const std::string& dataSourceFilename, StreamlineTrac
         sgl::Logfile::get()->throwError(
                 "Error in FieldFileLoader::load: Invalid file size for file \"" + dataSourceFilename + "\".");
     }
-    auto* fileHeader = reinterpret_cast<FieldFileHeader*>(buffer);
-    auto* dataField = reinterpret_cast<float*>(buffer + 24);
+    FieldFileHeader fileHeader = *reinterpret_cast<FieldFileHeader*>(buffer);
+    auto* dataField = reinterpret_cast<float*>(buffer + sizeof(FieldFileHeader));
 
-    if (fileHeader->fieldType != 0) {
+    std::string filenameRawLower = sgl::FileUtils::get()->getPureFilename(dataSourceFilename);
+    boost::to_lower(filenameRawLower);
+    size_t numBytesData = length - sizeof(FieldFileHeader);
+    if (filenameRawLower.find("uvwp") != std::string::npos) {
+        fileHeader.dimensions = 3;
+        fileHeader.mipLevels = 3;
+        fileHeader.fieldType = 0;
+        dataField = reinterpret_cast<float*>(buffer + sizeof(glm::uvec3));
+        numBytesData = length - sizeof(glm::uvec3);
+    }
+
+    if (fileHeader.fieldType != 0 && fileHeader.fieldType != 1) {
         sgl::Logfile::get()->throwError(
                 "Error in FieldFileLoader::load: Unsupported field type "
-                + std::to_string(fileHeader->fieldType) + " for file \"" + dataSourceFilename + "\".");
+                + std::to_string(fileHeader.fieldType) + " for file \"" + dataSourceFilename + "\".");
     }
-    if (fileHeader->dimensions != 3) {
+    if (fileHeader.dimensions != 3) {
         sgl::Logfile::get()->throwError(
                 "Error in FieldFileLoader::load: Unsupported number of dimensions "
-                + std::to_string(fileHeader->dimensions) + " for file \"" + dataSourceFilename + "\".");
+                + std::to_string(fileHeader.dimensions) + " for file \"" + dataSourceFilename + "\".");
     }
-    if (fileHeader->mipLevels != 1) {
-        sgl::Logfile::get()->throwError(
-                "Error in FieldFileLoader::load: Unsupported number of mip levels "
-                + std::to_string(fileHeader->mipLevels) + " for file \"" + dataSourceFilename + "\".");
-    }
+    //if (fileHeader.mipLevels != 1) {
+    //    sgl::Logfile::get()->throwError(
+    //            "Error in FieldFileLoader::load: Unsupported number of mip levels "
+    //            + std::to_string(fileHeader.mipLevels) + " for file \"" + dataSourceFilename + "\".");
+    //}
 
-    size_t numBytesData = length - 24;
     size_t gridNumCellsTotal =
-            size_t(fileHeader->resolution.x) * size_t(fileHeader->resolution.y) * size_t(fileHeader->resolution.z);
-    if (numBytesData != gridNumCellsTotal * sizeof(glm::vec3) && numBytesData != gridNumCellsTotal * sizeof(glm::vec4)) {
-        sgl::Logfile::get()->throwError(
-                "Error in RbcBinFileLoader::load: Invalid number of entries for file \""
-                + dataSourceFilename + "\".");
+            size_t(fileHeader.resolution.x) * size_t(fileHeader.resolution.y) * size_t(fileHeader.resolution.z);
+    if (fileHeader.fieldType == 0) {
+        if (numBytesData != gridNumCellsTotal * sizeof(glm::vec3) && numBytesData != gridNumCellsTotal * sizeof(glm::vec4)) {
+            sgl::Logfile::get()->throwError(
+                    "Error in RbcBinFileLoader::load: Invalid number of entries for file \""
+                    + dataSourceFilename + "\".");
+        }
+    } else /* if (fileHeader.fieldType == 1) */ {
+        if (numBytesData != gridNumCellsTotal * sizeof(uint16_t) * 3 && numBytesData != gridNumCellsTotal * sizeof(uint16_t) * 4) {
+            sgl::Logfile::get()->throwError(
+                    "Error in RbcBinFileLoader::load: Invalid number of entries for file \""
+                    + dataSourceFilename + "\".");
+        }
     }
 
-    int xs = int(fileHeader->resolution.x);
-    int ys = int(fileHeader->resolution.y);
-    int zs = int(fileHeader->resolution.z);
+    int xs = int(fileHeader.resolution.x);
+    int ys = int(fileHeader.resolution.y);
+    int zs = int(fileHeader.resolution.z);
     float maxDimension = float(std::max(xs - 1, std::max(ys - 1, zs - 1)));
     float cellStep = 1.0f / maxDimension;
 
@@ -97,25 +118,52 @@ void FieldFileLoader::load(const std::string& dataSourceFilename, StreamlineTrac
     auto* helicityField = new float[scalarFieldNumEntries];
     float* scalarAttributeField = nullptr;
 
-    if (numBytesData == gridNumCellsTotal * sizeof(glm::vec3)) {
-        for (int z = 0; z < zs; z++) {
-            for (int y = 0; y < ys; y++) {
-                for (int x = 0; x < xs; x++) {
-                    velocityField[IDXV(x, y, z, 0)] = dataField[IDXV(x, y, z, 0)];
-                    velocityField[IDXV(x, y, z, 1)] = dataField[IDXV(x, y, z, 1)];
-                    velocityField[IDXV(x, y, z, 2)] = dataField[IDXV(x, y, z, 2)];
+    if (fileHeader.fieldType == 0) {
+        if (numBytesData == gridNumCellsTotal * sizeof(glm::vec3)) {
+            for (int z = 0; z < zs; z++) {
+                for (int y = 0; y < ys; y++) {
+                    for (int x = 0; x < xs; x++) {
+                        velocityField[IDXV(x, y, z, 0)] = dataField[IDXV(x, y, z, 0)];
+                        velocityField[IDXV(x, y, z, 1)] = dataField[IDXV(x, y, z, 1)];
+                        velocityField[IDXV(x, y, z, 2)] = dataField[IDXV(x, y, z, 2)];
+                    }
+                }
+            }
+        } else if (numBytesData == gridNumCellsTotal * sizeof(glm::vec4)) {
+            scalarAttributeField = new float[scalarFieldNumEntries];
+            for (int z = 0; z < zs; z++) {
+                for (int y = 0; y < ys; y++) {
+                    for (int x = 0; x < xs; x++) {
+                        velocityField[IDXV(x, y, z, 0)] = dataField[IDXV4(x, y, z, 0)];
+                        velocityField[IDXV(x, y, z, 1)] = dataField[IDXV4(x, y, z, 1)];
+                        velocityField[IDXV(x, y, z, 2)] = dataField[IDXV4(x, y, z, 2)];
+                        scalarAttributeField[IDXS(x, y, z)] = dataField[IDXV4(x, y, z, 3)];
+                    }
                 }
             }
         }
-    } else if (numBytesData == gridNumCellsTotal * sizeof(glm::vec4)) {
-        scalarAttributeField = new float[scalarFieldNumEntries];
-        for (int z = 0; z < zs; z++) {
-            for (int y = 0; y < ys; y++) {
-                for (int x = 0; x < xs; x++) {
-                    velocityField[IDXV(x, y, z, 0)] = dataField[IDXV4(x, y, z, 0)];
-                    velocityField[IDXV(x, y, z, 1)] = dataField[IDXV4(x, y, z, 1)];
-                    velocityField[IDXV(x, y, z, 2)] = dataField[IDXV4(x, y, z, 2)];
-                    scalarAttributeField[IDXS(x, y, z)] = dataField[IDXV4(x, y, z, 3)];
+    } else /* if (fileHeader.fieldType == 1) */ {
+        auto* dataFieldHalf = reinterpret_cast<FLOAT16*>(dataField);
+        if (numBytesData == gridNumCellsTotal * sizeof(uint16_t) * 3) {
+            for (int z = 0; z < zs; z++) {
+                for (int y = 0; y < ys; y++) {
+                    for (int x = 0; x < xs; x++) {
+                        velocityField[IDXV(x, y, z, 0)] = FLOAT16::ToFloat32(dataFieldHalf[IDXV(x, y, z, 0)]);
+                        velocityField[IDXV(x, y, z, 1)] = FLOAT16::ToFloat32(dataFieldHalf[IDXV(x, y, z, 1)]);
+                        velocityField[IDXV(x, y, z, 2)] = FLOAT16::ToFloat32(dataFieldHalf[IDXV(x, y, z, 2)]);
+                    }
+                }
+            }
+        } else if (numBytesData == gridNumCellsTotal * sizeof(uint16_t) * 4) {
+            scalarAttributeField = new float[scalarFieldNumEntries];
+            for (int z = 0; z < zs; z++) {
+                for (int y = 0; y < ys; y++) {
+                    for (int x = 0; x < xs; x++) {
+                        velocityField[IDXV(x, y, z, 0)] = FLOAT16::ToFloat32(dataFieldHalf[IDXV4(x, y, z, 0)]);
+                        velocityField[IDXV(x, y, z, 1)] = FLOAT16::ToFloat32(dataFieldHalf[IDXV4(x, y, z, 1)]);
+                        velocityField[IDXV(x, y, z, 2)] = FLOAT16::ToFloat32(dataFieldHalf[IDXV4(x, y, z, 2)]);
+                        scalarAttributeField[IDXS(x, y, z)] = FLOAT16::ToFloat32(dataFieldHalf[IDXV4(x, y, z, 3)]);
+                    }
                 }
             }
         }
@@ -134,11 +182,12 @@ void FieldFileLoader::load(const std::string& dataSourceFilename, StreamlineTrac
     grid->addScalarField(vorticityMagnitudeField, "Vorticity Magnitude");
     if (scalarAttributeField) {
         // Make an educated guess about the type of the attribute.
-        std::string filenameRawLower = sgl::FileUtils::get()->getPureFilename(dataSourceFilename);
         std::string scalarAttributeName;
         if (filenameRawLower.find("borromean") != std::string::npos
                 || filenameRawLower.find("magnet") != std::string::npos) {
             scalarAttributeName = "Field Strength";
+        } else if (filenameRawLower.find("uvwp") != std::string::npos) {
+            scalarAttributeName = "Pressure";
         } else {
             scalarAttributeName = "Scalar Attribute";
         }

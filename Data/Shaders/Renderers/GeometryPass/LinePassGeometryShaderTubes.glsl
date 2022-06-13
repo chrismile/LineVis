@@ -580,7 +580,8 @@ void main() {
 
 #version 450 core
 #extension GL_EXT_scalar_block_layout : require
-//#extension GL_NV_fragment_shader_barycentric : require // for DEBUG_MESHLETS
+// for DEBUG_MESHLETS
+//#extension GL_NV_fragment_shader_barycentric : require
 
 #include "LineUniformData.glsl"
 
