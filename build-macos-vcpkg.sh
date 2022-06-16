@@ -101,7 +101,7 @@ if [ -z "${VULKAN_SDK+1}" ]; then
 
     found_vulkan=false
 
-    if [ -d "$HOME/VulkanSDK" ]; then
+    if [ -d "$HOME/VulkanSDK" ] && [ ! -z "$(ls -A "$HOME/VulkanSDK")" ]; then
         source "$HOME/VulkanSDK/$(ls $HOME/VulkanSDK)/setup-env.sh"
         found_vulkan=true
     else
