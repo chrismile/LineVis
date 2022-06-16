@@ -253,7 +253,7 @@ else
     mkdir ospray-build
     pushd "./ospray-build" >/dev/null
     cmake ../ospray-repo/scripts/superbuild -DCMAKE_INSTALL_PREFIX="$PROJECTPATH/third_party/ospray" \
-    -DBUILD_JOBS=$(sysctl -n hw.ncpu) -DBUILD_OSPRAY_APPS=Off "${params_ospray[@]}"
+    -DBUILD_JOBS=$(sysctl -n hw.ncpu) -DBUILD_OSPRAY_APPS=Off ${params_ospray[0]+"${params_ospray[@]}"}
     cmake --build . --parallel $(sysctl -n hw.ncpu)
     cmake --build . --parallel $(sysctl -n hw.ncpu)
     popd >/dev/null
@@ -294,7 +294,7 @@ cmake -DCMAKE_FIND_USE_CMAKE_SYSTEM_PATH=False -DCMAKE_FIND_USE_SYSTEM_ENVIRONME
       -DCMAKE_PREFIX_PATH="$(brew --prefix)" \
       -DPYTHONHOME="./python3" \
       -DCMAKE_BUILD_TYPE=$cmake_config \
-      -Dsgl_DIR="$PROJECTPATH/third_party/sgl/install/lib/cmake/sgl/" "${params[@]}" ..
+      -Dsgl_DIR="$PROJECTPATH/third_party/sgl/install/lib/cmake/sgl/" ${params[0]+"${params[@]}"} ..
 Python3_VERSION=$(cat pythonversion.txt)
 popd >/dev/null
 
