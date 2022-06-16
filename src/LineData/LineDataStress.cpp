@@ -525,6 +525,9 @@ void LineDataStress::setStressTrajectoryData(
     }
 
     updateLineHierarchyHistogram();
+#ifdef USE_EIGEN
+    computeMaxPrincipalStress();
+#endif
 
     numTotalTrajectoryPoints = 0;
     for (const Trajectories& trajectories : trajectoriesPs) {
@@ -1283,6 +1286,49 @@ void LineDataStress::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
     }
 }
 
+#ifdef USE_EIGEN
+void LineDataStress::computeMaxPrincipalStress() {
+    maxPrincipalStressMagnitude = std::numeric_limits<float>::epsilon();
+
+    int majorStressIdx = -1;
+    int mediumStressIdx = -1;
+    int minorStressIdx = -1;
+    majorStressIdx = getAttributeNameIndex("Major Stress");
+    mediumStressIdx = getAttributeNameIndex("Medium Stress");
+    minorStressIdx = getAttributeNameIndex("Minor Stress");
+
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        int psIdx = loadedPsIndices.at(i);
+        if (!usedPsDirections.at(psIdx)) {
+            continue;
+        }
+
+        Trajectories &trajectories = trajectoriesPs.at(i);
+        std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
+
+#if _OPENMP >= 201107
+        #pragma omp parallel for reduction(max: maxPrincipalStressMagnitude) default(none) \
+        shared(trajectories, filteredTrajectories, majorStressIdx, mediumStressIdx, minorStressIdx)
+#endif
+        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+
+            Trajectory& trajectory = trajectories.at(trajectoryIdx);
+            for (size_t j = 0; j < trajectory.positions.size(); j++) {
+                float majorStress = std::abs(trajectory.attributes.at(majorStressIdx).at(j));
+                float mediumStress = std::abs(trajectory.attributes.at(mediumStressIdx).at(j));
+                float minorStress = std::abs(trajectory.attributes.at(minorStressIdx).at(j));
+                maxPrincipalStressMagnitude = std::max(maxPrincipalStressMagnitude, majorStress);
+                maxPrincipalStressMagnitude = std::max(maxPrincipalStressMagnitude, mediumStress);
+                maxPrincipalStressMagnitude = std::max(maxPrincipalStressMagnitude, minorStress);
+            }
+        }
+    }
+}
+#endif
+
 void LineDataStress::getLinePassTubeRenderDataGeneral(
         const std::function<uint32_t()>& indexOffsetFunctor,
         const std::function<void(
@@ -1373,9 +1419,12 @@ void LineDataStress::getLinePassTubeRenderDataGeneral(
 #ifdef USE_EIGEN
                     if (getLinePrimitiveModeSupportsLineMultiWidth(linePrimitiveMode)
                             && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
-                        lineMajorStresses.push_back(trajectory.attributes.at(majorStressIdx).at(j));
-                        lineMediumStresses.push_back(trajectory.attributes.at(mediumStressIdx).at(j));
-                        lineMinorStresses.push_back(trajectory.attributes.at(minorStressIdx).at(j));
+                        lineMajorStresses.push_back(
+                                trajectory.attributes.at(majorStressIdx).at(j) / maxPrincipalStressMagnitude);
+                        lineMediumStresses.push_back(
+                                trajectory.attributes.at(mediumStressIdx).at(j) / maxPrincipalStressMagnitude);
+                        lineMinorStresses.push_back(
+                                trajectory.attributes.at(minorStressIdx).at(j) / maxPrincipalStressMagnitude);
                     }
 #endif
                 }
@@ -2481,9 +2530,12 @@ TubeTriangleRenderData LineDataStress::getLinePassTubeTriangleMeshRenderData(boo
                     lineMediumStresses.reserve(numPoints);
                     lineMinorStresses.reserve(numPoints);
                     for (size_t ptIdx = 0; ptIdx < numPoints; ptIdx++) {
-                        lineMajorStresses.push_back(trajectory.attributes.at(majorStressIdx).at(ptIdx));
-                        lineMediumStresses.push_back(trajectory.attributes.at(mediumStressIdx).at(ptIdx));
-                        lineMinorStresses.push_back(trajectory.attributes.at(minorStressIdx).at(ptIdx));
+                        lineMajorStresses.push_back(
+                                trajectory.attributes.at(majorStressIdx).at(ptIdx) / maxPrincipalStressMagnitude);
+                        lineMediumStresses.push_back(
+                                trajectory.attributes.at(mediumStressIdx).at(ptIdx) / maxPrincipalStressMagnitude);
+                        lineMinorStresses.push_back(
+                                trajectory.attributes.at(minorStressIdx).at(ptIdx) / maxPrincipalStressMagnitude);
                     }
                 }
             }
@@ -2584,11 +2636,11 @@ TubeTriangleRenderData LineDataStress::getLinePassTubeTriangleMeshRenderData(boo
                 StressLinePointPrincipalStressDataUnified& stressLinePointPrincipalStressData =
                         tubeTriangleStressLinePointPrincipalStressDataList.at(offset + ptIdx);
                 stressLinePointPrincipalStressData.lineMajorStress =
-                        trajectory.attributes.at(majorStressIdx).at(linePointReference.linePointIndex);
+                        trajectory.attributes.at(majorStressIdx).at(linePointReference.linePointIndex) / maxPrincipalStressMagnitude;
                 stressLinePointPrincipalStressData.lineMediumStress =
-                        trajectory.attributes.at(mediumStressIdx).at(linePointReference.linePointIndex);
+                        trajectory.attributes.at(mediumStressIdx).at(linePointReference.linePointIndex) / maxPrincipalStressMagnitude;
                 stressLinePointPrincipalStressData.lineMinorStress =
-                        trajectory.attributes.at(minorStressIdx).at(linePointReference.linePointIndex);
+                        trajectory.attributes.at(minorStressIdx).at(linePointReference.linePointIndex) / maxPrincipalStressMagnitude;
             }
 #endif
         }
@@ -2774,11 +2826,11 @@ TubeAabbRenderData LineDataStress::getLinePassTubeAabbRenderData(bool isRasteriz
                 if (bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
                     StressLinePointPrincipalStressDataUnified stressLinePointPrincipalStressData{};
                     stressLinePointPrincipalStressData.lineMajorStress =
-                            trajectory.attributes.at(majorStressIdx).at(i);
+                            trajectory.attributes.at(majorStressIdx).at(i) / maxPrincipalStressMagnitude;
                     stressLinePointPrincipalStressData.lineMediumStress =
-                            trajectory.attributes.at(mediumStressIdx).at(i);
+                            trajectory.attributes.at(mediumStressIdx).at(i) / maxPrincipalStressMagnitude;
                     stressLinePointPrincipalStressData.lineMinorStress =
-                            trajectory.attributes.at(minorStressIdx).at(i);
+                            trajectory.attributes.at(minorStressIdx).at(i) / maxPrincipalStressMagnitude;
                     tubeStressLinePointPrincipalStressDataList.push_back(stressLinePointPrincipalStressData);
                 }
 #endif
@@ -3044,9 +3096,12 @@ void LineDataStress::getTriangleMesh(
                     lineMediumStresses.reserve(numPoints);
                     lineMinorStresses.reserve(numPoints);
                     for (size_t ptIdx = 0; ptIdx < numPoints; ptIdx++) {
-                        lineMajorStresses.push_back(trajectory.attributes.at(majorStressIdx).at(ptIdx));
-                        lineMediumStresses.push_back(trajectory.attributes.at(mediumStressIdx).at(ptIdx));
-                        lineMinorStresses.push_back(trajectory.attributes.at(minorStressIdx).at(ptIdx));
+                        lineMajorStresses.push_back(
+                                trajectory.attributes.at(majorStressIdx).at(ptIdx) / maxPrincipalStressMagnitude);
+                        lineMediumStresses.push_back(
+                                trajectory.attributes.at(mediumStressIdx).at(ptIdx) / maxPrincipalStressMagnitude);
+                        lineMinorStresses.push_back(
+                                trajectory.attributes.at(minorStressIdx).at(ptIdx) / maxPrincipalStressMagnitude);
                     }
                 }
             }

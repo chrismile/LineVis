@@ -27,6 +27,7 @@
  */
 
 #include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
@@ -351,9 +352,15 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
     }
     //normalizeTrajectoriesVertexAttributes(this->trajectories);
 
-    auto helicityIt = std::find(attributeNames.begin(), attributeNames.end(), "Helicity");
-    if (helicityIt != attributeNames.end()) {
-        helicityAttributeIndex = int(helicityIt - attributeNames.begin());
+    helicityAttributeIndex = -1;
+    for (size_t attrIdx = 0; attrIdx < attributeNames.size(); attrIdx++) {
+        std::string attributeNameLower = boost::to_lower_copy(attributeNames.at(attrIdx));
+        if (attributeNameLower.find("helicity") != std::string::npos) {
+            helicityAttributeIndex = int(attrIdx);
+            break;
+        }
+    }
+    if (helicityAttributeIndex != -1) {
         hasHelicity = true;
         //useRotatingHelicityBands = true;
         //useRibbons = false;

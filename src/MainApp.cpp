@@ -907,7 +907,9 @@ void MainApp::renderGui() {
             if (!filename.empty() && filename.back() != '/' && filename.back() != '\\') {
                 filename += "/";
             }
-            filename += selection.table[0].fileName;
+            if (selection.count != 0) {
+                filename += selection.table[0].fileName;
+            }
             IGFD_Selection_DestroyContent(&selection);
             if (currentPath) {
                 free((void*)currentPath);

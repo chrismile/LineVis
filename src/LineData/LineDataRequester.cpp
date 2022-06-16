@@ -26,6 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <tracy/Tracy.hpp>
+
 #include <Utils/File/Logfile.hpp>
 
 #include "LineDataFlow.hpp"
@@ -99,6 +101,10 @@ LineDataPtr LineDataRequester::getLoadedData(DataSetInformation& loadedDataSetIn
 }
 
 void LineDataRequester::mainLoop() {
+#ifdef TRACY_ENABLE
+    tracy::SetThreadName("LineDataRequester");
+#endif
+
     while (true) {
         std::unique_lock<std::mutex> requestLock(requestMutex);
         hasRequestConditionVariable.wait(requestLock, [this] { return hasRequest; });

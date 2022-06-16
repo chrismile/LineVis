@@ -219,6 +219,11 @@ private:
     };
     static BandRenderMode bandRenderMode;
 
+#ifdef USE_EIGEN
+    void computeMaxPrincipalStress();
+#endif
+    float maxPrincipalStressMagnitude = 0.0f;
+
     // Rendering mode settings.
     bool rendererSupportsTransparency = false;
 
