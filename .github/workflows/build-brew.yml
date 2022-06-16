@@ -71,8 +71,8 @@ jobs:
               # Fix pkgconfig file.
               shaderc_pkgconfig_file="VulkanSDK/$(ls VulkanSDK)/macOS/lib/pkgconfig/shaderc.pc"
               prefix_path=$(realpath "VulkanSDK/$(ls VulkanSDK)/macOS")
-              sed -i '3s;.*;prefix=\"'$prefix_path'\";' "$shaderc_pkgconfig_file"
-              sed -i '5s;.*;libdir=${prefix}/lib;' "$shaderc_pkgconfig_file"
+              sed -i 's;prefix=.*;prefix=\"'$prefix_path'\";' "$shaderc_pkgconfig_file"
+              sed -i 's;libdir=.*;libdir=${prefix}/lib;' "$shaderc_pkgconfig_file"
               export PKG_CONFIG_PATH="$(realpath "VulkanSDK/$(ls VulkanSDK)/macOS/lib/pkgconfig")"
             fi
           elif [ "$RUNNER_OS" == "macOS" ]; then
