@@ -174,12 +174,12 @@ void AmiraMeshLoader::load(const std::string& dataSourceFilename, StreamlineTrac
     dataSectionStart = skipLine(dataSourceFilename, dataSectionStart, fileBuffer + length);
     dataSectionStart = skipLine(dataSourceFilename, dataSectionStart, fileBuffer + length);
 
-    if (sizeof(float) * 3 * numPoints != size_t(fileBuffer + length - dataSectionStart)) {
+    if (sizeof(float) * 3 * numPoints > size_t(fileBuffer + length - dataSectionStart)) {
         sgl::Logfile::get()->throwError(
                 "Error in AmiraMeshLoader::load: Invalid data section size in file \"" + dataSourceFilename + "\".");
     }
 
-    float* velocityField = new float[numPoints];
+    autocd* velocityField = new float[3 * numPoints];
     memcpy(velocityField, dataSectionStart, sizeof(float) * 3 * numPoints);
 
     float maxDimension = float(std::max(xs - 1, std::max(ys - 1, zs - 1)));
