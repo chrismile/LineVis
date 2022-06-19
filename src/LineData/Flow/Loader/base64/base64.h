@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2022, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,12 +26,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NETCDFIMPORTER_NETCDFCONVERTER_HPP
-#define NETCDFIMPORTER_NETCDFCONVERTER_HPP
+#ifndef LINEVIS_BASE64_H
+#define LINEVIS_BASE64_H
 
-#include <string>
-#include "TrajectoryFile.hpp"
+#include <cstdint>
 
-BinLinesData loadTrajectoriesFromNetCdf(const std::string& filename);
+int base64GetNumBytesDecoded(int numBytesBase64);
+int base64DecodeSized(char* bufferDecoded, const char* bufferBase64, int numBytesBase64);
+uint32_t base64DecodeUint32(const char* bufferBase64);
 
-#endif //NETCDFIMPORTER_NETCDFCONVERTER_HPP
+#endif //LINEVIS_BASE64_H

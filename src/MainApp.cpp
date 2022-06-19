@@ -67,6 +67,7 @@
 #include "LineData/Flow/StreamlineTracingRequester.hpp"
 #include "LineData/Stress/StressLineTracingRequester.hpp"
 #include "LineData/Scattering/ScatteringLineTracingRequester.hpp"
+#include "Loaders/NetCdfLineLoader.hpp"
 #include "Renderers/OpaqueLineRenderer.hpp"
 #include "Renderers/OIT/PerPixelLinkedListLineRenderer.hpp"
 #include "Renderers/OIT/MLABRenderer.hpp"
@@ -920,6 +921,7 @@ void MainApp::renderGui() {
 
             std::string filenameLower = boost::to_lower_copy(filename);
             bool isDatFile = boost::ends_with(filenameLower, ".dat");
+            bool isNcFile = boost::ends_with(filenameLower, ".nc");
 
             /*
              * The program supports two types of .dat file:
@@ -959,7 +961,22 @@ void MainApp::renderGui() {
                 }
             }
 
+            /*
+             * The program supports two types of .dat file:
+             * - .dat files containing a volume description.
+             * - .dat files containing PSLs (DATA_SET_TYPE_STRESS_LINES).
+             * We try to use a good heuristic for determining the right type.
+             */
+            bool isNcVolumeFile = false;
+            if (isNcFile) {
+                isNcVolumeFile = !getNetCdfFileStoresTrajectories(filename);
+            }
+
             if (boost::ends_with(filenameLower, ".vtk")
+                    || boost::ends_with(filenameLower, ".vti")
+                    || boost::ends_with(filenameLower, ".vts")
+                    || (isNcFile && isNcVolumeFile)
+                    || boost::ends_with(filenameLower, ".am")
                     || boost::ends_with(filenameLower, ".bin")
                     || boost::ends_with(filenameLower, ".field")
                     || (isDatFile && isDatVolumeFile)
@@ -980,8 +997,7 @@ void MainApp::renderGui() {
             } else {
                 selectedDataSetIndex = 0;
                 if (boost::ends_with(filenameLower, ".obj")
-                        || boost::ends_with(filenameLower, ".nc")
-                        || boost::ends_with(filenameLower, ".binlines")) {
+                        || boost::ends_with(filenameLower, ".binlines") || isNcFile) {
                     dataSetType = DATA_SET_TYPE_FLOW_LINES;
                 } else if (isDatFile) {
                     dataSetType = DATA_SET_TYPE_STRESS_LINES;

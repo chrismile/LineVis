@@ -84,7 +84,7 @@ GuiVarData::GuiVarData(
 
 bool GuiVarData::saveTfToFile(const std::string& filename) {
     FILE* file = fopen(filename.c_str(), "w");
-    if (file == NULL) {
+    if (file == nullptr) {
         sgl::Logfile::get()->writeError(
                 std::string() + "ERROR: MultiVarTransferFunctionWindow::saveFunctionToFile: Couldn't create file \""
                 + filename + "\"!");

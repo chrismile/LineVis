@@ -38,7 +38,9 @@
 #include <glm/glm.hpp>
 #include <netcdf.h>
 
-#include "NetCdfLoader.hpp"
+#include <Utils/File/Logfile.hpp>
+
+#include "NetCdfLineLoader.hpp"
 
 #if defined(DEBUG) || !defined(NDEBUG)
 #define myassert assert
@@ -52,11 +54,8 @@
 #endif
 
 /// Sets pointer to NULL after deletion.
-#define SAFE_DELETE(x) (if (x != NULL) { delete x; x = NULL; })
-#define SAFE_DELETE_ARRAY(x) if (x != NULL) { delete[] x; x = NULL; }
-
-const float MISSING_VALUE = -999.E9f;
-
+#define SAFE_DELETE(x) (if (x != nullptr) { delete x; x = nullptr; })
+#define SAFE_DELETE_ARRAY(x) if (x != nullptr) { delete[] x; x = nullptr; }
 
 /**
  * Queries a global string attribute.
@@ -300,8 +299,8 @@ void exportObjFile(Trajectories& trajectories, const std::string& filename) {
     std::ofstream outfile;
     outfile.open(filename.c_str());
     if (!outfile.is_open()) {
-        std::cerr << "Error in exportObjFile: File \"" << filename << "\" couldn't be opened for writing!" << std::endl;
-        exit(1);
+        sgl::Logfile::get()->throwError(
+                "Error in exportObjFile: File \"" + filename + "\" couldn't be opened for writing!");
         return;
     }
 
@@ -348,7 +347,7 @@ BinLinesData loadTrajectoriesFromNetCdf(const std::string& filename) {
     // Open the NetCDF file for reading
     int status = nc_open(filename.c_str(), NC_NOWRITE, &ncid);
     if (status != 0) {
-        std::cerr << "Error in loadNetCdfFile: File \"" << filename << "\" couldn't be opened!" << std::endl;
+        sgl::Logfile::get()->writeError("Error in loadNetCdfFile: File \"" + filename + "\" couldn't be opened!");
         return binLinesData;
     }
 
@@ -431,4 +430,22 @@ BinLinesData loadTrajectoriesFromNetCdf(const std::string& filename) {
     SAFE_DELETE_ARRAY(pressure);
 
     return binLinesData;
+}
+
+bool getNetCdfFileStoresTrajectories(const std::string& filename) {
+    int ncid;
+
+    // Open the NetCDF file for reading
+    int status = nc_open(filename.c_str(), NC_NOWRITE, &ncid);
+    if (status != 0) {
+        sgl::Logfile::get()->throwError(
+                "Error in getNetCdfFileStoresTrajectories: File \"" + filename + "\" couldn't be opened!");
+        return false;
+    }
+
+    int dimid = 0;
+    status = nc_inq_dimid(ncid, "trajectory", &dimid);
+
+    myassert(nc_close(ncid) == NC_NOERR);
+    return status != NC_EBADDIM;
 }

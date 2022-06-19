@@ -39,7 +39,7 @@
 #include <tracy/Tracy.hpp>
 
 #include "ObjLoader.hpp"
-#include "NetCdfLoader.hpp"
+#include "NetCdfLineLoader.hpp"
 #include "BinLinesLoader.hpp"
 #include "StressTrajectoriesDatLoader.hpp"
 #include "TrajectoryFile.hpp"

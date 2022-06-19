@@ -47,6 +47,9 @@
 #include "StreamlineSeeder.hpp"
 #include "StreamlineTracingGrid.hpp"
 #include "Loader/StructuredGridVtkLoader.hpp"
+#include "Loader/VtkXmlLoader.hpp"
+#include "Loader/NetCdfLoader.hpp"
+#include "Loader/AmiraMeshLoader.hpp"
 #include "Loader/RbcBinFileLoader.hpp"
 #include "Loader/FieldFileLoader.hpp"
 #include "Loader/DatRawFileLoader.hpp"
@@ -626,6 +629,13 @@ void StreamlineTracingRequester::traceLines(
             request.abcFlowGenerator.load(cachedGrid);
         } else if (boost::ends_with(request.dataSourceFilename, ".vtk")) {
             StructuredGridVtkLoader::load(request.dataSourceFilename, cachedGrid);
+        } else if (boost::ends_with(request.dataSourceFilename, ".vti")
+                || boost::ends_with(request.dataSourceFilename, ".vts")) {
+            VtkXmlLoader::load(request.dataSourceFilename, cachedGrid);
+        } else if (boost::ends_with(request.dataSourceFilename, ".nc")) {
+            NetCdfLoader::load(request.dataSourceFilename, cachedGrid);
+        } else if (boost::ends_with(request.dataSourceFilename, ".am")) {
+            AmiraMeshLoader::load(request.dataSourceFilename, cachedGrid);
         } else if (boost::ends_with(request.dataSourceFilename, ".bin")) {
             RbcBinFileLoader::load(request.dataSourceFilename, cachedGrid);
         } else if (boost::ends_with(request.dataSourceFilename, ".field")) {

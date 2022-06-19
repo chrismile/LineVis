@@ -311,7 +311,7 @@ void StreamlineTracingGrid::traceStreamribbons(
     for (int trajectoryIdx = 0; trajectoryIdx < numTrajectories; trajectoryIdx++) {
         Trajectory& trajectory = trajectories.at(trajectoryIdx);
         std::vector<glm::vec3>& ribbonDirections = ribbonsDirections.at(trajectoryIdx);
-        if (trajectory.positions.empty()) {
+        if (trajectory.positions.size() <= 1) {
             continue;
         }
         float trajectoryLength = 0.0f;
@@ -853,6 +853,12 @@ void StreamlineTracingGrid::_pushRibbonDirections(
     ribbonDirections.reserve(trajectory.positions.size());
 
     size_t n = trajectory.positions.size();
+
+    if (n == 1) {
+        ribbonDirections.push_back(lastRibbonDirection);
+        return;
+    }
+
     for (size_t i = 0; i < n; i++) {
         glm::vec3 tangent;
         if (i == 0) {
