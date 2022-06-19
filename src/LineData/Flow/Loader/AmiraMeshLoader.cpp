@@ -179,7 +179,7 @@ void AmiraMeshLoader::load(const std::string& dataSourceFilename, StreamlineTrac
                 "Error in AmiraMeshLoader::load: Invalid data section size in file \"" + dataSourceFilename + "\".");
     }
 
-    autocd* velocityField = new float[3 * numPoints];
+    auto* velocityField = new float[3 * numPoints];
     memcpy(velocityField, dataSectionStart, sizeof(float) * 3 * numPoints);
 
     float maxDimension = float(std::max(xs - 1, std::max(ys - 1, zs - 1)));
