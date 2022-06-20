@@ -339,6 +339,10 @@ bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyE
             if (showBandRenderingMode && fileFormatVersion >= 3 && propertyEditor.addCombo(
                     "Band Rendering Mode", (int*)&bandRenderMode,
                     bandRenderModeNames, IM_ARRAYSIZE(bandRenderModeNames))) {
+                if (bandRenderMode == BandRenderMode::EIGENVALUE_RATIO
+                        || bandRenderMode == BandRenderMode::HYPERSTREAMLINES) {
+                    useCappedTubes = false;
+                }
                 dirty = true;
                 shallReloadGatherShader = true;
             }
