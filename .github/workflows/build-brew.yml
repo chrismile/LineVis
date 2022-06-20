@@ -49,7 +49,7 @@ jobs:
             exit 1
           fi
           brew install cmake zlib libpng glm sdl2 sdl2_image libarchive boost tinyxml2 \
-          jsoncpp eigen openexr netcdf zeromq cppzmq python@3.9
+          jsoncpp eigen openexr netcdf zeromq cppzmq python@3.9 eccodes
 
       - name: Install Vulkan SDK
         shell: bash

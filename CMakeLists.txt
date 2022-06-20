@@ -107,6 +107,8 @@ else()
     endif()
 endif()
 
+find_package(eccodes QUIET)
+
 get_target_property(SGL_INTERFACE_COMPILE_DEFINITIONS sgl INTERFACE_COMPILE_DEFINITIONS)
 if (NOT "SUPPORT_VULKAN" IN_LIST SGL_INTERFACE_COMPILE_DEFINITIONS)
     message(FATAL_ERROR "sgl was not built with Vulkan support enabled.")
@@ -298,6 +300,12 @@ else()
     target_include_directories(LineVis PRIVATE ${NETCDF_INCLUDE_DIR})
 endif()
 target_include_directories(LineVis PRIVATE ${sgl_INCLUDES} ${TINYXML2_INCLUDE_DIR})
+
+if (eccodes_FOUND)
+    target_link_libraries(LineVis PRIVATE ${eccodes_LIBRARIES})
+    target_include_directories(LineVis PRIVATE ${eccodes_INCLUDE_DIR})
+    target_compile_definitions(LineVis PRIVATE USE_ECCODES)
+endif()
 
 if (JSONCPP_LIBRARIES)
     target_link_libraries(LineVis PRIVATE ${JSONCPP_LIBRARIES})

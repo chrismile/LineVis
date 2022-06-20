@@ -12,7 +12,7 @@ all of its dependencies. Please follow the instructions in the file `docs/compil
 All other necessary dependencies besides sgl can be installed using the following command.
 On Windows `--triplet=x64-windows` needs to be added if the 64-bit version of the packages should be installed.
 
-```
+```shell
 ./vcpkg install boost-core boost-algorithm boost-filesystem sdl2[vulkan] glew glm eigen3 jsoncpp python3 cppzmq netcdf-c openexr
 ```
 
@@ -22,7 +22,7 @@ On Windows `--triplet=x64-windows` needs to be added if the 64-bit version of th
 To invoke the build process using CMake, the following commands can be used.
 Please adapt `sgl_DIR` depending on which path sgl was installed to.
 
-```
+```shell
 mkdir build
 cd build
 rm -rf *
@@ -38,7 +38,7 @@ or the CMake variable `DATA_PATH` must be set to the path pointing to the `Data`
 If sgl was not installed globally on the system, the library path might need to be adapted before launching the
 application.
 
-```
+```shell
 export LD_LIBRARY_PATH=<path-to-sgl>/lib
 ./LineVis
 ```
@@ -49,13 +49,13 @@ export LD_LIBRARY_PATH=<path-to-sgl>/lib
 On Windows, installing the Boost.Interprocess package is necessary.
 Please do not forget to add `--triplet=x64-windows` if the 64-bit version of the package should be installed.
 
-```
+```shell
 ./vcpkg install boost-interprocess
 ```
 
 Then, the program can be built using the following commands. Please adapt the paths where necessary.
 
-```
+```shell
 mkdir build
 cd build
 cmake -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_HOME/scripts/buildsystems/vcpkg.cmake" -Dsgl_DIR=<path-to-sgl>lib/cmake/sgl ..
@@ -67,7 +67,7 @@ consider setting the environment variable `set VSLANG=1033`.
 
 To run the program, use the following commands on cmd.exe ...
 
-```
+```shell
 set PATH=%PATH%;<path-to-sgl>/bin
 set PYTHONHOME=$VCPKG_HOME/installed/x64-windows/tools/python3
 
@@ -82,7 +82,7 @@ LineVis.exe
 
 ... or the following commands on the PowerShell.
 
-```
+```shell
 $env:Path += ";<path-to-sgl>/bin"
 $env:PYTHONHOME = "$env:VCPKG_HOME/installed/x64-windows/tools/python3"
 

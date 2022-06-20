@@ -78,12 +78,13 @@ if command -v apt &> /dev/null; then
             || ! is_installed_apt "libglew-dev" || ! is_installed_apt "libjsoncpp-dev" \
             || ! is_installed_apt "libeigen3-dev" || ! is_installed_apt "python3-dev" \
             || ! is_installed_apt "libzmq3-dev" || ! is_installed_apt "libnetcdf-dev" \
-            || ! is_installed_apt "libopenexr-dev"; then
+            || ! is_installed_apt "libopenexr-dev" || ! is_installed_apt "libeccodes-dev"; then
         echo "------------------------"
         echo "installing dependencies "
         echo "------------------------"
         sudo apt install -y libglm-dev libsdl2-dev libsdl2-image-dev libpng-dev libboost-filesystem-dev libtinyxml2-dev \
-        libarchive-dev libglew-dev libjsoncpp-dev libeigen3-dev python3-dev libzmq3-dev libnetcdf-dev libopenexr-dev
+        libarchive-dev libglew-dev libjsoncpp-dev libeigen3-dev python3-dev libzmq3-dev libnetcdf-dev libopenexr-dev \
+        libeccodes-dev
     fi
 elif command -v pacman &> /dev/null; then
     if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
@@ -108,6 +109,9 @@ elif command -v pacman &> /dev/null; then
         echo "------------------------"
         sudo pacman -S boost libarchive glm tinyxml2 sdl2 sdl2_image glew vulkan-devel shaderc \
         python3 eigen jsoncpp zeromq netcdf ospray openexr
+    fi
+    if command -v yay &> /dev/null && ! is_installed_yay "eccodes"; then
+        yay -Ss eccodes
     fi
 else
     echo "Warning: Unsupported system package manager detected." >&2

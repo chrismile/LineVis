@@ -8,7 +8,7 @@ dependencies. Please follow the instructions in the file `docs/compilation_vcpkg
 
 After that, all obligatory dependencies can be installed using the following command with MSYS2 and Pacman.
 
-```
+```shell
 pacman -S make git wget mingw64/mingw-w64-x86_64-gcc mingw64/mingw-w64-x86_64-gdb mingw64/mingw-w64-x86_64-cmake \
 mingw64/mingw-w64-x86_64-glm mingw64/mingw-w64-x86_64-libpng mingw64/mingw-w64-x86_64-tinyxml2 \
 mingw64/mingw-w64-x86_64-boost mingw64/mingw-w64-x86_64-libarchive \
@@ -17,12 +17,12 @@ mingw64/mingw-w64-x86_64-vulkan-headers mingw64/mingw-w64-x86_64-vulkan-loader \
 mingw64/mingw-w64-x86_64-vulkan-validation-layers mingw64/mingw-w64-x86_64-shaderc \
 mingw64/mingw-w64-x86_64-jsoncpp mingw64/mingw-w64-x86_64-netcdf mingw64/mingw-w64-x86_64-zeromq \
 mingw64/mingw-w64-x86_64-eigen3 mingw64/mingw-w64-x86_64-python mingw64/mingw-w64-x86_64-python-numpy \
-mingw64/mingw-w64-x86_64-openexr
+mingw64/mingw-w64-x86_64-openexr mingw64/mingw-w64-x86_64-eccodes
 ```
 
 After all dependencies have been set up, the following commands can be used to build the program.
 
-```
+```shell
 mkdir build
 cd build
 rm -rf *
@@ -34,7 +34,7 @@ export PATH=$PATH:"/c/msys64/usr/local/bin"
 
 To run the program, please execute the following commands.
 
-```
+```shell
 export PYTHONHOME="/mingw64"
 ./LineVis
 ```
@@ -64,14 +64,14 @@ the standard directory C:\msys64).
 
 Then, add the following CMake options to the used build profiles (assuming sgl was installed to `/usr/local`).
 
-```
+```shell
 -G "MSYS Makefiles" -DPython3_FIND_REGISTRY=NEVER -Dsgl_DIR=/usr/local/lib/cmake/sgl
 ```
 
 Finally, in order for Windows to find the .dll files at runtime, add the following environment variables to the run
 configurations.
 
-```
+```shell
 PYTHONHOME=C:/msys64/mingw64;PATH=C:/msys64/mingw64/bin\;C:/msys64/usr/local/bin
 ```
 

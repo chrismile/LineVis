@@ -11,16 +11,16 @@ Please follow the instructions in the file `docs/compilation_vcpkg.md` of sgl fo
 
 After that, all obligatory dependencies can be installed using the following command.
 
-```
+```shell
 sudo apt-get install cmake libglm-dev libsdl2-dev libsdl2-image-dev libpng-dev libboost-filesystem-dev libtinyxml2-dev \
-libarchive-dev libjsoncpp-dev libeigen3-dev python3-dev libzmq3-dev libnetcdf-dev libopenexr-dev
+libarchive-dev libjsoncpp-dev libeigen3-dev python3-dev libzmq3-dev libnetcdf-dev libopenexr-dev libeccodes-dev
 ```
 
 Python 3 is an optional dependency necessary for enabling replay script support.
 
 After all dependencies have been set up, the following commands can be used to build the program.
 
-```
+```shell
 mkdir build
 cd build
 cmake -Dsgl_DIR=<path-to-sgl> ..
@@ -34,7 +34,7 @@ or the CMake variable `DATA_PATH` must be set to the path pointing to the `Data`
 If sgl was not installed globally on the system, the library path might need to be adapted before launching the
 application.
 
-```
+```shell
 export LD_LIBRARY_PATH=<path-to-sgl>/lib
 ./LineVis
 ```
@@ -44,9 +44,15 @@ export LD_LIBRARY_PATH=<path-to-sgl>/lib
 
 The following command can be used to install all dependencies on Arch Linux (last tested in May 2021).
 
-```
+```shell
 sudo pacman -S cmake boost libarchive glm tinyxml2 sdl2 sdl2_image glew vulkan-devel shaderc \
 python3 eigen jsoncpp zeromq netcdf ospray openexr
+```
+
+The optional dependency `eccodes` can be installed from AUR using, e.g., yay.
+
+```shell
+yay -Ss eccodes
 ```
 
 All other build instructions are identical to the ones for Ubuntu provided above.

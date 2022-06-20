@@ -75,7 +75,8 @@ if command -v pacman &> /dev/null && [ ! -d $build_dir_debug ] && [ ! -d $build_
             || ! is_installed_pacman "mingw-w64-x86_64-eigen3" \
             || ! is_installed_pacman "mingw-w64-x86_64-python" \
             || ! is_installed_pacman "mingw-w64-x86_64-python-numpy" \
-            || ! is_installed_pacman "mingw-w64-x86_64-openexr"; then
+            || ! is_installed_pacman "mingw-w64-x86_64-openexr" \
+            || ! is_installed_pacman "mingw-w64-x86_64-eccodes"; then
         echo "------------------------"
         echo "installing dependencies "
         echo "------------------------"
@@ -87,7 +88,7 @@ if command -v pacman &> /dev/null && [ ! -d $build_dir_debug ] && [ ! -d $build_
         mingw64/mingw-w64-x86_64-vulkan-validation-layers mingw64/mingw-w64-x86_64-shaderc \
         mingw64/mingw-w64-x86_64-jsoncpp mingw64/mingw-w64-x86_64-netcdf mingw64/mingw-w64-x86_64-zeromq \
         mingw64/mingw-w64-x86_64-eigen3 mingw64/mingw-w64-x86_64-python mingw64/mingw-w64-x86_64-python-numpy \
-        mingw64/mingw-w64-x86_64-openexr
+        mingw64/mingw-w64-x86_64-openexr mingw64/mingw-w64-x86_64-eccodes
     fi
 fi
 

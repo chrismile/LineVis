@@ -129,6 +129,9 @@ if command -v brew &> /dev/null && [ ! -d $build_dir_debug ] && [ ! -d $build_di
     if ! is_installed_brew "numpy"; then
         brew install numpy
     fi
+    if ! is_installed_brew "eccodes"; then
+        brew install eccodes
+    fi
 fi
 
 if ! command -v cmake &> /dev/null; then
