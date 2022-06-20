@@ -13,7 +13,8 @@ After that, all obligatory dependencies can be installed using the following com
 
 ```shell
 sudo apt-get install cmake libglm-dev libsdl2-dev libsdl2-image-dev libpng-dev libboost-filesystem-dev libtinyxml2-dev \
-libarchive-dev libjsoncpp-dev libeigen3-dev python3-dev libzmq3-dev libnetcdf-dev libopenexr-dev libeccodes-dev libeccodes-tools
+libarchive-dev libjsoncpp-dev libeigen3-dev python3-dev libzmq3-dev libnetcdf-dev libopenexr-dev libeccodes-dev \
+libeccodes-tools libopenjp2-7-dev
 ```
 
 Python 3 is an optional dependency necessary for enabling replay script support.

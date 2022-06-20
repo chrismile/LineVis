@@ -76,7 +76,7 @@ void AbcFlowGenerator::load(StreamlineTracingGrid* grid) const {
     computeVectorMagnitudeField(vorticityField, vorticityMagnitudeField, xs, ys, zs);
     computeHelicityField(velocityField, vorticityField, helicityField, xs, ys, zs);
 
-    grid->setGridMetadata(xs, ys, zs, cellStep, cellStep, cellStep);
+    grid->setGridExtent(xs, ys, zs, cellStep, cellStep, cellStep);
     grid->addVectorField(velocityField, "Velocity");
     grid->addVectorField(vorticityField, "Vorticity");
     grid->addScalarField(helicityField, "Helicity");

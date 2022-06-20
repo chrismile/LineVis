@@ -47,7 +47,9 @@ struct FieldFileHeader {
     uint32_t fieldType;
 };
 
-void DatRawFileLoader::load(const std::string& dataSourceFilename, StreamlineTracingGrid* grid) {
+void DatRawFileLoader::load(
+        const std::string& dataSourceFilename, const GridDataSetMetaData& gridDataSetMetaData,
+        StreamlineTracingGrid* grid) {
     std::string datFilePath;
     std::string rawFilePath;
 
@@ -232,7 +234,7 @@ void DatRawFileLoader::load(const std::string& dataSourceFilename, StreamlineTra
     computeVectorMagnitudeField(vorticityField, vorticityMagnitudeField, xs, ys, zs);
     computeHelicityField(velocityField, vorticityField, helicityField, xs, ys, zs);
 
-    grid->setGridMetadata(xs, ys, zs, cellStep, cellStep, cellStep);
+    grid->setGridExtent(xs, ys, zs, cellStep, cellStep, cellStep);
     grid->addVectorField(velocityField, "Velocity");
     grid->addVectorField(vorticityField, "Vorticity");
     grid->addScalarField(helicityField, "Helicity");

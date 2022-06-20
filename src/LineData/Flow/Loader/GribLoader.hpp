@@ -41,7 +41,9 @@ typedef struct grib_handle codes_handle;
  */
 class GribLoader {
 public:
-    static void load(const std::string& dataSourceFilename, StreamlineTracingGrid* grid);
+    static void load(
+            const std::string& dataSourceFilename, const GridDataSetMetaData& gridDataSetMetaData,
+            StreamlineTracingGrid* grid);
 
 private:
     static std::string getString(codes_handle* handle, const std::string& key);

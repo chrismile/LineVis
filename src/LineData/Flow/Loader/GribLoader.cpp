@@ -81,7 +81,9 @@ long GribLoader::getLong(codes_handle* handle, const std::string& key) {
     return value;
 }
 
-void GribLoader::load(const std::string& dataSourceFilename, StreamlineTracingGrid* grid) {
+void GribLoader::load(
+        const std::string& dataSourceFilename, const GridDataSetMetaData& gridDataSetMetaData,
+        StreamlineTracingGrid* grid) {
 #if defined(__linux__) || defined(__MINGW32__) // __GNUC__? Does GCC generally work on non-POSIX systems?
     FILE* file = fopen64(dataSourceFilename.c_str(), "rb");
 #else
@@ -120,9 +122,10 @@ void GribLoader::load(const std::string& dataSourceFilename, StreamlineTracingGr
     long numLonsGlobal = 0;
     long numLatsGlobal = 0;
 
-    // TODO: Move to config.
-    long dataDateLoad = 20161002; // 2016-10-02
-    long dataTimeLoad = 600; // 6:00 o'clock
+    //long dataDateLoad = 20161002; // 2016-10-02
+    //long dataTimeLoad = 600; // 6:00 o'clock
+    long dataDateLoad = gridDataSetMetaData.date;
+    long dataTimeLoad = gridDataSetMetaData.time;
 
     while(true) {
 #if defined(_WIN32) && !defined(__MINGW32__)
@@ -181,6 +184,8 @@ void GribLoader::load(const std::string& dataSourceFilename, StreamlineTracingGr
         double latMax = getDouble(handle, "latitudeOfLastGridPointInDegrees");
         double lonInc = getDouble(handle, "iDirectionIncrementInDegrees");
         double latInc = getDouble(handle, "jDirectionIncrementInDegrees");
+        (void)lonMax;
+        (void)latMax;
 
         std::string typeOfLevel = getString(handle, "typeOfLevel");
         if (typeOfLevel != "isobaricInhPa") {
@@ -198,7 +203,7 @@ void GribLoader::load(const std::string& dataSourceFilename, StreamlineTracingGr
 
         std::string parameterShortName = getString(handle, "shortName");
 
-        std::cout << "N: " << numberOfPoints << std::endl;
+        /*std::cout << "N: " << numberOfPoints << std::endl;
         std::cout << "Ni: " << numLons << std::endl;
         std::cout << "Nj: " << numLats << std::endl;
         std::cout << "lonMin: " << lonMin << std::endl;
@@ -212,7 +217,7 @@ void GribLoader::load(const std::string& dataSourceFilename, StreamlineTracingGr
         std::cout << "typeOfLevel: " << typeOfLevel << std::endl;
         std::cout << "dataDate: " << dataDate << std::endl;
         std::cout << "dataTime: " << dataTime << std::endl;
-        std::cout << std::endl;
+        std::cout << std::endl;*/
 
         // First variable data read?
         if (variableNames.empty()) {
@@ -332,10 +337,12 @@ void GribLoader::load(const std::string& dataSourceFilename, StreamlineTracingGr
     float maxDimension = float(std::max(xs - 1, std::max(ys - 1, zs - 1)));
     float cellStep = 1.0f / maxDimension;
     // TODO: Use lon, lat, level/pressure (pv).
-    float dx = cellStep, dy = cellStep, dz = cellStep;
+    float dx = cellStep * gridDataSetMetaData.scale[0];
+    float dy = cellStep * gridDataSetMetaData.scale[1];
+    float dz = cellStep * gridDataSetMetaData.scale[2];
     auto numPoints = int(xs * ys * zs);
 
-    grid->setGridMetadata(int(xs), int(ys), int(zs), dx, dy, dz);
+    grid->setGridExtent(int(xs), int(ys), int(zs), dx, dy, dz);
 
     auto* velocityField = new float[3 * numPoints];
     for (int ptIdx = 0; ptIdx < numPoints; ptIdx++) {

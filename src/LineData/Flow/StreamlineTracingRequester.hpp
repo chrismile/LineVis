@@ -41,6 +41,7 @@
 class StreamlineSeeder;
 typedef std::shared_ptr<StreamlineSeeder> StreamlineSeederPtr;
 class StreamlineTracingGrid;
+struct GridDataSetMetaData;
 
 class StreamlineTracingRequester {
 public:
@@ -125,6 +126,7 @@ private:
     std::string gridDataSetFilename;
     std::vector<std::string> gridDataSetNames;
     std::vector<std::string> gridDataSetFilenames;
+    std::vector<GridDataSetMetaData> gridDataSetsMetaData;
     int selectedGridDataSetIndex = 0;
     AbcFlowGenerator abcFlowGenerator;
 };

@@ -113,9 +113,22 @@ class StreamlineTracingGrid;
 #define IDXS(x,y,z) ((z)*xs*ys + (y)*xs + (x))
 #define IDXS_C(x,y,z) ((z)*(xs-1)*(ys-1) + (y)*(xs-1) + (x))
 
+struct GridDataSetMetaData {
+    // Date can be left 0. It is used for GRIB files storing time in a date-time format.
+    // E.g., "data_date": 20161002, "data_time": 600 can be used for 2016-10-02 6:00.
+    // Alternatively, "time": "2016-10-02 6:00" can be used. Time steps are specified via, e.g., "time": 10.
+    int date = 0;
+    int time = 0;
+    // Scale along each input axis.
+    glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
+    // Can be used for transposing axes.
+    glm::ivec3 axes = { 0, 1, 2 };
+};
+
 struct StreamlineTracingSettings {
     bool isAbcDataSet = false;
     std::string dataSourceFilename{};
+    GridDataSetMetaData gridDataSetMetaData{};
     FlowPrimitives flowPrimitives = FlowPrimitives::STREAMRIBBONS;
     int numPrimitives = 1024;
     StreamlineSeedingStrategy streamlineSeedingStrategy = StreamlineSeedingStrategy::VOLUME;

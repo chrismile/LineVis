@@ -38,7 +38,9 @@ class StreamlineTracingGrid;
  */
 class NetCdfLoader {
 public:
-    static void load(const std::string& dataSourceFilename, StreamlineTracingGrid* grid);
+    static void load(
+            const std::string& dataSourceFilename, const GridDataSetMetaData& gridDataSetMetaData,
+            StreamlineTracingGrid* grid);
 
 private:
     static bool getDimensionExists(int ncid, const std::string& dimensionName);

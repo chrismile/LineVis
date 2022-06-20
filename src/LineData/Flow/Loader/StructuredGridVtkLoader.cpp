@@ -150,7 +150,9 @@ void StructuredGridVtkLoader::_convertScalarFieldCellToPointMode(
     }
 }
 
-void StructuredGridVtkLoader::load(const std::string& dataSourceFilename, StreamlineTracingGrid* grid) {
+void StructuredGridVtkLoader::load(
+        const std::string& dataSourceFilename, const GridDataSetMetaData& gridDataSetMetaData,
+        StreamlineTracingGrid* grid) {
     int xs = 0, ys = 0, zs = 0;
 
     uint8_t* buffer = nullptr;
@@ -548,7 +550,7 @@ void StructuredGridVtkLoader::load(const std::string& dataSourceFilename, Stream
     float dx = cellStep * bbDim.x / maxBbDim;
     float dy = cellStep * bbDim.y / maxBbDim;
     float dz = cellStep * bbDim.z / maxBbDim;
-    grid->setGridMetadata(xs, ys, zs, dx, dy, dz);
+    grid->setGridExtent(xs, ys, zs, dx, dy, dz);
 
     auto itVelocity = vectorFields.find("velocity");
     if (itVelocity == vectorFields.end()) {

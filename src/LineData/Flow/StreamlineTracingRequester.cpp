@@ -33,6 +33,7 @@
 #include <tracy/Tracy.hpp>
 
 #include <Utils/AppSettings.hpp>
+#include <Utils/StringUtils.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/FileUtils.hpp>
 #include <Utils/File/FileLoader.hpp>
@@ -113,6 +114,63 @@ void StreamlineTracingRequester::loadGridDataSetList() {
 
             gridDataSetNames.push_back(source["name"].asString());
             gridDataSetFilenames.push_back(source["filename"].asString());
+
+            GridDataSetMetaData gridDataSetMetaData;
+            if (source.isMember("time")) {
+                auto timeElement = source["time"];
+                if (timeElement.isString()) {
+                    std::string timeString = timeElement.asString();
+                    std::vector<std::string> timeStringVector;
+                    sgl::splitStringWhitespace(timeString, timeStringVector);
+                    if (timeStringVector.size() == 1) {
+                        gridDataSetMetaData.time = sgl::fromString<int>(timeStringVector.at(0));
+                    } else if (timeStringVector.size() == 2) {
+                        std::string dateStringRaw;
+                        for (char c : timeStringVector.at(0)) {
+                            if (int(c) >= int('0') && int(c) <= '9') {
+                                dateStringRaw += c;
+                            }
+                        }
+                        std::string timeStringRaw;
+                        for (char c : timeStringVector.at(1)) {
+                            if (int(c) >= int('0') && int(c) <= '9') {
+                                timeStringRaw += c;
+                            }
+                        }
+                        gridDataSetMetaData.date = sgl::fromString<int>(dateStringRaw);
+                        gridDataSetMetaData.time = sgl::fromString<int>(timeStringRaw);
+                    }
+                } else {
+                    gridDataSetMetaData.time = timeElement.asInt();
+                }
+            }
+            if (source.isMember("data_date") && source.isMember("data_time")) {
+                auto dataDateElement = source["data_date"];
+                auto dataTimeElement = source["data_time"];
+                gridDataSetMetaData.date = dataDateElement.asInt();
+                gridDataSetMetaData.time = dataTimeElement.asInt();
+            }
+            if (source.isMember("scale")) {
+                auto scaleElement = source["scale"];
+                if (scaleElement.isDouble()) {
+                    gridDataSetMetaData.scale = glm::vec3(scaleElement.asFloat());
+                } else if (scaleElement.isArray()) {
+                    int dim = 0;
+                    for (const auto& scaleDimElement : scaleElement) {
+                        gridDataSetMetaData.scale[dim] = scaleDimElement.asFloat();
+                        dim++;
+                    }
+                }
+            }
+            if (source.isMember("axes")) {
+                auto axesElement = source["axes"];
+                int dim = 0;
+                for (const auto& axisElement : axesElement) {
+                    gridDataSetMetaData.axes[dim] = axisElement.asInt();
+                    dim++;
+                }
+            }
+            gridDataSetsMetaData.push_back(gridDataSetMetaData);
         }
     }
 }
@@ -526,6 +584,7 @@ void StreamlineTracingRequester::requestNewData() {
         request.abcFlowGenerator = abcFlowGenerator;
     } else {
         request.dataSourceFilename = boost::filesystem::absolute(gridDataSetFilename).generic_string();
+        request.gridDataSetMetaData = gridDataSetsMetaData.at(selectedGridDataSetIndex - 2);
     }
 
     queueRequestStruct(request);
@@ -631,26 +690,42 @@ void StreamlineTracingRequester::traceLines(
         if (request.isAbcDataSet) {
             request.abcFlowGenerator.load(cachedGrid);
         } else if (boost::ends_with(request.dataSourceFilename, ".vtk")) {
-            StructuredGridVtkLoader::load(request.dataSourceFilename, cachedGrid);
+            StructuredGridVtkLoader::load(
+                    request.dataSourceFilename, request.gridDataSetMetaData,
+                    cachedGrid);
         } else if (boost::ends_with(request.dataSourceFilename, ".vti")
                 || boost::ends_with(request.dataSourceFilename, ".vts")) {
-            VtkXmlLoader::load(request.dataSourceFilename, cachedGrid);
+            VtkXmlLoader::load(
+                    request.dataSourceFilename, request.gridDataSetMetaData,
+                    cachedGrid);
         } else if (boost::ends_with(request.dataSourceFilename, ".nc")) {
-            NetCdfLoader::load(request.dataSourceFilename, cachedGrid);
+            NetCdfLoader::load(
+                    request.dataSourceFilename, request.gridDataSetMetaData,
+                    cachedGrid);
         } else if (boost::ends_with(request.dataSourceFilename, ".am")) {
-            AmiraMeshLoader::load(request.dataSourceFilename, cachedGrid);
+            AmiraMeshLoader::load(
+                    request.dataSourceFilename, request.gridDataSetMetaData,
+                    cachedGrid);
         } else if (boost::ends_with(request.dataSourceFilename, ".bin")) {
-            RbcBinFileLoader::load(request.dataSourceFilename, cachedGrid);
+            RbcBinFileLoader::load(
+                    request.dataSourceFilename, request.gridDataSetMetaData,
+                    cachedGrid);
         } else if (boost::ends_with(request.dataSourceFilename, ".field")) {
-            FieldFileLoader::load(request.dataSourceFilename, cachedGrid);
+            FieldFileLoader::load(
+                    request.dataSourceFilename, request.gridDataSetMetaData,
+                    cachedGrid);
         } else if (boost::ends_with(request.dataSourceFilename, ".dat")
                 || boost::ends_with(request.dataSourceFilename, ".raw")) {
-            DatRawFileLoader::load(request.dataSourceFilename, cachedGrid);
+            DatRawFileLoader::load(
+                    request.dataSourceFilename, request.gridDataSetMetaData,
+                    cachedGrid);
         }
 #ifdef USE_ECCODES
         else if (boost::ends_with(request.dataSourceFilename, ".grib")
                 || boost::ends_with(request.dataSourceFilename, ".grb")) {
-            GribLoader::load(request.dataSourceFilename, cachedGrid);
+            GribLoader::load(
+                    request.dataSourceFilename, request.gridDataSetMetaData,
+                    cachedGrid);
         }
 #endif
 

@@ -50,7 +50,7 @@ class StreamlineTracingGrid {
 public:
     StreamlineTracingGrid();
     ~StreamlineTracingGrid();
-    void setGridMetadata(int xs, int ys, int zs, float dx, float dy, float dz);
+    void setGridExtent(int xs, int ys, int zs, float dx, float dy, float dz);
     void addVectorField(float* vectorField, const std::string& vectorName);
     void addScalarField(float* scalarField, const std::string& scalarName);
     std::vector<std::string> getVectorFieldNames();

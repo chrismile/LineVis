@@ -33,7 +33,9 @@
 #include "GridLoader.hpp"
 #include "RbcBinFileLoader.hpp"
 
-void RbcBinFileLoader::load(const std::string& dataSourceFilename, StreamlineTracingGrid* grid) {
+void RbcBinFileLoader::load(
+        const std::string& dataSourceFilename, const GridDataSetMetaData& gridDataSetMetaData,
+        StreamlineTracingGrid* grid) {
     uint8_t* buffer = nullptr;
     size_t length = 0;
     bool loaded = sgl::loadFileFromSource(dataSourceFilename, buffer, length, false);
@@ -80,7 +82,7 @@ void RbcBinFileLoader::load(const std::string& dataSourceFilename, StreamlineTra
     computeVectorMagnitudeField(vorticityField, vorticityMagnitudeField, xs, ys, zs);
     computeHelicityField(velocityField, vorticityField, helicityField, xs, ys, zs);
 
-    grid->setGridMetadata(xs, ys, zs, cellStep, cellStep, cellStep);
+    grid->setGridExtent(xs, ys, zs, cellStep, cellStep, cellStep);
     grid->addVectorField(velocityField, "Velocity");
     grid->addVectorField(vorticityField, "Vorticity");
     grid->addScalarField(helicityField, "Helicity");

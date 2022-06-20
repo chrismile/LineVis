@@ -62,7 +62,7 @@ StreamlineTracingGrid::~StreamlineTracingGrid() {
     curvatureFile.close();
 }
 
-void StreamlineTracingGrid::setGridMetadata(int xs, int ys, int zs, float dx, float dy, float dz) {
+void StreamlineTracingGrid::setGridExtent(int xs, int ys, int zs, float dx, float dy, float dz) {
     this->xs = xs;
     this->ys = ys;
     this->zs = zs;

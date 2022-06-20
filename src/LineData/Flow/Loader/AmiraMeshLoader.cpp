@@ -57,7 +57,9 @@ char* AmiraMeshLoader::skipLine(const std::string& dataSourceFilename, char* fil
     return fileBuffer;
 }
 
-void AmiraMeshLoader::load(const std::string& dataSourceFilename, StreamlineTracingGrid* grid) {
+void AmiraMeshLoader::load(
+        const std::string& dataSourceFilename, const GridDataSetMetaData& gridDataSetMetaData,
+        StreamlineTracingGrid* grid) {
     uint8_t* buffer = nullptr;
     size_t length = 0;
     bool loaded = sgl::loadFileFromSource(dataSourceFilename, buffer, length, false);
@@ -188,7 +190,7 @@ void AmiraMeshLoader::load(const std::string& dataSourceFilename, StreamlineTrac
     float dx = cellStep * bbDimX / maxBbDim;
     float dy = cellStep * bbDimY / maxBbDim;
     float dz = cellStep * bbDimZ / maxBbDim;
-    grid->setGridMetadata(xs, ys, zs, dx, dy, dz);
+    grid->setGridExtent(xs, ys, zs, dx, dy, dz);
 
     auto* velocityMagnitudeField = new float[numPoints];
     auto* vorticityField = new float[numPoints * 3];

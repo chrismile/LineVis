@@ -78,13 +78,14 @@ if command -v apt &> /dev/null; then
             || ! is_installed_apt "libglew-dev" || ! is_installed_apt "libjsoncpp-dev" \
             || ! is_installed_apt "libeigen3-dev" || ! is_installed_apt "python3-dev" \
             || ! is_installed_apt "libzmq3-dev" || ! is_installed_apt "libnetcdf-dev" \
-            || ! is_installed_apt "libopenexr-dev" || ! is_installed_apt "libeccodes-dev"; then
+            || ! is_installed_apt "libopenexr-dev" || ! is_installed_apt "libeccodes-dev" \
+            || ! is_installed_apt "libeccodes-tools" || ! is_installed_apt "libopenjp2-7-dev"; then
         echo "------------------------"
         echo "installing dependencies "
         echo "------------------------"
         sudo apt install -y libglm-dev libsdl2-dev libsdl2-image-dev libpng-dev libboost-filesystem-dev libtinyxml2-dev \
         libarchive-dev libglew-dev libjsoncpp-dev libeigen3-dev python3-dev libzmq3-dev libnetcdf-dev libopenexr-dev \
-        libeccodes-dev
+        libeccodes-dev libeccodes-tools libopenjp2-7-dev
     fi
 elif command -v pacman &> /dev/null; then
     if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \

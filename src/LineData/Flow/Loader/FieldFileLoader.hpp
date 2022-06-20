@@ -47,7 +47,9 @@ class StreamlineTracingGrid;
  */
 class FieldFileLoader {
 public:
-    static void load(const std::string& dataSourceFilename, StreamlineTracingGrid* grid);
+    static void load(
+            const std::string& dataSourceFilename, const GridDataSetMetaData& gridDataSetMetaData,
+            StreamlineTracingGrid* grid);
 };
 
 #endif //LINEVIS_FIELDFILELOADER_HPP

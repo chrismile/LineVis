@@ -107,7 +107,9 @@ std::string NetCdfLoader::getStringAttribute(int ncid, int varid, const char* at
 }
 
 
-void NetCdfLoader::load(const std::string& dataSourceFilename, StreamlineTracingGrid* grid) {
+void NetCdfLoader::load(
+        const std::string& dataSourceFilename, const GridDataSetMetaData& gridDataSetMetaData,
+        StreamlineTracingGrid* grid) {
     int ncid;
 
     int status = nc_open(dataSourceFilename.c_str(), NC_NOWRITE, &ncid);
@@ -115,6 +117,8 @@ void NetCdfLoader::load(const std::string& dataSourceFilename, StreamlineTracing
         sgl::Logfile::get()->throwError(
                 "Error in NetCdfLoader::load: File \"" + dataSourceFilename + "\" couldn't be opened.");
     }
+
+    int timeIdx = gridDataSetMetaData.time;
 
     bool uLowerCaseVariableExists = getVariableExists(ncid, "u");
     bool vLowerCaseVariableExists = getVariableExists(ncid, "v");
@@ -189,17 +193,27 @@ void NetCdfLoader::load(const std::string& dataSourceFilename, StreamlineTracing
         myassert(nc_inq_vardimid(ncid, varIdU, dimensionIdsU) == NC_NOERR);
         myassert(nc_inq_vardimid(ncid, varIdV, dimensionIdsV) == NC_NOERR);
         myassert(nc_inq_vardimid(ncid, varIdW, dimensionIdsW) == NC_NOERR);
+        zCoords = new float[zs];
+        yCoords = new float[ys];
+        xCoords = new float[xs];
+        uField = new float[zs * ys * xs];
+        vField = new float[zs * ys * xs];
+        wField = new float[zs * ys * xs];
         // Ignoring staggered grids for now by not querying i-th dimension using i-th variable.
         myassert(nc_inq_dim(ncid, dimensionIdsU[0], dimNameTime, &ts) == NC_NOERR);
         myassert(nc_inq_dim(ncid, dimensionIdsU[1], dimNameZ, &zs) == NC_NOERR);
         myassert(nc_inq_dim(ncid, dimensionIdsW[2], dimNameY, &ys) == NC_NOERR);
         myassert(nc_inq_dim(ncid, dimensionIdsW[3], dimNameX, &xs) == NC_NOERR);
-        loadFloatArray1D(ncid, dimNameZ, zs, zCoords);
+        if (!getVariableExists(ncid, dimNameZ) && getVariableExists(ncid, "vcoord")) {
+            loadFloatArray1D(ncid, "vcoord", zs, zCoords);
+        } else {
+            loadFloatArray1D(ncid, dimNameZ, zs, zCoords);
+        }
         loadFloatArray1D(ncid, dimNameY, ys, yCoords);
         loadFloatArray1D(ncid, dimNameX, xs, xCoords);
-        loadFloatArray3D(ncid, varIdU, 0, zs, ys, xs, uField);
-        loadFloatArray3D(ncid, varIdV, 0, zs, ys, xs, vField);
-        loadFloatArray3D(ncid, varIdW, 0, zs, ys, xs, wField);
+        loadFloatArray3D(ncid, varIdU, timeIdx, zs, ys, xs, uField);
+        loadFloatArray3D(ncid, varIdV, timeIdx, zs, ys, xs, vField);
+        loadFloatArray3D(ncid, varIdW, timeIdx, zs, ys, xs, wField);
     } else {
         sgl::Logfile::get()->throwError(
                 "Error in NetCdfLoader::load: Invalid number of dimensions in file \""
@@ -213,10 +227,12 @@ void NetCdfLoader::load(const std::string& dataSourceFilename, StreamlineTracing
 
     float maxDimension = float(std::max(xs - 1, std::max(ys - 1, zs - 1)));
     float cellStep = 1.0f / maxDimension;
-    float dx = cellStep, dy = cellStep, dz = cellStep;
+    float dx = cellStep * gridDataSetMetaData.scale[0];
+    float dy = cellStep * gridDataSetMetaData.scale[1];
+    float dz = cellStep * gridDataSetMetaData.scale[2];
     auto numPoints = int(xs * ys * zs);
 
-    grid->setGridMetadata(int(xs), int(ys), int(zs), dx, dy, dz);
+    grid->setGridExtent(int(xs), int(ys), int(zs), dx, dy, dz);
 
     auto* velocityField = new float[3 * numPoints];
     for (int ptIdx = 0; ptIdx < numPoints; ptIdx++) {

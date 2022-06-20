@@ -307,6 +307,7 @@ endif()
 target_include_directories(LineVis PRIVATE ${sgl_INCLUDES} ${TINYXML2_INCLUDE_DIR})
 
 if (eccodes_FOUND)
+    MESSAGE(STATUS "Found ecCodes ${eccodes_VERSION}. Enabling GRIB file loading support.")
     target_link_libraries(LineVis PRIVATE ${eccodes_LIBRARIES} eccodes)
     target_include_directories(LineVis PRIVATE ${eccodes_INCLUDE_DIR})
     target_compile_definitions(LineVis PRIVATE USE_ECCODES)

@@ -39,7 +39,9 @@
 #include "GridLoader.hpp"
 #include "VtkXmlLoader.hpp"
 
-void VtkXmlLoader::load(const std::string& dataSourceFilename, StreamlineTracingGrid* grid) {
+void VtkXmlLoader::load(
+        const std::string& dataSourceFilename, const GridDataSetMetaData& gridDataSetMetaData,
+        StreamlineTracingGrid* grid) {
     XMLDocument doc;
     if (doc.LoadFile(dataSourceFilename.c_str()) != 0) {
         sgl::Logfile::get()->writeError(
@@ -324,7 +326,7 @@ void VtkXmlLoader::load(const std::string& dataSourceFilename, StreamlineTracing
     float dx = cellStep * spacingArray.at(0) / maxSpacing;
     float dy = cellStep * spacingArray.at(1) / maxSpacing;
     float dz = cellStep * spacingArray.at(2) / maxSpacing;
-    grid->setGridMetadata(xs, ys, zs, dx, dy, dz);
+    grid->setGridExtent(xs, ys, zs, dx, dy, dz);
 
     grid->addVectorField(velocityField, "Velocity");
 

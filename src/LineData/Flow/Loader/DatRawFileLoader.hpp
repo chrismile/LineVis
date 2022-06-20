@@ -52,7 +52,9 @@
  */
 class DatRawFileLoader {
 public:
-    static void load(const std::string& dataSourceFilename, StreamlineTracingGrid* grid);
+    static void load(
+            const std::string& dataSourceFilename, const GridDataSetMetaData& gridDataSetMetaData,
+            StreamlineTracingGrid* grid);
 };
 
 #endif //LINEVIS_DATFILELOADER_HPP

@@ -38,7 +38,9 @@ class StreamlineTracingGrid;
  */
 class AmiraMeshLoader {
 public:
-    static void load(const std::string& dataSourceFilename, StreamlineTracingGrid* grid);
+    static void load(
+            const std::string& dataSourceFilename, const GridDataSetMetaData& gridDataSetMetaData,
+            StreamlineTracingGrid* grid);
 
 private:
     static char* skipLine(const std::string& dataSourceFilename, char* fileBuffer, char* fileBufferEnd);
