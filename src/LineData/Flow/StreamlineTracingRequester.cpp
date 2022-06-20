@@ -53,6 +53,9 @@
 #include "Loader/RbcBinFileLoader.hpp"
 #include "Loader/FieldFileLoader.hpp"
 #include "Loader/DatRawFileLoader.hpp"
+#ifdef USE_ECCODES
+#include "Loader/GribLoader.hpp"
+#endif
 #include "Loaders/BinLinesLoader.hpp"
 #include "StreamlineTracingRequester.hpp"
 
@@ -644,6 +647,12 @@ void StreamlineTracingRequester::traceLines(
                 || boost::ends_with(request.dataSourceFilename, ".raw")) {
             DatRawFileLoader::load(request.dataSourceFilename, cachedGrid);
         }
+#ifdef USE_ECCODES
+        else if (boost::ends_with(request.dataSourceFilename, ".grib")
+                || boost::ends_with(request.dataSourceFilename, ".grb")) {
+            GribLoader::load(request.dataSourceFilename, cachedGrid);
+        }
+#endif
 
         {
             std::lock_guard<std::mutex> replyLock(gridInfoMutex);

@@ -161,7 +161,7 @@ void saveTrajectoriesAsBinLines(const std::string& filename, const BinLinesData&
         return;
     }
 #else
-    FILE *fileptr = fopen(filename.c_str(), "wb");
+    FILE* fileptr = fopen(filename.c_str(), "wb");
     if (fileptr == NULL) {
         sgl::Logfile::get()->writeError(
                 std::string() + "Error in saveTrajectoriesAsBinLines: File \""

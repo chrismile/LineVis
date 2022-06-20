@@ -196,11 +196,10 @@ void AmiraMeshLoader::load(const std::string& dataSourceFilename, StreamlineTrac
     auto* helicityField = new float[numPoints];
 
     computeVectorMagnitudeField(velocityField, velocityMagnitudeField, xs, ys, zs);
-    computeVorticityField(velocityField, vorticityField, xs, ys, zs, cellStep, cellStep, cellStep);
+    computeVorticityField(velocityField, vorticityField, xs, ys, zs, dx, dy, dz);
     computeVectorMagnitudeField(vorticityField, vorticityMagnitudeField, xs, ys, zs);
     computeHelicityField(velocityField, vorticityField, helicityField, xs, ys, zs);
 
-    grid->setGridMetadata(xs, ys, zs, cellStep, cellStep, cellStep);
     grid->addVectorField(velocityField, "Velocity");
     grid->addVectorField(vorticityField, "Vorticity");
     grid->addScalarField(helicityField, "Helicity");

@@ -979,6 +979,10 @@ void MainApp::renderGui() {
                     || boost::ends_with(filenameLower, ".am")
                     || boost::ends_with(filenameLower, ".bin")
                     || boost::ends_with(filenameLower, ".field")
+#ifdef USE_ECCODES
+                    || boost::ends_with(filenameLower, ".grib")
+                    || boost::ends_with(filenameLower, ".grb")
+#endif
                     || (isDatFile && isDatVolumeFile)
                     || boost::ends_with(filenameLower, ".raw")) {
                 selectedDataSetIndex = 1;

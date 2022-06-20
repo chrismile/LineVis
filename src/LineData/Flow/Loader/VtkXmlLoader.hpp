@@ -36,6 +36,8 @@ class StreamlineTracingGrid;
 /**
  * A VTK XML file loader. Currently, only serial image data (.vti) files are supported. For more details see:
  * pp. 11 - 19, XML File Formats: https://vtk.org/wp-content/uploads/2015/04/file-formats.pdf
+ * https://mathema.tician.de/what-they-dont-tell-you-about-vtk-xml-binary-formats/
+ * https://vtk.org/Wiki/VTK_XML_Formats
  */
 class VtkXmlLoader {
 public:

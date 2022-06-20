@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2021, Christoph Neuhauser
+ * Copyright (c) 2022, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,33 +26,27 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEVIS_STRUCTUREDGRIDVTKLOADER_HPP
-#define LINEVIS_STRUCTUREDGRIDVTKLOADER_HPP
+#ifndef LINEVIS_GRIBLOADER_HPP
+#define LINEVIS_GRIBLOADER_HPP
 
 #include <string>
 
 class StreamlineTracingGrid;
+struct grib_handle;
+typedef struct grib_handle grib_handle;
+typedef struct grib_handle codes_handle;
 
 /**
- * A VTK file loader. Only structured mesh data is supported at the moment. It is assumed that all points have equal
- * distances (i.e., they form a Cartesian grid).
+ * A loader for GRIB volume data sets.
  */
-class StructuredGridVtkLoader {
+class GribLoader {
 public:
     static void load(const std::string& dataSourceFilename, StreamlineTracingGrid* grid);
 
 private:
-    enum class ReadMode {
-        SCALAR, VECTOR, SKIP
-    };
-    static void _readLines(
-            ReadMode readMode, int numObjects, float* fieldData,
-            size_t& charPtr, size_t& length, const char* fileBuffer);
-    static void _readFieldLine(
-            std::string& arrayName, int& numComponents, int& numTuples, std::string& dataType,
-            size_t& charPtr, size_t& length, const char* fileBuffer);
-    static void _convertScalarFieldCellToPointMode(
-            const float* scalarFieldCell, float* scalarFieldPoint, int xs, int ys, int zs);
+    static std::string getString(codes_handle* handle, const std::string& key);
+    static long getLong(codes_handle* handle, const std::string& key);
+    static double getDouble(codes_handle* handle, const std::string& key);
 };
 
-#endif //LINEVIS_STRUCTUREDGRIDVTKLOADER_HPP
+#endif //LINEVIS_GRIBLOADER_HPP

@@ -167,6 +167,10 @@ bool LineDataStress::setNewSettings(const SettingsMap& settings) {
             for (i = 0; i < IM_ARRAYSIZE(bandRenderModeNames); i++) {
                 if (bandRenderingModeName == bandRenderModeNames[i]) {
                     bandRenderMode = BandRenderMode(i);
+                    if (bandRenderMode == BandRenderMode::EIGENVALUE_RATIO
+                            || bandRenderMode == BandRenderMode::HYPERSTREAMLINES) {
+                        useCappedTubes = false;
+                    }
                     dirty = true;
                     shallReloadGatherShader = true;
                     break;

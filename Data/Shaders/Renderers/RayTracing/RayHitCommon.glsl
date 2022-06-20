@@ -346,6 +346,13 @@ void computeFragmentColor(
     }
 #endif
 
+#if !defined(USE_CAPPED_TUBES) && defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
+    if (useBand && dot(n, v) < 0.0) {
+        ribbonPosition = 0.0;
+    }
+#endif
+
+
 #if defined(USE_DEPTH_CUES) || (defined(USE_AMBIENT_OCCLUSION) && !defined(STATIC_AMBIENT_OCCLUSION_PREBAKING))
     vec3 screenSpacePosition = (viewMatrix * vec4(fragmentPositionWorld, 1.0)).xyz;
 #endif
@@ -426,6 +433,11 @@ void computeFragmentColor(
 #endif
 
     float coverage = 1.0 - smoothstep(1.0 - EPSILON_OUTLINE, 1.0, absCoords);
+#if !defined(USE_CAPPED_TUBES) && defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
+    if (useBand) {
+        coverage = 1.0;
+    }
+#endif
     vec4 colorOut = vec4(
             mix(fragmentColor.rgb, foregroundColor.rgb,
             smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),

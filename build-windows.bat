@@ -106,12 +106,37 @@ set cmake_args=%cmake_args% -Dembree_DIR="third_party/embree-%embree_version%.x6
 set ospray_version=2.9.0
 if not exist ".\ospray-%ospray_version%.x86_64.windows" (
     echo ------------------------
-    echo    downloading OSPRay
+    echo   downloading OSPRay
     echo ------------------------
     curl.exe -L "https://github.com/ospray/OSPRay/releases/download/v%ospray_version%/ospray-%ospray_version%.x86_64.windows.zip" --output ospray-%ospray_version%.x86_64.windows.zip
     tar -xvzf "ospray-%ospray_version%.x86_64.windows.zip"
 )
 set cmake_args=%cmake_args% -Dospray_DIR="third_party/ospray-%ospray_version%.x86_64.windows/lib/cmake/ospray-%ospray_version%"
+
+set eccodes_version=2.26.0
+if not exist ".\eccodes-%eccodes_version%-Source" (
+    echo ------------------------
+    echo   downloading ecCodes
+    echo ------------------------
+    curl.exe -L "https://confluence.ecmwf.int/download/attachments/45757960/eccodes-%eccodes_version%-Source.tar.gz?api=v2" --output eccodes-%eccodes_version%-Source.tar.gz
+    tar -xvzf "eccodes-%eccodes_version%-Source.tar.gz"
+)
+if not exist ".\eccodes-%eccodes_version%" (
+    echo ------------------------
+    echo    building ecCodes
+    echo ------------------------
+    pushd eccodes-%eccodes_version%-Source
+    if not exist .\build\ mkdir .\build\
+    pushd build
+    cmake .. %cmake_generator% -DCMAKE_INSTALL_PREFIX=../../eccodes-%eccodes_version% -DCMAKE_CXX_FLAGS="/MP" || exit /b 1
+    cmake --build . --config Debug   -- /m            || exit /b 1
+    cmake --build . --config Debug   --target install || exit /b 1
+    cmake --build . --config Release -- /m            || exit /b 1
+    cmake --build . --config Release --target install || exit /b 1
+    popd
+    popd
+)
+set cmake_args=%cmake_args% -Deccodes_DIR="third_party/eccodes-%eccodes_version%/lib/cmake/eccodes-%eccodes_version%"
 
 popd
 

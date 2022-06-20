@@ -949,6 +949,12 @@ void main() {
     }
 #endif
 
+#if !defined(USE_CAPPED_TUBES) && defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
+    if (useBand != 0 && dot(n, v) < 0.0) {
+        ribbonPosition = 0.0;
+    }
+#endif
+
 
 #ifdef USE_ROTATING_HELICITY_BANDS
 #ifdef USE_MULTI_VAR_RENDERING
@@ -1046,6 +1052,11 @@ void main() {
 #endif
     float coverage = 1.0 - smoothstep(1.0 - EPSILON_OUTLINE, 1.0, absCoords);
     //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(ribbonPosition));
+#if !defined(USE_CAPPED_TUBES) && defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
+    if (useBand != 0) {
+        coverage = 1.0;
+    }
+#endif
     vec4 colorOut = vec4(
             mix(fragmentColor.rgb, foregroundColor.rgb,
             smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),

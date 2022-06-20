@@ -108,11 +108,6 @@ std::string NetCdfLoader::getStringAttribute(int ncid, int varid, const char* at
 
 
 void NetCdfLoader::load(const std::string& dataSourceFilename, StreamlineTracingGrid* grid) {
-    // TODO: Find dims xdim, ydim, zdim, time (optional).
-    // TODO: Load u, v, w as velocity (e.g. u(zdim, ydim, xdim)).
-    // TODO: Load xdim, ydim, zdim coordinates and assume equal spacing.
-    // Other accepted names: rlon, rlat, altitude, pressure, time.
-    // Other variable names: rlon, rlat, altitude, U, V, W (e.g. U(time, altitude, rlat, srlon)).
     int ncid;
 
     int status = nc_open(dataSourceFilename.c_str(), NC_NOWRITE, &ncid);

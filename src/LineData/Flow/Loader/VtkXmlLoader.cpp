@@ -333,7 +333,7 @@ void VtkXmlLoader::load(const std::string& dataSourceFilename, StreamlineTracing
     grid->addScalarField(velocityMagnitudeField, "Velocity Magnitude");
 
     auto* vorticityField = new float[numPoints * 3];
-    computeVorticityField(velocityField, vorticityField, xs, ys, zs, cellStep, cellStep, cellStep);
+    computeVorticityField(velocityField, vorticityField, xs, ys, zs, dx, dy, dz);
     grid->addVectorField(vorticityField, "Vorticity");
 
     auto* vorticityMagnitudeField = new float[numPoints];
