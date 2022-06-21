@@ -113,6 +113,7 @@ private:
 
     // Cache for storing the currently selected streamline tracing grid.
     std::string cachedGridFilename;
+    GridDataSetMetaData cachedGridMetaData{};
     StreamlineTracingGrid* cachedGrid = nullptr;
     std::mutex cachedGridMetadataMutex;
     std::vector<uint32_t> cachedSimulationMeshOutlineTriangleIndices;

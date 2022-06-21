@@ -123,6 +123,14 @@ struct GridDataSetMetaData {
     glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
     // Can be used for transposing axes.
     glm::ivec3 axes = { 0, 1, 2 };
+    // Name of the velocity field to use (if multiple are available).
+    std::string velocityFieldName;
+
+    inline bool operator==(const GridDataSetMetaData& rhs) const {
+        return
+                this->date == rhs.date && this->time == rhs.time && this->scale == rhs.scale && this->axes == rhs.axes
+                && this->velocityFieldName == rhs.velocityFieldName;
+    }
 };
 
 struct StreamlineTracingSettings {

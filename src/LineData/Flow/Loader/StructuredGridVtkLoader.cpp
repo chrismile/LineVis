@@ -547,18 +547,28 @@ void StructuredGridVtkLoader::load(
     float maxDimension = float(std::max(xs - 1, std::max(ys - 1, zs - 1)));
     float cellStep = 1.0f / maxDimension;
     float maxBbDim = std::max(bbDim.x, std::max(bbDim.y, bbDim.z));
-    float dx = cellStep * bbDim.x / maxBbDim;
-    float dy = cellStep * bbDim.y / maxBbDim;
-    float dz = cellStep * bbDim.z / maxBbDim;
+    float dx = cellStep * float(maxDimension) / float(xs) * bbDim.x / maxBbDim;
+    float dy = cellStep * float(maxDimension) / float(ys) * bbDim.y / maxBbDim;
+    float dz = cellStep * float(maxDimension) / float(zs) * bbDim.z / maxBbDim;
     grid->setGridExtent(xs, ys, zs, dx, dy, dz);
 
-    auto itVelocity = vectorFields.find("velocity");
-    if (itVelocity == vectorFields.end()) {
-        itVelocity = vectorFields.find("Velocity");
+    std::map<std::string, float*>::iterator itVelocity;
+    if (!gridDataSetMetaData.velocityFieldName.empty()) {
+        itVelocity = vectorFields.find(gridDataSetMetaData.velocityFieldName);
         if (itVelocity == vectorFields.end()) {
             sgl::Logfile::get()->throwError(
                     "Error in StructuredGridVtkLoader::load: The file \"" + dataSourceFilename
-                    + "\" does not contain a vector field called 'velocity' or 'Velocity'.");
+                    + "\" does not contain a vector field called '" + gridDataSetMetaData.velocityFieldName + "'.");
+        }
+    } else {
+        itVelocity = vectorFields.find("velocity");
+        if (itVelocity == vectorFields.end()) {
+            itVelocity = vectorFields.find("Velocity");
+            if (itVelocity == vectorFields.end()) {
+                sgl::Logfile::get()->throwError(
+                        "Error in StructuredGridVtkLoader::load: The file \"" + dataSourceFilename
+                        + "\" does not contain a vector field called 'velocity' or 'Velocity'.");
+            }
         }
     }
     float* velocityField = itVelocity->second;

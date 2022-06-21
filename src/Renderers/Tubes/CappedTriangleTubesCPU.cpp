@@ -162,6 +162,8 @@ void createCappedTriangleTubesRenderDataCPU(
         }
 
         glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
+        int firstIdx = int(n) - 2;
+        int lastIdx = 1;
         int numValidLinePoints = 0;
         for (size_t i = 0; i < n; i++) {
             glm::vec3 tangent;
@@ -178,6 +180,8 @@ void createCappedTriangleTubesRenderDataCPU(
                 // In case the two vertices are almost identical, just skip this path line segment
                 continue;
             }
+            firstIdx = std::min(int(i), firstIdx);
+            lastIdx = std::max(int(i), lastIdx);
             tangent = glm::normalize(tangent);
 
             insertOrientedCirclePoints(
@@ -259,14 +263,14 @@ void createCappedTriangleTubesRenderDataCPU(
             int numLatitudeSubdivisions = int(std::ceil(numCircleSubdivisions/2)); // zenith
 
             // Hemisphere at the start
-            glm::vec3 center0 = lineCenters[0];
-            glm::vec3 tangent0 = lineCenters[0] - lineCenters[1];
+            glm::vec3 center0 = lineCenters[firstIdx];
+            glm::vec3 tangent0 = lineCenters[firstIdx] - lineCenters[firstIdx + 1];
             tangent0 = glm::normalize(tangent0);
             glm::vec3 normal0 = lineNormals[lineIndexOffset];
 
             // Hemisphere at the end
-            glm::vec3 center1 = lineCenters[n-1];
-            glm::vec3 tangent1 = lineCenters[n-1] - lineCenters[n-2];
+            glm::vec3 center1 = lineCenters[lastIdx];
+            glm::vec3 tangent1 = lineCenters[lastIdx] - lineCenters[lastIdx - 1];
             tangent1 = glm::normalize(tangent1);
             glm::vec3 normal1 = lineNormals[lineIndexOffset + numValidLinePoints - 1];
 
@@ -407,7 +411,7 @@ void createCappedTriangleEllipticTubesRenderDataCPU(
 
     for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
         const std::vector<glm::vec3>& lineCenters = lineCentersList.at(lineId);
-        const std::vector<glm::vec3> &lineRightVectors = lineRightVectorsList.at(lineId);
+        const std::vector<glm::vec3>& lineRightVectors = lineRightVectorsList.at(lineId);
         size_t n = lineCenters.size();
         uint32_t indexOffset = uint32_t(vertexDataList.size());
         uint32_t lineIndexOffset = uint32_t(lineTangents.size());
@@ -420,6 +424,8 @@ void createCappedTriangleEllipticTubesRenderDataCPU(
             continue;
         }
 
+        int firstIdx = int(n) - 2;
+        int lastIdx = 1;
         int numValidLinePoints = 0;
         for (size_t i = 0; i < n; i++) {
             glm::vec3 tangent;
@@ -436,6 +442,8 @@ void createCappedTriangleEllipticTubesRenderDataCPU(
                 // In case the two vertices are almost identical, just skip this path line segment
                 continue;
             }
+            firstIdx = std::min(int(i), firstIdx);
+            lastIdx = std::max(int(i), lastIdx);
             tangent = glm::normalize(tangent);
             glm::vec3 normal = glm::cross(lineRightVectors.at(i), tangent);
 
@@ -518,14 +526,14 @@ void createCappedTriangleEllipticTubesRenderDataCPU(
             int numLatitudeSubdivisions = int(std::ceil(numEllipseSubdivisions/2)); // zenith
 
             // Hemisphere at the start
-            glm::vec3 center0 = lineCenters[0];
-            glm::vec3 tangent0 = lineCenters[0] - lineCenters[1];
+            glm::vec3 center0 = lineCenters[firstIdx];
+            glm::vec3 tangent0 = lineCenters[firstIdx] - lineCenters[firstIdx + 1];
             tangent0 = glm::normalize(tangent0);
             glm::vec3 normal0 = lineNormals[lineIndexOffset];
 
             // Hemisphere at the end
-            glm::vec3 center1 = lineCenters[n-1];
-            glm::vec3 tangent1 = lineCenters[n-1] - lineCenters[n-2];
+            glm::vec3 center1 = lineCenters[lastIdx];
+            glm::vec3 tangent1 = lineCenters[lastIdx] - lineCenters[lastIdx - 1];
             tangent1 = glm::normalize(tangent1);
             glm::vec3 normal1 = lineNormals[lineIndexOffset + numValidLinePoints - 1];
 
@@ -585,6 +593,8 @@ void createCappedTrianglePrincipalStressTubesRenderDataCPU(
         float tubeNormalRadiusEnd = tubeRadius, tubeBinormalRadiusEnd = tubeRadius;
 
         int numValidLinePoints = 0;
+        int firstIdx = int(n) - 2;
+        int lastIdx = 1;
         for (size_t i = 0; i < n; i++) {
             glm::vec3 tangent;
             if (!tubeClosed && i == 0) {
@@ -600,6 +610,8 @@ void createCappedTrianglePrincipalStressTubesRenderDataCPU(
                 // In case the two vertices are almost identical, just skip this path line segment
                 continue;
             }
+            firstIdx = std::min(int(i), firstIdx);
+            lastIdx = std::max(int(i), lastIdx);
             tangent = glm::normalize(tangent);
             glm::vec3 normal = glm::cross(lineRightVectors.at(i), tangent);
 
@@ -749,14 +761,14 @@ void createCappedTrianglePrincipalStressTubesRenderDataCPU(
             int numLatitudeSubdivisions = int(std::ceil(numEllipseSubdivisions/2)); // zenith
 
             // Hemisphere at the start
-            glm::vec3 center0 = lineCenters[0];
-            glm::vec3 tangent0 = lineCenters[0] - lineCenters[1];
+            glm::vec3 center0 = lineCenters[firstIdx];
+            glm::vec3 tangent0 = lineCenters[firstIdx] - lineCenters[firstIdx + 1];
             tangent0 = glm::normalize(tangent0);
             glm::vec3 normal0 = lineNormals[lineIndexOffset];
 
             // Hemisphere at the end
-            glm::vec3 center1 = lineCenters[n-1];
-            glm::vec3 tangent1 = lineCenters[n-1] - lineCenters[n-2];
+            glm::vec3 center1 = lineCenters[lastIdx];
+            glm::vec3 tangent1 = lineCenters[lastIdx] - lineCenters[lastIdx - 1];
             tangent1 = glm::normalize(tangent1);
             glm::vec3 normal1 = lineNormals[lineIndexOffset + numValidLinePoints - 1];
 

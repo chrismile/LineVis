@@ -170,6 +170,9 @@ void StreamlineTracingRequester::loadGridDataSetList() {
                     dim++;
                 }
             }
+            if (source.isMember("velocity_field_name")) {
+                gridDataSetMetaData.velocityFieldName = source["velocity_field_name"].asString();
+            }
             gridDataSetsMetaData.push_back(gridDataSetMetaData);
         }
     }
@@ -679,12 +682,13 @@ void StreamlineTracingRequester::mainLoop() {
 
 void StreamlineTracingRequester::traceLines(
         StreamlineTracingSettings& request, std::shared_ptr<LineDataFlow>& lineData) {
-    if (cachedGridFilename != request.dataSourceFilename) {
+    if (cachedGridFilename != request.dataSourceFilename || !(cachedGridMetaData == request.gridDataSetMetaData)) {
         if (cachedGrid) {
             delete cachedGrid;
             cachedGrid = nullptr;
         }
         cachedGridFilename = request.dataSourceFilename;
+        cachedGridMetaData = request.gridDataSetMetaData;
 
         cachedGrid = new StreamlineTracingGrid;
         if (request.isAbcDataSet) {
