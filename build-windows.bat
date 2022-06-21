@@ -25,6 +25,7 @@
 :: OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 @echo off
+setlocal
 pushd %~dp0
 
 set debug=false
@@ -121,7 +122,50 @@ if not exist ".\eccodes-%eccodes_version%-Source" (
     curl.exe -L "https://confluence.ecmwf.int/download/attachments/45757960/eccodes-%eccodes_version%-Source.tar.gz?api=v2" --output eccodes-%eccodes_version%-Source.tar.gz
     tar -xvzf "eccodes-%eccodes_version%-Source.tar.gz"
 )
-if not exist ".\eccodes-%eccodes_version%" (
+
+:: ecCodes needs bash.exe, but it is just a dummy pointing the caller to WSL if not installed.
+:: ecCodes is disabled for now due to build errors on Windows.
+set use_eccodes=false
+:: set bash_output=empty
+:: for /f %%i in ('where bash') do set bash_location=%%i
+:: IF "%bash_location%"=="" (
+::     set bash_location=C:\Windows\System32\bash.exe
+:: )
+:: IF EXIST "%bash_location%" (
+::     goto bash_exists
+:: ) ELSE (
+::     goto system_bash_not_exists
+:: )
+::
+:: :: goto circumvents problems when not using EnableDelayedExpansion.
+:: :bash_exists
+:: set bash_output=empty
+:: for /f %%i in ('"%bash_location%" --version') do set bash_output=%%i
+:: IF "%bash_output%"=="" (
+::     set bash_output=empty
+:: )
+:: :: Output is usually https://aka.ms/wslstore when WSL is not installed.
+:: if not x%bash_output:wsl=%==x%bash_output% (
+::     set use_eccodes=false
+:: ) ELSE (
+::     set use_eccodes=true
+:: )
+:: goto finished
+::
+:: :system_bash_not_exists
+:: set bash_location="C:/Program Files/Git/bin/bash.exe"
+:: IF EXIST "%bash_location%" (
+::     set "PATH=C:\Program Files\Git\bin;%PATH%"
+::     goto bash_exists
+:: ) ELSE (
+::     goto finished
+:: )
+::
+:: :finished
+:: echo bash_location: %bash_location%
+:: echo use_eccodes: %use_eccodes%
+
+if %use_eccodes% == true if not exist ".\eccodes-%eccodes_version%" (
     echo ------------------------
     echo    building ecCodes
     echo ------------------------
