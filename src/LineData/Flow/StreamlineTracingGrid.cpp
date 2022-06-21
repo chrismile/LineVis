@@ -29,6 +29,7 @@
 #include <iostream>
 #include <algorithm>
 #include <queue>
+#include <cstring>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/rotate_vector.hpp>
