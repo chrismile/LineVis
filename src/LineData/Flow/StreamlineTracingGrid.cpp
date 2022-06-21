@@ -44,7 +44,7 @@
 #include "StreamlineTracingGrid.hpp"
 
 StreamlineTracingGrid::StreamlineTracingGrid() {
-    curvatureFile.open("curvatures.txt");
+    //curvatureFile.open("curvatures.txt");
 }
 
 StreamlineTracingGrid::~StreamlineTracingGrid() {
@@ -58,23 +58,64 @@ StreamlineTracingGrid::~StreamlineTracingGrid() {
     }
     scalarFields.clear();
 
-    // TODO
-    curvatureFile.close();
+    //curvatureFile.close();
 }
 
-void StreamlineTracingGrid::setGridExtent(int xs, int ys, int zs, float dx, float dy, float dz) {
-    this->xs = xs;
-    this->ys = ys;
-    this->zs = zs;
-    this->dx = dx;
-    this->dy = dy;
-    this->dz = dz;
+void StreamlineTracingGrid::setTransposeAxes(const glm::ivec3& axes) {
+    this->transposeAxes = axes;
+    transpose = true;
+}
+
+void StreamlineTracingGrid::setGridExtent(int _xs, int _ys, int _zs, float _dx, float _dy, float _dz) {
+    xs = _xs;
+    ys = _ys;
+    zs = _zs;
+    dx = _dx;
+    dy = _dy;
+    dz = _dz;
+
+    if (transpose) {
+        int dimensions[3] = { xs, ys, zs };
+        float spacing[3] = { dx, dy, dz };
+        xs = dimensions[transposeAxes[0]];
+        ys = dimensions[transposeAxes[1]];
+        zs = dimensions[transposeAxes[2]];
+        dx = spacing[transposeAxes[0]];
+        dy = spacing[transposeAxes[1]];
+        dz = spacing[transposeAxes[2]];
+    }
+
     box = sgl::AABB3(
             glm::vec3(0.0f),
             glm::vec3(float(xs - 1) * dx, float(ys - 1) * dy, float(zs - 1) * dz));
 }
 
 void StreamlineTracingGrid::addVectorField(float* vectorField, const std::string& vectorName) {
+    if (transpose) {
+        if (transposeAxes != glm::ivec3(0, 2, 1)) {
+            sgl::Logfile::get()->throwError(
+                    "Error in StreamlineTracingGrid::addVectorField: At the moment, only transposing the "
+                    "Y and Z axis is supported.");
+        }
+        auto* vectorFieldCopy = new float[3 * xs * ys * zs];
+        memcpy(vectorFieldCopy, vectorField, sizeof(float) * 3 * xs * ys * zs);
+#if _OPENMP >= 201107
+        #pragma omp parallel for shared(vectorField, vectorFieldCopy) default(none)
+#endif
+        for (int z = 0; z < zs; z++) {
+            for (int y = 0; y < ys; y++) {
+                for (int x = 0; x < xs; x++) {
+                    int readPos = ((y)*xs*zs*3 + (z)*xs*3 + (x)*3);
+                    int writePos = ((z)*xs*ys*3 + (y)*xs*3 + (x)*3);
+                    vectorField[writePos] = vectorFieldCopy[readPos];
+                    vectorField[writePos + 1] = vectorFieldCopy[readPos + 2];
+                    vectorField[writePos + 2] = vectorFieldCopy[readPos + 1];
+                }
+            }
+        }
+        delete[] vectorFieldCopy;
+    }
+
     vectorFields.insert(std::make_pair(vectorName, vectorField));
 
     if (vectorName == "Velocity") {
@@ -85,7 +126,7 @@ void StreamlineTracingGrid::addVectorField(float* vectorField, const std::string
 
     float maxVectorMagnitude = 0.0f;
 #if _OPENMP >= 201107
-    //#pragma omp parallel for shared(vectorField) reduction(max: maxVectorMagnitude) default(none)
+    #pragma omp parallel for shared(vectorField) reduction(max: maxVectorMagnitude) default(none)
 #endif
     for (int z = 0; z < zs; z++) {
         for (int y = 0; y < ys; y++) {
@@ -118,7 +159,31 @@ void StreamlineTracingGrid::_setVectorField(StreamlineTracingSettings& tracingSe
 }
 
 void StreamlineTracingGrid::addScalarField(float* scalarField, const std::string& scalarName) {
+    if (transpose) {
+        if (transposeAxes != glm::ivec3(0, 2, 1)) {
+            sgl::Logfile::get()->throwError(
+                    "Error in StreamlineTracingGrid::addScalarField: At the moment, only transposing the "
+                    "Y and Z axis is supported.");
+        }
+        auto* scalarFieldCopy = new float[xs * ys * zs];
+        memcpy(scalarFieldCopy, scalarField, sizeof(float) * xs * ys * zs);
+#if _OPENMP >= 201107
+        #pragma omp parallel for shared(scalarField, scalarFieldCopy) default(none)
+#endif
+        for (int z = 0; z < zs; z++) {
+            for (int y = 0; y < ys; y++) {
+                for (int x = 0; x < xs; x++) {
+                    int readPos = ((y)*xs*zs + (z)*xs + (x));
+                    int writePos = ((z)*xs*ys + (y)*xs + (x));
+                    scalarField[writePos] = scalarFieldCopy[readPos];
+                }
+            }
+        }
+        delete[] scalarFieldCopy;
+    }
+
     scalarFields.insert(std::make_pair(scalarName, scalarField));
+
     if (scalarName == "Helicity") {
         helicityField = scalarField;
 
@@ -527,7 +592,7 @@ void StreamlineTracingGrid::_traceStreamlineDecreasingHelicity(
         oldCellPosition = std::numeric_limits<size_t>::max();
         cellPositionQueue.clear();
     } else if (tracingSettings.loopCheckMode == LoopCheckMode::CURVATURE) {
-        curvatureFile << std::to_string(curvatureSum) << '\n';
+        //curvatureFile << std::to_string(curvatureSum) << '\n';
         curvatureSum = 0.0;
         segmentSum = 0;
     }

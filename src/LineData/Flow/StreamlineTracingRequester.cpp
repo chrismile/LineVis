@@ -691,6 +691,9 @@ void StreamlineTracingRequester::traceLines(
         cachedGridMetaData = request.gridDataSetMetaData;
 
         cachedGrid = new StreamlineTracingGrid;
+        if (request.gridDataSetMetaData.axes != glm::ivec3(0, 1, 2)) {
+            cachedGrid->setTransposeAxes(request.gridDataSetMetaData.axes);
+        }
         if (request.isAbcDataSet) {
             request.abcFlowGenerator.load(cachedGrid);
         } else if (boost::ends_with(request.dataSourceFilename, ".vtk")) {

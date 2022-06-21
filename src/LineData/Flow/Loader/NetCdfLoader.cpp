@@ -241,25 +241,25 @@ void NetCdfLoader::load(
         velocityField[3 * ptIdx + 2] = wField[ptIdx];
     }
 
-    grid->addVectorField(velocityField, "Velocity");
-
     auto* velocityMagnitudeField = new float[numPoints];
     computeVectorMagnitudeField(
             velocityField, velocityMagnitudeField, int(xs), int(ys), int(zs));
-    grid->addScalarField(velocityMagnitudeField, "Velocity Magnitude");
 
     auto* vorticityField = new float[numPoints * 3];
     computeVorticityField(
             velocityField, vorticityField, int(xs), int(ys), int(zs), cellStep, cellStep, cellStep);
-    grid->addVectorField(vorticityField, "Vorticity");
 
     auto* vorticityMagnitudeField = new float[numPoints];
     computeVectorMagnitudeField(
             vorticityField, vorticityMagnitudeField, int(xs), int(ys), int(zs));
-    grid->addScalarField(vorticityMagnitudeField, "Vorticity Magnitude");
 
     auto* helicityField = new float[numPoints];
     computeHelicityField(velocityField, vorticityField, helicityField, int(xs), int(ys), int(zs));
+
+    grid->addVectorField(velocityField, "Velocity");
+    grid->addScalarField(velocityMagnitudeField, "Velocity Magnitude");
+    grid->addVectorField(vorticityField, "Vorticity");
+    grid->addScalarField(vorticityMagnitudeField, "Vorticity Magnitude");
     grid->addScalarField(helicityField, "Helicity");
 
     grid->addScalarField(uField, uUpperCaseVariableExists ? "U" : "u");
@@ -273,7 +273,7 @@ void NetCdfLoader::load(
     int dimids[NC_MAX_VAR_DIMS];
     char varname[NC_MAX_NAME];
     char attname[NC_MAX_NAME];
-            myassert(nc_inq(ncid, nullptr, &nvarsp, nullptr, nullptr) == NC_NOERR);
+    myassert(nc_inq(ncid, nullptr, &nvarsp, nullptr, nullptr) == NC_NOERR);
     for (int varid = 0; varid < nvarsp; varid++) {
         nc_type type = NC_FLOAT;
         int ndims = 0;

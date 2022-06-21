@@ -328,22 +328,22 @@ void VtkXmlLoader::load(
     float dz = cellStep * spacingArray.at(2) / maxSpacing;
     grid->setGridExtent(xs, ys, zs, dx, dy, dz);
 
-    grid->addVectorField(velocityField, "Velocity");
-
     auto* velocityMagnitudeField = new float[numPoints];
     computeVectorMagnitudeField(velocityField, velocityMagnitudeField, xs, ys, zs);
-    grid->addScalarField(velocityMagnitudeField, "Velocity Magnitude");
 
     auto* vorticityField = new float[numPoints * 3];
     computeVorticityField(velocityField, vorticityField, xs, ys, zs, dx, dy, dz);
-    grid->addVectorField(vorticityField, "Vorticity");
 
     auto* vorticityMagnitudeField = new float[numPoints];
     computeVectorMagnitudeField(vorticityField, vorticityMagnitudeField, xs, ys, zs);
-    grid->addScalarField(vorticityMagnitudeField, "Vorticity Magnitude");
 
     auto* helicityField = new float[numPoints];
     computeHelicityField(velocityField, vorticityField, helicityField, xs, ys, zs);
+
+    grid->addVectorField(velocityField, "Velocity");
+    grid->addScalarField(velocityMagnitudeField, "Velocity Magnitude");
+    grid->addVectorField(vorticityField, "Vorticity");
+    grid->addScalarField(vorticityMagnitudeField, "Vorticity Magnitude");
     grid->addScalarField(helicityField, "Helicity");
 
     grid->addScalarField(uField, "u");

@@ -50,7 +50,8 @@ class StreamlineTracingGrid {
 public:
     StreamlineTracingGrid();
     ~StreamlineTracingGrid();
-    void setGridExtent(int xs, int ys, int zs, float dx, float dy, float dz);
+    void setTransposeAxes(const glm::ivec3& axes);
+    void setGridExtent(int _xs, int _ys, int _zs, float _dx, float _dy, float _dz);
     void addVectorField(float* vectorField, const std::string& vectorName);
     void addScalarField(float* scalarField, const std::string& scalarName);
     std::vector<std::string> getVectorFieldNames();
@@ -143,6 +144,8 @@ private:
     int xs = 0, ys = 0, zs = 0; ///< Size of the grid in data points.
     float dx = 0.0f, dy = 0.0f, dz = 0.0f; ///< Distance between two neighboring points in x/y/z direction.
     sgl::AABB3 box; ///< Box encompassing all grid points.
+    bool transpose = false;
+    glm::ivec3 transposeAxes = glm::ivec3(0, 1, 2);
     float* velocityField = nullptr;
     float* vorticityField = nullptr;
     float* helicityField = nullptr;
@@ -164,8 +167,8 @@ private:
     //  LoopCheckMode::CURVATURE
     double curvatureSum = 0.0;
     size_t segmentSum = 0;
-    // TODO: Test.
-    std::ofstream curvatureFile;
+    // Test data.
+    //std::ofstream curvatureFile;
 };
 
 #endif //LINEVIS_STREAMLINETRACINGGRID_HPP

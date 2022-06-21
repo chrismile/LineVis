@@ -351,25 +351,25 @@ void GribLoader::load(
         velocityField[3 * ptIdx + 2] = wField[ptIdx];
     }
 
-    grid->addVectorField(velocityField, "Velocity");
-
     auto* velocityMagnitudeField = new float[numPoints];
     computeVectorMagnitudeField(
             velocityField, velocityMagnitudeField, int(xs), int(ys), int(zs));
-    grid->addScalarField(velocityMagnitudeField, "Velocity Magnitude");
 
     auto* vorticityField = new float[numPoints * 3];
     computeVorticityField(
             velocityField, vorticityField, int(xs), int(ys), int(zs), cellStep, cellStep, cellStep);
-    grid->addVectorField(vorticityField, "Vorticity");
 
     auto* vorticityMagnitudeField = new float[numPoints];
     computeVectorMagnitudeField(
             vorticityField, vorticityMagnitudeField, int(xs), int(ys), int(zs));
-    grid->addScalarField(vorticityMagnitudeField, "Vorticity Magnitude");
 
     auto* helicityField = new float[numPoints];
     computeHelicityField(velocityField, vorticityField, helicityField, int(xs), int(ys), int(zs));
+
+    grid->addVectorField(velocityField, "Velocity");
+    grid->addScalarField(velocityMagnitudeField, "Velocity Magnitude");
+    grid->addVectorField(vorticityField, "Vorticity");
+    grid->addScalarField(vorticityMagnitudeField, "Vorticity Magnitude");
     grid->addScalarField(helicityField, "Helicity");
 
     for (size_t varIdx = 0; varIdx < variableArrays.size(); varIdx++) {
