@@ -85,10 +85,12 @@ void StreamlinePlaneSeeder::reset(StreamlineTracingSettings& tracingSettings, St
     planeOffset = minOffset + (maxOffset - minOffset) * planeSlice;
 
     axis0 = glm::vec3(1.0f, 0.0f, 0.0f);
-    axis1 = glm::normalize(glm::cross(axis0, planeNormal));
+    axis1 = glm::cross(axis0, planeNormal);
     if (glm::length(axis1) < 1e-3f) {
-        axis0 = glm::vec3(0.0f, 1.0f, 0.0f);;
+        axis0 = glm::vec3(0.0f, 1.0f, 0.0f);
         axis1 = glm::normalize(glm::cross(axis0, planeNormal));
+    } else {
+        axis1 = glm::normalize(axis1);
     }
     axis0 = glm::cross(planeNormal, axis1);
 
@@ -371,7 +373,7 @@ void StreamlineMaxHelicityFirstSeeder::reset(
     dz = grid->getDz();
     minimumSeparationDistance = tracingSettings.minimumSeparationDistance;
     terminationCheckType = tracingSettings.terminationCheckType;
-    gridSubsamplingFactor = tracingSettings.gridSubsamplingFactor;
+    gridSubsamplingFactor = tracingSettings.seedingSubsamplingFactor;
 
     if (terminationCheckType == TerminationCheckType::GRID_BASED) {
         cellOccupancyGrid.resize((xs - 1) * (ys - 1) * (zs - 1), false);

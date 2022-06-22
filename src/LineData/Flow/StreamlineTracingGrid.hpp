@@ -51,6 +51,7 @@ public:
     StreamlineTracingGrid();
     ~StreamlineTracingGrid();
     void setTransposeAxes(const glm::ivec3& axes);
+    void setGridSubsamplingFactor(int factor);
     void setGridExtent(int _xs, int _ys, int _zs, float _dx, float _dy, float _dz);
     void addVectorField(float* vectorField, const std::string& vectorName);
     void addScalarField(float* scalarField, const std::string& scalarName);
@@ -146,6 +147,8 @@ private:
     sgl::AABB3 box; ///< Box encompassing all grid points.
     bool transpose = false;
     glm::ivec3 transposeAxes = glm::ivec3(0, 1, 2);
+    int subsamplingFactor = 1;
+    int ssxs = 0, ssys = 0, sszs = 0;
     float* velocityField = nullptr;
     float* vorticityField = nullptr;
     float* helicityField = nullptr;

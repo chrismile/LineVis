@@ -275,8 +275,16 @@ void GribLoader::load(
         CODES_CHECK(codes_handle_delete(handle), 0);
     }
 
-    // Merge the variable slice arrays.
     size_t numLevels = levelValues.size();
+
+    for (size_t varIdx = 0; varIdx < variableSliceArrays.size(); varIdx++) {
+        auto& variableSliceArray = variableSliceArrays.at(varIdx);
+        while (variableSliceArray.size() < numLevels) {
+            variableSliceArray.push_back(nullptr);
+        }
+    }
+
+    // Merge the variable slice arrays.
     std::vector<float*> variableArrays;
     variableArrays.resize(variableSliceArrays.size());
     for (size_t varIdx = 0; varIdx < variableSliceArrays.size(); varIdx++) {
@@ -285,13 +293,21 @@ void GribLoader::load(
         variableArray = new float[numLevels * size_t(numLatsGlobal) * size_t(numLonsGlobal)];
         for (size_t level = 0; level < variableSliceArrays.size(); level++) {
             const float* variableSlice = variableSliceArray.at(level);
-            for (long latIdx = 0; latIdx < numLatsGlobal; latIdx++) {
-                for (long lonIdx = 0; lonIdx < numLonsGlobal; lonIdx++) {
-                    variableArray[(level * size_t(numLonsGlobal * numLatsGlobal) + size_t(numLonsGlobal) * latIdx + lonIdx)] =
-                            variableSlice[size_t(numLonsGlobal) * latIdx + lonIdx];
+            if (variableSlice == nullptr) {
+                for (long latIdx = 0; latIdx < numLatsGlobal; latIdx++) {
+                    for (long lonIdx = 0; lonIdx < numLonsGlobal; lonIdx++) {
+                        variableArray[(level * size_t(numLonsGlobal * numLatsGlobal) + size_t(numLonsGlobal) * latIdx + lonIdx)] = 0.0f;
+                    }
                 }
+            } else {
+                for (long latIdx = 0; latIdx < numLatsGlobal; latIdx++) {
+                    for (long lonIdx = 0; lonIdx < numLonsGlobal; lonIdx++) {
+                        variableArray[(level * size_t(numLonsGlobal * numLatsGlobal) + size_t(numLonsGlobal) * latIdx + lonIdx)] =
+                                variableSlice[size_t(numLonsGlobal) * latIdx + lonIdx];
+                    }
+                }
+                delete[] variableSlice;
             }
-            delete[] variableSlice;
         }
         variableSliceArray.clear();
     }
@@ -346,9 +362,9 @@ void GribLoader::load(
 
     auto* velocityField = new float[3 * numPoints];
     for (int ptIdx = 0; ptIdx < numPoints; ptIdx++) {
-        velocityField[3 * ptIdx + 0] = uField[ptIdx];
-        velocityField[3 * ptIdx + 1] = vField[ptIdx];
-        velocityField[3 * ptIdx + 2] = wField[ptIdx];
+        velocityField[3 * ptIdx + 0] = uField[ptIdx] * gridDataSetMetaData.scale[0];
+        velocityField[3 * ptIdx + 1] = vField[ptIdx] * gridDataSetMetaData.scale[1];
+        velocityField[3 * ptIdx + 2] = wField[ptIdx] * gridDataSetMetaData.scale[2];
     }
 
     auto* velocityMagnitudeField = new float[numPoints];
@@ -357,7 +373,7 @@ void GribLoader::load(
 
     auto* vorticityField = new float[numPoints * 3];
     computeVorticityField(
-            velocityField, vorticityField, int(xs), int(ys), int(zs), cellStep, cellStep, cellStep);
+            velocityField, vorticityField, int(xs), int(ys), int(zs), dx, dy, dz);
 
     auto* vorticityMagnitudeField = new float[numPoints];
     computeVectorMagnitudeField(

@@ -123,6 +123,9 @@ struct GridDataSetMetaData {
     glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
     // Can be used for transposing axes.
     glm::ivec3 axes = { 0, 1, 2 };
+    // Optional downscaling for the flow field.
+    int subsamplingFactor = 1;
+    bool susamplingFactorSet = false;
     // Name of the velocity field to use (if multiple are available).
     std::string velocityFieldName;
 
@@ -142,6 +145,7 @@ struct StreamlineTracingSettings {
     StreamlineSeedingStrategy streamlineSeedingStrategy = StreamlineSeedingStrategy::VOLUME;
     StreamlineSeederPtr seeder = nullptr;
     float timeStepScale = 1.0f;
+    int gridSubsamplingFactor = 1;
     int maxNumIterations = 2000;
     float terminationDistance = 1.0f;
     float terminationDistanceSelf = 1.0f;
@@ -152,7 +156,7 @@ struct StreamlineTracingSettings {
     bool smoothedSimulationGridOutline = true;
     StreamlineIntegrationMethod integrationMethod = StreamlineIntegrationMethod::RK4;
     StreamlineIntegrationDirection integrationDirection = StreamlineIntegrationDirection::BOTH;
-    int vectorFieldIndex = 0;
+    int vectorFieldIndex = 0; // TODO: Remove?
     AbcFlowGenerator abcFlowGenerator;
     LoopCheckMode loopCheckMode = LoopCheckMode::START_POINT;
 
@@ -160,7 +164,7 @@ struct StreamlineTracingSettings {
     bool useHelicity = true;
     float maxHelicityTwist = 0.25f;
     glm::vec3 initialRibbonDirection = glm::vec3(0.0f, 1.0f, 0.0f);
-    int gridSubsamplingFactor = 1;
+    int seedingSubsamplingFactor = 1;
 
     // For saving to the disk.
     bool exportToDisk = false;

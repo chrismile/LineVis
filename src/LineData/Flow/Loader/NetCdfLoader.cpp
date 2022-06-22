@@ -158,6 +158,7 @@ void NetCdfLoader::load(
     // u(zdim, ydim, xdim), v(zdim, ydim, xdim), w(zdim, ydim, xdim)
     int numDims = 0;
     myassert(nc_inq_varndims(ncid, varIdU, &numDims) == NC_NOERR);
+    bool isLatLonData = false;
     if (numDims == 3) {
         // Assuming (zdim, ydim, xdim).
         int dimensionIds[3];
@@ -204,6 +205,13 @@ void NetCdfLoader::load(
         myassert(nc_inq_dim(ncid, dimensionIdsU[1], dimNameZ, &zs) == NC_NOERR);
         myassert(nc_inq_dim(ncid, dimensionIdsW[2], dimNameY, &ys) == NC_NOERR);
         myassert(nc_inq_dim(ncid, dimensionIdsW[3], dimNameX, &xs) == NC_NOERR);
+        std::string stringDimNameX = dimNameX;
+        std::string stringDimNameY = dimNameY;
+        //std::string stringDimNameZ = dimNameZ;
+        if (stringDimNameX.find("lon") != std::string::npos || stringDimNameY.find("lon") != std::string::npos
+                || stringDimNameX.find("lat") != std::string::npos || stringDimNameY.find("lat") != std::string::npos) {
+            isLatLonData = true;
+        }
         if (!getVariableExists(ncid, dimNameZ) && getVariableExists(ncid, "vcoord")) {
             loadFloatArray1D(ncid, "vcoord", zs, zCoords);
         } else {
@@ -220,16 +228,23 @@ void NetCdfLoader::load(
                 + dataSourceFilename + "\".");
     }
 
-    // TODO: Use coords?
-    delete[] zCoords;
-    delete[] yCoords;
-    delete[] xCoords;
+    // TODO: Use coords also for lat-lon-pressure?
+    float dxCoords = 1.0f;
+    float dyCoords = 1.0f;
+    float dzCoords = 1.0f;
+    if (!isLatLonData) {
+        // Assume regular grid.
+        dzCoords = (zCoords[zs - 1] - zCoords[0]) / float(zs - 1);
+        dyCoords = (yCoords[ys - 1] - yCoords[0]) / float(ys - 1);
+        dxCoords = (xCoords[xs - 1] - xCoords[0]) / float(xs - 1);
+    }
+    float maxDeltaCoords = std::max(dxCoords, std::max(dyCoords, dzCoords));
 
     float maxDimension = float(std::max(xs - 1, std::max(ys - 1, zs - 1)));
     float cellStep = 1.0f / maxDimension;
-    float dx = cellStep * gridDataSetMetaData.scale[0];
-    float dy = cellStep * gridDataSetMetaData.scale[1];
-    float dz = cellStep * gridDataSetMetaData.scale[2];
+    float dx = cellStep * gridDataSetMetaData.scale[0] * dxCoords / maxDeltaCoords;
+    float dy = cellStep * gridDataSetMetaData.scale[1] * dyCoords / maxDeltaCoords;
+    float dz = cellStep * gridDataSetMetaData.scale[2] * dzCoords / maxDeltaCoords;
     auto numPoints = int(xs * ys * zs);
 
     grid->setGridExtent(int(xs), int(ys), int(zs), dx, dy, dz);
@@ -247,7 +262,7 @@ void NetCdfLoader::load(
 
     auto* vorticityField = new float[numPoints * 3];
     computeVorticityField(
-            velocityField, vorticityField, int(xs), int(ys), int(zs), cellStep, cellStep, cellStep);
+            velocityField, vorticityField, int(xs), int(ys), int(zs), dx, dy, dz);
 
     auto* vorticityMagnitudeField = new float[numPoints];
     computeVectorMagnitudeField(
@@ -300,6 +315,10 @@ void NetCdfLoader::load(
 
         grid->addScalarField(scalarData, variableDisplayName);
     }
+
+    delete[] zCoords;
+    delete[] yCoords;
+    delete[] xCoords;
 
     if (nc_close(ncid) != NC_NOERR) {
         sgl::Logfile::get()->throwError(

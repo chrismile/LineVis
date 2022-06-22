@@ -170,6 +170,10 @@ void StreamlineTracingRequester::loadGridDataSetList() {
                     dim++;
                 }
             }
+            if (source.isMember("subsampling_factor")) {
+                gridDataSetMetaData.subsamplingFactor = source["subsampling_factor"].asInt();
+                gridDataSetMetaData.susamplingFactorSet = true;
+            }
             if (source.isMember("velocity_field_name")) {
                 gridDataSetMetaData.velocityFieldName = source["velocity_field_name"].asString();
             }
@@ -212,6 +216,8 @@ void StreamlineTracingRequester::renderGui() {
                 } else {
                     gridDataSetFilename = lineDataSetsDirectory + pathString;
                 }
+                const auto& metaData = gridDataSetsMetaData.at(selectedGridDataSetIndex - 2);
+                guiTracingSettings.gridSubsamplingFactor = metaData.subsamplingFactor;
                 guiTracingSettings.exportPath =
                         sgl::FileUtils::get()->removeExtension(gridDataSetFilename) + ".binlines";
                 changed = true;
@@ -258,6 +264,11 @@ void StreamlineTracingRequester::renderGui() {
             if (ImGui::SliderFloatEdit(
                     "Time Step Scale", &guiTracingSettings.timeStepScale, 0.1f, 10.0f,
                     "%.1f", ImGuiSliderFlags_Logarithmic) == ImGui::EditMode::INPUT_FINISHED) {
+                changed = true;
+            }
+            if (ImGui::SliderIntPowerOfTwoEdit(
+                    "Grid Subsampling", &guiTracingSettings.gridSubsamplingFactor,
+                    1, 8) == ImGui::EditMode::INPUT_FINISHED) {
                 changed = true;
             }
             if (ImGui::SliderIntEdit(
@@ -349,7 +360,7 @@ void StreamlineTracingRequester::renderGui() {
                     changed = true;
                 }
                 if (guiTracingSettings.useHelicity && ImGui::SliderIntPowerOfTwoEdit(
-                        "Subsampling Factor", &guiTracingSettings.gridSubsamplingFactor,
+                        "Seeding Subsampling", &guiTracingSettings.seedingSubsamplingFactor,
                         1, 8) == ImGui::EditMode::INPUT_FINISHED) {
                     changed = true;
                 }
@@ -451,7 +462,7 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
     if (settings.getValueOpt("integration_direction", integrationDirectionName)) {
         int i;
         for (i = 0; i < IM_ARRAYSIZE(STREAMLINE_INTEGRATION_DIRECTION_NAMES); i++) {
-            if (boost::to_lower_copy(integrationDirectionName)
+                if (boost::to_lower_copy(integrationDirectionName)
                 == boost::to_lower_copy(std::string(STREAMLINE_INTEGRATION_DIRECTION_NAMES[i]))) {
                 guiTracingSettings.integrationDirection = StreamlineIntegrationDirection(i);
                 changed = true;
@@ -522,6 +533,7 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
 
     changed |= settings.getValueOpt("num_primitives", guiTracingSettings.numPrimitives);
     changed |= settings.getValueOpt("time_step_scale", guiTracingSettings.timeStepScale);
+    changed |= settings.getValueOpt("grid_subsampling_factor", guiTracingSettings.gridSubsamplingFactor);
     changed |= settings.getValueOpt("max_num_iterations", guiTracingSettings.maxNumIterations);
     changed |= settings.getValueOpt("termination_distance", guiTracingSettings.terminationDistance);
     changed |= settings.getValueOpt("termination_distance_self", guiTracingSettings.terminationDistanceSelf);
@@ -532,7 +544,7 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
     changed |= settings.getValueOpt("use_helicity", guiTracingSettings.useHelicity);
     changed |= settings.getValueOpt("max_helicity_twist", guiTracingSettings.maxHelicityTwist);
     changed |= settings.getValueOpt("initial_ribbon_direction", guiTracingSettings.initialRibbonDirection);
-    changed |= settings.getValueOpt("grid_subsampling_factor", guiTracingSettings.gridSubsamplingFactor);
+    changed |= settings.getValueOpt("seeding_subsampling_factor", guiTracingSettings.seedingSubsamplingFactor);
 
     settings.getValueOpt("export_to_disk", guiTracingSettings.exportToDisk);
     settings.getValueOpt("export_path", guiTracingSettings.exportPath);
@@ -682,17 +694,22 @@ void StreamlineTracingRequester::mainLoop() {
 
 void StreamlineTracingRequester::traceLines(
         StreamlineTracingSettings& request, std::shared_ptr<LineDataFlow>& lineData) {
-    if (cachedGridFilename != request.dataSourceFilename || !(cachedGridMetaData == request.gridDataSetMetaData)) {
+    if (cachedGridFilename != request.dataSourceFilename || !(cachedGridMetaData == request.gridDataSetMetaData)
+            || cachedGridSubsamplingFactor != request.gridSubsamplingFactor) {
         if (cachedGrid) {
             delete cachedGrid;
             cachedGrid = nullptr;
         }
         cachedGridFilename = request.dataSourceFilename;
         cachedGridMetaData = request.gridDataSetMetaData;
+        cachedGridSubsamplingFactor = request.gridSubsamplingFactor;
 
         cachedGrid = new StreamlineTracingGrid;
         if (request.gridDataSetMetaData.axes != glm::ivec3(0, 1, 2)) {
             cachedGrid->setTransposeAxes(request.gridDataSetMetaData.axes);
+        }
+        if (request.gridSubsamplingFactor != 1) {
+            cachedGrid->setGridSubsamplingFactor(request.gridSubsamplingFactor);
         }
         if (request.isAbcDataSet) {
             request.abcFlowGenerator.load(cachedGrid);

@@ -67,6 +67,10 @@ void StreamlineTracingGrid::setTransposeAxes(const glm::ivec3& axes) {
     transpose = true;
 }
 
+void StreamlineTracingGrid::setGridSubsamplingFactor(int factor) {
+    subsamplingFactor = factor;
+}
+
 void StreamlineTracingGrid::setGridExtent(int _xs, int _ys, int _zs, float _dx, float _dy, float _dz) {
     xs = _xs;
     ys = _ys;
@@ -86,6 +90,19 @@ void StreamlineTracingGrid::setGridExtent(int _xs, int _ys, int _zs, float _dx, 
         dz = spacing[transposeAxes[2]];
     }
 
+    ssxs = xs;
+    ssys = ys;
+    sszs = zs;
+
+    if (subsamplingFactor > 1) {
+        xs /= subsamplingFactor;
+        ys /= subsamplingFactor;
+        zs /= subsamplingFactor;
+        dx *= float(subsamplingFactor);
+        dy *= float(subsamplingFactor);
+        dz *= float(subsamplingFactor);
+    }
+
     box = sgl::AABB3(
             glm::vec3(0.0f),
             glm::vec3(float(xs - 1) * dx, float(ys - 1) * dy, float(zs - 1) * dz));
@@ -98,16 +115,16 @@ void StreamlineTracingGrid::addVectorField(float* vectorField, const std::string
                     "Error in StreamlineTracingGrid::addVectorField: At the moment, only transposing the "
                     "Y and Z axis is supported.");
         }
-        auto* vectorFieldCopy = new float[3 * xs * ys * zs];
-        memcpy(vectorFieldCopy, vectorField, sizeof(float) * 3 * xs * ys * zs);
+        auto* vectorFieldCopy = new float[3 * ssxs * ssys * sszs];
+        memcpy(vectorFieldCopy, vectorField, sizeof(float) * 3 * ssxs * ssys * sszs);
 #if _OPENMP >= 201107
         #pragma omp parallel for shared(vectorField, vectorFieldCopy) default(none)
 #endif
-        for (int z = 0; z < zs; z++) {
-            for (int y = 0; y < ys; y++) {
-                for (int x = 0; x < xs; x++) {
-                    int readPos = ((y)*xs*zs*3 + (z)*xs*3 + (x)*3);
-                    int writePos = ((z)*xs*ys*3 + (y)*xs*3 + (x)*3);
+        for (int z = 0; z < sszs; z++) {
+            for (int y = 0; y < ssys; y++) {
+                for (int x = 0; x < ssxs; x++) {
+                    int readPos = ((y)*ssxs*sszs*3 + (z)*ssxs*3 + (x)*3);
+                    int writePos = ((z)*ssxs*ssys*3 + (y)*ssxs*3 + (x)*3);
                     vectorField[writePos] = vectorFieldCopy[readPos];
                     vectorField[writePos + 1] = vectorFieldCopy[readPos + 2];
                     vectorField[writePos + 2] = vectorFieldCopy[readPos + 1];
@@ -115,6 +132,29 @@ void StreamlineTracingGrid::addVectorField(float* vectorField, const std::string
             }
         }
         delete[] vectorFieldCopy;
+    }
+
+    if (subsamplingFactor > 1) {
+        float* vectorFieldOld = vectorField;
+        vectorField = new float[3 * xs * ys * zs];
+#if _OPENMP >= 201107
+        #pragma omp parallel for shared(vectorField, vectorFieldOld) default(none)
+#endif
+        for (int z = 0; z < zs; z++) {
+            for (int y = 0; y < ys; y++) {
+                for (int x = 0; x < xs; x++) {
+                    int readPos =
+                            ((z * subsamplingFactor)*ssxs*ssys*3
+                             + (y * subsamplingFactor)*ssxs*3
+                             + (x * subsamplingFactor)*3);
+                    int writePos = ((z)*xs*ys*3 + (y)*xs*3 + (x)*3);
+                    vectorField[writePos] = vectorFieldOld[readPos];
+                    vectorField[writePos + 1] = vectorFieldOld[readPos + 1];
+                    vectorField[writePos + 2] = vectorFieldOld[readPos + 2];
+                }
+            }
+        }
+        delete[] vectorFieldOld;
     }
 
     vectorFields.insert(std::make_pair(vectorName, vectorField));
@@ -166,21 +206,42 @@ void StreamlineTracingGrid::addScalarField(float* scalarField, const std::string
                     "Error in StreamlineTracingGrid::addScalarField: At the moment, only transposing the "
                     "Y and Z axis is supported.");
         }
-        auto* scalarFieldCopy = new float[xs * ys * zs];
-        memcpy(scalarFieldCopy, scalarField, sizeof(float) * xs * ys * zs);
+        auto* scalarFieldCopy = new float[ssxs * ssys * sszs];
+        memcpy(scalarFieldCopy, scalarField, sizeof(float) * ssxs * ssys * sszs);
 #if _OPENMP >= 201107
         #pragma omp parallel for shared(scalarField, scalarFieldCopy) default(none)
 #endif
-        for (int z = 0; z < zs; z++) {
-            for (int y = 0; y < ys; y++) {
-                for (int x = 0; x < xs; x++) {
-                    int readPos = ((y)*xs*zs + (z)*xs + (x));
-                    int writePos = ((z)*xs*ys + (y)*xs + (x));
+        for (int z = 0; z < sszs; z++) {
+            for (int y = 0; y < ssys; y++) {
+                for (int x = 0; x < ssxs; x++) {
+                    int readPos = ((y)*ssxs*sszs + (z)*ssxs + (x));
+                    int writePos = ((z)*ssxs*ssys + (y)*ssxs + (x));
                     scalarField[writePos] = scalarFieldCopy[readPos];
                 }
             }
         }
         delete[] scalarFieldCopy;
+    }
+
+    if (subsamplingFactor > 1) {
+        float* scalarFieldOld = scalarField;
+        scalarField = new float[xs * ys * zs];
+#if _OPENMP >= 201107
+#pragma omp parallel for shared(scalarField, scalarFieldOld) default(none)
+#endif
+        for (int z = 0; z < zs; z++) {
+            for (int y = 0; y < ys; y++) {
+                for (int x = 0; x < xs; x++) {
+                    int readPos =
+                            ((z * subsamplingFactor)*ssxs*ssys
+                             + (y * subsamplingFactor)*ssxs
+                             + (x * subsamplingFactor));
+                    int writePos = ((z)*xs*ys + (y)*xs + (x));
+                    scalarField[writePos] = scalarFieldOld[readPos];
+                }
+            }
+        }
+        delete[] scalarFieldOld;
     }
 
     scalarFields.insert(std::make_pair(scalarName, scalarField));
