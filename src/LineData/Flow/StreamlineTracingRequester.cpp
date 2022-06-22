@@ -599,7 +599,11 @@ void StreamlineTracingRequester::requestNewData() {
         request.abcFlowGenerator = abcFlowGenerator;
     } else {
         request.dataSourceFilename = boost::filesystem::absolute(gridDataSetFilename).generic_string();
+    }
+    if (selectedGridDataSetIndex >= 2) {
         request.gridDataSetMetaData = gridDataSetsMetaData.at(selectedGridDataSetIndex - 2);
+    } else {
+        request.gridDataSetMetaData = {};
     }
 
     queueRequestStruct(request);
