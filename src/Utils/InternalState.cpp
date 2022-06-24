@@ -316,6 +316,7 @@ std::vector<InternalState> getTestModesOpaqueRendering() {
         for (size_t i = 0; i < oldStates.size(); i++) {
             InternalState state = oldStates.at(i);
             std::string nameBase = state.name;
+            state.name = nameBase + "(Ribbon)";
             state.dataSetSettings.addKeyValue("use_ribbons", "true");
             state.dataSetSettings.addKeyValue("rotating_helicity_bands", "false");
             state.rendererSettings.addKeyValue("line_width", "0.006");
