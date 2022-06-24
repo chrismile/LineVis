@@ -397,11 +397,17 @@ void LineRenderer::computeDepthRange() {
 bool LineRenderer::setNewSettings(const SettingsMap& settings) {
     bool shallReloadGatherShader = false;
 
-    if (settings.getValueOpt("line_width", lineWidth) && lineData) {
-        lineData->setTriangleRepresentationDirty();
+    float newLineWidth = lineWidth;
+    if (settings.getValueOpt("line_width", lineWidth)) {
+        if (newLineWidth != lineWidth && lineData) {
+            lineData->setTriangleRepresentationDirty();
+        }
     }
-    if (settings.getValueOpt("band_width", bandWidth) && lineData) {
-        lineData->setTriangleRepresentationDirty();
+    float newBandWidth = bandWidth;
+    if (settings.getValueOpt("band_width", bandWidth)) {
+        if (newBandWidth != bandWidth && lineData) {
+            lineData->setTriangleRepresentationDirty();
+        }
     }
 
     if (settings.getValueOpt("depth_cue_strength", depthCueStrength)) {

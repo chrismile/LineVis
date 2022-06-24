@@ -161,31 +161,27 @@ void getTestModesRasterization(std::vector<InternalState>& states, InternalState
             { "numSamples", "1" }
     })};
 
-    state.name = "Warm-up Run";
-    setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_QUADS_PROGRAMMABLE_PULL);
-    states.push_back(state);
-
-    state.name = "Quads Programmable Pull";
-    setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_QUADS_PROGRAMMABLE_PULL);
-    states.push_back(state);
-
     if (device->getPhysicalDeviceFeatures().geometryShader) {
+        state.name = "Warm-up Run";
+        setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER);
+        states.push_back(state);
+
         state.name = "Quads Geometry Shader";
-        setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_QUADS_GEOMETRY_SHADER);
+        setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER);
         states.push_back(state);
 
         state.name = "Geometry Shader";
-        setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER);
+        setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER);
         states.push_back(state);
     }
 
     state.name = "Programmable Pull";
-    setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL);
+    setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL);
     states.push_back(state);
 
     if (device->getPhysicalDeviceMeshShaderFeaturesNV().meshShader) {
         state.name = "Mesh Shader";
-        setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_MESH_SHADER);
+        setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER);
         states.push_back(state);
     }
 
@@ -198,7 +194,7 @@ void getTestModesRasterization(std::vector<InternalState>& states, InternalState
             state.dataSetDescriptor.name == "Convection Rolls" || state.dataSetDescriptor.name == "Turbulence";
     if (!isIntelIntegratedGpu || !isLargeDataSet) {
         state.name = "Triangle Mesh";
-        setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_TRIANGLE_MESH);
+        setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH);
         states.push_back(state);
     }
 }
@@ -207,12 +203,12 @@ void getTestModesVulkanRayTracing(std::vector<InternalState>& states, InternalSt
     if (sgl::AppSettings::get()->getPrimaryDevice()->getRayTracingPipelineSupported()) {
         state.renderingMode = RENDERING_MODE_VULKAN_RAY_TRACER;
 
-        state.name = "VRT Analytic";
-        state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
-                { "useAnalyticIntersections", "true" },
-                { "numSamplesPerFrame", "1" }
-        })};
-        states.push_back(state);
+        //state.name = "VRT Analytic";
+        //state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
+        //        { "useAnalyticIntersections", "true" },
+        //        { "numSamplesPerFrame", "1" }
+        //})};
+        //states.push_back(state);
 
         /*if (state.dataSetDescriptor.name != "Convection Rolls"
                 || sgl::AppSettings::get()->getPrimaryDevice()->getDeviceDriverId() != VK_DRIVER_ID_AMD_PROPRIETARY) {*/
@@ -264,22 +260,38 @@ void getTestModesOspray(std::vector<InternalState>& states, InternalState state)
 void getTestModesOpaqueRenderingForDataSet(std::vector<InternalState>& states, const InternalState& state) {
     getTestModesRasterization(states, state);
     getTestModesVulkanRayTracing(states, state);
-    getTestModesVoxelRayCasting(states, state);
+    //getTestModesVoxelRayCasting(states, state);
 #ifdef USE_OSPRAY
-    getTestModesOspray(states, state);
+    //getTestModesOspray(states, state);
 #endif
 }
 
 std::vector<InternalState> getTestModesOpaqueRendering() {
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     std::vector<InternalState> states;
-    std::vector<glm::ivec2> windowResolutions = { glm::ivec2(1920, 1080), glm::ivec2(3840, 2160) };
+    std::vector<glm::ivec2> windowResolutions = {
+            //glm::ivec2(1920, 1080),
+            glm::ivec2(3840, 2160)
+    };
+    bool isIntegratedGpu =
+            device->getDeviceDriverId() == VK_DRIVER_ID_MOLTENVK
+            || ((device->getDeviceDriverId() == VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS
+                 || device->getDeviceDriverId() == VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA)
+                && device->getDeviceType() == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU);
+    if (isIntegratedGpu) {
+        windowResolutions = { glm::ivec2(1920, 1080) };
+    } else {
+        windowResolutions = { glm::ivec2(3840, 2160) };
+    }
     std::vector<DataSetDescriptor> dataSetDescriptors = {
             //DataSetDescriptor("Rings"),
             //DataSetDescriptor("Aneurysm"),
             //DataSetDescriptor("Convection Rolls"),
             //DataSetDescriptor("Femur (Vis2021)"),
-            DataSetDescriptor("Bearing"),
-            DataSetDescriptor("Convection Rolls")
+            //DataSetDescriptor("Bearing"),
+            //DataSetDescriptor("Convection Rolls"),
+            //DataSetDescriptor("Tangaroa (t=200)"),
+            DataSetDescriptor("Centrifugal Pump (DES.res_t2564)"),
     };
     std::vector<std::string> transferFunctionNames = {
             //"Standard.xml"
@@ -294,6 +306,28 @@ std::vector<InternalState> getTestModesOpaqueRendering() {
                 state.transferFunctionName = transferFunctionNames.at(i);
             }
             getTestModesOpaqueRenderingForDataSet(states, state);
+        }
+    }
+
+    bool testRotatingHelicityBands = true;
+    if (testRotatingHelicityBands) {
+        std::vector<InternalState> oldStates = states;
+        states.clear();
+        for (size_t i = 0; i < oldStates.size(); i++) {
+            InternalState state = oldStates.at(i);
+            std::string nameBase = state.name;
+            state.dataSetSettings.addKeyValue("use_ribbons", "true");
+            state.dataSetSettings.addKeyValue("rotating_helicity_bands", "false");
+            state.rendererSettings.addKeyValue("line_width", "0.006");
+            state.rendererSettings.addKeyValue("band_width", "0.007");
+            states.push_back(state);
+            state.name = nameBase + "(Twist)";
+            int linePrimitiveModeIndex = 0;
+            state.dataSetSettings.getValueOpt("linePrimitiveModeIndex", linePrimitiveModeIndex);
+            if (LineData::LinePrimitiveMode(linePrimitiveModeIndex) != LineData::LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER) {
+                state.dataSetSettings.addKeyValue("rotating_helicity_bands", "true");
+            }
+            states.push_back(state);
         }
     }
 

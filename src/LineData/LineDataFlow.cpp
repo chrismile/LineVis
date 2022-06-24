@@ -390,7 +390,7 @@ bool LineDataFlow::getIsSmallDataSet() const {
 bool LineDataFlow::setNewSettings(const SettingsMap& settings) {
     bool shallReloadGatherShader = LineData::setNewSettings(settings);
 
-    if (getUseBandRendering() && settings.getValueOpt("use_ribbons", useRibbons)) {
+    if (getUseBandRendering()) {
         if (settings.getValueOpt("use_ribbons", useRibbons)) {
             dirty = true;
         }
