@@ -303,27 +303,27 @@ void OsprayRenderer::loadCurvesData(LineDataPtr& lineData) {
     const float radius = LineRenderer::getLineWidth() / 2.0f;
 
     for (const Trajectory& trajectory : trajectories) {
-        size_t offset = curvesData.vertexPositionsAndRadii.size();
-        int numPoints = int(trajectory.positions.size());
+        auto offset = uint32_t(curvesData.vertexPositionsAndRadii.size());
+        auto numPoints = int(trajectory.positions.size());
         if (curveBasis == OSP_LINEAR) {
             for (int i = 0; i <= numPoints - 2; i++) {
-                curvesData.curveIndices.emplace_back(offset + i);
+                curvesData.curveIndices.emplace_back(offset + uint32_t(i));
             }
         } else if (curveBasis == OSP_BEZIER) {
             for (int i = 0; i <= numPoints - 4; i += 3) {
-                curvesData.curveIndices.emplace_back(offset + i);
+                curvesData.curveIndices.emplace_back(offset + uint32_t(i));
             }
         } else if (curveBasis == OSP_BSPLINE) {
             for (int i = 0; i <= numPoints - 4; i++) {
-                curvesData.curveIndices.emplace_back(offset + i);
+                curvesData.curveIndices.emplace_back(offset + uint32_t(i));
             }
         } else if (curveBasis == OSP_HERMITE) {
             for (int i = 0; i <= numPoints - 4; i++) {
-                curvesData.curveIndices.emplace_back(offset + i);
+                curvesData.curveIndices.emplace_back(offset + uint32_t(i));
             }
         } else if (curveBasis == OSP_CATMULL_ROM) {
             for (int i = 0; i <= numPoints - 4; i++) {
-                curvesData.curveIndices.emplace_back(offset + i);
+                curvesData.curveIndices.emplace_back(offset + uint32_t(i));
             }
         }
         numPoints = std::max(numPoints, 0);

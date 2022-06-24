@@ -696,7 +696,7 @@ void LineData::splitTriangleIndices(
 
     tubeTriangleIndices.clear();
     for (std::vector<uint32_t>& batchIndices : batchIndicesList) {
-        tubeTriangleSplitData.numBatchIndices.push_back(batchIndices.size());
+        tubeTriangleSplitData.numBatchIndices.push_back(uint32_t(batchIndices.size()));
         tubeTriangleIndices.insert(tubeTriangleIndices.end(), batchIndices.begin(), batchIndices.end());
     }
 }

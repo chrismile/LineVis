@@ -167,7 +167,7 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                         selectedAttributes.clear();
                         for (size_t varIdx = 0; varIdx < isAttributeSelectedArray.size(); ++varIdx) {
                             if (isAttributeSelectedArray.at(varIdx) != 0) {
-                                selectedAttributes.push_back(varIdx);
+                                selectedAttributes.push_back(uint32_t(varIdx));
                             }
                         }
                         recomputeWidgetPositions();
