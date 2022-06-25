@@ -61,7 +61,11 @@ int main(int argc, char *argv[]) {
     sgl::AppSettings::get()->loadSettings(settingsFile.c_str());
     sgl::AppSettings::get()->getSettings().addKeyValue("window-multisamples", 0);
     sgl::AppSettings::get()->getSettings().addKeyValue("window-debugContext", true);
-    sgl::AppSettings::get()->getSettings().addKeyValue("window-vSync", true);
+    if (argc > 1 && strcmp(sgl::FileUtils::get()->get_argv()[1], "--perf") == 0) {
+        sgl::AppSettings::get()->getSettings().addKeyValue("window-vSync", false);
+    } else {
+        sgl::AppSettings::get()->getSettings().addKeyValue("window-vSync", true);
+    }
     sgl::AppSettings::get()->getSettings().addKeyValue("window-resizable", true);
     sgl::AppSettings::get()->getSettings().addKeyValue("window-savePosition", true);
 #ifdef DATA_PATH
