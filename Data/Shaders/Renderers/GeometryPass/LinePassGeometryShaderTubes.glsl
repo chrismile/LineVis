@@ -998,7 +998,7 @@ void main() {
     float separatorWidth = separatorBaseWidth;
 #ifdef UNIFORM_HELICITY_BAND_WIDTH
     uint vertexIdx0 = uint(floor(fragmentVertexId));
-    uint vertexIdx1 = uint(ceil(fragmentVertexId));
+    uint vertexIdx1 = vertexIdx0 + 1;//uint(ceil(fragmentVertexId));
 #ifdef USE_GEOMETRY_SHADER
     float rotDx = length(linePositions[vertexIdx1] - linePositions[vertexIdx0]);
     float rotDy = lineRotations[vertexIdx1] - lineRotations[vertexIdx0];
