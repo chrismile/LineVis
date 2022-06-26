@@ -18,6 +18,7 @@
 #define MULTI_VAR_ATTRIBUTE_DATA_BUFFER_BINDING 21 // for multi-var rendering, see MultiVar.glsl
 #define MULTI_VAR_ATTRIBUTE_SELECTION_MAP_BUFFER_BINDING 22 // for multi-var rendering, see MultiVar.glsl
 #define INSTANCE_INDEX_OFFSET_BUFFER_BINDING 23 // for Vulkan Ray Tracing
+#define HELICITY_BANDS_TEXTURE_BINDING 24 // for LineDataFlow / USE_HELICITY_BANDS_TEXTURE
 
 layout(binding = LINE_UNIFORM_DATA_BUFFER_BINDING) uniform LineUniformDataBuffer {
     // Camera data.

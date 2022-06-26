@@ -167,6 +167,16 @@ protected:
     static float separatorWidth;
     float helicityRotationFactor = 1.0f;
     float maxHelicity = 0.0f;
+    // Twist line texture.
+    void loadTwistLineTexture();
+    bool isTwistLineTextureLoaded = false;
+    bool useTwistLineTexture = false;
+    int textureFilteringModeIndex = 1;
+    int maxAnisotropy = 1;
+    int maxSamplerAnisotropy = 1;
+    std::string twistLineTextureFilenameGui;
+    std::string loadedTwistLineTextureFilename;
+    sgl::vk::TexturePtr twistLineTexture;
 
     /**
      * Multi-var rendering can be used (at the moment only together with helicity data).

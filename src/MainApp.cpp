@@ -2090,6 +2090,7 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames, bool bl
         sgl::Logfile::get()->writeError("Error in MainApp::loadLineDataSet: Invalid data set type.");
         return;
     }
+    lineData->setFileDialogInstance(fileDialogInstance);
 
     if (blockingDataLoading) {
         bool dataLoaded = lineData->loadFromFile(fileNames, selectedDataSetInformation, transformationMatrixPtr);

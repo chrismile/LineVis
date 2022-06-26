@@ -58,6 +58,14 @@ void drawSeparatorStripe(inout vec4 surfaceColor, in float varFraction, in float
 }
 #endif
 
+#ifdef USE_HELICITY_BANDS_TEXTURE
+layout(binding = HELICITY_BANDS_TEXTURE_BINDING) uniform sampler2D helicityBandsTexture;
+vec4 sampleHelicityBandsTexture(in float u, in float globalPos) {
+    return texture(helicityBandsTexture, vec2(u, 0.5));
+    //return textureGrad(helicityBandsTexture, vec2(u, 0.5), vec2(dFdx(globalPos), 0.0), vec2(dFdy(globalPos), 0.0));
+}
+#endif
+
 void computeFragmentColor(
         vec3 fragmentPositionWorld, vec3 fragmentNormal, vec3 fragmentTangent,
 #ifdef USE_CAPPED_TUBES
@@ -413,9 +421,16 @@ void computeFragmentColor(
             fragmentColor, mod(phi + fragmentRotation + separatorWidth * 0.5, 2.0 / float(numSubdivisionsBands) * float(M_PI)),
             separatorWidth, EPSILON_OUTLINE);
 #else
+#ifdef USE_HELICITY_BANDS_TEXTURE
+    const float twoPi = 2.0 * float(M_PI);
+    fragmentColor *= sampleHelicityBandsTexture(
+            mod(phi + fragmentRotation + separatorWidth * 0.5, twoPi) / twoPi,
+            (phi + fragmentRotation) / twoPi);
+#else
     drawSeparatorStripe(
             fragmentColor, mod(phi + fragmentRotation + separatorWidth * 0.5, 2.0 / float(numSubdivisionsBands) * float(M_PI)),
             separatorWidth, EPSILON_OUTLINE);
+#endif
 #endif
 #elif defined(USE_MULTI_VAR_RENDERING)
     float separatorWidth = numSelectedAttributes > 1 ? 0.4 / float(numSelectedAttributes) : separatorBaseWidth;

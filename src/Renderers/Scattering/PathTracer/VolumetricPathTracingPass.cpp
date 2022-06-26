@@ -286,8 +286,8 @@ void VolumetricPathTracingPass::setUseLinearRGB(bool useLinearRGB) {
     setShaderDirty();
 }
 
-void VolumetricPathTracingPass::setFileDialogInstance(ImGuiFileDialog* fileDialogInstance) {
-    this->fileDialogInstance = fileDialogInstance;
+void VolumetricPathTracingPass::setFileDialogInstance(ImGuiFileDialog* _fileDialogInstance) {
+    this->fileDialogInstance = _fileDialogInstance;
 }
 
 void VolumetricPathTracingPass::onHasMoved() {
@@ -781,7 +781,7 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
             IGFD_OpenModal(
                     fileDialogInstance,
                     "ChooseEnvironmentMapImage", "Choose an Environment Map Image",
-                    ".*,.png",
+                    ".*,.png,.exr",
                     sgl::AppSettings::get()->getDataDirectory().c_str(),
                     "", 1, nullptr,
                     ImGuiFileDialogFlags_ConfirmOverwrite);

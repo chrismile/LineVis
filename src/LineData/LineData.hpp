@@ -56,6 +56,11 @@ class TopLevelAccelerationStructure;
 typedef std::shared_ptr<TopLevelAccelerationStructure> TopLevelAccelerationStructurePtr;
 }}
 
+namespace IGFD {
+class FileDialog;
+}
+typedef IGFD::FileDialog ImGuiFileDialog;
+
 struct Trajectory;
 typedef std::vector<Trajectory> Trajectories;
 
@@ -229,6 +234,8 @@ public:
     /// Set current rendering modes (e.g. for making visible certain UI options only for certain renderers).
     virtual void setLineRenderers(const std::vector<LineRenderer*>& lineRenderers);
     virtual void setRenderingModes(const std::vector<RenderingMode>& renderingModes) {}
+    // Sets the global file dialog.
+    void setFileDialogInstance(ImGuiFileDialog* fileDialogInstance);
     [[nodiscard]] inline bool getShallRenderSimulationMeshBoundary() const { return shallRenderSimulationMeshBoundary; }
     [[nodiscard]] inline const std::string& getLineDataWindowName() const { return lineDataWindowName; }
     /// Returns whether the gather shader needs to be reloaded.
@@ -304,6 +311,7 @@ protected:
     bool triangleRepresentationDirty = false; ///< Should be set to true if the triangle mesh representation changed.
     bool reRender = false;
     sgl::TransferFunctionWindow& transferFunctionWindow;
+    ImGuiFileDialog* fileDialogInstance = nullptr;
 
     // Color legend widgets for different attributes.
     bool shallRenderColorLegendWidgets = true;

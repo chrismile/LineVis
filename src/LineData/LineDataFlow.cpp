@@ -30,11 +30,13 @@
 #include <boost/algorithm/string/case_conv.hpp>
 
 #include <Utils/File/Logfile.hpp>
+#include <Graphics/Texture/Bitmap.hpp>
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
 #include <Graphics/Vulkan/Render/Data.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 #include <ImGui/imgui_custom.h>
+#include <ImGui/ImGuiFileDialog/ImGuiFileDialog.h>
 
 #include "Loaders/TrajectoryFile.hpp"
 #include "Renderers/LineRenderer.hpp"
@@ -45,6 +47,12 @@ bool LineDataFlow::useRibbons = true;
 bool LineDataFlow::useRotatingHelicityBands = false;
 bool LineDataFlow::useUniformTwistLineWidth = true;
 float LineDataFlow::separatorWidth = 0.2f;
+const char* const textureFilteringModeNames[] = {
+        "Nearest", "Linear", "Nearest Mipmap Nearest", "Linear Mipmap Nearest",
+        "Nearest Mipmap Linear", "Linear Mipmap Linear" };
+enum class TextureFilteringMode {
+    NEAREST = 0, LINEAR, NEAREST_MIPMAP_NEAREST, LINEAR_MIPMAP_NEAREST, NEAREST_MIPMAP_LINEAR, LINEAR_MIPMAP_LINEAR
+};
 
 LineDataFlow::LineDataFlow(sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_FLOW_LINES),
@@ -58,6 +66,7 @@ LineDataFlow::LineDataFlow(sgl::TransferFunctionWindow& transferFunctionWindow)
             device, sizeof(MultiVarUniformData),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
+    maxSamplerAnisotropy = std::max(1, int(device->getLimits().maxSamplerAnisotropy));
 }
 
 LineDataFlow::~LineDataFlow() = default;
@@ -72,8 +81,130 @@ void LineDataFlow::update(float dt) {
     }
 }
 
+void LineDataFlow::loadTwistLineTexture() {
+    if (!sgl::FileUtils::get()->exists(twistLineTextureFilenameGui)) {
+        sgl::Logfile::get()->writeError(
+                "Error in LineDataFlow::loadTwistLineTexture: The file \""
+                + twistLineTextureFilenameGui + "\" does not exist.");
+        return;
+    }
+
+    sgl::BitmapPtr bitmap;
+    if (sgl::FileUtils::get()->hasExtension(twistLineTextureFilenameGui.c_str(), ".png")) {
+        bitmap = std::make_shared<sgl::Bitmap>();
+        bitmap->fromFile(twistLineTextureFilenameGui.c_str());
+    } else {
+        sgl::Logfile::get()->writeError(
+                "Error in LineDataFlow::loadTwistLineTexture: The file \""
+                + twistLineTextureFilenameGui + "\" has an unknown file extension.");
+        return;
+    }
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+
+    sgl::vk::ImageSettings imageSettings;
+    imageSettings.imageType = VK_IMAGE_TYPE_2D;
+    imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+    sgl::vk::ImageSamplerSettings samplerSettings;
+    samplerSettings.addressModeU = samplerSettings.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+
+    samplerSettings.anisotropyEnable = maxAnisotropy > 1;
+    if (maxAnisotropy > 1) {
+        samplerSettings.maxAnisotropy = float(maxAnisotropy);
+    }
+
+    auto filteringMode = TextureFilteringMode(textureFilteringModeIndex);
+    bool generateMipmaps =
+            filteringMode != TextureFilteringMode::NEAREST && filteringMode != TextureFilteringMode::LINEAR;
+    if (generateMipmaps) {
+        imageSettings.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    }
+
+    if (filteringMode == TextureFilteringMode::NEAREST
+            || filteringMode == TextureFilteringMode::NEAREST_MIPMAP_NEAREST
+            || filteringMode == TextureFilteringMode::NEAREST_MIPMAP_LINEAR) {
+        samplerSettings.minFilter = VK_FILTER_NEAREST;
+        samplerSettings.magFilter = VK_FILTER_NEAREST;
+    }
+    if (filteringMode == TextureFilteringMode::LINEAR
+            || filteringMode == TextureFilteringMode::LINEAR_MIPMAP_NEAREST
+            || filteringMode == TextureFilteringMode::LINEAR_MIPMAP_LINEAR) {
+        samplerSettings.minFilter = VK_FILTER_LINEAR;
+        samplerSettings.magFilter = VK_FILTER_LINEAR;
+    }
+    if (filteringMode == TextureFilteringMode::NEAREST_MIPMAP_NEAREST
+            || filteringMode == TextureFilteringMode::LINEAR_MIPMAP_NEAREST) {
+        samplerSettings.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    }
+    if (filteringMode == TextureFilteringMode::NEAREST_MIPMAP_LINEAR
+            || filteringMode == TextureFilteringMode::LINEAR_MIPMAP_LINEAR) {
+        samplerSettings.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    }
+
+    void* pixelData;
+    uint32_t bytesPerPixel;
+    uint32_t width;
+    uint32_t height;
+    if (bitmap) {
+        pixelData = bitmap->getPixels();
+        bytesPerPixel = bitmap->getBPP() / 8;
+        width = uint32_t(bitmap->getWidth());
+        height = uint32_t(bitmap->getHeight());
+        imageSettings.format = VK_FORMAT_R8G8B8A8_UNORM;
+    }
+    imageSettings.width = width;
+    imageSettings.height = height;
+    if (generateMipmaps) {
+        imageSettings.mipLevels = uint32_t(sgl::intlog2(int(std::max(width, height))));
+    }
+
+    twistLineTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
+    twistLineTexture->getImage()->uploadData(width * height * bytesPerPixel, pixelData);
+    loadedTwistLineTextureFilename = twistLineTextureFilenameGui;
+    isTwistLineTextureLoaded = true;
+    reRender = true;
+    dirty = true;
+}
+
 bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool shallReloadGatherShader = LineData::renderGuiPropertyEditorNodes(propertyEditor);
+
+    if (IGFD_DisplayDialog(
+            fileDialogInstance,
+            "ChooseTwistLineTexture", ImGuiWindowFlags_NoCollapse,
+            sgl::ImGuiWrapper::get()->getScaleDependentSize(1000, 580),
+            ImVec2(FLT_MAX, FLT_MAX))) {
+        if (IGFD_IsOk(fileDialogInstance)) {
+            std::string filePathName = IGFD_GetFilePathName(fileDialogInstance);
+            std::string filePath = IGFD_GetCurrentPath(fileDialogInstance);
+            std::string filter = IGFD_GetCurrentFilter(fileDialogInstance);
+            std::string userDatas;
+            if (IGFD_GetUserDatas(fileDialogInstance)) {
+                userDatas = std::string((const char*)IGFD_GetUserDatas(fileDialogInstance));
+            }
+            auto selection = IGFD_GetSelection(fileDialogInstance);
+
+            // Is this line data set or a volume data file for the scattering line tracer?
+            const char* currentPath = IGFD_GetCurrentPath(fileDialogInstance);
+            std::string filename = currentPath;
+            if (!filename.empty() && filename.back() != '/' && filename.back() != '\\') {
+                filename += "/";
+            }
+            filename += selection.table[0].fileName;
+            IGFD_Selection_DestroyContent(&selection);
+            if (currentPath) {
+                free((void*)currentPath);
+                currentPath = nullptr;
+            }
+
+            twistLineTextureFilenameGui = filename;
+            loadTwistLineTexture();
+            shallReloadGatherShader = true;
+            reRender = true;
+        }
+        IGFD_CloseDialog(fileDialogInstance);
+    }
 
     if (!useRotatingHelicityBands && getUseBandRendering()) {
         if (propertyEditor.addCheckbox("Render as Bands", &useRibbons)) {
@@ -112,7 +243,7 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                 }
             }
 
-            if (useRotatingHelicityBands && propertyEditor.addSliderInt(
+            if (useRotatingHelicityBands && !useTwistLineTexture && propertyEditor.addSliderInt(
                     "Band Subdivisions", reinterpret_cast<int*>(&numSubdivisionsBands),
                     2, 16)) {
                 reRender = true;
@@ -125,7 +256,47 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                 shallReloadGatherShader = true;
             }
 
+            if (useRotatingHelicityBands && !useMultiVarRendering && propertyEditor.addCheckbox(
+                    "Use Twist Line Texture", &useTwistLineTexture)) {
+                if (isTwistLineTextureLoaded) {
+                    reRender = true;
+                    shallReloadGatherShader = true;
+                }
+            }
+
+            if (useRotatingHelicityBands && useTwistLineTexture) {
+                propertyEditor.addInputAction("Twist Line Texture", &twistLineTextureFilenameGui);
+                if (propertyEditor.addButton("", "Load")) {
+                    loadTwistLineTexture();
+                    shallReloadGatherShader = true;
+                    reRender = true;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Open from Disk...")) {
+                    IGFD_OpenModal(
+                            fileDialogInstance,
+                            "ChooseTwistLineTexture", "Choose a Twist Line Texture",
+                            ".*,.png",
+                            sgl::AppSettings::get()->getDataDirectory().c_str(),
+                            "", 1, nullptr,
+                            ImGuiFileDialogFlags_ConfirmOverwrite);
+                }
+                if (propertyEditor.addCombo(
+                        "Texture Filtering", &textureFilteringModeIndex,
+                        textureFilteringModeNames, IM_ARRAYSIZE(textureFilteringModeNames))) {
+                    loadTwistLineTexture();
+                    reRender = true;
+                }
+                if (propertyEditor.addSliderIntPowerOfTwo(
+                        "Max. Anisotropy", &maxAnisotropy, 1, 16)) {
+                    maxAnisotropy = std::clamp(maxAnisotropy, 1, maxSamplerAnisotropy);
+                    loadTwistLineTexture();
+                    reRender = true;
+                }
+            }
+
             if (propertyEditor.addCheckbox("Multi-Var Rendering", &useMultiVarRendering)) {
+                useTwistLineTexture = false;
                 dirty = true;
                 shallReloadGatherShader = true;
                 recomputeColorLegend();
@@ -690,6 +861,10 @@ void LineDataFlow::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& 
             renderData->setStaticBuffer(
                     multiVarTransferFunctionWindow.getMinMaxSsboVulkan(), "MinMaxBuffer");
         }
+    }
+
+    if (useRotatingHelicityBands && useTwistLineTexture && isTwistLineTextureLoaded) {
+        renderData->setStaticTextureOptional(twistLineTexture, "helicityBandsTexture");
     }
 }
 
@@ -1957,6 +2132,9 @@ void LineDataFlow::getVulkanShaderPreprocessorDefines(
         preprocessorDefines.insert(std::make_pair("USE_ROTATING_HELICITY_BANDS", ""));
         if (useUniformTwistLineWidth) {
             preprocessorDefines.insert(std::make_pair("UNIFORM_HELICITY_BAND_WIDTH", ""));
+        }
+        if (useTwistLineTexture && isTwistLineTextureLoaded) {
+            preprocessorDefines.insert({ "USE_HELICITY_BANDS_TEXTURE", "" });
         }
     }
     bool isQuadsMode =

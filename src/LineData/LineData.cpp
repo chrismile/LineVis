@@ -329,6 +329,10 @@ void LineData::setLineRenderers(const std::vector<LineRenderer*>& lineRenderers)
     lineRenderersCached = lineRenderers;
 }
 
+void LineData::setFileDialogInstance(ImGuiFileDialog* _fileDialogInstance) {
+    this->fileDialogInstance = _fileDialogInstance;
+}
+
 bool LineData::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool shallReloadGatherShader = false;
 

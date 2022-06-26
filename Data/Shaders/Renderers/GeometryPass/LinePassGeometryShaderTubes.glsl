@@ -717,6 +717,14 @@ void drawSeparatorStripe(inout vec4 surfaceColor, in float varFraction, in float
 }
 #endif
 
+#ifdef USE_HELICITY_BANDS_TEXTURE
+layout(binding = HELICITY_BANDS_TEXTURE_BINDING) uniform sampler2D helicityBandsTexture;
+vec4 sampleHelicityBandsTexture(in float u, in float globalPos) {
+    //return texture(helicityBandsTexture, vec2(u, 0.5));
+    return textureGrad(helicityBandsTexture, vec2(u, 0.5), vec2(dFdx(globalPos), 0.0), vec2(dFdy(globalPos), 0.0));
+}
+#endif
+
 void main() {
 #if defined(COMPRESSED_GEOMETRY_OUTPUT_DATA) && (defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)) && defined(VISUALIZE_SEEDING_PROCESS)
     uint fragmentPrincipalStressIndex = fragmentPrincipalStressIndexAndLineAppearanceOrder & 0x4u;
@@ -1019,9 +1027,16 @@ void main() {
             phi + fragmentRotation, separatorWidth);
     //drawSeparatorStripe(fragmentColor, varFraction, phi + fragmentRotation, bandWidth);
 #else
+#ifdef USE_HELICITY_BANDS_TEXTURE
+    const float twoPi = 2.0 * float(M_PI);
+    fragmentColor *= sampleHelicityBandsTexture(
+            mod(phi + fragmentRotation + 0.1, twoPi) / twoPi,
+            (phi + fragmentRotation) / twoPi);
+#else
     drawSeparatorStripe(
             fragmentColor, mod(phi + fragmentRotation + 0.1, 2.0 / float(numSubdivisionsBands) * float(M_PI)),
             phi + fragmentRotation, separatorWidth);
+#endif
 #endif
 #elif defined(USE_MULTI_VAR_RENDERING)
     float separatorWidth = numSelectedAttributes > 1 ? 0.4 / float(numSelectedAttributes) : 0.2;
