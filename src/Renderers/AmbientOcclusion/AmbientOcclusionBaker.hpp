@@ -55,6 +55,7 @@ typedef std::shared_ptr<Texture> TexturePtr;
 
 class LineData;
 typedef std::shared_ptr<LineData> LineDataPtr;
+class SettingsMap;
 
 /**
  * Ambient occlusion baking modes:
@@ -110,6 +111,8 @@ public:
     virtual void onHasMoved() {}
     /// Called when the resolution of the application window has changed.
     virtual void onResolutionChanged() {}
+
+    virtual bool setNewSettings(const SettingsMap& settings) { return false; }
 
     /// Returns whether the baking process was re-run.
     virtual bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) { return false; }

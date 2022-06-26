@@ -187,6 +187,39 @@ void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& property
     }
 }
 
+bool VulkanRayTracer::setNewSettings(const SettingsMap& settings) {
+    bool shallReloadGatherShader = LineRenderer::setNewSettings(settings);
+
+    if (settings.getValueOpt("use_analytic_intersections", useAnalyticIntersections)) {
+        rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
+        rayTracingRenderPass->setShaderDirty();
+        if (lineData) {
+            rayTracingRenderPass->setLineData(lineData, false);
+        }
+        accumulatedFramesCounter = 0;
+    }
+    if (settings.getValueOpt("num_samples_per_frame", numSamplesPerFrame)) {
+        rayTracingRenderPass->setNumSamplesPerFrame(numSamplesPerFrame);
+        accumulatedFramesCounter = 0;
+    }
+    if (settings.getValueOpt("num_accumulated_frames", maxNumAccumulatedFrames)) {
+        rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
+        accumulatedFramesCounter = 0;
+    }
+    if (settings.getValueOpt("use_mlat", useMlat)) {
+        rayTracingRenderPass->setUseMlat(useMlat);
+        rayTracingRenderPass->setShaderDirty();
+        accumulatedFramesCounter = 0;
+    }
+    if (settings.getValueOpt("mlat_num_nodes", mlatNumNodes)) {
+        rayTracingRenderPass->setMlatNumNodes(mlatNumNodes);
+        rayTracingRenderPass->setShaderDirty();
+        accumulatedFramesCounter = 0;
+    }
+
+    return shallReloadGatherShader;
+}
+
 void VulkanRayTracer::setNewState(const InternalState& newState) {
     if (newState.rendererSettings.getValueOpt("useAnalyticIntersections", useAnalyticIntersections)) {
         rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
@@ -198,6 +231,10 @@ void VulkanRayTracer::setNewState(const InternalState& newState) {
     }
     if (newState.rendererSettings.getValueOpt("numSamplesPerFrame", numSamplesPerFrame)) {
         rayTracingRenderPass->setNumSamplesPerFrame(numSamplesPerFrame);
+        accumulatedFramesCounter = 0;
+    }
+    if (newState.rendererSettings.getValueOpt("maxNumAccumulatedFrames", maxNumAccumulatedFrames)) {
+        rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
         accumulatedFramesCounter = 0;
     }
     if (newState.rendererSettings.getValueOpt("useMlat", useMlat)) {
@@ -284,6 +321,9 @@ void RayTracingRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
 }
 
 void RayTracingRenderPass::setRenderSimulationMeshHull(bool shallRenderSimulationMeshHull) {
+    if (!lineData) {
+        return;
+    }
     setLineData(lineData, false);
 }
 

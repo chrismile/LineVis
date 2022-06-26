@@ -87,6 +87,8 @@ public:
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
 
+    bool setNewSettings(const SettingsMap& settings) override;
+
     /// Returns whether the baking process was re-run.
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
@@ -120,6 +122,8 @@ public:
     void onHasMoved();
     /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.
     virtual bool needsReRender() { bool tmp = reRender; reRender = false; return tmp; }
+    /// Similar to @see renderGuiPropertyEditorNodes, but it is called when settings are changed programmatically.
+    virtual bool setNewSettings(const SettingsMap& settings);
     /// Renders the GUI. The "reRender" flag might be set depending on the user's actions.
     virtual bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
 

@@ -572,7 +572,10 @@ bool ReplayWidget::runScript(const std::string& filename) {
     cameraOrientationLast =
             glm::angleAxis(-sceneData->camera->getPitch(), glm::vec3(1, 0, 0))
             * glm::angleAxis(sceneData->camera->getYaw() + sgl::PI / 2.0f, glm::vec3(0, 1, 0));
+    currentCameraMatrix =
+            glm::toMat4(cameraOrientationLast) * sgl::matrixTranslation(-cameraPositionLast);
     cameraFovyLast = sceneData->camera->getFOVy();
+    currentFovy = cameraFovyLast;
     currentRendererSettings = std::map<std::string, std::string>();
     currentDatasetSettings = std::map<std::string, std::string>();
     replaySettingsRendererLast = ReplaySettingsMap();

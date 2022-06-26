@@ -182,7 +182,7 @@ void main() {
     fragmentVertexIdUint = linePointData.lineStartIndex;//linePointIdx;
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
-    fragmentRotation = linePointData.lineRotation;
+    fragmentRotation = linePointData.lineRotation * helicityRotationFactor;
 #endif
     fragmentAttribute = linePointData.lineAttribute;
     fragmentTangent = tangent;

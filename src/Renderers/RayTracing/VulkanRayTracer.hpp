@@ -89,6 +89,7 @@ public:
 
     /// For changing performance measurement modes.
     void setNewState(const InternalState& newState) override;
+    bool setNewSettings(const SettingsMap& settings) override;
 
     /// Returns whether the triangle representation is used by the renderer.
     [[nodiscard]] bool getIsTriangleRepresentationUsed() const override;

@@ -105,10 +105,9 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                     shallReloadGatherShader = true;
                 }
                 if (useRotatingHelicityBands) {
-                    if (propertyEditor.addSliderFloatEdit(
-                            "Helicity Factor", &helicityRotationFactor,
-                            0.0f, 2.0f) == ImGui::EditMode::INPUT_FINISHED) {
-                        dirty = true;
+                    if (propertyEditor.addSliderFloat(
+                            "Helicity Factor", &helicityRotationFactor, 0.0f, 2.0f)) {
+                        reRender = true;
                     }
                 }
             }
@@ -413,8 +412,15 @@ bool LineDataFlow::setNewSettings(const SettingsMap& settings) {
         if (settings.getValueOpt("separator_width", separatorWidth)) {
             reRender = true;
         }
+        if (settings.getValueOpt("band_subdivisions", numSubdivisionsBands)) {
+            reRender = true;
+            setNumSubdivisionsManually = true;
+        }
         if (settings.getValueOpt("use_uniform_twist_line_width", useUniformTwistLineWidth)) {
             shallReloadGatherShader = true;
+        }
+        if (settings.getValueOpt("helicity_rotation_factor", helicityRotationFactor)) {
+            reRender = true;
         }
         if (settings.getValueOpt("use_multi_var_rendering", useMultiVarRendering)) {
             dirty = true;
@@ -691,6 +697,7 @@ void LineDataFlow::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::v
     if (useMultiVarRendering || useRotatingHelicityBands) {
         lineUniformData.numSubdivisionsBands = numSubdivisionsBands;
         lineUniformData.separatorBaseWidth = separatorWidth;
+        lineUniformData.helicityRotationFactor = helicityRotationFactor;
     }
 
     LineData::updateVulkanUniformBuffers(lineRenderer, renderer);
@@ -1010,7 +1017,7 @@ void LineDataFlow::getLinePassTubeRenderDataGeneral(
                 if (j < trajectory.positions.size() - 1) {
                     lineSegmentLength = glm::length(trajectory.positions.at(j + 1) - trajectory.positions.at(j));
                 }
-                rotation += helicities.at(j) / maxHelicity * sgl::PI * helicityRotationFactor * lineSegmentLength / 0.005f;
+                rotation += helicities.at(j) / maxHelicity * sgl::PI * lineSegmentLength / 0.005f;
             }
         }
 
@@ -1704,7 +1711,7 @@ TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderData(bool 
                             - trajectory.positions.at(linePointReference.linePointIndex));
                 }
             }
-            rotation += helicity / maxHelicity * sgl::PI * helicityRotationFactor * lineSegmentLength / 0.005f;
+            rotation += helicity / maxHelicity * sgl::PI * lineSegmentLength / 0.005f;
         }
 
         if (useMultiVarRendering) {
@@ -1851,7 +1858,7 @@ TubeAabbRenderData LineDataFlow::getLinePassTubeAabbRenderData(bool isRasterizer
                 if (i < trajectory.positions.size() - 1) {
                     lineSegmentLength = glm::length(trajectory.positions.at(i + 1) - trajectory.positions.at(i));
                 }
-                rotation += helicity / maxHelicity * sgl::PI * helicityRotationFactor * lineSegmentLength / 0.005f;
+                rotation += helicity / maxHelicity * sgl::PI * lineSegmentLength / 0.005f;
             }
             tubeLinePointDataList.push_back(linePointData);
 

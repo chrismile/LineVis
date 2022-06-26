@@ -170,7 +170,7 @@ void main() {
 #endif
 
 #if defined(USE_ROTATING_HELICITY_BANDS) && defined(USE_CAPPED_TUBES)
-    float fragmentRotationAdapted = linePointData.lineRotation;
+    float fragmentRotationAdapted = linePointData.lineRotation * helicityRotationFactor;
     if (bitfieldExtract(vertexData.vertexLinePointIndex, 31, 1) > 0u) {
         float fragmentRotationDelta = 0.0;
         float segmentLength = 1.0;
@@ -180,12 +180,14 @@ void main() {
         if (linePointIdx != 0) {
             linePointDataOther = linePoints[linePointIdx - 1];
             found = linePointDataOther.lineStartIndex == linePointData.lineStartIndex;
-            fragmentRotationDelta = linePointData.lineRotation - linePointDataOther.lineRotation;
+            fragmentRotationDelta =
+                    (linePointData.lineRotation - linePointDataOther.lineRotation) * helicityRotationFactor;
             planeNormal = linePointData.linePosition - linePointDataOther.linePosition;
         }
         if (!found) {
             linePointDataOther = linePoints[linePointIdx + 1];
-            fragmentRotationDelta = linePointData.lineRotation - linePointDataOther.lineRotation;
+            fragmentRotationDelta =
+                    (linePointData.lineRotation - linePointDataOther.lineRotation) * helicityRotationFactor;
             planeNormal = linePointData.linePosition - linePointDataOther.linePosition;
         }
         segmentLength = length(planeNormal);
@@ -197,7 +199,7 @@ void main() {
     }
     fragmentRotation = fragmentRotationAdapted;
 #elif defined(USE_ROTATING_HELICITY_BANDS)
-    fragmentRotation = linePointData.lineRotation;
+    fragmentRotation = linePointData.lineRotation * helicityRotationFactor;
 #endif
 
     fragmentAttribute = linePointData.lineAttribute;

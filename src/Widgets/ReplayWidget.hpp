@@ -229,10 +229,10 @@ public:
     ReplayWidgetUpdateType renderGui();
 
     inline const glm::mat4x4& getViewMatrix() { return currentCameraMatrix; }
-    inline float getCameraFovy() { return currentFovy; }
+    inline float getCameraFovy() const { return currentFovy; }
     inline SettingsMap getCurrentRendererSettings() { return currentRendererSettings; }
     inline SettingsMap getCurrentDatasetSettings() { return currentDatasetSettings; }
-    inline bool getUseCameraFlight() { return useCameraFlight; }
+    inline bool getUseCameraFlight() const { return useCameraFlight; }
 
     /// Callback functions when, e.g., a new renderer is requested.
     void setLoadLineDataCallback(std::function<void(const std::string& datasetName)> loadLineDataCallback);

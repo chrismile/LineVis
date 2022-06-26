@@ -192,18 +192,30 @@ vec4 traceRayMlat(vec3 rayOrigin, vec3 rayDirection) {
 }
 #endif
 
+//#define DETERMINISTIC_SAMPLING
+//#define ONLY_MSAA
+
 void main() {
     ivec2 outputImageSize = imageSize(outputImage);
     vec4 fragmentColor = vec4(0.0);
 
     vec3 rayOrigin = (inverseViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 
+#ifdef ONLY_MSAA
+    vec4 firstForegroundColor = backgroundColor;
+    bool foregroundStored = false;
+    bool backgroundStored = false;
+#endif
+
 #ifdef USE_JITTERED_RAYS
     for (int sampleIdx = 0; sampleIdx < numSamplesPerFrame; sampleIdx++) {
-
+#ifdef DETERMINISTIC_SAMPLING
+    uint seed = tea(19, frameNumber * numSamplesPerFrame + sampleIdx);
+#else
     uint seed = tea(
             gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * outputImageSize.x,
             frameNumber * numSamplesPerFrame + sampleIdx);
+#endif
     vec2 xi = vec2(rnd(seed), rnd(seed));
     vec2 fragNdc = 2.0 * ((vec2(gl_LaunchIDEXT.xy) + xi) / vec2(gl_LaunchSizeEXT.xy)) - 1.0;
 #else
@@ -213,22 +225,44 @@ void main() {
     vec3 rayTarget = (inverseProjectionMatrix * vec4(fragNdc.xy, 1.0, 1.0)).xyz;
     vec3 rayDirection = (inverseViewMatrix * vec4(normalize(rayTarget.xyz), 0.0)).xyz;
 
+    vec4 newColor;
 #if defined(USE_MLAT)
-    fragmentColor += traceRayMlat(rayOrigin, rayDirection);
+    newColor = traceRayMlat(rayOrigin, rayDirection);
 #elif defined(USE_TRANSPARENCY)
-    fragmentColor += traceRayTransparent(rayOrigin, rayDirection);
+    newColor = traceRayTransparent(rayOrigin, rayDirection);
 #else
     if (hasHullMesh == 1) {
-        fragmentColor += traceRayTransparent(rayOrigin, rayDirection);
+        newColor = traceRayTransparent(rayOrigin, rayDirection);
     } else {
-        fragmentColor += traceRayOpaque(rayOrigin, rayDirection);
+        newColor = traceRayOpaque(rayOrigin, rayDirection);
+    }
+#endif
+    fragmentColor += newColor;
+
+#ifdef ONLY_MSAA
+    if (newColor == backgroundColor) {
+        backgroundStored = true;
+    } else {
+        if (!foregroundStored) {
+            firstForegroundColor = newColor;
+        }
+        foregroundStored = true;
     }
 #endif
 
 #ifdef USE_JITTERED_RAYS
     }
 
+#ifdef ONLY_MSAA
+    if (!backgroundStored) {
+        fragmentColor = firstForegroundColor;
+    } else {
+        fragmentColor /= float(numSamplesPerFrame);
+    }
+#else
     fragmentColor /= float(numSamplesPerFrame);
+#endif
+
 #endif
 
     ivec2 writePos = ivec2(gl_LaunchIDEXT.xy);
@@ -360,7 +394,9 @@ void main() {
 
 #ifdef USE_ROTATING_HELICITY_BANDS
     float fragmentRotation = interpolateFloat(
-            linePointData0.lineRotation, linePointData1.lineRotation, linePointData2.lineRotation,
+            linePointData0.lineRotation * helicityRotationFactor,
+            linePointData1.lineRotation * helicityRotationFactor,
+            linePointData2.lineRotation * helicityRotationFactor,
             barycentricCoordinates);
 #endif
 
@@ -378,7 +414,8 @@ void main() {
         if (!found) {
             linePointDataOther = linePoints[vertexLinePointIndex0 + 1];
         }
-        fragmentRotationDelta = linePointData0.lineRotation - linePointDataOther.lineRotation;
+        fragmentRotationDelta =
+                (linePointData0.lineRotation - linePointDataOther.lineRotation) * helicityRotationFactor;
         planeNormal = linePointData0.linePosition - linePointDataOther.linePosition;
         segmentLength = length(planeNormal);
         planeNormal /= segmentLength;
@@ -397,11 +434,11 @@ void main() {
     if (vertexLinePointIndex0 != 0) {
         linePointDataOther = linePoints[vertexLinePointIndex0 - 1];
         found = linePointDataOther.lineStartIndex == linePointData0.lineStartIndex;
-        rotDy = linePointData0.lineRotation - linePointDataOther.lineRotation;
+        rotDy = (linePointData0.lineRotation - linePointDataOther.lineRotation) * helicityRotationFactor;
     }
     if (!found) {
         linePointDataOther = linePoints[vertexLinePointIndex0 + 1];
-        rotDy = linePointDataOther.lineRotation - linePointData0.lineRotation;
+        rotDy = (linePointDataOther.lineRotation - linePointData0.lineRotation) * helicityRotationFactor;
     }
     rotDx = length(linePointData0.linePosition - linePointDataOther.linePosition);
     // Space conversion world <-> surface: circumference / arc length == M_PI * lineWidth / (2.0 * M_PI) == 0.5 * lineWidth
@@ -675,7 +712,8 @@ void main() {
     float fragmentVertexId = (1.0 - t) * linePointIndices.x + t * linePointIndices.y;
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
-    float fragmentRotation = (1.0 - t) * linePointData0.lineRotation + t * linePointData1.lineRotation;
+    float fragmentRotation =
+            ((1.0 - t) * linePointData0.lineRotation + t * linePointData1.lineRotation) * helicityRotationFactor;
 #endif
 
 #ifdef STRESS_LINE_DATA

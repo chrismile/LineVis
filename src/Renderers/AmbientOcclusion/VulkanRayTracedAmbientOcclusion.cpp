@@ -106,6 +106,34 @@ bool VulkanRayTracedAmbientOcclusion::getHasTextureResolutionChanged() {
     return tmp;
 }
 
+bool VulkanRayTracedAmbientOcclusion::setNewSettings(const SettingsMap& settings) {
+    bool optionChanged = false;
+
+    if (settings.getValueOpt("ambient_occlusion_iterations", maxNumAccumulatedFrames)) {
+        optionChanged = true;
+    }
+    if (settings.getValueOpt(
+            "ambient_occlusion_samples_per_frame", rtaoRenderPass->numAmbientOcclusionSamplesPerFrame)) {
+        optionChanged = true;
+    }
+    if (settings.getValueOpt("ambient_occlusion_radius", rtaoRenderPass->ambientOcclusionRadius)) {
+        optionChanged = true;
+    }
+    if (settings.getValueOpt("ambient_occlusion_distance_based", rtaoRenderPass->useDistance)) {
+        optionChanged = true;
+    }
+
+    if (rtaoRenderPass->setNewSettings(settings)) {
+        optionChanged = true;
+    }
+    if (optionChanged) {
+        accumulatedFramesCounter = 0;
+        rtaoRenderPass->onHasMoved();
+    }
+
+    return optionChanged;
+}
+
 bool VulkanRayTracedAmbientOcclusion::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool optionChanged = false;
 
@@ -325,6 +353,31 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
             VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);*/
+}
+
+bool VulkanRayTracedAmbientOcclusionPass::setNewSettings(const SettingsMap& settings) {
+    bool optionChanged = false;
+
+    int numDenoisersSupported = IM_ARRAYSIZE(DENOISER_NAMES);
+#ifdef SUPPORT_OPTIX
+    if (!OptixVptDenoiser::isOptixEnabled()) {
+        numDenoisersSupported--;
+    }
+#endif
+    std::string denoiserName;
+    if (settings.getValueOpt("ambient_occlusion_denoiser", denoiserName)) {
+        for (int i = 0; i < numDenoisersSupported; i++) {
+            if (denoiserName == DENOISER_NAMES[i]) {
+                denoiserType = DenoiserType(i);
+                createDenoiser();
+                reRender = true;
+                changedDenoiserSettings = true;
+                break;
+            }
+        }
+    }
+
+    return optionChanged;
 }
 
 bool VulkanRayTracedAmbientOcclusionPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor &propertyEditor) {

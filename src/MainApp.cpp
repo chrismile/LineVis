@@ -1848,6 +1848,7 @@ void MainApp::update(float dt) {
 
         replayWidgetRunning = true;
         reRender = true;
+        hasMoved();
 
         if (!useCameraFlight) {
             if (realTimeReplayUpdates) {

@@ -101,7 +101,7 @@ void main() {
     lineMinorStress = vertexMinorStress;
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
-    lineRotation = vertexRotation;
+    lineRotation = vertexRotation * helicityRotationFactor;
 #endif
 #if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING) || defined(UNIFORM_HELICITY_BAND_WIDTH)
     lineVertexId = uint(gl_VertexIndex);
@@ -396,7 +396,7 @@ void main() {
         //fragmentVertexId = float(lineVertexId[0]);
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
-        fragmentRotation = lineRotation[0];
+        fragmentRotation = lineRotation[0] * helicityRotationFactor;
 #endif
         fragmentAttribute = lineAttribute[0];
         fragmentTangent = tangentCurrent;
@@ -450,7 +450,7 @@ void main() {
         //fragmentVertexId = float(lineVertexId[0]);
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
-        fragmentRotation = lineRotation[0];
+        fragmentRotation = lineRotation[0] * helicityRotationFactor;
 #endif
         fragmentAttribute = lineAttribute[0];
         fragmentTangent = tangentCurrent;
@@ -505,7 +505,7 @@ void main() {
         //fragmentVertexId = float(lineVertexId[1]);
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
-        fragmentRotation = lineRotation[1];
+        fragmentRotation = lineRotation[1] * helicityRotationFactor;
 #endif
         fragmentAttribute = lineAttribute[1];
         fragmentTangent = tangentNext;
@@ -559,7 +559,7 @@ void main() {
         //fragmentVertexId = float(lineVertexId[1]);
 #endif
 #ifdef USE_ROTATING_HELICITY_BANDS
-        fragmentRotation = lineRotation[1];
+        fragmentRotation = lineRotation[1] * helicityRotationFactor;
 #endif
         fragmentAttribute = lineAttribute[1];
         fragmentTangent = tangentNext;
@@ -1001,12 +1001,12 @@ void main() {
     uint vertexIdx1 = vertexIdx0 + 1;//uint(ceil(fragmentVertexId));
 #ifdef USE_GEOMETRY_SHADER
     float rotDx = length(linePositions[vertexIdx1] - linePositions[vertexIdx0]);
-    float rotDy = lineRotations[vertexIdx1] - lineRotations[vertexIdx0];
+    float rotDy = (lineRotations[vertexIdx1] - lineRotations[vertexIdx0]) * helicityRotationFactor;
 #else
     LinePointData linePointData0 = linePoints[vertexIdx0];
     LinePointData linePointData1 = linePoints[vertexIdx1];
     float rotDx = length(linePointData1.linePosition - linePointData0.linePosition);
-    float rotDy = linePointData1.lineRotation - linePointData0.lineRotation;
+    float rotDy = (linePointData1.lineRotation - linePointData0.lineRotation) * helicityRotationFactor;
 #endif
     // Space conversion world <-> surface: circumference / arc length == M_PI * lineWidth / (2.0 * M_PI) == 0.5 * lineWidth
     float rotationSeparatorScale = cos(atan(rotDy * 0.5 * lineWidth, rotDx));

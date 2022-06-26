@@ -440,6 +440,10 @@ bool LineRenderer::setNewSettings(const SettingsMap& settings) {
         reRender = false;
     }
 
+    if (ambientOcclusionBaker) {
+        ambientOcclusionBaker->setNewSettings(settings);
+    }
+
     return shallReloadGatherShader;
 }
 

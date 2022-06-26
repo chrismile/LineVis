@@ -94,7 +94,7 @@ bool LineData::setNewSettings(const SettingsMap& settings) {
     }
 
     std::string linePrimitiveModeName;
-    if (settings.getValueOpt("linePrimitiveMode", linePrimitiveModeName)) {
+    if (settings.getValueOpt("line_primitive_mode", linePrimitiveModeName)) {
         int i;
         for (i = 0; i < IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES); i++) {
             if (LINE_PRIMITIVE_MODE_DISPLAYNAMES[i] == attributeName) {
@@ -115,7 +115,7 @@ bool LineData::setNewSettings(const SettingsMap& settings) {
     }
 
     int linePrimitiveModeIndex = 0;
-    if (settings.getValueOpt("linePrimitiveModeIndex", linePrimitiveModeIndex)) {
+    if (settings.getValueOpt("line_primitive_mode_index", linePrimitiveModeIndex)) {
         if (linePrimitiveModeIndex < 0 || linePrimitiveModeIndex >= IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES)) {
             sgl::Logfile::get()->writeError(
                     "Error in LineData::setNewSettings: Invalid attribute name \"" + attributeName + "\".");
@@ -125,6 +125,32 @@ bool LineData::setNewSettings(const SettingsMap& settings) {
             updateLinePrimitiveMode(lineRenderersCached.front());
             reloadGatherShader = true;
         }
+    }
+
+    if (!simulationMeshOutlineTriangleIndices.empty()) {
+        if (settings.getValueOpt("hull_opacity", hullOpacity)) {
+            shallRenderSimulationMeshBoundary = hullOpacity > 0.0f;
+            reRender = true;
+            for (auto* lineRenderer : lineRenderersCached) {
+                if (lineRenderer && !lineRenderer->isRasterizer) {
+                    lineRenderer->setRenderSimulationMeshHull(
+                            shallRenderSimulationMeshBoundary);
+                }
+            }
+        }
+    }
+
+    if (settings.getValueOpt("tube_num_subdivisions", tubeNumSubdivisions)) {
+        for (auto* lineRenderer : lineRenderersCached) {
+            if (lineRenderer && lineRenderer->getIsRasterizer()) {
+                reloadGatherShader = true;
+            }
+        }
+        if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
+                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
+            dirty = true;
+        }
+        setTriangleRepresentationDirty();
     }
 
     return reloadGatherShader;
