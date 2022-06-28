@@ -5,10 +5,10 @@ import g
 def init_scene():
     g.set_duration(0)
     g.set_renderer('Vulkan Ray Tracer')
-    g.set_dataset('Centrifugal Pump (DES.res_t2564)')
-    #g.set_camera_checkpoint('Overview Square')
+    g.set_dataset('Vortex Street (Line #9, Subdiv)')
+    g.set_camera_checkpoint('Video')
     g.set_rendering_algorithm_settings({
-        'line_width': 0.006,
+        'line_width': 0.0036,
         'band_width': 0.007,
         'depth_cue_strength': 0.4,
         'num_accumulated_frames': 1,
@@ -30,41 +30,38 @@ def init_scene():
         'separator_width': 0.2,
         'helicity_rotation_factor': 1.0,
     })
-    g.set_transfer_function_range(-1000.0, 1000.0)
+    g.set_transfer_function_range(-20.0, 20.0)
     g.set_duration(0.5)
-
 
 def change_twist_line_width():
     g.set_duration(2)
     g.set_dataset_settings({
         'separator_width': 0.5,
     })
-    g.set_duration(1)
+    g.set_duration(2)
     g.set_dataset_settings({
         'separator_width': 0.05,
     })
-    g.set_duration(1)
+    g.set_duration(2)
     g.set_dataset_settings({
         'separator_width': 0.2,
     })
-    g.set_duration(0.5)
-
+    g.set_duration(1)
 
 def change_twist_line_frequency():
     g.set_duration(2)
     g.set_dataset_settings({
         'helicity_rotation_factor': 2.0,
     })
-    g.set_duration(8)
+    g.set_duration(3)
     g.set_dataset_settings({
         'helicity_rotation_factor': 0.5,
     })
-    g.set_duration(8)
+    g.set_duration(1)
     g.set_dataset_settings({
         'helicity_rotation_factor': 1.0,
     })
     g.set_duration(1)
-
 
 def todo():
     g.set_duration(0)

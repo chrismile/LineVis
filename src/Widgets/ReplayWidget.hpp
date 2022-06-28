@@ -188,10 +188,12 @@ struct ReplayState {
 
     // The camera state to load (optional).
     bool cameraPositionSet = false;
+    bool cameraLookAtLocationSet = false;
     bool cameraOrientationSet = false;
     bool cameraFovySet = false;
     std::string cameraCheckpointName;
     glm::vec3 cameraPosition;
+    glm::vec3 cameraLookAtLocation;
     glm::quat cameraOrientation;
     float cameraFovy;
 
@@ -229,10 +231,11 @@ public:
     ReplayWidgetUpdateType renderGui();
 
     inline const glm::mat4x4& getViewMatrix() { return currentCameraMatrix; }
-    inline float getCameraFovy() const { return currentFovy; }
+    [[nodiscard]] inline float getCameraFovy() const { return currentFovy; }
+    inline const glm::vec3& getLookAtLocation() { return currentLookAtLocation; }
     inline SettingsMap getCurrentRendererSettings() { return currentRendererSettings; }
     inline SettingsMap getCurrentDatasetSettings() { return currentDatasetSettings; }
-    inline bool getUseCameraFlight() const { return useCameraFlight; }
+    [[nodiscard]] inline bool getUseCameraFlight() const { return useCameraFlight; }
 
     /// Callback functions when, e.g., a new renderer is requested.
     void setLoadLineDataCallback(std::function<void(const std::string& datasetName)> loadLineDataCallback);
@@ -279,9 +282,11 @@ private:
     ReplaySettingsMap replaySettingsRendererLast, replaySettingsDatasetLast;
     SettingsMap currentRendererSettings, currentDatasetSettings;
     glm::vec3 cameraPositionLast;
+    glm::vec3 cameraLookAtLocationLast;
     glm::quat cameraOrientationLast;
     float cameraFovyLast;
     glm::mat4x4 currentCameraMatrix;
+    glm::vec3 currentLookAtLocation;
     float currentFovy;
     bool useCameraFlight = false;
 

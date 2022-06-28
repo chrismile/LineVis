@@ -419,7 +419,7 @@ void computeFragmentColor(
 #ifdef USE_MULTI_VAR_RENDERING
     drawSeparatorStripe(
             fragmentColor, mod(phi + fragmentRotation + separatorWidth * 0.5, 2.0 / float(numSubdivisionsBands) * float(M_PI)),
-            separatorWidth, EPSILON_OUTLINE);
+            separatorWidth, EPSILON_OUTLINE * 0.1 * float(numSubdivisionsBands));
 #else
 #ifdef USE_HELICITY_BANDS_TEXTURE
     const float twoPi = 2.0 * float(M_PI);
@@ -437,7 +437,7 @@ void computeFragmentColor(
     if (numSelectedAttributes > 0) {
         drawSeparatorStripe(
                 fragmentColor, mod((ribbonPosition * 0.5 + 0.5) * float(numSubdivisionsView) + 0.5 * separatorWidth, 1.0),
-                separatorBaseWidth, EPSILON_OUTLINE);
+                separatorBaseWidth, EPSILON_OUTLINE * 0.1 * float(numSubdivisionsView));
     }
 #endif
 

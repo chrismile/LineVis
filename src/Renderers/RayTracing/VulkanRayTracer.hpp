@@ -128,6 +128,7 @@ private:
     // Multiple frames can be accumulated to achieve a multisampling effect (additionally to using numSamplesPerFrame).
     uint32_t maxNumAccumulatedFrames = 32;
     uint32_t accumulatedFramesCounter = 0;
+    bool useDeterministicSampling = false;
 };
 
 class RayTracingRenderPass : public sgl::vk::RayTracingPass {
@@ -146,6 +147,7 @@ public:
     }
     inline void setFrameNumber(uint32_t frameNumber) { rayTracerSettings.frameNumber = frameNumber; }
     inline void setMaxNumFrames(uint32_t numFrames) { maxNumFrames = numFrames; updateUseJitteredSamples(); }
+    inline void setUseDeterministicSampling(bool determinstic) { useDeterministicSampling = determinstic; }
     inline void setMaxDepthComplexity(uint32_t maxDepth) { rayTracerSettings.maxDepthComplexity = maxDepth; }
     inline void setUseDepthCues(bool depthCuesOn) { useDepthCues = depthCuesOn; }
     inline void setVisualizeSeedingProcess(bool visualizeSeeding) { visualizeSeedingProcess = visualizeSeeding; }
@@ -205,6 +207,7 @@ private:
     bool useJitteredSamples = true;
     uint32_t maxNumFrames = 1;
     bool useAnalyticIntersections = false;
+    bool useDeterministicSampling = false;
 
     // Whether to use multi-layer alpha tracing (MLAT).
     bool useMlat = false;

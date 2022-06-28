@@ -570,6 +570,7 @@ bool LineDataFlow::setNewSettings(const SettingsMap& settings) {
         }
 
         if (settings.getValueOpt("min_band_thickness", minBandThickness)) {
+            triangleRepresentationDirty = true;
             shallReloadGatherShader = true;
         }
 

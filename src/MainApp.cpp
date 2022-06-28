@@ -1591,7 +1591,19 @@ void MainApp::renderGuiMenuBar() {
                 replayWidget.setShowWindow(!replayWidget.getShowWindow());
             }
             ImGui::EndMenu();
+        }
 
+        if (ImGui::BeginMenu("Tools")) {
+            if (ImGui::MenuItem("Print Camera State")) {
+                std::cout << "Position: (" << camera->getPosition().x << ", " << camera->getPosition().y
+                          << ", " << camera->getPosition().z << ")" << std::endl;
+                std::cout << "Look At: (" << camera->getLookAtLocation().x << ", " << camera->getLookAtLocation().y
+                          << ", " << camera->getLookAtLocation().z << ")" << std::endl;
+                std::cout << "Yaw: " << camera->getYaw() << std::endl;
+                std::cout << "Pitch: " << camera->getPitch() << std::endl;
+                std::cout << "FoVy: " << (camera->getFOVy() / sgl::PI * 180.0f) << std::endl;
+            }
+            ImGui::EndMenu();
         }
 
         bool isRendererComputationRunning = false;
@@ -1808,8 +1820,12 @@ void MainApp::update(float dt) {
     if (replayWidget.update(recordingTime, stopRecording, stopCameraFlight)) {
         if (!useCameraFlight) {
             camera->overwriteViewMatrix(replayWidget.getViewMatrix());
-            if (camera->getFOVy() != replayWidget.getCameraFovy()) {
+            if (std::abs(camera->getFOVy() - replayWidget.getCameraFovy()) > 1e-6f) {
                 camera->setFOVy(replayWidget.getCameraFovy());
+                fovDegree = camera->getFOVy() / sgl::PI * 180.0f;
+            }
+            if (camera->getLookAtLocation() != replayWidget.getLookAtLocation()) {
+                camera->setLookAtLocation(replayWidget.getLookAtLocation());
             }
         }
         SettingsMap currentDatasetSettings = replayWidget.getCurrentDatasetSettings();

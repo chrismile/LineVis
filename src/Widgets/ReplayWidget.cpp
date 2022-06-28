@@ -339,7 +339,7 @@ static PyObject* py_set_dataset_settings(PyObject* self, PyObject* args) {
 }
 
 static PyObject* py_set_camera_position(PyObject* self, PyObject* args) {
-    glm::vec3 cameraPosition = glm::vec3(0.0f);
+    auto cameraPosition = glm::vec3(0.0f);
     Py_ssize_t tupleSize = PyTuple_Size(args);
     if (tupleSize == 1) {
         PyObject* positionTuple = nullptr;
@@ -361,6 +361,32 @@ static PyObject* py_set_camera_position(PyObject* self, PyObject* args) {
 
     currentReplayStateGlobal.cameraPositionSet = true;
     currentReplayStateGlobal.cameraPosition = cameraPosition;
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_set_camera_look_at_location(PyObject* self, PyObject* args) {
+    auto lookAtLocation = glm::vec3(0.0f);
+    Py_ssize_t tupleSize = PyTuple_Size(args);
+    if (tupleSize == 1) {
+        PyObject* positionTuple = nullptr;
+        if (!PyArg_ParseTuple(args, "O", &positionTuple)) {
+            return nullptr;
+        }
+        if (!PyArg_ParseTuple(positionTuple, "fff", &lookAtLocation.x, &lookAtLocation.y, &lookAtLocation.z)) {
+            return nullptr;
+        }
+    } else if (tupleSize == 3) {
+        if (!PyArg_ParseTuple(args, "fff", &lookAtLocation.x, &lookAtLocation.y, &lookAtLocation.z)) {
+            return nullptr;
+        }
+    } else {
+        sgl::Logfile::get()->writeError(
+                "ERROR in py_set_camera_look_at_location: Tuple must contain three float values or one tuple.");
+        return nullptr;
+    }
+
+    currentReplayStateGlobal.cameraLookAtLocationSet = true;
+    currentReplayStateGlobal.cameraLookAtLocation = lookAtLocation;
     Py_RETURN_NONE;
 }
 
@@ -389,6 +415,28 @@ static PyObject* py_set_camera_yaw_pitch_rad(PyObject* self, PyObject* args) {
     currentReplayStateGlobal.cameraOrientation =
             glm::angleAxis(-pitch, glm::vec3(1, 0, 0))
             * glm::angleAxis(yaw + sgl::PI / 2.0f, glm::vec3(0, 1, 0));
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_set_camera_fovy_rad(PyObject* self, PyObject* args) {
+    float fovy = 0.0f;
+    if (!PyArg_ParseTuple(args, "f", &fovy)) {
+        sgl::Logfile::get()->writeError("ERROR in py_set_camera_fovy_rad: Tuple must contain a float value.");
+        return nullptr;
+    }
+    currentReplayStateGlobal.cameraFovySet = true;
+    currentReplayStateGlobal.cameraFovy = fovy;
+    Py_RETURN_NONE;
+}
+
+static PyObject* py_set_camera_fovy_deg(PyObject* self, PyObject* args) {
+    float fovy = 0.0f;
+    if (!PyArg_ParseTuple(args, "f", &fovy)) {
+        sgl::Logfile::get()->writeError("ERROR in py_set_camera_fovy_deg: Tuple must contain a float value.");
+        return nullptr;
+    }
+    currentReplayStateGlobal.cameraFovySet = true;
+    currentReplayStateGlobal.cameraFovy = fovy / 180.0f * sgl::PI;
     Py_RETURN_NONE;
 }
 
@@ -451,8 +499,15 @@ static PyMethodDef REPLAY_METHODS[] = {
                 "Sets a dict of dataset settings."},
         {"set_camera_position", py_set_camera_position, METH_VARARGS,
                 "Sets the camera world position."},
+        {"set_camera_look_at_location", py_set_camera_look_at_location, METH_VARARGS,
+                "Sets the camera look at location."},
+
         {"set_camera_yaw_pitch_rad", py_set_camera_yaw_pitch_rad, METH_VARARGS,
                 "Sets the camera orientation using a yaw and pitch value (in radians)."},
+        {"set_camera_fovy_rad", py_set_camera_fovy_rad, METH_VARARGS,
+                "Sets the vertical field of view of the camera (in radians)."},
+        {"set_camera_fovy_deg", py_set_camera_fovy_deg, METH_VARARGS,
+                "Sets the vertical field of view of the camera (in degrees)."},
         {"set_camera_checkpoint", py_set_camera_checkpoint, METH_VARARGS,
                 "Sets the camera checkpoint corresponding to the passed string."},
         {"set_use_camera_flight", py_set_use_camera_flight, METH_VARARGS,
@@ -491,7 +546,7 @@ ReplayWidget::ReplayWidget(
     Py_DECREF(folderPath);
 
     const char* moduleName = "g";
-    PyImport_AddModule("g");
+    PyImport_AddModule(moduleName);
     PyObject* moduleGlobal = PyModule_Create(&EmbModule);
 
     PyObject* sysModules = PyImport_GetModuleDict();
@@ -569,6 +624,8 @@ bool ReplayWidget::runScript(const std::string& filename) {
     useCameraFlight = useCameraFlightGlobal;
 
     cameraPositionLast = sceneData->camera->getPosition();
+    cameraLookAtLocationLast = sceneData->camera->getLookAtLocation();
+    currentLookAtLocation = cameraLookAtLocationLast;
     cameraOrientationLast =
             glm::angleAxis(-sceneData->camera->getPitch(), glm::vec3(1, 0, 0))
             * glm::angleAxis(sceneData->camera->getYaw() + sgl::PI / 2.0f, glm::vec3(0, 1, 0));
@@ -639,8 +696,12 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
             if (!replayState.cameraCheckpointName.empty()) {
                 sgl::Checkpoint checkpoint;
                 if (checkpointWindow.getCheckpoint(replayState.cameraCheckpointName, checkpoint)) {
-                    replayState.cameraPositionSet = replayState.cameraOrientationSet = replayState.cameraFovySet = true;
+                    replayState.cameraPositionSet = true;
+                    replayState.cameraLookAtLocationSet = true;
+                    replayState.cameraOrientationSet = true;
+                    replayState.cameraFovySet = true;
                     replayState.cameraPosition = checkpoint.position;
+                    replayState.cameraLookAtLocation = checkpoint.lookAtLocation;
                     replayState.cameraOrientation =
                             glm::angleAxis(-checkpoint.pitch, glm::vec3(1, 0, 0))
                             * glm::angleAxis(checkpoint.yaw + sgl::PI / 2.0f, glm::vec3(0, 1, 0));
@@ -663,6 +724,9 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
                 if (replayState.cameraPositionSet) {
                     cameraPositionLast = replayState.cameraPosition;
                 }
+                if (replayState.cameraLookAtLocationSet) {
+                    cameraLookAtLocationLast = replayState.cameraLookAtLocation;
+                }
                 if (replayState.cameraOrientationSet) {
                     cameraOrientationLast = replayState.cameraOrientation;
                 }
@@ -672,6 +736,7 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
 
                 currentCameraMatrix =
                         glm::toMat4(cameraOrientationLast) * sgl::matrixTranslation(-cameraPositionLast);
+                currentLookAtLocation = cameraLookAtLocationLast;
                 currentFovy = cameraFovyLast;
                 replayState.rendererSettings.setDynamicSettings(currentRendererSettings);
                 replayState.datasetSettings.setDynamicSettings(currentDatasetSettings);
@@ -687,10 +752,14 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
         if (replayState.duration >= std::numeric_limits<float>::epsilon()) {
             float t = (currentTime - replayState.startTime) / (replayState.stopTime - replayState.startTime);
             glm::vec3 position = cameraPositionLast;
+            glm::vec3 lookAtLocation = cameraLookAtLocationLast;
             glm::quat orientation = cameraOrientationLast;
             float fovy = cameraFovyLast;
             if (replayState.cameraPositionSet) {
                 position = glm::mix(cameraPositionLast, replayState.cameraPosition, t);
+            }
+            if (replayState.cameraLookAtLocationSet) {
+                lookAtLocation = glm::mix(cameraLookAtLocationLast, replayState.cameraLookAtLocation, t);
             }
             if (replayState.cameraOrientationSet) {
                 orientation = glm::slerp(cameraOrientationLast, replayState.cameraOrientation, t);
@@ -699,6 +768,7 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
                 fovy = glm::mix(cameraFovyLast, replayState.cameraFovy, t);
             }
             currentCameraMatrix = glm::toMat4(orientation) * sgl::matrixTranslation(-position);
+            currentLookAtLocation = lookAtLocation;
             currentFovy = fovy;
             replaySettingsRendererLast.setInterpolatedDynamicSettings(
                     replayState.rendererSettings, currentRendererSettings, t);

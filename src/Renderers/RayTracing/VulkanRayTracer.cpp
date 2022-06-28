@@ -52,6 +52,7 @@ VulkanRayTracer::VulkanRayTracer(SceneData* sceneData, sgl::TransferFunctionWind
             sceneData, this, renderer, &sceneData->camera);
     rayTracingRenderPass->setNumSamplesPerFrame(numSamplesPerFrame);
     rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
+    rayTracingRenderPass->setUseDeterministicSampling(useDeterministicSampling);
     rayTracingRenderPass->setMaxDepthComplexity(maxDepthComplexity);
     rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
     rayTracingRenderPass->setUseMlat(useMlat);
@@ -161,6 +162,12 @@ void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& property
         accumulatedFramesCounter = 0;
     }
 
+    if (propertyEditor.addCheckbox("Deterministic Sampling", &useDeterministicSampling)) {
+        rayTracingRenderPass->setUseDeterministicSampling(useDeterministicSampling);
+        rayTracingRenderPass->setShaderDirty();
+        accumulatedFramesCounter = 0;
+    }
+
     if (propertyEditor.addCheckbox("Use Analytic Intersections", &useAnalyticIntersections)) {
         rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
         rayTracingRenderPass->setShaderDirty();
@@ -206,6 +213,11 @@ bool VulkanRayTracer::setNewSettings(const SettingsMap& settings) {
         rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
         accumulatedFramesCounter = 0;
     }
+    if (settings.getValueOpt("use_deterministic_sampling", useDeterministicSampling)) {
+        rayTracingRenderPass->setUseDeterministicSampling(useDeterministicSampling);
+        rayTracingRenderPass->setShaderDirty();
+        accumulatedFramesCounter = 0;
+    }
     if (settings.getValueOpt("use_mlat", useMlat)) {
         rayTracingRenderPass->setUseMlat(useMlat);
         rayTracingRenderPass->setShaderDirty();
@@ -235,6 +247,11 @@ void VulkanRayTracer::setNewState(const InternalState& newState) {
     }
     if (newState.rendererSettings.getValueOpt("maxNumAccumulatedFrames", maxNumAccumulatedFrames)) {
         rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
+        accumulatedFramesCounter = 0;
+    }
+    if (newState.rendererSettings.getValueOpt("useDeterministicSampling", useDeterministicSampling)) {
+        rayTracingRenderPass->setUseDeterministicSampling(useDeterministicSampling);
+        rayTracingRenderPass->setShaderDirty();
         accumulatedFramesCounter = 0;
     }
     if (newState.rendererSettings.getValueOpt("useMlat", useMlat)) {
@@ -345,6 +362,9 @@ void RayTracingRenderPass::loadShader() {
     }
     if (useJitteredSamples) {
         preprocessorDefines.insert(std::make_pair("USE_JITTERED_RAYS", ""));
+    }
+    if (useDeterministicSampling) {
+        preprocessorDefines.insert(std::make_pair("DETERMINISTIC_SAMPLING", ""));
     }
     if (useDepthCues) {
         preprocessorDefines.insert(std::make_pair("USE_DEPTH_CUES", ""));
