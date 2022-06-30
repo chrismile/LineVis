@@ -49,8 +49,6 @@ void processDataSetNodeChildren(Json::Value& childList, DataSetInformation* data
             dataSetInformation->type = DATA_SET_TYPE_FLOW_LINES;
         } else if (typeName == "stress") {
             dataSetInformation->type = DATA_SET_TYPE_STRESS_LINES;
-        } else if (typeName == "multivar") {
-            dataSetInformation->type = DATA_SET_TYPE_FLOW_LINES_MULTIVAR;
         } else {
             sgl::Logfile::get()->writeError(
                     "Error in processDataSetNodeChildren: Invalid type name \"" + typeName + "\".");

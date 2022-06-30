@@ -1,5 +1,5 @@
 import math
-from modules.campath import camera_path_circle
+from modules.campath import camera_path_circle, jitter_camera
 import g
 
 def init_scene(start_look_at, start_position, start_yaw, start_pitch):
@@ -46,31 +46,34 @@ def change_twist_line_width():
     g.set_dataset_settings({
         'separator_width': 0.8,
     })
-    g.set_duration(2)
+    g.set_duration(4)
     g.set_dataset_settings({
         'separator_width': 0.05,
     })
-    g.set_duration(2)
+    g.set_duration(4)
     g.set_dataset_settings({
         'separator_width': 0.3,
     })
-    g.set_duration(1)
+    g.set_duration(4)
 
 
 def change_twist_line_frequency():
-    g.set_duration(2)
+    g.set_duration(1)
+    g.set_duration(0)
     g.set_dataset_settings({
         'helicity_rotation_factor': 2.0,
     })
-    g.set_duration(8)
+    g.set_duration(1)
+    g.set_duration(0)
     g.set_dataset_settings({
         'helicity_rotation_factor': 0.5,
     })
-    g.set_duration(8)
+    g.set_duration(1)
+    g.set_duration(0)
     g.set_dataset_settings({
         'helicity_rotation_factor': 1.0,
     })
-    g.set_duration(1)
+    g.set_duration(4)
 
 
 def camera_path_overview():
@@ -81,32 +84,9 @@ def camera_path_overview():
         angle_start=math.pi * 0.6, angle_end=math.pi * 2.6, radius_start=radius_outer, radius_end=radius_outer,
         total_time=12, pitch=camera_pitch, center=scene_center, acceleration=0.2)
 
-def jitter_camera(center, position, yaw, pitch):
-    pitch *= -1
-    angle_std = yaw - math.pi
-    angle_start = angle_std - 0.1
-    angle_end = angle_std + 0.1
-    diff_vec = (center[0] - position[0], center[1] - position[1], center[2] - position[2])
-    radius = math.sqrt(diff_vec[0] * diff_vec[0] + diff_vec[1] * diff_vec[1] + diff_vec[2] * diff_vec[2])
-    camera_path_circle(
-        angle_start=angle_std, angle_end=angle_end, radius_start=radius, radius_end=radius,
-        total_time=1, pitch=pitch, center=center, acceleration=0.2)
-    for i in range(1):
-        camera_path_circle(
-            angle_start=angle_end, angle_end=angle_start, radius_start=radius, radius_end=radius,
-            total_time=2, pitch=pitch, center=center, acceleration=0.2)
-        camera_path_circle(
-            angle_start=angle_start, angle_end=angle_end, radius_start=radius, radius_end=radius,
-            total_time=2, pitch=pitch, center=center, acceleration=0.2)
-    camera_path_circle(
-        angle_start=angle_end, angle_end=angle_start, radius_start=radius, radius_end=radius,
-        total_time=2, pitch=pitch, center=center, acceleration=0.2)
-    camera_path_circle(
-        angle_start=angle_start, angle_end=angle_std, radius_start=radius, radius_end=radius,
-        total_time=1, pitch=pitch, center=center, acceleration=0.2)
-
 
 def show_aliasing(closeup_center, closeup_position, closeup_yaw, closeup_pitch):
+    g.set_duration(4)
     g.set_duration(0)
     g.set_rendering_algorithm_settings({
         'num_samples_per_frame': 2,
@@ -116,9 +96,9 @@ def show_aliasing(closeup_center, closeup_position, closeup_yaw, closeup_pitch):
         'min_band_thickness': 0.01,
     })
     g.set_duration(0)
-    g.set_duration(1)
+    g.set_duration(4)
     jitter_camera(closeup_center, closeup_position, closeup_yaw, closeup_pitch)
-    g.set_duration(1)
+    g.set_duration(4)
 
     g.set_duration(0)
     g.set_rendering_algorithm_settings({
@@ -129,7 +109,7 @@ def show_aliasing(closeup_center, closeup_position, closeup_yaw, closeup_pitch):
         'min_band_thickness': 0.15,
     })
     g.set_duration(0)
-    g.set_duration(1)
+    g.set_duration(4)
     jitter_camera(closeup_center, closeup_position, closeup_yaw, closeup_pitch)
     g.set_duration(1)
 
@@ -142,6 +122,7 @@ def replay():
 
     init_scene(start_look_at, start_position, start_yaw, start_pitch)
 
+    g.set_duration(6)
     camera_path_overview()
 
     closeup_center = (-0.0111691, -0.00516945, -0.0130456)
@@ -151,7 +132,7 @@ def replay():
     g.set_duration(2)
     g.set_camera_position(closeup_position)
     g.set_camera_yaw_pitch_rad(closeup_yaw, closeup_pitch)
-    g.set_duration(1)
+    g.set_duration(0)
     g.set_camera_look_at_location(closeup_center)
     g.set_duration(0)
 
@@ -162,15 +143,17 @@ def replay():
         'rotating_helicity_bands': True,
     })
     g.set_duration(0)
+    g.set_duration(12)
+
+    change_twist_line_width()
+
+    change_twist_line_frequency()
     g.set_duration(2)
 
     g.set_duration(2)
     g.set_camera_position(start_position)
     g.set_camera_yaw_pitch_rad(start_yaw, start_pitch)
     g.set_camera_look_at_location(start_look_at)
-    g.set_duration(2)
-
-    change_twist_line_width()
     g.set_duration(2)
 
     camera_path_overview()

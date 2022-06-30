@@ -25,8 +25,8 @@ def init_scene():
         'hull_opacity': 0.0,
         'thick_bands': True,
         'rotating_helicity_bands': True,
-        'use_uniform_twist_line_width': True,
-        'band_subdivisions': 6,
+        'use_uniform_twist_line_width': False,
+        'band_subdivisions': 4,
         'separator_width': 0.2,
         'helicity_rotation_factor': 1.0,
     })
@@ -36,7 +36,7 @@ def init_scene():
 def change_twist_line_width():
     g.set_duration(2)
     g.set_dataset_settings({
-        'separator_width': 0.5,
+        'separator_width': 0.4,
     })
     g.set_duration(2)
     g.set_dataset_settings({
@@ -63,21 +63,42 @@ def change_twist_line_frequency():
     })
     g.set_duration(1)
 
-def todo():
+def disable_uniform_twist_line_width():
     g.set_duration(0)
     g.set_dataset_settings({
         'use_uniform_twist_line_width': True,
         'band_subdivisions': 4,
-        'separator_width': 0.2,
-        'helicity_rotation_factor': 1.0,
     })
 
 
 def replay():
     init_scene()
-    #camera_path_circle(math.pi * 0.8, math.pi * 0.5, 0.50, 0.50, total_time=3)
-    #camera_path_circle(math.pi * 0.5, math.pi * 0.3, 0.50, 0.19, total_time=4)
-    #camera_path_circle(math.pi * 0.3, math.pi * 0.7, 0.19, 0.19, total_time=4)
-    g.set_duration(1)
-    change_twist_line_width()
+
+    g.set_duration(8)
+    #change_twist_line_frequency()
+    g.set_duration(2)
+    g.set_dataset_settings({
+        'helicity_rotation_factor': 2.0,
+    })
+    g.set_duration(2)
+    #change_twist_line_width()
+
+    g.set_duration(2)
+    g.set_dataset_settings({
+        'separator_width': 0.4,
+    })
+    g.set_duration(2)
+
+    g.set_duration(2)
+    g.set_dataset_settings({
+        'helicity_rotation_factor': 1.0,
+    })
+    g.set_duration(6)
+
+
+    disable_uniform_twist_line_width()
+    g.set_duration(3)
+
     change_twist_line_frequency()
+    change_twist_line_width()
+    g.set_duration(2)

@@ -205,7 +205,7 @@ MainApp::MainApp()
         }
         if (i == IM_ARRAYSIZE(RENDERING_MODE_NAMES)) {
             sgl::Logfile::get()->writeError(
-                    std::string() + "ERROR in replay widget load renderer callback: Unknown renderer name \""
+                    std::string() + "Error in replay widget load renderer callback: Unknown renderer name \""
                     + rendererName + "\".");
         }
         if (*renderingModeNew != *renderingModeOld) {
@@ -238,12 +238,15 @@ MainApp::MainApp()
             const std::vector<std::string>& tfNames) {
         if (lineData) {
             MultiVarTransferFunctionWindow* multiVarTransferFunctionWindow;
-            if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
+            if (lineData->getType() == DATA_SET_TYPE_FLOW_LINES) {
+                LineDataFlow* lineDataFlow = static_cast<LineDataFlow*>(lineData.get());
+                multiVarTransferFunctionWindow = &lineDataFlow->getMultiVarTransferFunctionWindow();
+            } else if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
                 LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
                 multiVarTransferFunctionWindow = &lineDataStress->getMultiVarTransferFunctionWindow();
             } else {
                 sgl::Logfile::get()->writeError(
-                        "ERROR in replay widget load multi-var transfer functions callback: Invalid data type .");
+                        "Error in replay widget load multi-var transfer functions callback: Invalid data type.");
                 return;
             }
             multiVarTransferFunctionWindow->loadFromTfNameList(tfNames);
@@ -256,12 +259,15 @@ MainApp::MainApp()
             const std::vector<glm::vec2>& tfRanges) {
         if (lineData) {
             MultiVarTransferFunctionWindow* multiVarTransferFunctionWindow;
-            if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
+            if (lineData->getType() == DATA_SET_TYPE_FLOW_LINES) {
+                LineDataFlow* lineDataFlow = static_cast<LineDataFlow*>(lineData.get());
+                multiVarTransferFunctionWindow = &lineDataFlow->getMultiVarTransferFunctionWindow();
+            } else if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
                 LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
                 multiVarTransferFunctionWindow = &lineDataStress->getMultiVarTransferFunctionWindow();
             } else {
                 sgl::Logfile::get()->writeError(
-                        "ERROR in replay widget multi-var transfer functions ranges callback: Invalid data type .");
+                        "Error in replay widget multi-var transfer functions ranges callback: Invalid data type.");
                 return;
             }
 

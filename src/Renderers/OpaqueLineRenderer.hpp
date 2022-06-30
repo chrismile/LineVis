@@ -69,6 +69,7 @@ public:
 
     /// For changing performance measurement modes.
     void setNewState(const InternalState& newState) override;
+    bool setNewSettings(const SettingsMap& settings) override;
 
     /// For visualizing the seeding order in an animation (called by MainApp).
     void setVisualizeSeedingProcess(bool visualizeSeeding) override;

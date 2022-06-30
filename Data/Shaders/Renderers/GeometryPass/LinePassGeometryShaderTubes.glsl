@@ -985,7 +985,7 @@ void main() {
 #endif
         uint attributeIdxReal = getRealAttributeIndex(attributeIdx);
         float sampledFragmentAttribute = sampleAttributeLinear(fragmentVertexId, attributeIdxReal);
-        fragmentColor = transferFunction(fragmentAttribute, attributeIdxReal);
+        fragmentColor = transferFunction(sampledFragmentAttribute, attributeIdxReal);
     }
 #else
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX

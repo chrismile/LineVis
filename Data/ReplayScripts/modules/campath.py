@@ -73,3 +73,81 @@ def camera_path_circle(
         g.set_camera_position(camera_pos)
         g.set_camera_yaw_pitch_rad(yaw_pitch)
         g.set_duration(total_time / subdivisions)
+
+
+def jitter_camera(center, position, yaw, pitch, num_iterations=1, radius=None):
+    pitch *= -1
+    angle_std = yaw - math.pi
+    angle_start = angle_std - 0.1
+    angle_end = angle_std + 0.1
+    if position is not None:
+        diff_vec = (center[0] - position[0], center[1] - position[1], center[2] - position[2])
+        radius = math.sqrt(diff_vec[0] * diff_vec[0] + diff_vec[1] * diff_vec[1] + diff_vec[2] * diff_vec[2])
+    camera_path_circle(
+        angle_start=angle_std, angle_end=angle_end, radius_start=radius, radius_end=radius,
+        total_time=1, pitch=pitch, center=center, acceleration=0.2)
+    for i in range(num_iterations):
+        camera_path_circle(
+            angle_start=angle_end, angle_end=angle_start, radius_start=radius, radius_end=radius,
+            total_time=2, pitch=pitch, center=center, acceleration=0.2)
+        camera_path_circle(
+            angle_start=angle_start, angle_end=angle_end, radius_start=radius, radius_end=radius,
+            total_time=2, pitch=pitch, center=center, acceleration=0.2)
+    camera_path_circle(
+        angle_start=angle_end, angle_end=angle_start, radius_start=radius, radius_end=radius,
+        total_time=2, pitch=pitch, center=center, acceleration=0.2)
+    camera_path_circle(
+        angle_start=angle_start, angle_end=angle_std, radius_start=radius, radius_end=radius,
+        total_time=1, pitch=pitch, center=center, acceleration=0.2)
+
+
+def blend_camera_view(
+        start_pos, end_pos, start_yaw, end_yaw, start_pitch=0.0, end_pitch=0.0,
+        total_time=2.0, acceleration=0.4, p1_pos=None, p2_pos=None,
+        p1_yaw=None, p2_yaw=None, p1_pitch=None, p2_pitch=None):
+    # Bezier curve control points.
+    p0_pos = (0, 0)
+    if p1_pos is None:
+        p1_pos = (0.0 + acceleration, 0)
+    if p2_pos is None:
+        p2_pos = (1.0 - acceleration, 1)
+    p3_pos = (1, 1)
+
+    p0_yaw = (0, 0)
+    if p1_yaw is None:
+        p1_yaw = (0.0 + acceleration, 0)
+    if p2_yaw is None:
+        p2_yaw = (1.0 - acceleration, 1)
+    p3_yaw = (1, 1)
+
+    p0_pitch = (0, 0)
+    if p1_pitch is None:
+        p1_pitch = (0.0 + acceleration, 0)
+    if p2_pitch is None:
+        p2_pitch = (1.0 - acceleration, 1)
+    p3_pitch = (1, 1)
+
+    subdivisions = 256
+
+    def f(t):
+        return t * (3 + t * (-6 + t * 4))
+
+    g.set_duration(0.0)
+    for i in range(subdivisions + 1):
+        t_pos = f_cubic_bezier(i / subdivisions, p0_pos, p1_pos, p2_pos, p3_pos)
+        t_yaw = f_cubic_bezier(i / subdivisions, p0_yaw, p1_yaw, p2_yaw, p3_yaw)
+        t_pitch = f_cubic_bezier(i / subdivisions, p0_pitch, p1_pitch, p2_pitch, p3_pitch)
+        camera_pos = (
+            start_pos[0] + t_pos * (end_pos[0] - start_pos[0]),
+            start_pos[1] + t_pos * (end_pos[1] - start_pos[1]),
+            start_pos[2] + t_pos * (end_pos[2] - start_pos[2]),
+        )
+        yaw = start_yaw + t_yaw * (end_yaw - start_yaw)
+        pitch = start_pitch + t_pitch * (end_pitch - start_pitch)
+
+        #yaw_pitch = (math.pi + yaw, -pitch)
+
+        g.set_camera_position(camera_pos)
+        g.set_camera_yaw_pitch_rad(yaw, pitch)
+        #g.set_camera_yaw_pitch_rad(yaw_pitch)
+        g.set_duration(total_time / subdivisions)

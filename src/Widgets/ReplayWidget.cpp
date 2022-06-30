@@ -193,7 +193,7 @@ static PyObject* py_set_transfer_functions_ranges(PyObject* self, PyObject* args
             }
         } else {
             sgl::Logfile::get()->writeError(
-                    "ERROR in py_set_transfer_functions_ranges: Tuple must contain two float values or one tuple.");
+                    "Error in py_set_transfer_functions_ranges: Tuple must contain two float values or one tuple.");
             return nullptr;
         }
 
@@ -219,7 +219,7 @@ static PyObject* py_set_renderer(PyObject* self, PyObject* args) {
         }
     } else {
         sgl::Logfile::get()->writeError(
-                "ERROR in py_set_renderer: Function must be called with the renderer name and optionally the "
+                "Error in py_set_renderer: Function must be called with the renderer name and optionally the "
                 "affected view index.");
         return nullptr;
     }
@@ -282,7 +282,7 @@ static PyObject* parseSettingsDict(PyObject* self, PyObject* args, ReplaySetting
                 tupleValues[i] = PyTuple_GetItem(value, i);
                 if (tupleValues[i] == nullptr) {
                     sgl::Logfile::get()->writeError(
-                            "ERROR in py_set_rendering_algorithm_settings: Invalid tuple.");
+                            "Error in py_set_rendering_algorithm_settings: Invalid tuple.");
                     Py_RETURN_NONE;
                 }
                 bool isFloat = PyFloat_Check(tupleValues[i]);
@@ -293,7 +293,7 @@ static PyObject* parseSettingsDict(PyObject* self, PyObject* args, ReplaySetting
                     values[i] = float(PyLong_AsDouble(tupleValues[i]));
                 } else {
                     sgl::Logfile::get()->writeError(
-                            "ERROR in py_set_rendering_algorithm_settings: Tuple must contain float or long values.");
+                            "Error in py_set_rendering_algorithm_settings: Tuple must contain float or long values.");
                     Py_RETURN_NONE;
                 }
             }
@@ -355,7 +355,7 @@ static PyObject* py_set_camera_position(PyObject* self, PyObject* args) {
         }
     } else {
         sgl::Logfile::get()->writeError(
-                "ERROR in py_set_camera_position: Tuple must contain three float values or one tuple.");
+                "Error in py_set_camera_position: Tuple must contain three float values or one tuple.");
         return nullptr;
     }
 
@@ -381,7 +381,7 @@ static PyObject* py_set_camera_look_at_location(PyObject* self, PyObject* args) 
         }
     } else {
         sgl::Logfile::get()->writeError(
-                "ERROR in py_set_camera_look_at_location: Tuple must contain three float values or one tuple.");
+                "Error in py_set_camera_look_at_location: Tuple must contain three float values or one tuple.");
         return nullptr;
     }
 
@@ -407,7 +407,7 @@ static PyObject* py_set_camera_yaw_pitch_rad(PyObject* self, PyObject* args) {
         }
     } else {
         sgl::Logfile::get()->writeError(
-                "ERROR in py_set_camera_yaw_pitch_rad: Tuple must contain two float values or one tuple.");
+                "Error in py_set_camera_yaw_pitch_rad: Tuple must contain two float values or one tuple.");
         return nullptr;
     }
 
@@ -421,7 +421,7 @@ static PyObject* py_set_camera_yaw_pitch_rad(PyObject* self, PyObject* args) {
 static PyObject* py_set_camera_fovy_rad(PyObject* self, PyObject* args) {
     float fovy = 0.0f;
     if (!PyArg_ParseTuple(args, "f", &fovy)) {
-        sgl::Logfile::get()->writeError("ERROR in py_set_camera_fovy_rad: Tuple must contain a float value.");
+        sgl::Logfile::get()->writeError("Error in py_set_camera_fovy_rad: Tuple must contain a float value.");
         return nullptr;
     }
     currentReplayStateGlobal.cameraFovySet = true;
@@ -432,7 +432,7 @@ static PyObject* py_set_camera_fovy_rad(PyObject* self, PyObject* args) {
 static PyObject* py_set_camera_fovy_deg(PyObject* self, PyObject* args) {
     float fovy = 0.0f;
     if (!PyArg_ParseTuple(args, "f", &fovy)) {
-        sgl::Logfile::get()->writeError("ERROR in py_set_camera_fovy_deg: Tuple must contain a float value.");
+        sgl::Logfile::get()->writeError("Error in py_set_camera_fovy_deg: Tuple must contain a float value.");
         return nullptr;
     }
     currentReplayStateGlobal.cameraFovySet = true;
@@ -573,7 +573,7 @@ bool ReplayWidget::runScript(const std::string& filename) {
             PyErr_Print();
         }
         sgl::Logfile::get()->writeError(
-                std::string() + "ERROR in ReplayWidget::runScript: Couldn't execute script \""
+                std::string() + "Error in ReplayWidget::runScript: Couldn't execute script \""
                 + scriptModuleName + "\"!");
         return false;
     }
@@ -585,7 +585,7 @@ bool ReplayWidget::runScript(const std::string& filename) {
             PyErr_Print();
         }
         sgl::Logfile::get()->writeError(
-                std::string() + "ERROR in ReplayWidget::runScript: Couldn't execute script \""
+                std::string() + "Error in ReplayWidget::runScript: Couldn't execute script \""
                 + scriptModuleName + "\"!");
         return false;
     }
@@ -601,7 +601,7 @@ bool ReplayWidget::runScript(const std::string& filename) {
             Py_DECREF(module);
             PyErr_Print();
             sgl::Logfile::get()->writeError(
-                    std::string() + "ERROR in ReplayWidget::runScript: Failed to call 'replay' in script \""
+                    std::string() + "Error in ReplayWidget::runScript: Failed to call 'replay' in script \""
                     + scriptModuleName + "\"!");
             return false;
         }
@@ -610,7 +610,7 @@ bool ReplayWidget::runScript(const std::string& filename) {
             PyErr_Print();
         }
         sgl::Logfile::get()->writeError(
-                std::string() + "ERROR in ReplayWidget::runScript: Couldn't find function 'replay' in script \""
+                std::string() + "Error in ReplayWidget::runScript: Couldn't find function 'replay' in script \""
                 + scriptModuleName + "\"!");
     }
 

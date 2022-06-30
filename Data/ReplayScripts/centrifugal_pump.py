@@ -2,10 +2,14 @@ import math
 from modules.campath import camera_path_circle
 import g
 
-def init_scene():
+def init_scene(start_look_at, start_position, start_yaw, start_pitch):
     g.set_duration(0)
     g.set_renderer('Vulkan Ray Tracer')
     g.set_dataset('Centrifugal Pump (DES.res_t2564)')
+    g.set_camera_fovy_deg(math.atan(1.0/2.0) * 2.0 / math.pi * 180.0)
+    g.set_camera_position(start_position)
+    g.set_camera_yaw_pitch_rad(start_yaw, start_pitch)
+    g.set_camera_look_at_location(start_look_at)
     #g.set_camera_checkpoint('Overview Square')
     g.set_rendering_algorithm_settings({
         'line_width': 0.006,
@@ -29,58 +33,101 @@ def init_scene():
         'band_subdivisions': 6,
         'separator_width': 0.2,
         'helicity_rotation_factor': 1.0,
+        'use_multi_var_rendering': False,
+        'selected_multi_vars_string': ''
     })
     g.set_transfer_function_range(-1000.0, 1000.0)
     g.set_duration(0.5)
 
 
 def change_twist_line_width():
-    g.set_duration(2)
+    g.set_duration(4)
     g.set_dataset_settings({
         'separator_width': 0.5,
     })
-    g.set_duration(1)
+    g.set_duration(4)
     g.set_dataset_settings({
         'separator_width': 0.05,
     })
-    g.set_duration(1)
+    g.set_duration(4)
     g.set_dataset_settings({
         'separator_width': 0.2,
     })
-    g.set_duration(0.5)
+    g.set_duration(2)
 
 
 def change_twist_line_frequency():
     g.set_duration(2)
+    g.set_duration(0)
     g.set_dataset_settings({
         'helicity_rotation_factor': 2.0,
     })
-    g.set_duration(8)
+    g.set_duration(2)
+    g.set_duration(0)
     g.set_dataset_settings({
         'helicity_rotation_factor': 0.5,
     })
-    g.set_duration(8)
-    g.set_dataset_settings({
-        'helicity_rotation_factor': 1.0,
-    })
-    g.set_duration(1)
-
-
-def todo():
+    g.set_duration(2)
     g.set_duration(0)
     g.set_dataset_settings({
-        'use_uniform_twist_line_width': True,
-        'band_subdivisions': 4,
-        'separator_width': 0.2,
         'helicity_rotation_factor': 1.0,
     })
+    g.set_duration(4)
+
+
+
+def multivar():
+    g.set_duration(0)
+    g.set_dataset_settings({
+        'use_multi_var_rendering': True,
+        'selected_multi_vars_string': 'Turbulence_Kinetic5'
+    })
+    g.set_transfer_functions([
+        'Standard.xml', 'Standard.xml', 'Standard.xml', 'Standard.xml', 'reds.xml', 'Standard.xml', 'blues.xml'
+    ])
+    g.set_transfer_functions_ranges([
+        (0.0, 1.0), (0.0, 1.0), (0.0, 1.0), (0.0, 1.0), (0.0, 0.6), (0.0, 1.0), (0.0, 600.0)
+    ])
 
 
 def replay():
-    init_scene()
-    #camera_path_circle(math.pi * 0.8, math.pi * 0.5, 0.50, 0.50, total_time=3)
-    #camera_path_circle(math.pi * 0.5, math.pi * 0.3, 0.50, 0.19, total_time=4)
-    #camera_path_circle(math.pi * 0.3, math.pi * 0.7, 0.19, 0.19, total_time=4)
-    g.set_duration(1)
+    start_look_at = (0.0, 0.0, 0.0)
+    start_position = (0, 0, 0.518272)
+    start_yaw = -1.5708
+    start_pitch = 0.0
+
+    init_scene(start_look_at, start_position, start_yaw, start_pitch)
+    g.set_duration(4)
+
+    closeup_center = (-0.0599098, 0.030252, 0.00189503)
+    closeup_position = (-0.1093, 0.0371734, 0.21648)
+    closeup_yaw = -1.34457
+    closeup_pitch = -0.0314224
+
+    g.set_duration(2)
+    g.set_camera_position(closeup_position)
+    g.set_camera_yaw_pitch_rad(closeup_yaw, closeup_pitch)
+    g.set_duration(2)
+    g.set_duration(0)
+    g.set_camera_look_at_location(closeup_center)
+
+    g.set_duration(2)
     change_twist_line_width()
+
     change_twist_line_frequency()
+
+    g.set_duration(2)
+    multivar()
+    g.set_duration(12)
+    g.set_duration(0)
+    g.set_dataset_settings({
+        'selected_multi_vars_string': 'Turbulence_Kinetic5,Vorticity Magnitude'
+    })
+    g.set_duration(20)
+
+    g.set_duration(0)
+    g.set_dataset_settings({
+        'use_ribbons': True,
+        'rotating_helicity_bands': False,
+    })
+    g.set_duration(14)

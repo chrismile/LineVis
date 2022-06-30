@@ -39,7 +39,6 @@ enum DataSetType {
     DATA_SET_TYPE_NODE, //< Hierarchical container.
     DATA_SET_TYPE_FLOW_LINES, //< Streamlines or streamribbons.
     DATA_SET_TYPE_STRESS_LINES, //< Principal stress lines (PSLs).
-    DATA_SET_TYPE_FLOW_LINES_MULTIVAR, //< Experimental mode for rendering streamlines with many parameters.
     DATA_SET_TYPE_SCATTERING_LINES //< Lines created through path scattering in participating media.
 };
 

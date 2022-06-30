@@ -123,6 +123,7 @@ public:
     /// Whether to use linear RGB when rendering.
     void setUseLinearRGB(bool useLinearRGB) override;
     bool shallRenderTransferFunctionWindow() override { return !useMultiVarRendering; }
+    inline MultiVarTransferFunctionWindow& getMultiVarTransferFunctionWindow() { return multiVarTransferFunctionWindow; }
 
 protected:
     void recomputeHistogram() override;

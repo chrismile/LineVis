@@ -310,6 +310,41 @@ void OpaqueLineRenderer::setNewState(const InternalState& newState) {
     }
 }
 
+bool OpaqueLineRenderer::setNewSettings(const SettingsMap& settings) {
+    bool shallReloadGatherShader = LineRenderer::setNewSettings(settings);
+
+    if (maximumNumberOfSamples > 1) {
+        if (settings.getValueOpt("num_samples", numSamples)) {
+            sampleModeSelection = std::min(sgl::intlog2(numSamples), numSampleModes - 1);
+            useMultisampling = numSamples > 1;
+            if ((*sceneData->sceneTexture)) {
+                onResolutionChanged();
+            }
+            reRender = true;
+        }
+        if (useMultisampling && supportsSampleShadingRate) {
+            if (settings.getValueOpt("use_sampling_shading", useSamplingShading)) {
+                numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
+                useMultisampling = numSamples > 1;
+                if ((*sceneData->sceneTexture)) {
+                    onResolutionChanged();
+                }
+                reRender = true;
+            }
+            if (settings.getValueOpt("min_sample_shading", minSampleShading)) {
+                numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
+                useMultisampling = numSamples > 1;
+                if ((*sceneData->sceneTexture)) {
+                    onResolutionChanged();
+                }
+                reRender = true;
+            }
+        }
+    }
+
+    return shallReloadGatherShader;
+}
+
 
 
 BilldboardSpheresRasterPass::BilldboardSpheresRasterPass(LineRenderer* lineRenderer)

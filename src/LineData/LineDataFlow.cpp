@@ -26,9 +26,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <unordered_set>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 
+#include <Utils/StringUtils.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Texture/Bitmap.hpp>
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
@@ -57,8 +59,8 @@ enum class TextureFilteringMode {
 LineDataFlow::LineDataFlow(sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineData(transferFunctionWindow, DATA_SET_TYPE_FLOW_LINES),
           multiVarTransferFunctionWindow("multivar", {
-                  "reds.xml", "blues.xml", "greens.xml", "purples.xml", "oranges.xml", "pinks.xml", "golds.xml",
-                  "dark-blues.xml" }) {
+                  "reds.xml", "blues.xml", "greens.xml", "purples.xml", "oranges.xml", "turquoise.xml", "yellows.xml",
+                  "pinks.xml", "browns.xml" }) {
     lineDataWindowName = "Line Data (Flow)";
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
@@ -599,6 +601,32 @@ bool LineDataFlow::setNewSettings(const SettingsMap& settings) {
             shallReloadGatherShader = true;
             recomputeColorLegend();
             recomputeWidgetPositions();
+        }
+        std::string variablesString;
+        if (settings.getValueOpt("selected_multi_vars_string", variablesString)) {
+            std::vector<std::string> variableNameArray;
+            std::unordered_set<std::string> variableNameSet;
+            sgl::splitString(variablesString, ',', variableNameArray);
+            for (const std::string& varName : variableNameArray) {
+                variableNameSet.insert(varName);
+            }
+            for (unsigned int& isAttributeSelected : isAttributeSelectedArray) {
+                isAttributeSelected = 0;
+            }
+            selectedAttributes.clear();
+            comboValue = "";
+            for (size_t varIdx = 0; varIdx < attributeNames.size(); varIdx++) {
+                if (variableNameSet.find(attributeNames.at(varIdx)) != variableNameSet.end()) {
+                    isAttributeSelectedArray.at(varIdx) = 1;
+                    selectedAttributes.push_back(uint32_t(varIdx));
+                    if (!comboValue.empty()) {
+                        comboValue += ',';
+                    }
+                    comboValue += attributeNames.at(varIdx);
+                }
+            }
+            recomputeWidgetPositions();
+            reRender = true;
         }
     }
 
