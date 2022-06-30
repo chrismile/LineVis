@@ -63,7 +63,7 @@ def change_twist_line_frequency():
     })
     g.set_duration(1)
 
-def disable_uniform_twist_line_width():
+def enable_uniform_twist_line_width():
     g.set_duration(0)
     g.set_dataset_settings({
         'use_uniform_twist_line_width': True,
@@ -93,10 +93,9 @@ def replay():
     g.set_dataset_settings({
         'helicity_rotation_factor': 1.0,
     })
-    g.set_duration(6)
+    g.set_duration(8)
 
-
-    disable_uniform_twist_line_width()
+    enable_uniform_twist_line_width()
     g.set_duration(3)
 
     change_twist_line_frequency()
