@@ -127,7 +127,14 @@ def replay():
 
     g.set_duration(0)
     g.set_dataset_settings({
+        'use_capped_tubes' : False,
         'use_ribbons': True,
         'rotating_helicity_bands': False,
     })
     g.set_duration(14)
+
+    g.set_duration(0)
+    g.set_dataset_settings({
+        'use_capped_tubes' : True,
+    })
+    g.set_duration(0)

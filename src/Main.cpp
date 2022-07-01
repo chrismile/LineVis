@@ -78,7 +78,11 @@ int main(int argc, char *argv[]) {
     ImFontGlyphRangesBuilder builder;
     builder.AddChar(L'\u03BB'); // lambda
     builder.BuildRanges(&fontRanges);
-    sgl::AppSettings::get()->setLoadGUI(fontRanges.Data, true, false);
+    bool useMultiViewport = false;
+    if (sgl::AppSettings::get()->getSettings().getValueOpt("useDockSpaceMode", useMultiViewport)) {
+        useMultiViewport = !useMultiViewport;
+    }
+    sgl::AppSettings::get()->setLoadGUI(fontRanges.Data, true, useMultiViewport);
 
     sgl::AppSettings::get()->setRenderSystem(sgl::RenderSystem::VULKAN);
     sgl::Window* window = sgl::AppSettings::get()->createWindow();

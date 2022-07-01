@@ -345,8 +345,9 @@ MainApp::MainApp()
     sgl::AppSettings::get()->getSettings().getValueOpt("fixedViewportSizeX", fixedViewportSize.x);
     sgl::AppSettings::get()->getSettings().getValueOpt("fixedViewportSizeY", fixedViewportSize.y);
     fixedViewportSizeEdit = fixedViewportSize;
-    showPropertyEditor = useDockSpaceMode;
+    showPropertyEditor = true;
     sgl::ImGuiWrapper::get()->setUseDockSpaceMode(useDockSpaceMode);
+    //useDockSpaceMode = false;
 
 #ifdef NDEBUG
     showFpsOverlay = false;
@@ -761,6 +762,9 @@ void MainApp::resolutionChanged(sgl::EventPtr event) {
 
     SciVisApp::resolutionChanged(event);
     if (!useDockSpaceMode) {
+        auto* window = sgl::AppSettings::get()->getMainWindow();
+        viewportWidth = uint32_t(window->getWidth());
+        viewportHeight = uint32_t(window->getHeight());
         if (lineRenderer != nullptr) {
             lineRenderer->onResolutionChanged();
         }
@@ -1211,6 +1215,10 @@ void MainApp::renderGui() {
         }
         reRender = false;
     } else {
+        if (showPropertyEditor) {
+            renderGuiPropertyEditorWindow();
+        }
+
         if (lineRenderer) {
             lineRenderer->renderGuiOverlay();
         }

@@ -153,6 +153,15 @@ bool LineData::setNewSettings(const SettingsMap& settings) {
         setTriangleRepresentationDirty();
     }
 
+    if (settings.getValueOpt("use_capped_tubes", useCappedTubes)) {
+        triangleRepresentationDirty = true;
+        for (auto* lineRenderer : lineRenderersCached) {
+            if (lineRenderer && !lineRenderer->isRasterizer) {
+                reloadGatherShader = true;
+            }
+        }
+    }
+
     return reloadGatherShader;
 }
 
