@@ -368,6 +368,9 @@ bool VulkanRayTracedAmbientOcclusionPass::setNewSettings(const SettingsMap& sett
     if (settings.getValueOpt("ambient_occlusion_denoiser", denoiserName)) {
         for (int i = 0; i < numDenoisersSupported; i++) {
             if (denoiserName == DENOISER_NAMES[i]) {
+                if (denoiserType == DenoiserType(i)) {
+                    break;
+                }
                 denoiserType = DenoiserType(i);
                 createDenoiser();
                 reRender = true;
