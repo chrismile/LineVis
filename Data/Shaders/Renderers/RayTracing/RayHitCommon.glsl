@@ -175,6 +175,7 @@ void computeFragmentColor(
 
 #endif
 
+#if defined(USE_HALOS) || defined(USE_MULTI_VAR_RENDERING)
     float ribbonPosition;
 
 #ifdef USE_CAPPED_TUBES
@@ -368,6 +369,8 @@ void computeFragmentColor(
     }
 #endif
 
+#endif // defined(USE_HALOS) || defined(USE_MULTI_VAR_RENDERING)
+
 
 #if defined(USE_DEPTH_CUES) || (defined(USE_AMBIENT_OCCLUSION) && !defined(STATIC_AMBIENT_OCCLUSION_PREBAKING))
     vec3 screenSpacePosition = (viewMatrix * vec4(fragmentPositionWorld, 1.0)).xyz;
@@ -405,7 +408,12 @@ void computeFragmentColor(
 #endif
             n, t);
 
+#if defined(USE_HALOS) || defined(USE_MULTI_VAR_RENDERING)
     float absCoords = abs(ribbonPosition);
+#else
+    float absCoords = 0.0;
+#endif
+
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
 #ifdef USE_BANDS
     //float EPSILON_OUTLINE = clamp(fragmentDepth * 0.0005 / (useBand ? bandWidth : lineWidth), 0.0, 0.49);
@@ -455,7 +463,12 @@ void computeFragmentColor(
     const float WHITE_THRESHOLD = 0.7;
 #endif
 
+#if defined(USE_HALOS) || defined(USE_MULTI_VAR_RENDERING)
     float coverage = 1.0 - smoothstep(1.0 - EPSILON_OUTLINE, 1.0, absCoords);
+#else
+    float coverage = 1.0;
+#endif
+
 #if !defined(USE_CAPPED_TUBES) && defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
     if (useBand) {
         coverage = 1.0;

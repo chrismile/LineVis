@@ -583,25 +583,82 @@ bool LineDataFlow::setNewSettings(const SettingsMap& settings) {
             dirty = true;
             shallReloadGatherShader = true;
         }
+
         if (settings.getValueOpt("separator_width", separatorWidth)) {
             reRender = true;
         }
+
         if (settings.getValueOpt("band_subdivisions", numSubdivisionsBands)) {
             reRender = true;
             setNumSubdivisionsManually = true;
         }
+
         if (settings.getValueOpt("use_uniform_twist_line_width", useUniformTwistLineWidth)) {
             shallReloadGatherShader = true;
         }
+
         if (settings.getValueOpt("helicity_rotation_factor", helicityRotationFactor)) {
             reRender = true;
         }
+
+        if (settings.getValueOpt("use_twist_line_texture", useTwistLineTexture)) {
+            if (isTwistLineTextureLoaded) {
+                reRender = true;
+                shallReloadGatherShader = true;
+            }
+        }
+
+        if (settings.getValueOpt("twist_line_texture", twistLineTextureFilenameGui)) {
+            loadTwistLineTexture();
+            shallReloadGatherShader = true;
+            reRender = true;
+        }
+
+        std::string textureFilteringModeName;
+        if (settings.getValueOpt("twist_line_texture_filtering_mode", textureFilteringModeName)) {
+            int i;
+            for (i = 0; i < IM_ARRAYSIZE(textureFilteringModeNames); i++) {
+                if (textureFilteringModeNames[i] == textureFilteringModeName) {
+                    textureFilteringModeIndex = i;
+                    break;
+                }
+            }
+            if (i != IM_ARRAYSIZE(textureFilteringModeNames)) {
+                loadTwistLineTexture();
+                reRender = true;
+            } else {
+                sgl::Logfile::get()->writeError(
+                        "Error in LineDataFlow::setNewSettings: Invalid texture filtering mode name \""
+                        + textureFilteringModeName + "\".");
+            }
+
+            loadTwistLineTexture();
+            reRender = true;
+        }
+
+        if (settings.getValueOpt("twist_line_texture_filtering_mode_index", textureFilteringModeIndex)) {
+            if (textureFilteringModeIndex < 0 || textureFilteringModeIndex >= IM_ARRAYSIZE(textureFilteringModeNames)) {
+                sgl::Logfile::get()->writeError(
+                        "Error in LineDataFlow::setNewSettings: Invalid texture filtering mode index \""
+                        + std::to_string(textureFilteringModeIndex) + "\".");
+            }
+            loadTwistLineTexture();
+            reRender = true;
+        }
+
+        if (settings.getValueOpt("twist_line_texture_max_anisotropy", maxAnisotropy)) {
+            maxAnisotropy = std::clamp(maxAnisotropy, 1, maxSamplerAnisotropy);
+            loadTwistLineTexture();
+            reRender = true;
+        }
+
         if (settings.getValueOpt("use_multi_var_rendering", useMultiVarRendering)) {
             dirty = true;
             shallReloadGatherShader = true;
             recomputeColorLegend();
             recomputeWidgetPositions();
         }
+
         std::string variablesString;
         if (settings.getValueOpt("selected_multi_vars_string", variablesString)) {
             std::vector<std::string> variableNameArray;

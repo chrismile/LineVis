@@ -97,7 +97,7 @@ bool LineData::setNewSettings(const SettingsMap& settings) {
     if (settings.getValueOpt("line_primitive_mode", linePrimitiveModeName)) {
         int i;
         for (i = 0; i < IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES); i++) {
-            if (LINE_PRIMITIVE_MODE_DISPLAYNAMES[i] == attributeName) {
+            if (LINE_PRIMITIVE_MODE_DISPLAYNAMES[i] == linePrimitiveModeName) {
                 linePrimitiveMode = LinePrimitiveMode(i);
                 break;
             }
@@ -118,7 +118,8 @@ bool LineData::setNewSettings(const SettingsMap& settings) {
     if (settings.getValueOpt("line_primitive_mode_index", linePrimitiveModeIndex)) {
         if (linePrimitiveModeIndex < 0 || linePrimitiveModeIndex >= IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES)) {
             sgl::Logfile::get()->writeError(
-                    "Error in LineData::setNewSettings: Invalid attribute name \"" + attributeName + "\".");
+                    "Error in LineData::setNewSettings: Invalid line primitive mode index \""
+                    + std::to_string(linePrimitiveModeIndex) + "\".");
         }
         linePrimitiveMode = LinePrimitiveMode(linePrimitiveModeIndex);
         if (!lineRenderersCached.empty()) {
@@ -160,6 +161,10 @@ bool LineData::setNewSettings(const SettingsMap& settings) {
                 reloadGatherShader = true;
             }
         }
+    }
+
+    if (settings.getValueOpt("use_halos", useHalos)) {
+        reloadGatherShader = true;
     }
 
     return reloadGatherShader;
@@ -270,6 +275,10 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
                 shallReloadGatherShader = true;
             }
         }
+    }
+
+    if (propertyEditor.addCheckbox("Use Halos", &useHalos)) {
+        shallReloadGatherShader = true;
     }
 
     propertyEditor.addCheckbox("Render Color Legend", &shallRenderColorLegendWidgets);
@@ -1000,6 +1009,9 @@ void LineData::getVulkanShaderPreprocessorDefines(
         preprocessorDefines.insert(std::make_pair("MIN_THICKNESS", std::to_string(minBandThickness)));
     } else {
         preprocessorDefines.insert(std::make_pair("MIN_THICKNESS", std::to_string(1e-2f)));
+    }
+    if (useHalos) {
+        preprocessorDefines.insert(std::make_pair("USE_HALOS", ""));
     }
 }
 

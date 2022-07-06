@@ -323,6 +323,7 @@ protected:
     static int tubeNumSubdivisions; ///< Number of tube subdivisions for LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER.
     std::vector<std::string> supportedRenderingModes;
     bool useCappedTubes = true;
+    bool useHalos = true;
     bool showLineDataWindow = true;
     std::string lineDataWindowName;
 

@@ -309,6 +309,9 @@ std::vector<InternalState> getTestModesOpaqueRendering() {
         }
     }
 
+    // Testing performance without the contributions introduced by the paper.
+    bool useContributions = true;
+
     bool testRotatingHelicityBands = true;
     if (testRotatingHelicityBands) {
         std::vector<InternalState> oldStates = states;
@@ -316,17 +319,35 @@ std::vector<InternalState> getTestModesOpaqueRendering() {
         for (size_t i = 0; i < oldStates.size(); i++) {
             InternalState state = oldStates.at(i);
             std::string nameBase = state.name;
+
             state.name = nameBase + "(Ribbon)";
+            if (!useContributions) {
+                state.dataSetSettings.addKeyValue("use_halos", "false");
+            }
             state.dataSetSettings.addKeyValue("use_ribbons", "true");
             state.dataSetSettings.addKeyValue("rotating_helicity_bands", "false");
             state.rendererSettings.addKeyValue("line_width", "0.006");
             state.rendererSettings.addKeyValue("band_width", "0.007");
             states.push_back(state);
+
             state.name = nameBase + "(Twist)";
-            int linePrimitiveModeIndex = 0;
-            state.dataSetSettings.getValueOpt("linePrimitiveModeIndex", linePrimitiveModeIndex);
-            if (LineData::LinePrimitiveMode(linePrimitiveModeIndex) != LineData::LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER) {
-                state.dataSetSettings.addKeyValue("rotating_helicity_bands", "true");
+            state.dataSetSettings.addKeyValue("use_ribbons", "false");
+            if (useContributions) {
+                int linePrimitiveModeIndex = 0;
+                state.dataSetSettings.getValueOpt("line_primitive_mode_index", linePrimitiveModeIndex);
+                if (LineData::LinePrimitiveMode(linePrimitiveModeIndex) != LineData::LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER) {
+                    state.dataSetSettings.addKeyValue("rotating_helicity_bands", "true");
+                }
+            } else {
+                state.dataSetSettings.addKeyValue(
+                        "twist_line_texture",
+                        sgl::AppSettings::get()->getDataDirectory() + "Texture/Stripes.png");
+                state.dataSetSettings.addKeyValue(
+                        "use_twist_line_texture", "false");
+                state.dataSetSettings.addKeyValue(
+                        "twist_line_texture_filtering_mode", "Linear Mipmap Linear");
+                state.dataSetSettings.addKeyValue(
+                        "twist_line_texture_max_anisotropy", "16");
             }
             states.push_back(state);
         }

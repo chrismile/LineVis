@@ -776,6 +776,7 @@ void main() {
     vec3 helperVec = normalize(cross(t, v));
     vec3 newV = normalize(cross(helperVec, t));
 
+#if defined(USE_HALOS) || defined(USE_MULTI_VAR_RENDERING)
     float ribbonPosition;
 
 #ifdef USE_CAPPED_TUBES
@@ -791,7 +792,7 @@ void main() {
         // Side note: We can also use the code below, as for a, b with length 1:
         // sqrt(1 - dot^2(a,b)) = len(cross(a,b))
         // Due to:
-        // - dot(a,b) = ||a|| ||b|| cos(phi)
+        // - dot(a,bribbonPosition) = ||a|| ||b|| cos(phi)
         // - len(cross(a,b)) = ||a|| ||b|| |sin(phi)|
         // - sin^2(phi) + cos^2(phi) = 1
         //ribbonPosition = dot(newV, n);
@@ -963,6 +964,8 @@ void main() {
     }
 #endif
 
+#endif // defined(USE_HALOS) || defined(USE_MULTI_VAR_RENDERING)
+
 
 #ifdef USE_ROTATING_HELICITY_BANDS
 #ifdef USE_MULTI_VAR_RENDERING
@@ -1047,7 +1050,11 @@ void main() {
     }
 #endif
 
+#if defined(USE_HALOS) || defined(USE_MULTI_VAR_RENDERING)
     float absCoords = abs(ribbonPosition);
+#else
+    float absCoords = 0.0;
+#endif
 
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
 #if defined(USE_ROTATING_HELICITY_BANDS)
@@ -1057,7 +1064,9 @@ void main() {
 #else
     const float WHITE_THRESHOLD = 0.7;
 #endif
+
     float EPSILON_OUTLINE = 0.0;
+#if defined(USE_HALOS) || defined(USE_MULTI_VAR_RENDERING)
 #ifdef USE_BANDS
     //float EPSILON_OUTLINE = clamp(getAntialiasingFactor(fragmentDistance / (useBand != 0 ? bandWidth : lineWidth) * 2.0), 0.0, 0.49);
     float EPSILON_WHITE = fwidth(ribbonPosition);
@@ -1067,6 +1076,11 @@ void main() {
 #endif
     float coverage = 1.0 - smoothstep(1.0 - EPSILON_OUTLINE, 1.0, absCoords);
     //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(ribbonPosition));
+#else
+    float EPSILON_WHITE = 0.0;
+    float coverage = 1.0;
+#endif
+
 #if !defined(USE_CAPPED_TUBES) && defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
     if (useBand != 0) {
         coverage = 1.0;
