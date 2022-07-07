@@ -150,7 +150,7 @@ std::vector<InternalState> getTestModesOIT() {
 
 void setLinePrimitiveMode(InternalState& state, LineData::LinePrimitiveMode linePrimitiveMode) {
     state.dataSetSettings = { SettingsMap(std::map<std::string, std::string>{
-            { "linePrimitiveModeIndex", std::to_string(int(linePrimitiveMode)) }
+            { "line_primitive_mode_index", std::to_string(int(linePrimitiveMode)) }
     })};
 }
 void getTestModesRasterization(std::vector<InternalState>& states, InternalState state) {
