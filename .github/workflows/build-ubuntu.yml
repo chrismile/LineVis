@@ -48,7 +48,7 @@ jobs:
           sudo apt-get install aptitude
           sudo apt-get upgrade
           sudo apt-get --with-new-pkgs upgrade
-          sudo aptitude full-upgrade
+          sudo aptitude full-upgrade -y
           sudo apt-get update
           sudo apt-get upgrade
         fi
