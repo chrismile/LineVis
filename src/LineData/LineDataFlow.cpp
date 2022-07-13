@@ -74,7 +74,11 @@ LineDataFlow::LineDataFlow(sgl::TransferFunctionWindow& transferFunctionWindow)
 LineDataFlow::~LineDataFlow() = default;
 
 bool LineDataFlow::settingsDiffer(LineData* other) {
-    return hasBandsData != static_cast<LineDataFlow*>(other)->hasBandsData;
+    auto* lineDataFlow = static_cast<LineDataFlow*>(other);
+    return hasBandsData != lineDataFlow->hasBandsData
+           || useMultiVarRendering != lineDataFlow->useMultiVarRendering
+           || useTwistLineTexture != lineDataFlow->useTwistLineTexture
+           || isTwistLineTextureLoaded != lineDataFlow->isTwistLineTextureLoaded;
 }
 
 void LineDataFlow::update(float dt) {
