@@ -45,6 +45,7 @@ jobs:
         distro_code_name=$(lsb_release -c | grep -oP "\:\s+\K\S+")
         if [ "$distro_code_name" = "jammy" ]; then
           # Fix for https://askubuntu.com/questions/1417403/can-not-install-libudev-dev-on-ubuntu-22-04/1417416#1417416
+          sudo apt-get install aptitude
           sudo apt-get upgrade
           sudo apt-get --with-new-pkgs upgrade
           sudo aptitude full-upgrade
