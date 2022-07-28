@@ -90,6 +90,10 @@ void main() {
     meshletData.numLinePoints = meshletVec.y;
 
     uint numVertices = meshletData.numLinePoints * NUM_TUBE_SUBDIVISIONS;
+    uint numSegments = meshletData.numLinePoints - 1;
+    uint numQuads = numSegments * NUM_TUBE_SUBDIVISIONS;
+    gl_PrimitiveCountNV = 2 * numQuads;
+
     for (uint vertexIdx = threadIdx; vertexIdx < numVertices; vertexIdx += WORKGROUP_SIZE) {
         uint localLinePointIdx = vertexIdx / NUM_TUBE_SUBDIVISIONS;
         uint globalLinePointIdx = meshletData.linePointIndexStart + localLinePointIdx;
@@ -235,9 +239,6 @@ void main() {
 #endif
     }
 
-    uint numSegments = meshletData.numLinePoints - 1;
-    uint numQuads = numSegments * NUM_TUBE_SUBDIVISIONS;
-    gl_PrimitiveCountNV = 2 * numQuads;
     for (uint quadIdx = threadIdx; quadIdx < numQuads; quadIdx += WORKGROUP_SIZE) {
         uint writeIdx = 6 * quadIdx;
         uint j = quadIdx / NUM_TUBE_SUBDIVISIONS;

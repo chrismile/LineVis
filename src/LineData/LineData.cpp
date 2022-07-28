@@ -268,7 +268,9 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
     }
 
     if (lineRenderer && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
-            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH || !lineRenderer->isRasterizer)) {
+            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH
+            || lineRenderer->getRenderingMode() == RENDERING_MODE_DEFERRED_SHADING
+            || !lineRenderer->isRasterizer)) {
         if (propertyEditor.addCheckbox("Capped Tubes", &useCappedTubes)) {
             triangleRepresentationDirty = true;
             if (!lineRenderer->isRasterizer) {
@@ -1000,6 +1002,12 @@ void LineData::getVulkanShaderPreprocessorDefines(
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER) {
         preprocessorDefines.insert(std::make_pair("USE_GEOMETRY_SHADER", ""));
+    }
+    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
+            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
+        sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+        uint32_t workgroupSize = device->getPhysicalDeviceMeshShaderPropertiesNV().maxMeshWorkGroupSize[0];
+        preprocessorDefines.insert(std::make_pair("WORKGROUP_SIZE", std::to_string(workgroupSize)));
     }
     if (useCappedTubes && (!isRasterizer || linePrimitiveMode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH)) {

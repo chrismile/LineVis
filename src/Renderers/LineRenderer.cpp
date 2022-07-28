@@ -639,30 +639,11 @@ void LineRenderer::reloadGatherShader() {
             hullRasterPass->setShaderDirty();
         }
     }
-
-    // TODO
-    //hullRasterPass->setShaderDirty();
-
-    /*if (lineData && lineData->hasSimulationMeshOutline() && !isVulkanRenderer) {
-        gatherShaderHull = lineData->reloadGatherShaderHull();
-        if (canCopyShaderAttributes && shaderAttributesHull) {
-            shaderAttributesHull = shaderAttributesHull->copy(gatherShaderHull);
-        }
-    }*/
 }
 
 void LineRenderer::renderHull() {
     if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
         hullRasterPass->render();
-        /*if (!gatherShaderHull) {
-            reloadGatherShader();
-            shaderAttributesHull = lineData->getGatherShaderAttributesHull(gatherShaderHull);
-        }
-        lineData->setUniformGatherShaderDataHull_Pass(gatherShaderHull);
-        gatherShaderHull->setUniformOptional("cameraPosition", sceneData->camera->getPosition());
-        glDisable(GL_CULL_FACE);
-        sgl::Renderer->render(shaderAttributesHull);
-        glEnable(GL_CULL_FACE);*/
     }
 }
 

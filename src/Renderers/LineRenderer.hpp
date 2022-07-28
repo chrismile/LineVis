@@ -153,6 +153,7 @@ public:
 
     inline const std::string& getWindowName() { return windowName; }
     [[nodiscard]] inline SceneData* getSceneData() const { return sceneData; }
+    [[nodiscard]] inline const LineDataPtr& getLineData() const { return lineData; }
     [[nodiscard]] inline bool getHasLineData() const { return lineData.get() != nullptr; }
 
     // Tiling mode.

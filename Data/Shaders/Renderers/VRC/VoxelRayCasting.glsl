@@ -32,8 +32,7 @@
 
 layout(location = 0) in vec4 vertexPosition;
 
-void main()
-{
+void main() {
     gl_Position = vertexPosition;
 }
 

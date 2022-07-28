@@ -69,6 +69,7 @@
 #include "LineData/Scattering/ScatteringLineTracingRequester.hpp"
 #include "Loaders/NetCdfLineLoader.hpp"
 #include "Renderers/OpaqueLineRenderer.hpp"
+#include "Renderers/Deferred/DeferredRenderer.hpp"
 #include "Renderers/OIT/PerPixelLinkedListLineRenderer.hpp"
 #include "Renderers/OIT/MLABRenderer.hpp"
 #include "Renderers/OIT/OpacityOptimizationRenderer.hpp"
@@ -640,9 +641,12 @@ void MainApp::setRenderer(
     if (oldRenderingMode != newRenderingMode) {
         // User depth buffer with higher accuracy when rendering lines opaquely.
         if (newRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE
-                || oldRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
+                || newRenderingMode == RENDERING_MODE_DEFERRED_SHADING
+                || oldRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE
+                || oldRenderingMode == RENDERING_MODE_DEFERRED_SHADING) {
             VkFormat depthFormat;
-            if (newRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
+            if (newRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE
+                    || newRenderingMode == RENDERING_MODE_DEFERRED_SHADING) {
                 depthFormat = device->getSupportedDepthFormat();
             } else {
                 depthFormat = device->getSupportedDepthStencilFormat();
@@ -660,6 +664,8 @@ void MainApp::setRenderer(
 
     if (newRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
         newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
+    } else if (newRenderingMode == RENDERING_MODE_DEFERRED_SHADING) {
+        newLineRenderer = new DeferredRenderer(&sceneDataRef, transferFunctionWindow);
     } else if (newRenderingMode == RENDERING_MODE_PER_PIXEL_LINKED_LIST) {
         newLineRenderer = new PerPixelLinkedListLineRenderer(&sceneDataRef, transferFunctionWindow);
     } else if (newRenderingMode == RENDERING_MODE_MLAB) {

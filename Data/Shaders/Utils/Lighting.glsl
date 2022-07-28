@@ -44,7 +44,7 @@ layout (std430, binding = DEPTH_MIN_MAX_BUFFER_BINDING) readonly buffer DepthMin
 */
 vec4 blinnPhongShading(
         in vec4 baseColor,
-#if defined(VULKAN_RAY_TRACER) || defined(VOXEL_RAY_CASTING)
+#if defined(VULKAN_RAY_TRACER) || defined(VOXEL_RAY_CASTING) || defined(DEFERRED_SHADING)
         in vec3 fragmentPositionWorld,
 #ifdef USE_DEPTH_CUES
         in vec3 screenSpacePosition,
@@ -81,7 +81,7 @@ vec4 blinnPhongShading(
 
     phongColor = Ia + Id + Is;
 
-#if defined(USE_DEPTH_CUES) && !defined(RAYTRACING)
+#if defined(USE_DEPTH_CUES) && !defined(ANALYTIC_HIT_COMPUTATION)
     float depthCueFactor = clamp((-screenSpacePosition.z - minDepth) / (maxDepth - minDepth), 0.0, 1.0);
     depthCueFactor = depthCueFactor * depthCueFactor * depthCueStrength;
     phongColor = mix(phongColor, vec3(0.5, 0.5, 0.5), depthCueFactor);
@@ -99,7 +99,7 @@ vec4 blinnPhongShading(
 */
 vec4 blinnPhongShadingTube(
         in vec4 baseColor,
-#if defined(VULKAN_RAY_TRACER) || defined(VOXEL_RAY_CASTING)
+#if defined(VULKAN_RAY_TRACER) || defined(VOXEL_RAY_CASTING) || defined(DEFERRED_SHADING)
         in vec3 fragmentPositionWorld,
 #if defined(USE_DEPTH_CUES) || (defined(USE_AMBIENT_OCCLUSION) && !defined(STATIC_AMBIENT_OCCLUSION_PREBAKING))
         in vec3 screenSpacePosition,
@@ -108,7 +108,7 @@ vec4 blinnPhongShadingTube(
         in float fragmentVertexId,
         in float phi,
 #endif
-#if defined(USE_BANDS) && defined(VULKAN_RAY_TRACER)
+#if defined(USE_BANDS) && (defined(VULKAN_RAY_TRACER) || defined(DEFERRED_SHADING))
         in int useBand,
 #endif
 #endif

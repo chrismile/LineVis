@@ -42,7 +42,7 @@ public:
 
     // Public interface.
     void setLineData(LineDataPtr& lineData, bool isNewData);
-    [[nodiscard]] inline bool getIsDataEmpty() const { return rasterData && rasterData->getNumVertices() == 0; }
+    [[nodiscard]] inline bool getIsDataEmpty() const { return !rasterData || rasterData->getNumVertices() == 0; }
     void setCustomRenderTarget(const sgl::vk::ImageViewPtr& colorImage, const sgl::vk::ImageViewPtr& depthImage);
     void setAttachmentLoadOp(VkAttachmentLoadOp loadOp);
     /**

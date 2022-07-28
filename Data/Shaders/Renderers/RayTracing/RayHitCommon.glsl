@@ -26,7 +26,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if defined(VULKAN_RAY_TRACING_SHADER)
 #include "TubeRayTracingHeader.glsl"
+#endif
 #include "LineDataSSBO.glsl"
 #include "TransferFunction.glsl"
 
@@ -34,7 +36,7 @@
 #include "MlatInsert.glsl"
 #endif
 
-#define RAYTRACING
+#define ANALYTIC_HIT_COMPUTATION
 #include "Lighting.glsl"
 #include "Antialiasing.glsl"
 #include "MultiVar.glsl"
@@ -500,7 +502,9 @@ void computeFragmentColor(
     }
 #endif
 
-#ifdef USE_MLAT
+#ifdef FRAGMENT_SHADER
+    fragColor = colorOut;
+#elif defined(USE_MLAT)
     insertNodeMlat(colorOut);
 #else
     payload.hitColor = colorOut;

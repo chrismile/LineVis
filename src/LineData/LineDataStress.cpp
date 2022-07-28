@@ -105,6 +105,7 @@ void LineDataStress::setRenderingModes(const std::vector<RenderingMode>& renderi
     LineData::setRenderingModes(renderingModes);
     rendererSupportsTransparency = std::all_of(renderingModes.cbegin(), renderingModes.cend(), [](RenderingMode mode){
         return mode != RENDERING_MODE_ALL_LINES_OPAQUE
+               && mode != RENDERING_MODE_DEFERRED_SHADING
                && mode != RENDERING_MODE_VULKAN_RAY_TRACER
                && mode != RENDERING_MODE_VOXEL_RAY_CASTING
                && mode != RENDERING_MODE_OSPRAY_RAY_TRACER;
@@ -2669,12 +2670,12 @@ TubeTriangleRenderData LineDataStress::getLinePassTubeTriangleMeshRenderData(boo
     }
 
     uint32_t indexBufferFlags =
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     uint32_t vertexBufferFlags =
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     if (vulkanRayTracing) {
         indexBufferFlags |=
-                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
                 | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
         vertexBufferFlags |=
                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
