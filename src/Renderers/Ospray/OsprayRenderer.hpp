@@ -68,7 +68,7 @@ public:
     OsprayRenderer(
             SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~OsprayRenderer();
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_OSPRAY_RAY_TRACER; }
+    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_OSPRAY_RAY_TRACER; }
 
     static inline bool getIsOsprayInitialized() { return isOsprayInitialized; }
 

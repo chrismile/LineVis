@@ -235,7 +235,10 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
         if (!hasBandsData) {
             numPrimitiveModes -= 5;
         }
-        if (lineRenderer->getRenderingMode() != RENDERING_MODE_OPACITY_OPTIMIZATION && propertyEditor.addCombo(
+        bool canChangeLinePrimitiveMode =
+                lineRenderer->getRenderingMode() != RENDERING_MODE_OPACITY_OPTIMIZATION
+                || lineRenderer->getRenderingMode() != RENDERING_MODE_DEFERRED_SHADING;
+        if (canChangeLinePrimitiveMode && propertyEditor.addCombo(
                 "Line Primitives", (int*)&linePrimitiveMode,
                 LINE_PRIMITIVE_MODE_DISPLAYNAMES, numPrimitiveModes)) {
             if (updateLinePrimitiveMode(lineRenderer)) {
@@ -1009,8 +1012,12 @@ void LineData::getVulkanShaderPreprocessorDefines(
         uint32_t workgroupSize = device->getPhysicalDeviceMeshShaderPropertiesNV().maxMeshWorkGroupSize[0];
         preprocessorDefines.insert(std::make_pair("WORKGROUP_SIZE", std::to_string(workgroupSize)));
     }
+    bool useDeferredShading = std::any_of(
+            lineRenderersCached.cbegin(), lineRenderersCached.cend(), [](LineRenderer* lineRenderer){
+                return lineRenderer->getRenderingMode() == RENDERING_MODE_DEFERRED_SHADING;
+            });
     if (useCappedTubes && (!isRasterizer || linePrimitiveMode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
-            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH)) {
+            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH || useDeferredShading)) {
         preprocessorDefines.insert(std::make_pair("USE_CAPPED_TUBES", ""));
     }
     if (renderThickBands) {

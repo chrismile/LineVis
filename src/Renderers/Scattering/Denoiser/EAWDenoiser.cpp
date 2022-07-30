@@ -26,9 +26,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <Math/Math.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
+#include <Graphics/Vulkan/Render/Data.hpp>
+#include <Graphics/Vulkan/Render/ComputePipeline.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 #include "EAWDenoiser.hpp"
@@ -45,17 +48,67 @@ void EAWDenoiser::setOutputImage(sgl::vk::ImageViewPtr& outputImage) {
     eawBlitPass->setOutputImage(outputImage);
 }
 
-void EAWDenoiser::setFeatureMap(const std::string& featureMapName, const sgl::vk::TexturePtr& featureTexture) {
-    if (featureMapName == "color") {
+void EAWDenoiser::setFeatureMap(FeatureMapType featureMapType, const sgl::vk::TexturePtr& featureTexture) {
+    if (featureMapType == FeatureMapType::COLOR) {
         eawBlitPass->setColorTexture(featureTexture);
-    } else if (featureMapName == "position") {
+    } else if (featureMapType == FeatureMapType::POSITION) {
         eawBlitPass->setPositionTexture(featureTexture);
-    } else if (featureMapName == "normal") {
+    } else if (featureMapType == FeatureMapType::NORMAL) {
         eawBlitPass->setNormalTexture(featureTexture);
+    } else if (featureMapType == FeatureMapType::ALBEDO || featureMapType == FeatureMapType::DEPTH
+            || featureMapType == FeatureMapType::FLOW) {
+        // Ignore.
     } else {
-        sgl::Logfile::get()->writeInfo(
-                "Warning in EAWDenoiser::setFeatureMap: Unknown feature map '" + featureMapName + "'.");
+        sgl::Logfile::get()->writeWarning("Warning in EAWDenoiser::setFeatureMap: Unknown feature map.");
     }
+}
+
+bool EAWDenoiser::getUseFeatureMap(FeatureMapType featureMapType) const {
+    if (featureMapType == FeatureMapType::COLOR || featureMapType == FeatureMapType::NORMAL
+            || featureMapType == FeatureMapType::POSITION) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+void EAWDenoiser::setUseFeatureMap(FeatureMapType featureMapType, bool useFeature) {
+    if (featureMapType == FeatureMapType::COLOR) {
+        eawBlitPass->useColorWeights = useFeature;
+    } else if (featureMapType == FeatureMapType::NORMAL) {
+        eawBlitPass->useNormalWeights = useFeature;
+    } else if (featureMapType == FeatureMapType::POSITION) {
+        eawBlitPass->usePositionWeights = useFeature;
+    }
+}
+
+void EAWDenoiser::setNumIterations(int its) {
+    eawBlitPass->maxNumIterations = its;
+    eawBlitPass->setDataDirty();
+}
+
+void EAWDenoiser::setPhiColor(float phi) {
+    eawBlitPass->phiColor = phi;
+}
+
+void EAWDenoiser::setPhiPosition(float phi) {
+    eawBlitPass->phiPosition = phi;
+}
+
+void EAWDenoiser::setPhiNormal(float phi) {
+    eawBlitPass->phiNormal = phi;
+}
+
+void EAWDenoiser::setWeightScaleColor(float scale) {
+    eawBlitPass->phiColorScale = scale;
+}
+
+void EAWDenoiser::setWeightScalePosition(float scale) {
+    eawBlitPass->phiPositionScale = scale;
+}
+
+void EAWDenoiser::setWeightScaleNormal(float scale) {
+    eawBlitPass->phiNormalScale = scale;
 }
 
 void EAWDenoiser::denoise() {
@@ -108,7 +161,8 @@ void EAWBlitPass::recreateSwapchain(uint32_t width, uint32_t height) {
     imageSettings.width = width;
     imageSettings.height = height;
     imageSettings.format = VK_FORMAT_R32G32B32A32_SFLOAT;
-    imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    imageSettings.usage =
+            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     for (int i = 0; i < 2; i++) {
         pingPongRenderTextures[i] = std::make_shared<sgl::vk::Texture>(device, imageSettings);
     }
@@ -132,8 +186,25 @@ void EAWBlitPass::recreateSwapchain(uint32_t width, uint32_t height) {
     dataDirty = true;
 }
 
+void EAWBlitPass::loadShader() {
+    sgl::vk::ShaderManager->invalidateShaderCache();
+
+    std::map<std::string, std::string> preprocessorDefines;
+    if (positionTexture) {
+        preprocessorDefines.insert(std::make_pair("USE_POSITION_TEXTURE", ""));
+    }
+    if (normalTexture) {
+        preprocessorDefines.insert(std::make_pair("USE_NORMAL_TEXTURE", ""));
+    }
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(shaderIds, preprocessorDefines);
+
+    preprocessorDefines.insert(std::make_pair("BLOCK_SIZE", std::to_string(computeBlockSize)));
+    shaderStagesCompute = sgl::vk::ShaderManager->getShaderStages(
+            { "EAWDenoise.Compute" }, preprocessorDefines);
+}
+
 void EAWBlitPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 3; i++) {
         rasterDataPingPong[i] = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
         rasterDataPingPong[i]->setIndexBuffer(indexBuffer);
         rasterDataPingPong[i]->setVertexBuffer(vertexBuffer, 0);
@@ -144,12 +215,54 @@ void EAWBlitPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::Graphic
             rasterDataPingPong[i]->setStaticTexture(colorTexture, "colorTexture");
         } else if (i == 1 || i == 2) {
             rasterDataPingPong[i]->setStaticTexture(pingPongRenderTextures[i % 2], "colorTexture");
-        } else {
-            rasterDataPingPong[i]->setStaticTexture(
-                    pingPongRenderTextures[(maxNumIterations + 1) % 2], "colorTexture");
         }
-        rasterDataPingPong[i]->setStaticTexture(positionTexture, "positionTexture");
-        rasterDataPingPong[i]->setStaticTexture(normalTexture, "normalTexture");
+        if (positionTexture) {
+            rasterDataPingPong[i]->setStaticTexture(positionTexture, "positionTexture");
+        }
+        if (normalTexture) {
+            rasterDataPingPong[i]->setStaticTexture(normalTexture, "normalTexture");
+        }
+    }
+
+    sgl::vk::ComputePipelineInfo computePipelineInfo(shaderStagesCompute);
+    sgl::vk::ComputePipelinePtr computePipeline(new sgl::vk::ComputePipeline(device, computePipelineInfo));
+    for (int i = 0; i < 3; i++) {
+        computeDataPingPong[i] = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
+        computeDataPingPong[i]->setStaticBuffer(uniformBuffer, "UniformBuffer");
+        computeDataPingPong[i]->setStaticBuffer(kernelBuffer, "KernelBuffer");
+        computeDataPingPong[i]->setStaticBuffer(offsetBuffer, "OffsetBuffer");
+        computeDataPingPongFinal[i] = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
+        computeDataPingPongFinal[i]->setStaticBuffer(uniformBuffer, "UniformBuffer");
+        computeDataPingPongFinal[i]->setStaticBuffer(kernelBuffer, "KernelBuffer");
+        computeDataPingPongFinal[i]->setStaticBuffer(offsetBuffer, "OffsetBuffer");
+
+        if (i == 0) {
+            computeDataPingPong[i]->setStaticTexture(
+                    colorTexture, "colorTexture");
+            computeDataPingPongFinal[i]->setStaticTexture(
+                    colorTexture, "colorTexture");
+            computeDataPingPong[i]->setStaticImageView(
+                    pingPongRenderTextures[(i + 1) % 2]->getImageView(), "outputImage");
+            computeDataPingPongFinal[i]->setStaticImageView(
+                    outputImageViews.front(), "outputImage");
+        } else {
+            computeDataPingPong[i]->setStaticTexture(
+                    pingPongRenderTextures[i % 2], "colorTexture");
+            computeDataPingPongFinal[i]->setStaticTexture(
+                    pingPongRenderTextures[i % 2], "colorTexture");
+            computeDataPingPong[i]->setStaticImageView(
+                    pingPongRenderTextures[(i + 1) % 2]->getImageView(), "outputImage");
+            computeDataPingPongFinal[i]->setStaticImageView(
+                    outputImageViews.front(), "outputImage");
+        }
+        if (positionTexture) {
+            computeDataPingPong[i]->setStaticTexture(positionTexture, "positionTexture");
+            computeDataPingPongFinal[i]->setStaticTexture(positionTexture, "positionTexture");
+        }
+        if (normalTexture) {
+            computeDataPingPong[i]->setStaticTexture(normalTexture, "normalTexture");
+            computeDataPingPongFinal[i]->setStaticTexture(normalTexture, "normalTexture");
+        }
     }
 }
 
@@ -167,9 +280,9 @@ void EAWBlitPass::_render() {
     uniformData.useColor = useColorWeights;
     uniformData.usePosition = usePositionWeights;
     uniformData.useNormal = useNormalWeights;
-    uniformData.phiColor = phiColor;
-    uniformData.phiPosition = phiPosition;
-    uniformData.phiNormal = phiNormal;
+    uniformData.phiColor = phiColor * phiColorScale;
+    uniformData.phiPosition = phiPosition * phiPositionScale;
+    uniformData.phiNormal = phiNormal * phiNormalScale;
     uniformBuffer->updateData(
             sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
 
@@ -183,14 +296,20 @@ void EAWBlitPass::_render() {
                 normalTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
-    float stepWidth = 1.0f;
+    if (useSharedMemory) {
+        _renderCompute();
+    } else {
+        _renderRaster();
+    }
+}
+
+void EAWBlitPass::_renderRaster() {
+    int32_t stepWidth = 1;
     for (int i = 0; i < maxNumIterations; i++) {
         int rasterDataIdx;
         int framebufferIdx;
         if (i == 0) {
             rasterDataIdx = 0;
-        } else if (i == maxNumIterations - 1) {
-            rasterDataIdx = 3;
         } else {
             rasterDataIdx = 2 - (i % 2);
         }
@@ -205,14 +324,66 @@ void EAWBlitPass::_render() {
         renderer->transitionImageLayout(
                 rasterDataPingPong[rasterDataIdx]->getImageView("colorTexture")->getImage(),
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        renderer->transitionImageLayout(
-                rasterDataPingPong[rasterDataIdx]->getImageView("positionTexture")->getImage(),
-                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        renderer->transitionImageLayout(
-                rasterDataPingPong[rasterDataIdx]->getImageView("normalTexture")->getImage(),
-                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        if (positionTexture) {
+            renderer->transitionImageLayout(
+                    rasterDataPingPong[rasterDataIdx]->getImageView("positionTexture")->getImage(),
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }
+        if (normalTexture) {
+            renderer->transitionImageLayout(
+                    rasterDataPingPong[rasterDataIdx]->getImageView("normalTexture")->getImage(),
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }
         renderer->render(rasterDataPingPong[rasterDataIdx], framebuffersPingPong[framebufferIdx]);
-        stepWidth *= 2.0f;
+        stepWidth *= 2;
+    }
+}
+
+void EAWBlitPass::_renderCompute() {
+    auto width = int(colorTexture->getImage()->getImageSettings().width);
+    auto height = int(colorTexture->getImage()->getImageSettings().height);
+
+    int32_t stepWidth = 1;
+    for (int i = 0; i < maxNumIterations; i++) {
+        int computeDataIdx;
+        sgl::vk::ComputeDataPtr computeData;
+        if (i == 0) {
+            computeDataIdx = 0;
+        } else {
+            computeDataIdx = 2 - (i % 2);
+        }
+        if (i == maxNumIterations - 1) {
+            computeData = computeDataPingPongFinal[computeDataIdx];
+        } else {
+            computeData = computeDataPingPong[computeDataIdx];
+        }
+
+        renderer->pushConstants(
+                std::static_pointer_cast<sgl::vk::Pipeline>(computeData->getComputePipeline()),
+                VK_SHADER_STAGE_COMPUTE_BIT, 0, stepWidth);
+        renderer->transitionImageLayout(
+                computeData->getImageView("colorTexture")->getImage(),
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        if (positionTexture) {
+            renderer->transitionImageLayout(
+                    computeData->getImageView("positionTexture")->getImage(),
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }
+        if (normalTexture) {
+            renderer->transitionImageLayout(
+                    computeData->getImageView("normalTexture")->getImage(),
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        }
+        renderer->insertImageMemoryBarrier(
+                computeData->getImageView("outputImage")->getImage(),
+                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT);
+
+        int numWorkgroupsX = sgl::iceil(width, computeBlockSize);
+        int numWorkgroupsY = sgl::iceil(height, computeBlockSize);
+        renderer->dispatch(computeData, numWorkgroupsX, numWorkgroupsY, 1);
+        stepWidth *= 2;
     }
 }
 
@@ -239,6 +410,9 @@ bool EAWBlitPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdit
         reRender = true;
     }
     if (propertyEditor.addSliderFloat("Phi Normal", &phiNormal, 0.0f, 10.0f)) {
+        reRender = true;
+    }
+    if (propertyEditor.addCheckbox("Use Shared Memory", &useSharedMemory)) {
         reRender = true;
     }
 

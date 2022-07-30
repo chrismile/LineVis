@@ -63,7 +63,7 @@ class VulkanRayTracer : public LineRenderer {
 public:
     VulkanRayTracer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~VulkanRayTracer() override;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_VULKAN_RAY_TRACER; }
+    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_VULKAN_RAY_TRACER; }
 
     /**
      * Re-generates the visualization mapping.

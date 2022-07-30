@@ -70,7 +70,7 @@ public:
             std::string windowName, SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     virtual void initialize();
     virtual ~LineRenderer();
-    virtual RenderingMode getRenderingMode()=0;
+    [[nodiscard]] virtual RenderingMode getRenderingMode() const = 0;
     virtual bool getIsTransparencyUsed() { return true; }
 
     /// Returns if the visualization mapping needs to be re-generated.

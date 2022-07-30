@@ -33,12 +33,22 @@
 #endif
 #include "Denoiser.hpp"
 
-std::shared_ptr<Denoiser> createDenoiserObject(DenoiserType denoiserType, sgl::vk::Renderer* renderer) {
+std::shared_ptr<Denoiser> createDenoiserObject(
+        DenoiserType denoiserType, sgl::vk::Renderer* renderer, DenoisingMode mode) {
     std::shared_ptr<Denoiser> denoiser;
     if (denoiserType == DenoiserType::NONE) {
         denoiser = {};
     } else if (denoiserType == DenoiserType::EAW) {
         denoiser = std::shared_ptr<Denoiser>(new EAWDenoiser(renderer));
+        if (mode == DenoisingMode::AMBIENT_OCCLUSION) {
+            static_cast<EAWDenoiser*>(denoiser.get())->setNumIterations(4);
+            static_cast<EAWDenoiser*>(denoiser.get())->setPhiColor(5.0f);
+            static_cast<EAWDenoiser*>(denoiser.get())->setPhiPosition(1.0f);
+            static_cast<EAWDenoiser*>(denoiser.get())->setPhiNormal(1.0f);
+            static_cast<EAWDenoiser*>(denoiser.get())->setWeightScaleColor(1.0f);
+            static_cast<EAWDenoiser*>(denoiser.get())->setWeightScalePosition(0.0001f);
+            static_cast<EAWDenoiser*>(denoiser.get())->setWeightScaleNormal(1.0f);
+        }
     }
 #ifdef SUPPORT_OPTIX
     else if (denoiserType == DenoiserType::OPTIX) {

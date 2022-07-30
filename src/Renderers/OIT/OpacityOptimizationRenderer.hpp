@@ -61,7 +61,7 @@ public:
     OpacityOptimizationRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     void initialize() override;
     ~OpacityOptimizationRenderer() override;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_OPACITY_OPTIMIZATION; }
+    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_OPACITY_OPTIMIZATION; }
 
     /**
      * Re-generates the visualization mapping.

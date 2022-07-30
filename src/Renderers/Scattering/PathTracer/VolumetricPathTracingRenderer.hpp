@@ -52,7 +52,7 @@ class VolumetricPathTracingRenderer : public LineRenderer {
 public:
     VolumetricPathTracingRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~VolumetricPathTracingRenderer() override;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_VOLUMETRIC_PATH_TRACER; }
+    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_VOLUMETRIC_PATH_TRACER; }
 
     /// Returns whether the triangle representation is used by the renderer.
     [[nodiscard]] bool getIsTriangleRepresentationUsed() const override { return false; }

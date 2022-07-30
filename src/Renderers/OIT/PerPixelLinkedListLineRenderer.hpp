@@ -57,7 +57,7 @@ class PerPixelLinkedListLineRenderer : public LineRenderer {
 public:
     PerPixelLinkedListLineRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~PerPixelLinkedListLineRenderer() override;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_PER_PIXEL_LINKED_LIST; }
+    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_PER_PIXEL_LINKED_LIST; }
 
     /**
      * Re-generates the visualization mapping.

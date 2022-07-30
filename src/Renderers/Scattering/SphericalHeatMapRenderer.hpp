@@ -44,7 +44,7 @@ public:
     SphericalHeatMapRenderer(
             SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~SphericalHeatMapRenderer() override;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER; }
+    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER; }
 
     /// Returns whether the triangle representation is used by the renderer.
     [[nodiscard]] bool getIsTriangleRepresentationUsed() const override { return false; }

@@ -53,7 +53,7 @@ public:
     MLABBucketRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     void initialize() override;
     ~MLABBucketRenderer() override;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_MLAB_BUCKETS; }
+    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_MLAB_BUCKETS; }
 
     /**
      * Re-generates the visualization mapping.

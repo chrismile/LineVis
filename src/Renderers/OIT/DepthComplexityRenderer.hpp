@@ -42,7 +42,7 @@ public:
     DepthComplexityRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     void initialize() override;
     ~DepthComplexityRenderer() override = default;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_DEPTH_COMPLEXITY; }
+    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_DEPTH_COMPLEXITY; }
 
     /**
      * Re-generates the visualization mapping.

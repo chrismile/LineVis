@@ -48,7 +48,7 @@ public:
     VoxelRayCastingRenderer(
             SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     void initialize() override;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_VOXEL_RAY_CASTING; }
+    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_VOXEL_RAY_CASTING; }
 
     /**
      * Re-generates the visualization mapping.

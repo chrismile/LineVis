@@ -109,7 +109,8 @@ private:
 class VulkanRayTracedAmbientOcclusionPass : public sgl::vk::ComputePass {
     friend class VulkanRayTracedAmbientOcclusion;
 public:
-    explicit VulkanRayTracedAmbientOcclusionPass(SceneData* sceneData, sgl::vk::Renderer* renderer);
+    VulkanRayTracedAmbientOcclusionPass(
+            SceneData* sceneData, sgl::vk::Renderer* renderer, std::function<void()> onHasMovedCallback);
 
     // Public interface.
     void recreateSwapchain(uint32_t width, uint32_t height) override;
@@ -132,10 +133,13 @@ private:
     void setComputePipelineInfo(sgl::vk::ComputePipelineInfo& pipelineInfo) override;
     void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
     void _render() override;
+    void recreateFeatureMaps();
+    void checkRecreateFeatureMaps();
 
     SceneData* sceneData;
     bool reRender = true;
     LineDataPtr lineData;
+    std::function<void()> onHasMovedParent;
 
     // Resolution of the ambient occlusion data.
     uint32_t numAmbientOcclusionSamplesPerFrame = 4;
@@ -145,6 +149,10 @@ private:
     uint32_t lastViewportWidth = 0, lastViewportHeight = 0;
 
     sgl::vk::TexturePtr accumulationTexture;
+    sgl::vk::TexturePtr normalMapTexture;
+    sgl::vk::TexturePtr depthMapTexture;
+    sgl::vk::TexturePtr positionMapTexture;
+    sgl::vk::TexturePtr albedoTexture;
     sgl::vk::TexturePtr denoisedTexture;
     sgl::vk::TexturePtr resultTexture;
 
@@ -164,8 +172,10 @@ private:
 
     // Uniform buffer object storing the camera settings.
     struct UniformData {
+        glm::mat4 viewMatrix;
         glm::mat4 inverseViewMatrix;
         glm::mat4 inverseProjectionMatrix;
+        glm::mat4 inverseTransposedViewMatrix;
 
         // The number of this frame (used for accumulation of samples across frames).
         uint32_t frameNumber{};

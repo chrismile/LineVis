@@ -56,7 +56,7 @@ class LineDensityMapRenderer : public LineRenderer {
 public:
     LineDensityMapRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~LineDensityMapRenderer() override;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_LINE_DENSITY_MAP_RENDERER; }
+    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_LINE_DENSITY_MAP_RENDERER; }
 
     /// Returns whether the triangle representation is used by the renderer.
     [[nodiscard]] bool getIsTriangleRepresentationUsed() const override { return false; }

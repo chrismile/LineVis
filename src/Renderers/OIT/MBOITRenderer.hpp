@@ -53,7 +53,7 @@ public:
     MBOITRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     void initialize() override;
     ~MBOITRenderer() override = default;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_MBOIT; }
+    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_MBOIT; }
 
     /**
      * Re-generates the visualization mapping.

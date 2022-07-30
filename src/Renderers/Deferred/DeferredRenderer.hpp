@@ -41,7 +41,7 @@ public:
     DeferredRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     void initialize() override;
     ~DeferredRenderer() override = default;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_DEFERRED_SHADING; }
+    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_DEFERRED_SHADING; }
     bool getIsTransparencyUsed() override { return false; }
 
     /**

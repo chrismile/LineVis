@@ -350,7 +350,7 @@ void DeferredRenderer::render() {
         //        depthRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
         renderer->insertImageMemoryBarrier(
                 depthRenderTargetImage->getImage(),
-                VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
                 VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT);
         hullRasterPass->render();
@@ -529,6 +529,7 @@ VisibilityBufferDrawIndexedPass::VisibilityBufferDrawIndexedPass(LineRenderer* l
 }
 
 void VisibilityBufferDrawIndexedPass::loadShader() {
+    sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
     lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);
     lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);

@@ -55,7 +55,7 @@ public:
             const std::string& windowName, SceneData* sceneData, sgl::TransferFunctionWindow &transferFunctionWindow);
     void initialize() override;
     ~MLABRenderer() override = default;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_MLAB; }
+    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_MLAB; }
 
     /**
      * Re-generates the visualization mapping.

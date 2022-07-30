@@ -42,11 +42,25 @@ layout(local_size_x = 16, local_size_y = 16) in;
 
 layout(binding = 1, rgba32f) uniform image2D outputImage;
 
-layout(binding = 2) uniform accelerationStructureEXT topLevelAS;
+#ifdef WRITE_NORMAL_MAP
+layout(binding = 2, rgba32f) uniform image2D normalMap;
+#endif
 
-layout(binding = 3) uniform UniformsBuffer {
+#ifdef WRITE_DEPTH_MAP
+layout(binding = 3, r32f) uniform image2D depthMap;
+#endif
+
+#ifdef WRITE_POSITION_MAP
+layout(binding = 4, rgba32f) uniform image2D positionMap;
+#endif
+
+layout(binding = 5) uniform accelerationStructureEXT topLevelAS;
+
+layout(binding = 6) uniform UniformsBuffer {
+    mat4 viewMatrix;
     mat4 inverseViewMatrix;
     mat4 inverseProjectionMatrix;
+    mat4 inverseTransposedViewMatrix;
 
     // The number of this frame (used for accumulation of samples across frames).
     uint frameNumber;
@@ -73,16 +87,16 @@ struct TubeTriangleVertexData {
     float phi; ///< Angle.
 };
 
-layout(scalar, binding = 6) readonly buffer TubeIndexBuffer {
+layout(scalar, binding = 7) readonly buffer TubeIndexBuffer {
     uvec3 indexBuffer[];
 };
 
-layout(std430, binding = 7) readonly buffer TubeTriangleVertexDataBuffer {
+layout(std430, binding = 8) readonly buffer TubeTriangleVertexDataBuffer {
     TubeTriangleVertexData tubeTriangleVertexDataBuffer[];
 };
 
 #ifdef USE_INSTANCE_TRIANGLE_INDEX_OFFSET
-layout(std430, binding = 10) readonly buffer InstanceTriangleIndexOffsetBuffer {
+layout(std430, binding = 9) readonly buffer InstanceTriangleIndexOffsetBuffer {
     uint instanceTriangleIndexOffsets[];
 };
 #endif
@@ -96,7 +110,7 @@ struct LinePointData {
     uint lineStartIndex;
 };
 
-layout(std430, binding = 8) readonly buffer LinePointDataBuffer {
+layout(std430, binding = 10) readonly buffer LinePointDataBuffer {
     LinePointData linePoints[];
 };
 
@@ -160,8 +174,8 @@ void main() {
             rayOrigin, 0.0001, rayDirection, 1000.0);
     while(rayQueryProceedEXT(rayQueryPrimary)) {}
 
-    //const float offsetFactor = subdivisionCorrectionFactor + 0.001;
-
+    vec3 surfaceNormal = vec3(0.0);
+    vec3 vertexPositionWorld = vec3(0.0);
     float aoFactor = 1.0;
     if (rayQueryGetIntersectionTypeEXT(rayQueryPrimary, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
         // 2. Get the surface normal of the hit tube.
@@ -195,17 +209,21 @@ void main() {
         LinePointData linePointData1 = linePoints[vertexLinePointIndex1];
         LinePointData linePointData2 = linePoints[vertexLinePointIndex2];
 
-        vec3 vertexPositionWorld = interpolateVec3(
+        vertexPositionWorld = interpolateVec3(
                 vertexData0.vertexPosition, vertexData1.vertexPosition, vertexData2.vertexPosition, barycentricCoordinates);
-        vec3 surfaceNormal = interpolateVec3(
+        surfaceNormal = interpolateVec3(
                 vertexData0.vertexNormal, vertexData1.vertexNormal, vertexData2.vertexNormal, barycentricCoordinates);
         surfaceNormal = normalize(surfaceNormal);
         vec3 surfaceTangent = interpolateVec3(
                 linePointData0.lineTangent, linePointData1.lineTangent, linePointData2.lineTangent, barycentricCoordinates);
         surfaceTangent = normalize(surfaceTangent);
+        vec3 linePosition = interpolateVec3(
+                linePointData0.linePosition, linePointData1.linePosition, linePointData2.linePosition, barycentricCoordinates);
 
         vec3 surfaceBitangent = cross(surfaceNormal, surfaceTangent);
         mat3 frame = mat3(surfaceTangent, surfaceBitangent, surfaceNormal);
+
+        const float offsetFactor = length(linePosition - vertexPositionWorld) / subdivisionCorrectionFactor;
 
 
         // 3. Trace the requested number of samples in the hemisphere around the hit point.
@@ -219,7 +237,7 @@ void main() {
             vec3 rayDirection = normalize(frame * sampleHemisphere(xi));
 
             rayQueryEXT rayQuery;
-            const float offsetFactor = length(cameraPosition - vertexPositionWorld) * 1e-3;
+            //const float offsetFactor = length(cameraPosition - vertexPositionWorld) * 1e-3;
             float occlusionFactor = traceAoRay(rayQuery, vertexPositionWorld + rayDirection * offsetFactor, rayDirection);
             aoFactor += occlusionFactor;
         }
@@ -236,4 +254,37 @@ void main() {
         aoFactor = mix(aoFactorPrev, aoFactor, 1.0 / float(frameNumber + 1));
     }
     imageStore(outputImage, writePos, vec4(aoFactor, aoFactor, aoFactor, 1.0));
+
+#ifdef WRITE_NORMAL_MAP
+    // Convert to camera space. Necessary according to:
+    // https://raytracing-docs.nvidia.com/optix7/guide/index.html#ai_denoiser#structure-and-use-of-image-buffers
+    vec3 camNormal = (inverseTransposedViewMatrix * vec4(surfaceNormal, 0.0)).xyz;
+    if (frameNumber != 0) {
+        vec3 normalOld = imageLoad(normalMap, writePos).xyz;
+        camNormal = mix(normalOld, camNormal, 1.0 / float(frameNumber + 1));
+        camNormal = normalize(camNormal);
+    }
+    imageStore(normalMap, writePos, vec4(camNormal, 0.0));
+#endif
+
+#if defined(WRITE_DEPTH_MAP) || defined(WRITE_POSITION_MAP)
+    vec3 positionViewSpace = (viewMatrix * vec4(vertexPositionWorld, 1.0)).xyz;
+#endif
+
+#ifdef WRITE_DEPTH_MAP
+    float depth = -positionViewSpace.z;
+    if (frameNumber != 0) {
+        float depthOld = imageLoad(depthMap, writePos).x;
+        depth = mix(depthOld, depth, 1.0 / float(frameNumber + 1));
+    }
+    imageStore(depthMap, writePos, vec4(depth));
+#endif
+
+#ifdef WRITE_POSITION_MAP
+    if (frameNumber != 0) {
+        vec3 positionViewSpaceOld = imageLoad(positionMap, writePos).xyz;
+        positionViewSpace = mix(positionViewSpaceOld, positionViewSpace, 1.0 / float(frameNumber + 1));
+    }
+    imageStore(positionMap, writePos, vec4(positionViewSpace, 1.0));
+#endif
 }

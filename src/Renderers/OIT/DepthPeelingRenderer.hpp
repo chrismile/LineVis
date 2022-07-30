@@ -44,7 +44,7 @@ public:
     DepthPeelingRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     void initialize() override;
     ~DepthPeelingRenderer() override;
-    RenderingMode getRenderingMode() override { return RENDERING_MODE_DEPTH_PEELING; }
+    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_DEPTH_PEELING; }
 
     /**
      * Re-generates the visualization mapping.

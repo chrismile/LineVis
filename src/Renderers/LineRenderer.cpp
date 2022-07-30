@@ -98,7 +98,8 @@ bool LineRenderer::needsReRender() {
 bool LineRenderer::getIsTriangleRepresentationUsed() const {
     bool primitiveModeUsesTriMesh =
             lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
-            || lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH;
+            || lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH
+            || getRenderingMode() == RENDERING_MODE_DEFERRED_SHADING;
     return (lineData && primitiveModeUsesTriMesh) || (useAmbientOcclusion && ambientOcclusionBaker);
 }
 

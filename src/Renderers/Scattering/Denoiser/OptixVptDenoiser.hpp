@@ -37,7 +37,9 @@
 #include <Graphics/Vulkan/Utils/InteropCuda.hpp>
 #include <optix_types.h>
 
-const char* const OPTIX_DENOISTER_MODEL_KIND_NAME[] = {
+class VectorBlitPass;
+
+const char* const OPTIX_DENOISER_MODEL_KIND_NAME[] = {
         "LDR", "HDR"
 };
 
@@ -57,7 +59,9 @@ public:
     DenoiserType getDenoiserType() override { return DenoiserType::OPTIX; }
     [[nodiscard]] const char* getDenoiserName() const override { return "OptiX Denoiser"; }
     void setOutputImage(sgl::vk::ImageViewPtr& outputImage) override;
-    void setFeatureMap(const std::string& featureMapName, const sgl::vk::TexturePtr& featureTexture) override;
+    void setFeatureMap(FeatureMapType featureMapType, const sgl::vk::TexturePtr& featureTexture) override;
+    [[nodiscard]] bool getUseFeatureMap(FeatureMapType featureMapType) const override;
+    void setUseFeatureMap(FeatureMapType featureMapType, bool useFeature) override;
     void denoise() override;
     void recreateSwapchain(uint32_t width, uint32_t height) override;
 
@@ -81,6 +85,8 @@ private:
     OptixDenoiser denoiser{};
     OptixDenoiserModelKind denoiserModelKind = OPTIX_DENOISER_MODEL_KIND_HDR;
     int denoiserModelKindIndex = int(denoiserModelKind) - int(OPTIX_DENOISER_MODEL_KIND_LDR);
+    bool useNormalMap = false;
+    bool useAlbedo = false;
     bool denoiseAlpha = false;
     bool recreateDenoiserNextFrame = false;
 
@@ -95,18 +101,34 @@ private:
     size_t scratchSizeInBytes = 0;
 
     // Image data.
-    sgl::vk::ImageViewPtr inputImageVulkan;
-    sgl::vk::ImageViewPtr outputImageVulkan;
-    sgl::vk::BufferPtr inputImageBufferVk, outputImageBufferVk;
-    sgl::vk::BufferCudaDriverApiExternalMemoryVkPtr inputImageBufferCu, outputImageBufferCu;
-    OptixImage2D inputImageOptix{};
-    OptixImage2D outputImageOptix{};
+    sgl::vk::ImageViewPtr inputImageVulkan, normalImageVulkan, albedoImageVulkan, outputImageVulkan;
+    OptixImage2D inputImageOptix{}, normalImageOptix{}, albedoImageOptix{}, outputImageOptix{};
+    sgl::vk::BufferPtr inputImageBufferVk, normalImageBufferVk, albedoImageBufferVk, outputImageBufferVk;
+    sgl::vk::BufferCudaDriverApiExternalMemoryVkPtr inputImageBufferCu, normalImageBufferCu, albedoImageBufferCu, outputImageBufferCu;
+
+    // For blitting 3D homogeneous vectors with four components into a contiguous array of 3 floating point elements.
+    std::shared_ptr<VectorBlitPass> normalBlitPass;
 
     // Synchronization primitives.
     std::vector<sgl::vk::CommandBufferPtr> postRenderCommandBuffers;
     std::vector<sgl::vk::SemaphoreVkCudaDriverApiInteropPtr> renderFinishedSemaphores;
     std::vector<sgl::vk::SemaphoreVkCudaDriverApiInteropPtr> denoiseFinishedSemaphores;
     uint64_t timelineValue = 0;
+};
+
+class VectorBlitPass : public sgl::vk::ComputePass {
+public:
+    explicit VectorBlitPass(sgl::vk::Renderer* renderer);
+    void setInputImage(const sgl::vk::ImageViewPtr& _inputImage);
+    void setOutputBuffer(const sgl::vk::BufferPtr& _outputBuffer);
+
+protected:
+    void loadShader() override;
+    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
+
+private:
+    sgl::vk::ImageViewPtr inputImage;
+    sgl::vk::BufferPtr outputBuffer;
 };
 
 #endif //LINEVIS_OPTIXVPTDENOISER_HPP

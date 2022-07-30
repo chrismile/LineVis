@@ -95,7 +95,7 @@ VolumetricPathTracingPass::~VolumetricPathTracingPass() {
 }
 
 void VolumetricPathTracingPass::createDenoiser() {
-    denoiser = createDenoiserObject(denoiserType, renderer);
+    denoiser = createDenoiserObject(denoiserType, renderer, DenoisingMode::VOLUMETRIC_PATH_TRACING);
 
     if (resultImageTexture) {
         setDenoiserFeatureMaps();
@@ -119,7 +119,7 @@ void VolumetricPathTracingPass::setOutputImage(sgl::vk::ImageViewPtr& imageView)
     resultTexture = std::make_shared<sgl::vk::Texture>(
             resultImageView, sgl::vk::ImageSamplerSettings());
     imageSettings.usage =
-            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+            VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT
             | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     denoisedImageView = std::make_shared<sgl::vk::ImageView>(
             std::make_shared<sgl::vk::Image>(device, imageSettings));
@@ -144,9 +144,9 @@ void VolumetricPathTracingPass::setOutputImage(sgl::vk::ImageViewPtr& imageView)
 
 void VolumetricPathTracingPass::setDenoiserFeatureMaps() {
     if (denoiser) {
-        denoiser->setFeatureMap("color", resultImageTexture);
-        denoiser->setFeatureMap("position", firstXTexture);
-        denoiser->setFeatureMap("normal", firstWTexture);
+        denoiser->setFeatureMap(FeatureMapType::COLOR, resultImageTexture);
+        denoiser->setFeatureMap(FeatureMapType::POSITION, firstXTexture);
+        denoiser->setFeatureMap(FeatureMapType::NORMAL, firstWTexture);
         denoiser->setOutputImage(denoisedImageView);
     }
 }
@@ -604,7 +604,7 @@ void VolumetricPathTracingPass::_render() {
     changedDenoiserSettings = false;
     timerStopped = false;
 
-    if (featureMapType == FeatureMapType::RESULT) {
+    if (featureMapType == FeatureMapTypeVpt::RESULT) {
         if (useDenoiser && denoiser && denoiser->getIsEnabled()) {
             denoiser->denoise();
             renderer->transitionImageLayout(
@@ -624,17 +624,17 @@ void VolumetricPathTracingPass::_render() {
              resultImageView->getImage()->blit(
                      sceneImageView->getImage(), renderer->getVkCommandBuffer());*/
         }
-    } else if (featureMapType == FeatureMapType::FIRST_X) {
+    } else if (featureMapType == FeatureMapTypeVpt::FIRST_X) {
         renderer->transitionImageLayout(firstXTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         renderer->transitionImageLayout(sceneImageView->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         firstXTexture->getImage()->blit(sceneImageView->getImage(), renderer->getVkCommandBuffer());
-    } else if (featureMapType == FeatureMapType::FIRST_W) {
+    } else if (featureMapType == FeatureMapTypeVpt::FIRST_W) {
         renderer->transitionImageLayout(firstWTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         renderer->transitionImageLayout(sceneImageView->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         firstWTexture->getImage()->blit(sceneImageView->getImage(), renderer->getVkCommandBuffer());
-    } else if (featureMapType == FeatureMapType::PRIMARY_RAY_ABSORPTION_MOMENTS) {
+    } else if (featureMapType == FeatureMapTypeVpt::PRIMARY_RAY_ABSORPTION_MOMENTS) {
         blitPrimaryRayMomentTexturePass->render();
-    } else if (featureMapType == FeatureMapType::SCATTER_RAY_ABSORPTION_MOMENTS) {
+    } else if (featureMapType == FeatureMapTypeVpt::SCATTER_RAY_ABSORPTION_MOMENTS) {
         blitScatterRayMomentTexturePass->render();
     }
 
@@ -731,9 +731,9 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
                 IM_ARRAYSIZE(FEATURE_MAP_NAMES))) {
             optionChanged = true;
             blitPrimaryRayMomentTexturePass->setVisualizeMomentTexture(
-                    featureMapType == FeatureMapType::PRIMARY_RAY_ABSORPTION_MOMENTS);
+                    featureMapType == FeatureMapTypeVpt::PRIMARY_RAY_ABSORPTION_MOMENTS);
             blitScatterRayMomentTexturePass->setVisualizeMomentTexture(
-                    featureMapType == FeatureMapType::SCATTER_RAY_ABSORPTION_MOMENTS);
+                    featureMapType == FeatureMapTypeVpt::SCATTER_RAY_ABSORPTION_MOMENTS);
         }
         if (propertyEditor.addCombo(
                 "VPT Mode", (int*)&vptMode, VPT_MODE_NAMES,
