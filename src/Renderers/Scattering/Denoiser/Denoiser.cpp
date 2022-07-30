@@ -53,6 +53,9 @@ std::shared_ptr<Denoiser> createDenoiserObject(
 #ifdef SUPPORT_OPTIX
     else if (denoiserType == DenoiserType::OPTIX) {
         denoiser = std::shared_ptr<Denoiser>(new OptixVptDenoiser(renderer));
+        if (mode == DenoisingMode::VOLUMETRIC_PATH_TRACING) {
+            denoiser->setTemporalDenoisingEnabled(false);
+        }
     }
 #endif
     else {

@@ -40,7 +40,7 @@
 class VectorBlitPass;
 
 const char* const OPTIX_DENOISER_MODEL_KIND_NAME[] = {
-        "LDR", "HDR"
+        "LDR", "HDR", "Temporal"
 };
 
 /**
@@ -62,6 +62,8 @@ public:
     void setFeatureMap(FeatureMapType featureMapType, const sgl::vk::TexturePtr& featureTexture) override;
     [[nodiscard]] bool getUseFeatureMap(FeatureMapType featureMapType) const override;
     void setUseFeatureMap(FeatureMapType featureMapType, bool useFeature) override;
+    void setTemporalDenoisingEnabled(bool enabled); //< Call if renderer doesn't support temporal denoising.
+    void resetFrameNumber() override;
     void denoise() override;
     void recreateSwapchain(uint32_t width, uint32_t height) override;
 
@@ -83,12 +85,16 @@ private:
     void runOptixDenoiser();
     CUstream stream{};
     OptixDenoiser denoiser{};
+    // If supporting OPTIX_DENOISER_MODEL_KIND_UPSCALE2X/OPTIX_DENOISER_MODEL_KIND_TEMPORAL_UPSCALE2X in the future:
+    // Check OPTIX_VERSION >= 70500.
     OptixDenoiserModelKind denoiserModelKind = OPTIX_DENOISER_MODEL_KIND_HDR;
     int denoiserModelKindIndex = int(denoiserModelKind) - int(OPTIX_DENOISER_MODEL_KIND_LDR);
+    int numDenoisersSupported = (int)(sizeof(OPTIX_DENOISER_MODEL_KIND_NAME) / sizeof(*OPTIX_DENOISER_MODEL_KIND_NAME));
     bool useNormalMap = false;
     bool useAlbedo = false;
     bool denoiseAlpha = false;
     bool recreateDenoiserNextFrame = false;
+    bool isFirstFrame = true; ///< For resetting temporal accumulation.
 
     // Frame size dependent data.
     void _freeBuffers();
@@ -101,10 +107,10 @@ private:
     size_t scratchSizeInBytes = 0;
 
     // Image data.
-    sgl::vk::ImageViewPtr inputImageVulkan, normalImageVulkan, albedoImageVulkan, outputImageVulkan;
-    OptixImage2D inputImageOptix{}, normalImageOptix{}, albedoImageOptix{}, outputImageOptix{};
-    sgl::vk::BufferPtr inputImageBufferVk, normalImageBufferVk, albedoImageBufferVk, outputImageBufferVk;
-    sgl::vk::BufferCudaDriverApiExternalMemoryVkPtr inputImageBufferCu, normalImageBufferCu, albedoImageBufferCu, outputImageBufferCu;
+    sgl::vk::ImageViewPtr inputImageVulkan, normalImageVulkan, albedoImageVulkan, flowImageVulkan, outputImageVulkan;
+    OptixImage2D inputImageOptix{}, normalImageOptix{}, albedoImageOptix{}, flowImageOptix{}, outputImageOptix{};
+    sgl::vk::BufferPtr inputImageBufferVk, normalImageBufferVk, albedoImageBufferVk, flowImageBufferVk, outputImageBufferVk;
+    sgl::vk::BufferCudaDriverApiExternalMemoryVkPtr inputImageBufferCu, normalImageBufferCu, albedoImageBufferCu, flowImageBufferCu, outputImageBufferCu;
 
     // For blitting 3D homogeneous vectors with four components into a contiguous array of 3 floating point elements.
     std::shared_ptr<VectorBlitPass> normalBlitPass;

@@ -66,6 +66,8 @@ public:
     virtual void setFeatureMap(FeatureMapType featureMapType, const sgl::vk::TexturePtr& featureTexture) = 0;
     [[nodiscard]] virtual bool getUseFeatureMap(FeatureMapType featureMapType) const = 0;
     virtual void setUseFeatureMap(FeatureMapType featureMapType, bool useNormals) = 0;
+    virtual void setTemporalDenoisingEnabled(bool enabled) = 0;
+    virtual void resetFrameNumber() = 0; // For temporal denoisers to indicate reset of temporal accumulation.
     virtual void denoise() = 0;
     virtual void recreateSwapchain(uint32_t width, uint32_t height) {}
 

@@ -158,7 +158,6 @@ void OptixVptDenoiser::createDenoiser() {
         denoiser = {};
     }
 
-    // TODO: Support OPTIX_DENOISER_MODEL_KIND_TEMPORAL?
     OptixDenoiserOptions options;
     options.guideAlbedo = useAlbedo && albedoImageVulkan ? 1 : 0;
     options.guideNormal = useNormalMap && normalImageVulkan ? 1 : 0;
@@ -185,8 +184,9 @@ void OptixVptDenoiser::setFeatureMap(FeatureMapType featureMapType, const sgl::v
         normalImageVulkan = featureTexture->getImageView();
     } else if (featureMapType == FeatureMapType::ALBEDO) {
         albedoImageVulkan = featureTexture->getImageView();
-    } else if (featureMapType == FeatureMapType::DEPTH || featureMapType == FeatureMapType::POSITION
-            || featureMapType == FeatureMapType::FLOW) {
+    } else if (featureMapType == FeatureMapType::FLOW) {
+        flowImageVulkan = featureTexture->getImageView();
+    } else if (featureMapType == FeatureMapType::DEPTH || featureMapType == FeatureMapType::POSITION) {
         // Ignore.
     } else {
         sgl::Logfile::get()->writeWarning("Warning in OptixVptDenoiser::setFeatureMap: Unknown feature map.");
@@ -200,6 +200,8 @@ bool OptixVptDenoiser::getUseFeatureMap(FeatureMapType featureMapType) const {
         return useAlbedo;
     } else if (featureMapType == FeatureMapType::NORMAL) {
         return useNormalMap;
+    } else if (featureMapType == FeatureMapType::FLOW) {
+        return denoiserModelKind == OPTIX_DENOISER_MODEL_KIND_TEMPORAL;
     } else {
         return false;
     }
@@ -207,7 +209,8 @@ bool OptixVptDenoiser::getUseFeatureMap(FeatureMapType featureMapType) const {
 
 void OptixVptDenoiser::setUseFeatureMap(FeatureMapType featureMapType, bool useFeature) {
     if ((featureMapType == FeatureMapType::ALBEDO && useAlbedo != useFeature)
-            || (featureMapType == FeatureMapType::NORMAL && useNormalMap != useFeature)) {
+            || (featureMapType == FeatureMapType::NORMAL && useNormalMap != useFeature)
+            || (featureMapType == FeatureMapType::FLOW && getUseFeatureMap(FeatureMapType::FLOW) != useFeature)) {
         recreateDenoiserNextFrame = true;
     }
     if (featureMapType == FeatureMapType::COLOR) {
@@ -219,7 +222,14 @@ void OptixVptDenoiser::setUseFeatureMap(FeatureMapType featureMapType, bool useF
         useAlbedo = useFeature;
     } else if (featureMapType == FeatureMapType::NORMAL) {
         useNormalMap = useFeature;
+    } else if (featureMapType == FeatureMapType::FLOW) {
+        denoiserModelKind = useFeature ? OPTIX_DENOISER_MODEL_KIND_HDR : OPTIX_DENOISER_MODEL_KIND_TEMPORAL;
+        denoiserModelKindIndex = useFeature ? 0 : 2;
     }
+}
+
+void OptixVptDenoiser::setTemporalDenoisingEnabled(bool enabled) {
+    numDenoisersSupported = IM_ARRAYSIZE(OPTIX_DENOISER_MODEL_KIND_NAME) - (enabled ? 0 : 1);
 }
 
 void OptixVptDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
@@ -306,6 +316,23 @@ void OptixVptDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
         normalBlitPass->setOutputBuffer(normalImageBufferVk);
     }
 
+    if (getUseFeatureMap(FeatureMapType::FLOW) && flowImageVulkan) {
+        flowImageBufferVk = std::make_shared<sgl::vk::Buffer>(
+                device, inputWidth * inputHeight * 2 * sizeof(float),
+                VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+                | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY,
+                true, true);
+        flowImageBufferCu = std::make_shared<sgl::vk::BufferCudaDriverApiExternalMemoryVk>(flowImageBufferVk);
+
+        flowImageOptix = {};
+        flowImageOptix.width = inputWidth;
+        flowImageOptix.height = inputHeight;
+        flowImageOptix.format = OPTIX_PIXEL_FORMAT_FLOAT2;
+        flowImageOptix.pixelStrideInBytes = 2 * sizeof(float);
+        flowImageOptix.rowStrideInBytes = inputWidth * 2 * sizeof(float);
+        flowImageOptix.data = flowImageBufferCu->getCudaDevicePtr();
+    }
+
     outputImageBufferVk = std::make_shared<sgl::vk::Buffer>(
             device, inputWidth * inputHeight * 4 * sizeof(float),
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
@@ -363,6 +390,10 @@ void OptixVptDenoiser::_freeBuffers() {
     }
 }
 
+void OptixVptDenoiser::resetFrameNumber() {
+    isFirstFrame = true;
+}
+
 void OptixVptDenoiser::denoise() {
     if (recreateDenoiserNextFrame) {
         createDenoiser();
@@ -400,6 +431,14 @@ void OptixVptDenoiser::denoise() {
             normalBlitPass->render();
         }
     }
+
+    if (getUseFeatureMap(FeatureMapType::FLOW) && flowImageVulkan) {
+        flowImageVulkan->getImage()->transitionImageLayout(
+                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, renderer->getVkCommandBuffer());
+        flowImageVulkan->getImage()->copyToBuffer(
+                flowImageBufferVk, renderer->getVkCommandBuffer());
+    }
+
     //renderer->insertBufferMemoryBarrier(
     //        VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
     //        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
@@ -457,19 +496,39 @@ void OptixVptDenoiser::runOptixDenoiser() {
         params.hdrIntensity = imageIntensity;
     }
 
+    OptixDenoiserLayer denoiserLayer{};
+    denoiserLayer.input = inputImageOptix;
+    denoiserLayer.output = outputImageOptix;
     OptixDenoiserGuideLayer guideLayer{};
-    //guideLayer.flow;
+
     if (useAlbedo && albedoImageVulkan) {
         guideLayer.albedo = albedoImageOptix;
     }
+
     if (useNormalMap && normalImageVulkan) {
         guideLayer.normal = normalImageOptix;
     }
 
-    OptixDenoiserLayer denoiserLayer{};
-    denoiserLayer.input = inputImageOptix;
-    denoiserLayer.output = outputImageOptix;
-    //denoiserLayer.previousOutput;
+    if (denoiserModelKind == OPTIX_DENOISER_MODEL_KIND_TEMPORAL) {
+        if (isFirstFrame) {
+            denoiserLayer.previousOutput = inputImageOptix;
+            guideLayer.flow = flowImageOptix; // All flow vectors set to zero.
+            sgl::vk::g_cudaDeviceApiFunctionTable.cuMemsetD8Async(
+                    flowImageBufferCu->getCudaDevicePtr(), 0, sizeof(float) * 2 * inputWidth * inputHeight, stream);
+        } else {
+            /**
+             * https://raytracing-docs.nvidia.com/optix7/guide/index.html#ai_denoiser#structure-and-use-of-image-buffers
+             * "previousOutput is read in optixDenoiserInvoke before writing a new output, so previousOutput could be
+             * set to output (the same buffer) for efficiency if useful in the application."
+             */
+            denoiserLayer.previousOutput = outputImageOptix;
+            guideLayer.flow = flowImageOptix;
+        }
+#if OPTIX_VERSION >= 70500
+        params.temporalModeUsePreviousLayers = isFirstFrame ? 0 : 1;
+#endif
+    }
+    isFirstFrame = false;
 
     OptixResult result = optixDenoiserInvoke(
             denoiser, stream, &params, denoiserState, denoiserStateSizeInBytes,
@@ -489,10 +548,16 @@ bool OptixVptDenoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
     bool reRender = false;
 
     if (propertyEditor.addCombo(
-            "Feature Map", (int*)&denoiserModelKindIndex, OPTIX_DENOISER_MODEL_KIND_NAME,
-            IM_ARRAYSIZE(OPTIX_DENOISER_MODEL_KIND_NAME))) {
+            "Feature Map", (int*)&denoiserModelKindIndex,
+            OPTIX_DENOISER_MODEL_KIND_NAME, numDenoisersSupported)) {
         reRender = true;
-        denoiserModelKind = OptixDenoiserModelKind(denoiserModelKindIndex + int(OPTIX_DENOISER_MODEL_KIND_LDR));
+        if (denoiserModelKindIndex == 0) {
+            denoiserModelKind = OPTIX_DENOISER_MODEL_KIND_LDR;
+        } else if (denoiserModelKindIndex == 1) {
+            denoiserModelKind = OPTIX_DENOISER_MODEL_KIND_HDR;
+        } else if (denoiserModelKindIndex == 2) {
+            denoiserModelKind = OPTIX_DENOISER_MODEL_KIND_TEMPORAL;
+        }
         recreateDenoiserNextFrame = true;
     }
 
@@ -506,8 +571,13 @@ bool OptixVptDenoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
         recreateDenoiserNextFrame = true;
     }
 
+    if (reRender) {
+        resetFrameNumber();
+    }
+
     return reRender;
 }
+
 
 
 VectorBlitPass::VectorBlitPass(sgl::vk::Renderer* renderer) : ComputePass(renderer) {

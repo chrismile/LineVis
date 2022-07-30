@@ -217,6 +217,9 @@ void VulkanRayTracedAmbientOcclusionPass::setDenoiserFeatureMaps() {
         if (denoiser->getUseFeatureMap(FeatureMapType::ALBEDO)) {
             denoiser->setFeatureMap(FeatureMapType::ALBEDO, albedoTexture);
         }
+        if (denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
+            denoiser->setFeatureMap(FeatureMapType::FLOW, flowMapTexture);
+        }
         denoiser->setOutputImage(denoisedTexture->getImageView());
     }
 }
@@ -295,6 +298,14 @@ void VulkanRayTracedAmbientOcclusionPass::recreateFeatureMaps() {
         device->endSingleTimeCommands(commandBuffer);
     }
 
+    if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
+        imageSettings.format = VK_FORMAT_R32G32_SFLOAT;
+        imageSettings.usage =
+                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT
+                | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        flowMapTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
+    }
+
     setDenoiserFeatureMaps();
 }
 
@@ -303,17 +314,19 @@ void VulkanRayTracedAmbientOcclusionPass::checkRecreateFeatureMaps() {
     bool useDepthRenderer = depthMapTexture.get() != nullptr;
     bool usePositionRenderer = positionMapTexture.get() != nullptr;
     bool useAlbedoRenderer = albedoTexture.get() != nullptr;
+    bool useFlowRenderer = flowMapTexture.get() != nullptr;
 
     bool shallRecreateFeatureMaps = false;
     if (denoiser) {
         if (useNormalMapRenderer != denoiser->getUseFeatureMap(FeatureMapType::NORMAL)
                 || useDepthRenderer != denoiser->getUseFeatureMap(FeatureMapType::DEPTH)
                 || usePositionRenderer != denoiser->getUseFeatureMap(FeatureMapType::POSITION)
-                || useAlbedoRenderer != denoiser->getUseFeatureMap(FeatureMapType::ALBEDO)) {
+                || useAlbedoRenderer != denoiser->getUseFeatureMap(FeatureMapType::ALBEDO)
+                || useFlowRenderer != denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
             shallRecreateFeatureMaps = true;
         }
     } else {
-        if (useNormalMapRenderer || useDepthRenderer || usePositionRenderer || useAlbedoRenderer) {
+        if (useNormalMapRenderer || useDepthRenderer || usePositionRenderer || useAlbedoRenderer || useFlowRenderer) {
             shallRecreateFeatureMaps = true;
         }
     }
@@ -338,6 +351,11 @@ void VulkanRayTracedAmbientOcclusionPass::setLineData(LineDataPtr& data, bool is
         setShaderDirty();
     }
 
+    if (denoiser) {
+        denoiser->resetFrameNumber();
+    }
+    lastFrameViewProjectionMatrix = sceneData->camera->getProjectionMatrix() * sceneData->camera->getViewMatrix();
+
     uniformData.frameNumber = 0;
     setDataDirty();
 }
@@ -361,6 +379,9 @@ void VulkanRayTracedAmbientOcclusionPass::loadShader() {
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::POSITION)) {
         preprocessorDefines.insert(std::make_pair("WRITE_POSITION_MAP", ""));
     }
+    if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
+        preprocessorDefines.insert(std::make_pair("WRITE_FLOW_MAP", ""));
+    }
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
             { "VulkanRayTracedAmbientOcclusion.Compute" }, preprocessorDefines);
 }
@@ -380,6 +401,9 @@ void VulkanRayTracedAmbientOcclusionPass::createComputeData(
     }
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::POSITION)) {
         computeData->setStaticImageView(positionMapTexture->getImageView(), "positionMap");
+    }
+    if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
+        computeData->setStaticImageView(flowMapTexture->getImageView(), "flowMap");
     }
     computeData->setTopLevelAccelerationStructure(topLevelAS, "topLevelAS");
     computeData->setStaticBuffer(uniformBuffer, "UniformsBuffer");
@@ -404,6 +428,7 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
         uniformData.inverseViewMatrix = glm::inverse(uniformData.viewMatrix);
         uniformData.inverseProjectionMatrix = glm::inverse(sceneData->camera->getProjectionMatrix());
         uniformData.inverseTransposedViewMatrix = glm::transpose(uniformData.inverseViewMatrix);
+        uniformData.lastFrameViewProjectionMatrix = lastFrameViewProjectionMatrix;
         uniformData.numSamplesPerFrame = numAmbientOcclusionSamplesPerFrame;
         uniformData.useDistance = useDistance;
         uniformData.ambientOcclusionRadius = ambientOcclusionRadius;
@@ -432,6 +457,9 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
         if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::POSITION)) {
             renderer->transitionImageLayout(positionMapTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);
         }
+        if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
+            renderer->transitionImageLayout(flowMapTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);
+        }
         auto& imageSettings = accumulationTexture->getImage()->getImageSettings();
         int width = int(imageSettings.width);
         int height = int(imageSettings.height);
@@ -441,6 +469,7 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
             renderer->dispatch(computeData, groupCountX, groupCountY, 1);
         }
     }
+    lastFrameViewProjectionMatrix = sceneData->camera->getProjectionMatrix() * sceneData->camera->getViewMatrix();
     changedDenoiserSettings = false;
 
     if (useDenoiser && denoiser && denoiser->getIsEnabled()) {

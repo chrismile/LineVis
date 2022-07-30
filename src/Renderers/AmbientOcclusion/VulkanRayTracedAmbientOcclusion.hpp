@@ -153,6 +153,7 @@ private:
     sgl::vk::TexturePtr depthMapTexture;
     sgl::vk::TexturePtr positionMapTexture;
     sgl::vk::TexturePtr albedoTexture;
+    sgl::vk::TexturePtr flowMapTexture;
     sgl::vk::TexturePtr denoisedTexture;
     sgl::vk::TexturePtr resultTexture;
 
@@ -169,6 +170,7 @@ private:
     DenoiserType denoiserType = DenoiserType::NONE;
     bool useDenoiser = true;
     std::shared_ptr<Denoiser> denoiser;
+    glm::mat4 lastFrameViewProjectionMatrix;
 
     // Uniform buffer object storing the camera settings.
     struct UniformData {
@@ -176,6 +178,7 @@ private:
         glm::mat4 inverseViewMatrix;
         glm::mat4 inverseProjectionMatrix;
         glm::mat4 inverseTransposedViewMatrix;
+        glm::mat4 lastFrameViewProjectionMatrix;
 
         // The number of this frame (used for accumulation of samples across frames).
         uint32_t frameNumber{};

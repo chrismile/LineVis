@@ -54,13 +54,18 @@ layout(binding = 3, r32f) uniform image2D depthMap;
 layout(binding = 4, rgba32f) uniform image2D positionMap;
 #endif
 
-layout(binding = 5) uniform accelerationStructureEXT topLevelAS;
+#ifdef WRITE_FLOW_MAP
+layout(binding = 5, rg32f) uniform image2D flowMap;
+#endif
 
-layout(binding = 6) uniform UniformsBuffer {
+layout(binding = 6) uniform accelerationStructureEXT topLevelAS;
+
+layout(binding = 7) uniform UniformsBuffer {
     mat4 viewMatrix;
     mat4 inverseViewMatrix;
     mat4 inverseProjectionMatrix;
     mat4 inverseTransposedViewMatrix;
+    mat4 lastFrameViewProjectionMatrix;
 
     // The number of this frame (used for accumulation of samples across frames).
     uint frameNumber;
@@ -87,16 +92,16 @@ struct TubeTriangleVertexData {
     float phi; ///< Angle.
 };
 
-layout(scalar, binding = 7) readonly buffer TubeIndexBuffer {
+layout(scalar, binding = 8) readonly buffer TubeIndexBuffer {
     uvec3 indexBuffer[];
 };
 
-layout(std430, binding = 8) readonly buffer TubeTriangleVertexDataBuffer {
+layout(std430, binding = 9) readonly buffer TubeTriangleVertexDataBuffer {
     TubeTriangleVertexData tubeTriangleVertexDataBuffer[];
 };
 
 #ifdef USE_INSTANCE_TRIANGLE_INDEX_OFFSET
-layout(std430, binding = 9) readonly buffer InstanceTriangleIndexOffsetBuffer {
+layout(std430, binding = 10) readonly buffer InstanceTriangleIndexOffsetBuffer {
     uint instanceTriangleIndexOffsets[];
 };
 #endif
@@ -110,7 +115,7 @@ struct LinePointData {
     uint lineStartIndex;
 };
 
-layout(std430, binding = 10) readonly buffer LinePointDataBuffer {
+layout(std430, binding = 11) readonly buffer LinePointDataBuffer {
     LinePointData linePoints[];
 };
 
@@ -174,10 +179,15 @@ void main() {
             rayOrigin, 0.0001, rayDirection, 1000.0);
     while(rayQueryProceedEXT(rayQueryPrimary)) {}
 
+#ifdef WRITE_FLOW_MAP
+#endif
+
     vec3 surfaceNormal = vec3(0.0);
     vec3 vertexPositionWorld = vec3(0.0);
     float aoFactor = 1.0;
-    if (rayQueryGetIntersectionTypeEXT(rayQueryPrimary, true) != gl_RayQueryCommittedIntersectionNoneEXT) {
+    bool hasHitSurface =
+            rayQueryGetIntersectionTypeEXT(rayQueryPrimary, true) != gl_RayQueryCommittedIntersectionNoneEXT;
+    if (hasHitSurface) {
         // 2. Get the surface normal of the hit tube.
         int primitiveId = rayQueryGetIntersectionPrimitiveIndexEXT(rayQueryPrimary, true);
 #ifdef USE_INSTANCE_TRIANGLE_INDEX_OFFSET
@@ -286,5 +296,20 @@ void main() {
         positionViewSpace = mix(positionViewSpaceOld, positionViewSpace, 1.0 / float(frameNumber + 1));
     }
     imageStore(positionMap, writePos, vec4(positionViewSpace, 1.0));
+#endif
+
+#ifdef WRITE_FLOW_MAP
+    vec2 flowVector = vec2(0.0);
+    if (hasHitSurface) {
+        vec4 lastFramePositionNdc = lastFrameViewProjectionMatrix * vec4(vertexPositionWorld, 1.0);
+        lastFramePositionNdc.xyz /= lastFramePositionNdc.w;
+        vec2 pixelPositionLastFrame = (0.5 * lastFramePositionNdc.xy + vec2(0.5)) * vec2(outputImageSize);
+        flowVector = vec2(writePos) - pixelPositionLastFrame;
+    }
+    if (frameNumber != 0) {
+        vec2 flowVectorOld = imageLoad(flowMap, writePos).xy;
+        flowVector = mix(flowVectorOld, flowVector, 1.0 / float(frameNumber + 1));
+    }
+    imageStore(flowMap, writePos, vec4(flowVector, 0.0, 0.0));
 #endif
 }
