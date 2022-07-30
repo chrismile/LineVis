@@ -23,7 +23,13 @@
  */
 
 // Pathtracing with Delta tracking and Spectral tracking.
+
 #ifdef USE_SPECTRAL_DELTA_TRACKING
+/**
+ * For more details on spectral delta tracking, please refer to:
+ * P. Kutz, R. Habel, Y. K. Li, and J. Novák. Spectral and decomposition tracking for rendering heterogeneous volumes.
+ * ACM Trans. Graph., 36(4), Jul. 2017.
+ */
 vec3 deltaTrackingSpectral(vec3 x, vec3 w) {
 #ifdef USE_NANOVDB
     pnanovdb_readaccessor_t accessor = createAccessor();
@@ -35,8 +41,8 @@ vec3 deltaTrackingSpectral(vec3 x, vec3 w) {
 
     vec3 absorptionAlbedo = vec3(1, 1, 1) - parameters.scatteringAlbedo;
     vec3 scatteringAlbedo = parameters.scatteringAlbedo;
-    float PA = maxComponent (absorptionAlbedo * parameters.extinction);
-    float PS = maxComponent (scatteringAlbedo * parameters.extinction);
+    float PA = maxComponent(absorptionAlbedo * parameters.extinction);
+    float PS = maxComponent(scatteringAlbedo * parameters.extinction);
 
     float tMin, tMax;
     if (rayBoxIntersect(parameters.boxMin, parameters.boxMax, x, w, tMin, tMax)) {
@@ -61,9 +67,19 @@ vec3 deltaTrackingSpectral(vec3 x, vec3 w) {
             vec3 sigma_s = scatteringAlbedo * parameters.extinction * density;
             vec3 sigma_n = vec3(majorant) - parameters.extinction * density;
 
+#if defined(MAX_BASED_PROBABILITY)
             float Pa = maxComponent(sigma_a);
             float Ps = maxComponent(sigma_s);
             float Pn = maxComponent(sigma_n);
+#elif defined(AVG_BASED_PROBABILITY)
+            float Pa = avgComponent(sigma_a);
+            float Ps = avgComponent(sigma_s);
+            float Pn = avgComponent(sigma_n);
+#else // Path history average-based probability
+            float Pa = avgComponent(sigma_a * weights);
+            float Ps = avgComponent(sigma_s * weights);
+            float Pn = avgComponent(sigma_n * weights);
+#endif
             float C = Pa + Ps + Pn;
             Pa /= C;
             Ps /= C;
@@ -87,6 +103,9 @@ vec3 deltaTrackingSpectral(vec3 x, vec3 w) {
                 d -= t;
                 weights *= sigma_n / (majorant * Pn);
             }
+#if !defined(MAX_BASED_PROBABILITY) && !defined(AVG_BASED_PROBABILITY)
+            weights = min(weights, vec3(100.0, 100.0, 100.0));
+#endif
         }
     }
 

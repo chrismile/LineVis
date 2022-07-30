@@ -39,10 +39,6 @@
 
 class VectorBlitPass;
 
-const char* const OPTIX_DENOISER_MODEL_KIND_NAME[] = {
-        "LDR", "HDR", "Temporal"
-};
-
 /**
  * A wrapper of the NVIDIA OptiX Denoiser (https://developer.nvidia.com/optix-denoiser).
  */
@@ -87,6 +83,9 @@ private:
     OptixDenoiser denoiser{};
     // If supporting OPTIX_DENOISER_MODEL_KIND_UPSCALE2X/OPTIX_DENOISER_MODEL_KIND_TEMPORAL_UPSCALE2X in the future:
     // Check OPTIX_VERSION >= 70500.
+    const char* const OPTIX_DENOISER_MODEL_KIND_NAME[3] = {
+            "LDR", "HDR", "Temporal"
+    };
     OptixDenoiserModelKind denoiserModelKind = OPTIX_DENOISER_MODEL_KIND_HDR;
     int denoiserModelKindIndex = int(denoiserModelKind) - int(OPTIX_DENOISER_MODEL_KIND_LDR);
     int numDenoisersSupported = (int)(sizeof(OPTIX_DENOISER_MODEL_KIND_NAME) / sizeof(*OPTIX_DENOISER_MODEL_KIND_NAME));

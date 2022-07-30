@@ -413,6 +413,13 @@ void VolumetricPathTracingPass::loadShader() {
         customPreprocessorDefines.insert({ "USE_DELTA_TRACKING", "" });
     } else if (vptMode == VptMode::SPECTRAL_DELTA_TRACKING) {
         customPreprocessorDefines.insert({ "USE_SPECTRAL_DELTA_TRACKING", "" });
+        if (sdtCollisionProbability == SpectralDeltaTrackingCollisionProbability::MAX_BASED) {
+            customPreprocessorDefines.insert({ "MAX_BASED_PROBABILITY", "" });
+        } else if (sdtCollisionProbability == SpectralDeltaTrackingCollisionProbability::AVG_BASED) {
+            customPreprocessorDefines.insert({ "AVG_BASED_PROBABILITY", "" });
+        } else { // SpectralDeltaTrackingCollisionProbability::PATH_HISTORY_AVG_BASED
+            customPreprocessorDefines.insert({ "PATH_HISTORY_AVG_BASED_PROBABILITY", "" });
+        }
     } else if (vptMode == VptMode::RATIO_TRACKING) {
         customPreprocessorDefines.insert({ "USE_RATIO_TRACKING", "" });
     } else if (vptMode == VptMode::RESIDUAL_RATIO_TRACKING) {
@@ -614,15 +621,15 @@ void VolumetricPathTracingPass::_render() {
             denoisedImageView->getImage()->blit(
                     sceneImageView->getImage(), renderer->getVkCommandBuffer());
         } else {
-            renderer->transitionImageLayout(
-                    resultImageView->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-            blitResultRenderPass->render();
             /*renderer->transitionImageLayout(
-                     resultImageView->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-             renderer->transitionImageLayout(
-                     sceneImageView->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-             resultImageView->getImage()->blit(
-                     sceneImageView->getImage(), renderer->getVkCommandBuffer());*/
+                    resultImageView->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            blitResultRenderPass->render();*/
+            renderer->transitionImageLayout(
+                    resultImageView->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            renderer->transitionImageLayout(
+                    sceneImageView->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            resultImageView->getImage()->blit(
+                    sceneImageView->getImage(), renderer->getVkCommandBuffer());
         }
     } else if (featureMapType == FeatureMapTypeVpt::FIRST_X) {
         renderer->transitionImageLayout(firstXTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -637,14 +644,6 @@ void VolumetricPathTracingPass::_render() {
     } else if (featureMapType == FeatureMapTypeVpt::SCATTER_RAY_ABSORPTION_MOMENTS) {
         blitScatterRayMomentTexturePass->render();
     }
-
-    /*renderer->transitionImageLayout(
-            sceneImageView->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);*/
-    /*renderer->insertImageMemoryBarrier(
-            sceneImageView->getImage(),
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);*/
 
     if (!reachedTarget) {
         accumulationTimer->endGPU(eventName);
@@ -737,12 +736,23 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
         }
         if (propertyEditor.addCombo(
                 "VPT Mode", (int*)&vptMode, VPT_MODE_NAMES,
-                IM_ARRAYSIZE(VPT_MODE_NAMES))) {
+                IM_ARRAYSIZE(VPT_MODE_NAMES) - 1)) {
             optionChanged = true;
             updateVptMode();
             setShaderDirty();
             setDataDirty();
         }
+
+        if (vptMode == VptMode::SPECTRAL_DELTA_TRACKING) {
+            if (propertyEditor.addCombo(
+                    "Collision Probability", (int*)&sdtCollisionProbability,
+                    SPECTRAL_DELTA_TRACKING_COLLISION_PROBABILITY_NAMES,
+                    IM_ARRAYSIZE(SPECTRAL_DELTA_TRACKING_COLLISION_PROBABILITY_NAMES))) {
+                optionChanged = true;
+                setShaderDirty();
+            }
+        }
+
         if (vptMode == VptMode::RESIDUAL_RATIO_TRACKING || vptMode == VptMode::DECOMPOSITION_TRACKING) {
             if (propertyEditor.addSliderInt("Super Voxel Size", &superVoxelSize, 1, 64)) {
                 optionChanged = true;
@@ -751,6 +761,7 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
                 setDataDirty();
             }
         }
+
         if (propertyEditor.addCheckbox("Use Sparse Grid", &useSparseGrid)) {
             optionChanged = true;
             setGridData();
