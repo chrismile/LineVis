@@ -70,6 +70,8 @@ void DeferredRenderer::initialize() {
             this, {"DeferredShading.Vertex", "DeferredShading.Fragment"}));
     deferredResolvePass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+    downsampleBlitPass = std::make_shared<DownsampleBlitPass>(renderer);
+
     onClearColorChanged();
 }
 
@@ -211,8 +213,11 @@ void DeferredRenderer::onResolutionChanged() {
     LineRenderer::onResolutionChanged();
 
     sgl::vk::Device* device = renderer->getDevice();
-    uint32_t width = *sceneData->viewportWidth;
-    uint32_t height = *sceneData->viewportHeight;
+    auto scalingFactor = uint32_t(getResolutionIntegerScalingFactor());
+    renderWidth = *sceneData->viewportWidth * scalingFactor;
+    renderHeight = *sceneData->viewportHeight * scalingFactor;
+    finalWidth = *sceneData->viewportWidth;
+    finalHeight = *sceneData->viewportHeight;
 
     sgl::vk::ImageSamplerSettings samplerSettings;
     samplerSettings.minFilter = VK_FILTER_NEAREST;
@@ -220,6 +225,8 @@ void DeferredRenderer::onResolutionChanged() {
     samplerSettings.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
 
     sgl::vk::ImageSettings imageSettings = (*sceneData->sceneTexture)->getImage()->getImageSettings();
+    imageSettings.width = renderWidth;
+    imageSettings.height = renderHeight;
     imageSettings.format = VK_FORMAT_R32_UINT;
     imageSettings.usage =
             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -227,13 +234,11 @@ void DeferredRenderer::onResolutionChanged() {
             std::make_shared<sgl::vk::Image>(device, imageSettings), VK_IMAGE_ASPECT_COLOR_BIT);
     primitiveIndexTexture = std::make_shared<sgl::vk::Texture>(primitiveIndexImage, samplerSettings);
 
-    colorRenderTargetImage = (*sceneData->sceneTexture)->getImageView();
-
     // Create scene depth texture.
     imageSettings.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     imageSettings.format = device->getSupportedDepthFormat();
     // https://registry.khronos.org/OpenGL/extensions/ARB/ARB_texture_non_power_of_two.txt
-    imageSettings.mipLevels = 1 + uint32_t(std::floor(std::log2(std::max(int(width), int(height)))));
+    imageSettings.mipLevels = 1 + uint32_t(std::floor(std::log2(std::max(int(renderWidth), int(renderHeight)))));
     depthBufferTexture = std::make_shared<sgl::vk::Texture>(
             device, imageSettings, samplerSettings, VK_IMAGE_ASPECT_DEPTH_BIT);
 
@@ -253,8 +258,8 @@ void DeferredRenderer::onResolutionChanged() {
     depthRenderTargetImage = depthMipLevelTextures.at(0)->getImageView();
     depthMipBlitRenderPasses.clear();
     depthMipBlitRenderPasses.resize(imageSettings.mipLevels - 1);
-    auto mipWidth = width;
-    auto mipHeight = height;
+    auto mipWidth = renderWidth;
+    auto mipHeight = renderHeight;
     for (uint32_t level = 0; level < imageSettings.mipLevels - 1; level++) {
         if (mipWidth > 1) mipWidth /= 2;
         if (mipHeight > 1) mipHeight /= 2;
@@ -276,16 +281,39 @@ void DeferredRenderer::onResolutionChanged() {
 
     if (hullRasterPass) {
         framebufferMode = FramebufferMode::HULL_RASTER_PASS;
-        hullRasterPass->recreateSwapchain(width, height);
+        hullRasterPass->recreateSwapchain(renderWidth, renderHeight);
     }
     if (visibilityBufferDrawIndexedPass) {
         framebufferMode = FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_PASS;
-        visibilityBufferDrawIndexedPass->recreateSwapchain(width, height);
+        visibilityBufferDrawIndexedPass->recreateSwapchain(renderWidth, renderHeight);
     }
 
     framebufferMode = FramebufferMode::DEFERRED_RESOLVE_PASS;
-    deferredResolvePass->setOutputImage((*sceneData->sceneTexture)->getImageView());
-    deferredResolvePass->recreateSwapchain(*sceneData->viewportWidth, *sceneData->viewportHeight);
+    if (supersamplingMode == 0) {
+        // No supersampling, thus we can directly draw the result to the scene data color image.
+        colorRenderTargetImage = (*sceneData->sceneTexture)->getImageView();
+        colorRenderTargetTexture = {};
+    } else {
+        // Use intermediate high-resolution texture, which is then downsampled in the next step.
+        imageSettings.format = (*sceneData->sceneTexture)->getImage()->getImageSettings().format;
+        imageSettings.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        imageSettings.mipLevels = 1;
+        samplerSettings.minFilter = VK_FILTER_LINEAR;
+        samplerSettings.magFilter = VK_FILTER_LINEAR;
+        samplerSettings.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        colorRenderTargetImage = std::make_shared<sgl::vk::ImageView>(
+                std::make_shared<sgl::vk::Image>(device, imageSettings), VK_IMAGE_ASPECT_COLOR_BIT);
+        colorRenderTargetTexture = std::make_shared<sgl::vk::Texture>(
+                colorRenderTargetImage, samplerSettings);
+
+        downsampleBlitPass->setScalingFactor(int(scalingFactor));
+        downsampleBlitPass->setInputTexture(colorRenderTargetTexture);
+        downsampleBlitPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
+        downsampleBlitPass->recreateSwapchain(finalWidth, finalHeight);
+    }
+
+    deferredResolvePass->setOutputImage(colorRenderTargetImage);
+    deferredResolvePass->recreateSwapchain(renderWidth, renderHeight);
 }
 
 void DeferredRenderer::onClearColorChanged() {
@@ -299,7 +327,7 @@ void DeferredRenderer::onClearColorChanged() {
 void DeferredRenderer::setUniformData() {
     nodeCullingUniformData.modelViewProjectionMatrix =
             sceneData->camera->getProjectionMatrix() * sceneData->camera->getViewMatrix();
-    nodeCullingUniformData.viewportSize = glm::ivec2(*sceneData->viewportWidth, *sceneData->viewportHeight);
+    nodeCullingUniformData.viewportSize = glm::ivec2(renderWidth, renderHeight);
     nodeCullingUniformData.numMeshlets = 0; // TODO
     nodeCullingUniformData.rootNodeIdx = 0; // TODO
     nodeCullingUniformDataBuffer->updateData(
@@ -355,6 +383,12 @@ void DeferredRenderer::render() {
                 VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT);
         hullRasterPass->render();
     }
+
+    if (supersamplingMode != 0) {
+        renderer->transitionImageLayout(
+                colorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        downsampleBlitPass->render();
+    }
 }
 
 void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
@@ -370,6 +404,13 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
             "Deferred Mode", (int*)&deferredRenderingMode,
             deferredRenderingModeNames, numRenderingModes)) {
         reloadGatherShader();
+        onResolutionChanged();
+        reRender = true;
+    }
+
+    if (propertyEditor.addCombo(
+            "Supersampling", &supersamplingMode,
+            supersamplingModeNames, IM_ARRAYSIZE(supersamplingModeNames))) {
         onResolutionChanged();
         reRender = true;
     }
@@ -578,3 +619,14 @@ void VisibilityBufferDrawIndexedPass::createRasterData(
 }
 
 
+
+DownsampleBlitPass::DownsampleBlitPass(sgl::vk::Renderer* renderer) : sgl::vk::BlitRenderPass(
+        renderer, { "DownsampleBlit.Vertex", "DownsampleBlit.Fragment" }) {
+}
+
+void DownsampleBlitPass::_render() {
+    renderer->pushConstants(
+            rasterData->getGraphicsPipeline(), VK_SHADER_STAGE_FRAGMENT_BIT,
+            0, scalingFactor);
+    BlitRenderPass::_render();
+}

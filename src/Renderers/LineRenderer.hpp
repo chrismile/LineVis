@@ -132,6 +132,8 @@ public:
      */
     virtual void setUseLinearRGB(bool useLinearRGB) {}
     virtual void setFileDialogInstance(ImGuiFileDialog* fileDialogInstance) {}
+    /// Returns the integer resolution scaling factor used internally by the renderer.
+    [[nodiscard]] virtual int getResolutionIntegerScalingFactor() const { return 1; }
 
     /**
      * Called when whether the simulation mesh hull should be rendered might have changed.

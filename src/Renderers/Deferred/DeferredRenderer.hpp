@@ -35,6 +35,7 @@
 #include "Renderers/ResolvePass.hpp"
 
 class VisibilityBufferDrawIndexedPass;
+class DownsampleBlitPass;
 
 class DeferredRenderer : public LineRenderer {
 public:
@@ -72,6 +73,9 @@ public:
     void setNewState(const InternalState& newState) override;
     bool setNewSettings(const SettingsMap& settings) override;
 
+    /// Returns the integer resolution scaling factor used internally by the renderer.
+    [[nodiscard]] int getResolutionIntegerScalingFactor() const override { return 1 << supersamplingMode; }
+
 protected:
     void reloadShaders();
     void reloadGatherShader() override;
@@ -105,6 +109,8 @@ protected:
     std::vector<sgl::vk::TexturePtr> depthMipLevelTextures;
     std::vector<sgl::vk::BlitRenderPassPtr> depthMipBlitRenderPasses;
     sgl::vk::ImageViewPtr colorRenderTargetImage;
+    sgl::vk::TexturePtr colorRenderTargetTexture;
+    std::shared_ptr<DownsampleBlitPass> downsampleBlitPass;
 
     bool supportsTaskMeshShaders = false;
     bool supportsDrawIndirectCount = false;
@@ -152,6 +158,15 @@ protected:
         TRIANGLES, PROGRAMMABLE_PULLING
     };
     TaskMeshShaderGeometryMode taskMeshShaderGeometryMode = TaskMeshShaderGeometryMode::TRIANGLES;
+
+    // Supersampling modes.
+    const char* supersamplingModeNames[2] = {
+            "1x",
+            "2x",
+    };
+    int supersamplingMode = 0;
+    uint32_t renderWidth = 0, renderHeight = 0;
+    uint32_t finalWidth = 0, finalHeight = 0;
 };
 
 class DeferredResolvePass : public ResolvePass {
@@ -170,6 +185,18 @@ protected:
     void loadShader() override;
     void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
     void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
+};
+
+class DownsampleBlitPass : public sgl::vk::BlitRenderPass {
+public:
+    explicit DownsampleBlitPass(sgl::vk::Renderer* renderer);
+    inline void setScalingFactor(int factor) { scalingFactor = factor; }
+
+protected:
+    void _render() override;
+
+private:
+    int32_t scalingFactor = 1;
 };
 
 #endif //LINEVIS_DEFERREDRENDERER_HPP
