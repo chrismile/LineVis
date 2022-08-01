@@ -68,7 +68,6 @@ public:
 
 private:
     sgl::vk::Renderer* renderer = nullptr;
-    bool showWindow = true;
 
     // Global CUDA and OptiX data.
     static CUcontext cuContext;
@@ -130,8 +129,10 @@ public:
 protected:
     void loadShader() override;
     void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
+    void _render() override;
 
 private:
+    const int BLOCK_SIZE = 16;
     sgl::vk::ImageViewPtr inputImage;
     sgl::vk::BufferPtr outputBuffer;
 };

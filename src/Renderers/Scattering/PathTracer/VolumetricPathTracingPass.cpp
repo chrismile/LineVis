@@ -96,6 +96,7 @@ VolumetricPathTracingPass::~VolumetricPathTracingPass() {
 
 void VolumetricPathTracingPass::createDenoiser() {
     denoiser = createDenoiserObject(denoiserType, renderer, DenoisingMode::VOLUMETRIC_PATH_TRACING);
+    denoiser->setFileDialogInstance(fileDialogInstance);
 
     if (resultImageTexture) {
         setDenoiserFeatureMaps();
@@ -726,8 +727,8 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
             optionChanged = true;
         }
         if (propertyEditor.addCombo(
-                "Feature Map", (int*)&featureMapType, FEATURE_MAP_NAMES,
-                IM_ARRAYSIZE(FEATURE_MAP_NAMES))) {
+                "Feature Map", (int*)&featureMapType, VPT_FEATURE_MAP_NAMES,
+                IM_ARRAYSIZE(VPT_FEATURE_MAP_NAMES))) {
             optionChanged = true;
             blitPrimaryRayMomentTexturePass->setVisualizeMomentTexture(
                     featureMapType == FeatureMapTypeVpt::PRIMARY_RAY_ABSORPTION_MOMENTS);

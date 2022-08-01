@@ -26,6 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <Math/Math.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Vulkan/Utils/Swapchain.hpp>
 #include <Graphics/Vulkan/Render/CommandBuffer.hpp>
@@ -598,11 +599,22 @@ void VectorBlitPass::setOutputBuffer(const sgl::vk::BufferPtr& _outputBuffer) {
 }
 
 void VectorBlitPass::loadShader() {
-    shaderStages = sgl::vk::ShaderManager->getShaderStages({ "VectorBlit.Compute" });
+    std::map<std::string, std::string> preprocessorDefines;
+    preprocessorDefines.insert(std::make_pair("BLOCK_SIZE", std::to_string(BLOCK_SIZE)));
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            { "VectorBlit.Compute" }, preprocessorDefines);
 }
 
 void VectorBlitPass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
     computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
     computeData->setStaticImageView(inputImage, "inputImage");
     computeData->setStaticBuffer(outputBuffer, "OutputBuffer");
+}
+
+void VectorBlitPass::_render() {
+    auto width = int(inputImage->getImage()->getImageSettings().width);
+    auto height = int(inputImage->getImage()->getImageSettings().height);
+    renderer->dispatch(
+            computeData,
+            sgl::iceil(width, BLOCK_SIZE), sgl::iceil(height, BLOCK_SIZE), 1);
 }

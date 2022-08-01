@@ -52,7 +52,7 @@ typedef IGFD::FileDialog ImGuiFileDialog;
 enum class FeatureMapTypeVpt {
     RESULT, FIRST_X, FIRST_W, PRIMARY_RAY_ABSORPTION_MOMENTS, SCATTER_RAY_ABSORPTION_MOMENTS
 };
-const char* const FEATURE_MAP_NAMES[] = {
+const char* const VPT_FEATURE_MAP_NAMES[] = {
         "Result", "First X", "First W", "Primary Ray Absorption Moments", "Scatter Ray Absorption Moments"
 };
 
@@ -98,7 +98,7 @@ public:
     void setSparseGridInterpolationType(GridInterpolationType type);
     void setCustomSeedOffset(uint32_t offset); //< Additive offset for the random seed in the VPT shader.
     void setUseLinearRGB(bool useLinearRGB);
-    void setFileDialogInstance(ImGuiFileDialog* fileDialogInstance);
+    void setFileDialogInstance(ImGuiFileDialog* _fileDialogInstance);
 
     // Called when the camera has moved.
     void onHasMoved();
