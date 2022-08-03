@@ -116,6 +116,7 @@ public:
     void recreateSwapchain(uint32_t width, uint32_t height) override;
     void setLineData(LineDataPtr& data, bool isNewData);
     inline void setFrameNumber(uint32_t frameNumber) { uniformData.frameNumber = frameNumber; }
+    void setFileDialogInstance(ImGuiFileDialog* _fileDialogInstance);
 
     sgl::vk::TexturePtr getAmbientOcclusionTextureVk() { return resultTexture; }
 
@@ -140,6 +141,7 @@ private:
     bool reRender = true;
     LineDataPtr lineData;
     std::function<void()> onHasMovedParent;
+    ImGuiFileDialog* fileDialogInstance = nullptr;
 
     // Resolution of the ambient occlusion data.
     uint32_t numAmbientOcclusionSamplesPerFrame = 4;

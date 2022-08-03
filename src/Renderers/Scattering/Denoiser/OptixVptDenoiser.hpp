@@ -74,6 +74,7 @@ private:
     static CUdevice cuDevice;
     static void* optixHandle;
     static OptixDeviceContext context;
+    static bool isOptixInitialized;
 
     // Denoiser data.
     void createDenoiser();

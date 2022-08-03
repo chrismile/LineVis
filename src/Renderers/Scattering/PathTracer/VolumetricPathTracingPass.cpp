@@ -96,7 +96,9 @@ VolumetricPathTracingPass::~VolumetricPathTracingPass() {
 
 void VolumetricPathTracingPass::createDenoiser() {
     denoiser = createDenoiserObject(denoiserType, renderer, DenoisingMode::VOLUMETRIC_PATH_TRACING);
-    denoiser->setFileDialogInstance(fileDialogInstance);
+    if (denoiser) {
+        denoiser->setFileDialogInstance(fileDialogInstance);
+    }
 
     if (resultImageTexture) {
         setDenoiserFeatureMaps();
@@ -145,10 +147,37 @@ void VolumetricPathTracingPass::setOutputImage(sgl::vk::ImageViewPtr& imageView)
 
 void VolumetricPathTracingPass::setDenoiserFeatureMaps() {
     if (denoiser) {
-        denoiser->setFeatureMap(FeatureMapType::COLOR, resultImageTexture);
-        denoiser->setFeatureMap(FeatureMapType::POSITION, firstXTexture);
-        denoiser->setFeatureMap(FeatureMapType::NORMAL, firstWTexture);
+        if (denoiser->getUseFeatureMap(FeatureMapType::COLOR)) {
+            denoiser->setFeatureMap(FeatureMapType::COLOR, resultImageTexture);
+        }
+        if (denoiser->getUseFeatureMap(FeatureMapType::POSITION)) {
+            denoiser->setFeatureMap(FeatureMapType::POSITION, firstXTexture);
+        }
+        if (denoiser->getUseFeatureMap(FeatureMapType::NORMAL)) {
+            denoiser->setFeatureMap(FeatureMapType::NORMAL, firstWTexture);
+        }
         denoiser->setOutputImage(denoisedImageView);
+
+        featureMapUsedArray.resize(IM_ARRAYSIZE(FEATURE_MAP_NAMES));
+        for (int i = 0; i < IM_ARRAYSIZE(FEATURE_MAP_NAMES); i++) {
+            featureMapUsedArray.at(i) = denoiser->getUseFeatureMap(FeatureMapType(i));
+        }
+    }
+}
+
+void VolumetricPathTracingPass::checkResetDenoiserFeatureMaps() {
+    bool shallResetFeatureMaps = false;
+    if (denoiser) {
+        for (int i = 0; i < IM_ARRAYSIZE(FEATURE_MAP_NAMES); i++) {
+            if (denoiser->getUseFeatureMap(FeatureMapType(i)) != featureMapUsedArray.at(i)) {
+                shallResetFeatureMaps = true;
+            }
+        }
+    }
+
+    if (shallResetFeatureMaps) {
+        setDenoiserFeatureMaps();
+        //changedDenoiserSettings = false;
     }
 }
 
@@ -858,6 +887,9 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
             bool denoiserReRender = denoiser->renderGuiPropertyEditorNodes(propertyEditor);
             reRender = denoiserReRender || reRender;
             changedDenoiserSettings = denoiserReRender || changedDenoiserSettings;
+            if (denoiserReRender) {
+                checkResetDenoiserFeatureMaps();
+            }
             propertyEditor.endNode();
         }
     }

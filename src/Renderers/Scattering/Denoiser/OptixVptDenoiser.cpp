@@ -36,6 +36,7 @@
 #include <ImGui/Widgets/PropertyEditor.hpp>
 #include "OptixVptDenoiser.hpp"
 
+#include <optix.h>
 #include <optix_stubs.h>
 #include <optix_function_table_definition.h>
 
@@ -80,6 +81,7 @@ CUcontext OptixVptDenoiser::cuContext = {};
 CUdevice OptixVptDenoiser::cuDevice = 0;
 void* OptixVptDenoiser::optixHandle = nullptr;
 OptixDeviceContext OptixVptDenoiser::context = {};
+bool OptixVptDenoiser::isOptixInitialized = false;
 
 bool OptixVptDenoiser::initGlobal() {
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
@@ -122,6 +124,8 @@ bool OptixVptDenoiser::initGlobal() {
             context, optixLogCallback, nullptr, 3);
     checkOptixResult(result, "Error in optixDeviceContextCreate: ");
 
+    isOptixInitialized = true;
+
     return true;
 }
 
@@ -139,7 +143,7 @@ void OptixVptDenoiser::freeGlobal() {
 }
 
 bool OptixVptDenoiser::isOptixEnabled() {
-    return optixHandle && cuContext;
+    return isOptixInitialized && optixHandle && cuContext;
 }
 
 
@@ -485,7 +489,11 @@ void OptixVptDenoiser::runOptixDenoiser() {
 #endif
 
     OptixDenoiserParams params{};
+#if OPTIX_VERSION >= 70500
+    params.denoiseAlpha = denoiseAlpha ? OPTIX_DENOISER_ALPHA_MODE_COPY : OPTIX_DENOISER_ALPHA_MODE_ALPHA_AS_AOV;
+#else
     params.denoiseAlpha = denoiseAlpha;
+#endif
     params.blendFactor = 0.0f;
 
     if (denoiserModelKind != OPTIX_DENOISER_MODEL_KIND_LDR) {

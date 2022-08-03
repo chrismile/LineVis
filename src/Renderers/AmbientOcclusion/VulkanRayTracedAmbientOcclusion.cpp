@@ -192,6 +192,9 @@ VulkanRayTracedAmbientOcclusionPass::VulkanRayTracedAmbientOcclusionPass(
 
 void VulkanRayTracedAmbientOcclusionPass::createDenoiser() {
     denoiser = createDenoiserObject(denoiserType, renderer, DenoisingMode::AMBIENT_OCCLUSION);
+    if (denoiser) {
+        denoiser->setFileDialogInstance(fileDialogInstance);
+    }
 
     if (accumulationTexture) {
         checkRecreateFeatureMaps();
@@ -358,6 +361,10 @@ void VulkanRayTracedAmbientOcclusionPass::setLineData(LineDataPtr& data, bool is
 
     uniformData.frameNumber = 0;
     setDataDirty();
+}
+
+void VulkanRayTracedAmbientOcclusionPass::setFileDialogInstance(ImGuiFileDialog* _fileDialogInstance) {
+    this->fileDialogInstance = _fileDialogInstance;
 }
 
 void VulkanRayTracedAmbientOcclusionPass::onHasMoved() {
