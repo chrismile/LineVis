@@ -174,6 +174,12 @@ void OptixVptDenoiser::createDenoiser() {
 OptixVptDenoiser::~OptixVptDenoiser() {
     _freeBuffers();
 
+    if (denoiser) {
+        OptixResult result = optixDenoiserDestroy(denoiser);
+        checkOptixResult(result, "Error in optixDenoiserDestroy: ");
+        denoiser = {};
+    }
+
     CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuStreamDestroy(stream);
     sgl::vk::checkCUresult(cuResult, "Error in cuStreamDestroy: ");
 }
@@ -269,6 +275,7 @@ void OptixVptDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
             denoiserState, denoiserStateSizeInBytes, scratch, scratchSizeInBytes);
     checkOptixResult(result, "Error in optixDenoiserSetup: ");
 
+    inputImageBufferCu = {};
     inputImageBufferVk = std::make_shared<sgl::vk::Buffer>(
             device, inputWidth * inputHeight * 4 * sizeof(float),
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
@@ -285,6 +292,7 @@ void OptixVptDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
     inputImageOptix.data = inputImageBufferCu->getCudaDevicePtr();
 
     if (useAlbedo && albedoImageVulkan) {
+        albedoImageBufferCu = {};
         albedoImageBufferVk = std::make_shared<sgl::vk::Buffer>(
                 device, inputWidth * inputHeight * 4 * sizeof(float),
                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
@@ -302,6 +310,7 @@ void OptixVptDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
     }
 
     if (useNormalMap && normalImageVulkan) {
+        normalImageBufferCu = {};
         normalImageBufferVk = std::make_shared<sgl::vk::Buffer>(
                 device, inputWidth * inputHeight * 3 * sizeof(float),
                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
@@ -322,6 +331,7 @@ void OptixVptDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
     }
 
     if (getUseFeatureMap(FeatureMapType::FLOW) && flowImageVulkan) {
+        flowImageBufferCu = {};
         flowImageBufferVk = std::make_shared<sgl::vk::Buffer>(
                 device, inputWidth * inputHeight * 2 * sizeof(float),
                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
@@ -338,6 +348,7 @@ void OptixVptDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
         flowImageOptix.data = flowImageBufferCu->getCudaDevicePtr();
     }
 
+    outputImageBufferCu = {};
     outputImageBufferVk = std::make_shared<sgl::vk::Buffer>(
             device, inputWidth * inputHeight * 4 * sizeof(float),
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
