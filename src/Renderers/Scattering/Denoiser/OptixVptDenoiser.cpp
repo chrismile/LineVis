@@ -138,8 +138,6 @@ void OptixVptDenoiser::freeGlobal() {
 
     CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuCtxDestroy(cuContext);
     sgl::vk::checkCUresult(cuResult, "Error in cuCtxDestroy: ");
-
-    sgl::vk::freeCudaDeviceApiFunctionTable();
 }
 
 bool OptixVptDenoiser::isOptixEnabled() {

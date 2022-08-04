@@ -461,6 +461,11 @@ MainApp::~MainApp() {
         OptixVptDenoiser::freeGlobal();
     }
 #endif
+#ifdef SUPPORT_CUDA_INTEROP
+    if (sgl::vk::getIsCudaDeviceApiFunctionTableInitialized()) {
+        sgl::vk::freeCudaDeviceApiFunctionTable();
+    }
+#endif
 
     for (int i = 0; i < int(nonBlockingMsgBoxHandles.size()); i++) {
         auto& handle = nonBlockingMsgBoxHandles.at(i);
