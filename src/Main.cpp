@@ -88,7 +88,7 @@ int main(int argc, char *argv[]) {
     sgl::Window* window = sgl::AppSettings::get()->createWindow();
 
     std::vector<const char*> optionalDeviceExtensions;
-#ifdef SUPPORT_OPTIX
+#ifdef SUPPORT_CUDA_INTEROP
     optionalDeviceExtensions = sgl::vk::Device::getCudaInteropDeviceExtensions();
 #endif
     std::vector<const char*> raytracingDeviceExtensions = {
