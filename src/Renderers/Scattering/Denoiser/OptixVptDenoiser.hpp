@@ -45,7 +45,7 @@ class VectorBlitPass;
 class OptixVptDenoiser : public Denoiser {
 public:
     // Initializes/frees CUDA and OptiX. Should be called at the start/end of the program.
-    static bool initGlobal();
+    static bool initGlobal(CUcontext _cuContext, CUdevice _cuDevice);
     static void freeGlobal();
     static bool isOptixEnabled();
 

@@ -83,7 +83,7 @@ void* OptixVptDenoiser::optixHandle = nullptr;
 OptixDeviceContext OptixVptDenoiser::context = {};
 bool OptixVptDenoiser::isOptixInitialized = false;
 
-bool OptixVptDenoiser::initGlobal() {
+bool OptixVptDenoiser::initGlobal(CUcontext _cuContext, CUdevice _cuDevice) {
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     if (!device || device->getDeviceDriverId() != VK_DRIVER_ID_NVIDIA_PROPRIETARY) {
         sgl::Logfile::get()->writeInfo(
@@ -91,19 +91,15 @@ bool OptixVptDenoiser::initGlobal() {
         return false;
     }
 
-    if (!sgl::vk::getIsCudaDeviceApiFunctionTableInitialized() && !sgl::vk::initializeCudaDeviceApiFunctionTable()) {
+    if (!sgl::vk::getIsCudaDeviceApiFunctionTableInitialized()) {
+        sgl::Logfile::get()->writeInfo(
+                "Error in OptixVptDenoiser::initGlobal: sgl::vk::getIsCudaDeviceApiFunctionTableInitialized() "
+                "returned false.");
         return false;
     }
 
-    CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuInit(0);
-    if (cuResult == CUDA_ERROR_NO_DEVICE) {
-        sgl::Logfile::get()->writeInfo("No CUDA-capable device was found. Disabling OptiX support.");
-        return false;
-    }
-    sgl::vk::checkCUresult(cuResult, "Error in cuInit: ");
-
-    cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuCtxCreate(&cuContext, CU_CTX_SCHED_SPIN, cuDevice);
-    sgl::vk::checkCUresult(cuResult, "Error in cuCtxCreate: ");
+    cuContext = _cuContext;
+    cuDevice = _cuDevice;
 
     OptixResult result = optixInitWithHandle(&optixHandle);
     if (result == OPTIX_ERROR_LIBRARY_NOT_FOUND) {
@@ -135,9 +131,6 @@ void OptixVptDenoiser::freeGlobal() {
 
     result = optixUninitWithHandle(optixHandle);
     checkOptixResult(result, "Error in optixUninitWithHandle: ");
-
-    CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuCtxDestroy(cuContext);
-    sgl::vk::checkCUresult(cuResult, "Error in cuCtxDestroy: ");
 }
 
 bool OptixVptDenoiser::isOptixEnabled() {

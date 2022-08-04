@@ -36,6 +36,10 @@
 #include <Utils/SciVis/SciVisApp.hpp>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
 
+#ifdef SUPPORT_CUDA_INTEROP
+#include <Graphics/Vulkan/Utils/InteropCuda.hpp>
+#endif
+
 #include "Loaders/DataSetList.hpp"
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
 #include "LineData/LineDataRequester.hpp"
@@ -156,6 +160,13 @@ private:
     glm::vec2 transferFunctionRange{};
 #endif
 
+#ifdef SUPPORT_CUDA_INTEROP
+    CUcontext cuContext = {};
+    CUdevice cuDevice = 0;
+#endif
+    bool cudaInteropInitialized = false;
+    bool optixInitialized = false;
+
 
     /// --- Visualization pipeline ---
 
@@ -191,8 +202,6 @@ private:
     ScatteringLineTracingRequester* scatteringLineTracingRequester = nullptr;
     const int NUM_MANUAL_LOADERS = 4;
     DataSetInformation stressLineTracerDataSetInformation;
-
-    bool optixInitialized = false;
 };
 
 #endif // MAINAPP_HPP
