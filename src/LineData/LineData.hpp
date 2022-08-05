@@ -284,6 +284,11 @@ public:
                 || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH
                 || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER;
     }
+
+    enum class RequestMode {
+        NO_CACHE_SUPPORTED, TRIANGLES, AABBS, GEOMETRY_SHADER, PROGRAMMABLE_PULL, MESH_SHADER
+    };
+
     static inline float getMinBandThickness() { return minBandThickness; }
 
     /// This function should be called by sub-classes before accessing internal rendering data.
@@ -295,6 +300,7 @@ protected:
     virtual void recomputeColorLegend();
     int getAttributeNameIndex(const std::string& attributeName);
     bool updateLinePrimitiveMode(LineRenderer* lineRenderer);
+    void removeOtherCachedDataTypes(RequestMode requestMode);
 
     ///< The maximum number of line points to be considered a small data set (important, e.g., for live UI updates).
     const size_t SMALL_DATASET_LINE_POINTS_MAX = 10000;
@@ -332,8 +338,10 @@ protected:
     static bool renderThickBands;
     static float minBandThickness;
 
-    // Caches the rendering data when using Vulkan (as, e.g., the Vulkan ray tracer and AO baking could be used at the
-    // same time).
+    LinePrimitiveMode cacheLinePrimitiveMode = LinePrimitiveMode::LINE_PRIMITIVES_QUADS_GEOMETRY_SHADER;
+
+    // Caches the triangle render data. This is useful, e.g., when the Vulkan ray tracer and ambient occlusion baking
+    // are used at the same time.
     std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> getTubeTriangleBottomLevelAS();
     sgl::vk::BottomLevelAccelerationStructurePtr getTubeAabbBottomLevelAS();
     sgl::vk::BottomLevelAccelerationStructurePtr getHullTriangleBottomLevelAS();
@@ -354,6 +362,14 @@ protected:
     sgl::vk::TopLevelAccelerationStructurePtr tubeTriangleAndHullTopLevelAS;
     sgl::vk::TopLevelAccelerationStructurePtr tubeAabbTopLevelAS;
     sgl::vk::TopLevelAccelerationStructurePtr tubeAabbAndHullTopLevelAS;
+
+    // Caches the line render data.
+    LinePassTubeRenderDataProgrammablePull cachedRenderDataProgrammablePull;
+    LinePassTubeRenderData cachedRenderDataGeometryShader;
+    LinePassTubeRenderDataMeshShader cachedRenderDataMeshShader;
+
+    // For deferred rendering.
+    // Array of triangle meshlets (aabb, start idx, end idx)
 
     struct LineUniformData {
         // Camera data.

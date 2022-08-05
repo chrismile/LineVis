@@ -35,6 +35,7 @@ class LineRenderer;
 
 class ResolvePass : public sgl::vk::BlitRenderPass {
 public:
+    ResolvePass(LineRenderer* lineRenderer);
     ResolvePass(LineRenderer* lineRenderer, std::vector<std::string> customShaderIds);
 
 protected:

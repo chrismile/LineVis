@@ -39,6 +39,7 @@
 #include <ImGui/imgui_custom.h>
 #include <ImGui/Widgets/TransferFunctionWindow.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
+#include <memory>
 #include <utility>
 
 #include "LineData/LineDataStress.hpp"
@@ -66,8 +67,7 @@ void DeferredRenderer::initialize() {
 
     visibilityBufferDrawIndexedPass = std::make_shared<VisibilityBufferDrawIndexedPass>(this);
 
-    deferredResolvePass = std::shared_ptr<ResolvePass>(new DeferredResolvePass(
-            this, {"DeferredShading.Vertex", "DeferredShading.Fragment"}));
+    deferredResolvePass = std::make_shared<DeferredResolvePass>(this);
     deferredResolvePass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     downsampleBlitPass = std::make_shared<DownsampleBlitPass>(renderer);
@@ -89,6 +89,20 @@ void DeferredRenderer::reloadGatherShader() {
     if (visibilityBufferDrawIndexedPass) {
         visibilityBufferDrawIndexedPass->setShaderDirty();
     }
+}
+
+void DeferredRenderer::updateGeometryMode() {
+    deferredResolvePass->setDrawIndexedGeometryMode(
+            deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED
+            ? drawIndexedGeometryMode : DrawIndexedGeometryMode::TRIANGLES);
+    if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
+        visibilityBufferDrawIndexedPass->setDrawIndexedGeometryMode(drawIndexedGeometryMode);
+    }
+}
+
+bool DeferredRenderer::getUsesTriangleMeshInternally() const {
+    return deferredRenderingMode != DeferredRenderingMode::DRAW_INDEXED
+            || drawIndexedGeometryMode != DrawIndexedGeometryMode::PROGRAMMABLE_PULLING;
 }
 
 void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
@@ -127,9 +141,15 @@ void DeferredRenderer::setGraphicsPipelineInfo(
 void DeferredRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) {
     LineRenderer::setRenderDataBindings(renderData);
 
-    if (renderData->getShaderStages()->getHasModuleId("DeferredShading.Fragment")) {
+    bool isDeferredShadingTriangle = renderData->getShaderStages()->getHasModuleId(
+            "DeferredShading.Fragment");
+    bool isDeferredShadingProgrammablePull = renderData->getShaderStages()->getHasModuleId(
+            "DeferredShading.Fragment.ProgrammablePull");
+    bool isDeferredShading = isDeferredShadingTriangle || isDeferredShadingProgrammablePull;
+    if (isDeferredShading) {
         lineData->setVulkanRenderDataDescriptors(renderData);
-
+    }
+    if (isDeferredShadingTriangle) {
         TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderData(
                 true, false);
         if (tubeRenderData.indexBuffer) {
@@ -151,6 +171,29 @@ void DeferredRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& rende
                         "StressLinePointPrincipalStressDataBuffer");
             }
         }
+    }
+    if (isDeferredShadingProgrammablePull) {
+        LinePassTubeRenderDataProgrammablePull tubeRenderData = lineData->getLinePassTubeRenderDataProgrammablePull();
+        if (tubeRenderData.indexBuffer) {
+            renderData->setStaticBuffer(tubeRenderData.indexBuffer, "TriangleIndexBuffer");
+            renderData->setStaticBuffer(tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");
+            if (tubeRenderData.multiVarAttributeDataBuffer) {
+                renderData->setStaticBufferOptional(
+                        tubeRenderData.multiVarAttributeDataBuffer, "AttributeDataArrayBuffer");
+            }
+            if (tubeRenderData.stressLinePointDataBuffer) {
+                renderData->setStaticBufferOptional(
+                        tubeRenderData.stressLinePointDataBuffer,
+                        "StressLinePointDataBuffer");
+            }
+            if (tubeRenderData.stressLinePointPrincipalStressDataBuffer) {
+                renderData->setStaticBufferOptional(
+                        tubeRenderData.stressLinePointPrincipalStressDataBuffer,
+                        "StressLinePointPrincipalStressDataBuffer");
+            }
+        }
+    }
+    if (isDeferredShading) {
         renderData->setStaticTexture(primitiveIndexTexture, "primitiveIndexBuffer");
         renderData->setStaticTexture(depthBufferTexture, "depthBuffer");
     }
@@ -403,6 +446,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
     if (propertyEditor.addCombo(
             "Deferred Mode", (int*)&deferredRenderingMode,
             deferredRenderingModeNames, numRenderingModes)) {
+        updateGeometryMode();
         reloadGatherShader();
         onResolutionChanged();
         reRender = true;
@@ -415,23 +459,18 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
         reRender = true;
     }
 
-    if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
+    if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
+        if (propertyEditor.addCombo(
+                "Geometry Mode", (int*)&drawIndexedGeometryMode,
+                drawIndexedGeometryModeNames, IM_ARRAYSIZE(drawIndexedGeometryModeNames))) {
+            updateGeometryMode();
+            reloadGatherShader();
+            reRender = true;
+        }
+    } else if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
         if (propertyEditor.addCombo(
                 "Reduction Mode", (int*)&drawIndirectReductionMode,
                 drawIndirectReductionModeNames, IM_ARRAYSIZE(drawIndirectReductionModeNames))) {
-            reloadGatherShader();
-            reRender = true;
-        }
-        if (propertyEditor.addCombo(
-                "Geometry Mode", (int*)&drawIndirectGeometryMode,
-                drawIndirectGeometryModeNames, IM_ARRAYSIZE(drawIndirectGeometryModeNames))) {
-            reloadGatherShader();
-            reRender = true;
-        }
-    } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
-        if (propertyEditor.addCombo(
-                "Geometry Mode", (int*)&taskMeshShaderGeometryMode,
-                taskMeshShaderGeometryModeNames, IM_ARRAYSIZE(taskMeshShaderGeometryModeNames))) {
             reloadGatherShader();
             reRender = true;
         }
@@ -444,6 +483,20 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
         for (int i = 0; i < IM_ARRAYSIZE(deferredRenderingModeNames); i++) {
             if (deferredRenderingModeString == deferredRenderingModeNames[i]) {
                 deferredRenderingMode = DeferredRenderingMode(i);
+                updateGeometryMode();
+                reloadGatherShader();
+                reRender = true;
+                break;
+            }
+        }
+    }
+
+    std::string drawIndexedGeometryModeString;
+    if (newState.rendererSettings.getValueOpt("drawIndexedGeometryMode", drawIndexedGeometryModeString)) {
+        for (int i = 0; i < IM_ARRAYSIZE(drawIndexedGeometryModeNames); i++) {
+            if (drawIndexedGeometryModeString == drawIndexedGeometryModeNames[i]) {
+                drawIndexedGeometryMode = DrawIndexedGeometryMode(i);
+                updateGeometryMode();
                 reloadGatherShader();
                 reRender = true;
                 break;
@@ -456,30 +509,6 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
         for (int i = 0; i < IM_ARRAYSIZE(drawIndirectReductionModeNames); i++) {
             if (drawIndirectReductionModeString == drawIndirectReductionModeNames[i]) {
                 drawIndirectReductionMode = DrawIndirectReductionMode(i);
-                reloadGatherShader();
-                reRender = true;
-                break;
-            }
-        }
-    }
-
-    std::string drawIndirectGeometryModeString;
-    if (newState.rendererSettings.getValueOpt("drawIndirectGeometryMode", drawIndirectGeometryModeString)) {
-        for (int i = 0; i < IM_ARRAYSIZE(drawIndirectGeometryModeNames); i++) {
-            if (drawIndirectGeometryModeString == drawIndirectGeometryModeNames[i]) {
-                drawIndirectGeometryMode = DrawIndirectGeometryMode(i);
-                reloadGatherShader();
-                reRender = true;
-                break;
-            }
-        }
-    }
-
-    std::string taskMeshShaderGeometryModeString;
-    if (newState.rendererSettings.getValueOpt("taskMeshShaderGeometryMode", taskMeshShaderGeometryModeString)) {
-        for (int i = 0; i < IM_ARRAYSIZE(taskMeshShaderGeometryModeNames); i++) {
-            if (taskMeshShaderGeometryModeString == taskMeshShaderGeometryModeNames[i]) {
-                taskMeshShaderGeometryMode = TaskMeshShaderGeometryMode(i);
                 reloadGatherShader();
                 reRender = true;
                 break;
@@ -503,6 +532,18 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
         }
     }
 
+    std::string drawIndexedGeometryModeString;
+    if (settings.getValueOpt("draw_indexed_geometry_mode", drawIndexedGeometryModeString)) {
+        for (int i = 0; i < IM_ARRAYSIZE(drawIndexedGeometryModeNames); i++) {
+            if (drawIndexedGeometryModeString == drawIndexedGeometryModeNames[i]) {
+                drawIndexedGeometryMode = DrawIndexedGeometryMode(i);
+                reloadGatherShader();
+                reRender = true;
+                break;
+            }
+        }
+    }
+
     std::string drawIndirectReductionModeString;
     if (settings.getValueOpt("draw_indirect_reduction_mode", drawIndirectReductionModeString)) {
         for (int i = 0; i < IM_ARRAYSIZE(drawIndirectReductionModeNames); i++) {
@@ -515,52 +556,49 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
         }
     }
 
-    std::string drawIndirectGeometryModeString;
-    if (settings.getValueOpt("draw_indirect_geometry_mode", drawIndirectGeometryModeString)) {
-        for (int i = 0; i < IM_ARRAYSIZE(drawIndirectGeometryModeNames); i++) {
-            if (drawIndirectGeometryModeString == drawIndirectGeometryModeNames[i]) {
-                drawIndirectGeometryMode = DrawIndirectGeometryMode(i);
-                reloadGatherShader();
-                reRender = true;
-                break;
-            }
-        }
-    }
-
-    std::string taskMeshShaderGeometryModeString;
-    if (settings.getValueOpt("task_mesh_shader_geometry_mode", taskMeshShaderGeometryModeString)) {
-        for (int i = 0; i < IM_ARRAYSIZE(taskMeshShaderGeometryModeNames); i++) {
-            if (taskMeshShaderGeometryModeString == taskMeshShaderGeometryModeNames[i]) {
-                taskMeshShaderGeometryMode = TaskMeshShaderGeometryMode(i);
-                reloadGatherShader();
-                reRender = true;
-                break;
-            }
-        }
-    }
-
     return shallReloadGatherShader;
 }
 
 
-DeferredResolvePass::DeferredResolvePass(LineRenderer* lineRenderer, std::vector<std::string> customShaderIds)
-        : ResolvePass(lineRenderer, std::move(customShaderIds)) {}
+
+DeferredResolvePass::DeferredResolvePass(LineRenderer* lineRenderer) : ResolvePass(lineRenderer) {}
+
+void DeferredResolvePass::setDrawIndexedGeometryMode(DrawIndexedGeometryMode geometryModeNew) {
+    if (geometryMode != geometryModeNew) {
+        geometryMode = geometryModeNew;
+        setShaderDirty();
+        setDataDirty();
+    }
+}
 
 void DeferredResolvePass::loadShader() {
     std::map<std::string, std::string> preprocessorDefines;
     lineRenderer->getLineData()->getVulkanShaderPreprocessorDefines(preprocessorDefines);
     lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
-
-    // Resolve passes don't need fragment shader interlock.
-    auto it = preprocessorDefines.find("__extensions");
-    if (it != preprocessorDefines.end()) {
-        if (it->second == "GL_ARB_fragment_shader_interlock") {
-            preprocessorDefines.erase(it);
-        }
-    }
     preprocessorDefines.insert(std::make_pair("RESOLVE_PASS", ""));
 
-    shaderStages = sgl::vk::ShaderManager->getShaderStages(shaderIds, preprocessorDefines);
+    std::vector<std::string> shaderModuleNames;
+    if (geometryMode == DrawIndexedGeometryMode::TRIANGLES) {
+        shaderModuleNames = { "DeferredShading.Vertex", "DeferredShading.Fragment" };
+    } else if (geometryMode == DrawIndexedGeometryMode::PROGRAMMABLE_PULLING) {
+        shaderModuleNames = { "DeferredShading.Vertex", "DeferredShading.Fragment.ProgrammablePull" };
+    }
+
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            shaderModuleNames, preprocessorDefines);
+}
+
+
+
+DownsampleBlitPass::DownsampleBlitPass(sgl::vk::Renderer* renderer) : sgl::vk::BlitRenderPass(
+        renderer, { "DownsampleBlit.Vertex", "DownsampleBlit.Fragment" }) {
+}
+
+void DownsampleBlitPass::_render() {
+    renderer->pushConstants(
+            rasterData->getGraphicsPipeline(), VK_SHADER_STAGE_FRAGMENT_BIT,
+            0, scalingFactor);
+    BlitRenderPass::_render();
 }
 
 
@@ -569,27 +607,45 @@ VisibilityBufferDrawIndexedPass::VisibilityBufferDrawIndexedPass(LineRenderer* l
         : LineRasterPass(lineRenderer) {
 }
 
+void VisibilityBufferDrawIndexedPass::setDrawIndexedGeometryMode(DrawIndexedGeometryMode geometryModeNew) {
+    if (geometryMode != geometryModeNew) {
+        geometryMode = geometryModeNew;
+        setShaderDirty();
+        setDataDirty();
+    }
+}
+
 void VisibilityBufferDrawIndexedPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
     lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);
     lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
 
-    std::vector<std::string> shaderModuleNames = {
-            "VisibilityBufferDrawIndexed.Vertex",
-            "VisibilityBufferDrawIndexed.Fragment"
-    };
+    std::vector<std::string> shaderModuleNames;
+    if (geometryMode == DrawIndexedGeometryMode::TRIANGLES) {
+        shaderModuleNames = {
+                "VisibilityBufferDrawIndexed.Vertex",
+                "VisibilityBufferDrawIndexed.Fragment"
+        };
+    } else if (geometryMode == DrawIndexedGeometryMode::PROGRAMMABLE_PULLING) {
+        shaderModuleNames = {
+                "VisibilityBufferDrawIndexed.Vertex.ProgrammablePull",
+                "VisibilityBufferDrawIndexed.Fragment"
+        };
+    }
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
             shaderModuleNames, preprocessorDefines);
 }
 
 void VisibilityBufferDrawIndexedPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
     pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::TRIANGLE_LIST);
-    pipelineInfo.setVertexBufferBindingByLocationIndex(
-            "vertexPosition", sizeof(TubeTriangleVertexData));
+    if (geometryMode == DrawIndexedGeometryMode::TRIANGLES) {
+        pipelineInfo.setVertexBufferBindingByLocationIndex(
+                "vertexPosition", sizeof(TubeTriangleVertexData));
+    }
 
     lineRenderer->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
-    if (lineData->getUseCappedTubes()) {
+    if (lineData->getUseCappedTubes() && geometryMode == DrawIndexedGeometryMode::TRIANGLES) {
         pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
     } else {
         pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
@@ -607,6 +663,86 @@ void VisibilityBufferDrawIndexedPass::createRasterData(
     lineData->setVulkanRenderDataDescriptors(rasterData);
     //lineRenderer->setRenderDataBindings(rasterData);
 
+    if (geometryMode == DrawIndexedGeometryMode::TRIANGLES) {
+        TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderData(
+                true, false);
+        if (!tubeRenderData.indexBuffer) {
+            return;
+        }
+        rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
+        rasterData->setVertexBuffer(tubeRenderData.vertexBuffer, "vertexPosition");
+    } else if (geometryMode == DrawIndexedGeometryMode::PROGRAMMABLE_PULLING) {
+        LinePassTubeRenderDataProgrammablePull tubeRenderData = lineData->getLinePassTubeRenderDataProgrammablePull();
+        if (!tubeRenderData.indexBuffer) {
+            return;
+        }
+        rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
+        rasterData->setStaticBufferOptional(
+                tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");
+        if (tubeRenderData.stressLinePointDataBuffer) {
+            rasterData->setStaticBufferOptional(
+                    tubeRenderData.stressLinePointDataBuffer,
+                    "StressLinePointDataBuffer");
+        }
+        if (tubeRenderData.stressLinePointPrincipalStressDataBuffer) {
+            rasterData->setStaticBufferOptional(
+                    tubeRenderData.stressLinePointPrincipalStressDataBuffer,
+                    "StressLinePointPrincipalStressDataBuffer");
+        }
+    }
+}
+
+
+
+VisibilityBufferDrawIndexedIndirectPass::VisibilityBufferDrawIndexedIndirectPass(LineRenderer* lineRenderer)
+        : LineRasterPass(lineRenderer) {
+}
+
+void VisibilityBufferDrawIndexedIndirectPass::setReductionMode(DrawIndirectReductionMode drawIndirectReductionModeNew) {
+    if (drawIndirectReductionMode != drawIndirectReductionModeNew) {
+        drawIndirectReductionMode = drawIndirectReductionModeNew;
+        setShaderDirty();
+        setDataDirty();
+    }
+}
+
+void VisibilityBufferDrawIndexedIndirectPass::loadShader() {
+    sgl::vk::ShaderManager->invalidateShaderCache();
+    std::map<std::string, std::string> preprocessorDefines;
+    lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+
+    std::vector<std::string> shaderModuleNames = {
+            "VisibilityBufferDrawIndexed.Vertex",
+            "VisibilityBufferDrawIndexed.Fragment"
+    };
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            shaderModuleNames, preprocessorDefines);
+}
+
+void VisibilityBufferDrawIndexedIndirectPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
+    pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::TRIANGLE_LIST);
+    pipelineInfo.setVertexBufferBindingByLocationIndex(
+            "vertexPosition", sizeof(TubeTriangleVertexData));
+
+    lineRenderer->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
+    if (lineData->getUseCappedTubes()) {
+        pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
+    } else {
+        pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
+    }
+
+    pipelineInfo.setColorWriteEnabled(true);
+    pipelineInfo.setDepthTestEnabled(true);
+    pipelineInfo.setDepthWriteEnabled(true);
+    pipelineInfo.setBlendMode(sgl::vk::BlendMode::OVERWRITE);
+}
+
+void VisibilityBufferDrawIndexedIndirectPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
+    rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
+    lineData->setVulkanRenderDataDescriptors(rasterData);
+    //lineRenderer->setRenderDataBindings(rasterData);
+
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderData(
             true, false);
 
@@ -616,17 +752,4 @@ void VisibilityBufferDrawIndexedPass::createRasterData(
 
     rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
     rasterData->setVertexBuffer(tubeRenderData.vertexBuffer, "vertexPosition");
-}
-
-
-
-DownsampleBlitPass::DownsampleBlitPass(sgl::vk::Renderer* renderer) : sgl::vk::BlitRenderPass(
-        renderer, { "DownsampleBlit.Vertex", "DownsampleBlit.Fragment" }) {
-}
-
-void DownsampleBlitPass::_render() {
-    renderer->pushConstants(
-            rasterData->getGraphicsPipeline(), VK_SHADER_STAGE_FRAGMENT_BIT,
-            0, scalingFactor);
-    BlitRenderPass::_render();
 }

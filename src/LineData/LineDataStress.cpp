@@ -2000,6 +2000,10 @@ PointRenderData LineDataStress::getDegeneratePointsRenderData() {
 
 LinePassTubeRenderDataMeshShader LineDataStress::getLinePassTubeRenderDataMeshShader() {
     rebuildInternalRepresentationIfNecessary();
+    if (cachedRenderDataProgrammablePull.indexBuffer) {
+        return cachedRenderDataMeshShader;
+    }
+    removeOtherCachedDataTypes(RequestMode::MESH_SHADER);
 
     // We can emit a maximum of 64 vertices/primitives from the mesh shader.
     int numLineSegmentsPerMeshlet = 64 / tubeNumSubdivisions - 1;
@@ -2103,11 +2107,16 @@ LinePassTubeRenderDataMeshShader LineDataStress::getLinePassTubeRenderDataMeshSh
     }
 #endif
 
+    cachedRenderDataMeshShader = renderData;
     return renderData;
 }
 
 LinePassTubeRenderDataProgrammablePull LineDataStress::getLinePassTubeRenderDataProgrammablePull() {
     rebuildInternalRepresentationIfNecessary();
+    if (cachedRenderDataProgrammablePull.indexBuffer) {
+        return cachedRenderDataProgrammablePull;
+    }
+    removeOtherCachedDataTypes(RequestMode::PROGRAMMABLE_PULL);
 
     std::vector<uint32_t> triangleIndices;
     std::vector<LinePointDataUnified> linePoints;
@@ -2187,7 +2196,7 @@ LinePassTubeRenderDataProgrammablePull LineDataStress::getLinePassTubeRenderData
     // Add the index buffer.
     renderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
             device, triangleIndices.size() * sizeof(uint32_t), triangleIndices.data(),
-            VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Add the line point data buffer.
@@ -2213,6 +2222,7 @@ LinePassTubeRenderDataProgrammablePull LineDataStress::getLinePassTubeRenderData
     }
 #endif
 
+    cachedRenderDataProgrammablePull = renderData;
     return renderData;
 }
 
@@ -2454,6 +2464,7 @@ TubeTriangleRenderData LineDataStress::getLinePassTubeTriangleMeshRenderData(boo
     if (vulkanTubeTriangleRenderData.vertexBuffer && vulkanTubeTriangleRenderDataIsRayTracing == vulkanRayTracing) {
         return vulkanTubeTriangleRenderData;
     }
+    removeOtherCachedDataTypes(RequestMode::TRIANGLES);
 
     std::vector<uint32_t> tubeTriangleIndices;
     std::vector<TubeTriangleVertexData> tubeTriangleVertexDataList;
@@ -2735,6 +2746,7 @@ TubeAabbRenderData LineDataStress::getLinePassTubeAabbRenderData(bool isRasteriz
     if (vulkanTubeAabbRenderData.aabbBuffer) {
         return vulkanTubeAabbRenderData;
     }
+    removeOtherCachedDataTypes(RequestMode::AABBS);
 
     //glm::vec3 lineWidthOffset(std::max(LineRenderer::getLineWidth() * 0.5f, LineRenderer::getBandWidth() * 0.5f));
     glm::vec3 lineWidthOffset(LineRenderer::getLineWidth() * 0.5f);

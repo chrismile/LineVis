@@ -237,7 +237,7 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
         }
         bool canChangeLinePrimitiveMode =
                 lineRenderer->getRenderingMode() != RENDERING_MODE_OPACITY_OPTIMIZATION
-                || lineRenderer->getRenderingMode() != RENDERING_MODE_DEFERRED_SHADING;
+                && lineRenderer->getRenderingMode() != RENDERING_MODE_DEFERRED_SHADING;
         if (canChangeLinePrimitiveMode && propertyEditor.addCombo(
                 "Line Primitives", (int*)&linePrimitiveMode,
                 LINE_PRIMITIVE_MODE_DISPLAYNAMES, numPrimitiveModes)) {
@@ -270,10 +270,11 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
         }
     }
 
+    bool usesDeferredShading = lineRenderer && lineRenderer->getRenderingMode() == RENDERING_MODE_DEFERRED_SHADING;
     if (lineRenderer && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH
-            || lineRenderer->getRenderingMode() == RENDERING_MODE_DEFERRED_SHADING
-            || !lineRenderer->isRasterizer)) {
+            || usesDeferredShading || !lineRenderer->isRasterizer)
+            && (!usesDeferredShading || lineRenderer->getUsesTriangleMeshInternally())) {
         if (propertyEditor.addCheckbox("Capped Tubes", &useCappedTubes)) {
             triangleRepresentationDirty = true;
             if (!lineRenderer->isRasterizer) {
@@ -411,6 +412,9 @@ void LineData::recomputeColorLegend() {
 }
 
 void LineData::rebuildInternalRepresentationIfNecessary() {
+    if (dirty) {
+        cachedRenderDataProgrammablePull = {};
+    }
     if (dirty || triangleRepresentationDirty) {
         sgl::AppSettings::get()->getPrimaryDevice()->waitIdle();
         //updateMeshTriangleIntersectionDataStructure();
@@ -428,6 +432,30 @@ void LineData::rebuildInternalRepresentationIfNecessary() {
 
         dirty = false;
         triangleRepresentationDirty = false;
+    }
+}
+
+void LineData::removeOtherCachedDataTypes(RequestMode requestMode) {
+    if (requestMode != RequestMode::TRIANGLES) {
+        vulkanTubeTriangleRenderData = {};
+        tubeTriangleBottomLevelASes = {};
+        tubeTriangleTopLevelAS = {};
+        tubeTriangleAndHullTopLevelAS = {};
+    }
+    if (requestMode != RequestMode::AABBS) {
+        vulkanTubeAabbRenderData = {};
+        tubeAabbBottomLevelAS = {};
+        tubeAabbTopLevelAS = {};
+        tubeAabbAndHullTopLevelAS = {};
+    }
+    if (requestMode != RequestMode::GEOMETRY_SHADER) {
+        cachedRenderDataGeometryShader = {};
+    }
+    if (requestMode != RequestMode::PROGRAMMABLE_PULL) {
+        cachedRenderDataProgrammablePull = {};
+    }
+    if (requestMode != RequestMode::MESH_SHADER) {
+        cachedRenderDataMeshShader = {};
     }
 }
 
@@ -1012,12 +1040,17 @@ void LineData::getVulkanShaderPreprocessorDefines(
         uint32_t workgroupSize = device->getPhysicalDeviceMeshShaderPropertiesNV().maxMeshWorkGroupSize[0];
         preprocessorDefines.insert(std::make_pair("WORKGROUP_SIZE", std::to_string(workgroupSize)));
     }
-    bool useDeferredShading = std::any_of(
+    bool usesDeferredShading = std::any_of(
             lineRenderersCached.cbegin(), lineRenderersCached.cend(), [](LineRenderer* lineRenderer){
                 return lineRenderer->getRenderingMode() == RENDERING_MODE_DEFERRED_SHADING;
             });
-    if (useCappedTubes && (!isRasterizer || linePrimitiveMode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
-            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH || useDeferredShading)) {
+    bool usesTriangleMeshInternally = std::any_of(
+            lineRenderersCached.cbegin(), lineRenderersCached.cend(), [](LineRenderer* lineRenderer){
+                return lineRenderer->getUsesTriangleMeshInternally();
+            });
+    if (useCappedTubes && (usesDeferredShading || linePrimitiveMode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
+            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH || !isRasterizer)
+            && (!usesDeferredShading || usesTriangleMeshInternally)) {
         preprocessorDefines.insert(std::make_pair("USE_CAPPED_TUBES", ""));
     }
     if (renderThickBands) {

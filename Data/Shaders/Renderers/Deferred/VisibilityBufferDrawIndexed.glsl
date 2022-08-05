@@ -52,6 +52,99 @@ void main() {
 }
 
 
+-- Vertex.ProgrammablePull
+
+#version 450 core
+
+#include "LineUniformData.glsl"
+#include "LineDataSSBO.glsl"
+
+#define M_PI 3.14159265358979323846
+
+void main() {
+    uint linePointIdx = gl_VertexIndex / NUM_TUBE_SUBDIVISIONS;
+    uint circleIdx = gl_VertexIndex % NUM_TUBE_SUBDIVISIONS;
+    LinePointData linePointData = linePoints[linePointIdx];
+
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL) || defined(VISUALIZE_SEEDING_PROCESS)
+    StressLinePointData stressLinePointData = stressLinePoints[linePointIdx];
+#endif
+
+#ifdef USE_PRINCIPAL_STRESSES
+    StressLinePointPrincipalStressData stressLinePointPrincipalStressData = principalStressLinePoints[linePointIdx];
+#endif
+
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA) || defined(USE_LINE_HIERARCHY_LEVEL)
+    uint principalStressIndex = stressLinePointData.linePrincipalStressIndex;
+#endif
+
+#ifdef USE_BANDS
+#if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA) || defined(USE_LINE_HIERARCHY_LEVEL)
+    useBand = psUseBands[principalStressIndex];
+#else
+    useBand = 1;
+#endif
+
+#if !defined(USE_NORMAL_STRESS_RATIO_TUBES) && !defined(USE_HYPERSTREAMLINES)
+    thickness = useBand != 0 ? MIN_THICKNESS : 1.0;
+#endif
+
+    const float lineRadius = (useBand != 0 ? bandWidth : lineWidth) * 0.5;
+#else
+    const float lineRadius = lineWidth * 0.5;
+#endif
+
+    vec3 lineCenterPosition = (mMatrix * vec4(linePointData.linePosition, 1.0)).xyz;
+    vec3 normal = linePointData.lineNormal;
+    vec3 tangent = linePointData.lineTangent;
+    vec3 binormal = cross(linePointData.lineTangent, linePointData.lineNormal);
+    mat3 tangentFrameMatrix = mat3(normal, binormal, tangent);
+
+    float t = float(circleIdx) / float(NUM_TUBE_SUBDIVISIONS) * 2.0 * M_PI;
+    float cosAngle = cos(t);
+    float sinAngle = sin(t);
+
+#ifdef USE_BANDS
+
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+    float stressX;
+    float stressZ;
+    if (principalStressIndex == 0) {
+        stressX = stressLinePointPrincipalStressData.lineMediumStress;
+        stressZ = stressLinePointPrincipalStressData.lineMinorStress;
+    } else if (principalStressIndex == 1) {
+        stressX = stressLinePointPrincipalStressData.lineMinorStress;
+        stressZ = stressLinePointPrincipalStressData.lineMajorStress;
+    } else {
+        stressX = stressLinePointPrincipalStressData.lineMediumStress;
+        stressZ = stressLinePointPrincipalStressData.lineMajorStress;
+    }
+#endif
+
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES)
+    float factorX = clamp(abs(stressX / stressZ), 0.0, 1.0);
+    float factorZ = clamp(abs(stressZ / stressX), 0.0, 1.0);
+    vec3 localPosition = vec3(cosAngle * factorX, sinAngle * factorZ, 0.0);
+    vec3 vertexPosition = lineRadius * (tangentFrameMatrix * localPosition) + lineCenterPosition;
+#elif defined(USE_HYPERSTREAMLINES)
+    stressX = abs(stressX);
+    stressZ = abs(stressZ);
+    vec3 localPosition = vec3(cosAngle * stressX, sinAngle * stressZ, 0.0);
+    vec3 vertexPosition = lineRadius * (tangentFrameMatrix * localPosition) + lineCenterPosition;
+#else
+    // Bands with minimum thickness.
+    vec3 localPosition = vec3(thickness * cosAngle, sinAngle, 0.0);
+    vec3 vertexPosition = lineRadius * (tangentFrameMatrix * localPosition) + lineCenterPosition;
+#endif
+#else
+    vec3 localPosition = vec3(cosAngle, sinAngle, 0.0);
+    vec3 vertexPosition = lineRadius * (tangentFrameMatrix * localPosition) + lineCenterPosition;
+#endif
+
+    gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
+}
+
+
 -- Fragment
 
 #version 450 core

@@ -84,6 +84,8 @@ public:
     /// Returns whether live visualization mapping updates can be used or whether the data set is too large.
     [[nodiscard]] virtual bool getCanUseLiveUpdate(LineDataAccessType accessType) const;
     [[nodiscard]] inline bool getIsRasterizer() const { return isRasterizer; }
+    // Returns true when the renderer uses a triangle mesh internally even when a different mapping is selected.
+    [[nodiscard]] virtual bool getUsesTriangleMeshInternally() const { return false; }
 
     /**
      * Re-generates the visualization mapping.

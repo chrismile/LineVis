@@ -31,6 +31,11 @@
 #include "LineRenderer.hpp"
 #include "ResolvePass.hpp"
 
+ResolvePass::ResolvePass(LineRenderer* lineRenderer)
+        : sgl::vk::BlitRenderPass(*lineRenderer->getSceneData()->renderer), lineRenderer(lineRenderer) {
+    this->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
+}
+
 ResolvePass::ResolvePass(LineRenderer* lineRenderer, std::vector<std::string> customShaderIds)
         : sgl::vk::BlitRenderPass(
         *lineRenderer->getSceneData()->renderer, std::move(customShaderIds)),

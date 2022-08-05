@@ -34,8 +34,39 @@
 #include "Renderers/LineRenderer.hpp"
 #include "Renderers/ResolvePass.hpp"
 
-class VisibilityBufferDrawIndexedPass;
+class DeferredResolvePass;
 class DownsampleBlitPass;
+class VisibilityBufferDrawIndexedPass;
+class VisibilityBufferDrawIndexedIndirectPass;
+
+const char* const deferredRenderingModeNames[4] = {
+        "Draw Indexed",
+        "Draw Indirect",
+        "LBVH Draw Indirect",
+        "Task/Mesh Shader",
+};
+enum class DeferredRenderingMode {
+    DRAW_INDEXED,
+    DRAW_INDIRECT,
+    TASK_MESH_SHADER,
+    LBVH_DRAW_INDIRECT
+};
+
+const char* const drawIndexedGeometryModeNames[2] = {
+        "Precomputed Triangles",
+        "Programmable Pulling",
+};
+enum class DrawIndexedGeometryMode {
+    TRIANGLES, PROGRAMMABLE_PULLING
+};
+
+const char* const drawIndirectReductionModeNames[2] = {
+        "Atomic Counter",
+        "Prefix Sum Scan",
+};
+enum class DrawIndirectReductionMode {
+    ATOMIC_COUNTER, PREFIX_SUM_SCAN
+};
 
 class DeferredRenderer : public LineRenderer {
 public:
@@ -44,6 +75,7 @@ public:
     ~DeferredRenderer() override = default;
     [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_DEFERRED_SHADING; }
     bool getIsTransparencyUsed() override { return false; }
+    [[nodiscard]] bool getUsesTriangleMeshInternally() const override;
 
     /**
      * Re-generates the visualization mapping.
@@ -80,11 +112,12 @@ protected:
     void reloadShaders();
     void reloadGatherShader() override;
     void reloadResolveShader();
+    void updateGeometryMode();
     void setUniformData();
 
     // Render passes.
     std::shared_ptr<VisibilityBufferDrawIndexedPass> visibilityBufferDrawIndexedPass;
-    std::shared_ptr<ResolvePass> deferredResolvePass;
+    std::shared_ptr<DeferredResolvePass> deferredResolvePass;
 
     enum class FramebufferMode {
         VISIBILITY_BUFFER_DRAW_INDEXED_PASS, DEFERRED_RESOLVE_PASS, HULL_RASTER_PASS
@@ -117,47 +150,13 @@ protected:
     uint32_t meshWorkgroupSize = 32;
 
     // GUI data.
-    const char* deferredRenderingModeNames[4] = {
-            "Draw Indexed",
-            "Draw Indirect",
-            "LBVH Draw Indirect",
-            "Task/Mesh Shader",
-    };
-    enum class DeferredRenderingMode {
-        DRAW_INDEXED,
-        DRAW_INDIRECT,
-        TASK_MESH_SHADER,
-        LBVH_DRAW_INDIRECT
-    };
     DeferredRenderingMode deferredRenderingMode = DeferredRenderingMode::DRAW_INDEXED;
 
-    // Draw indirect sub-modes.
-    const char* drawIndirectReductionModeNames[2] = {
-            "Atomic Counter",
-            "Prefix Sum Scan",
-    };
-    enum class DrawIndirectReductionMode {
-        ATOMIC_COUNTER, PREFIX_SUM_SCAN
-    };
-    DrawIndirectReductionMode drawIndirectReductionMode = DrawIndirectReductionMode::ATOMIC_COUNTER;
-    const char* drawIndirectGeometryModeNames[2] = {
-            "Precomputed Triangles",
-            "Programmable Pulling",
-    };
-    enum class DrawIndirectGeometryMode {
-        TRIANGLES, PROGRAMMABLE_PULLING
-    };
-    DrawIndirectGeometryMode drawIndirectGeometryMode = DrawIndirectGeometryMode::TRIANGLES;
+    // Draw indexed sub-modes.
+    DrawIndexedGeometryMode drawIndexedGeometryMode = DrawIndexedGeometryMode::TRIANGLES;
 
-    // Task/mesh shader sub-modes.
-    const char* taskMeshShaderGeometryModeNames[2] = {
-            "Precomputed Triangles",
-            "Programmable Pulling",
-    };
-    enum class TaskMeshShaderGeometryMode {
-        TRIANGLES, PROGRAMMABLE_PULLING
-    };
-    TaskMeshShaderGeometryMode taskMeshShaderGeometryMode = TaskMeshShaderGeometryMode::TRIANGLES;
+    // Draw indirect sub-modes.
+    DrawIndirectReductionMode drawIndirectReductionMode = DrawIndirectReductionMode::ATOMIC_COUNTER;
 
     // Supersampling modes.
     const char* supersamplingModeNames[2] = {
@@ -169,24 +168,24 @@ protected:
     uint32_t finalWidth = 0, finalHeight = 0;
 };
 
+/**
+ * Called after all geometry has been rasterized to the visibility and depth buffer.
+ */
 class DeferredResolvePass : public ResolvePass {
 public:
-    DeferredResolvePass(LineRenderer* lineRenderer, std::vector<std::string> customShaderIds);
+    DeferredResolvePass(LineRenderer* lineRenderer);
+    void setDrawIndexedGeometryMode(DrawIndexedGeometryMode geometryModeNew);
 
 protected:
     void loadShader() override;
+
+private:
+    DrawIndexedGeometryMode geometryMode = DrawIndexedGeometryMode::TRIANGLES;
 };
 
-class VisibilityBufferDrawIndexedPass : public LineRasterPass {
-public:
-    explicit VisibilityBufferDrawIndexedPass(LineRenderer* lineRenderer);
-
-protected:
-    void loadShader() override;
-    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
-    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
-};
-
+/**
+ * Used for anti-aliased downsampling of an image rendered at a higher resolution (with integer scaling).
+ */
 class DownsampleBlitPass : public sgl::vk::BlitRenderPass {
 public:
     explicit DownsampleBlitPass(sgl::vk::Renderer* renderer);
@@ -197,6 +196,42 @@ protected:
 
 private:
     int32_t scalingFactor = 1;
+};
+
+/**
+ * Rasterizes ALL geometry to the visibility and depth buffer in one pass.
+ * Currently, only TaskMeshShaderGeometryMode::TRIANGLES is supported, i.e., no programmable pulling.
+ */
+class VisibilityBufferDrawIndexedPass : public LineRasterPass {
+public:
+    explicit VisibilityBufferDrawIndexedPass(LineRenderer* lineRenderer);
+    void setDrawIndexedGeometryMode(DrawIndexedGeometryMode geometryModeNew);
+
+protected:
+    void loadShader() override;
+    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
+    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
+
+private:
+    DrawIndexedGeometryMode geometryMode = DrawIndexedGeometryMode::TRIANGLES;
+};
+
+/**
+ * Rasterizes the geometry to the visibility and depth buffer using indirect rendering.
+ * Currently, only TaskMeshShaderGeometryMode::TRIANGLES is supported, i.e., no programmable pulling.
+ */
+class VisibilityBufferDrawIndexedIndirectPass : public LineRasterPass {
+public:
+    explicit VisibilityBufferDrawIndexedIndirectPass(LineRenderer* lineRenderer);
+    void setReductionMode(DrawIndirectReductionMode drawIndirectReductionModeNew);
+
+protected:
+    void loadShader() override;
+    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
+    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
+
+private:
+    DrawIndirectReductionMode drawIndirectReductionMode = DrawIndirectReductionMode::ATOMIC_COUNTER;
 };
 
 #endif //LINEVIS_DEFERREDRENDERER_HPP

@@ -120,18 +120,18 @@ struct MeshletData {
 
 struct LinePassTubeRenderDataMeshShader {
     uint32_t numMeshlets = 0;
-    sgl::vk::BufferPtr meshletDataBuffer;
-    sgl::vk::BufferPtr linePointDataBuffer;
-    sgl::vk::BufferPtr stressLinePointDataBuffer;
-    sgl::vk::BufferPtr stressLinePointPrincipalStressDataBuffer;
+    sgl::vk::BufferPtr meshletDataBuffer; ///< MeshletData objects.
+    sgl::vk::BufferPtr linePointDataBuffer; // LinePointDataUnified objects.
+    sgl::vk::BufferPtr stressLinePointDataBuffer; // StressLinePointDataUnified objects.
+    sgl::vk::BufferPtr stressLinePointPrincipalStressDataBuffer; // StressLinePointPrincipalStressDataUnified objects.
     sgl::vk::BufferPtr multiVarAttributeDataBuffer; ///< Only for flow lines with multi-var rendering mode.
 };
 
 struct LinePassTubeRenderDataProgrammablePull {
     sgl::vk::BufferPtr indexBuffer;
-    sgl::vk::BufferPtr linePointDataBuffer;
-    sgl::vk::BufferPtr stressLinePointDataBuffer;
-    sgl::vk::BufferPtr stressLinePointPrincipalStressDataBuffer;
+    sgl::vk::BufferPtr linePointDataBuffer; // LinePointDataUnified objects.
+    sgl::vk::BufferPtr stressLinePointDataBuffer; // StressLinePointDataUnified objects.
+    sgl::vk::BufferPtr stressLinePointPrincipalStressDataBuffer; // StressLinePointPrincipalStressDataUnified objects.
     sgl::vk::BufferPtr multiVarAttributeDataBuffer; ///< Only for flow lines with multi-var rendering mode.
 };
 

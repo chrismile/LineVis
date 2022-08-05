@@ -2,9 +2,11 @@
     uint vertexLinePointIndex0 = vertexData0.vertexLinePointIndex & 0x7FFFFFFFu;
     uint vertexLinePointIndex1 = vertexData1.vertexLinePointIndex & 0x7FFFFFFFu;
     uint vertexLinePointIndex2 = vertexData2.vertexLinePointIndex & 0x7FFFFFFFu;
+#ifndef USE_PRELOADED_LINE_DATA
     LinePointData linePointData0 = linePoints[vertexLinePointIndex0];
     LinePointData linePointData1 = linePoints[vertexLinePointIndex1];
     LinePointData linePointData2 = linePoints[vertexLinePointIndex2];
+#endif
     bool isCap =
             bitfieldExtract(vertexData0.vertexLinePointIndex, 31, 1) > 0u
             || bitfieldExtract(vertexData1.vertexLinePointIndex, 31, 1) > 0u
@@ -13,9 +15,11 @@
     uint vertexLinePointIndex0 = vertexData0.vertexLinePointIndex;
     uint vertexLinePointIndex1 = vertexData1.vertexLinePointIndex;
     uint vertexLinePointIndex2 = vertexData2.vertexLinePointIndex;
+#ifndef USE_PRELOADED_LINE_DATA
     LinePointData linePointData0 = linePoints[vertexLinePointIndex0];
     LinePointData linePointData1 = linePoints[vertexLinePointIndex1];
     LinePointData linePointData2 = linePoints[vertexLinePointIndex2];
+#endif
 #endif
 
     vec3 fragmentNormal = interpolateVec3(
@@ -99,13 +103,17 @@
 #endif
 
 #ifdef STRESS_LINE_DATA
+#ifndef USE_PRELOADED_LINE_DATA
     StressLinePointData stressLinePointData0 = stressLinePoints[vertexLinePointIndex0];
+#endif
     uint principalStressIndex = stressLinePointData0.linePrincipalStressIndex;
     float lineAppearanceOrder = stressLinePointData0.lineLineAppearanceOrder;
 #ifdef USE_PRINCIPAL_STRESSES
+#ifndef USE_PRELOADED_LINE_DATA
     StressLinePointPrincipalStressData stressLinePointPrincipalStressData0 = principalStressLinePoints[vertexLinePointIndex0];
     StressLinePointPrincipalStressData stressLinePointPrincipalStressData1 = principalStressLinePoints[vertexLinePointIndex1];
     StressLinePointPrincipalStressData stressLinePointPrincipalStressData2 = principalStressLinePoints[vertexLinePointIndex2];
+#endif
     float fragmentMajorStress = interpolateFloat(
             stressLinePointPrincipalStressData0.lineMajorStress,
             stressLinePointPrincipalStressData1.lineMajorStress,

@@ -1,10 +1,5 @@
 
-layout(std430, binding = 6) readonly buffer NodeBuffer {
-    Node nodes[];
-};
-
 layout(binding = 7) uniform NodeCullingUniformBuffer {
-    mat4 modelViewProjectionMatrix;
     ivec2 viewportSize;
     uint numMeshlets; // only for linear meshlet list.
     uint rootNodeIdx; // only for meshlet node tree.
@@ -69,14 +64,14 @@ void incrementFrustumCounters(
 bool visibilityCulling(vec3 worldSpaceAabbMin, vec3 worldSpaceAabbMax) {
     // Unroll transformed bounding box points to avoid array stored in local memory.
     // Compute the bounding box points in clip space.
-    vec4 bb0 = modelViewProjectionMatrix * vec4(worldSpaceAabbMin, 1.0);
-    vec4 bb1 = modelViewProjectionMatrix * vec4(vec3(worldSpaceAabbMax.x, worldSpaceAabbMin.y, worldSpaceAabbMin.z), 1.0);
-    vec4 bb2 = modelViewProjectionMatrix * vec4(vec3(worldSpaceAabbMin.x, worldSpaceAabbMax.y, worldSpaceAabbMin.z), 1.0);
-    vec4 bb3 = modelViewProjectionMatrix * vec4(vec3(worldSpaceAabbMax.x, worldSpaceAabbMax.y, worldSpaceAabbMin.z), 1.0);
-    vec4 bb4 = modelViewProjectionMatrix * vec4(vec3(worldSpaceAabbMin.x, worldSpaceAabbMin.y, worldSpaceAabbMax.z), 1.0);
-    vec4 bb5 = modelViewProjectionMatrix * vec4(vec3(worldSpaceAabbMax.x, worldSpaceAabbMin.y, worldSpaceAabbMax.z), 1.0);
-    vec4 bb6 = modelViewProjectionMatrix * vec4(vec3(worldSpaceAabbMin.x, worldSpaceAabbMax.y, worldSpaceAabbMax.z), 1.0);
-    vec4 bb7 = modelViewProjectionMatrix * vec4(worldSpaceAabbMax, 1.0);
+    vec4 bb0 = mvpMatrix * vec4(worldSpaceAabbMin, 1.0);
+    vec4 bb1 = mvpMatrix * vec4(vec3(worldSpaceAabbMax.x, worldSpaceAabbMin.y, worldSpaceAabbMin.z), 1.0);
+    vec4 bb2 = mvpMatrix * vec4(vec3(worldSpaceAabbMin.x, worldSpaceAabbMax.y, worldSpaceAabbMin.z), 1.0);
+    vec4 bb3 = mvpMatrix * vec4(vec3(worldSpaceAabbMax.x, worldSpaceAabbMax.y, worldSpaceAabbMin.z), 1.0);
+    vec4 bb4 = mvpMatrix * vec4(vec3(worldSpaceAabbMin.x, worldSpaceAabbMin.y, worldSpaceAabbMax.z), 1.0);
+    vec4 bb5 = mvpMatrix * vec4(vec3(worldSpaceAabbMax.x, worldSpaceAabbMin.y, worldSpaceAabbMax.z), 1.0);
+    vec4 bb6 = mvpMatrix * vec4(vec3(worldSpaceAabbMin.x, worldSpaceAabbMax.y, worldSpaceAabbMax.z), 1.0);
+    vec4 bb7 = mvpMatrix * vec4(worldSpaceAabbMax, 1.0);
 
     // Check whether each clip space point lies beyond view frustum plane 0 to 5.
     int ctr0 = 0;
