@@ -101,7 +101,8 @@ public:
 
     // --- Retrieve data for rendering for Vulkan. ---
     VulkanLineDataScatteringRenderData getVulkanLineDataScatteringRenderData();
-    TubeTriangleRenderData getLinePassTubeTriangleMeshRenderData(bool isRasterizer, bool vulkanRayTracing) override;
+    TubeTriangleRenderData getLinePassTubeTriangleMeshRenderDataPayload(
+            bool isRasterizer, bool vulkanRayTracing, TubeTriangleRenderDataPayloadPtr& payload) override;
     TubeAabbRenderData getLinePassTubeAabbRenderData(bool isRasterizer) override;
     HullTriangleRenderData getVulkanHullTriangleRenderData(bool vulkanRayTracing) override;
 

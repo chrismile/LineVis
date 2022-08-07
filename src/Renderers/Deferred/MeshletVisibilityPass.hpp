@@ -26,45 +26,38 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
--- Compute
+#ifndef LINEVIS_MESHLETVISIBILITYPASS_HPP
+#define LINEVIS_MESHLETVISIBILITYPASS_HPP
 
-#version 450 core
+#include <Graphics/Vulkan/Render/Passes/Pass.hpp>
 
-layout(local_size_x = WORKGROUP_SIZE) in;
+class LineData;
+typedef std::shared_ptr<LineData> LineDataPtr;
 
-#include "VisibilityCulling.glsl"
+class MeshletVisibilityPass : public sgl::vk::ComputePass {
+public:
+    explicit MeshletVisibilityPass(sgl::vk::Renderer* renderer);
 
-struct MeshletData {
-    vec3 worldSpaceAabbMin;
-    uint indexCount;
-    vec3 worldSpaceAabbMax;
-    uint firstIndex;
+    // Public interface.
+    void setLineData(LineDataPtr& lineData, bool isNewData);
+    void setRecheckOccludedOnly(bool recheck);
+    void setMaxNumPrimitivesPerMeshlet(uint32_t num);
+    void setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer);
+    void setDepthBufferTexture(const sgl::vk::TexturePtr& texture);
+
+protected:
+    const uint32_t WORKGROUP_SIZE = 256;
+    void loadShader() override;
+    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
+    void _render() override;
+
+private:
+    LineDataPtr lineData;
+    bool recheckOccludedOnly = false;
+    uint32_t maxNumPrimitivesPerMeshlet = 128;
+    uint32_t numMeshlets = 0;
+    sgl::vk::BufferPtr visibilityCullingUniformBuffer;
+    sgl::vk::TexturePtr depthBufferTexture;
 };
-layout(std430, binding = 0) readonly buffer MeshletDataBuffer {
-    MeshletData meshlets[];
-};
 
-layout(std430, binding = 1) writeonly buffer MeshletVisibilityArrayBuffer {
-    uint meshletVisibilityArray[];
-};
-
-void main() {
-    uint meshletIdx = gl_GlobalInvocationID.x;
-    if (meshletIdx >= numMeshlets) {
-        return;
-    }
-
-    MeshletData meshlet = meshlets[meshletIdx];
-
-    // Should we only re-check previously occluded meshlets and not re-render already rendered ones?
-#ifdef RECHECK_OCCLUDED_ONLY
-    uint isVisible = 0u;
-    if (meshletVisibilityArray[meshletIdx] == 0u) {
-        isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMin) ? 1u : 0u;
-    }
-    meshletVisibilityArray[meshletIdx] = isVisible;
-#else
-    uint isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMin) ? 1u : 0u;
-#endif
-    meshletVisibilityArray[meshletIdx] = isVisible;
-}
+#endif //LINEVIS_MESHLETVISIBILITYPASS_HPP

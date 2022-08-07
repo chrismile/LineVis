@@ -26,45 +26,36 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
--- Compute
+#ifndef LINEVIS_VISIBILITYBUFFERPREFIXSUMSCANPASS_HPP
+#define LINEVIS_VISIBILITYBUFFERPREFIXSUMSCANPASS_HPP
 
-#version 450 core
+#include <Graphics/Vulkan/Render/Passes/Pass.hpp>
 
-layout(local_size_x = WORKGROUP_SIZE) in;
+class VisibilityBufferPrefixSumScanPass : public sgl::vk::ComputePass {
+public:
+    explicit VisibilityBufferPrefixSumScanPass(sgl::vk::Renderer* renderer);
+    void setInputBuffer(const sgl::vk::BufferPtr& _inputBuffer);
+    const sgl::vk::BufferPtr& getOutputBuffer();
 
-#include "VisibilityCulling.glsl"
+protected:
+    void loadShader() override;
+    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
+    void _render() override;
 
-struct MeshletData {
-    vec3 worldSpaceAabbMin;
-    uint indexCount;
-    vec3 worldSpaceAabbMax;
-    uint firstIndex;
+private:
+    void createPrefixSumDataRecursive(
+            size_t level, uint32_t N, sgl::vk::BufferPtr& bufferIn, sgl::vk::BufferPtr& bufferOut);
+    void parallelPrefixSumRecursive(size_t level, uint32_t N);
+
+    const int BLOCK_SIZE = 256;
+    sgl::vk::BufferPtr inputBuffer;
+    sgl::vk::BufferPtr outputBuffer;
+
+    sgl::vk::ComputePipelinePtr prefixSumScanPipeline;
+    sgl::vk::ComputePipelinePtr prefixSumBlockIncrementPipeline;
+    std::vector<sgl::vk::ComputeDataPtr> prefixSumScanDataList;
+    std::vector<sgl::vk::ComputeDataPtr> prefixSumBlockIncrementDataList;
 };
-layout(std430, binding = 0) readonly buffer MeshletDataBuffer {
-    MeshletData meshlets[];
-};
 
-layout(std430, binding = 1) writeonly buffer MeshletVisibilityArrayBuffer {
-    uint meshletVisibilityArray[];
-};
 
-void main() {
-    uint meshletIdx = gl_GlobalInvocationID.x;
-    if (meshletIdx >= numMeshlets) {
-        return;
-    }
-
-    MeshletData meshlet = meshlets[meshletIdx];
-
-    // Should we only re-check previously occluded meshlets and not re-render already rendered ones?
-#ifdef RECHECK_OCCLUDED_ONLY
-    uint isVisible = 0u;
-    if (meshletVisibilityArray[meshletIdx] == 0u) {
-        isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMin) ? 1u : 0u;
-    }
-    meshletVisibilityArray[meshletIdx] = isVisible;
-#else
-    uint isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMin) ? 1u : 0u;
-#endif
-    meshletVisibilityArray[meshletIdx] = isVisible;
-}
+#endif //LINEVIS_VISIBILITYBUFFERPREFIXSUMSCANPASS_HPP

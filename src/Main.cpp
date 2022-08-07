@@ -108,6 +108,8 @@ int main(int argc, char *argv[]) {
     optionalDeviceExtensions.push_back(VK_NV_MESH_SHADER_EXTENSION_NAME);
     optionalDeviceExtensions.push_back(VK_NV_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
     optionalDeviceExtensions.push_back(VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
+    optionalDeviceExtensions.push_back(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME);
+    optionalDeviceExtensions.push_back(VK_KHR_8BIT_STORAGE_EXTENSION_NAME);
 
     sgl::vk::Instance* instance = sgl::AppSettings::get()->getVulkanInstance();
     sgl::vk::Device* device = new sgl::vk::Device;
@@ -116,6 +118,8 @@ int main(int argc, char *argv[]) {
     requestedDeviceFeatures.optionalPhysicalDeviceFeatures.sampleRateShading = VK_TRUE; // For OpaqueLineRenderer.
     requestedDeviceFeatures.optionalPhysicalDeviceFeatures.independentBlend = VK_TRUE; // For WBOITRenderer.
     requestedDeviceFeatures.optionalPhysicalDeviceFeatures.samplerAnisotropy = VK_TRUE; // For LineDataFlow textures.
+    requestedDeviceFeatures.optionalPhysicalDeviceFeatures.multiDrawIndirect = true; // For DeferredRenderer.
+    requestedDeviceFeatures.optionalEnableShaderDrawParametersFeatures = true; // For DeferredRenderer.
     // For PerPixelLinkedListRenderer, OpacityOptimizationRenderer, DepthComplexityRenderer, ...
     requestedDeviceFeatures.requestedPhysicalDeviceFeatures.fragmentStoresAndAtomics = VK_TRUE;
     device->createDeviceSwapchain(

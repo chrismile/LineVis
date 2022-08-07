@@ -30,22 +30,20 @@
 
 #version 450 core
 
-#define WORKGROUP_SIZE 256
-
 layout(local_size_x = WORKGROUP_SIZE) in;
 
 struct MeshletData {
     vec3 worldSpaceAabbMin;
-    uint numIndices;
+    uint indexCount;
     vec3 worldSpaceAabbMax;
     uint firstIndex;
 };
-layout(std430, binding = 0) readonly buffer NodeBuffer {
+layout(std430, binding = 0) readonly buffer MeshletDataBuffer {
     MeshletData meshlets[];
 };
 
 layout(std430, binding = 1) readonly buffer MeshletVisibilityArrayBuffer {
-    MeshletData meshletVisibilityArray[];
+    uint meshletVisibilityArray[];
 };
 
 layout(std430, binding = 2) readonly buffer ExclusivePrefixSumScanArrayBuffer {
@@ -61,11 +59,15 @@ struct VkDrawIndexedIndirectCommand {
     uint firstInstance;
 };
 // Uses stride of 8 bytes, or scalar layout otherwise.
-layout(std430, binding = 3) writeonly buffer NodeBuffer {
+layout(std430, binding = 3) writeonly buffer DrawIndexedIndirectCommandBuffer {
     VkDrawIndexedIndirectCommand commands[];
 };
-layout(std430, binding = 4) writeonly buffer DrawCountBuffer {
+layout(std430, binding = 4) writeonly buffer IndirectDrawCountBuffer {
     uint drawCount;
+};
+
+layout(push_constant) uniform PushConstants {
+    uint numMeshlets;
 };
 
 void main() {
@@ -87,7 +89,7 @@ void main() {
     uint writePosition = exclusivePrefixSumScanArray[meshletIdx];
     MeshletData meshlet = meshlets[meshletIdx];
     VkDrawIndexedIndirectCommand cmd;
-    cmd.indexCount = meshlet.numIndices;
+    cmd.indexCount = meshlet.indexCount;
     cmd.instanceCount = 1u;
     cmd.firstIndex = meshlet.firstIndex;
     cmd.vertexOffset = 0;

@@ -5,7 +5,6 @@
 #extension GL_NV_mesh_shader : require
 //#extension GL_EXT_scalar_block_layout : require
 
-#define WORKGROUP_SIZE 32
 #define MESHLET_MAX_VERTICES 64
 #define MESHLET_MAX_PRIMITIVES (2 * MESHLET_MAX_VERTICES - 2 * NUM_TUBE_SUBDIVISIONS)
 

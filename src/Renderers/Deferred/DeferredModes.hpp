@@ -26,45 +26,37 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
--- Compute
+#ifndef LINEVIS_DEFERREDMODES_HPP
+#define LINEVIS_DEFERREDMODES_HPP
 
-#version 450 core
-
-layout(local_size_x = WORKGROUP_SIZE) in;
-
-#include "VisibilityCulling.glsl"
-
-struct MeshletData {
-    vec3 worldSpaceAabbMin;
-    uint indexCount;
-    vec3 worldSpaceAabbMax;
-    uint firstIndex;
+const char* const deferredRenderingModeNames[4] = {
+        "Draw Indexed",
+        "Draw Indirect",
+        "HLBVH Draw Indirect",
+        "Task/Mesh Shader"
 };
-layout(std430, binding = 0) readonly buffer MeshletDataBuffer {
-    MeshletData meshlets[];
+enum class DeferredRenderingMode {
+    DRAW_INDEXED,
+    DRAW_INDIRECT,
+    HLBVH_DRAW_INDIRECT,
+    TASK_MESH_SHADER
 };
 
-layout(std430, binding = 1) writeonly buffer MeshletVisibilityArrayBuffer {
-    uint meshletVisibilityArray[];
+const char* const drawIndexedGeometryModeNames[2] = {
+        "Precomputed Triangles",
+        "Programmable Pulling",
+};
+enum class DrawIndexedGeometryMode {
+    TRIANGLES, PROGRAMMABLE_PULLING
 };
 
-void main() {
-    uint meshletIdx = gl_GlobalInvocationID.x;
-    if (meshletIdx >= numMeshlets) {
-        return;
-    }
+const char* const drawIndirectReductionModeNames[3] = {
+        "No Reduction", ///< vkCmdDrawIndexedIndirect + count is the total number of meshlets.
+        "Atomic Counter", ///< vkCmdDrawIndexedIndirectCount + count reduction with an atomic counter.
+        "Prefix Sum Scan", ///< vkCmdDrawIndexedIndirectCount + count reduction with a parallel prefix sum scan.
+};
+enum class DrawIndirectReductionMode {
+    NO_REDUCTION, ATOMIC_COUNTER, PREFIX_SUM_SCAN
+};
 
-    MeshletData meshlet = meshlets[meshletIdx];
-
-    // Should we only re-check previously occluded meshlets and not re-render already rendered ones?
-#ifdef RECHECK_OCCLUDED_ONLY
-    uint isVisible = 0u;
-    if (meshletVisibilityArray[meshletIdx] == 0u) {
-        isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMin) ? 1u : 0u;
-    }
-    meshletVisibilityArray[meshletIdx] = isVisible;
-#else
-    uint isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMin) ? 1u : 0u;
-#endif
-    meshletVisibilityArray[meshletIdx] = isVisible;
-}
+#endif //LINEVIS_DEFERREDMODES_HPP

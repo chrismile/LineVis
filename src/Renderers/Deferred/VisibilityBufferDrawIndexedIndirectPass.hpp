@@ -26,55 +26,38 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEVIS_LINERASTERPASS_HPP
-#define LINEVIS_LINERASTERPASS_HPP
+#ifndef LINEVIS_VISIBILITYBUFFERDRAWINDEXEDINDIRECTPASS_HPP
+#define LINEVIS_VISIBILITYBUFFERDRAWINDEXEDINDIRECTPASS_HPP
 
 #include <Graphics/Vulkan/Render/Passes/Pass.hpp>
-#include "SceneData.hpp"
+#include "Renderers/LineRasterPass.hpp"
+#include "DeferredModes.hpp"
 
-class LineRenderer;
-class LineData;
-typedef std::shared_ptr<LineData> LineDataPtr;
-
-class LineRasterPass : public sgl::vk::RasterPass {
+/**
+ * Rasterizes the geometry to the visibility and depth buffer using indirect rendering.
+ * Currently, only TaskMeshShaderGeometryMode::TRIANGLES is supported, i.e., no programmable pulling.
+ *
+ * For reference regarding rendering with hierarchical z-buffers, please refer to:
+ * - https://www.rastergrid.com/blog/2010/10/hierarchical-z-map-based-occlusion-culling/
+ * - http://advances.realtimerendering.com/s2021/Karis_Nanite_SIGGRAPH_Advances_2021_final.pdf
+ * - https://blog.selfshadow.com/publications/practical-visibility/
+ */
+class VisibilityBufferDrawIndexedIndirectPass : public LineRasterPass {
 public:
-    explicit LineRasterPass(LineRenderer* lineRenderer);
-
-    // Public interface.
-    virtual void setLineData(LineDataPtr& lineData, bool isNewData);
-    [[nodiscard]] inline bool getIsDataEmpty() const {
-        if (!rasterData) {
-            return true;
-        }
-        if (rasterData->getShaderStages()->getHasVertexShader()) {
-            return rasterData->getNumVertices() == 0 && rasterData->getNumIndices() == 0;
-        } else {
-            // Assume we are using task/mesh shaders in case no vertex shader is set.
-            return rasterData->getBuffer("MeshletDataBuffer").get() == nullptr;
-        }
-    }
-    inline void setUpdateUniformData(bool updateUniforms) { updateUniformData = updateUniforms; }
-    void setAttachmentLoadOp(VkAttachmentLoadOp loadOp);
-    /**
-     * This function must only be called when framebuffer compatibility can be ensured.
-     * Otherwise, please use @see recreateSwapchain.
-     * One use case for this function is changing the clear color.
-     */
-    void updateFramebuffer();
-    void recreateSwapchain(uint32_t width, uint32_t height) override;
+    explicit VisibilityBufferDrawIndexedIndirectPass(LineRenderer* lineRenderer);
+    void setMaxNumPrimitivesPerMeshlet(uint32_t numPrimitives);
+    void setUseDrawIndexedIndirectCount(uint32_t useIndirectCount);
+    [[nodiscard]] inline uint32_t getNumMeshlets() const { return numMeshlets; }
 
 protected:
     void loadShader() override;
     void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
     void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
-    void _render() override;
 
-    LineRenderer* lineRenderer = nullptr;
-    SceneData* sceneData;
-    sgl::CameraPtr* camera;
-    LineDataPtr lineData;
-    VkAttachmentLoadOp attachmentLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    bool updateUniformData = true;
+private:
+    uint32_t maxNumPrimitivesPerMeshlet = 128;
+    bool useDrawIndexedIndirectCount = true;
+    uint32_t numMeshlets = 0;
 };
 
-#endif //LINEVIS_LINERASTERPASS_HPP
+#endif //LINEVIS_VISIBILITYBUFFERDRAWINDEXEDINDIRECTPASS_HPP

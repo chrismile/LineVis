@@ -30,6 +30,24 @@
 
 #version 450 core
 
+#ifdef DRAW_INDIRECT
+// Host side adds extension GL_ARB_shader_draw_parameters.
+
+layout(location = 0) flat out uint primitiveIDOffset;
+
+struct VkDrawIndexedIndirectCommand {
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int vertexOffset;
+    uint firstInstance;
+};
+// Uses stride of 8 bytes, or scalar layout otherwise.
+layout(std430, binding = 0) readonly buffer DrawIndexedIndirectCommandBuffer {
+    VkDrawIndexedIndirectCommand commands[];
+};
+#endif
+
 //struct TubeTriangleVertexData {
 //    vec3 vertexPosition;
 //    uint vertexLinePointIndex; ///< Pointer to LinePointData entry.
@@ -45,6 +63,10 @@
 layout(location = 0) in vec3 vertexPosition;
 
 void main() {
+#ifdef DRAW_INDIRECT
+    primitiveIDOffset = uint(commands[gl_DrawIDARB].firstIndex / 3);
+#endif
+
     //TubeTriangleVertexData vertexData = tubeTriangleVertexDataBuffer[gl_VertexIndex];
     //vec3 vertexPosition = vertexData.vertexPosition;
 
@@ -149,9 +171,17 @@ void main() {
 
 #version 450 core
 
+#ifdef DRAW_INDIRECT
+layout(location = 0) flat in uint primitiveIDOffset;
+#endif
+
 // Primitive index attachment uses clear value 0xFFFFFFFFu.
 layout(location = 0) out uint fragmentPrimitiveIndex;
 
 void main() {
+#ifdef DRAW_INDIRECT
+    fragmentPrimitiveIndex = uint(gl_PrimitiveID) + primitiveIDOffset;
+#else
     fragmentPrimitiveIndex = uint(gl_PrimitiveID);
+#endif
 }

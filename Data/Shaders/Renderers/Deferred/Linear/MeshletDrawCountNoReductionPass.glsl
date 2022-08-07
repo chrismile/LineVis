@@ -48,7 +48,7 @@ layout(std430, binding = 1) writeonly buffer MeshletVisibilityArrayBuffer {
     uint meshletVisibilityArray[];
 };
 
-// Buffers passed to vkCmdDrawIndexedIndirectCount.
+// Buffers passed to vkCmdDrawIndexedIndirect.
 struct VkDrawIndexedIndirectCommand {
     uint indexCount;
     uint instanceCount;
@@ -59,9 +59,6 @@ struct VkDrawIndexedIndirectCommand {
 // Uses stride of 8 bytes, or scalar layout otherwise.
 layout(std430, binding = 3) writeonly buffer DrawIndexedIndirectCommandBuffer {
     VkDrawIndexedIndirectCommand commands[];
-};
-layout(std430, binding = 4) buffer IndirectDrawCountBuffer {
-    uint drawCount;
 };
 
 void main() {
@@ -83,14 +80,11 @@ void main() {
 #endif
     meshletVisibilityArray[meshletIdx] = isVisible ? 1u : 0u;
 
-    if (isVisible) {
-        uint writePosition = atomicAdd(drawCount, 1u);
-        VkDrawIndexedIndirectCommand cmd;
-        cmd.indexCount = meshlet.indexCount;
-        cmd.instanceCount = 1u;
-        cmd.firstIndex = meshlet.firstIndex;
-        cmd.vertexOffset = 0;
-        cmd.firstInstance = 0u;
-        commands[writePosition] = cmd;
-    }
+    VkDrawIndexedIndirectCommand cmd;
+    cmd.indexCount = isVisible ? meshlet.indexCount : 0u;
+    cmd.instanceCount = 1u;
+    cmd.firstIndex = meshlet.firstIndex;
+    cmd.vertexOffset = 0;
+    cmd.firstInstance = 0u;
+    commands[meshletIdx] = cmd;
 }

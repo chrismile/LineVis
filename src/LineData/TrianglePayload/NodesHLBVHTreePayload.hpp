@@ -26,45 +26,39 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
--- Compute
+#ifndef LINEVIS_NODESHLBVHTREEPAYLOAD_HPP
+#define LINEVIS_NODESHLBVHTREEPAYLOAD_HPP
 
-#version 450 core
+#include "../LineRenderData.hpp"
 
-layout(local_size_x = WORKGROUP_SIZE) in;
-
-#include "VisibilityCulling.glsl"
-
-struct MeshletData {
-    vec3 worldSpaceAabbMin;
-    uint indexCount;
-    vec3 worldSpaceAabbMax;
-    uint firstIndex;
-};
-layout(std430, binding = 0) readonly buffer MeshletDataBuffer {
-    MeshletData meshlets[];
+struct HLBVHTreeNodePayload {
+    glm::vec3 worldSpaceAabbMin{};
+    uint32_t childIdx0 = 0;
+    glm::vec3 worldSpaceAabbMax{};
+    uint32_t childIdx1 = 0;
 };
 
-layout(std430, binding = 1) writeonly buffer MeshletVisibilityArrayBuffer {
-    uint meshletVisibilityArray[];
+class NodesHLBVHTreePayload : public TubeTriangleRenderDataPayload {
+public:
+    NodesHLBVHTreePayload() = default;
+    [[nodiscard]] Type getType() const override { return Type::NODES_HLBVH_TREE; }
+    [[nodiscard]] bool settingsEqual(TubeTriangleRenderDataPayload* other) const override;
+
+    void createPayloadPre(
+            sgl::vk::Device* device, std::vector<uint32_t>& tubeTriangleIndices,
+            std::vector<TubeTriangleVertexData>& tubeTriangleVertexDataList,
+            const std::vector<LinePointDataUnified>& tubeTriangleLinePointDataList) override;
+    void createPayloadPost(sgl::vk::Device* device, TubeTriangleRenderData& tubeTriangleRenderData) override;
+
+private:
+    // Settings.
+    uint32_t maxNumPrimitivesPerMeshlet = 126; ///< Meshlets are stored in the leafs.
+
+    // Data.
+    uint32_t numNodes = 0;
+    sgl::vk::BufferPtr nodeDataBuffer; ///< HLBVHTreeNodePayload objects.
+    uint32_t numMeshlets = 0;
+    sgl::vk::BufferPtr meshletDataBuffer; ///< MeshletDrawIndirectPayloadData objects.
 };
 
-void main() {
-    uint meshletIdx = gl_GlobalInvocationID.x;
-    if (meshletIdx >= numMeshlets) {
-        return;
-    }
-
-    MeshletData meshlet = meshlets[meshletIdx];
-
-    // Should we only re-check previously occluded meshlets and not re-render already rendered ones?
-#ifdef RECHECK_OCCLUDED_ONLY
-    uint isVisible = 0u;
-    if (meshletVisibilityArray[meshletIdx] == 0u) {
-        isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMin) ? 1u : 0u;
-    }
-    meshletVisibilityArray[meshletIdx] = isVisible;
-#else
-    uint isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMin) ? 1u : 0u;
-#endif
-    meshletVisibilityArray[meshletIdx] = isVisible;
-}
+#endif //LINEVIS_NODESHLBVHTREEPAYLOAD_HPP

@@ -33,40 +33,18 @@
 #include <Graphics/Vulkan/Render/Passes/Pass.hpp>
 #include "Renderers/LineRenderer.hpp"
 #include "Renderers/ResolvePass.hpp"
+#include "DeferredModes.hpp"
 
 class DeferredResolvePass;
 class DownsampleBlitPass;
 class VisibilityBufferDrawIndexedPass;
 class VisibilityBufferDrawIndexedIndirectPass;
-
-const char* const deferredRenderingModeNames[4] = {
-        "Draw Indexed",
-        "Draw Indirect",
-        "LBVH Draw Indirect",
-        "Task/Mesh Shader",
-};
-enum class DeferredRenderingMode {
-    DRAW_INDEXED,
-    DRAW_INDIRECT,
-    TASK_MESH_SHADER,
-    LBVH_DRAW_INDIRECT
-};
-
-const char* const drawIndexedGeometryModeNames[2] = {
-        "Precomputed Triangles",
-        "Programmable Pulling",
-};
-enum class DrawIndexedGeometryMode {
-    TRIANGLES, PROGRAMMABLE_PULLING
-};
-
-const char* const drawIndirectReductionModeNames[2] = {
-        "Atomic Counter",
-        "Prefix Sum Scan",
-};
-enum class DrawIndirectReductionMode {
-    ATOMIC_COUNTER, PREFIX_SUM_SCAN
-};
+class MeshletDrawCountNoReductionPass;
+class MeshletDrawCountAtomicPass;
+class MeshletVisibilityPass;
+class VisibilityBufferPrefixSumScanPass;
+class MeshletDrawCountPass;
+class MeshletTaskMeshPass;
 
 class DeferredRenderer : public LineRenderer {
 public:
@@ -112,44 +90,89 @@ protected:
     void reloadShaders();
     void reloadGatherShader() override;
     void reloadResolveShader();
+    void updateRenderingMode();
     void updateGeometryMode();
+    void updateDrawIndirectReductionMode();
+    void onResolutionChangedDeferredRenderingMode();
     void setUniformData();
 
     // Render passes.
+    void renderDataEmpty();
+    // DeferredRenderingMode::DRAW_INDEXED
+    void renderDrawIndexed();
     std::shared_ptr<VisibilityBufferDrawIndexedPass> visibilityBufferDrawIndexedPass;
+    // DeferredRenderingMode::DRAW_INDIRECT
+    void renderDrawIndexedIndirectOrTaskMesh(int passIndex);
+    std::shared_ptr<VisibilityBufferDrawIndexedIndirectPass> visibilityBufferDrawIndexedIndirectPasses[2];
+    std::shared_ptr<MeshletDrawCountNoReductionPass> meshletDrawCountNoReductionPasses[2];
+    std::shared_ptr<MeshletDrawCountAtomicPass> meshletDrawCountAtomicPasses[2];
+    std::shared_ptr<MeshletVisibilityPass> meshletVisibilityPasses[2];
+    std::shared_ptr<VisibilityBufferPrefixSumScanPass> visibilityBufferPrefixSumScanPass;
+    std::shared_ptr<MeshletDrawCountPass> meshletDrawCountPass;
+    // DeferredRenderingMode::TASK_MESH_SHADER
+    std::shared_ptr<MeshletTaskMeshPass> meshletTaskMeshPasses[2];
+    // DeferredRenderingMode::HLBVH_DRAW_INDIRECT
+    void renderHLBVH();
+    std::shared_ptr<VisibilityBufferDrawIndexedPass> visibilityBufferHLBVHDrawIndirectPass;
+    // Resolve/further passes.
     std::shared_ptr<DeferredResolvePass> deferredResolvePass;
+    std::shared_ptr<DownsampleBlitPass> downsampleBlitPass;
+    size_t frameNumber = 0; ///< The frame number is reset when the visualization mapping changes.
 
     enum class FramebufferMode {
-        VISIBILITY_BUFFER_DRAW_INDEXED_PASS, DEFERRED_RESOLVE_PASS, HULL_RASTER_PASS
+        // DeferredRenderingMode::DRAW_INDEXED
+        VISIBILITY_BUFFER_DRAW_INDEXED_PASS,
+        // DeferredRenderingMode::DRAW_INDEXED
+        VISIBILITY_BUFFER_DRAW_INDEXED_INDIRECT_PASS,
+        // DeferredRenderingMode::TASK_MESH_SHADER
+        VISIBILITY_BUFFER_TASK_MESH_SHADER_PASS,
+        // Resolve/further passes.
+        DEFERRED_RESOLVE_PASS, HULL_RASTER_PASS
     };
+    int framebufferModeIndex = 0;
     FramebufferMode framebufferMode = FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_PASS;
 
-    struct NodeCullingUniformData {
+    struct VisibilityCullingUniformData {
         glm::mat4 modelViewProjectionMatrix;
         glm::ivec2 viewportSize;
         uint32_t numMeshlets; // only for linear meshlet list.
         uint32_t rootNodeIdx; // only for meshlet node tree.
     };
-    NodeCullingUniformData nodeCullingUniformData{};
-    sgl::vk::BufferPtr nodeCullingUniformDataBuffer;
+    VisibilityCullingUniformData visibilityCullingUniformData{};
+    sgl::vk::BufferPtr visibilityCullingUniformDataBuffer;
+    glm::mat4 lastFrameViewMatrix{};
+    glm::mat4 lastFrameProjectionMatrix{};
 
     // Vulkan render data.
     sgl::vk::ImageViewPtr primitiveIndexImage;
     sgl::vk::TexturePtr primitiveIndexTexture;
+    sgl::vk::ImageViewPtr colorRenderTargetImage;
+    sgl::vk::TexturePtr colorRenderTargetTexture;
+
+    // Hierarchical z-buffer (Hi-Z buffer, HZB).
     std::vector<sgl::vk::ImageViewPtr> depthMipLevelImageViews;
     sgl::vk::ImageViewPtr depthRenderTargetImage;
     sgl::vk::TexturePtr depthBufferTexture;
     std::vector<sgl::vk::TexturePtr> depthMipLevelTextures;
     std::vector<sgl::vk::BlitRenderPassPtr> depthMipBlitRenderPasses;
-    sgl::vk::ImageViewPtr colorRenderTargetImage;
-    sgl::vk::TexturePtr colorRenderTargetTexture;
-    std::shared_ptr<DownsampleBlitPass> downsampleBlitPass;
+
+    // Ping-pong HZB for meshlet modes (i.e., everything but pure draw indexed).
+    std::vector<sgl::vk::ImageViewPtr> depthMipLevelImageViewsPingPong[2];
+    sgl::vk::ImageViewPtr depthRenderTargetImagePingPong[2];
+    sgl::vk::TexturePtr depthBufferTexturePingPong[2];
+    std::vector<sgl::vk::TexturePtr> depthMipLevelTexturesPingPong[2];
+    std::vector<sgl::vk::BlitRenderPassPtr> depthMipBlitRenderPassesPingPong[2];
 
     bool supportsTaskMeshShaders = false;
+    bool supportsDrawIndirect = false;
     bool supportsDrawIndirectCount = false;
-    uint32_t meshWorkgroupSize = 32;
+    uint32_t drawIndirectMaxNumPrimitivesPerMeshlet = 128;
+    uint32_t taskMeshShaderMaxNumPrimitivesPerMeshlet = 126;
+    uint32_t taskMeshShaderMaxNumVerticesPerMeshlet = 64;
+    uint32_t taskMeshShaderMaxNumPrimitivesSupported = 512;
+    uint32_t taskMeshShaderMaxNumVerticesSupported = 256;
 
-    // GUI data.
+    // Current rendering mode.
     DeferredRenderingMode deferredRenderingMode = DeferredRenderingMode::DRAW_INDEXED;
 
     // Draw indexed sub-modes.
@@ -173,7 +196,7 @@ protected:
  */
 class DeferredResolvePass : public ResolvePass {
 public:
-    DeferredResolvePass(LineRenderer* lineRenderer);
+    explicit DeferredResolvePass(LineRenderer* lineRenderer);
     void setDrawIndexedGeometryMode(DrawIndexedGeometryMode geometryModeNew);
 
 protected:
@@ -196,42 +219,6 @@ protected:
 
 private:
     int32_t scalingFactor = 1;
-};
-
-/**
- * Rasterizes ALL geometry to the visibility and depth buffer in one pass.
- * Currently, only TaskMeshShaderGeometryMode::TRIANGLES is supported, i.e., no programmable pulling.
- */
-class VisibilityBufferDrawIndexedPass : public LineRasterPass {
-public:
-    explicit VisibilityBufferDrawIndexedPass(LineRenderer* lineRenderer);
-    void setDrawIndexedGeometryMode(DrawIndexedGeometryMode geometryModeNew);
-
-protected:
-    void loadShader() override;
-    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
-    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
-
-private:
-    DrawIndexedGeometryMode geometryMode = DrawIndexedGeometryMode::TRIANGLES;
-};
-
-/**
- * Rasterizes the geometry to the visibility and depth buffer using indirect rendering.
- * Currently, only TaskMeshShaderGeometryMode::TRIANGLES is supported, i.e., no programmable pulling.
- */
-class VisibilityBufferDrawIndexedIndirectPass : public LineRasterPass {
-public:
-    explicit VisibilityBufferDrawIndexedIndirectPass(LineRenderer* lineRenderer);
-    void setReductionMode(DrawIndirectReductionMode drawIndirectReductionModeNew);
-
-protected:
-    void loadShader() override;
-    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
-    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
-
-private:
-    DrawIndirectReductionMode drawIndirectReductionMode = DrawIndirectReductionMode::ATOMIC_COUNTER;
 };
 
 #endif //LINEVIS_DEFERREDRENDERER_HPP

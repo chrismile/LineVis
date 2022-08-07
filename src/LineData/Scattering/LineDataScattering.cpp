@@ -239,10 +239,10 @@ VulkanLineDataScatteringRenderData LineDataScattering::getVulkanLineDataScatteri
     return vulkanScatteredLinesGridRenderData;
 }
 
-TubeTriangleRenderData LineDataScattering::getLinePassTubeTriangleMeshRenderData(
-        bool isRasterizer, bool vulkanRayTracing) {
+TubeTriangleRenderData LineDataScattering::getLinePassTubeTriangleMeshRenderDataPayload(
+        bool isRasterizer, bool vulkanRayTracing, TubeTriangleRenderDataPayloadPtr& payload) {
     recomputeHistogram();
-    return LineDataFlow::getLinePassTubeTriangleMeshRenderData(isRasterizer, vulkanRayTracing);
+    return LineDataFlow::getLinePassTubeTriangleMeshRenderDataPayload(isRasterizer, vulkanRayTracing, payload);
 }
 TubeAabbRenderData LineDataScattering::getLinePassTubeAabbRenderData(bool isRasterizer) {
     recomputeHistogram();

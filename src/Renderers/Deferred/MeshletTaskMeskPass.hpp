@@ -26,55 +26,41 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEVIS_LINERASTERPASS_HPP
-#define LINEVIS_LINERASTERPASS_HPP
+#ifndef LINEVIS_MESHLETTASKMESKPASS_HPP
+#define LINEVIS_MESHLETTASKMESKPASS_HPP
 
 #include <Graphics/Vulkan/Render/Passes/Pass.hpp>
-#include "SceneData.hpp"
+#include "Renderers/LineRasterPass.hpp"
 
-class LineRenderer;
 class LineData;
 typedef std::shared_ptr<LineData> LineDataPtr;
 
-class LineRasterPass : public sgl::vk::RasterPass {
+class MeshletTaskMeshPass : public LineRasterPass {
 public:
-    explicit LineRasterPass(LineRenderer* lineRenderer);
+    explicit MeshletTaskMeshPass(LineRenderer* lineRenderer);
 
     // Public interface.
-    virtual void setLineData(LineDataPtr& lineData, bool isNewData);
-    [[nodiscard]] inline bool getIsDataEmpty() const {
-        if (!rasterData) {
-            return true;
-        }
-        if (rasterData->getShaderStages()->getHasVertexShader()) {
-            return rasterData->getNumVertices() == 0 && rasterData->getNumIndices() == 0;
-        } else {
-            // Assume we are using task/mesh shaders in case no vertex shader is set.
-            return rasterData->getBuffer("MeshletDataBuffer").get() == nullptr;
-        }
-    }
-    inline void setUpdateUniformData(bool updateUniforms) { updateUniformData = updateUniforms; }
-    void setAttachmentLoadOp(VkAttachmentLoadOp loadOp);
-    /**
-     * This function must only be called when framebuffer compatibility can be ensured.
-     * Otherwise, please use @see recreateSwapchain.
-     * One use case for this function is changing the clear color.
-     */
-    void updateFramebuffer();
-    void recreateSwapchain(uint32_t width, uint32_t height) override;
+    void setRecheckOccludedOnly(bool recheck);
+    void setMaxNumPrimitivesPerMeshlet(uint32_t num);
+    void setMaxNumVerticesPerMeshlet(uint32_t num);
+    void setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer);
+    void setDepthBufferTexture(const sgl::vk::TexturePtr& texture);
+    [[nodiscard]] inline uint32_t getNumMeshlets() const { return numMeshlets; }
 
 protected:
+    uint32_t WORKGROUP_SIZE = 32;
     void loadShader() override;
     void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
     void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
     void _render() override;
 
-    LineRenderer* lineRenderer = nullptr;
-    SceneData* sceneData;
-    sgl::CameraPtr* camera;
-    LineDataPtr lineData;
-    VkAttachmentLoadOp attachmentLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    bool updateUniformData = true;
+private:
+    bool recheckOccludedOnly = false;
+    uint32_t maxNumPrimitivesPerMeshlet = 126;
+    uint32_t maxNumVerticesPerMeshlet = 64;
+    uint32_t numMeshlets = 0;
+    sgl::vk::BufferPtr visibilityCullingUniformBuffer;
+    sgl::vk::TexturePtr depthBufferTexture;
 };
 
-#endif //LINEVIS_LINERASTERPASS_HPP
+#endif //LINEVIS_MESHLETTASKMESKPASS_HPP

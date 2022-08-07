@@ -29,6 +29,11 @@
 #ifndef LINEVIS_LINERENDERDATA_HPP
 #define LINEVIS_LINERENDERDATA_HPP
 
+#include <vector>
+#include <memory>
+#include <cstdint>
+#include <glm/vec3.hpp>
+
 namespace sgl {
 
 class GeometryBuffer;
@@ -38,6 +43,7 @@ namespace vk {
 
 class Buffer;
 typedef std::shared_ptr<Buffer> BufferPtr;
+class Device;
 
 }
 
@@ -210,5 +216,41 @@ struct HullTriangleRenderData {
 struct TubeTriangleSplitData {
     std::vector<uint32_t> numBatchIndices;
 };
+
+/**
+ * In some cases, we want to generate additional data for the tube triangle mesh, e.g., meshlet bounding boxes.
+ * We can generate additional payload stored on top of the triangle mesh. If the same type of payload is requested
+ * multiple times, the data is cached.
+ */
+class TubeTriangleRenderDataPayload {
+public:
+    virtual ~TubeTriangleRenderDataPayload() = default;
+    enum class Type {
+        MESHLETS_DRAW_INDIRECT,
+        MESHLETS_TASK_MESH_SHADER,
+        NODES_HLBVH_TREE
+    };
+    [[nodiscard]] virtual Type getType() const = 0;
+    [[nodiscard]] virtual bool settingsEqual(TubeTriangleRenderDataPayload* other) const {
+        return this->getType() == other->getType();
+    }
+
+    /**
+     * This function is called before uploading the triangle mesh to the GPU.
+     * @param tubeTriangleIndices The triangle indices (read/write).
+     * @param tubeTriangleVertexDataList The triangle vertices (read/write).
+     * @param tubeTriangleLinePointDataList The line point data referenced by the triangle indices (read-only).
+     */
+    virtual void createPayloadPre(
+            sgl::vk::Device* device, std::vector<uint32_t>& tubeTriangleIndices,
+            std::vector<TubeTriangleVertexData>& tubeTriangleVertexDataList,
+            const std::vector<LinePointDataUnified>& tubeTriangleLinePointDataList) {}
+    /**
+     * This function is called after uploading the triangle mesh to the GPU.
+     * @param tubeTriangleRenderData The GPU tube triangle data (read/write).
+     */
+    virtual void createPayloadPost(sgl::vk::Device* device, TubeTriangleRenderData& tubeTriangleRenderData) {}
+};
+typedef std::shared_ptr<TubeTriangleRenderDataPayload> TubeTriangleRenderDataPayloadPtr;
 
 #endif //LINEVIS_LINERENDERDATA_HPP

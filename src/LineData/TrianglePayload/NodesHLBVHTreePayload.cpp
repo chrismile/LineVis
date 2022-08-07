@@ -26,45 +26,23 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
--- Compute
+#include "NodesHLBVHTreePayload.hpp"
 
-#version 450 core
-
-layout(local_size_x = WORKGROUP_SIZE) in;
-
-#include "VisibilityCulling.glsl"
-
-struct MeshletData {
-    vec3 worldSpaceAabbMin;
-    uint indexCount;
-    vec3 worldSpaceAabbMax;
-    uint firstIndex;
-};
-layout(std430, binding = 0) readonly buffer MeshletDataBuffer {
-    MeshletData meshlets[];
-};
-
-layout(std430, binding = 1) writeonly buffer MeshletVisibilityArrayBuffer {
-    uint meshletVisibilityArray[];
-};
-
-void main() {
-    uint meshletIdx = gl_GlobalInvocationID.x;
-    if (meshletIdx >= numMeshlets) {
-        return;
+bool NodesHLBVHTreePayload::settingsEqual(TubeTriangleRenderDataPayload* other) const {
+    if (!TubeTriangleRenderDataPayload::settingsEqual(other)) {
+        return false;
     }
+    auto* otherCast = static_cast<NodesHLBVHTreePayload*>(other);
+    return this->maxNumPrimitivesPerMeshlet == otherCast->maxNumPrimitivesPerMeshlet;
+}
 
-    MeshletData meshlet = meshlets[meshletIdx];
+void NodesHLBVHTreePayload::createPayloadPre(
+        sgl::vk::Device* device, std::vector<uint32_t>& tubeTriangleIndices,
+        std::vector<TubeTriangleVertexData>& tubeTriangleVertexDataList,
+        const std::vector<LinePointDataUnified>& tubeTriangleLinePointDataList) {
+    // TODO: First implement SAH tree creation on CPU. Rename this class and continue to support CPU-based SAH?
+}
 
-    // Should we only re-check previously occluded meshlets and not re-render already rendered ones?
-#ifdef RECHECK_OCCLUDED_ONLY
-    uint isVisible = 0u;
-    if (meshletVisibilityArray[meshletIdx] == 0u) {
-        isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMin) ? 1u : 0u;
-    }
-    meshletVisibilityArray[meshletIdx] = isVisible;
-#else
-    uint isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMin) ? 1u : 0u;
-#endif
-    meshletVisibilityArray[meshletIdx] = isVisible;
+void NodesHLBVHTreePayload::createPayloadPost(sgl::vk::Device* device, TubeTriangleRenderData& tubeTriangleRenderData) {
+    ;
 }

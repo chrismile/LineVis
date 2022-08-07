@@ -413,15 +413,19 @@ void LineData::recomputeColorLegend() {
 
 void LineData::rebuildInternalRepresentationIfNecessary() {
     if (dirty) {
+        cachedRenderDataGeometryShader = {};
+    }
+    if (dirty || cachedTubeNumSubdivisions != tubeNumSubdivisions) {
         cachedRenderDataProgrammablePull = {};
+        cachedRenderDataMeshShader = {};
     }
     if (dirty || triangleRepresentationDirty) {
         sgl::AppSettings::get()->getPrimaryDevice()->waitIdle();
         //updateMeshTriangleIntersectionDataStructure();
 
-        vulkanTubeTriangleRenderData = {};
-        vulkanTubeAabbRenderData = {};
-        vulkanHullTriangleRenderData = {};
+        cachedTubeTriangleRenderData = {};
+        cachedTubeAabbRenderData = {};
+        cachedHullTriangleRenderData = {};
         tubeTriangleBottomLevelASes = {};
         tubeAabbBottomLevelAS = {};
         hullTriangleBottomLevelAS = {};
@@ -429,6 +433,7 @@ void LineData::rebuildInternalRepresentationIfNecessary() {
         tubeTriangleAndHullTopLevelAS = {};
         tubeAabbTopLevelAS = {};
         tubeAabbAndHullTopLevelAS = {};
+        cachedTubeTriangleRenderDataPayload = {};
 
         dirty = false;
         triangleRepresentationDirty = false;
@@ -437,13 +442,14 @@ void LineData::rebuildInternalRepresentationIfNecessary() {
 
 void LineData::removeOtherCachedDataTypes(RequestMode requestMode) {
     if (requestMode != RequestMode::TRIANGLES) {
-        vulkanTubeTriangleRenderData = {};
+        cachedTubeTriangleRenderData = {};
         tubeTriangleBottomLevelASes = {};
         tubeTriangleTopLevelAS = {};
         tubeTriangleAndHullTopLevelAS = {};
+        cachedTubeTriangleRenderDataPayload = {};
     }
     if (requestMode != RequestMode::AABBS) {
-        vulkanTubeAabbRenderData = {};
+        cachedTubeAabbRenderData = {};
         tubeAabbBottomLevelAS = {};
         tubeAabbTopLevelAS = {};
         tubeAabbAndHullTopLevelAS = {};
@@ -973,15 +979,15 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbAndHull
 
 HullTriangleRenderData LineData::getVulkanHullTriangleRenderData(bool vulkanRayTracing) {
     rebuildInternalRepresentationIfNecessary();
-    if (vulkanHullTriangleRenderData.vertexBuffer) {
-        return vulkanHullTriangleRenderData;
+    if (cachedHullTriangleRenderData.vertexBuffer) {
+        return cachedHullTriangleRenderData;
     }
     if (simulationMeshOutlineTriangleIndices.empty()) {
         return {};
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    vulkanHullTriangleRenderData = {};
+    cachedHullTriangleRenderData = {};
 
     std::vector<HullTriangleVertexData> vertexDataList;
     vertexDataList.reserve(simulationMeshOutlineVertexPositions.size());
@@ -1003,16 +1009,16 @@ HullTriangleRenderData LineData::getVulkanHullTriangleRenderData(bool vulkanRayT
                 | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
     }
 
-    vulkanHullTriangleRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
+    cachedHullTriangleRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
             device, simulationMeshOutlineTriangleIndices.size() * sizeof(uint32_t),
             simulationMeshOutlineTriangleIndices.data(),
             indexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    vulkanHullTriangleRenderData.vertexBuffer = std::make_shared<sgl::vk::Buffer>(
+    cachedHullTriangleRenderData.vertexBuffer = std::make_shared<sgl::vk::Buffer>(
             device, vertexDataList.size() * sizeof(HullTriangleVertexData), vertexDataList.data(),
             vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    return vulkanHullTriangleRenderData;
+    return cachedHullTriangleRenderData;
 }
 
 void LineData::getVulkanShaderPreprocessorDefines(

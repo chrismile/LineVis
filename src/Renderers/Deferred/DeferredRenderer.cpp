@@ -43,35 +43,66 @@
 #include <utility>
 
 #include "LineData/LineDataStress.hpp"
+#include "LineData/TrianglePayload/MeshletsDrawIndirectPayload.hpp"
 #include "../HullRasterPass.hpp"
+
+#include "VisibilityBufferDrawIndexedPass.hpp"
+#include "VisibilityBufferDrawIndexedIndirectPass.hpp"
+#include "MeshletDrawCountNoReductionPass.hpp"
+#include "MeshletDrawCountAtomicPass.hpp"
+#include "MeshletVisibilityPass.hpp"
+#include "VisibilityBufferPrefixSumScanPass.hpp"
+#include "MeshletDrawCountPass.hpp"
+#include "MeshletTaskMeskPass.hpp"
 #include "DeferredRenderer.hpp"
 
 DeferredRenderer::DeferredRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Opaque Line Renderer", sceneData, transferFunctionWindow) {
+    sgl::vk::Device* device = (*sceneData->renderer)->getDevice();
+
+    // Needs gl_DrawIDARB via shaderDrawParameters in the shader to get the indirect draw call-corrected gl_PrimitiveID.
+    supportsDrawIndirect =
+            device->getPhysicalDeviceShaderDrawParametersFeatures().shaderDrawParameters
+            && device->getPhysicalDeviceFeatures().multiDrawIndirect;
+
+    supportsDrawIndirectCount =
+            supportsDrawIndirect && device->isDeviceExtensionSupported(VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
+    if (!supportsDrawIndirectCount) {
+        drawIndirectReductionMode = DrawIndirectReductionMode::NO_REDUCTION;
+    }
+
     const auto& meshShaderFeatures =
-            (*sceneData->renderer)->getDevice()->getPhysicalDeviceMeshShaderFeaturesNV();
+            device->getPhysicalDeviceMeshShaderFeaturesNV();
     const auto& meshShaderProperties =
-            (*sceneData->renderer)->getDevice()->getPhysicalDeviceMeshShaderPropertiesNV();
+            device->getPhysicalDeviceMeshShaderPropertiesNV();
     supportsTaskMeshShaders = meshShaderFeatures.taskShader && meshShaderFeatures.meshShader;
-    supportsDrawIndirectCount = sgl::AppSettings::get()->getPrimaryDevice()->isDeviceExtensionSupported(
-            VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
-    meshWorkgroupSize = meshShaderProperties.maxMeshWorkGroupSize[0];
+    if (!device->isDeviceExtensionSupported(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME)
+            || !device->isDeviceExtensionSupported(VK_KHR_8BIT_STORAGE_EXTENSION_NAME)) {
+        supportsTaskMeshShaders = false;
+    } else {
+        if (!device->getPhysicalDeviceShaderFloat16Int8Features().shaderInt8
+                || !device->getPhysicalDevice8BitStorageFeatures().storageBuffer8BitAccess) {
+            supportsTaskMeshShaders = false;
+        }
+    }
+    taskMeshShaderMaxNumPrimitivesSupported = meshShaderProperties.maxMeshOutputPrimitives;
+    // Support a maximum of 256 vertices, as the mesh shader uses 8-bit unsigned indices for meshlets.
+    taskMeshShaderMaxNumVerticesSupported = std::min(meshShaderProperties.maxMeshOutputVertices, uint32_t(256));
 }
 
 void DeferredRenderer::initialize() {
     LineRenderer::initialize();
 
-    nodeCullingUniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
-            renderer->getDevice(), sizeof(NodeCullingUniformData),
+    visibilityCullingUniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(VisibilityCullingUniformData),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
-
-    visibilityBufferDrawIndexedPass = std::make_shared<VisibilityBufferDrawIndexedPass>(this);
 
     deferredResolvePass = std::make_shared<DeferredResolvePass>(this);
     deferredResolvePass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     downsampleBlitPass = std::make_shared<DownsampleBlitPass>(renderer);
 
+    updateRenderingMode();
     onClearColorChanged();
 }
 
@@ -86,8 +117,88 @@ void DeferredRenderer::reloadResolveShader() {
 
 void DeferredRenderer::reloadGatherShader() {
     LineRenderer::reloadGatherShader();
-    if (visibilityBufferDrawIndexedPass) {
+    if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
         visibilityBufferDrawIndexedPass->setShaderDirty();
+    } else if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
+        for (int i = 0; i < 2; i++) {
+            visibilityBufferDrawIndexedIndirectPasses[i]->setShaderDirty();
+        }
+        if (drawIndirectReductionMode == DrawIndirectReductionMode::NO_REDUCTION) {
+            for (int i = 0; i < 2; i++) {
+                meshletDrawCountNoReductionPasses[i]->setShaderDirty();
+            }
+        } else if (drawIndirectReductionMode == DrawIndirectReductionMode::ATOMIC_COUNTER) {
+            for (int i = 0; i < 2; i++) {
+                meshletDrawCountAtomicPasses[i]->setShaderDirty();
+            }
+        } else if (drawIndirectReductionMode == DrawIndirectReductionMode::PREFIX_SUM_SCAN) {
+            for (int i = 0; i < 2; i++) {
+                meshletVisibilityPasses[i]->setShaderDirty();
+            }
+            visibilityBufferPrefixSumScanPass->setShaderDirty();
+            meshletDrawCountPass->setShaderDirty();
+        }
+    } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
+        for (int i = 0; i < 2; i++) {
+            meshletTaskMeshPasses[i]->setShaderDirty();
+        }
+    } else if (deferredRenderingMode == DeferredRenderingMode::HLBVH_DRAW_INDIRECT) {
+        visibilityBufferHLBVHDrawIndirectPass->setShaderDirty();
+    }
+}
+
+void DeferredRenderer::updateRenderingMode() {
+    frameNumber = 0;
+    visibilityBufferDrawIndexedPass = {};
+    visibilityBufferHLBVHDrawIndirectPass = {};
+    visibilityBufferPrefixSumScanPass = {};
+    meshletDrawCountPass = {};
+    for (int i = 0; i < 2; i++) {
+        visibilityBufferDrawIndexedIndirectPasses[i] = {};
+        meshletDrawCountAtomicPasses[i] = {};
+        meshletVisibilityPasses[i] = {};
+        meshletTaskMeshPasses[i] = {};
+    }
+
+    if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
+        visibilityBufferDrawIndexedPass = std::make_shared<VisibilityBufferDrawIndexedPass>(this);
+        visibilityBufferDrawIndexedPass->setDrawIndexedGeometryMode(drawIndexedGeometryMode);
+        if (lineData) {
+            setLineData(lineData, false);
+        }
+        onResolutionChangedDeferredRenderingMode();
+    } else if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
+        for (int i = 0; i < 2; i++) {
+            visibilityBufferDrawIndexedIndirectPasses[i] = std::make_shared<VisibilityBufferDrawIndexedIndirectPass>(
+                    this);
+            visibilityBufferDrawIndexedIndirectPasses[i]->setMaxNumPrimitivesPerMeshlet(
+                    drawIndirectMaxNumPrimitivesPerMeshlet);
+        }
+        visibilityBufferDrawIndexedIndirectPasses[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
+        visibilityBufferDrawIndexedIndirectPasses[1]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD);
+        updateDrawIndirectReductionMode(); // Already contains call to @see onResolutionChangedDeferredRenderingMode.
+    } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
+        for (int i = 0; i < 2; i++) {
+            meshletTaskMeshPasses[i] = std::make_shared<MeshletTaskMeshPass>(this);
+            meshletTaskMeshPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
+            meshletTaskMeshPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
+            meshletTaskMeshPasses[i]->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
+        }
+        meshletTaskMeshPasses[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
+        meshletTaskMeshPasses[1]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD);
+        meshletTaskMeshPasses[1]->setRecheckOccludedOnly(true);
+        if (lineData) {
+            setLineData(lineData, false);
+        }
+        onResolutionChangedDeferredRenderingMode();
+    } else if (deferredRenderingMode == DeferredRenderingMode::HLBVH_DRAW_INDIRECT) {
+        visibilityBufferHLBVHDrawIndirectPass = std::make_shared<VisibilityBufferDrawIndexedPass>(this);
+        if (lineData) {
+            setLineData(lineData, false);
+        }
+        onResolutionChangedDeferredRenderingMode();
+    } else {
+        sgl::Logfile::get()->throwError("Error in DeferredRenderer::updateRenderingMode: Invalid rendering mode.");
     }
 }
 
@@ -100,6 +211,49 @@ void DeferredRenderer::updateGeometryMode() {
     }
 }
 
+void DeferredRenderer::updateDrawIndirectReductionMode() {
+    for (int i = 0; i < 2; i++) {
+        meshletDrawCountNoReductionPasses[i] = {};
+        meshletDrawCountAtomicPasses[i] = {};
+        meshletVisibilityPasses[i] = {};
+    }
+    visibilityBufferPrefixSumScanPass = {};
+    meshletDrawCountPass = {};
+
+    if (drawIndirectReductionMode == DrawIndirectReductionMode::NO_REDUCTION) {
+        for (int i = 0; i < 2; i++) {
+            meshletDrawCountNoReductionPasses[i] = std::make_shared<MeshletDrawCountNoReductionPass>(renderer);
+            meshletDrawCountNoReductionPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+            meshletDrawCountNoReductionPasses[i]->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
+            visibilityBufferDrawIndexedIndirectPasses[i]->setUseDrawIndexedIndirectCount(false);
+        }
+        meshletDrawCountNoReductionPasses[1]->setRecheckOccludedOnly(true);
+    } else if (drawIndirectReductionMode == DrawIndirectReductionMode::ATOMIC_COUNTER) {
+        for (int i = 0; i < 2; i++) {
+            meshletDrawCountAtomicPasses[i] = std::make_shared<MeshletDrawCountAtomicPass>(renderer);
+            meshletDrawCountAtomicPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+            meshletDrawCountAtomicPasses[i]->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
+            visibilityBufferDrawIndexedIndirectPasses[i]->setUseDrawIndexedIndirectCount(true);
+        }
+        meshletDrawCountAtomicPasses[1]->setRecheckOccludedOnly(true);
+    } else if (drawIndirectReductionMode == DrawIndirectReductionMode::PREFIX_SUM_SCAN) {
+        for (int i = 0; i < 2; i++) {
+            meshletVisibilityPasses[i] = std::make_shared<MeshletVisibilityPass>(renderer);
+            meshletVisibilityPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+            meshletVisibilityPasses[i]->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
+            visibilityBufferDrawIndexedIndirectPasses[i]->setUseDrawIndexedIndirectCount(true);
+        }
+        meshletVisibilityPasses[1]->setRecheckOccludedOnly(true);
+        visibilityBufferPrefixSumScanPass = std::make_shared<VisibilityBufferPrefixSumScanPass>(renderer);
+        meshletDrawCountPass = std::make_shared<MeshletDrawCountPass>(renderer);
+        meshletDrawCountPass->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+    }
+    if (lineData) {
+        setLineData(lineData, false);
+    }
+    onResolutionChangedDeferredRenderingMode();
+}
+
 bool DeferredRenderer::getUsesTriangleMeshInternally() const {
     return deferredRenderingMode != DeferredRenderingMode::DRAW_INDEXED
             || drawIndexedGeometryMode != DrawIndexedGeometryMode::PROGRAMMABLE_PULLING;
@@ -108,8 +262,48 @@ bool DeferredRenderer::getUsesTriangleMeshInternally() const {
 void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
 
-    if (visibilityBufferDrawIndexedPass) {
+    bool isDataEmpty = true;
+    if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
         visibilityBufferDrawIndexedPass->setLineData(lineData, isNewData);
+        isDataEmpty = visibilityBufferDrawIndexedPass->getIsDataEmpty();
+    } else if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
+        for (int i = 0; i < 2; i++) {
+            visibilityBufferDrawIndexedIndirectPasses[i]->setLineData(lineData, isNewData);
+        }
+        if (drawIndirectReductionMode == DrawIndirectReductionMode::NO_REDUCTION) {
+            for (int i = 0; i < 2; i++) {
+                meshletDrawCountNoReductionPasses[i]->setLineData(lineData, isNewData);
+            }
+        } else if (drawIndirectReductionMode == DrawIndirectReductionMode::ATOMIC_COUNTER) {
+            for (int i = 0; i < 2; i++) {
+                meshletDrawCountAtomicPasses[i]->setLineData(lineData, isNewData);
+            }
+        } else if (drawIndirectReductionMode == DrawIndirectReductionMode::PREFIX_SUM_SCAN) {
+            for (int i = 0; i < 2; i++) {
+                meshletVisibilityPasses[i]->setLineData(lineData, isNewData);
+            }
+            meshletDrawCountPass->setLineData(lineData, isNewData);
+
+            TubeTriangleRenderDataPayloadPtr payloadSuperClass(new MeshletsDrawIndirectPayload(
+                    drawIndirectMaxNumPrimitivesPerMeshlet));
+            TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
+                    true, false, payloadSuperClass);
+
+            if (tubeRenderData.indexBuffer) {
+                auto* payload = static_cast<MeshletsDrawIndirectPayload*>(payloadSuperClass.get());
+                visibilityBufferPrefixSumScanPass->setInputBuffer(payload->getMeshletVisibilityArrayBuffer());
+                meshletDrawCountPass->setPrefixSumScanBuffer(visibilityBufferPrefixSumScanPass->getOutputBuffer());
+            }
+        }
+        isDataEmpty = visibilityBufferDrawIndexedIndirectPasses[0]->getIsDataEmpty();
+    } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
+        for (int i = 0; i < 2; i++) {
+            meshletTaskMeshPasses[i]->setLineData(lineData, isNewData);
+        }
+        isDataEmpty = meshletTaskMeshPasses[0]->getNumMeshlets() == 0;
+    } else if (deferredRenderingMode == DeferredRenderingMode::HLBVH_DRAW_INDIRECT) {
+        visibilityBufferHLBVHDrawIndirectPass->setLineData(lineData, isNewData);
+        isDataEmpty = visibilityBufferHLBVHDrawIndirectPass->getIsDataEmpty();
     }
 
     reloadResolveShader();
@@ -117,21 +311,21 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 
     if (hullRasterPass) {
         hullRasterPass->setAttachmentLoadOp(
-                visibilityBufferDrawIndexedPass->getIsDataEmpty()
-                ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD);
+                isDataEmpty ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD);
     }
 
     dirty = false;
     reRender = true;
+    frameNumber = 0;
 }
 
 void DeferredRenderer::getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) {
     LineRenderer::getVulkanShaderPreprocessorDefines(preprocessorDefines);
     preprocessorDefines.insert(std::make_pair("DIRECT_BLIT_GATHER", ""));
     preprocessorDefines.insert(std::make_pair("OIT_GATHER_HEADER", "GatherDummy.glsl"));
-    if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
-        preprocessorDefines.insert(std::make_pair("WORKGROUP_SIZE", std::to_string(meshWorkgroupSize)));
-    }
+    //if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
+    //    preprocessorDefines.insert(std::make_pair("WORKGROUP_SIZE", std::to_string(meshWorkgroupSize)));
+    //}
 }
 
 void DeferredRenderer::setGraphicsPipelineInfo(
@@ -195,13 +389,12 @@ void DeferredRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& rende
     }
     if (isDeferredShading) {
         renderData->setStaticTexture(primitiveIndexTexture, "primitiveIndexBuffer");
-        renderData->setStaticTexture(depthBufferTexture, "depthBuffer");
+        renderData->setStaticTexture(depthMipLevelTextures.at(0), "depthBuffer");
     }
 }
 
 void DeferredRenderer::setFramebufferAttachments(sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) {
     if (framebufferMode == FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_PASS) {
-        // Visibility pass.
         sgl::vk::AttachmentState primitiveIndexAttachmentState;
         primitiveIndexAttachmentState.loadOp = loadOp;
         primitiveIndexAttachmentState.initialLayout =
@@ -219,6 +412,26 @@ void DeferredRenderer::setFramebufferAttachments(sgl::vk::FramebufferPtr& frameb
         depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         framebuffer->setDepthStencilAttachment(
                 depthRenderTargetImage, depthAttachmentState, 1.0f);
+    } else if (framebufferMode == FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_INDIRECT_PASS
+            || framebufferMode == FramebufferMode::VISIBILITY_BUFFER_TASK_MESH_SHADER_PASS) {
+        sgl::vk::AttachmentState primitiveIndexAttachmentState;
+        primitiveIndexAttachmentState.loadOp = loadOp;
+        primitiveIndexAttachmentState.initialLayout =
+                loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR ?
+                VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        framebuffer->setColorAttachmentUint(
+                primitiveIndexImage, 0, primitiveIndexAttachmentState,
+                glm::uvec4(std::numeric_limits<uint32_t>::max()));
+
+        sgl::vk::AttachmentState depthAttachmentState;
+        depthAttachmentState.loadOp = loadOp;
+        depthAttachmentState.initialLayout =
+                loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR ?
+                VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        framebuffer->setDepthStencilAttachment(
+                depthRenderTargetImagePingPong[(framebufferModeIndex + 1) % 2],
+                depthAttachmentState, 1.0f);
     } else if (framebufferMode == FramebufferMode::DEFERRED_RESOLVE_PASS) {
         // Deferred pass.
         sgl::vk::AttachmentState colorAttachmentState;
@@ -278,58 +491,85 @@ void DeferredRenderer::onResolutionChanged() {
     primitiveIndexTexture = std::make_shared<sgl::vk::Texture>(primitiveIndexImage, samplerSettings);
 
     // Create scene depth texture.
-    imageSettings.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    imageSettings.format = device->getSupportedDepthFormat();
-    // https://registry.khronos.org/OpenGL/extensions/ARB/ARB_texture_non_power_of_two.txt
-    imageSettings.mipLevels = 1 + uint32_t(std::floor(std::log2(std::max(int(renderWidth), int(renderHeight)))));
-    depthBufferTexture = std::make_shared<sgl::vk::Texture>(
-            device, imageSettings, samplerSettings, VK_IMAGE_ASPECT_DEPTH_BIT);
+    depthMipLevelImageViews = {};
+    depthRenderTargetImage = {};
+    depthBufferTexture = {};
+    depthMipLevelTextures = {};
+    depthMipBlitRenderPasses = {};
+    for (int i = 0; i < 2; i++) {
+        depthMipLevelImageViewsPingPong[i] = {};
+        depthRenderTargetImagePingPong[i] = {};
+        depthBufferTexturePingPong[i] = {};
+        depthMipLevelTexturesPingPong[i] = {};
+        depthMipBlitRenderPassesPingPong[i] = {};
+    }
+    for (int i = 0; i < 2; i++) {
+        if (i == 0) {
+            imageSettings.usage =
+                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
+                    | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        } else {
+            imageSettings.usage =
+                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
+                    | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        }
+        imageSettings.format = device->getSupportedDepthFormat();
+        // https://registry.khronos.org/OpenGL/extensions/ARB/ARB_texture_non_power_of_two.txt
+        imageSettings.mipLevels = 1 + uint32_t(std::floor(std::log2(std::max(int(renderWidth), int(renderHeight)))));
+        sgl::vk::ImageSamplerSettings depthSamplerSettings = samplerSettings;
+        depthSamplerSettings.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+        depthBufferTexturePingPong[i] = std::make_shared<sgl::vk::Texture>(
+                device, imageSettings, depthSamplerSettings, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-    depthMipLevelImageViews.clear();
-    depthMipLevelImageViews.resize(imageSettings.mipLevels);
-    depthMipLevelTextures.clear();
-    depthMipLevelTextures.resize(imageSettings.mipLevels);
-    for (uint32_t level = 0; level < imageSettings.mipLevels; level++) {
-        depthMipLevelImageViews.at(level) = std::make_shared<sgl::vk::ImageView>(
-                depthBufferTexture->getImage(), VK_IMAGE_VIEW_TYPE_2D,
-                level, 1, 0, 1,
-                VK_IMAGE_ASPECT_DEPTH_BIT);
-        sgl::vk::ImageSamplerSettings samplerSettingsMipLevel = samplerSettings;
-        depthMipLevelTextures.at(level) = std::make_shared<sgl::vk::Texture>(
-                depthMipLevelImageViews.at(level), samplerSettingsMipLevel);
+        depthMipLevelImageViewsPingPong[i].clear();
+        depthMipLevelImageViewsPingPong[i].resize(imageSettings.mipLevels);
+        depthMipLevelTexturesPingPong[i].clear();
+        depthMipLevelTexturesPingPong[i].resize(imageSettings.mipLevels);
+        for (uint32_t level = 0; level < imageSettings.mipLevels; level++) {
+            depthMipLevelImageViewsPingPong[i].at(level) = std::make_shared<sgl::vk::ImageView>(
+                    depthBufferTexturePingPong[i]->getImage(), VK_IMAGE_VIEW_TYPE_2D,
+                    level, 1, 0, 1,
+                    VK_IMAGE_ASPECT_DEPTH_BIT);
+            sgl::vk::ImageSamplerSettings samplerSettingsMipLevel = depthSamplerSettings;
+            depthMipLevelTexturesPingPong[i].at(level) = std::make_shared<sgl::vk::Texture>(
+                    depthMipLevelImageViewsPingPong[i].at(level), samplerSettingsMipLevel);
+        }
+        depthRenderTargetImagePingPong[i] = depthMipLevelTexturesPingPong[i].at(0)->getImageView();
+        depthMipBlitRenderPassesPingPong[i].clear();
+        depthMipBlitRenderPassesPingPong[i].resize(imageSettings.mipLevels - 1);
+        auto mipWidth = renderWidth;
+        auto mipHeight = renderHeight;
+        for (uint32_t level = 0; level < imageSettings.mipLevels - 1; level++) {
+            if (mipWidth > 1) mipWidth /= 2;
+            if (mipHeight > 1) mipHeight /= 2;
+            sgl::vk::BlitRenderPassPtr depthMipBlitRenderPass = std::make_shared<sgl::vk::BlitRenderPass>(
+                    renderer, std::vector<std::string>{"GenerateHZB.Vertex", "GenerateHZB.Fragment"});
+            depthMipBlitRenderPass->setColorWriteEnabled(false);
+            depthMipBlitRenderPass->setDepthWriteEnabled(true);
+            depthMipBlitRenderPass->setDepthTestEnabled(true);
+            depthMipBlitRenderPass->setDepthCompareOp(VK_COMPARE_OP_ALWAYS);
+            depthMipBlitRenderPass->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
+            depthMipBlitRenderPass->setAttachmentStoreOp(VK_ATTACHMENT_STORE_OP_STORE);
+            depthMipBlitRenderPass->setOutputImageInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
+            depthMipBlitRenderPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            depthMipBlitRenderPass->setInputTexture(depthMipLevelTexturesPingPong[i].at(level));
+            depthMipBlitRenderPass->setOutputImage(depthMipLevelImageViewsPingPong[i].at(level + 1));
+            depthMipBlitRenderPass->recreateSwapchain(mipWidth, mipHeight);
+            depthMipBlitRenderPassesPingPong[i].at(level) = depthMipBlitRenderPass;
+        }
     }
-    depthRenderTargetImage = depthMipLevelTextures.at(0)->getImageView();
-    depthMipBlitRenderPasses.clear();
-    depthMipBlitRenderPasses.resize(imageSettings.mipLevels - 1);
-    auto mipWidth = renderWidth;
-    auto mipHeight = renderHeight;
-    for (uint32_t level = 0; level < imageSettings.mipLevels - 1; level++) {
-        if (mipWidth > 1) mipWidth /= 2;
-        if (mipHeight > 1) mipHeight /= 2;
-        sgl::vk::BlitRenderPassPtr depthMipBlitRenderPass = std::make_shared<sgl::vk::BlitRenderPass>(
-                renderer, std::vector<std::string>{ "GenerateHZB.Vertex", "GenerateHZB.Fragment" });
-        depthMipBlitRenderPass->setColorWriteEnabled(false);
-        depthMipBlitRenderPass->setDepthWriteEnabled(true);
-        depthMipBlitRenderPass->setDepthTestEnabled(true);
-        depthMipBlitRenderPass->setDepthCompareOp(VK_COMPARE_OP_ALWAYS);
-        depthMipBlitRenderPass->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
-        depthMipBlitRenderPass->setAttachmentStoreOp(VK_ATTACHMENT_STORE_OP_STORE);
-        depthMipBlitRenderPass->setOutputImageInitialLayout(VK_IMAGE_LAYOUT_UNDEFINED);
-        depthMipBlitRenderPass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        depthMipBlitRenderPass->setInputTexture(depthMipLevelTextures.at(level));
-        depthMipBlitRenderPass->setOutputImage(depthMipLevelImageViews.at(level + 1));
-        depthMipBlitRenderPass->recreateSwapchain(mipWidth, mipHeight);
-        depthMipBlitRenderPasses.at(level) = depthMipBlitRenderPass;
-    }
+    depthMipLevelImageViews = depthMipLevelImageViewsPingPong[0];
+    depthRenderTargetImage = depthRenderTargetImagePingPong[0];
+    depthBufferTexture = depthBufferTexturePingPong[0];
+    depthMipLevelTextures = depthMipLevelTexturesPingPong[0];
+    depthMipBlitRenderPasses = depthMipBlitRenderPassesPingPong[0];
 
     if (hullRasterPass) {
         framebufferMode = FramebufferMode::HULL_RASTER_PASS;
         hullRasterPass->recreateSwapchain(renderWidth, renderHeight);
     }
-    if (visibilityBufferDrawIndexedPass) {
-        framebufferMode = FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_PASS;
-        visibilityBufferDrawIndexedPass->recreateSwapchain(renderWidth, renderHeight);
-    }
+
+    onResolutionChangedDeferredRenderingMode();
 
     framebufferMode = FramebufferMode::DEFERRED_RESOLVE_PASS;
     if (supersamplingMode == 0) {
@@ -359,6 +599,49 @@ void DeferredRenderer::onResolutionChanged() {
     deferredResolvePass->recreateSwapchain(renderWidth, renderHeight);
 }
 
+void DeferredRenderer::onResolutionChangedDeferredRenderingMode() {
+    if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
+        framebufferMode = FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_PASS;
+        visibilityBufferDrawIndexedPass->recreateSwapchain(renderWidth, renderHeight);
+    } else if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
+        for (int i = 0; i < 2; i++) {
+            framebufferMode = FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_INDIRECT_PASS;
+            framebufferModeIndex = i;
+            visibilityBufferDrawIndexedIndirectPasses[i]->recreateSwapchain(renderWidth, renderHeight);
+        }
+        framebufferModeIndex = 0;
+        if (drawIndirectReductionMode == DrawIndirectReductionMode::NO_REDUCTION) {
+            for (int i = 0; i < 2; i++) {
+                meshletDrawCountNoReductionPasses[i]->setDepthBufferTexture(depthBufferTexturePingPong[i]);
+                meshletDrawCountNoReductionPasses[i]->recreateSwapchain(renderWidth, renderHeight);
+            }
+        } else if (drawIndirectReductionMode == DrawIndirectReductionMode::ATOMIC_COUNTER) {
+            for (int i = 0; i < 2; i++) {
+                meshletDrawCountAtomicPasses[i]->setDepthBufferTexture(depthBufferTexturePingPong[i]);
+                meshletDrawCountAtomicPasses[i]->recreateSwapchain(renderWidth, renderHeight);
+            }
+        } else if (drawIndirectReductionMode == DrawIndirectReductionMode::PREFIX_SUM_SCAN) {
+            for (int i = 0; i < 2; i++) {
+                meshletVisibilityPasses[i]->setDepthBufferTexture(depthBufferTexturePingPong[i]);
+                meshletVisibilityPasses[i]->recreateSwapchain(renderWidth, renderHeight);
+            }
+            visibilityBufferPrefixSumScanPass->recreateSwapchain(renderWidth, renderHeight);
+            meshletDrawCountPass->recreateSwapchain(renderWidth, renderHeight);
+        }
+    } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
+        for (int i = 0; i < 2; i++) {
+            framebufferMode = FramebufferMode::VISIBILITY_BUFFER_TASK_MESH_SHADER_PASS;
+            framebufferModeIndex = i;
+            meshletTaskMeshPasses[i]->setDepthBufferTexture(depthBufferTexturePingPong[i]);
+            meshletTaskMeshPasses[i]->recreateSwapchain(renderWidth, renderHeight);
+        }
+        framebufferModeIndex = 0;
+    } else if (deferredRenderingMode == DeferredRenderingMode::HLBVH_DRAW_INDIRECT) {
+        framebufferMode = FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_PASS;
+        visibilityBufferHLBVHDrawIndirectPass->recreateSwapchain(renderWidth, renderHeight);
+    }
+}
+
 void DeferredRenderer::onClearColorChanged() {
     deferredResolvePass->setAttachmentClearColor(sceneData->clearColor->getFloatColorRGBA());
     if (hullRasterPass && !hullRasterPass->getIsDataEmpty()) {
@@ -368,52 +651,156 @@ void DeferredRenderer::onClearColorChanged() {
 }
 
 void DeferredRenderer::setUniformData() {
-    nodeCullingUniformData.modelViewProjectionMatrix =
-            sceneData->camera->getProjectionMatrix() * sceneData->camera->getViewMatrix();
-    nodeCullingUniformData.viewportSize = glm::ivec2(renderWidth, renderHeight);
-    nodeCullingUniformData.numMeshlets = 0; // TODO
-    nodeCullingUniformData.rootNodeIdx = 0; // TODO
-    nodeCullingUniformDataBuffer->updateData(
-            sizeof(NodeCullingUniformData), &nodeCullingUniformData,
-            renderer->getVkCommandBuffer());
-    renderer->insertMemoryBarrier(
-            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+    if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
+        return;
+    }
+    visibilityCullingUniformData.viewportSize = glm::ivec2(renderWidth, renderHeight);
+    // Upload and updating is done before rendering.
+    //visibilityCullingUniformData.modelViewProjectionMatrix =
+    //        sceneData->camera->getProjectionMatrix() * sceneData->camera->getViewMatrix();
+    //visibilityCullingUniformData.numMeshlets = 0;
+    //visibilityCullingUniformData.rootNodeIdx = 0;
+    //visibilityCullingUniformDataBuffer->updateData(
+    //        sizeof(VisibilityCullingUniformData), &visibilityCullingUniformData,
+    //        renderer->getVkCommandBuffer());
+    //renderer->insertMemoryBarrier(
+    //        VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+    //        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 }
 
 void DeferredRenderer::render() {
     LineRenderer::renderBase();
     setUniformData();
 
-    // TODO
-    //if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED)
-    visibilityBufferDrawIndexedPass->buildIfNecessary();
-    if (visibilityBufferDrawIndexedPass->getIsDataEmpty()) {
-        renderer->transitionImageLayout(
-                colorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        colorRenderTargetImage->clearColor(
-                sceneData->clearColor->getFloatColorRGBA(), renderer->getVkCommandBuffer());
-        renderer->transitionImageLayout(
-                colorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    bool isDataEmpty = true;
+    if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
+        visibilityBufferDrawIndexedPass->buildIfNecessary();
+        isDataEmpty = visibilityBufferDrawIndexedPass->getIsDataEmpty();
+    } else if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
+        visibilityBufferDrawIndexedIndirectPasses[0]->buildIfNecessary();
+        isDataEmpty = visibilityBufferDrawIndexedIndirectPasses[0]->getIsDataEmpty();
+    } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
+        meshletTaskMeshPasses[0]->buildIfNecessary();
+        isDataEmpty = meshletTaskMeshPasses[0]->getNumMeshlets() == 0;
+    } else if (deferredRenderingMode == DeferredRenderingMode::HLBVH_DRAW_INDIRECT) {
+        visibilityBufferHLBVHDrawIndirectPass->buildIfNecessary();
+        isDataEmpty = visibilityBufferHLBVHDrawIndirectPass->getIsDataEmpty();
+    }
 
-        renderer->transitionImageLayout(
-                depthRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        depthRenderTargetImage->clearDepthStencil(
-                1.0f, 0, renderer->getVkCommandBuffer());
+    if (isDataEmpty) {
+        renderDataEmpty();
     } else {
-        visibilityBufferDrawIndexedPass->render();
-        renderer->transitionImageLayout(
-                primitiveIndexImage->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        renderer->transitionImageLayout(
-                depthRenderTargetImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
+            renderDrawIndexed();
+        } else if (deferredRenderingMode == DeferredRenderingMode::HLBVH_DRAW_INDIRECT) {
+            renderHLBVH();
+        } else {
+            // If this is the first frame: Just clear the depth image and use the matrices of this frame.
+            if (frameNumber == 0) {
+                renderer->insertImageMemoryBarrier(
+                        depthBufferTexturePingPong[0]->getImageView(),
+                        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                        VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_WRITE_BIT);
+                depthBufferTexturePingPong[0]->getImageView()->clearDepthStencil(
+                        1.0f, 0, renderer->getVkCommandBuffer());
+                lastFrameViewMatrix = sceneData->camera->getViewMatrix();
+                lastFrameProjectionMatrix = sceneData->camera->getProjectionMatrix();
+            }
 
-        for (uint32_t level = 0; level < uint32_t(depthMipBlitRenderPasses.size()); level++) {
-            depthMipBlitRenderPasses.at(level)->render();
+            if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
+                visibilityBufferDrawIndexedIndirectPasses[0]->buildIfNecessary();
+                visibilityCullingUniformData.numMeshlets = visibilityBufferDrawIndexedIndirectPasses[0]->getNumMeshlets();
+            } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
+                meshletTaskMeshPasses[0]->buildIfNecessary();
+                visibilityCullingUniformData.numMeshlets = meshletTaskMeshPasses[0]->getNumMeshlets();
+            }
+
+            VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
+                pipelineStageFlags = VK_PIPELINE_STAGE_TASK_SHADER_BIT_NV;
+            }
+
+            // Set old MVP matrix as uniform.
+            visibilityCullingUniformData.modelViewProjectionMatrix = lastFrameProjectionMatrix * lastFrameViewMatrix;
+            visibilityCullingUniformDataBuffer->updateData(
+                    sizeof(VisibilityCullingUniformData), &visibilityCullingUniformData,
+                    renderer->getVkCommandBuffer());
+            renderer->insertMemoryBarrier(
+                    VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT, pipelineStageFlags);
+
+            // Prepare depth buffer 0 for reading.
+            renderer->transitionImageLayout(
+                    depthBufferTexturePingPong[0]->getImageView(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+            // Draw the meshlets that would have been visible in the last frame using the HZB of last frame.
+            renderDrawIndexedIndirectOrTaskMesh(0);
+            renderer->transitionImageLayout(
+                    depthRenderTargetImagePingPong[1], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+            // Rebuild the HZB.
+            for (uint32_t level = 0; level < uint32_t(depthMipBlitRenderPasses.size()); level++) {
+                depthMipBlitRenderPassesPingPong[1].at(level)->render();
+            }
+
+            // Copy MIP level 0 of D1 to D0.
+            renderer->transitionImageLayout(
+                    depthRenderTargetImagePingPong[1], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+            renderer->insertImageMemoryBarrier(
+                    depthRenderTargetImagePingPong[0],
+                    VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                    VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_WRITE_BIT);
+            depthRenderTargetImagePingPong[1]->getImage()->copyToImage(
+                    depthRenderTargetImagePingPong[0]->getImage(), VK_IMAGE_ASPECT_DEPTH_BIT,
+                    renderer->getVkCommandBuffer());
+
+            // Bring depth render targets into the correct format.
+            renderer->insertImageMemoryBarrier(
+                    depthRenderTargetImagePingPong[0],
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+                    VK_ACCESS_TRANSFER_WRITE_BIT,
+                    VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+            renderer->insertImageMemoryBarrier(
+                    depthRenderTargetImagePingPong[1],
+                    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT, pipelineStageFlags,
+                    VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT);
+
+            // Set new MVP matrix as uniform.
+            visibilityCullingUniformData.modelViewProjectionMatrix =
+                    sceneData->camera->getProjectionMatrix() * sceneData->camera->getViewMatrix();
+            visibilityCullingUniformDataBuffer->updateData(
+                    sizeof(VisibilityCullingUniformData), &visibilityCullingUniformData,
+                    renderer->getVkCommandBuffer());
+            renderer->insertMemoryBarrier(
+                    VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT, pipelineStageFlags);
+
+            // Draw the meshlets that were marked as occluded in the last pass, but are visible using the new HZB.
+            renderDrawIndexedIndirectOrTaskMesh(1);
+            renderer->transitionImageLayout(
+                    depthRenderTargetImagePingPong[0], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+            // Rebuild the HZB for next frame.
+            for (uint32_t level = 0; level < uint32_t(depthMipBlitRenderPasses.size()); level++) {
+                depthMipBlitRenderPassesPingPong[0].at(level)->render();
+            }
+
+            renderer->transitionImageLayout(
+                    primitiveIndexImage->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            renderer->transitionImageLayout(
+                    depthRenderTargetImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+            lastFrameViewMatrix = sceneData->camera->getViewMatrix();
+            lastFrameProjectionMatrix = sceneData->camera->getProjectionMatrix();
         }
-
         deferredResolvePass->render();
     }
 
+    // Render the hull mesh after the resolve pass has finished and use the resulting depth buffer for depth testing.
     //renderHull();
     if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
         // Can't use transitionImageLayout, as subresource transition by HZB build leaves wrong internal layout set.
@@ -434,19 +821,82 @@ void DeferredRenderer::render() {
     }
 }
 
+void DeferredRenderer::renderDataEmpty() {
+    // In case the data is empty, we can simply clear the color and depth render target.
+    renderer->transitionImageLayout(
+            colorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    colorRenderTargetImage->clearColor(
+            sceneData->clearColor->getFloatColorRGBA(), renderer->getVkCommandBuffer());
+    renderer->transitionImageLayout(
+            colorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    renderer->transitionImageLayout(
+            depthRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    depthRenderTargetImage->clearDepthStencil(
+            1.0f, 0, renderer->getVkCommandBuffer());
+}
+
+void DeferredRenderer::renderDrawIndexed() {
+    visibilityBufferDrawIndexedPass->render();
+    renderer->transitionImageLayout(
+            primitiveIndexImage->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    renderer->transitionImageLayout(
+            depthRenderTargetImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    //for (uint32_t level = 0; level < uint32_t(depthMipBlitRenderPasses.size()); level++) {
+    //    depthMipBlitRenderPasses.at(level)->render();
+    //}
+}
+
+void DeferredRenderer::renderDrawIndexedIndirectOrTaskMesh(int passIndex) {
+    if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
+        if (drawIndirectReductionMode == DrawIndirectReductionMode::NO_REDUCTION) {
+            meshletDrawCountNoReductionPasses[passIndex]->render();
+        } else if (drawIndirectReductionMode == DrawIndirectReductionMode::ATOMIC_COUNTER) {
+            meshletDrawCountAtomicPasses[passIndex]->render();
+        } else if (drawIndirectReductionMode == DrawIndirectReductionMode::PREFIX_SUM_SCAN) {
+            meshletVisibilityPasses[passIndex]->render();
+            renderer->insertMemoryBarrier(
+                    VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+            visibilityBufferPrefixSumScanPass->render();
+            renderer->insertMemoryBarrier(
+                    VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+            meshletDrawCountPass->render();
+        }
+        renderer->insertMemoryBarrier(
+                VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
+        visibilityBufferDrawIndexedIndirectPasses[0]->render();
+    } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
+        meshletTaskMeshPasses[passIndex]->render();
+    }
+}
+
+void DeferredRenderer::renderHLBVH() {
+    visibilityBufferHLBVHDrawIndirectPass->render();
+    renderer->transitionImageLayout(
+            primitiveIndexImage->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    renderer->transitionImageLayout(
+            depthRenderTargetImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
+
 void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 
     int numRenderingModes = IM_ARRAYSIZE(deferredRenderingModeNames);
-    if (!supportsDrawIndirectCount) {
+    if (!supportsDrawIndirect) {
         numRenderingModes -= 3;
+    } if (!supportsDrawIndirectCount) {
+        numRenderingModes -= 2;
     } else if (!supportsTaskMeshShaders) {
         numRenderingModes -= 1;
     }
     if (propertyEditor.addCombo(
             "Deferred Mode", (int*)&deferredRenderingMode,
             deferredRenderingModeNames, numRenderingModes)) {
-        updateGeometryMode();
+        updateRenderingMode();
         reloadGatherShader();
         onResolutionChanged();
         reRender = true;
@@ -463,14 +913,39 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
         if (propertyEditor.addCombo(
                 "Geometry Mode", (int*)&drawIndexedGeometryMode,
                 drawIndexedGeometryModeNames, IM_ARRAYSIZE(drawIndexedGeometryModeNames))) {
+            renderer->getDevice()->waitIdle();
             updateGeometryMode();
             reloadGatherShader();
             reRender = true;
         }
     } else if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
+        int numReductionModes = IM_ARRAYSIZE(drawIndirectReductionModeNames);
+        if (!supportsDrawIndirectCount) {
+            numReductionModes -= 2;
+        }
         if (propertyEditor.addCombo(
                 "Reduction Mode", (int*)&drawIndirectReductionMode,
-                drawIndirectReductionModeNames, IM_ARRAYSIZE(drawIndirectReductionModeNames))) {
+                drawIndirectReductionModeNames, numReductionModes)) {
+            renderer->getDevice()->waitIdle();
+            updateDrawIndirectReductionMode();
+            reloadGatherShader();
+            reRender = true;
+        }
+        if (propertyEditor.addSliderInt(
+                "#Tri/Meshlet", (int*)&drawIndirectMaxNumPrimitivesPerMeshlet, 32, 1024)) {
+            reloadGatherShader();
+            reRender = true;
+        }
+    } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
+        if (propertyEditor.addSliderInt(
+                "#Tri/Meshlet", (int*)&taskMeshShaderMaxNumPrimitivesPerMeshlet,
+                32, int(taskMeshShaderMaxNumPrimitivesSupported))) {
+            reloadGatherShader();
+            reRender = true;
+        }
+        if (propertyEditor.addSliderInt(
+                "#Verts/Meshlet", (int*)&taskMeshShaderMaxNumVerticesPerMeshlet,
+                16, int(taskMeshShaderMaxNumVerticesSupported))) {
             reloadGatherShader();
             reRender = true;
         }
@@ -599,157 +1074,4 @@ void DownsampleBlitPass::_render() {
             rasterData->getGraphicsPipeline(), VK_SHADER_STAGE_FRAGMENT_BIT,
             0, scalingFactor);
     BlitRenderPass::_render();
-}
-
-
-
-VisibilityBufferDrawIndexedPass::VisibilityBufferDrawIndexedPass(LineRenderer* lineRenderer)
-        : LineRasterPass(lineRenderer) {
-}
-
-void VisibilityBufferDrawIndexedPass::setDrawIndexedGeometryMode(DrawIndexedGeometryMode geometryModeNew) {
-    if (geometryMode != geometryModeNew) {
-        geometryMode = geometryModeNew;
-        setShaderDirty();
-        setDataDirty();
-    }
-}
-
-void VisibilityBufferDrawIndexedPass::loadShader() {
-    sgl::vk::ShaderManager->invalidateShaderCache();
-    std::map<std::string, std::string> preprocessorDefines;
-    lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);
-    lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
-
-    std::vector<std::string> shaderModuleNames;
-    if (geometryMode == DrawIndexedGeometryMode::TRIANGLES) {
-        shaderModuleNames = {
-                "VisibilityBufferDrawIndexed.Vertex",
-                "VisibilityBufferDrawIndexed.Fragment"
-        };
-    } else if (geometryMode == DrawIndexedGeometryMode::PROGRAMMABLE_PULLING) {
-        shaderModuleNames = {
-                "VisibilityBufferDrawIndexed.Vertex.ProgrammablePull",
-                "VisibilityBufferDrawIndexed.Fragment"
-        };
-    }
-    shaderStages = sgl::vk::ShaderManager->getShaderStages(
-            shaderModuleNames, preprocessorDefines);
-}
-
-void VisibilityBufferDrawIndexedPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
-    pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::TRIANGLE_LIST);
-    if (geometryMode == DrawIndexedGeometryMode::TRIANGLES) {
-        pipelineInfo.setVertexBufferBindingByLocationIndex(
-                "vertexPosition", sizeof(TubeTriangleVertexData));
-    }
-
-    lineRenderer->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
-    if (lineData->getUseCappedTubes() && geometryMode == DrawIndexedGeometryMode::TRIANGLES) {
-        pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
-    } else {
-        pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
-    }
-
-    pipelineInfo.setColorWriteEnabled(true);
-    pipelineInfo.setDepthTestEnabled(true);
-    pipelineInfo.setDepthWriteEnabled(true);
-    pipelineInfo.setBlendMode(sgl::vk::BlendMode::OVERWRITE);
-}
-
-void VisibilityBufferDrawIndexedPass::createRasterData(
-        sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
-    rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
-    lineData->setVulkanRenderDataDescriptors(rasterData);
-    //lineRenderer->setRenderDataBindings(rasterData);
-
-    if (geometryMode == DrawIndexedGeometryMode::TRIANGLES) {
-        TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderData(
-                true, false);
-        if (!tubeRenderData.indexBuffer) {
-            return;
-        }
-        rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
-        rasterData->setVertexBuffer(tubeRenderData.vertexBuffer, "vertexPosition");
-    } else if (geometryMode == DrawIndexedGeometryMode::PROGRAMMABLE_PULLING) {
-        LinePassTubeRenderDataProgrammablePull tubeRenderData = lineData->getLinePassTubeRenderDataProgrammablePull();
-        if (!tubeRenderData.indexBuffer) {
-            return;
-        }
-        rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
-        rasterData->setStaticBufferOptional(
-                tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");
-        if (tubeRenderData.stressLinePointDataBuffer) {
-            rasterData->setStaticBufferOptional(
-                    tubeRenderData.stressLinePointDataBuffer,
-                    "StressLinePointDataBuffer");
-        }
-        if (tubeRenderData.stressLinePointPrincipalStressDataBuffer) {
-            rasterData->setStaticBufferOptional(
-                    tubeRenderData.stressLinePointPrincipalStressDataBuffer,
-                    "StressLinePointPrincipalStressDataBuffer");
-        }
-    }
-}
-
-
-
-VisibilityBufferDrawIndexedIndirectPass::VisibilityBufferDrawIndexedIndirectPass(LineRenderer* lineRenderer)
-        : LineRasterPass(lineRenderer) {
-}
-
-void VisibilityBufferDrawIndexedIndirectPass::setReductionMode(DrawIndirectReductionMode drawIndirectReductionModeNew) {
-    if (drawIndirectReductionMode != drawIndirectReductionModeNew) {
-        drawIndirectReductionMode = drawIndirectReductionModeNew;
-        setShaderDirty();
-        setDataDirty();
-    }
-}
-
-void VisibilityBufferDrawIndexedIndirectPass::loadShader() {
-    sgl::vk::ShaderManager->invalidateShaderCache();
-    std::map<std::string, std::string> preprocessorDefines;
-    lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);
-    lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
-
-    std::vector<std::string> shaderModuleNames = {
-            "VisibilityBufferDrawIndexed.Vertex",
-            "VisibilityBufferDrawIndexed.Fragment"
-    };
-    shaderStages = sgl::vk::ShaderManager->getShaderStages(
-            shaderModuleNames, preprocessorDefines);
-}
-
-void VisibilityBufferDrawIndexedIndirectPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
-    pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::TRIANGLE_LIST);
-    pipelineInfo.setVertexBufferBindingByLocationIndex(
-            "vertexPosition", sizeof(TubeTriangleVertexData));
-
-    lineRenderer->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
-    if (lineData->getUseCappedTubes()) {
-        pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
-    } else {
-        pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
-    }
-
-    pipelineInfo.setColorWriteEnabled(true);
-    pipelineInfo.setDepthTestEnabled(true);
-    pipelineInfo.setDepthWriteEnabled(true);
-    pipelineInfo.setBlendMode(sgl::vk::BlendMode::OVERWRITE);
-}
-
-void VisibilityBufferDrawIndexedIndirectPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
-    rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
-    lineData->setVulkanRenderDataDescriptors(rasterData);
-    //lineRenderer->setRenderDataBindings(rasterData);
-
-    TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderData(
-            true, false);
-
-    if (!tubeRenderData.indexBuffer) {
-        return;
-    }
-
-    rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
-    rasterData->setVertexBuffer(tubeRenderData.vertexBuffer, "vertexPosition");
 }

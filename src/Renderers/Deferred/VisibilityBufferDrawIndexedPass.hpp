@@ -26,55 +26,29 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEVIS_LINERASTERPASS_HPP
-#define LINEVIS_LINERASTERPASS_HPP
+#ifndef LINEVIS_VISIBILITYBUFFERDRAWINDEXEDPASS_HPP
+#define LINEVIS_VISIBILITYBUFFERDRAWINDEXEDPASS_HPP
 
 #include <Graphics/Vulkan/Render/Passes/Pass.hpp>
-#include "SceneData.hpp"
+#include "Renderers/LineRasterPass.hpp"
+#include "DeferredModes.hpp"
 
-class LineRenderer;
-class LineData;
-typedef std::shared_ptr<LineData> LineDataPtr;
-
-class LineRasterPass : public sgl::vk::RasterPass {
+/**
+ * Rasterizes ALL geometry to the visibility and depth buffer in one pass.
+ * Currently, only TaskMeshShaderGeometryMode::TRIANGLES is supported, i.e., no programmable pulling.
+ */
+class VisibilityBufferDrawIndexedPass : public LineRasterPass {
 public:
-    explicit LineRasterPass(LineRenderer* lineRenderer);
-
-    // Public interface.
-    virtual void setLineData(LineDataPtr& lineData, bool isNewData);
-    [[nodiscard]] inline bool getIsDataEmpty() const {
-        if (!rasterData) {
-            return true;
-        }
-        if (rasterData->getShaderStages()->getHasVertexShader()) {
-            return rasterData->getNumVertices() == 0 && rasterData->getNumIndices() == 0;
-        } else {
-            // Assume we are using task/mesh shaders in case no vertex shader is set.
-            return rasterData->getBuffer("MeshletDataBuffer").get() == nullptr;
-        }
-    }
-    inline void setUpdateUniformData(bool updateUniforms) { updateUniformData = updateUniforms; }
-    void setAttachmentLoadOp(VkAttachmentLoadOp loadOp);
-    /**
-     * This function must only be called when framebuffer compatibility can be ensured.
-     * Otherwise, please use @see recreateSwapchain.
-     * One use case for this function is changing the clear color.
-     */
-    void updateFramebuffer();
-    void recreateSwapchain(uint32_t width, uint32_t height) override;
+    explicit VisibilityBufferDrawIndexedPass(LineRenderer* lineRenderer);
+    void setDrawIndexedGeometryMode(DrawIndexedGeometryMode geometryModeNew);
 
 protected:
     void loadShader() override;
     void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
     void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
-    void _render() override;
 
-    LineRenderer* lineRenderer = nullptr;
-    SceneData* sceneData;
-    sgl::CameraPtr* camera;
-    LineDataPtr lineData;
-    VkAttachmentLoadOp attachmentLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    bool updateUniformData = true;
+private:
+    DrawIndexedGeometryMode geometryMode = DrawIndexedGeometryMode::TRIANGLES;
 };
 
-#endif //LINEVIS_LINERASTERPASS_HPP
+#endif //LINEVIS_VISIBILITYBUFFERDRAWINDEXEDPASS_HPP

@@ -28,6 +28,12 @@
 
 -- Task
 
+#version 450 core
+
+#extension GL_NV_mesh_shader : require
+#extension GL_EXT_shader_8bit_storage : require
+#extension GL_KHR_shader_subgroup_ballot : require
+
 layout(local_size_x = WORKGROUP_SIZE) in;
 
 taskNV out Task {
@@ -35,18 +41,48 @@ taskNV out Task {
     uint8_t subIndices[WORKGROUP_SIZE];
 } OUT;
 
+struct MeshletData {
+    vec3 worldSpaceAabbMin;
+    float padding;
+    vec3 worldSpaceAabbMax;
+    uint meshletFirstPrimitiveIdx; ///< Value for gl_PrimitiveID.
+    uint vertexStart; ///< Pointer into dedupVerticesBuffer and dedupVertexIndexToOrigIndexMapBuffer.
+    uint vertexCount;
+    uint primitiveStart; ///< Pointer into dedupTriangleIndicesBuffer.
+    uint primitiveCount;
+};
+layout(std430, binding = 0) readonly buffer MeshletDataBuffer {
+    MeshletData meshlets[];
+};
+
+layout(std430, binding = 1) buffer MeshletVisibilityArrayBuffer {
+    uint meshletVisibilityArray[];
+};
+
+#include "VisibilityCulling.glsl"
+
 void main() {
     uint meshletIdx = gl_GlobalInvocationID.x;
 
     bool isVisible = meshletIdx < numMeshlets;
     if (isVisible) {
         MeshletData meshlet = meshlets[meshletIdx];
+
+        // Should we only re-check previously occluded meshlets and not re-render already rendered ones?
+#ifdef RECHECK_OCCLUDED_ONLY
+        isVisible = false;
+        if (meshletVisibilityArray[meshletIdx] == 0u) {
+            isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMin);
+        }
+#else
         isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMin);
+#endif
     }
+    meshletVisibilityArray[meshletIdx] = isVisible ? 1u : 0u;
 
     // See: https://developer.nvidia.com/blog/introduction-turing-mesh-shaders/
     uvec4 vote = subgroupBallot(isVisible);
-    uint numTasks = subgroupBallotBitCount(isVisible);
+    uint numTasks = subgroupBallotBitCount(vote);
 
     if (gl_LocalInvocationID.x == 0) {
         // Write how much mesh workgroups should be spawned.
@@ -56,7 +92,7 @@ void main() {
 
     // Write the meshlets that should be rendered into the compacted array.
     uint idxOffset = subgroupBallotExclusiveBitCount(vote);
-    if (render) {
+    if (isVisible) {
         OUT.subIndices[idxOffset] = uint8_t(gl_LocalInvocationID.x);
     }
 }
@@ -67,9 +103,8 @@ void main() {
 #version 450 core
 
 #extension GL_NV_mesh_shader : require
-
-#define MESHLET_MAX_VERTICES 64
-#define MESHLET_MAX_PRIMITIVES (2 * MESHLET_MAX_VERTICES - 2 * NUM_TUBE_SUBDIVISIONS)
+#extension GL_EXT_scalar_block_layout : require
+#extension GL_EXT_shader_8bit_storage : require
 
 layout(local_size_x = WORKGROUP_SIZE) in;
 layout(triangles, max_vertices = MESHLET_MAX_VERTICES, max_primitives = MESHLET_MAX_PRIMITIVES) out;
@@ -81,54 +116,50 @@ taskNV in Task {
 
 struct MeshletData {
     vec3 worldSpaceAabbMin;
-    uint numIndices;
+    float padding;
     vec3 worldSpaceAabbMax;
-    uint firstIndex;
+    uint meshletFirstPrimitiveIdx; ///< Value for gl_PrimitiveID.
+    uint vertexStart; ///< Pointer into dedupVerticesBuffer and dedupVertexIndexToOrigIndexMapBuffer.
+    uint vertexCount;
+    uint primitiveStart; ///< Pointer into dedupTriangleIndicesBuffer.
+    uint primitiveCount;
 };
-layout(std430, binding = 0) readonly buffer NodeBuffer {
+layout(std430, binding = 0) readonly buffer MeshletDataBuffer {
     MeshletData meshlets[];
 };
 
-struct TubeTriangleVertexData {
-    vec3 vertexPosition;
-    uint vertexLinePointIndex; ///< Pointer to LinePointData entry.
-    vec3 vertexNormal;
-    float phi; ///< Angle.
-};
-layout(std430, binding = 1) readonly buffer TubeTriangleVertexDataBuffer {
-    TubeTriangleVertexData tubeTriangleVertexDataBuffer[];
+layout(scalar, binding = 2) readonly buffer DedupVerticesBuffer {
+    vec3 dedupVertices[];
 };
 
-layout(scalar, binding = 2) readonly buffer TriangleIndexBuffer {
-    uvec3 indexBuffer[];
+layout(scalar, binding = 3) readonly buffer DedupTriangleIndicesBuffer {
+    uint8_t dedupTriangleIndices[];
 };
 
 void main() {
-    uint meshletIdx = IN.baseIndex + IN.subIndices[gl_WorkGroupID.x];
+    uint meshletIdx = IN.baseIndex + uint(IN.subIndices[gl_WorkGroupID.x]);
     uint threadIdx = gl_LocalInvocationID.x;
 
     MeshletData meshletData = meshlets[meshletIdx];
 
-    uint firstPrimitiveID = firstIndex / 3u;
-    uint numTriangles = meshletData.numIndices / 3u;
-    gl_PrimitiveCountNV = numTriangles;
+    gl_PrimitiveCountNV = meshletData.primitiveCount;
 
-    // TODO
-    for (uint vertexIdx = threadIdx; vertexIdx < numVertices; vertexIdx += WORKGROUP_SIZE) {
+    for (uint vertexIdx = threadIdx; vertexIdx < meshletData.vertexCount; vertexIdx += WORKGROUP_SIZE) {
+        vec3 vertexPosition = dedupVertices[meshletData.vertexStart + vertexIdx];
         gl_MeshVerticesNV[vertexIdx].gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
     }
 
-    for (uint triangleIdx = threadIdx; triangleIdx < numTriangles; triangleIdx += WORKGROUP_SIZE) {
+    for (uint triangleIdx = threadIdx; triangleIdx < meshletData.primitiveCount; triangleIdx += WORKGROUP_SIZE) {
         uint writeIdx = 3u * triangleIdx;
-        uint readIdx = writeIdx + firstPrimitiveID * 3u;
+        uint readIdx = writeIdx + meshletData.primitiveStart * 3u;
 
-        gl_PrimitiveIndicesNV[writeIdx] = indexBuffer[readIdx];
-        gl_PrimitiveIndicesNV[writeIdx + 1u] = indexBuffer[readIdx + 1u];
-        gl_PrimitiveIndicesNV[writeIdx + 2u] = indexBuffer[readIdx + 2u];
+        gl_PrimitiveIndicesNV[writeIdx] = uint(dedupTriangleIndices[readIdx]);
+        gl_PrimitiveIndicesNV[writeIdx + 1u] = uint(dedupTriangleIndices[readIdx + 1u]);
+        gl_PrimitiveIndicesNV[writeIdx + 2u] = uint(dedupTriangleIndices[readIdx + 2u]);
 
         // Available in gl_MeshPrimitivesNV:
         // https://github.com/KhronosGroup/GLSL/blob/master/extensions/nv/GLSL_NV_mesh_shader.txt
-        gl_PrimitiveID = firstPrimitiveID + triangleIdx;
+        gl_MeshPrimitivesNV[triangleIdx].gl_PrimitiveID = int(meshletData.meshletFirstPrimitiveIdx + triangleIdx);
     }
 }
 

@@ -1603,6 +1603,10 @@ void LineDataStress::getLinePassTubeRenderDataGeneral(
 
 LinePassTubeRenderData LineDataStress::getLinePassTubeRenderData() {
     rebuildInternalRepresentationIfNecessary();
+    if (cachedRenderDataProgrammablePull.indexBuffer) {
+        return cachedRenderDataGeometryShader;
+    }
+    removeOtherCachedDataTypes(RequestMode::GEOMETRY_SHADER);
 
     std::vector<uint32_t> lineIndices;
     std::vector<glm::vec3> vertexPositions;
@@ -1744,6 +1748,7 @@ LinePassTubeRenderData LineDataStress::getLinePassTubeRenderData() {
     }
 #endif
 
+    cachedRenderDataGeometryShader = tubeRenderData;
     return tubeRenderData;
 }
 
@@ -2000,7 +2005,7 @@ PointRenderData LineDataStress::getDegeneratePointsRenderData() {
 
 LinePassTubeRenderDataMeshShader LineDataStress::getLinePassTubeRenderDataMeshShader() {
     rebuildInternalRepresentationIfNecessary();
-    if (cachedRenderDataProgrammablePull.indexBuffer) {
+    if (cachedRenderDataMeshShader.meshletDataBuffer) {
         return cachedRenderDataMeshShader;
     }
     removeOtherCachedDataTypes(RequestMode::MESH_SHADER);
@@ -2108,6 +2113,7 @@ LinePassTubeRenderDataMeshShader LineDataStress::getLinePassTubeRenderDataMeshSh
 #endif
 
     cachedRenderDataMeshShader = renderData;
+    cachedTubeNumSubdivisions = tubeNumSubdivisions;
     return renderData;
 }
 
@@ -2223,6 +2229,7 @@ LinePassTubeRenderDataProgrammablePull LineDataStress::getLinePassTubeRenderData
 #endif
 
     cachedRenderDataProgrammablePull = renderData;
+    cachedTubeNumSubdivisions = tubeNumSubdivisions;
     return renderData;
 }
 
@@ -2459,12 +2466,25 @@ LinePassQuadsRenderData LineDataStress::getLinePassQuadsRenderData() {
     return bandRenderData;
 }
 
-TubeTriangleRenderData LineDataStress::getLinePassTubeTriangleMeshRenderData(bool isRasterizer, bool vulkanRayTracing) {
+
+TubeTriangleRenderData LineDataStress::getLinePassTubeTriangleMeshRenderDataPayload(
+        bool isRasterizer, bool vulkanRayTracing, TubeTriangleRenderDataPayloadPtr& payload) {
     rebuildInternalRepresentationIfNecessary();
-    if (vulkanTubeTriangleRenderData.vertexBuffer && vulkanTubeTriangleRenderDataIsRayTracing == vulkanRayTracing) {
-        return vulkanTubeTriangleRenderData;
+    bool payloadCompatible = true;
+    if (payload && cachedTubeTriangleRenderDataPayload) {
+        payloadCompatible = payload->settingsEqual(cachedTubeTriangleRenderDataPayload.get());
+    } else if (payload && !cachedTubeTriangleRenderDataPayload) {
+        payloadCompatible = false;
+    }
+    if (cachedTubeTriangleRenderData.vertexBuffer && cachedTubeTriangleRenderDataIsRayTracing == vulkanRayTracing
+            && payloadCompatible) {
+        if (cachedTubeTriangleRenderDataPayload) {
+            payload = cachedTubeTriangleRenderDataPayload;
+        }
+        return cachedTubeTriangleRenderData;
     }
     removeOtherCachedDataTypes(RequestMode::TRIANGLES);
+    cachedTubeTriangleRenderDataPayload = payload;
 
     std::vector<uint32_t> tubeTriangleIndices;
     std::vector<TubeTriangleVertexData> tubeTriangleVertexDataList;
@@ -2669,15 +2689,19 @@ TubeTriangleRenderData LineDataStress::getLinePassTubeTriangleMeshRenderData(boo
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    vulkanTubeTriangleRenderData = {};
-    vulkanTubeTriangleRenderDataIsRayTracing = vulkanRayTracing;
+    cachedTubeTriangleRenderData = {};
+    cachedTubeTriangleRenderDataIsRayTracing = vulkanRayTracing;
 
     if (tubeTriangleIndices.empty()) {
-        return vulkanTubeTriangleRenderData;
+        return cachedTubeTriangleRenderData;
     }
 
     if (generateSplitTriangleData) {
         splitTriangleIndices(tubeTriangleIndices, tubeTriangleVertexDataList);
+    }
+    if (payload) {
+        payload->createPayloadPre(
+                device, tubeTriangleIndices, tubeTriangleVertexDataList, tubeTriangleLinePointDataList);
     }
 
     uint32_t indexBufferFlags =
@@ -2693,22 +2717,22 @@ TubeTriangleRenderData LineDataStress::getLinePassTubeTriangleMeshRenderData(boo
                 | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
     }
 
-    vulkanTubeTriangleRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
+    cachedTubeTriangleRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
             device, tubeTriangleIndices.size() * sizeof(uint32_t), tubeTriangleIndices.data(),
             indexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    vulkanTubeTriangleRenderData.vertexBuffer = std::make_shared<sgl::vk::Buffer>(
+    cachedTubeTriangleRenderData.vertexBuffer = std::make_shared<sgl::vk::Buffer>(
             device, tubeTriangleVertexDataList.size() * sizeof(TubeTriangleVertexData),
             tubeTriangleVertexDataList.data(),
             vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    vulkanTubeTriangleRenderData.linePointDataBuffer = std::make_shared<sgl::vk::Buffer>(
+    cachedTubeTriangleRenderData.linePointDataBuffer = std::make_shared<sgl::vk::Buffer>(
             device, tubeTriangleLinePointDataList.size() * sizeof(LinePointDataUnified),
             tubeTriangleLinePointDataList.data(),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
             | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    vulkanTubeTriangleRenderData.stressLinePointDataBuffer = std::make_shared<sgl::vk::Buffer>(
+    cachedTubeTriangleRenderData.stressLinePointDataBuffer = std::make_shared<sgl::vk::Buffer>(
             device, tubeTriangleStressLinePointDataList.size() * sizeof(StressLinePointDataUnified),
             tubeTriangleStressLinePointDataList.data(),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
@@ -2716,7 +2740,7 @@ TubeTriangleRenderData LineDataStress::getLinePassTubeTriangleMeshRenderData(boo
 
 #ifdef USE_EIGEN
     if (bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
-        vulkanTubeTriangleRenderData.stressLinePointPrincipalStressDataBuffer = std::make_shared<sgl::vk::Buffer>(
+        cachedTubeTriangleRenderData.stressLinePointPrincipalStressDataBuffer = std::make_shared<sgl::vk::Buffer>(
                 device, tubeTriangleStressLinePointPrincipalStressDataList.size() * sizeof(StressLinePointPrincipalStressDataUnified),
                 tubeTriangleStressLinePointPrincipalStressDataList.data(),
                 VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
@@ -2731,20 +2755,24 @@ TubeTriangleRenderData LineDataStress::getLinePassTubeTriangleMeshRenderData(boo
             instanceTriangleIndexOffsets.push_back(batchIndexBufferOffset);
             batchIndexBufferOffset += uint32_t(batchNumIndices) / 3u;
         }
-        vulkanTubeTriangleRenderData.instanceTriangleIndexOffsetBuffer = std::make_shared<sgl::vk::Buffer>(
+        cachedTubeTriangleRenderData.instanceTriangleIndexOffsetBuffer = std::make_shared<sgl::vk::Buffer>(
                 device, instanceTriangleIndexOffsets.size() * sizeof(uint32_t),
                 instanceTriangleIndexOffsets.data(),
                 VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
                 VMA_MEMORY_USAGE_GPU_ONLY);
     }
 
-    return vulkanTubeTriangleRenderData;
+    if (payload) {
+        payload->createPayloadPost(device, cachedTubeTriangleRenderData);
+    }
+
+    return cachedTubeTriangleRenderData;
 }
 
 TubeAabbRenderData LineDataStress::getLinePassTubeAabbRenderData(bool isRasterizer) {
     rebuildInternalRepresentationIfNecessary();
-    if (vulkanTubeAabbRenderData.aabbBuffer) {
-        return vulkanTubeAabbRenderData;
+    if (cachedTubeAabbRenderData.aabbBuffer) {
+        return cachedTubeAabbRenderData;
     }
     removeOtherCachedDataTypes(RequestMode::AABBS);
 
@@ -2888,10 +2916,10 @@ TubeAabbRenderData LineDataStress::getLinePassTubeAabbRenderData(bool isRasteriz
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    vulkanTubeAabbRenderData = {};
+    cachedTubeAabbRenderData = {};
 
     if (lineSegmentPointIndices.empty()) {
-        return vulkanTubeAabbRenderData;
+        return cachedTubeAabbRenderData;
     }
 
     uint32_t indexBufferFlags =
@@ -2903,22 +2931,22 @@ TubeAabbRenderData LineDataStress::getLinePassTubeAabbRenderData(bool isRasteriz
             | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
             | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
 
-    vulkanTubeAabbRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
+    cachedTubeAabbRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
             device, lineSegmentPointIndices.size() * sizeof(uint32_t), lineSegmentPointIndices.data(),
             indexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    vulkanTubeAabbRenderData.aabbBuffer = std::make_shared<sgl::vk::Buffer>(
+    cachedTubeAabbRenderData.aabbBuffer = std::make_shared<sgl::vk::Buffer>(
             device, lineSegmentAabbs.size() * sizeof(VkAabbPositionsKHR), lineSegmentAabbs.data(),
             vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
 
-    vulkanTubeAabbRenderData.linePointDataBuffer = std::make_shared<sgl::vk::Buffer>(
+    cachedTubeAabbRenderData.linePointDataBuffer = std::make_shared<sgl::vk::Buffer>(
             device, tubeLinePointDataList.size() * sizeof(LinePointDataUnified),
             tubeLinePointDataList.data(),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
             | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
 
-    vulkanTubeAabbRenderData.stressLinePointDataBuffer = std::make_shared<sgl::vk::Buffer>(
+    cachedTubeAabbRenderData.stressLinePointDataBuffer = std::make_shared<sgl::vk::Buffer>(
             device, tubeStressLinePointDataList.size() * sizeof(StressLinePointDataUnified),
             tubeStressLinePointDataList.data(),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
@@ -2926,7 +2954,7 @@ TubeAabbRenderData LineDataStress::getLinePassTubeAabbRenderData(bool isRasteriz
 
 #ifdef USE_EIGEN
     if (bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
-        vulkanTubeAabbRenderData.stressLinePointPrincipalStressDataBuffer = std::make_shared<sgl::vk::Buffer>(
+        cachedTubeAabbRenderData.stressLinePointPrincipalStressDataBuffer = std::make_shared<sgl::vk::Buffer>(
                 device, tubeStressLinePointPrincipalStressDataList.size() * sizeof(StressLinePointPrincipalStressDataUnified),
                 tubeStressLinePointPrincipalStressDataList.data(),
                 VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
@@ -2934,7 +2962,7 @@ TubeAabbRenderData LineDataStress::getLinePassTubeAabbRenderData(bool isRasteriz
     }
 #endif
 
-    return vulkanTubeAabbRenderData;
+    return cachedTubeAabbRenderData;
 }
 
 void LineDataStress::getVulkanShaderPreprocessorDefines(

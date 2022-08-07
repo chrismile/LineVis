@@ -30,8 +30,6 @@
 
 #version 450 core
 
-#define WORKGROUP_SIZE 256
-
 layout(local_size_x = WORKGROUP_SIZE) in;
 
 struct VkDrawIndexedIndirectCommand {

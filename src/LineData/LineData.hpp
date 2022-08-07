@@ -173,7 +173,12 @@ public:
     virtual LinePassTubeRenderDataMeshShader getLinePassTubeRenderDataMeshShader()=0;
     virtual LinePassTubeRenderDataProgrammablePull getLinePassTubeRenderDataProgrammablePull()=0;
     virtual LinePassQuadsRenderData getLinePassQuadsRenderData() { return {}; }
-    virtual TubeTriangleRenderData getLinePassTubeTriangleMeshRenderData(bool isRasterizer, bool vulkanRayTracing)=0;
+    virtual TubeTriangleRenderData getLinePassTubeTriangleMeshRenderDataPayload(
+            bool isRasterizer, bool vulkanRayTracing, TubeTriangleRenderDataPayloadPtr& payload)=0;
+    inline TubeTriangleRenderData getLinePassTubeTriangleMeshRenderData(bool isRasterizer, bool vulkanRayTracing) {
+        TubeTriangleRenderDataPayloadPtr emptyPayload;
+        return getLinePassTubeTriangleMeshRenderDataPayload(isRasterizer, vulkanRayTracing, emptyPayload);
+    }
     virtual TubeAabbRenderData getLinePassTubeAabbRenderData(bool isRasterizer)=0;
     virtual HullTriangleRenderData getVulkanHullTriangleRenderData(bool vulkanRayTracing);
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleTopLevelAS();
@@ -326,7 +331,7 @@ protected:
     // Rendering settings.
     std::vector<LineRenderer*> lineRenderersCached;
     static LinePrimitiveMode linePrimitiveMode;
-    static int tubeNumSubdivisions; ///< Number of tube subdivisions for LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER.
+    static int tubeNumSubdivisions; ///< Number of tube subdivisions for, e.g., LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER.
     std::vector<std::string> supportedRenderingModes;
     bool useCappedTubes = true;
     bool useHalos = true;
@@ -348,13 +353,14 @@ protected:
     void splitTriangleIndices(
             std::vector<uint32_t>& tubeTriangleIndices,
             const std::vector<TubeTriangleVertexData> &tubeTriangleVertexDataList);
-    TubeTriangleRenderData vulkanTubeTriangleRenderData;
+    TubeTriangleRenderData cachedTubeTriangleRenderData;
     TubeTriangleSplitData tubeTriangleSplitData;
-    TubeAabbRenderData vulkanTubeAabbRenderData;
-    HullTriangleRenderData vulkanHullTriangleRenderData;
-    bool vulkanTubeTriangleRenderDataIsRayTracing = false;
+    TubeAabbRenderData cachedTubeAabbRenderData;
+    HullTriangleRenderData cachedHullTriangleRenderData;
+    bool cachedTubeTriangleRenderDataIsRayTracing = false;
     const size_t batchSizeLimit = 1024 * 1024 * 32;
-    bool generateSplitTriangleData = false;
+    bool generateSplitTriangleData = false, cachedGenerateSplitTriangleData = false;
+    TubeTriangleRenderDataPayloadPtr cachedTubeTriangleRenderDataPayload{};
     std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> tubeTriangleBottomLevelASes;
     sgl::vk::BottomLevelAccelerationStructurePtr tubeAabbBottomLevelAS;
     sgl::vk::BottomLevelAccelerationStructurePtr hullTriangleBottomLevelAS;
@@ -364,9 +370,10 @@ protected:
     sgl::vk::TopLevelAccelerationStructurePtr tubeAabbAndHullTopLevelAS;
 
     // Caches the line render data.
-    LinePassTubeRenderDataProgrammablePull cachedRenderDataProgrammablePull;
     LinePassTubeRenderData cachedRenderDataGeometryShader;
+    LinePassTubeRenderDataProgrammablePull cachedRenderDataProgrammablePull;
     LinePassTubeRenderDataMeshShader cachedRenderDataMeshShader;
+    int cachedTubeNumSubdivisions = 0;
 
     // For deferred rendering.
     // Array of triangle meshlets (aabb, start idx, end idx)
