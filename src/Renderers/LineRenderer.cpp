@@ -118,6 +118,8 @@ void LineRenderer::getVulkanShaderPreprocessorDefines(std::map<std::string, std:
     if (useDepthCues) {
         preprocessorDefines.insert(std::make_pair("USE_DEPTH_CUES", ""));
         preprocessorDefines.insert(std::make_pair("COMPUTE_DEPTH_CUES_GPU", ""));
+    }
+    if (useDepthCues || (useAmbientOcclusion && ambientOcclusionBaker)) {
         preprocessorDefines.insert(std::make_pair("USE_SCREEN_SPACE_POSITION", ""));
     }
     if (useAmbientOcclusion && ambientOcclusionBaker) {
