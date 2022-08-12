@@ -72,10 +72,10 @@ void main() {
 #ifdef RECHECK_OCCLUDED_ONLY
         isVisible = false;
         if (meshletVisibilityArray[meshletIdx] == 0u) {
-            isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMin);
+            isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMax);
         }
 #else
-        isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMin);
+        isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMax);
 #endif
     }
     meshletVisibilityArray[meshletIdx] = isVisible ? 1u : 0u;

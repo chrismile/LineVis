@@ -868,7 +868,7 @@ void DeferredRenderer::renderDrawIndexedIndirectOrTaskMesh(int passIndex) {
         renderer->insertMemoryBarrier(
                 VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
-        visibilityBufferDrawIndexedIndirectPasses[0]->render();
+        visibilityBufferDrawIndexedIndirectPasses[passIndex]->render();
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         meshletTaskMeshPasses[passIndex]->render();
     }

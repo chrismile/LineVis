@@ -60,11 +60,11 @@ void main() {
 #ifdef RECHECK_OCCLUDED_ONLY
     uint isVisible = 0u;
     if (meshletVisibilityArray[meshletIdx] == 0u) {
-        isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMin) ? 1u : 0u;
+        isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMax) ? 1u : 0u;
     }
     meshletVisibilityArray[meshletIdx] = isVisible;
 #else
-    uint isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMin) ? 1u : 0u;
+    uint isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMax) ? 1u : 0u;
 #endif
     meshletVisibilityArray[meshletIdx] = isVisible;
 }

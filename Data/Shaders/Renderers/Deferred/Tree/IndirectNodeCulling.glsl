@@ -71,7 +71,7 @@ layout(binding = 3) uniform NodeCullingUniformBuffer {
 void main0() {
     if (gl_LocalInvocationID.x == 0) {
         Node rootNode = nodes[rootNodeIdx];
-        if (visibilityCulling(rootNode.worldSpaceAabbMin, rootNode.worldSpaceAabbMin)) {
+        if (visibilityCulling(rootNode.worldSpaceAabbMin, rootNode.worldSpaceAabbMax)) {
             atomicExchange(numWorkPending, 1);
             atomicExchange(queueReadIdx, 0);
             atomicExchange(queueWriteIdx, 1);
@@ -107,7 +107,7 @@ void main1() {
         uint nodeIdx = nodeIndicesQueue[workIdx];
         Node node = nodes[nodeIdx];
 
-        if (visibilityCulling(node.worldSpaceAabbMin, node.worldSpaceAabbMin)) {
+        if (visibilityCulling(node.worldSpaceAabbMin, node.worldSpaceAabbMax)) {
             uint numWorkQueuedLocal = 0u;
             uint childIdx0 = 0xFFFFFFFFu, childIdx1 = 0xFFFFFFFFu;
             if (node.childIdx0 != 0xFFFFFFFFu) {
