@@ -159,6 +159,8 @@ jobs:
             VK_LAYER_PATH=""
             source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
             export PKG_CONFIG_PATH="${{env.PKG_CONFIG_PATH}}"
+          else
+            export VULKAN_SDK="/usr"
           fi
         fi
         cmake --build "${{github.workspace}}/build" --config ${{env.BUILD_TYPE}} --parallel 4

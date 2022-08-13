@@ -112,6 +112,13 @@ jobs:
     - name: Configure CMake (LineVis)
       shell: bash
       run: |
+        if [ "${{env.PKG_CONFIG_PATH}}" != "" ]; then
+          VK_LAYER_PATH=""
+          source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
+          export PKG_CONFIG_PATH="${{env.PKG_CONFIG_PATH}}"
+        else
+          export VULKAN_SDK="/usr"
+        fi
         cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dsgl_DIR=${{env.sgl_DIR}}/lib/cmake/sgl \
         -Dembree_DIR=${{github.workspace}}/embree-${{env.EMBREE_VERSION}}.x86_64.linux/lib/cmake/embree-${{env.EMBREE_VERSION}} \
         -Dospray_DIR=${{github.workspace}}/ospray-${{env.OSPRAY_VERSION}}.x86_64.linux/lib/cmake/ospray-${{env.OSPRAY_VERSION}}
@@ -122,5 +129,7 @@ jobs:
           VK_LAYER_PATH=""
           source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
           export PKG_CONFIG_PATH="${{env.PKG_CONFIG_PATH}}"
+        else
+          export VULKAN_SDK="/usr"
         fi
         cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel 4
