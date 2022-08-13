@@ -42,6 +42,7 @@ public:
     void setLineData(LineDataPtr& lineData, bool isNewData);
     void setMaxNumPrimitivesPerMeshlet(uint32_t num);
     void setPrefixSumScanBuffer(const sgl::vk::BufferPtr& _prefixSumScanBuffer);
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getDrawCountBuffer() const { return indirectDrawCountBuffer; }
 
 protected:
     const uint32_t WORKGROUP_SIZE = 256;
@@ -53,6 +54,7 @@ private:
     LineDataPtr lineData;
     uint32_t maxNumPrimitivesPerMeshlet = 128;
     uint32_t numMeshlets = 0;
+    sgl::vk::BufferPtr indirectDrawCountBuffer;
     sgl::vk::BufferPtr prefixSumScanBuffer;
 };
 

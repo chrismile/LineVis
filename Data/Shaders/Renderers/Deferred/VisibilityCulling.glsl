@@ -109,10 +109,10 @@ bool visibilityCulling(vec3 worldSpaceAabbMin, vec3 worldSpaceAabbMax) {
 
     // Convert the clip space bounding box points to a NDC bounding box.
     vec2 bbNdcMin, bbNdcMax;
-    bbNdcMin.x = min(min(min(bb0.x, bb1.x), min(bb2.x, bb3.x)), min(min(bb4.x, bb5.x), min(bb6.x, bb7.x)));
-    bbNdcMin.y = min(min(min(bb0.y, bb1.y), min(bb2.y, bb3.y)), min(min(bb4.y, bb5.y), min(bb6.y, bb7.y)));
-    bbNdcMax.x = max(max(max(bb0.x, bb1.x), max(bb2.x, bb3.x)), max(max(bb4.x, bb5.x), max(bb6.x, bb7.x)));
-    bbNdcMax.y = max(max(max(bb0.y, bb1.y), max(bb2.y, bb3.y)), max(max(bb4.y, bb5.y), max(bb6.y, bb7.y)));
+    bbNdcMin.x = min(min(min(bb0.x, bb1.x), min(bb2.x, bb3.x)), min(min(bb4.x, bb5.x), min(bb6.x, bb7.x))) / 2.0 + 0.5;
+    bbNdcMin.y = min(min(min(bb0.y, bb1.y), min(bb2.y, bb3.y)), min(min(bb4.y, bb5.y), min(bb6.y, bb7.y))) / 2.0 + 0.5;
+    bbNdcMax.x = max(max(max(bb0.x, bb1.x), max(bb2.x, bb3.x)), max(max(bb4.x, bb5.x), max(bb6.x, bb7.x))) / 2.0 + 0.5;
+    bbNdcMax.y = max(max(max(bb0.y, bb1.y), max(bb2.y, bb3.y)), max(max(bb4.y, bb5.y), max(bb6.y, bb7.y))) / 2.0 + 0.5;
     float bbNdcMinDepth = min(min(min(bb0.z, bb1.z), min(bb2.z, bb3.z)), min(min(bb4.z, bb5.z), min(bb6.z, bb7.z)));
 
     // Do occlusion culling check using Hi-Z buffer (HZB).

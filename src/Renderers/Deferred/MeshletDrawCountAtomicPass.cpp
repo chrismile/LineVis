@@ -59,9 +59,11 @@ void MeshletDrawCountAtomicPass::setVisibilityCullingUniformBuffer(const sgl::vk
 
 void MeshletDrawCountAtomicPass::setDepthBufferTexture(const sgl::vk::TexturePtr& texture) {
     depthBufferTexture = texture;
+    setDataDirty();
 }
 
 void MeshletDrawCountAtomicPass::loadShader() {
+    sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
     preprocessorDefines.insert(std::make_pair("WORKGROUP_SIZE", std::to_string(WORKGROUP_SIZE)));
     if (recheckOccludedOnly) {
@@ -88,7 +90,7 @@ void MeshletDrawCountAtomicPass::createComputeData(sgl::vk::Renderer* renderer, 
     computeData->setStaticBuffer(payload->getMeshletDataBuffer(), "MeshletDataBuffer");
     computeData->setStaticBuffer(payload->getMeshletVisibilityArrayBuffer(), "MeshletVisibilityArrayBuffer");
     computeData->setStaticBuffer(payload->getIndirectDrawBuffer(), "DrawIndexedIndirectCommandBuffer");
-    computeData->setStaticBuffer(payload->getIndirectDrawCountBuffer(), "IndirectDrawCountBuffer");
+    computeData->setStaticBuffer(indirectDrawCountBuffer, "IndirectDrawCountBuffer");
     computeData->setStaticBuffer(visibilityCullingUniformBuffer, "VisibilityCullingUniformBuffer");
     computeData->setStaticTexture(depthBufferTexture, "depthBuffer");
 }

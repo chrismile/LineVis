@@ -33,6 +33,7 @@
 #include <Utils/AppSettings.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Window.hpp>
+#include <Graphics/Vulkan/Utils/Swapchain.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
@@ -252,6 +253,15 @@ void DeferredRenderer::updateDrawIndirectReductionMode() {
         setLineData(lineData, false);
     }
     onResolutionChangedDeferredRenderingMode();
+
+    if (showVisibleMeshletStatistics) {
+        for (size_t i = 0; i < frameHasNewStagingDataList.size(); i++) {
+            frameHasNewStagingDataList.at(i) = false;
+        }
+        for (int passIdx = 0; passIdx < 2; passIdx++) {
+            visibleMeshletCounters[passIdx] = 0;
+        }
+    }
 }
 
 bool DeferredRenderer::getUsesTriangleMeshInternally() const {
@@ -571,6 +581,20 @@ void DeferredRenderer::onResolutionChanged() {
 
     onResolutionChangedDeferredRenderingMode();
 
+    auto* swapchain = sgl::AppSettings::get()->getSwapchain();
+    frameHasNewStagingDataList.clear();
+    frameHasNewStagingDataList.resize(swapchain->getNumImages(), false);
+    for (int passIdx = 0; passIdx < 2; passIdx++) {
+        visibleMeshletCounters[passIdx] = 0;
+    }
+    visibleMeshletsStagingBuffers.clear();
+    visibleMeshletsStagingBuffers.reserve(swapchain->getNumImages());
+    for (size_t i = 0; i < swapchain->getNumImages(); i++) {
+        visibleMeshletsStagingBuffers.push_back(std::make_shared<sgl::vk::Buffer>(
+                renderer->getDevice(), 2 * sizeof(uint32_t),
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU));
+    }
+
     framebufferMode = FramebufferMode::DEFERRED_RESOLVE_PASS;
     if (supersamplingMode == 0) {
         // No supersampling, thus we can directly draw the result to the scene data color image.
@@ -740,9 +764,7 @@ void DeferredRenderer::render() {
                     depthRenderTargetImagePingPong[1], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
             // Rebuild the HZB.
-            for (uint32_t level = 0; level < uint32_t(depthMipBlitRenderPasses.size()); level++) {
-                depthMipBlitRenderPassesPingPong[1].at(level)->render();
-            }
+            renderComputeHZB(1);
 
             // Copy MIP level 0 of D1 to D0.
             renderer->transitionImageLayout(
@@ -785,9 +807,7 @@ void DeferredRenderer::render() {
                     depthRenderTargetImagePingPong[0], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
             // Rebuild the HZB for next frame.
-            for (uint32_t level = 0; level < uint32_t(depthMipBlitRenderPasses.size()); level++) {
-                depthMipBlitRenderPassesPingPong[0].at(level)->render();
-            }
+            renderComputeHZB(0);
 
             renderer->transitionImageLayout(
                     primitiveIndexImage->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -819,6 +839,8 @@ void DeferredRenderer::render() {
                 colorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         downsampleBlitPass->render();
     }
+
+    frameNumber++;
 }
 
 void DeferredRenderer::renderDataEmpty() {
@@ -849,11 +871,15 @@ void DeferredRenderer::renderDrawIndexed() {
 }
 
 void DeferredRenderer::renderDrawIndexedIndirectOrTaskMesh(int passIndex) {
+    sgl::vk::BufferPtr drawCountBuffer;
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
         if (drawIndirectReductionMode == DrawIndirectReductionMode::NO_REDUCTION) {
             meshletDrawCountNoReductionPasses[passIndex]->render();
         } else if (drawIndirectReductionMode == DrawIndirectReductionMode::ATOMIC_COUNTER) {
             meshletDrawCountAtomicPasses[passIndex]->render();
+            if (showVisibleMeshletStatistics) {
+                drawCountBuffer = meshletDrawCountAtomicPasses[passIndex]->getDrawCountBuffer();
+            }
         } else if (drawIndirectReductionMode == DrawIndirectReductionMode::PREFIX_SUM_SCAN) {
             meshletVisibilityPasses[passIndex]->render();
             renderer->insertMemoryBarrier(
@@ -864,6 +890,9 @@ void DeferredRenderer::renderDrawIndexedIndirectOrTaskMesh(int passIndex) {
                     VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
                     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
             meshletDrawCountPass->render();
+            if (showVisibleMeshletStatistics) {
+                drawCountBuffer = meshletDrawCountPass->getDrawCountBuffer();
+            }
         }
         renderer->insertMemoryBarrier(
                 VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
@@ -871,6 +900,29 @@ void DeferredRenderer::renderDrawIndexedIndirectOrTaskMesh(int passIndex) {
         visibilityBufferDrawIndexedIndirectPasses[passIndex]->render();
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         meshletTaskMeshPasses[passIndex]->render();
+    }
+
+    if (showVisibleMeshletStatistics && drawCountBuffer) {
+        auto* swapchain = sgl::AppSettings::get()->getSwapchain();
+        drawCountBuffer->copyDataTo(
+                visibleMeshletsStagingBuffers.at(swapchain->getImageIndex()),
+                0, passIndex * sizeof(uint32_t), sizeof(uint32_t),
+                renderer->getVkCommandBuffer());
+        frameHasNewStagingDataList.at(swapchain->getImageIndex()) = true;
+    }
+}
+
+void DeferredRenderer::renderComputeHZB(int passIndex) {
+    auto mipWidth = renderWidth;
+    auto mipHeight = renderHeight;
+    for (uint32_t level = 0; level < uint32_t(depthMipBlitRenderPasses.size()); level++) {
+        depthMipBlitRenderPassesPingPong[passIndex].at(level)->buildIfNecessary();
+        renderer->pushConstants(
+                depthMipBlitRenderPassesPingPong[passIndex].at(level)->getGraphicsPipeline(),
+                VK_SHADER_STAGE_FRAGMENT_BIT, 0, glm::ivec2(mipWidth, mipHeight));
+        depthMipBlitRenderPassesPingPong[passIndex].at(level)->render();
+        if (mipWidth > 1) mipWidth /= 2;
+        if (mipHeight > 1) mipHeight /= 2;
     }
 }
 
@@ -948,6 +1000,55 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                 16, int(taskMeshShaderMaxNumVerticesSupported))) {
             reloadGatherShader();
             reRender = true;
+        }
+    }
+
+    if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT
+            && drawIndirectReductionMode != DrawIndirectReductionMode::NO_REDUCTION) {
+        bool showStatisticsChanged = false;
+        if (propertyEditor.addCheckbox("Show Statistics", &showVisibleMeshletStatistics)) {
+            reRender = true;
+            showStatisticsChanged = true;
+            auto* swapchain = sgl::AppSettings::get()->getSwapchain();
+            frameHasNewStagingDataList.clear();
+            frameHasNewStagingDataList.resize(swapchain->getNumImages(), false);
+            for (int passIdx = 0; passIdx < 2; passIdx++) {
+                visibleMeshletCounters[passIdx] = 0;
+            }
+        }
+        if (showVisibleMeshletStatistics && !showStatisticsChanged) {
+            auto* swapchain = sgl::AppSettings::get()->getSwapchain();
+            if (frameHasNewStagingDataList.at(swapchain->getImageIndex())) {
+                auto stagingBuffer = visibleMeshletsStagingBuffers.at(swapchain->getImageIndex());
+                auto* visibleMeshletsCountBuffer = reinterpret_cast<uint32_t*>(stagingBuffer->mapMemory());
+                visibleMeshletCounters[0] = visibleMeshletsCountBuffer[0];
+                visibleMeshletCounters[1] = visibleMeshletsCountBuffer[1];
+                stagingBuffer->unmapMemory();
+                frameHasNewStagingDataList.at(swapchain->getImageIndex()) = false;
+            }
+
+            float numVisiblePass1Pct =
+                    100.0f * float(visibleMeshletCounters[0]) / float(visibilityCullingUniformData.numMeshlets);
+            float numVisiblePass2Pct =
+                    100.0f * float(visibleMeshletCounters[1]) / float(visibilityCullingUniformData.numMeshlets);
+            float numVisiblePct =
+                    100.0f * float(visibleMeshletCounters[0] + visibleMeshletCounters[1])
+                    / float(visibilityCullingUniformData.numMeshlets);
+            std::string str1 =
+                    std::to_string(visibleMeshletCounters[0]) + " of "
+                    + std::to_string(visibilityCullingUniformData.numMeshlets)
+                    + " (" + sgl::toString(numVisiblePass1Pct, 1) + "%)";
+            std::string str2 =
+                    std::to_string(visibleMeshletCounters[1]) + " of "
+                    + std::to_string(visibilityCullingUniformData.numMeshlets)
+                    + " (" + sgl::toString(numVisiblePass2Pct, 1) + "%)";
+            std::string str =
+                    std::to_string(visibleMeshletCounters[0] + visibleMeshletCounters[1]) + " of "
+                    + std::to_string(visibilityCullingUniformData.numMeshlets)
+                    + " (" + sgl::toString(numVisiblePct, 1) + "%)";
+            propertyEditor.addText("#Meshlets Visible (1): ", str1);
+            propertyEditor.addText("#Meshlets Visible (2): ", str2);
+            propertyEditor.addText("#Meshlets Visible Total: ", str);
         }
     }
 }

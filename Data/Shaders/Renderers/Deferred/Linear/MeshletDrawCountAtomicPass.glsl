@@ -44,9 +44,15 @@ layout(std430, binding = 0) readonly buffer MeshletDataBuffer {
     MeshletData meshlets[];
 };
 
+#ifdef RECHECK_OCCLUDED_ONLY
+layout(std430, binding = 1) buffer MeshletVisibilityArrayBuffer {
+    uint meshletVisibilityArray[];
+};
+#else
 layout(std430, binding = 1) writeonly buffer MeshletVisibilityArrayBuffer {
     uint meshletVisibilityArray[];
 };
+#endif
 
 // Buffers passed to vkCmdDrawIndexedIndirectCount.
 struct VkDrawIndexedIndirectCommand {
@@ -73,7 +79,7 @@ void main() {
     MeshletData meshlet = meshlets[meshletIdx];
 
     // Should we only re-check previously occluded meshlets and not re-render already rendered ones?
- #ifdef RECHECK_OCCLUDED_ONLY
+#ifdef RECHECK_OCCLUDED_ONLY
     bool isVisible = false;
     if (meshletVisibilityArray[meshletIdx] == 0u) {
         isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMax);

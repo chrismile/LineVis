@@ -49,6 +49,10 @@ layout(binding = 1) uniform sampler2D inputTexture;
 in vec4 gl_FragCoord;
 layout(location = 0) in vec2 fragTexCoord;
 
+layout(push_constant) uniform PushConstants {
+    ivec2 lastMipSize;
+};
+
 /*
  * For more details see: https://www.rastergrid.com/blog/2010/10/hierarchical-z-map-based-occlusion-culling/
  */
@@ -59,7 +63,7 @@ void main() {
     float val3 = textureOffset(inputTexture, fragTexCoord, ivec2( 0, -1)).x;
     float maxDepth = max(max(val0, val1), max(val2, val3));
 
-    ivec2 lastMipSize = textureSize(inputTexture, 0);
+    //ivec2 lastMipSize = textureSize(inputTexture, 0);
 
     // Odd-width texture?
     if ((lastMipSize.x & 1) != 0 && int(gl_FragCoord.x) == lastMipSize.x - 3) {

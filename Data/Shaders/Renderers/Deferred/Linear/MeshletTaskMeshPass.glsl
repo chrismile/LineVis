@@ -55,9 +55,15 @@ layout(std430, binding = 0) readonly buffer MeshletDataBuffer {
     MeshletData meshlets[];
 };
 
+#ifdef RECHECK_OCCLUDED_ONLY
 layout(std430, binding = 1) buffer MeshletVisibilityArrayBuffer {
     uint meshletVisibilityArray[];
 };
+#else
+layout(std430, binding = 1) writeonly buffer MeshletVisibilityArrayBuffer {
+    uint meshletVisibilityArray[];
+};
+#endif
 
 #include "VisibilityCulling.glsl"
 

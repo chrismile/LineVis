@@ -44,6 +44,7 @@ public:
     void setMaxNumPrimitivesPerMeshlet(uint32_t num);
     void setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer);
     void setDepthBufferTexture(const sgl::vk::TexturePtr& texture);
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getDrawCountBuffer() const { return indirectDrawCountBuffer; }
 
 protected:
     const uint32_t WORKGROUP_SIZE = 256;

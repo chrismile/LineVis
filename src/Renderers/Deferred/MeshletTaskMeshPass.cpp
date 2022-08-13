@@ -67,6 +67,7 @@ void MeshletTaskMeshPass::setVisibilityCullingUniformBuffer(const sgl::vk::Buffe
 
 void MeshletTaskMeshPass::setDepthBufferTexture(const sgl::vk::TexturePtr& texture) {
     depthBufferTexture = texture;
+    setDataDirty();
 }
 
 void MeshletTaskMeshPass::loadShader() {

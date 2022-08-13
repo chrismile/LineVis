@@ -103,6 +103,7 @@ protected:
     std::shared_ptr<VisibilityBufferDrawIndexedPass> visibilityBufferDrawIndexedPass;
     // DeferredRenderingMode::DRAW_INDIRECT
     void renderDrawIndexedIndirectOrTaskMesh(int passIndex);
+    void renderComputeHZB(int passIndex);
     std::shared_ptr<VisibilityBufferDrawIndexedIndirectPass> visibilityBufferDrawIndexedIndirectPasses[2];
     std::shared_ptr<MeshletDrawCountNoReductionPass> meshletDrawCountNoReductionPasses[2];
     std::shared_ptr<MeshletDrawCountAtomicPass> meshletDrawCountAtomicPasses[2];
@@ -171,6 +172,12 @@ protected:
     uint32_t taskMeshShaderMaxNumVerticesPerMeshlet = 64;
     uint32_t taskMeshShaderMaxNumPrimitivesSupported = 512;
     uint32_t taskMeshShaderMaxNumVerticesSupported = 256;
+
+    // Visible meshlets in pass 1/2.
+    bool showVisibleMeshletStatistics = true;
+    uint32_t visibleMeshletCounters[2] = { 0, 0 };
+    std::vector<sgl::vk::BufferPtr> visibleMeshletsStagingBuffers;
+    std::vector<bool> frameHasNewStagingDataList;
 
     // Current rendering mode.
     DeferredRenderingMode deferredRenderingMode = DeferredRenderingMode::DRAW_INDEXED;

@@ -52,6 +52,7 @@ void MeshletDrawCountPass::setPrefixSumScanBuffer(const sgl::vk::BufferPtr& _pre
 }
 
 void MeshletDrawCountPass::loadShader() {
+    sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
     preprocessorDefines.insert(std::make_pair("WORKGROUP_SIZE", std::to_string(WORKGROUP_SIZE)));
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
@@ -71,11 +72,12 @@ void MeshletDrawCountPass::createComputeData(sgl::vk::Renderer* renderer, sgl::v
     auto* payload = static_cast<MeshletsDrawIndirectPayload*>(payloadSuperClass.get());
 
     numMeshlets = payload->getNumMeshlets();
+    indirectDrawCountBuffer = payload->getIndirectDrawCountBuffer();
     computeData->setStaticBuffer(payload->getMeshletDataBuffer(), "MeshletDataBuffer");
     computeData->setStaticBuffer(payload->getMeshletVisibilityArrayBuffer(), "MeshletVisibilityArrayBuffer");
     computeData->setStaticBuffer(prefixSumScanBuffer, "ExclusivePrefixSumScanArrayBuffer");
     computeData->setStaticBuffer(payload->getIndirectDrawBuffer(), "DrawIndexedIndirectCommandBuffer");
-    computeData->setStaticBuffer(payload->getIndirectDrawCountBuffer(), "IndirectDrawCountBuffer");
+    computeData->setStaticBuffer(indirectDrawCountBuffer, "IndirectDrawCountBuffer");
 }
 
 void MeshletDrawCountPass::_render() {

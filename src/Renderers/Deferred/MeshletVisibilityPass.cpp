@@ -59,9 +59,11 @@ void MeshletVisibilityPass::setVisibilityCullingUniformBuffer(const sgl::vk::Buf
 
 void MeshletVisibilityPass::setDepthBufferTexture(const sgl::vk::TexturePtr& texture) {
     depthBufferTexture = texture;
+    setDataDirty();
 }
 
 void MeshletVisibilityPass::loadShader() {
+    sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
     preprocessorDefines.insert(std::make_pair("WORKGROUP_SIZE", std::to_string(WORKGROUP_SIZE)));
     if (recheckOccludedOnly) {
