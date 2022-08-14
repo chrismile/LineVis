@@ -51,13 +51,57 @@ layout(location = 0) in vec2 fragTexCoord;
 
 layout(push_constant) uniform PushConstants {
     ivec2 lastMipSize;
+    //int lastMipLevel;
 };
+// Seems like mip level 0 is necessary, as the image view offset seems to be taken into account.
+#define lastMipLevel 0
 
 /*
- * For more details see: https://www.rastergrid.com/blog/2010/10/hierarchical-z-map-based-occlusion-culling/
+ * Simple & unoptimized hierarchical z-buffer (HZB, Hi-Z buffer) generation.
+ * This approach seems to be fast enough, as it is nowhere near the bottleneck in the command frametime list.
+ * It might be worth it testing one of the following approaches in the future, though.
+ * - The NVIDIA vk_compute_mipmaps sample might potentially be faster. See:
+     https://github.com/nvpro-samples/vk_compute_mipmaps
+     https://nvpro-samples.github.io/vk_compute_mipmaps/docs/strategy.md.html
+ * - The AMD FidelityFX Single Pass Downsampler (SPD) unfortunately seems to only support 2x2 kernels.
+     See: https://gpuopen.com/fidelityfx-spd/ https://github.com/GPUOpen-Effects/FidelityFX-SPD
+ * - The approach by https://www.rastergrid.com/blog/2010/10/hierarchical-z-map-based-occlusion-culling/
+ *   doesn't seem to work unfortunately, as it doesn't cover the complete pixel footprint.
  */
 void main() {
-    float val0 = texture(inputTexture, fragTexCoord).x;
+    ivec2 coordsRead = 2 * ivec2(gl_FragCoord.xy);
+    float maxDepth = texelFetch(inputTexture, coordsRead, lastMipLevel).x;
+
+    if (lastMipSize.x != 1) {
+        maxDepth = max(maxDepth, texelFetch(inputTexture, ivec2(coordsRead.x + 1, coordsRead.y), lastMipLevel).x);
+        if ((lastMipSize.x & 1) != 0) {
+            maxDepth = max(maxDepth, texelFetch(inputTexture, ivec2(coordsRead.x + 2, coordsRead.y), lastMipLevel).x);
+        }
+        if (lastMipSize.y != 1) {
+            maxDepth = max(maxDepth, texelFetch(inputTexture, ivec2(coordsRead.x + 1, coordsRead.y + 1), lastMipLevel).x);
+            if ((lastMipSize.x & 1) != 0) {
+                maxDepth = max(maxDepth, texelFetch(inputTexture, ivec2(coordsRead.x + 2, coordsRead.y + 1), lastMipLevel).x);
+                if ((lastMipSize.y & 1) != 0) {
+                    maxDepth = max(maxDepth, texelFetch(inputTexture, ivec2(coordsRead.x + 2, coordsRead.y + 2), lastMipLevel).x);
+                }
+            }
+        }
+    }
+    if (lastMipSize.y != 1) {
+        maxDepth = max(maxDepth, texelFetch(inputTexture, ivec2(coordsRead.x, coordsRead.y + 1), lastMipLevel).x);
+        if ((lastMipSize.y & 1) != 0) {
+            maxDepth = max(maxDepth, texelFetch(inputTexture, ivec2(coordsRead.x, coordsRead.y + 2), lastMipLevel).x);
+            if (lastMipSize.x != 1) {
+                maxDepth = max(maxDepth, texelFetch(inputTexture, ivec2(coordsRead.x + 1, coordsRead.y + 2), lastMipLevel).x);
+            }
+        }
+    }
+
+    /*
+     * The approach by https://www.rastergrid.com/blog/2010/10/hierarchical-z-map-based-occlusion-culling/
+     * doesn't seem to work unfortunately, as it doesn't cover the complete pixel footprint.
+     */
+    /*float val0 = texture(inputTexture, fragTexCoord).x;
     float val1 = textureOffset(inputTexture, fragTexCoord, ivec2(-1,  0)).x;
     float val2 = textureOffset(inputTexture, fragTexCoord, ivec2(-1, -1)).x;
     float val3 = textureOffset(inputTexture, fragTexCoord, ivec2( 0, -1)).x;
@@ -80,7 +124,7 @@ void main() {
         float depthEdge0 = textureOffset(inputTexture, fragTexCoord, ivec2( 0, 1)).x;
         float depthEdge1 = textureOffset(inputTexture, fragTexCoord, ivec2(-1, 1)).x;
         maxDepth = max(maxDepth, max(depthEdge0, depthEdge1));
-    }
+    }*/
 
     gl_FragDepth = maxDepth;
 }

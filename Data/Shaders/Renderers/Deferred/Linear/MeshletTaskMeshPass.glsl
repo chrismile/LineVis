@@ -138,9 +138,15 @@ layout(scalar, binding = 2) readonly buffer DedupVerticesBuffer {
     vec3 dedupVertices[];
 };
 
+#ifdef WRITE_PACKED_PRIMITIVE_INDICES
+layout(scalar, binding = 3) readonly buffer DedupTriangleIndicesBuffer {
+    uint dedupTriangleIndices[];
+};
+#else
 layout(scalar, binding = 3) readonly buffer DedupTriangleIndicesBuffer {
     uint8_t dedupTriangleIndices[];
 };
+#endif
 
 void main() {
     uint meshletIdx = IN.baseIndex + uint(IN.subIndices[gl_WorkGroupID.x]);
@@ -155,8 +161,26 @@ void main() {
         gl_MeshVerticesNV[vertexIdx].gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
     }
 
+#ifdef WRITE_PACKED_PRIMITIVE_INDICES
+    //uint numPackedIndices = (meshletData.primitiveCount * 3u + WORKGROUP_SIZE * 4u - 1u) / (WORKGROUP_SIZE * 4u);
+    uint numPackedIndices = (meshletData.primitiveCount * 3u + 3u) / 4u;
+    uint readOffset = meshletData.primitiveStart * 3u / 4u; // Assure alignment!
+    for (uint packedIdx = threadIdx; packedIdx < numPackedIndices; packedIdx += WORKGROUP_SIZE) {
+        uint writeIdx = packedIdx * 4u;
+        uint readIdx = packedIdx + readOffset;
+
+        // Specification: "The write operations must not exceed the size of the gl_PrimitiveIndicesNV array."
+        // => Ensure to only use WRITE_PACKED_PRIMITIVE_INDICES when this can be guaranteed!
+        writePackedPrimitiveIndices4x8NV(writeIdx, dedupTriangleIndices[readIdx]);
+    }
     for (uint triangleIdx = threadIdx; triangleIdx < meshletData.primitiveCount; triangleIdx += WORKGROUP_SIZE) {
-        uint writeIdx = 3u * triangleIdx;
+        // Available in gl_MeshPrimitivesNV:
+        // https://github.com/KhronosGroup/GLSL/blob/master/extensions/nv/GLSL_NV_mesh_shader.txt
+        gl_MeshPrimitivesNV[triangleIdx].gl_PrimitiveID = int(meshletData.meshletFirstPrimitiveIdx + triangleIdx);
+    }
+#else
+    for (uint triangleIdx = threadIdx; triangleIdx < meshletData.primitiveCount; triangleIdx += WORKGROUP_SIZE) {
+        uint writeIdx = triangleIdx * 3u;
         uint readIdx = writeIdx + meshletData.primitiveStart * 3u;
 
         gl_PrimitiveIndicesNV[writeIdx] = uint(dedupTriangleIndices[readIdx]);
@@ -167,6 +191,7 @@ void main() {
         // https://github.com/KhronosGroup/GLSL/blob/master/extensions/nv/GLSL_NV_mesh_shader.txt
         gl_MeshPrimitivesNV[triangleIdx].gl_PrimitiveID = int(meshletData.meshletFirstPrimitiveIdx + triangleIdx);
     }
+#endif
 }
 
 

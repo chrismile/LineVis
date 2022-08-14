@@ -237,12 +237,13 @@ public:
 
     /**
      * This function is called before uploading the triangle mesh to the GPU.
+     * @param tubeNumSubdivisions The number of tube subdivisions.
      * @param tubeTriangleIndices The triangle indices (read/write).
      * @param tubeTriangleVertexDataList The triangle vertices (read/write).
      * @param tubeTriangleLinePointDataList The line point data referenced by the triangle indices (read-only).
      */
     virtual void createPayloadPre(
-            sgl::vk::Device* device, std::vector<uint32_t>& tubeTriangleIndices,
+            sgl::vk::Device* device, uint32_t tubeNumSubdivisions, std::vector<uint32_t>& tubeTriangleIndices,
             std::vector<TubeTriangleVertexData>& tubeTriangleVertexDataList,
             const std::vector<LinePointDataUnified>& tubeTriangleLinePointDataList) {}
     /**

@@ -47,16 +47,23 @@ void MeshletTaskMeshPass::setRecheckOccludedOnly(bool recheck) {
     }
 }
 
-void MeshletTaskMeshPass::setMaxNumPrimitivesPerMeshlet(uint32_t num) {
-    if (maxNumPrimitivesPerMeshlet != num) {
-        maxNumPrimitivesPerMeshlet = num;
+void MeshletTaskMeshPass::setMaxNumPrimitivesPerMeshlet(uint32_t numPrimitives) {
+    if (maxNumPrimitivesPerMeshlet != numPrimitives) {
+        maxNumPrimitivesPerMeshlet = numPrimitives;
         setShaderDirty();
     }
 }
 
-void MeshletTaskMeshPass::setMaxNumVerticesPerMeshlet(uint32_t num) {
-    if (maxNumVerticesPerMeshlet != num) {
-        maxNumVerticesPerMeshlet = num;
+void MeshletTaskMeshPass::setMaxNumVerticesPerMeshlet(uint32_t numVertices) {
+    if (maxNumVerticesPerMeshlet != numVertices) {
+        maxNumVerticesPerMeshlet = numVertices;
+        setShaderDirty();
+    }
+}
+
+void MeshletTaskMeshPass::setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(bool useWritePacked) {
+    if (useMeshShaderWritePackedPrimitiveIndicesIfAvailable != useWritePacked) {
+        useMeshShaderWritePackedPrimitiveIndicesIfAvailable = useWritePacked;
         setShaderDirty();
     }
 }
@@ -82,6 +89,21 @@ void MeshletTaskMeshPass::loadShader() {
             "MESHLET_MAX_VERTICES", std::to_string(maxNumVerticesPerMeshlet)));
     preprocessorDefines.insert(std::make_pair(
             "MESHLET_MAX_PRIMITIVES", std::to_string(maxNumPrimitivesPerMeshlet)));
+    useMeshShaderWritePackedPrimitiveIndices = useMeshShaderWritePackedPrimitiveIndicesIfAvailable;
+    if (useMeshShaderWritePackedPrimitiveIndicesIfAvailable) {
+        /*
+         * The number of indices needs to be divisible by four to be able to use writePackedPrimitiveIndices4x8NV.
+         * The number of vertices and primitives is (for N = subdivisions, x = segments):
+         * (N + Nx) vertices and (2Nx) primitives.
+         * Thus: The number of primitives is divisible by four if N is divisible by two.
+         */
+        if (lineData->getUseCappedTubes() || lineData->getTubeNumSubdivisions() % 2 != 0) {
+            useMeshShaderWritePackedPrimitiveIndices = false;
+        }
+    }
+    if (useMeshShaderWritePackedPrimitiveIndices) {
+        preprocessorDefines.insert(std::make_pair("WRITE_PACKED_PRIMITIVE_INDICES", ""));
+    }
     if (recheckOccludedOnly) {
         preprocessorDefines.insert(std::make_pair("RECHECK_OCCLUDED_ONLY", ""));
     }
@@ -114,7 +136,7 @@ void MeshletTaskMeshPass::createRasterData(
     //lineRenderer->setRenderDataBindings(rasterData);
 
     TubeTriangleRenderDataPayloadPtr payloadSuperClass(new MeshletsTaskMeshShaderPayload(
-            maxNumPrimitivesPerMeshlet, maxNumVerticesPerMeshlet));
+            maxNumPrimitivesPerMeshlet, maxNumVerticesPerMeshlet, useMeshShaderWritePackedPrimitiveIndices));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
             true, false, payloadSuperClass);
 

@@ -41,8 +41,9 @@ public:
 
     // Public interface.
     void setRecheckOccludedOnly(bool recheck);
-    void setMaxNumPrimitivesPerMeshlet(uint32_t num);
-    void setMaxNumVerticesPerMeshlet(uint32_t num);
+    void setMaxNumPrimitivesPerMeshlet(uint32_t numPrimitives);
+    void setMaxNumVerticesPerMeshlet(uint32_t numVertices);
+    void setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(bool useWritePacked);
     void setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer);
     void setDepthBufferTexture(const sgl::vk::TexturePtr& texture);
     [[nodiscard]] inline uint32_t getNumMeshlets() const { return numMeshlets; }
@@ -58,6 +59,8 @@ private:
     bool recheckOccludedOnly = false;
     uint32_t maxNumPrimitivesPerMeshlet = 126;
     uint32_t maxNumVerticesPerMeshlet = 64;
+    bool useMeshShaderWritePackedPrimitiveIndicesIfAvailable = true;
+    bool useMeshShaderWritePackedPrimitiveIndices = false;
     uint32_t numMeshlets = 0;
     sgl::vk::BufferPtr visibilityCullingUniformBuffer;
     sgl::vk::TexturePtr depthBufferTexture;

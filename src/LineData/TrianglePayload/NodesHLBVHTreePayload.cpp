@@ -37,7 +37,7 @@ bool NodesHLBVHTreePayload::settingsEqual(TubeTriangleRenderDataPayload* other) 
 }
 
 void NodesHLBVHTreePayload::createPayloadPre(
-        sgl::vk::Device* device, std::vector<uint32_t>& tubeTriangleIndices,
+        sgl::vk::Device* device, uint32_t tubeNumSubdivisions, std::vector<uint32_t>& tubeTriangleIndices,
         std::vector<TubeTriangleVertexData>& tubeTriangleVertexDataList,
         const std::vector<LinePointDataUnified>& tubeTriangleLinePointDataList) {
     // TODO: First implement SAH tree creation on CPU. Rename this class and continue to support CPU-based SAH?

@@ -2031,7 +2031,8 @@ TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderDataPayloa
     }
     if (payload) {
         payload->createPayloadPre(
-                device, tubeTriangleIndices, tubeTriangleVertexDataList, tubeTriangleLinePointDataList);
+                device, uint32_t(tubeNumSubdivisions), tubeTriangleIndices,
+                tubeTriangleVertexDataList, tubeTriangleLinePointDataList);
     }
 
     uint32_t indexBufferFlags =

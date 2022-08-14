@@ -38,11 +38,12 @@ bool MeshletsTaskMeshShaderPayload::settingsEqual(TubeTriangleRenderDataPayload*
     }
     auto* otherCast = static_cast<MeshletsTaskMeshShaderPayload*>(other);
     return this->maxNumPrimitivesPerMeshlet == otherCast->maxNumPrimitivesPerMeshlet
-            && this->maxNumVerticesPerMeshlet == otherCast->maxNumVerticesPerMeshlet;
+            && this->maxNumVerticesPerMeshlet == otherCast->maxNumVerticesPerMeshlet
+            && this->useMeshShaderWritePackedPrimitiveIndices == otherCast->useMeshShaderWritePackedPrimitiveIndices;
 }
 
 void MeshletsTaskMeshShaderPayload::createPayloadPre(
-        sgl::vk::Device* device, std::vector<uint32_t>& tubeTriangleIndices,
+        sgl::vk::Device* device, uint32_t tubeNumSubdivisions, std::vector<uint32_t>& tubeTriangleIndices,
         std::vector<TubeTriangleVertexData>& tubeTriangleVertexDataList,
         const std::vector<LinePointDataUnified>& tubeTriangleLinePointDataList) {
     std::vector<MeshletTaskMeskShaderPayloadData> meshlets;
@@ -60,6 +61,23 @@ void MeshletsTaskMeshShaderPayload::createPayloadPre(
     uint32_t currentNumPrimitives = 0;
     uint32_t currentNumVertices = 0;
     uint32_t currentLineIdx = 0;
+
+    uint32_t maxNumPrimitivesPerMeshletLocal = maxNumPrimitivesPerMeshlet;
+    uint32_t maxNumVerticesPerMeshletLocal = maxNumVerticesPerMeshlet;
+    if (useMeshShaderWritePackedPrimitiveIndices) {
+        /*
+         * The number of indices needs to be divisible by four to be able to use writePackedPrimitiveIndices4x8NV.
+         * The number of vertices and primitives is (for N = subdivisions, x = segments):
+         * (N + Nx) vertices and (2Nx) primitives.
+         * Thus: The number of primitives is divisible by four if N is divisible by two.
+         */
+        auto numSegmentsA = uint32_t(std::max(
+                (int(maxNumVerticesPerMeshlet) - int(tubeNumSubdivisions)) / int(tubeNumSubdivisions), 0));
+        uint32_t numSegmentsB = maxNumPrimitivesPerMeshlet / (2 * tubeNumSubdivisions);
+        uint32_t numSegments = std::min(numSegmentsA, numSegmentsB);
+        maxNumPrimitivesPerMeshletLocal = 2 * tubeNumSubdivisions * numSegments;
+        maxNumVerticesPerMeshletLocal = tubeNumSubdivisions + tubeNumSubdivisions * numSegments ;
+    }
 
     for (size_t primitiveIdx = 0; primitiveIdx < tubeTriangleIndices.size(); primitiveIdx += 3) {
         currentNumVertices = currentMeshlet.vertexCount;
@@ -85,8 +103,8 @@ void MeshletsTaskMeshShaderPayload::createPayloadPre(
         }
         currentNumPrimitives++;
 
-        if (currentNumPrimitives > maxNumPrimitivesPerMeshlet
-                || currentNumVertices > maxNumVerticesPerMeshlet
+        if (currentNumPrimitives > maxNumPrimitivesPerMeshletLocal
+                || currentNumVertices > maxNumVerticesPerMeshletLocal
                 || (currentLineIdx != l0 && currentMeshlet.primitiveCount > 0)) {
             currentMeshlet.worldSpaceAabbMin = currentMeshletBB.min;
             currentMeshlet.worldSpaceAabbMax = currentMeshletBB.max;

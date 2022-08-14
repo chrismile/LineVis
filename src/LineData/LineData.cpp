@@ -277,7 +277,7 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
             && (!usesDeferredShading || lineRenderer->getUsesTriangleMeshInternally())) {
         if (propertyEditor.addCheckbox("Capped Tubes", &useCappedTubes)) {
             triangleRepresentationDirty = true;
-            if (!lineRenderer->isRasterizer) {
+            if (!lineRenderer->isRasterizer || usesDeferredShading) {
                 shallReloadGatherShader = true;
             }
         }

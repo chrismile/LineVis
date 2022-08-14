@@ -67,7 +67,7 @@ class OsprayRenderer : public LineRenderer {
 public:
     OsprayRenderer(
             SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
-    ~OsprayRenderer();
+    ~OsprayRenderer() override;
     [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_OSPRAY_RAY_TRACER; }
 
     static inline bool getIsOsprayInitialized() { return isOsprayInitialized; }
@@ -79,7 +79,7 @@ public:
     void setLineData(LineDataPtr& lineData, bool isNewData) override;
 
     /// Returns whether the triangle representation is used by the renderer.
-    bool getIsTriangleRepresentationUsed() const override;
+    [[nodiscard]] bool getIsTriangleRepresentationUsed() const override;
 
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;

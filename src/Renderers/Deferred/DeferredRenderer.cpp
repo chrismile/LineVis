@@ -183,6 +183,8 @@ void DeferredRenderer::updateRenderingMode() {
             meshletTaskMeshPasses[i] = std::make_shared<MeshletTaskMeshPass>(this);
             meshletTaskMeshPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
             meshletTaskMeshPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
+            meshletTaskMeshPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
+                    useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
             meshletTaskMeshPasses[i]->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
         }
         meshletTaskMeshPasses[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
@@ -264,9 +266,15 @@ void DeferredRenderer::updateDrawIndirectReductionMode() {
     }
 }
 
+bool DeferredRenderer::getIsTriangleRepresentationUsed() const {
+    return deferredRenderingMode != DeferredRenderingMode::DRAW_INDEXED
+           || drawIndexedGeometryMode != DrawIndexedGeometryMode::PROGRAMMABLE_PULLING
+           || (useAmbientOcclusion && ambientOcclusionBaker);
+}
+
 bool DeferredRenderer::getUsesTriangleMeshInternally() const {
     return deferredRenderingMode != DeferredRenderingMode::DRAW_INDEXED
-            || drawIndexedGeometryMode != DrawIndexedGeometryMode::PROGRAMMABLE_PULLING;
+           || drawIndexedGeometryMode != DrawIndexedGeometryMode::PROGRAMMABLE_PULLING;
 }
 
 void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
@@ -541,6 +549,8 @@ void DeferredRenderer::onResolutionChanged() {
                     level, 1, 0, 1,
                     VK_IMAGE_ASPECT_DEPTH_BIT);
             sgl::vk::ImageSamplerSettings samplerSettingsMipLevel = depthSamplerSettings;
+            samplerSettingsMipLevel.minLod = float(level);
+            samplerSettingsMipLevel.maxLod = float(level);
             depthMipLevelTexturesPingPong[i].at(level) = std::make_shared<sgl::vk::Texture>(
                     depthMipLevelImageViewsPingPong[i].at(level), samplerSettingsMipLevel);
         }
@@ -920,6 +930,9 @@ void DeferredRenderer::renderComputeHZB(int passIndex) {
         renderer->pushConstants(
                 depthMipBlitRenderPassesPingPong[passIndex].at(level)->getGraphicsPipeline(),
                 VK_SHADER_STAGE_FRAGMENT_BIT, 0, glm::ivec2(mipWidth, mipHeight));
+        renderer->pushConstants(
+                depthMipBlitRenderPassesPingPong[passIndex].at(level)->getGraphicsPipeline(),
+                VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::ivec2), level);
         depthMipBlitRenderPassesPingPong[passIndex].at(level)->render();
         if (mipWidth > 1) mipWidth /= 2;
         if (mipHeight > 1) mipHeight /= 2;
@@ -983,22 +996,52 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
             reloadGatherShader();
             reRender = true;
         }
-        if (propertyEditor.addSliderInt(
-                "#Tri/Meshlet", (int*)&drawIndirectMaxNumPrimitivesPerMeshlet, 32, 1024)) {
+        if (propertyEditor.addSliderIntEdit(
+                "#Tri/Meshlet", (int*)&drawIndirectMaxNumPrimitivesPerMeshlet,
+                32, 1024) == ImGui::EditMode::INPUT_FINISHED) {
+            if (drawIndirectReductionMode == DrawIndirectReductionMode::NO_REDUCTION) {
+                for (int i = 0; i < 2; i++) {
+                    meshletDrawCountNoReductionPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+                }
+            } else if (drawIndirectReductionMode == DrawIndirectReductionMode::ATOMIC_COUNTER) {
+                for (int i = 0; i < 2; i++) {
+                    meshletDrawCountAtomicPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+                }
+            } else if (drawIndirectReductionMode == DrawIndirectReductionMode::PREFIX_SUM_SCAN) {
+                for (int i = 0; i < 2; i++) {
+                    meshletVisibilityPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+                }
+                meshletDrawCountPass->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+            }
             reloadGatherShader();
             reRender = true;
         }
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
-        if (propertyEditor.addSliderInt(
+        if (propertyEditor.addSliderIntEdit(
                 "#Tri/Meshlet", (int*)&taskMeshShaderMaxNumPrimitivesPerMeshlet,
-                32, int(taskMeshShaderMaxNumPrimitivesSupported))) {
+                32, int(taskMeshShaderMaxNumPrimitivesSupported)) == ImGui::EditMode::INPUT_FINISHED) {
+            for (int i = 0; i < 2; i++) {
+                meshletTaskMeshPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
+            }
             reloadGatherShader();
             reRender = true;
         }
-        if (propertyEditor.addSliderInt(
+        if (propertyEditor.addSliderIntEdit(
                 "#Verts/Meshlet", (int*)&taskMeshShaderMaxNumVerticesPerMeshlet,
-                16, int(taskMeshShaderMaxNumVerticesSupported))) {
+                16, int(taskMeshShaderMaxNumVerticesSupported)) == ImGui::EditMode::INPUT_FINISHED) {
+            for (int i = 0; i < 2; i++) {
+                meshletTaskMeshPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
+            }
             reloadGatherShader();
+            reRender = true;
+        }
+        if (propertyEditor.addCheckbox(
+                "useMeshShaderWritePackedPrimitiveIndicesIfAvailable",
+                &useMeshShaderWritePackedPrimitiveIndicesIfAvailable)) {
+            for (int i = 0; i < 2; i++) {
+                meshletTaskMeshPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
+                        useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
+            }
             reRender = true;
         }
     }
@@ -1067,6 +1110,18 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
         }
     }
 
+    int supersamplingFactor = 1;
+    if (newState.rendererSettings.getValueOpt("supersampling", supersamplingFactor)) {
+        for (int i = 0; i < IM_ARRAYSIZE(supersamplingModeNames); i++) {
+            if (std::to_string(supersamplingFactor) + "x" == supersamplingModeNames[i]) {
+                supersamplingMode = i;
+                onResolutionChanged();
+                reRender = true;
+                break;
+            }
+        }
+    }
+
     std::string drawIndexedGeometryModeString;
     if (newState.rendererSettings.getValueOpt("drawIndexedGeometryMode", drawIndexedGeometryModeString)) {
         for (int i = 0; i < IM_ARRAYSIZE(drawIndexedGeometryModeNames); i++) {
@@ -1091,6 +1146,67 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
             }
         }
     }
+
+    if (newState.rendererSettings.getValueOpt(
+            "drawIndirectMaxNumPrimitivesPerMeshlet", drawIndirectMaxNumPrimitivesPerMeshlet)) {
+        if (drawIndirectReductionMode == DrawIndirectReductionMode::NO_REDUCTION) {
+            for (int i = 0; i < 2; i++) {
+                if (meshletDrawCountNoReductionPasses[i]) {
+                    meshletDrawCountNoReductionPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+                }
+            }
+        } else if (drawIndirectReductionMode == DrawIndirectReductionMode::ATOMIC_COUNTER) {
+            for (int i = 0; i < 2; i++) {
+                if (meshletDrawCountAtomicPasses[i]) {
+                    meshletDrawCountAtomicPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+                }
+            }
+        } else if (drawIndirectReductionMode == DrawIndirectReductionMode::PREFIX_SUM_SCAN) {
+            for (int i = 0; i < 2; i++) {
+                if (meshletVisibilityPasses[i]) {
+                    meshletVisibilityPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+                }
+            }
+            if (meshletDrawCountPass) {
+                meshletDrawCountPass->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+            }
+        }
+        reloadGatherShader();
+        reRender = true;
+    }
+
+    if (newState.rendererSettings.getValueOpt(
+            "taskMeshShaderMaxNumPrimitivesPerMeshlet", taskMeshShaderMaxNumPrimitivesPerMeshlet)) {
+        for (int i = 0; i < 2; i++) {
+            if (meshletTaskMeshPasses[i]) {
+                meshletTaskMeshPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
+            }
+        }
+        reloadGatherShader();
+        reRender = true;
+    }
+    if (newState.rendererSettings.getValueOpt(
+            "taskMeshShaderMaxNumVerticesPerMeshlet", taskMeshShaderMaxNumVerticesPerMeshlet)) {
+        for (int i = 0; i < 2; i++) {
+            if (meshletTaskMeshPasses[i]) {
+                meshletTaskMeshPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
+            }
+        }
+        reloadGatherShader();
+        reRender = true;
+    }
+
+    if (newState.rendererSettings.getValueOpt(
+            "useMeshShaderWritePackedPrimitiveIndicesIfAvailable",
+            useMeshShaderWritePackedPrimitiveIndicesIfAvailable)) {
+        for (int i = 0; i < 2; i++) {
+            if (meshletTaskMeshPasses[i]) {
+                meshletTaskMeshPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
+                        useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
+            }
+        }
+        reRender = true;
+    }
 }
 
 bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
@@ -1102,6 +1218,18 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
             if (deferredRenderingModeString == deferredRenderingModeNames[i]) {
                 deferredRenderingMode = DeferredRenderingMode(i);
                 reloadGatherShader();
+                reRender = true;
+                break;
+            }
+        }
+    }
+
+    int supersamplingFactor = 1;
+    if (settings.getValueOpt("supersampling", supersamplingFactor)) {
+        for (int i = 0; i < IM_ARRAYSIZE(supersamplingModeNames); i++) {
+            if (std::to_string(supersamplingFactor) + "x" == supersamplingModeNames[i]) {
+                supersamplingMode = i;
+                onResolutionChanged();
                 reRender = true;
                 break;
             }
@@ -1130,6 +1258,67 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
                 break;
             }
         }
+    }
+
+    if (settings.getValueOpt(
+            "draw_indirect_max_num_primitives_per_meshlet", drawIndirectMaxNumPrimitivesPerMeshlet)) {
+        if (drawIndirectReductionMode == DrawIndirectReductionMode::NO_REDUCTION) {
+            for (int i = 0; i < 2; i++) {
+                if (meshletDrawCountNoReductionPasses[i]) {
+                    meshletDrawCountNoReductionPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+                }
+            }
+        } else if (drawIndirectReductionMode == DrawIndirectReductionMode::ATOMIC_COUNTER) {
+            for (int i = 0; i < 2; i++) {
+                if (meshletDrawCountAtomicPasses[i]) {
+                    meshletDrawCountAtomicPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+                }
+            }
+        } else if (drawIndirectReductionMode == DrawIndirectReductionMode::PREFIX_SUM_SCAN) {
+            for (int i = 0; i < 2; i++) {
+                if (meshletVisibilityPasses[i]) {
+                    meshletVisibilityPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+                }
+            }
+            if (meshletDrawCountPass) {
+                meshletDrawCountPass->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+            }
+        }
+        reloadGatherShader();
+        reRender = true;
+    }
+
+    if (settings.getValueOpt(
+            "task_mesh_shader_max_num_primitives_per_meshlet", taskMeshShaderMaxNumPrimitivesPerMeshlet)) {
+        for (int i = 0; i < 2; i++) {
+            if (meshletTaskMeshPasses[i]) {
+                meshletTaskMeshPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
+            }
+        }
+        reloadGatherShader();
+        reRender = true;
+    }
+    if (settings.getValueOpt(
+            "task_mesh_shader_max_num_vertices_per_meshlet", taskMeshShaderMaxNumVerticesPerMeshlet)) {
+        for (int i = 0; i < 2; i++) {
+            if (meshletTaskMeshPasses[i]) {
+                meshletTaskMeshPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
+            }
+        }
+        reloadGatherShader();
+        reRender = true;
+    }
+
+    if (settings.getValueOpt(
+            "use_mesh_shader_write_packed_primitive_indices_if_available",
+            useMeshShaderWritePackedPrimitiveIndicesIfAvailable)) {
+        for (int i = 0; i < 2; i++) {
+            if (meshletTaskMeshPasses[i]) {
+                meshletTaskMeshPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
+                        useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
+            }
+        }
+        reRender = true;
     }
 
     return shallReloadGatherShader;
