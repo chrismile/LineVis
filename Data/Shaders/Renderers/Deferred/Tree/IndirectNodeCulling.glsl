@@ -38,7 +38,7 @@ struct VkDrawIndexedIndirectCommand {
     uint firstIndex;
     int vertexOffset;
     uint firstInstance;
-} VkDrawIndexedIndirectCommand;
+};
 
 struct Node {
     vec3 worldSpaceAabbMin;

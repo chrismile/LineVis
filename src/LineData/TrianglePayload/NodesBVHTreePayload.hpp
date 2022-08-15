@@ -26,21 +26,26 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEVIS_NODESHLBVHTREEPAYLOAD_HPP
-#define LINEVIS_NODESHLBVHTREEPAYLOAD_HPP
+#ifndef LINEVIS_NODESBVHTREEPAYLOAD_HPP
+#define LINEVIS_NODESBVHTREEPAYLOAD_HPP
 
+#include "Renderers/Deferred/DeferredModes.hpp"
 #include "../LineRenderData.hpp"
 
-struct HLBVHTreeNodePayload {
+struct BVHTreeNodePayload {
     glm::vec3 worldSpaceAabbMin{};
-    uint32_t childIdx0 = 0;
+    uint32_t indexCount = 0;
     glm::vec3 worldSpaceAabbMax{};
-    uint32_t childIdx1 = 0;
+    uint32_t firstChildOrPrimitiveIndex = 0;
+};
+struct MeshletBVHPayloadData {
+    uint32_t indexCount = 0;
+    uint32_t firstIndex = 0;
 };
 
-class NodesHLBVHTreePayload : public TubeTriangleRenderDataPayload {
+class NodesBVHTreePayload : public TubeTriangleRenderDataPayload {
 public:
-    NodesHLBVHTreePayload() = default;
+    NodesBVHTreePayload() = default;
     [[nodiscard]] Type getType() const override { return Type::NODES_HLBVH_TREE; }
     [[nodiscard]] bool settingsEqual(TubeTriangleRenderDataPayload* other) const override;
 
@@ -50,15 +55,32 @@ public:
             const std::vector<LinePointDataUnified>& tubeTriangleLinePointDataList) override;
     void createPayloadPost(sgl::vk::Device* device, TubeTriangleRenderData& tubeTriangleRenderData) override;
 
+    [[nodiscard]] inline uint32_t getNumMeshlets() const { return numMeshlets; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getMeshletDataBuffer() const { return meshletDataBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getMeshletVisibilityArrayBuffer() const {
+        return meshletVisibilityArrayBuffer;
+    }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getIndirectDrawBuffer() const { return indirectDrawBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getIndirectDrawCountBuffer() const {
+        return indirectDrawCountBuffer;
+    }
+
 private:
     // Settings.
-    uint32_t maxNumPrimitivesPerMeshlet = 126; ///< Meshlets are stored in the leafs.
+    uint32_t maxNumPrimitivesPerMeshlet = 128;
+    BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;
+    BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::TRIANGLES;
+    BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode::PRIMITIVE_CENTROID;
 
     // Data.
-    uint32_t numNodes = 0;
-    sgl::vk::BufferPtr nodeDataBuffer; ///< HLBVHTreeNodePayload objects.
+    uint32_t nodeCount = 0;
+    uint32_t numLeafNodes = 0;
+    sgl::vk::BufferPtr nodeDataBuffer; ///< BVHTreeNodePayload objects.
     uint32_t numMeshlets = 0;
-    sgl::vk::BufferPtr meshletDataBuffer; ///< MeshletDrawIndirectPayloadData objects.
+    sgl::vk::BufferPtr meshletDataBuffer; ///< MeshletBVHPayloadData objects.
+    sgl::vk::BufferPtr meshletVisibilityArrayBuffer; ///< uint32_t objects.
+    sgl::vk::BufferPtr indirectDrawBuffer; ///< Padded VkDrawIndexedIndirectCommand objects.
+    sgl::vk::BufferPtr indirectDrawCountBuffer; ///< uint32_t objects.
 };
 
-#endif //LINEVIS_NODESHLBVHTREEPAYLOAD_HPP
+#endif //LINEVIS_NODESBVHTREEPAYLOAD_HPP

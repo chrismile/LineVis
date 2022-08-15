@@ -1,3 +1,6 @@
 [submodule "submodules/IsosurfaceCpp"]
 	path = submodules/IsosurfaceCpp
 	url = https://github.com/chrismile/IsosurfaceCpp.git
+[submodule "submodules/bvh"]
+	path = submodules/bvh
+	url = https://github.com/madmann91/bvh.git

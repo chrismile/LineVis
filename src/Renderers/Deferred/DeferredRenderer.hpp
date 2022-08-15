@@ -189,6 +189,11 @@ protected:
     // Draw indirect sub-modes.
     DrawIndirectReductionMode drawIndirectReductionMode = DrawIndirectReductionMode::ATOMIC_COUNTER;
 
+    // BVH draw indirect sub-modes.
+    BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;
+    BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::MESHLETS;
+    BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode::PRIMITIVE_CENTROID;
+
     // Task/mesh shader sub-modes.
     bool useMeshShaderWritePackedPrimitiveIndicesIfAvailable = true;
 

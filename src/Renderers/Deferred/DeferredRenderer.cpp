@@ -143,7 +143,7 @@ void DeferredRenderer::reloadGatherShader() {
         for (int i = 0; i < 2; i++) {
             meshletTaskMeshPasses[i]->setShaderDirty();
         }
-    } else if (deferredRenderingMode == DeferredRenderingMode::HLBVH_DRAW_INDIRECT) {
+    } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
         visibilityBufferHLBVHDrawIndirectPass->setShaderDirty();
     }
 }
@@ -194,7 +194,7 @@ void DeferredRenderer::updateRenderingMode() {
             setLineData(lineData, false);
         }
         onResolutionChangedDeferredRenderingMode();
-    } else if (deferredRenderingMode == DeferredRenderingMode::HLBVH_DRAW_INDIRECT) {
+    } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
         visibilityBufferHLBVHDrawIndirectPass = std::make_shared<VisibilityBufferDrawIndexedPass>(this);
         if (lineData) {
             setLineData(lineData, false);
@@ -319,7 +319,7 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
             meshletTaskMeshPasses[i]->setLineData(lineData, isNewData);
         }
         isDataEmpty = meshletTaskMeshPasses[0]->getNumMeshlets() == 0;
-    } else if (deferredRenderingMode == DeferredRenderingMode::HLBVH_DRAW_INDIRECT) {
+    } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
         visibilityBufferHLBVHDrawIndirectPass->setLineData(lineData, isNewData);
         isDataEmpty = visibilityBufferHLBVHDrawIndirectPass->getIsDataEmpty();
     }
@@ -670,7 +670,7 @@ void DeferredRenderer::onResolutionChangedDeferredRenderingMode() {
             meshletTaskMeshPasses[i]->recreateSwapchain(renderWidth, renderHeight);
         }
         framebufferModeIndex = 0;
-    } else if (deferredRenderingMode == DeferredRenderingMode::HLBVH_DRAW_INDIRECT) {
+    } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
         framebufferMode = FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_PASS;
         visibilityBufferHLBVHDrawIndirectPass->recreateSwapchain(renderWidth, renderHeight);
     }
@@ -716,7 +716,7 @@ void DeferredRenderer::render() {
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         meshletTaskMeshPasses[0]->buildIfNecessary();
         isDataEmpty = meshletTaskMeshPasses[0]->getNumMeshlets() == 0;
-    } else if (deferredRenderingMode == DeferredRenderingMode::HLBVH_DRAW_INDIRECT) {
+    } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
         visibilityBufferHLBVHDrawIndirectPass->buildIfNecessary();
         isDataEmpty = visibilityBufferHLBVHDrawIndirectPass->getIsDataEmpty();
     }
@@ -726,7 +726,7 @@ void DeferredRenderer::render() {
     } else {
         if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
             renderDrawIndexed();
-        } else if (deferredRenderingMode == DeferredRenderingMode::HLBVH_DRAW_INDIRECT) {
+        } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
             renderHLBVH();
         } else {
             // If this is the first frame: Just clear the depth image and use the matrices of this frame.

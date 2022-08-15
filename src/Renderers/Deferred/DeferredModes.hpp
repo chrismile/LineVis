@@ -38,7 +38,7 @@ const char* const deferredRenderingModeNames[4] = {
 enum class DeferredRenderingMode {
     DRAW_INDEXED,
     DRAW_INDIRECT,
-    HLBVH_DRAW_INDIRECT,
+    BVH_DRAW_INDIRECT,
     TASK_MESH_SHADER
 };
 
@@ -57,6 +57,33 @@ const char* const drawIndirectReductionModeNames[3] = {
 };
 enum class DrawIndirectReductionMode {
     NO_REDUCTION, ATOMIC_COUNTER, PREFIX_SUM_SCAN
+};
+
+const char* const bvhBuildAlgorithmNames[4] = {
+        "Binned SAH (CPU)",
+        "Sweep SAH (CPU)",
+        "Locally Ordered Clustering (CPU)",
+        "Linear BVH (CPU)",
+        //"Linear BVH (GPU),
+};
+enum class BvhBuildAlgorithm {
+    BINNED_SAH_CPU, SWEEP_SAH_CPU, LOCALLY_ORDERED_CLUSTERING_CPU, LINEAR_BVH_CPU, //LINEAR_BVH_GPU
+};
+
+const char* const bvhBuildGeometryModeNames[2] = {
+        "Triangles",
+        "Meshlets",
+};
+enum class BvhBuildGeometryMode {
+    TRIANGLES, MESHLETS
+};
+
+const char* const bvhBuildPrimitiveCenterModeNames[2] = {
+        "Centroid",
+        "BB Center",
+};
+enum class BvhBuildPrimitiveCenterMode {
+    PRIMITIVE_CENTROID, BOUNDING_BOX_CENTER
 };
 
 #endif //LINEVIS_DEFERREDMODES_HPP

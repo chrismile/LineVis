@@ -275,6 +275,9 @@ endif()
 target_link_libraries(LineVis PRIVATE IsosurfaceCpp)
 target_include_directories(LineVis PRIVATE submodules)
 
+add_subdirectory(submodules/bvh)
+target_link_libraries(LineVis PRIVATE bvh)
+
 if (NOT MSVC)
     if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
         target_compile_definitions(LineVis PRIVATE NDEBUG)
