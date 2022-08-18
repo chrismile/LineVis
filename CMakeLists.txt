@@ -519,7 +519,6 @@ if (SUPPORT_OPENEXR)
     endif()
 endif()
 
-
 # According to https://devblogs.microsoft.com/cppblog/improved-openmp-support-for-cpp-in-visual-studio/,
 # support for LLVM OpenMP was added with Visual Studio 2019 version 16.9. According to
 # https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-170,
@@ -531,19 +530,30 @@ if(MSVC)
     option(USE_MSVC_OPENMP_EXPERIMENTAL "Use experimental OpenMP with MSVC (available since Visual Studio 2019 version 16.9)." ON)
 
     if(${MSVC_VERSION} GREATER_EQUAL 1929 AND (USE_MSVC_OPENMP_LLVM OR USE_MSVC_OPENMP_EXPERIMENTAL))
+        define_property(
+                SOURCE
+                PROPERTY COMPILE_FLAGS
+                INHERITED
+                BRIEF_DOCS "brief-doc"
+                FULL_DOCS "full-doc"
+        )
         if(USE_MSVC_OPENMP_LLVM)
-            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /openmp:llvm")
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /openmp:llvm")
+            #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /openmp:llvm")
+            #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /openmp:llvm")
+            set_directory_properties(PROPERTIES COMPILE_FLAGS "/openmp:llvm")
         endif()
         if(USE_MSVC_OPENMP_EXPERIMENTAL)
-            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /openmp:experimental")
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /openmp:experimental")
+            #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /openmp:experimental")
+            #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /openmp:experimental")
+            set_directory_properties(PROPERTIES COMPILE_FLAGS "/openmp:experimental")
         endif()
         if(USE_MSVC_OPENMP_LLVM AND USE_MSVC_OPENMP_EXPERIMENTAL)
             set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /w44005")
             set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /w44005")
         endif()
+        set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/src/LineData/TrianglePayload/NodesBVHTreePayload.cpp" PROPERTIES COMPILE_FLAGS "")
     endif()
+
 elseif(NOT TARGET OpenMP::OpenMP_CXX)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")

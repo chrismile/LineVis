@@ -37,7 +37,7 @@ VisibilityBufferPrefixSumScanPass::VisibilityBufferPrefixSumScanPass(
 
 void VisibilityBufferPrefixSumScanPass::setInputBuffer(const sgl::vk::BufferPtr& _inputBuffer) {
     inputBuffer = _inputBuffer;
-    uint32_t N = inputBuffer->getSizeInBytes() / sizeof(uint32_t);
+    auto N = uint32_t(inputBuffer->getSizeInBytes() / sizeof(uint32_t));
     outputBuffer = std::make_shared<sgl::vk::Buffer>(
             renderer->getDevice(), N * sizeof(uint32_t),
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
@@ -65,12 +65,12 @@ void VisibilityBufferPrefixSumScanPass::createComputeData(
         sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
     prefixSumScanDataList.clear();
     prefixSumBlockIncrementDataList.clear();
-    uint32_t N = inputBuffer->getSizeInBytes() / sizeof(uint32_t);
+    auto N = uint32_t(inputBuffer->getSizeInBytes() / sizeof(uint32_t));
     createPrefixSumDataRecursive(0, N, inputBuffer, outputBuffer);
 }
 
 void VisibilityBufferPrefixSumScanPass::_render() {
-    uint32_t N = inputBuffer->getSizeInBytes() / sizeof(uint32_t);
+    auto N = uint32_t(inputBuffer->getSizeInBytes() / sizeof(uint32_t));
     parallelPrefixSumRecursive(0, N);
 }
 

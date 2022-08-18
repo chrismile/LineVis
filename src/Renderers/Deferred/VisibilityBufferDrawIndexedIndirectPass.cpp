@@ -41,7 +41,7 @@ void VisibilityBufferDrawIndexedIndirectPass::setMaxNumPrimitivesPerMeshlet(uint
     }
 }
 
-void VisibilityBufferDrawIndexedIndirectPass::setUseDrawIndexedIndirectCount(uint32_t useIndirectCount) {
+void VisibilityBufferDrawIndexedIndirectPass::setUseDrawIndexedIndirectCount(bool useIndirectCount) {
     if (useDrawIndexedIndirectCount != useIndirectCount) {
         useDrawIndexedIndirectCount = useIndirectCount;
         setDataDirty();

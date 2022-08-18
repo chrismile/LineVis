@@ -66,7 +66,7 @@ void MeshletsDrawIndirectPayload::createPayloadPre(
             meshlets.push_back(currentMeshlet);
             currentMeshletBB = {};
             currentMeshlet = {};
-            currentMeshlet.firstIndex = primitiveIdx;
+            currentMeshlet.firstIndex = uint32_t(primitiveIdx);
         }
         currentLineIdx = l0;
 

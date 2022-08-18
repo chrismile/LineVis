@@ -112,9 +112,9 @@ void MeshletsTaskMeshShaderPayload::createPayloadPre(
             currentMeshletBB = {};
             currentMeshletIndices.clear();
             currentMeshlet = {};
-            currentMeshlet.meshletFirstPrimitiveIdx = primitiveIdx / 3;
-            currentMeshlet.vertexStart = dedupVertexIndexToOrigIndexMap.size();
-            currentMeshlet.primitiveStart = dedupTriangleIndices.size() / 3u;
+            currentMeshlet.meshletFirstPrimitiveIdx = uint32_t(primitiveIdx / 3);
+            currentMeshlet.vertexStart = uint32_t(dedupVertexIndexToOrigIndexMap.size());
+            currentMeshlet.primitiveStart = uint32_t(dedupTriangleIndices.size() / 3);
         }
         currentLineIdx = l0;
 
