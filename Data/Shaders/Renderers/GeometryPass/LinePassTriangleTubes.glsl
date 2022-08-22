@@ -132,8 +132,8 @@ void main() {
     thickness0 = useBand != 0 ? factorX : 1.0;
     thickness1 = useBand != 0 ? factorZ : 1.0;
 #elif defined(USE_HYPERSTREAMLINES)
-    stressX = abs(stressX);
-    stressZ = abs(stressZ);
+    stressX = max(abs(stressX), minimumHyperstreamlineWidth);
+    stressZ = max(abs(stressZ), minimumHyperstreamlineWidth);
     thickness0 = useBand != 0 ? stressX : 1.0;
     thickness1 = useBand != 0 ? stressZ : 1.0;
 #else

@@ -55,6 +55,7 @@ bool LineDataStress::usePrincipalStressDirectionIndex = true;
 std::array<bool, 3> LineDataStress::psUseBands = {false, false, true};
 bool LineDataStress::useSmoothedBands = false;
 LineDataStress::BandRenderMode LineDataStress::bandRenderMode = LineDataStress::BandRenderMode::RIBBONS;
+float LineDataStress::minimumHyperstreamlineWidth = 0.0f;
 LineDataStress::LineHierarchyType LineDataStress::lineHierarchyType = LineDataStress::LineHierarchyType::GEO;
 glm::vec3 LineDataStress::lineHierarchySliderValues = glm::vec3(1.0f);
 
@@ -285,7 +286,7 @@ bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyE
                 ImGui::EditMode editMode = propertyEditor.addSliderFloatEdit(
                         stressDirectionNames[psIdx], &lineHierarchySliderValues[psIdx], 0.0f, 1.0f);
                 if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
-                    || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
+                        || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
                     reRender = true;
                     recomputeOpacityOptimization = true;
                     sliderChanged = true;
@@ -346,6 +347,21 @@ bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyE
                 }
                 dirty = true;
                 shallReloadGatherShader = true;
+            }
+            if (showBandRenderingMode && bandRenderMode == BandRenderMode::HYPERSTREAMLINES) {
+                bool canUseLiveUpdate = getCanUseLiveUpdate(LineDataAccessType::TRIANGLE_MESH);
+                float minimumHyperstreamlineWidthPercentage = minimumHyperstreamlineWidth * 100.0f;
+                ImGui::EditMode editMode = propertyEditor.addSliderFloatEdit(
+                        "Minimum Width", &minimumHyperstreamlineWidthPercentage,
+                        0.0f, 100.0f, "%.1f%%");
+                if (editMode != ImGui::EditMode::NO_CHANGE) {
+                    minimumHyperstreamlineWidth = minimumHyperstreamlineWidthPercentage * 0.01f;
+                }
+                if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
+                        || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
+                    reRender = true;
+                    triangleRepresentationDirty = true;
+                }
             }
 #endif
 
@@ -2608,13 +2624,15 @@ TubeTriangleRenderData LineDataStress::getLinePassTubeTriangleMeshRenderDataPayl
                             lineCentersList, bandPointsListRight, linePrincipalStressIndexList,
                             lineMajorStressesList, lineMediumStressesList, lineMinorStressesList,
                             radius, tubeNumSubdivisions, false,
-                            hyperstreamline, tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                            hyperstreamline, minimumHyperstreamlineWidth,
+                            tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
                             uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
                 } else {
                     createTrianglePrincipalStressTubesRenderDataCPU(
                             lineCentersList, bandPointsListRight, linePrincipalStressIndexList,
                             lineMajorStressesList, lineMediumStressesList, lineMinorStressesList,
-                            radius, tubeNumSubdivisions, hyperstreamline,
+                            radius, tubeNumSubdivisions,
+                            hyperstreamline,  minimumHyperstreamlineWidth,
                             tubeTriangleIndices, tubeTriangleVertexDataList, linePointReferences,
                             uint32_t(tubeTriangleLinePointDataList.size()), lineTangents, lineNormals);
                 }
@@ -3048,6 +3066,7 @@ void LineDataStress::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl:
     LineData::updateVulkanUniformBuffers(lineRenderer, renderer);
 
     stressLineUniformData.lineHierarchySlider = glm::vec3(1.0f) - lineHierarchySliderValues;
+    stressLineUniformData.minimumHyperstreamlineWidth = minimumHyperstreamlineWidth;
     if (getUseBandRendering()) {
         stressLineUniformData.psUseBands = glm::ivec3(psUseBands[0], psUseBands[1], psUseBands[2]);
     } else {
@@ -3184,13 +3203,15 @@ void LineDataStress::getTriangleMesh(
                             lineCentersList, bandPointsListRight, linePrincipalStressIndexList,
                             lineMajorStressesList, lineMediumStressesList, lineMinorStressesList,
                             radius, tubeNumSubdivisions, false,
-                            hyperstreamline, triangleIndices, tubeTriangleVertexDataList, linePointReferences,
+                            hyperstreamline,  minimumHyperstreamlineWidth,
+                            triangleIndices, tubeTriangleVertexDataList, linePointReferences,
                             uint32_t(numTubeTriangleLinePoints), lineTangents, lineNormals);
                 } else {
                     createTrianglePrincipalStressTubesRenderDataCPU(
                             lineCentersList, bandPointsListRight, linePrincipalStressIndexList,
                             lineMajorStressesList, lineMediumStressesList, lineMinorStressesList,
-                            radius, tubeNumSubdivisions, hyperstreamline,
+                            radius, tubeNumSubdivisions,
+                            hyperstreamline, minimumHyperstreamlineWidth,
                             triangleIndices, tubeTriangleVertexDataList, linePointReferences,
                             uint32_t(numTubeTriangleLinePoints), lineTangents, lineNormals);
                 }

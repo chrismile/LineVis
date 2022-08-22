@@ -164,10 +164,10 @@ void DeferredRenderer::updateRenderingMode() {
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
         visibilityBufferDrawIndexedPass = std::make_shared<VisibilityBufferDrawIndexedPass>(this);
         visibilityBufferDrawIndexedPass->setDrawIndexedGeometryMode(drawIndexedGeometryMode);
+        onResolutionChangedDeferredRenderingMode();
         if (lineData) {
             setLineData(lineData, false);
         }
-        onResolutionChangedDeferredRenderingMode();
     } else if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
         for (int i = 0; i < 2; i++) {
             visibilityBufferDrawIndexedIndirectPasses[i] = std::make_shared<VisibilityBufferDrawIndexedIndirectPass>(
@@ -190,16 +190,16 @@ void DeferredRenderer::updateRenderingMode() {
         meshletTaskMeshPasses[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
         meshletTaskMeshPasses[1]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD);
         meshletTaskMeshPasses[1]->setRecheckOccludedOnly(true);
+        onResolutionChangedDeferredRenderingMode();
         if (lineData) {
             setLineData(lineData, false);
         }
-        onResolutionChangedDeferredRenderingMode();
     } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
         visibilityBufferHLBVHDrawIndirectPass = std::make_shared<VisibilityBufferDrawIndexedPass>(this);
+        onResolutionChangedDeferredRenderingMode();
         if (lineData) {
             setLineData(lineData, false);
         }
-        onResolutionChangedDeferredRenderingMode();
     } else {
         sgl::Logfile::get()->throwError("Error in DeferredRenderer::updateRenderingMode: Invalid rendering mode.");
     }
@@ -251,10 +251,11 @@ void DeferredRenderer::updateDrawIndirectReductionMode() {
         meshletDrawCountPass = std::make_shared<MeshletDrawCountPass>(renderer);
         meshletDrawCountPass->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
     }
+
+    onResolutionChangedDeferredRenderingMode();
     if (lineData) {
         setLineData(lineData, false);
     }
-    onResolutionChangedDeferredRenderingMode();
 
     if (showVisibleMeshletStatistics) {
         for (size_t i = 0; i < frameHasNewStagingDataList.size(); i++) {
@@ -283,6 +284,7 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     bool isDataEmpty = true;
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
         visibilityBufferDrawIndexedPass->setLineData(lineData, isNewData);
+        visibilityBufferDrawIndexedPass->buildIfNecessary();
         isDataEmpty = visibilityBufferDrawIndexedPass->getIsDataEmpty();
     } else if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
         for (int i = 0; i < 2; i++) {
@@ -313,14 +315,17 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
                 meshletDrawCountPass->setPrefixSumScanBuffer(visibilityBufferPrefixSumScanPass->getOutputBuffer());
             }
         }
+        visibilityBufferDrawIndexedIndirectPasses[0]->buildIfNecessary();
         isDataEmpty = visibilityBufferDrawIndexedIndirectPasses[0]->getIsDataEmpty();
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         for (int i = 0; i < 2; i++) {
             meshletTaskMeshPasses[i]->setLineData(lineData, isNewData);
         }
+        meshletTaskMeshPasses[0]->buildIfNecessary();
         isDataEmpty = meshletTaskMeshPasses[0]->getNumMeshlets() == 0;
     } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
         visibilityBufferHLBVHDrawIndirectPass->setLineData(lineData, isNewData);
+        visibilityBufferHLBVHDrawIndirectPass->buildIfNecessary();
         isDataEmpty = visibilityBufferHLBVHDrawIndirectPass->getIsDataEmpty();
     }
 
@@ -330,6 +335,7 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     if (hullRasterPass) {
         hullRasterPass->setAttachmentLoadOp(
                 isDataEmpty ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD);
+        hullRasterPass->updateFramebuffer();
     }
 
     dirty = false;
@@ -474,7 +480,7 @@ void DeferredRenderer::setFramebufferAttachments(sgl::vk::FramebufferPtr& frameb
         depthAttachmentState.initialLayout =
                 loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR ?
                 VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         framebuffer->setDepthStencilAttachment(
                 depthRenderTargetImage, depthAttachmentState, 1.0f);
     } else {
@@ -584,11 +590,6 @@ void DeferredRenderer::onResolutionChanged() {
     depthMipLevelTextures = depthMipLevelTexturesPingPong[0];
     depthMipBlitRenderPasses = depthMipBlitRenderPassesPingPong[0];
 
-    if (hullRasterPass) {
-        framebufferMode = FramebufferMode::HULL_RASTER_PASS;
-        hullRasterPass->recreateSwapchain(renderWidth, renderHeight);
-    }
-
     onResolutionChangedDeferredRenderingMode();
 
     auto* swapchain = sgl::AppSettings::get()->getSwapchain();
@@ -627,6 +628,11 @@ void DeferredRenderer::onResolutionChanged() {
         downsampleBlitPass->setInputTexture(colorRenderTargetTexture);
         downsampleBlitPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
         downsampleBlitPass->recreateSwapchain(finalWidth, finalHeight);
+    }
+
+    if (hullRasterPass) {
+        framebufferMode = FramebufferMode::HULL_RASTER_PASS;
+        hullRasterPass->recreateSwapchain(renderWidth, renderHeight);
     }
 
     deferredResolvePass->setOutputImage(colorRenderTargetImage);
@@ -836,11 +842,13 @@ void DeferredRenderer::render() {
         // Can't use transitionImageLayout, as subresource transition by HZB build leaves wrong internal layout set.
         //renderer->transitionImageLayout(
         //        depthRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-        renderer->insertImageMemoryBarrier(
-                depthRenderTargetImage->getImage(),
-                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-                VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT);
+        if (!isDataEmpty) {
+            renderer->insertImageMemoryBarrier(
+                    depthRenderTargetImage,//->getImage(),
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+                    VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT);
+        }
         hullRasterPass->render();
     }
 

@@ -226,6 +226,7 @@ void createTrianglePrincipalStressTubesRenderDataCPU(
         const std::vector<std::vector<float>>& lineMinorStressesList,
         float tubeRadius, int numEllipseSubdivisions,
         bool hyperstreamline, // Hyperstreamline or normal stress ratio tube?
+        float minimumHyperstreamlineWidth,
         std::vector<uint32_t>& triangleIndices,
         std::vector<TubeTriangleVertexData>& vertexDataList,
         std::vector<LinePointReference>& linePointReferenceList,
@@ -285,8 +286,8 @@ void createTrianglePrincipalStressTubesRenderDataCPU(
 
             float thickness0, thickness1;
             if (hyperstreamline) {
-                stressX = glm::abs(stressX);
-                stressZ = glm::abs(stressZ);
+                stressX = std::max(glm::abs(stressX), minimumHyperstreamlineWidth);
+                stressZ = std::max(glm::abs(stressZ), minimumHyperstreamlineWidth);
                 thickness0 = stressX;
                 thickness1 = stressZ;
             } else {

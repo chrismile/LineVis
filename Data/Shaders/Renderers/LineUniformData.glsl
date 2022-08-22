@@ -61,7 +61,7 @@ layout(binding = LINE_UNIFORM_DATA_BUFFER_BINDING) uniform LineUniformDataBuffer
 #ifdef STRESS_LINE_DATA
 layout(binding = SPECIALIZATION_LINE_UNIFORM_DATA_BUFFER_BINDING) uniform StressLineUniformDataBuffer {
     vec3 lineHierarchySlider; // USE_LINE_HIERARCHY_LEVEL && !USE_TRANSPARENCY
-    float paddingStressLineSettings;
+    float minimumHyperstreamlineWidth;
     ivec3 psUseBands;
     int currentSeedIdx; // VISUALIZE_SEEDING_PROCESS
 };

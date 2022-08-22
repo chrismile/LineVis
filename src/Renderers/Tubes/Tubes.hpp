@@ -70,6 +70,7 @@ void createTrianglePrincipalStressTubesRenderDataCPU(
         const std::vector<std::vector<float>>& lineMinorStressesList,
         float tubeRadius, int numEllipseSubdivisions,
         bool hyperstreamline, // Hyperstreamline or normal stress ratio tube?
+        float minimumHyperstreamlineWidth,
         std::vector<uint32_t>& triangleIndices,
         std::vector<TubeTriangleVertexData>& vertexDataList,
         std::vector<LinePointReference>& linePointReferenceList,
@@ -118,6 +119,7 @@ void createCappedTrianglePrincipalStressTubesRenderDataCPU(
         const std::vector<std::vector<float>>& lineMinorStressesList,
         float tubeRadius, int numEllipseSubdivisions, bool tubeClosed,
         bool hyperstreamline, // Hyperstreamline or normal stress ratio tube?
+        float minimumHyperstreamlineWidth,
         std::vector<uint32_t>& triangleIndices,
         std::vector<TubeTriangleVertexData>& vertexDataList,
         std::vector<LinePointReference>& linePointReferenceList,

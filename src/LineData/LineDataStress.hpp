@@ -219,6 +219,7 @@ private:
         RIBBONS, EIGENVALUE_RATIO, HYPERSTREAMLINES
     };
     static BandRenderMode bandRenderMode;
+    static float minimumHyperstreamlineWidth;
 
 #ifdef USE_EIGEN
     void computeMaxPrincipalStress();
@@ -249,7 +250,7 @@ private:
 
     struct StressLineUniformData {
         glm::vec3 lineHierarchySlider{}; // USE_LINE_HIERARCHY_LEVEL && !USE_TRANSPARENCY
-        float paddingStressLineSettings{};
+        float minimumHyperstreamlineWidth{};
         glm::ivec3 psUseBands{};
         int currentSeedIdx{}; // VISUALIZE_SEEDING_PROCESS
     };

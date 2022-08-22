@@ -166,8 +166,8 @@ void computeFragmentColor(
     const float thickness0 = useBand ? factorX : 1.0;
     const float thickness1 = useBand ? factorZ : 1.0;
 #elif defined(USE_HYPERSTREAMLINES)
-    stressX = abs(stressX);
-    stressZ = abs(stressZ);
+    stressX = max(abs(stressX), minimumHyperstreamlineWidth);
+    stressZ = max(abs(stressZ), minimumHyperstreamlineWidth);
     const float thickness0 = useBand ? stressX : 1.0;
     const float thickness1 = useBand ? stressZ : 1.0;
 #else

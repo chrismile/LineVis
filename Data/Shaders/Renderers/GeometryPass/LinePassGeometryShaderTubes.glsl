@@ -298,10 +298,10 @@ void main() {
         thickness1Current[i] = useBand != 0 ? factorZCurrent : 1.0;
         thickness1Next[i] = useBand != 0 ? factorZNext : 1.0;
 #elif defined(USE_HYPERSTREAMLINES)
-        stressXCurrent = abs(stressXCurrent);
-        stressZCurrent = abs(stressZCurrent);
-        stressXNext = abs(stressXNext);
-        stressZNext = abs(stressZNext);
+        stressXCurrent = max(abs(stressXCurrent), minimumHyperstreamlineWidth);
+        stressZCurrent = max(abs(stressZCurrent), minimumHyperstreamlineWidth);
+        stressXNext = max(abs(stressXNext), minimumHyperstreamlineWidth);
+        stressZNext = max(abs(stressZNext), minimumHyperstreamlineWidth);
         vec3 localPositionCurrent = vec3(cosAngle * stressXCurrent, sinAngle * stressZCurrent, 0.0);
         vec3 localNormalCurrent = vec3(cosAngle * stressZCurrent, sinAngle * stressXCurrent, 0.0);
         vec3 localPositionNext = vec3(cosAngle * stressXNext, sinAngle * stressZNext, 0.0);

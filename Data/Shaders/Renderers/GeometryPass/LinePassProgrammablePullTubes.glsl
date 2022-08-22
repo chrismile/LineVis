@@ -126,14 +126,14 @@ void main() {
     thickness0 = factorX;
     thickness1 = factorZ;
 #elif defined(USE_HYPERSTREAMLINES)
-    stressX = abs(stressX);
-    stressZ = abs(stressZ);
+    stressX = max(abs(stressX), minimumHyperstreamlineWidth);
+    stressZ = max(abs(stressZ), minimumHyperstreamlineWidth);
     vec3 localPosition = vec3(cosAngle * stressX, sinAngle * stressZ, 0.0);
     vec3 localNormal = vec3(cosAngle * stressZ, sinAngle * stressX, 0.0);
     vec3 vertexPosition = lineRadius * (tangentFrameMatrix * localPosition) + lineCenterPosition;
     vec3 vertexNormal = normalize(tangentFrameMatrix * localNormal);
-    thickness0 = stressX;
-    thickness1 = stressZ;
+    thickness0 = useBand != 0 ? stressX : 1.0;
+    thickness1 = useBand != 0 ? stressZ : 1.0;
 #else
     // Bands with minimum thickness.
     vec3 localPosition = vec3(thickness * cosAngle, sinAngle, 0.0);
