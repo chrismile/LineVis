@@ -338,7 +338,10 @@ void VtkXmlLoader::load(
     computeVectorMagnitudeField(vorticityField, vorticityMagnitudeField, xs, ys, zs);
 
     auto* helicityField = new float[numPoints];
-    computeHelicityField(velocityField, vorticityField, helicityField, xs, ys, zs);
+    computeHelicityFieldNormalized(
+            velocityField, vorticityField, helicityField, xs, ys, zs,
+            gridDataSetMetaData.useNormalizedVelocity,
+            gridDataSetMetaData.useNormalizedVorticity);
 
     grid->addVectorField(velocityField, "Velocity");
     grid->addScalarField(velocityMagnitudeField, "Velocity Magnitude");

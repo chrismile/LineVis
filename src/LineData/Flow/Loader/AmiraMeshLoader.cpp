@@ -200,7 +200,10 @@ void AmiraMeshLoader::load(
     computeVectorMagnitudeField(velocityField, velocityMagnitudeField, xs, ys, zs);
     computeVorticityField(velocityField, vorticityField, xs, ys, zs, dx, dy, dz);
     computeVectorMagnitudeField(vorticityField, vorticityMagnitudeField, xs, ys, zs);
-    computeHelicityField(velocityField, vorticityField, helicityField, xs, ys, zs);
+    computeHelicityFieldNormalized(
+            velocityField, vorticityField, helicityField, xs, ys, zs,
+            gridDataSetMetaData.useNormalizedVelocity,
+            gridDataSetMetaData.useNormalizedVorticity);
 
     grid->addVectorField(velocityField, "Velocity");
     grid->addVectorField(vorticityField, "Vorticity");

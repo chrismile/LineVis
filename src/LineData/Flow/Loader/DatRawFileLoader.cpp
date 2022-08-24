@@ -232,7 +232,10 @@ void DatRawFileLoader::load(
     computeVectorMagnitudeField(velocityField, velocityMagnitudeField, xs, ys, zs);
     computeVorticityField(velocityField, vorticityField, xs, ys, zs, cellStep, cellStep, cellStep);
     computeVectorMagnitudeField(vorticityField, vorticityMagnitudeField, xs, ys, zs);
-    computeHelicityField(velocityField, vorticityField, helicityField, xs, ys, zs);
+    computeHelicityFieldNormalized(
+            velocityField, vorticityField, helicityField, xs, ys, zs,
+            gridDataSetMetaData.useNormalizedVelocity,
+            gridDataSetMetaData.useNormalizedVorticity);
 
     grid->setGridExtent(xs, ys, zs, cellStep, cellStep, cellStep);
     grid->addVectorField(velocityField, "Velocity");

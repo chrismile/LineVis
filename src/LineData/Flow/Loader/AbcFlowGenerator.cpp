@@ -28,6 +28,7 @@
 
 #include <cmath>
 #include <ImGui/imgui_custom.h>
+#include "../StreamlineTracingDefines.hpp"
 #include "../StreamlineTracingGrid.hpp"
 #include "GridLoader.hpp"
 #include "AbcFlowGenerator.hpp"
@@ -56,7 +57,7 @@ void AbcFlowGenerator::generateAbcFlow(float* v) const {
     }
 }
 
-void AbcFlowGenerator::load(StreamlineTracingGrid* grid) const {
+void AbcFlowGenerator::load(const GridDataSetMetaData& gridDataSetMetaData, StreamlineTracingGrid* grid) const {
     float maxDimension = float(std::max(xs - 1, std::max(ys - 1, zs - 1)));
     float cellStep = 1.0f / maxDimension;
 
@@ -74,7 +75,10 @@ void AbcFlowGenerator::load(StreamlineTracingGrid* grid) const {
     computeVectorMagnitudeField(velocityField, velocityMagnitudeField, xs, ys, zs);
     computeVorticityField(velocityField, vorticityField, xs, ys, zs, cellStep, cellStep, cellStep);
     computeVectorMagnitudeField(vorticityField, vorticityMagnitudeField, xs, ys, zs);
-    computeHelicityField(velocityField, vorticityField, helicityField, xs, ys, zs);
+    computeHelicityFieldNormalized(
+            velocityField, vorticityField, helicityField, xs, ys, zs,
+            gridDataSetMetaData.useNormalizedVelocity,
+            gridDataSetMetaData.useNormalizedVorticity);
 
     grid->setGridExtent(xs, ys, zs, cellStep, cellStep, cellStep);
     grid->addVectorField(velocityField, "Velocity");

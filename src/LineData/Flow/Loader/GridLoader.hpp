@@ -66,6 +66,25 @@ void computeHelicityField(
         const float* velocityField, const float* vorticityField, float* helicityField, int xs, int ys, int zs);
 
 /**
+ * Computes the helicity field. The helicity is the dot product of the velocity and the vorticity.
+ * In the following papers, different definitions were used for the helicity.
+ * - Helicity: Rees et al. 2017, "A Stream Ribbon Seeding Strategy"
+ * - Helicity with normalized velocity: Ueng et al. 1996,
+ *   "Efficient Streamline, Streamribbon, and Streamlube Constructions on Unstructured Grids"
+ * - Normalized helicity (normalized velocity & normalized vorticity): Karch et al. 2014,
+ *   "Streamline-Based Concepts for Space-Time Analysis of 2D Time-Dependent Flow"
+ * @param velocityField A float array of size xs * ys * zs * 3 storing the 3D velocity field (input).
+ * @param vorticityField A float array of size xs * ys * zs * 3 storing the 3D vorticity field (input).
+ * @param helicityField A float array of size xs * ys * zs into which the helicity is written (output).
+ * @param xs The grid size in x direction.
+ * @param ys The grid size in y direction.
+ * @param zs The grid size in z direction.
+ */
+void computeHelicityFieldNormalized(
+        const float* velocityField, const float* vorticityField, float* helicityField, int xs, int ys, int zs,
+        bool normalizeVelocity, bool normalizeVorticity);
+
+/**
  * Swaps the endianness of the passed array.
  * @tparam T The data type. The bytes in each range of sizeof(T) are shuffled.
  * @param values The array to swap endianness for.

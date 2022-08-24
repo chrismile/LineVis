@@ -269,7 +269,10 @@ void NetCdfLoader::load(
             vorticityField, vorticityMagnitudeField, int(xs), int(ys), int(zs));
 
     auto* helicityField = new float[numPoints];
-    computeHelicityField(velocityField, vorticityField, helicityField, int(xs), int(ys), int(zs));
+    computeHelicityFieldNormalized(
+            velocityField, vorticityField, helicityField, int(xs), int(ys), int(zs),
+            gridDataSetMetaData.useNormalizedVelocity,
+            gridDataSetMetaData.useNormalizedVorticity);
 
     grid->addVectorField(velocityField, "Velocity");
     grid->addScalarField(velocityMagnitudeField, "Velocity Magnitude");

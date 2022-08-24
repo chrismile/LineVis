@@ -104,3 +104,40 @@ void computeHelicityField(
         }
     }
 }
+
+void computeHelicityFieldNormalized(
+        const float* velocityField, const float* vorticityField, float* helicityField, int xs, int ys, int zs,
+        bool normalizeVelocity, bool normalizeVorticity) {
+    #pragma omp parallel for shared(xs, ys, zs, velocityField, vorticityField, helicityField, normalizeVelocity, normalizeVorticity) default(none)
+    for (int z = 0; z < zs; z++) {
+        for (int y = 0; y < ys; y++) {
+            for (int x = 0; x < xs; x++) {
+                float vorticityX = vorticityField[IDXV(x, y, z, 0)];
+                float vorticityY = vorticityField[IDXV(x, y, z, 1)];
+                float vorticityZ = vorticityField[IDXV(x, y, z, 2)];
+                float velocityX = velocityField[IDXV(x, y, z, 0)];
+                float velocityY = velocityField[IDXV(x, y, z, 1)];
+                float velocityZ = velocityField[IDXV(x, y, z, 2)];
+                if (normalizeVelocity) {
+                    float velocityMagnitude = std::sqrt(
+                            velocityX * velocityX + velocityY * velocityY + velocityZ * velocityZ);
+                    if (velocityMagnitude > 1e-6) {
+                        velocityX /= velocityMagnitude;
+                        velocityY /= velocityMagnitude;
+                        velocityZ /= velocityMagnitude;
+                    }
+                }
+                if (normalizeVorticity) {
+                    float vorticityMagnitude = std::sqrt(
+                            vorticityX * vorticityX + vorticityY * vorticityY + vorticityZ * vorticityZ);
+                    if (vorticityMagnitude > 1e-6) {
+                        vorticityX /= vorticityMagnitude;
+                        vorticityY /= vorticityMagnitude;
+                        vorticityZ /= vorticityMagnitude;
+                    }
+                }
+                helicityField[IDXS(x, y, z)] = velocityX * vorticityX + velocityY * vorticityY + velocityZ * vorticityZ;
+            }
+        }
+    }
+}

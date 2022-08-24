@@ -30,6 +30,7 @@
 #define LINEVIS_ABCFLOWGENERATOR_HPP
 
 class StreamlineTracingGrid;
+struct GridDataSetMetaData;
 
 /**
  * Generator for Arnold-Beltrami-Childress (ABC) flow data.
@@ -54,10 +55,10 @@ public:
      * @param vectorField A float array of size xs * ys * zs * 3 storing the 3D velocity vector field.
      */
     void generateAbcFlow(float *v) const;
-    void load(StreamlineTracingGrid* grid) const;
+    void load(const GridDataSetMetaData& gridDataSetMetaData, StreamlineTracingGrid* grid) const;
 
     bool renderGui();
-    std::string getSettingsString() const;
+    [[nodiscard]] std::string getSettingsString() const;
 
 private:
     int xs = 64, ys = 64, zs = 64;

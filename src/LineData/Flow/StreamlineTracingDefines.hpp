@@ -128,11 +128,16 @@ struct GridDataSetMetaData {
     bool susamplingFactorSet = false;
     // Name of the velocity field to use (if multiple are available).
     std::string velocityFieldName;
+    // Whether to use normalized velocity or normalized vorticity in helicity computation.
+    bool useNormalizedVelocity = false;
+    bool useNormalizedVorticity = false;
 
     inline bool operator==(const GridDataSetMetaData& rhs) const {
         return
                 this->date == rhs.date && this->time == rhs.time && this->scale == rhs.scale && this->axes == rhs.axes
-                && this->velocityFieldName == rhs.velocityFieldName;
+                && this->velocityFieldName == rhs.velocityFieldName
+                && this->useNormalizedVelocity == rhs.useNormalizedVelocity
+                && this->useNormalizedVorticity == rhs.useNormalizedVorticity;
     }
 };
 
@@ -163,6 +168,8 @@ struct StreamlineTracingSettings {
     // For flowPrimitives == FlowPrimitives::STREAMRIBBONS.
     bool useHelicity = true;
     float maxHelicityTwist = 0.25f;
+    bool useNormalizedVelocity = false;
+    bool useNormalizedVorticity = false;
     glm::vec3 initialRibbonDirection = glm::vec3(0.0f, 1.0f, 0.0f);
     int seedingSubsamplingFactor = 1;
 

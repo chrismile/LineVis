@@ -596,9 +596,20 @@ void StructuredGridVtkLoader::load(
             computeVectorMagnitudeField(vorticityField, vorticityMagnitudeField, xs, ys, zs);
             scalarFields.insert(std::make_pair("Vorticity Magnitude", vorticityMagnitudeField));
         }
+        // Don't use cached helicity if normalized velocity and/or normalized vorticity should be used.
+        if (gridDataSetMetaData.useNormalizedVelocity || gridDataSetMetaData.useNormalizedVorticity) {
+            auto helicityIt = scalarFields.find("helicity");
+            if (helicityIt != scalarFields.end()) {
+                delete[] it->second;
+                scalarFields.erase(helicityIt);
+            }
+        }
         if (scalarFields.find("helicity") == scalarFields.end()) {
             auto* helicityField = new float[numPoints];
-            computeHelicityField(velocityField, vorticityField, helicityField, xs, ys, zs);
+            computeHelicityFieldNormalized(
+                    velocityField, vorticityField, helicityField, xs, ys, zs,
+                    gridDataSetMetaData.useNormalizedVelocity,
+                    gridDataSetMetaData.useNormalizedVorticity);
             scalarFields.insert(std::make_pair("Helicity", helicityField));
         }
     }

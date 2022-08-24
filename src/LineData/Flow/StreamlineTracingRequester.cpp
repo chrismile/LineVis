@@ -349,6 +349,15 @@ void StreamlineTracingRequester::renderGui() {
                 if (ImGui::Checkbox("Use Helicity Ribbons", &guiTracingSettings.useHelicity)) {
                     changed = true;
                 }
+                if (guiTracingSettings.useHelicity && ImGui::Checkbox(
+                        "Normalized Velocity", &guiTracingSettings.useNormalizedVelocity)) {
+                    changed = true;
+                }
+                ImGui::SameLine();
+                if (guiTracingSettings.useHelicity && ImGui::Checkbox(
+                        "Normalized Vorticity", &guiTracingSettings.useNormalizedVorticity)) {
+                    changed = true;
+                }
                 if (guiTracingSettings.useHelicity && ImGui::SliderFloatEdit(
                         "Max. Helicity Twist", &guiTracingSettings.maxHelicityTwist,
                         0.0f, 1.0f) == ImGui::EditMode::INPUT_FINISHED) {
@@ -605,6 +614,8 @@ void StreamlineTracingRequester::requestNewData() {
     } else {
         request.gridDataSetMetaData = {};
     }
+    request.gridDataSetMetaData.useNormalizedVelocity = guiTracingSettings.useNormalizedVelocity;
+    request.gridDataSetMetaData.useNormalizedVorticity = guiTracingSettings.useNormalizedVorticity;
 
     queueRequestStruct(request);
 }
@@ -716,7 +727,7 @@ void StreamlineTracingRequester::traceLines(
             cachedGrid->setGridSubsamplingFactor(request.gridSubsamplingFactor);
         }
         if (request.isAbcDataSet) {
-            request.abcFlowGenerator.load(cachedGrid);
+            request.abcFlowGenerator.load(request.gridDataSetMetaData, cachedGrid);
         } else if (boost::ends_with(request.dataSourceFilename, ".vtk")) {
             StructuredGridVtkLoader::load(
                     request.dataSourceFilename, request.gridDataSetMetaData,
