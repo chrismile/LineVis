@@ -254,11 +254,10 @@ else
     cp "./third_party/sgl/install/bin/libsgl.dll" "$destination_dir/bin"
 fi
 
-# Copy LineVis to the destination directory.
+# Copy the application to the destination directory.
 cp "$build_dir/LineVis.exe" "$destination_dir/bin"
-cp "README.md" "$destination_dir"
 
-# Copy all dependencies of LineVis to the destination directory.
+# Copy all dependencies of the application to the destination directory.
 ldd_output="$(ldd $destination_dir/bin/LineVis.exe)"
 for library in $ldd_output
 do
@@ -289,6 +288,9 @@ if [ ! -d "$destination_dir/bin/python3" ]; then
     mkdir -p "$destination_dir/bin/python3/lib"
     cp -r "$MSYSTEM_PREFIX/lib/$Python3_VERSION" "$destination_dir/bin/python3/lib"
 fi
+
+# Copy the docs to the destination directory.
+cp "README.md" "$destination_dir"
 if [ ! -d "$destination_dir/LICENSE" ]; then
     mkdir -p "$destination_dir/LICENSE"
     cp -r "docs/license-libraries/." "$destination_dir/LICENSE/"

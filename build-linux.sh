@@ -35,6 +35,13 @@ pushd $SCRIPTPATH > /dev/null
 debug=false
 build_dir_debug=".build_debug"
 build_dir_release=".build_release"
+if [ $debug = true ]; then
+    cmake_config="Debug"
+    build_dir=$build_dir_debug
+else
+    cmake_config="Release"
+    build_dir=$build_dir_release
+fi
 destination_dir="Shipping"
 if command -v pacman &> /dev/null; then
     is_embree_installed=true
@@ -213,14 +220,29 @@ if [ ! -d "./sgl" ]; then
     git clone --depth 1 https://github.com/chrismile/sgl.git
 fi
 
+if [ -f "./sgl/$build_dir/CMakeCache.txt" ]; then
+    if grep -q vcpkg_installed "./sgl/$build_dir/CMakeCache.txt"; then
+        echo "Removing old sgl build cache..."
+        if [ -d "./sgl/$build_dir_debug" ]; then
+            rm -rf "./sgl/$build_dir_debug"
+        fi
+        if [ -d "./sgl/$build_dir_release" ]; then
+            rm -rf "./sgl/$build_dir_release"
+        fi
+        if [ -d "./sgl/install" ]; then
+            rm -rf "./sgl/install"
+        fi
+    fi
+fi
+
 if [ ! -d "./sgl/install" ]; then
     echo "------------------------"
     echo "     building sgl       "
     echo "------------------------"
 
     pushd "./sgl" >/dev/null
-    mkdir -p .build_debug
-    mkdir -p .build_release
+    mkdir -p $build_dir_debug
+    mkdir -p $build_dir_release
 
     pushd "$build_dir_debug" >/dev/null
     cmake .. \
@@ -244,44 +266,57 @@ fi
 params=()
 
 embree_version="3.13.3"
-if ! $is_embree_installed && [ ! -d "./embree-${embree_version}.x86_64.linux" ]; then
-    echo "------------------------"
-    echo "   downloading Embree   "
-    echo "------------------------"
-    wget "https://github.com/embree/embree/releases/download/v${embree_version}/embree-${embree_version}.x86_64.linux.tar.gz"
-    tar -xvzf "embree-${embree_version}.x86_64.linux.tar.gz"
+if ! $is_embree_installed; then
+    if [ ! -d "./embree-${embree_version}.x86_64.linux" ]; then
+        echo "------------------------"
+        echo "   downloading Embree   "
+        echo "------------------------"
+        wget "https://github.com/embree/embree/releases/download/v${embree_version}/embree-${embree_version}.x86_64.linux.tar.gz"
+        tar -xvzf "embree-${embree_version}.x86_64.linux.tar.gz"
+    fi
     params+=(-Dembree_DIR="${PROJECTPATH}/third_party/embree-${embree_version}.x86_64.linux/lib/cmake/embree-${embree_version}")
 fi
 
 ospray_version="2.9.0"
-if ! $is_ospray_installed && [ ! -d "./ospray-${ospray_version}.x86_64.linux" ]; then
-    echo "------------------------"
-    echo "   downloading OSPRay   "
-    echo "------------------------"
-    wget "https://github.com/ospray/OSPRay/releases/download/v${ospray_version}/ospray-${ospray_version}.x86_64.linux.tar.gz"
-    tar -xvzf "ospray-${ospray_version}.x86_64.linux.tar.gz"
+if ! $is_ospray_installed; then
+    if [ ! -d "./ospray-${ospray_version}.x86_64.linux" ]; then
+        echo "------------------------"
+        echo "   downloading OSPRay   "
+        echo "------------------------"
+        wget "https://github.com/ospray/OSPRay/releases/download/v${ospray_version}/ospray-${ospray_version}.x86_64.linux.tar.gz"
+        tar -xvzf "ospray-${ospray_version}.x86_64.linux.tar.gz"
+    fi
     params+=(-Dospray_DIR="${PROJECTPATH}/third_party/ospray-${ospray_version}.x86_64.linux/lib/cmake/ospray-${ospray_version}")
 fi
 
 popd >/dev/null # back to project root
 
-if [ $debug = true ] ; then
+if [ $debug = true ]; then
     echo "------------------------"
     echo "  building in debug     "
     echo "------------------------"
-
-    cmake_config="Debug"
-    build_dir=$build_dir_debug
 else
     echo "------------------------"
     echo "  building in release   "
     echo "------------------------"
-
-    cmake_config="Release"
-    build_dir=$build_dir_release
 fi
+
+if [ -f "./$build_dir/CMakeCache.txt" ]; then
+    if grep -q vcpkg_installed "./$build_dir/CMakeCache.txt"; then
+        echo "Removing old application build cache..."
+        if [ -d "./$build_dir_debug" ]; then
+            rm -rf "./$build_dir_debug"
+        fi
+        if [ -d "./$build_dir_release" ]; then
+            rm -rf "./$build_dir_release"
+        fi
+        if [ -d "./$destination_dir" ]; then
+            rm -rf "./$destination_dir"
+        fi
+    fi
+fi
+
 mkdir -p $build_dir
-ls "$build_dir"
 
 echo "------------------------"
 echo "      generating        "
@@ -300,10 +335,65 @@ pushd "$build_dir" >/dev/null
 make -j $(nproc)
 popd >/dev/null
 
+echo "------------------------"
+echo "   copying new files    "
+echo "------------------------"
+mkdir -p $destination_dir/bin
+
+# Copy the application to the destination directory.
+rsync -a "$build_dir/LineVis" "$destination_dir/bin"
+
+# Copy all dependencies of the application to the destination directory.
+ldd_output="$(ldd $build_dir/LineVis)"
+library_blacklist=(
+    "libOpenGL" "libGL"
+    "libwayland" "libffi." "libX" "libxcb" "libxkbcommon"
+    "ld-linux" "libdl." "libutil." "libm." "libc." "libpthread." "libbsd."
+)
+for library in $ldd_output
+do
+    if [[ $library != "/"* ]]; then
+        continue
+    fi
+    is_blacklisted=false
+    for blacklisted_library in ${library_blacklist[@]}; do
+        if [[ "$library" == *"$blacklisted_library"* ]]; then
+            is_blacklisted=true
+            break
+        fi
+    done
+    if [ $is_blacklisted = true ]; then
+        continue
+    fi
+    # TODO: Add blacklist entries for pulseaudio and dependencies.
+    #cp "$library" "$destination_dir/bin"
+    #patchelf --set-rpath '$ORIGIN' "$destination_dir/bin/$(basename "$library")"
+done
+patchelf --set-rpath '$ORIGIN' "$destination_dir/bin/LineVis"
+
+# Copy python3 to the destination directory.
+# TODO
+
+# Copy the docs to the destination directory.
+cp "README.md" "$destination_dir"
+if [ ! -d "$destination_dir/LICENSE" ]; then
+    mkdir -p "$destination_dir/LICENSE"
+    cp -r "docs/license-libraries/." "$destination_dir/LICENSE/"
+    cp -r "LICENSE" "$destination_dir/LICENSE/LICENSE-linevis.txt"
+    cp -r "submodules/IsosurfaceCpp/LICENSE" "$destination_dir/LICENSE/graphics/LICENSE-isosurfacecpp.txt"
+fi
+if [ ! -d "$destination_dir/docs" ]; then
+    cp -r "docs" "$destination_dir"
+fi
+
+# Create a run script.
+printf "#!/bin/bash\npushd \"\$(dirname \"\$0\")/bin\" >/dev/null\n./LineVis\npopd\n" > "$destination_dir/run.sh"
+chmod +x "$destination_dir/run.sh"
+
+
+# Run the program as the last step.
 echo ""
 echo "All done!"
-
-
 pushd $build_dir >/dev/null
 
 if [[ -z "${LD_LIBRARY_PATH+x}" ]]; then
@@ -312,4 +402,3 @@ elif [[ ! "${LD_LIBRARY_PATH}" == *"${PROJECTPATH}/third_party/sgl/install/lib"*
     export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${PROJECTPATH}/third_party/sgl/install/lib"
 fi
 ./LineVis
-

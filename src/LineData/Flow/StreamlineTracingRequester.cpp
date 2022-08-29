@@ -590,6 +590,8 @@ void StreamlineTracingRequester::setDatasetFilename(const std::string& newDatase
     if (!isDataSetInList) {
         selectedGridDataSetIndex = 0;
         gridDataSetFilename = newDatasetFilename;
+        guiTracingSettings.exportPath =
+                sgl::FileUtils::get()->removeExtension(gridDataSetFilename) + ".binlines";
     }
 
     requestNewData();

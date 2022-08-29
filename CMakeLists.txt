@@ -34,6 +34,7 @@ endif()
 
 option(USE_GTEST "Build the GoogleTest test suites." OFF)
 option(USE_PYTHON "Build with Python 3 support for replay scripts." ON)
+option(VCPKG_EXTERNAL_EMBREE "Use external Embree package if vcpkg is used for compilation." OFF)
 
 set(DATA_PATH "${CMAKE_SOURCE_DIR}/Data" CACHE PATH "Location of folder 'Data'")
 add_definitions(-DDATA_PATH=\"${DATA_PATH}\")
@@ -121,7 +122,8 @@ endif()
 
 # Embree version 3.12.1-2 shipped by msys2 seems to be buggy and crashes on rtcCommitScene :(
 if(NOT "${CMAKE_GENERATOR}" STREQUAL "MSYS Makefiles")
-    if(VCPKG_TOOLCHAIN)
+    MESSAGE(STATUS "VCPKG_EXTERNAL_EMBREE: " ${VCPKG_EXTERNAL_EMBREE})
+    if(VCPKG_TOOLCHAIN AND NOT ${VCPKG_EXTERNAL_EMBREE})
         find_package(TBB QUIET)
         find_package(embree 3 QUIET)
     else()
@@ -399,6 +401,13 @@ if (Python3_FOUND AND USE_PYTHON)
         target_link_libraries(LineVis PRIVATE Python3::Python)
     else()
         target_link_libraries(LineVis PRIVATE ${Python3_LIBRARIES})
+    endif()
+    MESSAGE(STATUS "VCPKG_LIBRARY_LINKAGE: ${VCPKG_LIBRARY_LINKAGE}")
+    if (UNIX AND NOT APPLE AND VCPKG_TOOLCHAIN AND ${CMAKE_VERSION} VERSION_GREATER "3.12")
+        # Python linked statically in this case. See:
+        # https://stackoverflow.com/questions/67891197/ctypes-cpython-39-x86-64-linux-gnu-so-undefined-symbol-pyfloat-type-in-embedd
+        target_link_options(LineVis PRIVATE "-Xlinker")
+        target_link_options(LineVis PRIVATE "-export-dynamic")
     endif()
     target_include_directories(LineVis PRIVATE ${Python3_INCLUDE_DIRS})
 

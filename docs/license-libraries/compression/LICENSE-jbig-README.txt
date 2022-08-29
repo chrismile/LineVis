@@ -1,6 +1,6 @@
-The version of libtiff built by MSYS2, which is a dependency of SDL2_Image used by this project, is compiled with JBIG-KIT as a dependency.
+The version of libtiff built by MSYS2 and Ubuntu, which is a dependency of SDL2_Image used by this project, is compiled with JBIG-KIT as a dependency.
 Unfortunately, JBIG-KIT is released under the terms of the GNU General Public License (GPL).
-The authors of JBIG-KIT give permission on their website to link to this library as long as an application software not complaint with the
+The authors of JBIG-KIT give permission on their website to link to this library as long as an application software not complying with the
 GPL license "makes sure that its users never can actually process JBIG data" (see below).
 This is true for this software, as there is no use case where even TIFF files/libtiff would/could ever be used by LineVis or its users.
 

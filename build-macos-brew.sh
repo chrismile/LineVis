@@ -341,7 +341,6 @@ fi
 
 # Copy the application to the destination directory.
 cp -a "$build_dir/$program_name.app" "$destination_dir"
-cp "README.md" "$destination_dir"
 
 # Copy sgl to the destination directory.
 if [ $debug = true ] ; then

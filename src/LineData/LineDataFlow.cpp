@@ -219,8 +219,8 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
         }
     }
 
-    if (hasHelicity || getUseBandRendering()) {
-        if (propertyEditor.beginNode("Advanced Settings")) {
+    if (propertyEditor.beginNode("Advanced Settings")) {
+        if (hasHelicity || getUseBandRendering()) {
             if (!useRotatingHelicityBands && getUseBandRendering()) {
                 if (propertyEditor.addCheckbox("Render Thick Bands", &renderThickBands)) {
                     shallReloadGatherShader = true;
@@ -301,65 +301,65 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                 }
             }
 
-            if (propertyEditor.addCheckbox("Multi-Var Rendering", &useMultiVarRendering)) {
-                useTwistLineTexture = false;
-                dirty = true;
-                shallReloadGatherShader = true;
-                recomputeColorLegend();
-                recomputeWidgetPositions();
-                if (!setNumSubdivisionsManually) {
-                    numSubdivisionsBands = useMultiVarRendering ? 8 : 6;
-                }
-            }
-
-            if (useMultiVarRendering) {
-                bool itemHasChanged = false;
-                std::vector<std::string> comboSelVec(0);
-                if (propertyEditor.addBeginCombo(
-                        "Variables", comboValue, ImGuiComboFlags_NoArrowButton)) {
-                    for (size_t v = 0; v < isAttributeSelectedArray.size(); ++v) {
-                        if (ImGui::Selectable(
-                                attributeNames.at(v).c_str(),
-                                reinterpret_cast<bool*>(&isAttributeSelectedArray[v]),
-                                ImGuiSelectableFlags_::ImGuiSelectableFlags_DontClosePopups)) {
-                            itemHasChanged = true;
-                        }
-
-                        if (static_cast<bool>(isAttributeSelectedArray.at(v))) {
-                            ImGui::SetItemDefaultFocus();
-                            comboSelVec.push_back(attributeNames.at(v));
-                        }
-                    }
-
-                    comboValue = "";
-                    for (size_t v = 0; v < comboSelVec.size(); ++v) {
-                        comboValue += comboSelVec[v];
-                        if (comboSelVec.size() > 1 && v + 1 != comboSelVec.size()) {
-                            comboValue += ",";
-                        }
-                    }
-
-                    if (itemHasChanged) {
-                        selectedAttributes.clear();
-                        for (size_t varIdx = 0; varIdx < isAttributeSelectedArray.size(); ++varIdx) {
-                            if (isAttributeSelectedArray.at(varIdx) != 0) {
-                                selectedAttributes.push_back(uint32_t(varIdx));
-                            }
-                        }
-                        recomputeWidgetPositions();
-                        reRender = true;
-                    }
-
-                    propertyEditor.addEndCombo();
-                }
-            }
-
-            if ((useMultiVarRendering || useRotatingHelicityBands) && propertyEditor.addSliderFloat(
-                    "Separator Width", &separatorWidth, 0.0f, 1.0f)) {
-                reRender = true;
-            }
-
             propertyEditor.endNode();
+        }
+
+        if (propertyEditor.addCheckbox("Multi-Var Rendering", &useMultiVarRendering)) {
+            useTwistLineTexture = false;
+            dirty = true;
+            shallReloadGatherShader = true;
+            recomputeColorLegend();
+            recomputeWidgetPositions();
+            if (!setNumSubdivisionsManually) {
+                numSubdivisionsBands = useMultiVarRendering ? 8 : 6;
+            }
+        }
+
+        if (useMultiVarRendering) {
+            bool itemHasChanged = false;
+            std::vector<std::string> comboSelVec(0);
+            if (propertyEditor.addBeginCombo(
+                    "Variables", comboValue, ImGuiComboFlags_NoArrowButton)) {
+                for (size_t v = 0; v < isAttributeSelectedArray.size(); ++v) {
+                    if (ImGui::Selectable(
+                            attributeNames.at(v).c_str(),
+                            reinterpret_cast<bool*>(&isAttributeSelectedArray[v]),
+                            ImGuiSelectableFlags_::ImGuiSelectableFlags_DontClosePopups)) {
+                        itemHasChanged = true;
+                    }
+
+                    if (static_cast<bool>(isAttributeSelectedArray.at(v))) {
+                        ImGui::SetItemDefaultFocus();
+                        comboSelVec.push_back(attributeNames.at(v));
+                    }
+                }
+
+                comboValue = "";
+                for (size_t v = 0; v < comboSelVec.size(); ++v) {
+                    comboValue += comboSelVec[v];
+                    if (comboSelVec.size() > 1 && v + 1 != comboSelVec.size()) {
+                        comboValue += ",";
+                    }
+                }
+
+                if (itemHasChanged) {
+                    selectedAttributes.clear();
+                    for (size_t varIdx = 0; varIdx < isAttributeSelectedArray.size(); ++varIdx) {
+                        if (isAttributeSelectedArray.at(varIdx) != 0) {
+                            selectedAttributes.push_back(uint32_t(varIdx));
+                        }
+                    }
+                    recomputeWidgetPositions();
+                    reRender = true;
+                }
+
+                propertyEditor.addEndCombo();
+            }
+        }
+
+        if ((useMultiVarRendering || useRotatingHelicityBands) && propertyEditor.addSliderFloat(
+                "Separator Width", &separatorWidth, 0.0f, 1.0f)) {
+            reRender = true;
         }
     }
 
