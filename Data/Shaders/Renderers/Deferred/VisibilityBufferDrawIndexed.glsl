@@ -102,13 +102,13 @@ void main() {
 
 #ifdef USE_BANDS
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA) || defined(USE_LINE_HIERARCHY_LEVEL)
-    useBand = psUseBands[principalStressIndex];
+    int useBand = psUseBands[principalStressIndex];
 #else
-    useBand = 1;
+    int useBand = 1;
 #endif
 
 #if !defined(USE_NORMAL_STRESS_RATIO_TUBES) && !defined(USE_HYPERSTREAMLINES)
-    thickness = useBand != 0 ? MIN_THICKNESS : 1.0;
+    float thickness = useBand != 0 ? MIN_THICKNESS : 1.0;
 #endif
 
     const float lineRadius = (useBand != 0 ? bandWidth : lineWidth) * 0.5;

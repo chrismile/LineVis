@@ -765,6 +765,7 @@ MultiVarTransferFunctionWindow::MultiVarTransferFunctionWindow(
         directoryName = saveDirectoryPrefix;
         parentDirectory = saveDirectory;
         saveDirectory = saveDirectory + saveDirectoryPrefix + "/";
+        sgl::FileUtils::get()->ensureDirectoryExists(saveDirectory);
     }
     this->tfPresetFiles = tfPresetFiles;
 
