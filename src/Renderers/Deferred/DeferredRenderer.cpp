@@ -333,6 +333,7 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     deferredResolvePass->setDataDirty();
 
     if (hullRasterPass) {
+        framebufferMode = FramebufferMode::HULL_RASTER_PASS;
         hullRasterPass->setAttachmentLoadOp(
                 isDataEmpty ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD);
         hullRasterPass->updateFramebuffer();
