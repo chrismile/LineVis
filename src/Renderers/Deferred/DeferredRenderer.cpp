@@ -163,7 +163,7 @@ void DeferredRenderer::updateRenderingMode() {
 
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
         visibilityBufferDrawIndexedPass = std::make_shared<VisibilityBufferDrawIndexedPass>(this);
-        visibilityBufferDrawIndexedPass->setDrawIndexedGeometryMode(drawIndexedGeometryMode);
+        updateGeometryMode();
         onResolutionChangedDeferredRenderingMode();
         if (lineData) {
             setLineData(lineData, false);
@@ -177,6 +177,7 @@ void DeferredRenderer::updateRenderingMode() {
         }
         visibilityBufferDrawIndexedIndirectPasses[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
         visibilityBufferDrawIndexedIndirectPasses[1]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD);
+        updateGeometryMode();
         updateDrawIndirectReductionMode(); // Already contains call to @see onResolutionChangedDeferredRenderingMode.
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         for (int i = 0; i < 2; i++) {
@@ -190,12 +191,14 @@ void DeferredRenderer::updateRenderingMode() {
         meshletTaskMeshPasses[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
         meshletTaskMeshPasses[1]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD);
         meshletTaskMeshPasses[1]->setRecheckOccludedOnly(true);
+        updateGeometryMode();
         onResolutionChangedDeferredRenderingMode();
         if (lineData) {
             setLineData(lineData, false);
         }
     } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
         visibilityBufferHLBVHDrawIndirectPass = std::make_shared<VisibilityBufferDrawIndexedPass>(this);
+        updateGeometryMode();
         onResolutionChangedDeferredRenderingMode();
         if (lineData) {
             setLineData(lineData, false);

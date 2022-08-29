@@ -230,14 +230,16 @@ if [ ! -d "./sgl/install" ]; then
     cmake .. \
          -DCMAKE_BUILD_TYPE=Debug \
          -DCMAKE_TOOLCHAIN_FILE="../../vcpkg/scripts/buildsystems/vcpkg.cmake" \
-         -DCMAKE_INSTALL_PREFIX="../install"
+         -DCMAKE_INSTALL_PREFIX="../install" \
+         -DUSE_STATIC_STD_LIBRARIES=On
     popd >/dev/null
 
     pushd $build_dir_release >/dev/null
     cmake .. \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_TOOLCHAIN_FILE="../../vcpkg/scripts/buildsystems/vcpkg.cmake" \
-        -DCMAKE_INSTALL_PREFIX="../install"
+        -DCMAKE_INSTALL_PREFIX="../install" \
+        -DUSE_STATIC_STD_LIBRARIES=On
     popd >/dev/null
 
     cmake --build $build_dir_debug --parallel $(nproc)
@@ -313,6 +315,7 @@ cmake .. \
       -DPYTHONHOME="./python3" \
       -DCMAKE_BUILD_TYPE=$cmake_config \
       -Dsgl_DIR="$PROJECTPATH/third_party/sgl/install/lib/cmake/sgl/" \
+      -DUSE_STATIC_STD_LIBRARIES=On \
       "${params[@]}"
 Python3_VERSION=$(cat pythonversion.txt)
 popd >/dev/null
@@ -347,7 +350,26 @@ library_blacklist=(
     "libOpenGL" "libGL"
     "libwayland" "libffi." "libX" "libxcb" "libxkbcommon"
     "ld-linux" "libdl." "libutil." "libm." "libc." "libpthread." "libbsd."
+    # We build with libstdc++.so and libgcc_s.so statically. If we were to ship them, libraries opened with dlopen will
+    # use our, potentially older, versions. Then, we will get errors like "version `GLIBCXX_3.4.29' not found" when
+    # the Vulkan loader attempts to load a Vulkan driver that was built with a never version of libstdc++.so.
+    # I tried to solve this by using "patchelf --replace-needed" to directly link to the patch version of libstdc++.so,
+    # but that made no difference whatsoever for dlopen.
+    # OSPRay depends on libstdc++.so, but it is hopefully a very old version available on a wide range of systems.
+    "libstdc++.so" "libgcc_s.so"
 )
+# Get name of libstdc++.so.* and path to it.
+#for library in $ldd_output
+#do
+#  if [[ $library != "/"* ]]; then
+#      continue
+#  fi
+#  if [[ "$(basename $library)" == "libstdc++.so"* ]]; then
+#      libstdcpp_so_path="$library"
+#      libstdcpp_so_filename_original="$(basename "$library")"
+#      libstdcpp_so_filename_resolved="$(basename "$(readlink -f "$library")")"
+#  fi
+#done
 for library in $ldd_output
 do
     if [[ $library != "/"* ]]; then
@@ -363,10 +385,18 @@ do
     if [ $is_blacklisted = true ]; then
         continue
     fi
-    echo "$library"
+    #if [[ "$(basename $library)" == "libstdc++.so"* ]]; then
+    #    cp "$(readlink -f "$library")" "$destination_dir/bin"
+    #    patchelf --set-rpath '$ORIGIN' "$destination_dir/bin/$(basename "$(readlink -f "$library")")"
+    #else
+    #    cp "$library" "$destination_dir/bin"
+    #    patchelf --replace-needed "$libstdcpp_so_filename_original" "$libstdcpp_so_filename_resolved" "$destination_dir/bin/$(basename "$library")"
+    #    patchelf --set-rpath '$ORIGIN' "$destination_dir/bin/$(basename "$library")"
+    #fi
     cp "$library" "$destination_dir/bin"
     patchelf --set-rpath '$ORIGIN' "$destination_dir/bin/$(basename "$library")"
 done
+#patchelf --replace-needed "$libstdcpp_so_filename_original" "$libstdcpp_so_filename_resolved" "$destination_dir/bin/LineVis"
 patchelf --set-rpath '$ORIGIN' "$destination_dir/bin/LineVis"
 if ! $is_ospray_installed; then
     ln -sf "./$(basename "$libembree3_so")" "$destination_dir/bin/libembree3.so"
@@ -402,7 +432,7 @@ if [ ! -d "$destination_dir/docs" ]; then
 fi
 
 # Create a run script.
-printf "#!/bin/bash\npushd \"\$(dirname \"\$0\")/bin\" >/dev/null\n./LineVis\npopd\n" > "$destination_dir/run.sh"
+printf "#!/bin/bash\npushd \"\$(dirname \"\$0\")/bin\" >/dev/null\n./LineVis\npopd >/dev/null\n" > "$destination_dir/run.sh"
 chmod +x "$destination_dir/run.sh"
 
 
