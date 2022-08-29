@@ -50,6 +50,20 @@ MLABRenderer::MLABRenderer(
 void MLABRenderer::initialize() {
     LineRenderer::initialize();
 
+    sgl::vk::Device* device = renderer->getDevice();
+    maxStorageBufferRange = device->getLimits().maxStorageBufferRange;
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
+    int paddedWidth = width, paddedHeight = height;
+    getScreenSizeWithTiling(paddedWidth, paddedHeight);
+    size_t fragmentBufferSizeBytes =
+            (sizeof(uint32_t) + sizeof(float)) * size_t(numLayers) * size_t(paddedWidth) * size_t(paddedHeight);
+    if (fragmentBufferSizeBytes > maxStorageBufferRange) {
+        numLayers = std::max(
+                1, int(maxStorageBufferRange /
+                        ((sizeof(uint32_t) + sizeof(float)) * size_t(paddedWidth) * size_t(paddedHeight))));
+    }
+
     uniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
             renderer->getDevice(), sizeof(UniformData),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
@@ -207,11 +221,12 @@ void MLABRenderer::reallocateFragmentBuffer() {
 
     size_t fragmentBufferSizeBytes =
             (sizeof(uint32_t) + sizeof(float)) * size_t(numLayers) * size_t(paddedWidth) * size_t(paddedHeight);
-    if (fragmentBufferSizeBytes >= (1ull << 32ull)) {
+    if (fragmentBufferSizeBytes > maxStorageBufferRange) {
         sgl::Logfile::get()->writeError(
-                std::string() + "Fragment buffer size was larger than or equal to 4GiB. Clamping to 4GiB.",
+                std::string() + "Fragment buffer size was larger than maxStorageBufferRange ("
+                + std::to_string(maxStorageBufferRange) + "). Clamping to maxStorageBufferRange.",
                 false);
-        fragmentBufferSizeBytes = (1ull << 32ull) - 12ull;
+        fragmentBufferSizeBytes = maxStorageBufferRange / 8ull - 8ull;
     } else {
         sgl::Logfile::get()->writeInfo(
                 std::string() + "Fragment buffer size GiB: "

@@ -181,10 +181,19 @@ void VoxelRayCastingRenderer::onResolutionChanged() {
     depthImageSettings.width = width;
     depthImageSettings.height = height;
 
+    // Linear filter is not needed, and also not supported on some Vulkan implementations (e.g., software rasterizers).
+    // On llvmpipe, for example, VK_FORMAT_D32_SFLOAT misses VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT.
+    sgl::vk::ImageSamplerSettings depthImageSamplerSettings{};
+    depthImageSamplerSettings.minFilter = VK_FILTER_NEAREST;
+    depthImageSamplerSettings.magFilter = VK_FILTER_NEAREST;
+    depthImageSamplerSettings.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+
     furthestLineHullHitDepthTexture = std::make_shared<sgl::vk::Texture>(
-            renderer->getDevice(), depthImageSettings, VK_IMAGE_ASPECT_DEPTH_BIT);
+            renderer->getDevice(), depthImageSettings, depthImageSamplerSettings,
+            VK_IMAGE_ASPECT_DEPTH_BIT);
     nearestLineHullHitDepthTexture = std::make_shared<sgl::vk::Texture>(
-            renderer->getDevice(), depthImageSettings, VK_IMAGE_ASPECT_DEPTH_BIT);
+            renderer->getDevice(), depthImageSettings, depthImageSamplerSettings,
+            VK_IMAGE_ASPECT_DEPTH_BIT);
 
     voxelRayCastingPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
     voxelRayCastingPass->recreateSwapchain(width, height);

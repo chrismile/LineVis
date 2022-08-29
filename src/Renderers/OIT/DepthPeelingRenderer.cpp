@@ -189,11 +189,18 @@ void DepthPeelingRenderer::onResolutionChanged() {
             VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     imageSettingsDepth.width = width;
     imageSettingsDepth.height = height;
+    // Linear filter is not needed, and also not supported on some Vulkan implementations (e.g., software rasterizers).
+    // On llvmpipe, for example, VK_FORMAT_D32_SFLOAT misses VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT.
+    sgl::vk::ImageSamplerSettings imageSamplerSettingsDepth{};
+    imageSamplerSettingsDepth.minFilter = VK_FILTER_NEAREST;
+    imageSamplerSettingsDepth.magFilter = VK_FILTER_NEAREST;
+    imageSamplerSettingsDepth.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
 
     for (int i = 0; i < 2; i++) {
         colorRenderTextures[i] = std::make_shared<sgl::vk::Texture>(renderer->getDevice(), imageSettingsColor);
         depthRenderTextures[i] = std::make_shared<sgl::vk::Texture>(
-                renderer->getDevice(), imageSettingsDepth, VK_IMAGE_ASPECT_DEPTH_BIT);
+                renderer->getDevice(), imageSettingsDepth, imageSamplerSettingsDepth,
+                VK_IMAGE_ASPECT_DEPTH_BIT);
     }
 
     imageSettingsColor.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;

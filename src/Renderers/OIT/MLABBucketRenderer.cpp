@@ -104,13 +104,14 @@ void MLABBucketRenderer::reallocateFragmentBuffer() {
             (sizeof(uint32_t) + sizeof(float)) * size_t(numLayers) * size_t(paddedWidth) * size_t(paddedHeight);
     if (fragmentBufferSizeBytes >= (1ull << 32ull)) {
         sgl::Logfile::get()->writeError(
-                std::string() + "Fragment buffer size was larger than or equal to 4GiB. Clamping to 4GiB.",
+                std::string() + "Fragment buffer size was larger than maxStorageBufferRange ("
+                + std::to_string(maxStorageBufferRange) + "). Clamping to maxStorageBufferRange.",
                 false);
-        fragmentBufferSizeBytes = (1ull << 32ull) - 12ull;
+        fragmentBufferSizeBytes = maxStorageBufferRange / 8ull - 8ull;
     } else {
         sgl::Logfile::get()->writeInfo(
                 std::string() + "Fragment buffer size GiB: "
-                + std::to_string(fragmentBufferSizeBytes / 1024.0 / 1024.0 / 1024.0));
+                + std::to_string(double(fragmentBufferSizeBytes) / 1024.0 / 1024.0 / 1024.0));
     }
 
     size_t minDepthBufferSizeBytes = sizeof(float) * 2 * size_t(paddedWidth) * size_t(paddedHeight);

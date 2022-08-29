@@ -37,10 +37,16 @@ layout(location = 1) in vec3 vertexNormal;
 
 layout(location = 0) out vec3 fragmentPositionWorld;
 layout(location = 1) out vec3 fragmentNormal;
+#if !defined(DIRECT_BLIT_GATHER)
+layout(location = 2) out vec3 screenSpacePosition;
+#endif
 
 void main() {
     fragmentNormal = vertexNormal;
     fragmentPositionWorld = (mMatrix * vec4(vertexPosition, 1.0)).xyz;
+#if !defined(DIRECT_BLIT_GATHER)
+    screenSpacePosition = (vMatrix * vec4(fragmentPositionWorld, 1.0)).xyz;
+#endif
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
 }
 
@@ -58,6 +64,7 @@ layout(location = 0) out vec4 fragColor;
 #endif
 
 #if !defined(DIRECT_BLIT_GATHER)
+layout(location = 2) in vec3 screenSpacePosition;
 #include OIT_GATHER_HEADER
 #endif
 

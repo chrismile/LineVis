@@ -68,6 +68,8 @@ void OpacityOptimizationRenderer::initialize() {
         sampleModeNames.push_back(std::to_string(i));
     }
 
+    maxStorageBufferRange = (*sceneData->renderer)->getDevice()->getLimits().maxStorageBufferRange;
+
     ppllUniformDataBufferOpacities = std::make_shared<sgl::vk::Buffer>(
             renderer->getDevice(), sizeof(PpllUniformData),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
@@ -519,14 +521,16 @@ void OpacityOptimizationRenderer::setFramebufferAttachments(
 
 void OpacityOptimizationRenderer::reallocateFragmentBuffer() {
     // Fragment buffer for opacities.
-    fragmentBufferSizeOpacity = size_t(expectedAvgDepthComplexity) * size_t(viewportWidthOpacity) * size_t(viewportHeightOpacity);
+    fragmentBufferSizeOpacity =
+            size_t(expectedAvgDepthComplexity) * size_t(viewportWidthOpacity) * size_t(viewportHeightOpacity);
     size_t fragmentBufferSizeOpacityBytes = 12ull * fragmentBufferSizeOpacity;
-    if (fragmentBufferSizeOpacityBytes >= (1ull << 32ull)) {
+    if (fragmentBufferSizeOpacityBytes > maxStorageBufferRange) {
         sgl::Logfile::get()->writeError(
-                std::string() + "Fragment buffer size was larger than or equal to 4GiB. Clamping to 4GiB.",
+                std::string() + "Fragment buffer size was larger than maxStorageBufferRange ("
+                + std::to_string(maxStorageBufferRange) + "). Clamping to maxStorageBufferRange.",
                 false);
-        fragmentBufferSizeOpacityBytes = (1ull << 32ull) - 12ull;
-        fragmentBufferSizeOpacity = fragmentBufferSizeOpacityBytes / 12ull;
+        fragmentBufferSizeOpacity = maxStorageBufferRange / 12ull;
+        fragmentBufferSizeOpacityBytes = fragmentBufferSizeOpacity * 12ull;
     }
 
     fragmentBufferOpacities = {}; // Delete old data first (-> refcount 0)
@@ -535,14 +539,16 @@ void OpacityOptimizationRenderer::reallocateFragmentBuffer() {
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
     // Fragment buffer for final color pass.
-    fragmentBufferSizeFinal = size_t(expectedAvgDepthComplexity) * size_t(viewportWidthFinal) * size_t(viewportHeightFinal);
+    fragmentBufferSizeFinal =
+            size_t(expectedAvgDepthComplexity) * size_t(viewportWidthFinal) * size_t(viewportHeightFinal);
     size_t fragmentBufferSizeFinalBytes = 12ull * fragmentBufferSizeFinal;
-    if (fragmentBufferSizeFinalBytes >= (1ull << 32ull)) {
+    if (fragmentBufferSizeFinalBytes > maxStorageBufferRange) {
         sgl::Logfile::get()->writeError(
-                std::string() + "Fragment buffer size was larger than or equal to 4GiB. Clamping to 4GiB.",
+                std::string() + "Fragment buffer size was larger than maxStorageBufferRange ("
+                + std::to_string(maxStorageBufferRange) + "). Clamping to maxStorageBufferRange.",
                 false);
-        fragmentBufferSizeFinalBytes = (1ull << 32ull) - 12ull;
-        fragmentBufferSizeFinal = fragmentBufferSizeFinalBytes / 12ull;
+        fragmentBufferSizeFinal = maxStorageBufferRange / 12ull;
+        fragmentBufferSizeFinalBytes = fragmentBufferSizeFinal * 12ull;
     }
 
     fragmentBufferFinal = {}; // Delete old data first (-> refcount 0)
