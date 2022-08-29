@@ -194,7 +194,7 @@ void setTubeTriangleVertexData(
 #endif
 
 #if !defined(USE_NORMAL_STRESS_RATIO_TUBES) && !defined(USE_HYPERSTREAMLINES)
-    thickness = useBand != 0 ? MIN_THICKNESS : 1.0;
+    float thickness = useBand != 0 ? MIN_THICKNESS : 1.0;
 #endif
 
     const float lineRadius = (useBand != 0 ? bandWidth : lineWidth) * 0.5;
@@ -264,7 +264,7 @@ void setTubeTriangleVertexData(
 #endif
 
 #if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
-    phi = float(circleIdx) * factor;
+    float phi = float(circleIdx) * factor;
 #endif
 
     vertexData.vertexPosition = vertexPosition;
