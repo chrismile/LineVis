@@ -71,8 +71,9 @@ is_installed_pacman() {
 
 if command -v apt &> /dev/null; then
     if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
-            || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null; then
-        sudo apt install cmake git curl pkg-config build-essential
+            || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null \
+            || ! command -v patchelf &> /dev/null; then
+        sudo apt install -y cmake git curl pkg-config build-essential patchelf
     fi
 
     # Dependencies of vcpkg GLEW port.
@@ -81,8 +82,9 @@ if command -v apt &> /dev/null; then
     fi
 elif command -v pacman &> /dev/null; then
     if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
-            || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null; then
-        sudo pacman -S cmake git curl pkgconf base-devel
+            || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null \
+            || ! command -v patchelf &> /dev/null; then
+        sudo pacman -S cmake git curl pkgconf base-devel patchelf
     fi
 
     # Dependencies of vcpkg GLEW port.
