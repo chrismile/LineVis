@@ -101,13 +101,13 @@ layout(location = 8) flat out uint fragmentPrincipalStressIndex;
 #include "LineUniformData.glsl"
 
 void main() {
-    vec3 linePosition0 = v_in[0].linePosition;
-    vec3 linePosition1 = v_in[1].linePosition;
-    vec3 tangent0 = normalize(v_in[0].lineTangent);
-    vec3 tangent1 = normalize(v_in[1].lineTangent);
+    vec3 linePosition0 = linePosition[0];
+    vec3 linePosition1 = linePosition[1];
+    vec3 tangent0 = normalize(lineTangent[0]);
+    vec3 tangent1 = normalize(lineTangent[1]);
 
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(IS_PSL_DATA)
-    useBand = psUseBands[v_in[0].linePrincipalStressIndex];
+    useBand = psUseBands[linePrincipalStressIndex[0]];
 #else
     useBand = 1;
 #endif
@@ -117,10 +117,10 @@ void main() {
     vec3 offsetDirectionLeft1;
     vec3 offsetDirectionRight1;
     if (useBand != 0) {
-        offsetDirectionLeft0 = v_in[0].lineOffsetLeft;
-        offsetDirectionRight0 = v_in[0].lineOffsetRight;
-        offsetDirectionLeft1 = v_in[1].lineOffsetLeft;
-        offsetDirectionRight1 = v_in[1].lineOffsetRight;
+        offsetDirectionLeft0 = lineOffsetLeft[0];
+        offsetDirectionRight0 = lineOffsetRight[0];
+        offsetDirectionLeft1 = lineOffsetLeft[1];
+        offsetDirectionRight1 = lineOffsetRight[1];
     } else {
         vec3 viewDirection0 = normalize(cameraPosition - linePosition0);
         vec3 viewDirection1 = normalize(cameraPosition - linePosition1);
@@ -136,17 +136,17 @@ void main() {
     const mat4 pvMatrix = pMatrix * vMatrix;
 
     // Vertex 0
-    fragmentAttribute = v_in[0].lineAttribute;
-    fragmentOpacity = v_in[0].lineOpacity;
+    fragmentAttribute = lineAttribute[0];
+    fragmentOpacity = lineOpacity[0];
     if (useBand != 0) {
-        normal0 = v_in[0].lineNormal;
-        normal1 = v_in[0].lineNormal;
+        normal0 = lineNormal[0];
+        normal1 = lineNormal[0];
     } else {
         normal0 = normalize(cross(tangent0, offsetDirectionRight0));
         normal1 = offsetDirectionRight0;
     }
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
-    fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[0];
 #endif
 
     vertexPosition = linePosition0 + lineRadius * offsetDirectionLeft0;
@@ -158,17 +158,17 @@ void main() {
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
-    fragmentAttribute = v_in[0].lineAttribute;
-    fragmentOpacity = v_in[0].lineOpacity;
+    fragmentAttribute = lineAttribute[0];
+    fragmentOpacity = lineOpacity[0];
     if (useBand != 0) {
-        normal0 = v_in[0].lineNormal;
-        normal1 = v_in[0].lineNormal;
+        normal0 = lineNormal[0];
+        normal1 = lineNormal[0];
     } else {
         normal0 = normalize(cross(tangent0, offsetDirectionRight0));
         normal1 = offsetDirectionRight0;
     }
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
-    fragmentPrincipalStressIndex = v_in[0].linePrincipalStressIndex;
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[0];
 #endif
 
     vertexPosition = linePosition0 + lineRadius * offsetDirectionRight0;
@@ -181,17 +181,17 @@ void main() {
     EmitVertex();
 
     // Vertex 1
-    fragmentAttribute = v_in[1].lineAttribute;
-    fragmentOpacity = v_in[1].lineOpacity;
+    fragmentAttribute = lineAttribute[1];
+    fragmentOpacity = lineOpacity[1];
     if (useBand != 0) {
-        normal0 = v_in[1].lineNormal;
-        normal1 = v_in[1].lineNormal;
+        normal0 = lineNormal[1];
+        normal1 = lineNormal[1];
     } else {
         normal0 = normalize(cross(tangent1, offsetDirectionRight1));
         normal1 = offsetDirectionRight1;
     }
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
-    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[1];
 #endif
 
     vertexPosition = linePosition1 + lineRadius * offsetDirectionLeft1;
@@ -203,17 +203,17 @@ void main() {
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
-    fragmentAttribute = v_in[1].lineAttribute;
-    fragmentOpacity = v_in[1].lineOpacity;
+    fragmentAttribute = lineAttribute[1];
+    fragmentOpacity = lineOpacity[1];
     if (useBand != 0) {
-        normal0 = v_in[1].lineNormal;
-        normal1 = v_in[1].lineNormal;
+        normal0 = lineNormal[1];
+        normal1 = lineNormal[1];
     } else {
         normal0 = normalize(cross(tangent1, offsetDirectionRight1));
         normal1 = offsetDirectionRight1;
     }
 #ifdef USE_PRINCIPAL_STRESS_DIRECTION_INDEX
-    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[1];
 #endif
 
     vertexPosition = linePosition1 + lineRadius * offsetDirectionRight1;

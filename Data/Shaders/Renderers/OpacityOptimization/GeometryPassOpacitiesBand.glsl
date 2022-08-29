@@ -107,11 +107,11 @@ layout(location = 4) flat out float fragmentLineHierarchyLevel;
 #include "LineUniformData.glsl"
 
 void main() {
-    vec3 linePosition0 = v_in[0].linePosition;
-    vec3 linePosition1 = v_in[1].linePosition;
+    vec3 linePosition0 = linePosition[0];
+    vec3 linePosition1 = linePosition[1];
 
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL) || defined(IS_PSL_DATA)
-    int useBand = psUseBands[v_in[0].linePrincipalStressIndex];
+    int useBand = psUseBands[linePrincipalStressIndex[0]];
 #else
     int useBand = 1;
 #endif
@@ -163,22 +163,22 @@ void main() {
     EmitVertex();
 
     // Vertex 1
-    fragmentAttribute = v_in[1].lineAttribute;
-    fragmentLineSegmentId = v_in[1].lineSegmentId;
+    fragmentAttribute = lineAttribute[1];
+    fragmentLineSegmentId = lineSegmentId[1];
 #ifdef USE_LINE_HIERARCHY_LEVEL
-    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
-    fragmentLineHierarchyLevel = v_in[1].lineLineHierarchyLevel;
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[1];
+    fragmentLineHierarchyLevel = lineLineHierarchyLevel[1];
 #endif
     vertexPosition = linePosition1 + lineRadius * offsetDirectionLeft1;
     fragmentPositionWorld = vertexPosition;
     gl_Position = pvMatrix * vec4(vertexPosition, 1.0);
     EmitVertex();
 
-    fragmentAttribute = v_in[1].lineAttribute;
-    fragmentLineSegmentId = v_in[1].lineSegmentId;
+    fragmentAttribute = lineAttribute[1];
+    fragmentLineSegmentId = lineSegmentId[1];
 #ifdef USE_LINE_HIERARCHY_LEVEL
-    fragmentPrincipalStressIndex = v_in[1].linePrincipalStressIndex;
-    fragmentLineHierarchyLevel = v_in[1].lineLineHierarchyLevel;
+    fragmentPrincipalStressIndex = linePrincipalStressIndex[1];
+    fragmentLineHierarchyLevel = lineLineHierarchyLevel[1];
 #endif
     vertexPosition = linePosition1 + lineRadius * offsetDirectionRight1;
     fragmentPositionWorld = vertexPosition;

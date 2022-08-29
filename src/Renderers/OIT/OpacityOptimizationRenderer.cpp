@@ -933,6 +933,7 @@ void PpllOpacitiesLineRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipel
 
     pipelineInfo.setVertexBufferBindingByLocationIndex("vertexPosition", sizeof(glm::vec3));
     pipelineInfo.setVertexBufferBindingByLocationIndex("vertexAttribute", sizeof(float));
+    pipelineInfo.setVertexBufferBindingByLocationIndexOptional("vertexNormal", sizeof(glm::vec3));
     pipelineInfo.setVertexBufferBindingByLocationIndex("vertexTangent", sizeof(glm::vec3));
     pipelineInfo.setVertexBufferBindingByLocationIndexOptional(
             "vertexOffsetLeft", sizeof(glm::vec3));
@@ -947,7 +948,7 @@ void PpllOpacitiesLineRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipel
 
     lineRenderer->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
     if ((lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TUBE_TRIANGLE_MESH && lineData->getUseCappedTubes())
-        || (lineRenderer->getIsTransparencyUsed() && lineData->getLinePrimitiveMode() != LineData::LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER)) {
+            || (lineRenderer->getIsTransparencyUsed() && lineData->getLinePrimitiveMode() != LineData::LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER)) {
         pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
     } else {
         pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
@@ -970,6 +971,7 @@ void PpllOpacitiesLineRasterPass::createRasterData(
     rasterData->setIndexBuffer(buffers.indexBuffer);
     rasterData->setVertexBuffer(buffers.vertexPositionBuffer, "vertexPosition");
     rasterData->setVertexBuffer(buffers.vertexAttributeBuffer, "vertexAttribute");
+    rasterData->setVertexBufferOptional(buffers.vertexNormalBuffer, "vertexNormal");
     rasterData->setVertexBuffer(buffers.vertexTangentBuffer, "vertexTangent");
     rasterData->setVertexBufferOptional(buffers.vertexOffsetLeftBuffer, "vertexOffsetLeft");
     rasterData->setVertexBufferOptional(buffers.vertexOffsetRightBuffer, "vertexOffsetRight");
@@ -1030,7 +1032,7 @@ void PpllFinalLineRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineI
 
     lineRenderer->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
     if ((lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TUBE_TRIANGLE_MESH && lineData->getUseCappedTubes())
-        || (lineRenderer->getIsTransparencyUsed() && lineData->getLinePrimitiveMode() != LineData::LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER)) {
+            || (lineRenderer->getIsTransparencyUsed() && !lineData->getUseBandRendering())) {
         pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
     } else {
         pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
