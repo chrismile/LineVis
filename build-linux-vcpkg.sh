@@ -149,7 +149,7 @@ if [[ ! -v VULKAN_SDK ]]; then
         fi
     fi
 
-    if [ -d "/usr/include/vulkan" ]; then
+    if [ -d "/usr/include/vulkan" ] && [ -d "/usr/include/shaderc" ]; then
         if ! grep -q VULKAN_SDK ~/.bashrc; then
             echo 'export VULKAN_SDK="/usr"' >> ~/.bashrc
         fi
