@@ -15,9 +15,19 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-20.04, windows-2019, windows-2022, macos-latest ]
+        linking: [ dynamic, static ]
+        exclude:
+          # dynamic linking fails for SDL2_image and python3 compilation on macOS as of 2022-08-30.
+          - os: macos-latest
+            linking: dynamic
+          # Windows always worked without a problem with both dynamic and static linking, no need to test.
+          - os: windows-2019
+            linking: static
+          - os: windows-2022
+            linking: static
 
     runs-on: ${{ matrix.os }}
-    name: "${{ github.workflow }}: ${{ matrix.os }}"
+    name: "${{ github.workflow }}: ${{ matrix.os }} (${{ matrix.linking }})"
 
     env:
       VCPKG_ROOT: ${{ github.workspace }}/vcpkg
@@ -31,13 +41,13 @@ jobs:
       run: |
         if [ "$RUNNER_OS" == "Linux" ]; then
           echo "VCPKG_COPY_TRIPLET=x64-linux" >> $GITHUB_ENV
-          echo "VCPKG_DEFAULT_TRIPLET=x64-linux-release-only" >> $GITHUB_ENV
+          echo "VCPKG_DEFAULT_TRIPLET=x64-linux-${{matrix.linking}}-release-only" >> $GITHUB_ENV
         elif [ "$RUNNER_OS" == "Windows" ]; then
           echo "VCPKG_COPY_TRIPLET=x64-windows" >> $GITHUB_ENV
-          echo "VCPKG_DEFAULT_TRIPLET=x64-windows-release-only" >> $GITHUB_ENV
+          echo "VCPKG_DEFAULT_TRIPLET=x64-windows-${{matrix.linking}}-release-only" >> $GITHUB_ENV
         elif [ "$RUNNER_OS" == "macOS" ]; then
           echo "VCPKG_COPY_TRIPLET=x64-osx" >> $GITHUB_ENV
-          echo "VCPKG_DEFAULT_TRIPLET=x64-osx-release-only" >> $GITHUB_ENV
+          echo "VCPKG_DEFAULT_TRIPLET=x64-osx-${{matrix.linking}}-release-only" >> $GITHUB_ENV
         else
           echo "$RUNNER_OS is not supported."
           exit 1
@@ -108,6 +118,10 @@ jobs:
       run: |
         cp "${{env.VCPKG_ROOT}}/triplets/${{env.VCPKG_COPY_TRIPLET}}.cmake" "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"
         echo "set(VCPKG_BUILD_TYPE release)" >> "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"
+        sed -i -e 's/.*VCPKG_LIBRARY_LINKAGE.*/set(VCPKG_LIBRARY_LINKAGE ${{matrix.linking}})/g' "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"
+        if [ "$RUNNER_OS" == "Linux" ] && [ "${{matrix.linking}}" == "dynamic" ]; then
+            echo "set(VCPKG_FIXUP_ELF_RPATH ON)" >> "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"
+        fi
 
     - name: Configure CMake (sgl)
       shell: bash
@@ -137,6 +151,9 @@ jobs:
       shell: bash
       run: |
         if [ "$RUNNER_OS" == "Linux" ]; then
+          if [ "${{matrix.linking}}" == "dynamic" ]; then
+            cp "${{env.sgl_REPO_DIR}}/build/libsgl.so" "${{env.sgl_DIR}}/lib/libsgl.so"
+          fi
           if [ "${{env.PKG_CONFIG_PATH}}" != "" ]; then
             VK_LAYER_PATH=""
             source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
