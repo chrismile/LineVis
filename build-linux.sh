@@ -359,7 +359,7 @@ if ! $is_ospray_installed; then
     ldd_output="$ldd_output $libopenvkl_module_cpu_device_4_so $libopenvkl_module_cpu_device_8_so $libopenvkl_module_cpu_device_16_so"
 fi
 library_blacklist=(
-    "libOpenGL" "libGL"
+    "libOpenGL" "libGLdispatch" "libGL.so" "libGLX.so"
     "libwayland" "libffi." "libX" "libxcb" "libxkbcommon"
     "ld-linux" "libdl." "libutil." "libm." "libc." "libpthread." "libbsd."
 )

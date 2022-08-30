@@ -33,6 +33,11 @@ PROJECTPATH="$SCRIPTPATH"
 pushd $SCRIPTPATH > /dev/null
 
 debug=false
+link_dynamic=true
+params_link=()
+if [ $link_dynamic = true ]; then
+    params_link+=(-DVCPKG_TARGET_TRIPLET=x64-linux-dynamic)
+fi
 build_dir_debug=".build_debug"
 build_dir_release=".build_release"
 if [ $debug = true ]; then
@@ -231,7 +236,7 @@ if [ ! -d "./sgl/install" ]; then
          -DCMAKE_BUILD_TYPE=Debug \
          -DCMAKE_TOOLCHAIN_FILE="../../vcpkg/scripts/buildsystems/vcpkg.cmake" \
          -DCMAKE_INSTALL_PREFIX="../install" \
-         -DUSE_STATIC_STD_LIBRARIES=On
+         -DUSE_STATIC_STD_LIBRARIES=On "${params_link[@]}"
     popd >/dev/null
 
     pushd $build_dir_release >/dev/null
@@ -239,14 +244,16 @@ if [ ! -d "./sgl/install" ]; then
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_TOOLCHAIN_FILE="../../vcpkg/scripts/buildsystems/vcpkg.cmake" \
         -DCMAKE_INSTALL_PREFIX="../install" \
-        -DUSE_STATIC_STD_LIBRARIES=On
+        -DUSE_STATIC_STD_LIBRARIES=On "${params_link[@]}"
     popd >/dev/null
 
     cmake --build $build_dir_debug --parallel $(nproc)
     cmake --build $build_dir_debug --target install
+    cp $build_dir_debug/libsgld.so install/lib/libsgld.so
 
     cmake --build $build_dir_release --parallel $(nproc)
     cmake --build $build_dir_release --target install
+    cp $build_dir_release/libsgl.so install/lib/libsgl.so
 
     popd >/dev/null
 fi
@@ -315,8 +322,7 @@ cmake .. \
       -DPYTHONHOME="./python3" \
       -DCMAKE_BUILD_TYPE=$cmake_config \
       -Dsgl_DIR="$PROJECTPATH/third_party/sgl/install/lib/cmake/sgl/" \
-      -DUSE_STATIC_STD_LIBRARIES=On \
-      "${params[@]}"
+      -DUSE_STATIC_STD_LIBRARIES=On "${params_link[@]}" "${params[@]}"
 Python3_VERSION=$(cat pythonversion.txt)
 popd >/dev/null
 
@@ -347,7 +353,7 @@ if ! $is_ospray_installed; then
     ldd_output="$ldd_output $libopenvkl_module_cpu_device_4_so $libopenvkl_module_cpu_device_8_so $libopenvkl_module_cpu_device_16_so"
 fi
 library_blacklist=(
-    "libOpenGL" "libGL"
+    "libOpenGL" "libGLdispatch" "libGL.so" "libGLX.so"
     "libwayland" "libffi." "libX" "libxcb" "libxkbcommon"
     "ld-linux" "libdl." "libutil." "libm." "libc." "libpthread." "libbsd."
     # We build with libstdc++.so and libgcc_s.so statically. If we were to ship them, libraries opened with dlopen will
