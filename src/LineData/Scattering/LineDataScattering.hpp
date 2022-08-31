@@ -103,7 +103,7 @@ public:
     VulkanLineDataScatteringRenderData getVulkanLineDataScatteringRenderData();
     TubeTriangleRenderData getLinePassTubeTriangleMeshRenderDataPayload(
             bool isRasterizer, bool vulkanRayTracing, TubeTriangleRenderDataPayloadPtr& payload) override;
-    TubeAabbRenderData getLinePassTubeAabbRenderData(bool isRasterizer) override;
+    TubeAabbRenderData getLinePassTubeAabbRenderData(bool isRasterizer, bool ellipticTubes) override;
     HullTriangleRenderData getVulkanHullTriangleRenderData(bool vulkanRayTracing) override;
 
 protected:

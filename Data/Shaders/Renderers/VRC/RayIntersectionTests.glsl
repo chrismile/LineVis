@@ -120,7 +120,7 @@ bool rayBoxIntersectionRayCoords(
  */
 bool boxContainsPoint(vec3 point, vec3 lower, vec3 upper) {
     return (point.x >= lower.x) && (point.y >= lower.y) && (point.z >= lower.z)
-    && (point.x <= upper.x) && (point.y <= upper.y) && (point.z <= upper.z);
+            && (point.x <= upper.x) && (point.y <= upper.y) && (point.z <= upper.z);
 }
 
 

@@ -471,7 +471,7 @@ void computeFragmentColor(
     float coverage = 1.0;
 #endif
 
-#if !defined(USE_CAPPED_TUBES) && defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES))
+#if !defined(USE_CAPPED_TUBES) && defined(USE_BANDS) && (defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)) || defined(ANALYTIC_ELLIPTIC_TUBE_INTERSECTIONS)
     if (useBand) {
         coverage = 1.0;
     }
@@ -508,6 +508,23 @@ void computeFragmentColor(
     insertNodeMlat(colorOut);
 #else
     payload.hitColor = colorOut;
+#ifdef USE_BANDS
+    //payload.hitColor = vec4(0.5 * fragmentNormal + vec3(0.5), 1.0);
+    //payload.hitColor = vec4(0.5 * fragmentTangent + vec3(0.5), 1.0);
+    //payload.hitColor = vec4(0.5 * lineNormal + vec3(0.5), 1.0);
+    //payload.hitColor = vec4(0.5 * v + vec3(0.5), 1.0);
+    //payload.hitColor = vec4(0.5 * newV + vec3(0.5), 1.0);
+    //vec3 lineN = normalize(lineNormal);
+    //vec3 lineB = cross(t, lineN);
+    //mat3 tangentFrameMatrix = mat3(lineN, lineB, t);
+    //payload.hitColor = vec4(0.5 * (transpose(tangentFrameMatrix) * newV) + vec3(0.5), 1.0);
+    //vec2 p = vec2(thickness * cos(phi), sin(phi));
+    //payload.hitColor = vec4(0.5 * p + vec2(0.5), 0.0, 1.0);
+    //payload.hitColor = vec4(vec3(thickness), 1.0);
+    //payload.hitColor = vec4(2.0 * linePosition + vec3(0.25), 1.0);
+    //payload.hitColor = vec4(vec3(phi) / 6.2, 1.0);
+    //payload.hitColor = vec4(vec3(ribbonPosition), 1.0);
+#endif
     payload.hitT = length(fragmentPositionWorld - cameraPosition);
     payload.hasHit = true;
 #endif

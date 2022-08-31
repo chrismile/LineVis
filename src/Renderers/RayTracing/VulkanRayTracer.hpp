@@ -111,7 +111,8 @@ private:
     std::shared_ptr<RayTracingRenderPass> rayTracingRenderPass;
 
     // Whether to trace rays against a triangle mesh or analytic tubes using line segment AABBs.
-    bool useAnalyticIntersections = false;
+    bool useAnalyticIntersections = true;
+    bool useAnalyticEllipticTubes = true;
 
     /// For visualizing the seeding order in an animation.
     bool visualizeSeedingProcess = false; //< Stress lines only.
@@ -155,6 +156,7 @@ public:
     inline void setUseAmbientOcclusion(bool ambientOcclusionOn) { useAmbientOcclusion = ambientOcclusionOn; }
     inline void setAmbientOcclusionBaker(const AmbientOcclusionBakerPtr& baker) { ambientOcclusionBaker = baker; }
     inline void setUseAnalyticIntersections(bool analyticIntersections) { useAnalyticIntersections = analyticIntersections; }
+    inline void setUseAnalyticEllipticTubes(bool analyticEllipticTubes) { useAnalyticEllipticTubes = analyticEllipticTubes; }
     inline void setUseMlat(bool mlat) { useMlat = mlat; }
     inline void setMlatNumNodes(int numNodes) { mlatNumNodes = numNodes; }
     inline bool getIsAccelerationStructureEmpty() { return topLevelAS.get() == nullptr; }
@@ -206,7 +208,8 @@ private:
 
     bool useJitteredSamples = true;
     uint32_t maxNumFrames = 1;
-    bool useAnalyticIntersections = false;
+    bool useAnalyticIntersections = true;
+    bool useAnalyticEllipticTubes = true;
     bool useDeterministicSampling = false;
 
     // Whether to use multi-layer alpha tracing (MLAT).

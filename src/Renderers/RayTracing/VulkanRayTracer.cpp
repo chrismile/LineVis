@@ -179,6 +179,15 @@ void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& property
     ImGui::SameLine();
     ImGui::HelpMarker("Whether to trace rays against a triangle mesh or analytic tubes using line segment AABBs.");
 
+    if (useAnalyticIntersections && propertyEditor.addCheckbox("Elliptic Tubes", &useAnalyticEllipticTubes)) {
+        rayTracingRenderPass->setUseAnalyticEllipticTubes(useAnalyticEllipticTubes);
+        rayTracingRenderPass->setShaderDirty();
+        if (lineData) {
+            rayTracingRenderPass->setLineData(lineData, false);
+        }
+        accumulatedFramesCounter = 0;
+    }
+
     if (propertyEditor.addCheckbox("Use MLAT", &useMlat)) {
         rayTracingRenderPass->setUseMlat(useMlat);
         rayTracingRenderPass->setShaderDirty();
@@ -310,12 +319,13 @@ void RayTracingRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
     this->lineData = lineData;
     if (useAnalyticIntersections) {
         if (lineData->getShallRenderSimulationMeshBoundary()) {
-            topLevelAS = lineData->getRayTracingTubeAabbAndHullTopLevelAS();
+            topLevelAS = lineData->getRayTracingTubeAabbAndHullTopLevelAS(useAnalyticEllipticTubes);
         } else {
-            topLevelAS = lineData->getRayTracingTubeAabbTopLevelAS();
+            topLevelAS = lineData->getRayTracingTubeAabbTopLevelAS(useAnalyticEllipticTubes);
         }
         tubeTriangleRenderData = TubeTriangleRenderData();
-        tubeAabbRenderData = lineData->getLinePassTubeAabbRenderData(false);
+        tubeAabbRenderData = lineData->getLinePassTubeAabbRenderData(
+                false, useAnalyticEllipticTubes);
     } else {
         if (lineData->getShallRenderSimulationMeshBoundary()) {
             topLevelAS = lineData->getRayTracingTubeTriangleAndHullTopLevelAS();
@@ -387,11 +397,20 @@ void RayTracingRenderPass::loadShader() {
     }
     if (useMlat) {
         if (useAnalyticIntersections) {
-            shaderStages = sgl::vk::ShaderManager->getShaderStages(
-                    {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
-                     "TubeRayTracing.IntersectionTube", "TubeRayTracing.AnyHitTubeAnalytic",
-                     "TubeRayTracing.AnyHitHull"},
-                    preprocessorDefines);
+            if (useAnalyticEllipticTubes) {
+                shaderStages = sgl::vk::ShaderManager->getShaderStages(
+                        {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
+                         "EllipticTubeRayTracing.IntersectionEllipticTube",
+                         "EllipticTubeRayTracing.AnyHitEllipticTubeAnalytic",
+                         "TubeRayTracing.AnyHitHull"},
+                        preprocessorDefines);
+            } else {
+                shaderStages = sgl::vk::ShaderManager->getShaderStages(
+                        {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
+                         "TubeRayTracing.IntersectionTube", "TubeRayTracing.AnyHitTubeAnalytic",
+                         "TubeRayTracing.AnyHitHull"},
+                        preprocessorDefines);
+            }
         } else {
             shaderStages = sgl::vk::ShaderManager->getShaderStages(
                     {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
@@ -400,11 +419,20 @@ void RayTracingRenderPass::loadShader() {
         }
     } else {
         if (useAnalyticIntersections) {
-            shaderStages = sgl::vk::ShaderManager->getShaderStages(
-                    {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
-                     "TubeRayTracing.IntersectionTube", "TubeRayTracing.ClosestHitTubeAnalytic",
-                     "TubeRayTracing.ClosestHitHull"},
-                    preprocessorDefines);
+            if (useAnalyticEllipticTubes) {
+                shaderStages = sgl::vk::ShaderManager->getShaderStages(
+                        {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
+                         "EllipticTubeRayTracing.IntersectionEllipticTube",
+                         "EllipticTubeRayTracing.ClosestHitEllipticTubeAnalytic",
+                         "TubeRayTracing.ClosestHitHull"},
+                        preprocessorDefines);
+            } else {
+                shaderStages = sgl::vk::ShaderManager->getShaderStages(
+                        {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
+                         "TubeRayTracing.IntersectionTube", "TubeRayTracing.ClosestHitTubeAnalytic",
+                         "TubeRayTracing.ClosestHitHull"},
+                        preprocessorDefines);
+            }
         } else {
             shaderStages = sgl::vk::ShaderManager->getShaderStages(
                     {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
@@ -424,6 +452,8 @@ void RayTracingRenderPass::createRayTracingData(
         if (tubeAabbRenderData.indexBuffer) {
             rayTracingData->setStaticBuffer(
                     tubeAabbRenderData.indexBuffer, "BoundingBoxLinePointIndexBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    tubeAabbRenderData.aabbBuffer, "BoundingBoxBuffer");
             rayTracingData->setStaticBuffer(
                     tubeAabbRenderData.linePointDataBuffer, "LinePointDataBuffer");
             rayTracingData->setStaticBufferOptional(

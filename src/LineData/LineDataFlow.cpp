@@ -2091,14 +2091,21 @@ TubeTriangleRenderData LineDataFlow::getLinePassTubeTriangleMeshRenderDataPayloa
     return cachedTubeTriangleRenderData;
 }
 
-TubeAabbRenderData LineDataFlow::getLinePassTubeAabbRenderData(bool isRasterizer) {
+TubeAabbRenderData LineDataFlow::getLinePassTubeAabbRenderData(bool isRasterizer, bool ellipticTubes) {
     rebuildInternalRepresentationIfNecessary();
-    if (cachedTubeAabbRenderData.indexBuffer) {
+    if (cachedTubeAabbRenderData.indexBuffer && tubeAabbEllipticTubes == ellipticTubes) {
         return cachedTubeAabbRenderData;
     }
+    tubeAabbEllipticTubes = ellipticTubes;
     removeOtherCachedDataTypes(RequestMode::AABBS);
 
-    glm::vec3 lineWidthOffset(LineRenderer::getLineWidth() * 0.5f);
+    bool useRibbonNormals = ellipticTubes && useRibbons && hasBandsData;
+    glm::vec3 lineWidthOffset;
+    if (useRibbonNormals) {
+        lineWidthOffset = glm::vec3(LineRenderer::getBandWidth() * 0.5f);
+    } else {
+        lineWidthOffset = glm::vec3(LineRenderer::getLineWidth() * 0.5f);
+    }
 
     std::vector<uint32_t> lineSegmentPointIndices;
     std::vector<sgl::AABB3> lineSegmentAabbs;
@@ -2138,17 +2145,22 @@ TubeAabbRenderData LineDataFlow::getLinePassTubeAabbRenderData(bool isRasterizer
             }
             tangent = glm::normalize(tangent);
 
-            glm::vec3 helperAxis = lastLineNormal;
-            if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
-                // If tangent == lastNormal
-                helperAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+            if (useRibbonNormals) {
+                glm::vec3 normal = glm::cross(ribbonsDirections.at(trajectoryIdx).at(i), tangent);
+                lastLineNormal = normal;
+            } else {
+                glm::vec3 helperAxis = lastLineNormal;
                 if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
-                    // If tangent == helperAxis
-                    helperAxis = glm::vec3(0.0f, 0.0f, 1.0f);
+                    // If tangent == lastNormal
+                    helperAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+                    if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
+                        // If tangent == helperAxis
+                        helperAxis = glm::vec3(0.0f, 0.0f, 1.0f);
+                    }
                 }
+                glm::vec3 normal = glm::normalize(helperAxis - glm::dot(helperAxis, tangent) * tangent); // Gram-Schmidt
+                lastLineNormal = normal;
             }
-            glm::vec3 normal = glm::normalize(helperAxis - glm::dot(helperAxis, tangent) * tangent); // Gram-Schmidt
-            lastLineNormal = normal;
 
             LinePointDataUnified linePointData{};
             linePointData.linePosition = trajectory.positions.at(i);

@@ -788,14 +788,15 @@ void LineData::splitTriangleIndices(
     }
 }
 
-sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeAabbBottomLevelAS() {
+sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeAabbBottomLevelAS(bool ellipticTubes) {
     rebuildInternalRepresentationIfNecessary();
-    if (tubeAabbBottomLevelAS) {
+    if (tubeAabbBottomLevelAS && tubeAabbEllipticTubes == ellipticTubes) {
         return tubeAabbBottomLevelAS;
     }
+    tubeAabbBottomLevelAS = {};
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    TubeAabbRenderData tubeAabbRenderData = getLinePassTubeAabbRenderData(false);
+    TubeAabbRenderData tubeAabbRenderData = getLinePassTubeAabbRenderData(false, ellipticTubes);
 
     if (!tubeAabbRenderData.indexBuffer) {
         return tubeAabbBottomLevelAS;
@@ -925,14 +926,15 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeTriangleAnd
     return tubeTriangleAndHullTopLevelAS;
 }
 
-sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbTopLevelAS() {
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbTopLevelAS(bool ellipticTubes) {
     rebuildInternalRepresentationIfNecessary();
-    if (tubeAabbTopLevelAS) {
+    if (tubeAabbTopLevelAS && tubeAabbEllipticTubes == ellipticTubes) {
         return tubeAabbTopLevelAS;
     }
+    tubeAabbTopLevelAS = {};
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    tubeAabbBottomLevelAS = getTubeAabbBottomLevelAS();
+    tubeAabbBottomLevelAS = getTubeAabbBottomLevelAS(ellipticTubes);
 
     if (!tubeAabbBottomLevelAS) {
         return tubeAabbTopLevelAS;
@@ -944,17 +946,18 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbTopLeve
     return tubeAabbTopLevelAS;
 }
 
-sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbAndHullTopLevelAS() {
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbAndHullTopLevelAS(bool ellipticTubes) {
     rebuildInternalRepresentationIfNecessary();
-    if (tubeAabbAndHullTopLevelAS) {
+    if (tubeAabbAndHullTopLevelAS && tubeAabbEllipticTubes == ellipticTubes) {
         return tubeAabbAndHullTopLevelAS;
     }
+    tubeAabbAndHullTopLevelAS = {};
     if (simulationMeshOutlineTriangleIndices.empty()) {
-        return getRayTracingTubeAabbTopLevelAS();
+        return getRayTracingTubeAabbTopLevelAS(ellipticTubes);
     }
 
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
-    tubeAabbBottomLevelAS = getTubeAabbBottomLevelAS();
+    tubeAabbBottomLevelAS = getTubeAabbBottomLevelAS(ellipticTubes);
     hullTriangleBottomLevelAS = getHullTriangleBottomLevelAS();
 
     if (!tubeAabbBottomLevelAS && !hullTriangleBottomLevelAS) {

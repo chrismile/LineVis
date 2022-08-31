@@ -244,9 +244,9 @@ TubeTriangleRenderData LineDataScattering::getLinePassTubeTriangleMeshRenderData
     recomputeHistogram();
     return LineDataFlow::getLinePassTubeTriangleMeshRenderDataPayload(isRasterizer, vulkanRayTracing, payload);
 }
-TubeAabbRenderData LineDataScattering::getLinePassTubeAabbRenderData(bool isRasterizer) {
+TubeAabbRenderData LineDataScattering::getLinePassTubeAabbRenderData(bool isRasterizer, bool ellipticTubes) {
     recomputeHistogram();
-    return LineDataFlow::getLinePassTubeAabbRenderData(isRasterizer);
+    return LineDataFlow::getLinePassTubeAabbRenderData(isRasterizer, ellipticTubes);
 }
 HullTriangleRenderData LineDataScattering::getVulkanHullTriangleRenderData(bool vulkanRayTracing) {
     recomputeHistogram();

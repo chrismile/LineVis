@@ -2788,15 +2788,16 @@ TubeTriangleRenderData LineDataStress::getLinePassTubeTriangleMeshRenderDataPayl
     return cachedTubeTriangleRenderData;
 }
 
-TubeAabbRenderData LineDataStress::getLinePassTubeAabbRenderData(bool isRasterizer) {
+TubeAabbRenderData LineDataStress::getLinePassTubeAabbRenderData(bool isRasterizer, bool ellipticTubes) {
     rebuildInternalRepresentationIfNecessary();
-    if (cachedTubeAabbRenderData.aabbBuffer) {
+    if (cachedTubeAabbRenderData.aabbBuffer && tubeAabbEllipticTubes == ellipticTubes) {
         return cachedTubeAabbRenderData;
     }
+    tubeAabbEllipticTubes = ellipticTubes;
     removeOtherCachedDataTypes(RequestMode::AABBS);
 
     //glm::vec3 lineWidthOffset(std::max(LineRenderer::getLineWidth() * 0.5f, LineRenderer::getBandWidth() * 0.5f));
-    glm::vec3 lineWidthOffset(LineRenderer::getLineWidth() * 0.5f);
+    glm::vec3 lineWidthOffset;
 
     std::vector<uint32_t> lineSegmentPointIndices;
     std::vector<sgl::AABB3> lineSegmentAabbs;
@@ -2818,6 +2819,15 @@ TubeAabbRenderData LineDataStress::getLinePassTubeAabbRenderData(bool isRasteriz
     }
 #endif
 
+    std::vector<std::vector<std::vector<glm::vec3>>>* bandPointsListRightPs = nullptr;
+    if (ellipticTubes) {
+        if (useSmoothedBands) {
+            bandPointsListRightPs = &bandPointsSmoothedListRightPs;
+        } else {
+            bandPointsListRightPs = &bandPointsUnsmoothedListRightPs;
+        }
+    }
+
     lineSegmentPointIndices.reserve(getNumLineSegments() * 2);
     lineSegmentAabbs.reserve(getNumLineSegments());
     const size_t numLinePointsEstimated = getNumLinePoints();
@@ -2834,6 +2844,15 @@ TubeAabbRenderData LineDataStress::getLinePassTubeAabbRenderData(bool isRasteriz
         Trajectories &trajectories = trajectoriesPs.at(i);
         StressTrajectoriesData &stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
         std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
+
+        bool useRibbonNormals = ellipticTubes && psUseBands.at(psIdx);
+        const std::vector<std::vector<glm::vec3>>* bandPointsListRight = nullptr;
+        if (useRibbonNormals) {
+            bandPointsListRight = &bandPointsListRightPs->at(i);
+            lineWidthOffset = glm::vec3(LineRenderer::getBandWidth() * 0.5f);
+        } else {
+            lineWidthOffset = glm::vec3(LineRenderer::getLineWidth() * 0.5f);
+        }
 
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
             if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
@@ -2865,17 +2884,22 @@ TubeAabbRenderData LineDataStress::getLinePassTubeAabbRenderData(bool isRasteriz
                 }
                 tangent = glm::normalize(tangent);
 
-                glm::vec3 helperAxis = lastLineNormal;
-                if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
-                    // If tangent == lastNormal
-                    helperAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+                if (useRibbonNormals) {
+                    glm::vec3 normal = glm::cross(bandPointsListRight->at(trajectoryIdx).at(i), tangent);
+                    lastLineNormal = normal;
+                } else {
+                    glm::vec3 helperAxis = lastLineNormal;
                     if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
-                        // If tangent == helperAxis
-                        helperAxis = glm::vec3(0.0f, 0.0f, 1.0f);
+                        // If tangent == lastNormal
+                        helperAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+                        if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
+                            // If tangent == helperAxis
+                            helperAxis = glm::vec3(0.0f, 0.0f, 1.0f);
+                        }
                     }
+                    glm::vec3 normal = glm::normalize(helperAxis - glm::dot(helperAxis, tangent) * tangent); // Gram-Schmidt
+                    lastLineNormal = normal;
                 }
-                glm::vec3 normal = glm::normalize(helperAxis - glm::dot(helperAxis, tangent) * tangent); // Gram-Schmidt
-                lastLineNormal = normal;
 
                 LinePointDataUnified linePointData{};
                 linePointData.linePosition = trajectory.positions.at(i);

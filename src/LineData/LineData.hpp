@@ -179,12 +179,12 @@ public:
         TubeTriangleRenderDataPayloadPtr emptyPayload;
         return getLinePassTubeTriangleMeshRenderDataPayload(isRasterizer, vulkanRayTracing, emptyPayload);
     }
-    virtual TubeAabbRenderData getLinePassTubeAabbRenderData(bool isRasterizer)=0;
+    virtual TubeAabbRenderData getLinePassTubeAabbRenderData(bool isRasterizer, bool ellipticTubes)=0;
     virtual HullTriangleRenderData getVulkanHullTriangleRenderData(bool vulkanRayTracing);
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleTopLevelAS();
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleAndHullTopLevelAS();
-    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbTopLevelAS();
-    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbAndHullTopLevelAS();
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbTopLevelAS(bool ellipticTubes);
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbAndHullTopLevelAS(bool ellipticTubes);
     inline void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) {
         getVulkanShaderPreprocessorDefines(preprocessorDefines, true);
     }
@@ -348,7 +348,7 @@ protected:
     // Caches the triangle render data. This is useful, e.g., when the Vulkan ray tracer and ambient occlusion baking
     // are used at the same time.
     std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> getTubeTriangleBottomLevelAS();
-    sgl::vk::BottomLevelAccelerationStructurePtr getTubeAabbBottomLevelAS();
+    sgl::vk::BottomLevelAccelerationStructurePtr getTubeAabbBottomLevelAS(bool ellipticTubes);
     sgl::vk::BottomLevelAccelerationStructurePtr getHullTriangleBottomLevelAS();
     void splitTriangleIndices(
             std::vector<uint32_t>& tubeTriangleIndices,
@@ -368,6 +368,7 @@ protected:
     sgl::vk::TopLevelAccelerationStructurePtr tubeTriangleAndHullTopLevelAS;
     sgl::vk::TopLevelAccelerationStructurePtr tubeAabbTopLevelAS;
     sgl::vk::TopLevelAccelerationStructurePtr tubeAabbAndHullTopLevelAS;
+    bool tubeAabbEllipticTubes = false;
 
     // Caches the line render data.
     LinePassTubeRenderData cachedRenderDataGeometryShader;
