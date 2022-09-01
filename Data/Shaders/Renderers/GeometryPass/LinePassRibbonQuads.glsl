@@ -438,10 +438,16 @@ void main() {
 
     float absCoords = abs(fragmentNormalFloat);
     float fragmentDepth = length(fragmentPositionWorld - cameraPosition);
-    const float WHITE_THRESHOLD = 0.7;
     float EPSILON = clamp(getAntialiasingFactor(fragmentDepth / (useBand != 0 ? bandWidth : lineWidth) * 2.0), 0.0, 0.49);
+#if defined(USE_HALOS) || defined(USE_MULTI_VAR_RENDERING)
+    const float WHITE_THRESHOLD = 0.7;
     float EPSILON_WHITE = fwidth(absCoords);
     float coverage = 1.0 - smoothstep(1.0 - EPSILON, 1.0, absCoords);
+#else
+    const float WHITE_THRESHOLD = 2.0;
+    float EPSILON_WHITE = 0.0;
+    float coverage = 1.0;
+#endif
     //float coverage = 1.0 - smoothstep(1.0, 1.0, abs(fragmentNormalFloat));
     vec4 colorOut = vec4(mix(fragmentColor.rgb, foregroundColor.rgb,
             smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),

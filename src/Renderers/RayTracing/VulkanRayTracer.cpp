@@ -469,6 +469,8 @@ void RayTracingRenderPass::createRayTracingData(
             // Just bind anything in order for sgl to not complain...
             rayTracingData->setStaticBuffer(
                     hullTriangleRenderData.indexBuffer, "BoundingBoxLinePointIndexBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    hullTriangleRenderData.vertexBuffer, "BoundingBoxBuffer");
             rayTracingData->setStaticBuffer(
                     hullTriangleRenderData.vertexBuffer, "LinePointDataBuffer");
             rayTracingData->setStaticBufferOptional(

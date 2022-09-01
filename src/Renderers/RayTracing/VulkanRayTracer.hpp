@@ -111,8 +111,8 @@ private:
     std::shared_ptr<RayTracingRenderPass> rayTracingRenderPass;
 
     // Whether to trace rays against a triangle mesh or analytic tubes using line segment AABBs.
-    bool useAnalyticIntersections = true;
-    bool useAnalyticEllipticTubes = true;
+    bool useAnalyticIntersections = false;
+    bool useAnalyticEllipticTubes = false;
 
     /// For visualizing the seeding order in an animation.
     bool visualizeSeedingProcess = false; //< Stress lines only.
@@ -208,8 +208,8 @@ private:
 
     bool useJitteredSamples = true;
     uint32_t maxNumFrames = 1;
-    bool useAnalyticIntersections = true;
-    bool useAnalyticEllipticTubes = true;
+    bool useAnalyticIntersections = false;
+    bool useAnalyticEllipticTubes = false;
     bool useDeterministicSampling = false;
 
     // Whether to use multi-layer alpha tracing (MLAT).

@@ -285,8 +285,8 @@ void main() {
     // Cull points on the left and right of the clipping planes.
     float EPSILON_CLIPPING_PLANE_1 = abs(dot(E_l.xyz, normalize(cameraPosition - p0))) * 5e-5;
     float EPSILON_CLIPPING_PLANE_2 = abs(dot(E_r.xyz, normalize(cameraPosition - p1))) * 5e-5;
-    bool isNotClippedLeft = dot(E_l.xyz, pointWorld) + E_l.w > -EPSILON_CLIPPING_PLANE_1;
-    bool isNotClippedRight = dot(E_r.xyz, pointWorld) + E_r.w > -EPSILON_CLIPPING_PLANE_2;
+    bool isNotCulledLeft = dot(E_l.xyz, pointWorld) + E_l.w > -EPSILON_CLIPPING_PLANE_1;
+    bool isNotCulledRight = dot(E_r.xyz, pointWorld) + E_r.w > -EPSILON_CLIPPING_PLANE_2;
     if (d_tmp < EPSILON_SPHERE_TRACING && hitT > 0.0 && isNotCulledLeft && isNotCulledRight) {
         reportIntersectionEXT(hitT, 0);
     }
@@ -303,6 +303,9 @@ void main() {
 #define VULKAN_RAY_TRACING_SHADER
 #include "RayHitCommon.glsl"
 #import ".IntersectionEllipticTubeUtil"
+
+#define M_PI 3.14159265358979323846
+#define M_TWO_PI 6.283185307
 
 layout(std430, binding = 3) readonly buffer BoundingBoxLinePointIndexBuffer {
     uvec2 boundingBoxLinePointIndices[];
@@ -385,7 +388,7 @@ void main() {
     float phiDenomInv = 1.0 / sqrt(radius0 * radius0 * sinphi * sinphi + radius1 * radius1 * cosphi * cosphi);
     float sinPhiLine = radius0 * sinphi * phiDenomInv;
     float cosPhiLine = radius1 * cosphi * phiDenomInv;
-    float phiLine = mod(atan(sinPhiLine, cosPhiLine) + 6.283185307, 6.283185307);
+    float phiLine = mod(atan(sinPhiLine, cosPhiLine) + M_TWO_PI, M_TWO_PI);
 #endif
 #if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
     float fragmentVertexId = (1.0 - t) * linePointIndices.x + t * linePointIndices.y;
@@ -439,6 +442,21 @@ void main() {
 #endif
             fragmentAttribute
     );
+
+//#define DRAW_PARAMETER_LINES
+#if defined(DRAW_PARAMETER_LINES) && defined(USE_BANDS)
+    vec3 color = payload.hitColor.rgb;
+    const float K_PHI = 16; // NUM_TUBE_SUBDIVISIONS
+    const float K_T = 6;
+    const float EPSILON_SUBDIV_PHI = 0.05 * K_PHI;
+    const float EPSILON_SUBDIV_T = 0.01 * K_T;
+    float subdivPhi = mod(phiLine * K_PHI, M_TWO_PI);
+    float subdivT = mod(t * K_T, 1.0);
+    if (subdivPhi < EPSILON_SUBDIV_PHI || subdivT < EPSILON_SUBDIV_T) {
+        color = vec3(0.8);
+    }
+    payload.hitColor.rgb = color;
+#endif
 }
 
 

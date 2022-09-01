@@ -257,7 +257,7 @@ void getTestModesOspray(std::vector<InternalState>& states, InternalState state)
 }
 #endif
 
-void getTestModesOpaqueRenderingForDataSet(std::vector<InternalState>& states, const InternalState& state) {
+void getTestModesPaperVMV(std::vector<InternalState>& states, const InternalState& state) {
     getTestModesRasterization(states, state);
     getTestModesVulkanRayTracing(states, state);
     //getTestModesVoxelRayCasting(states, state);
@@ -305,7 +305,7 @@ std::vector<InternalState> getTestModesOpaqueRendering() {
             if (!transferFunctionNames.empty()) {
                 state.transferFunctionName = transferFunctionNames.at(i);
             }
-            getTestModesOpaqueRenderingForDataSet(states, state);
+            getTestModesPaperVMV(states, state);
         }
     }
 

@@ -160,3 +160,20 @@
 #endif
             fragmentAttribute
     );
+
+//#define DRAW_PARAMETER_LINES
+#if defined(DRAW_PARAMETER_LINES) && defined(USE_BANDS)
+#define M_PI 3.14159265358979323846
+#define M_TWO_PI 6.283185307
+    vec3 color = payload.hitColor.rgb;
+    const float K_PHI = 16; // NUM_TUBE_SUBDIVISIONS
+    const float K_BARY = 1;
+    const float EPSILON_SUBDIV_PHI = 0.05 * K_PHI;
+    const vec3 EPSILON_SUBDIV_T = vec3(0.008 * K_BARY);
+    float subdivPhi = mod(phi * K_PHI, M_TWO_PI);
+    vec3 subdivBary = mod(barycentricCoordinates * K_BARY, vec3(1.0));
+    if (subdivPhi < EPSILON_SUBDIV_PHI || any(lessThan(subdivBary, EPSILON_SUBDIV_T))) {
+        color = vec3(0.8);
+    }
+    payload.hitColor.rgb = color;
+#endif
