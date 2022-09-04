@@ -213,7 +213,7 @@ bool LineData::updateLinePrimitiveMode(LineRenderer* lineRenderer) {
 #ifdef VK_EXT_mesh_shader
     if ((linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
                 || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER)
-            && !device->getPhysicalDeviceMeshShaderFeatures().meshShader) {
+            && !device->getPhysicalDeviceMeshShaderFeaturesEXT().meshShader) {
         unsupportedLineRenderingMode = true;
         warningText =
                 "The selected line primitives mode uses mesh shaders via the VK_EXT_mesh_shader extension, "
