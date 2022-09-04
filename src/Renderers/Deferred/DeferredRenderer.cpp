@@ -72,23 +72,47 @@ DeferredRenderer::DeferredRenderer(SceneData* sceneData, sgl::TransferFunctionWi
         drawIndirectReductionMode = DrawIndirectReductionMode::NO_REDUCTION;
     }
 
-    const auto& meshShaderFeatures =
+    const auto& meshShaderFeaturesNV =
             device->getPhysicalDeviceMeshShaderFeaturesNV();
-    const auto& meshShaderProperties =
+    const auto& meshShaderPropertiesNV =
             device->getPhysicalDeviceMeshShaderPropertiesNV();
-    supportsTaskMeshShaders = meshShaderFeatures.taskShader && meshShaderFeatures.meshShader;
+    supportsTaskMeshShadersNV = meshShaderFeaturesNV.taskShader && meshShaderFeaturesNV.meshShader;
+    taskMeshShaderMaxNumPrimitivesSupportedNV = meshShaderPropertiesNV.maxMeshOutputPrimitives;
+    // Support a maximum of 256 vertices, as the mesh shader uses 8-bit unsigned indices for meshlets.
+    taskMeshShaderMaxNumVerticesSupportedNV = std::min(meshShaderPropertiesNV.maxMeshOutputVertices, uint32_t(256));
+
+#ifdef VK_EXT_mesh_shader
+    const auto& meshShaderFeaturesEXT =
+            device->getPhysicalDeviceMeshShaderFeaturesEXT();
+    const auto& meshShaderPropertiesEXT =
+            device->getPhysicalDeviceMeshShaderPropertiesEXT();
+    supportsTaskMeshShadersEXT = meshShaderFeaturesEXT.taskShader && meshShaderFeaturesEXT.meshShader;
+    taskMeshShaderMaxNumPrimitivesSupportedEXT = meshShaderPropertiesEXT.maxMeshOutputPrimitives;
+    // Support a maximum of 256 vertices, as the mesh shader uses 8-bit unsigned indices for meshlets.
+    taskMeshShaderMaxNumVerticesSupportedEXT = std::min(meshShaderPropertiesEXT.maxMeshOutputVertices, uint32_t(256));
+#endif
+
     if (!device->isDeviceExtensionSupported(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME)
             || !device->isDeviceExtensionSupported(VK_KHR_8BIT_STORAGE_EXTENSION_NAME)) {
-        supportsTaskMeshShaders = false;
+        supportsTaskMeshShadersNV = false;
+#ifdef VK_EXT_mesh_shader
+        supportsTaskMeshShadersEXT = false;
+#endif
     } else {
         if (!device->getPhysicalDeviceShaderFloat16Int8Features().shaderInt8
                 || !device->getPhysicalDevice8BitStorageFeatures().storageBuffer8BitAccess) {
-            supportsTaskMeshShaders = false;
+            supportsTaskMeshShadersNV = false;
+#ifdef VK_EXT_mesh_shader
+            supportsTaskMeshShadersEXT = false;
+#endif
         }
     }
-    taskMeshShaderMaxNumPrimitivesSupported = meshShaderProperties.maxMeshOutputPrimitives;
-    // Support a maximum of 256 vertices, as the mesh shader uses 8-bit unsigned indices for meshlets.
-    taskMeshShaderMaxNumVerticesSupported = std::min(meshShaderProperties.maxMeshOutputVertices, uint32_t(256));
+    supportsTaskMeshShaders = supportsTaskMeshShadersNV || supportsTaskMeshShadersEXT;
+    useMeshShaderNV = !supportsTaskMeshShadersEXT;
+
+    if (supportsTaskMeshShaders) {
+        updateTaskMeshShaderMode();
+    }
 }
 
 void DeferredRenderer::initialize() {
@@ -182,6 +206,7 @@ void DeferredRenderer::updateRenderingMode() {
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         for (int i = 0; i < 2; i++) {
             meshletTaskMeshPasses[i] = std::make_shared<MeshletTaskMeshPass>(this);
+            meshletTaskMeshPasses[i]->setUseMeshShaderNV(useMeshShaderNV);
             meshletTaskMeshPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
             meshletTaskMeshPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
             meshletTaskMeshPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
@@ -266,6 +291,32 @@ void DeferredRenderer::updateDrawIndirectReductionMode() {
         }
         for (int passIdx = 0; passIdx < 2; passIdx++) {
             visibleMeshletCounters[passIdx] = 0;
+        }
+    }
+}
+
+void DeferredRenderer::updateTaskMeshShaderMode() {
+    if (useMeshShaderNV) {
+        taskMeshShaderMaxNumPrimitivesSupported = taskMeshShaderMaxNumPrimitivesSupportedNV;
+        taskMeshShaderMaxNumVerticesSupported = taskMeshShaderMaxNumVerticesSupportedNV;
+    } else {
+        taskMeshShaderMaxNumPrimitivesSupported = taskMeshShaderMaxNumPrimitivesSupportedEXT;
+        taskMeshShaderMaxNumVerticesSupported = taskMeshShaderMaxNumVerticesSupportedEXT;
+    }
+    taskMeshShaderMaxNumPrimitivesPerMeshlet = std::min(
+            taskMeshShaderMaxNumPrimitivesPerMeshlet, taskMeshShaderMaxNumPrimitivesSupported);
+    taskMeshShaderMaxNumVerticesPerMeshlet = std::min(
+            taskMeshShaderMaxNumVerticesPerMeshlet, taskMeshShaderMaxNumVerticesSupported);
+
+    for (int i = 0; i < 2; i++) {
+        if (meshletTaskMeshPasses[i]) {
+            meshletTaskMeshPasses[i]->setUseMeshShaderNV(useMeshShaderNV);
+            meshletTaskMeshPasses[i]->setMaxNumPrimitivesPerMeshlet(
+                    taskMeshShaderMaxNumPrimitivesPerMeshlet);
+            meshletTaskMeshPasses[i]->setMaxNumVerticesPerMeshlet(
+                    taskMeshShaderMaxNumVerticesPerMeshlet);
+            meshletTaskMeshPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
+                    useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
         }
     }
 }
@@ -763,6 +814,11 @@ void DeferredRenderer::render() {
             VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
             if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
                 pipelineStageFlags = VK_PIPELINE_STAGE_TASK_SHADER_BIT_NV;
+#ifdef VK_EXT_mesh_shader
+                if (useMeshShaderEXT) {
+                    pipelineStageFlags = VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT;
+                }
+#endif
             }
 
             // Set old MVP matrix as uniform.
@@ -1031,7 +1087,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         if (propertyEditor.addSliderIntEdit(
                 "#Tri/Meshlet", (int*)&taskMeshShaderMaxNumPrimitivesPerMeshlet,
-                32, int(taskMeshShaderMaxNumPrimitivesSupported)) == ImGui::EditMode::INPUT_FINISHED) {
+                32, int(taskMeshShaderMaxNumPrimitivesSupportedNV)) == ImGui::EditMode::INPUT_FINISHED) {
             for (int i = 0; i < 2; i++) {
                 meshletTaskMeshPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
             }
@@ -1040,21 +1096,28 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
         }
         if (propertyEditor.addSliderIntEdit(
                 "#Verts/Meshlet", (int*)&taskMeshShaderMaxNumVerticesPerMeshlet,
-                16, int(taskMeshShaderMaxNumVerticesSupported)) == ImGui::EditMode::INPUT_FINISHED) {
+                16, int(taskMeshShaderMaxNumVerticesSupportedNV)) == ImGui::EditMode::INPUT_FINISHED) {
             for (int i = 0; i < 2; i++) {
                 meshletTaskMeshPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
             }
             reloadGatherShader();
             reRender = true;
         }
-        if (propertyEditor.addCheckbox(
-                "useMeshShaderWritePackedPrimitiveIndicesIfAvailable",
-                &useMeshShaderWritePackedPrimitiveIndicesIfAvailable)) {
-            for (int i = 0; i < 2; i++) {
-                meshletTaskMeshPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
-                        useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
+        if (supportsTaskMeshShadersNV && supportsTaskMeshShadersEXT) {
+            if (propertyEditor.addCheckbox("Use NVIDIA Mesh Shaders", &useMeshShaderNV)) {
+                updateTaskMeshShaderMode();
+                reRender = true;
             }
-            reRender = true;
+        }
+        if (useMeshShaderNV) {
+            if (propertyEditor.addCheckbox(
+                    "Write Packed Primitives", &useMeshShaderWritePackedPrimitiveIndicesIfAvailable)) {
+                for (int i = 0; i < 2; i++) {
+                    meshletTaskMeshPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
+                            useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
+                }
+                reRender = true;
+            }
         }
     }
 
@@ -1208,6 +1271,11 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
         reRender = true;
     }
 
+    if (newState.rendererSettings.getValueOpt("useMeshShaderNV", useMeshShaderNV)) {
+        updateTaskMeshShaderMode();
+        reRender = true;
+    }
+
     if (newState.rendererSettings.getValueOpt(
             "useMeshShaderWritePackedPrimitiveIndicesIfAvailable",
             useMeshShaderWritePackedPrimitiveIndicesIfAvailable)) {
@@ -1318,6 +1386,11 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
             }
         }
         reloadGatherShader();
+        reRender = true;
+    }
+
+    if (settings.getValueOpt("use_mesh_shader_nv", useMeshShaderNV)) {
+        updateTaskMeshShaderMode();
         reRender = true;
     }
 

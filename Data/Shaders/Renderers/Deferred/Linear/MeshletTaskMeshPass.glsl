@@ -28,18 +28,23 @@
 
 -- Task
 
-#version 450 core
-
-#extension GL_NV_mesh_shader : require
 #extension GL_EXT_shader_8bit_storage : require
 #extension GL_KHR_shader_subgroup_ballot : require
 
 layout(local_size_x = WORKGROUP_SIZE) in;
 
+#ifdef VK_NV_mesh_shader
 taskNV out Task {
     uint baseIndex;
     uint8_t subIndices[WORKGROUP_SIZE];
 } OUT;
+#else
+struct Task {
+    uint baseIndex;
+    uint8_t subIndices[WORKGROUP_SIZE];
+};
+taskPayloadSharedEXT Task OUT;
+#endif
 
 struct MeshletData {
     vec3 worldSpaceAabbMin;
@@ -92,7 +97,11 @@ void main() {
 
     if (gl_LocalInvocationID.x == 0) {
         // Write how much mesh workgroups should be spawned.
+#ifdef VK_NV_mesh_shader
         gl_TaskCountNV = numTasks;
+#else
+        EmitMeshTasksEXT(numTasks, 1, 1);
+#endif
         OUT.baseIndex = gl_WorkGroupID.x * WORKGROUP_SIZE;
     }
 
@@ -106,19 +115,24 @@ void main() {
 
 -- Mesh
 
-#version 450 core
-
-#extension GL_NV_mesh_shader : require
 #extension GL_EXT_scalar_block_layout : require
 #extension GL_EXT_shader_8bit_storage : require
 
 layout(local_size_x = WORKGROUP_SIZE) in;
 layout(triangles, max_vertices = MESHLET_MAX_VERTICES, max_primitives = MESHLET_MAX_PRIMITIVES) out;
 
+#ifdef VK_NV_mesh_shader
 taskNV in Task {
     uint baseIndex;
     uint8_t subIndices[WORKGROUP_SIZE];
 } IN;
+#else
+struct Task {
+    uint baseIndex;
+    uint8_t subIndices[WORKGROUP_SIZE];
+};
+taskPayloadSharedEXT Task IN;
+#endif
 
 struct MeshletData {
     vec3 worldSpaceAabbMin;
@@ -150,18 +164,26 @@ layout(scalar, binding = 3) readonly buffer DedupTriangleIndicesBuffer {
 
 void main() {
     uint meshletIdx = IN.baseIndex + uint(IN.subIndices[gl_WorkGroupID.x]);
-    uint threadIdx = gl_LocalInvocationID.x;
+    uint threadIdx = gl_LocalInvocationIndex;
 
     MeshletData meshletData = meshlets[meshletIdx];
 
+#ifdef VK_NV_mesh_shader
     gl_PrimitiveCountNV = meshletData.primitiveCount;
+#else
+    SetMeshOutputsEXT(meshletData.vertexCount, meshletData.primitiveCount);
+#endif
 
     for (uint vertexIdx = threadIdx; vertexIdx < meshletData.vertexCount; vertexIdx += WORKGROUP_SIZE) {
         vec3 vertexPosition = dedupVertices[meshletData.vertexStart + vertexIdx];
+#ifdef VK_NV_mesh_shader
         gl_MeshVerticesNV[vertexIdx].gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
+#else
+        gl_MeshVerticesEXT[vertexIdx].gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
+#endif
     }
 
-#ifdef WRITE_PACKED_PRIMITIVE_INDICES
+#if defined(VK_NV_mesh_shader) && defined(WRITE_PACKED_PRIMITIVE_INDICES)
     //uint numPackedIndices = (meshletData.primitiveCount * 3u + WORKGROUP_SIZE * 4u - 1u) / (WORKGROUP_SIZE * 4u);
     uint numPackedIndices = (meshletData.primitiveCount * 3u + 3u) / 4u;
     uint readOffset = meshletData.primitiveStart * 3u / 4u; // Assure alignment!
@@ -183,6 +205,7 @@ void main() {
         uint writeIdx = triangleIdx * 3u;
         uint readIdx = writeIdx + meshletData.primitiveStart * 3u;
 
+#ifdef VK_NV_mesh_shader
         gl_PrimitiveIndicesNV[writeIdx] = uint(dedupTriangleIndices[readIdx]);
         gl_PrimitiveIndicesNV[writeIdx + 1u] = uint(dedupTriangleIndices[readIdx + 1u]);
         gl_PrimitiveIndicesNV[writeIdx + 2u] = uint(dedupTriangleIndices[readIdx + 2u]);
@@ -190,9 +213,59 @@ void main() {
         // Available in gl_MeshPrimitivesNV:
         // https://github.com/KhronosGroup/GLSL/blob/master/extensions/nv/GLSL_NV_mesh_shader.txt
         gl_MeshPrimitivesNV[triangleIdx].gl_PrimitiveID = int(meshletData.meshletFirstPrimitiveIdx + triangleIdx);
+#else
+        gl_PrimitiveTriangleIndicesEXT[writeIdx] = uvec3(
+                uint(dedupTriangleIndices[readIdx]),
+                uint(dedupTriangleIndices[readIdx + 1u]),
+                uint(dedupTriangleIndices[readIdx + 2u]));
+
+        // Available in gl_MeshPrimitivesEXT:
+        // https://github.com/KhronosGroup/GLSL/blob/master/extensions/ext/GLSL_EXT_mesh_shader.txt
+        gl_MeshPrimitivesEXT[triangleIdx].gl_PrimitiveID = int(meshletData.meshletFirstPrimitiveIdx + triangleIdx);
+#endif
     }
 #endif
 }
+
+
+-- TaskNV
+
+#version 450 core
+
+#extension GL_NV_mesh_shader : require
+
+#define VK_NV_mesh_shader
+#import ".Task"
+
+
+-- TaskEXT
+
+#version 450 core
+
+#extension GL_EXT_mesh_shader : require
+
+#define VK_EXT_mesh_shader
+#import ".Task"
+
+
+-- MeshNV
+
+#version 450 core
+
+#extension GL_NV_mesh_shader : require
+
+#define VK_NV_mesh_shader
+#import ".Mesh"
+
+
+-- MeshEXT
+
+#version 450 core
+
+#extension GL_EXT_mesh_shader : require
+
+#define VK_EXT_mesh_shader
+#import ".Mesh"
 
 
 -- Fragment

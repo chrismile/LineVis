@@ -41,6 +41,7 @@ public:
 
     // Public interface.
     void setRecheckOccludedOnly(bool recheck);
+    void setUseMeshShaderNV(bool useNV);
     void setMaxNumPrimitivesPerMeshlet(uint32_t numPrimitives);
     void setMaxNumVerticesPerMeshlet(uint32_t numVertices);
     void setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(bool useWritePacked);
@@ -49,7 +50,8 @@ public:
     [[nodiscard]] inline uint32_t getNumMeshlets() const { return numMeshlets; }
 
 protected:
-    uint32_t WORKGROUP_SIZE = 32;
+    uint32_t WORKGROUP_SIZE_NV = 32;
+    uint32_t WORKGROUP_SIZE_EXT = 32;
     void loadShader() override;
     void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
     void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
@@ -57,9 +59,10 @@ protected:
 
 private:
     bool recheckOccludedOnly = false;
+    bool useMeshShaderNV = false; ///< Whether to use VK_EXT_mesh_shader oder VK_NV_mesh_shader.
     uint32_t maxNumPrimitivesPerMeshlet = 126;
     uint32_t maxNumVerticesPerMeshlet = 64;
-    bool useMeshShaderWritePackedPrimitiveIndicesIfAvailable = true;
+    bool useMeshShaderWritePackedPrimitiveIndicesIfAvailable = true; ///< Sub-mode for VK_NV_mesh_shader.
     bool useMeshShaderWritePackedPrimitiveIndices = false;
     uint32_t numMeshlets = 0;
     sgl::vk::BufferPtr visibilityCullingUniformBuffer;

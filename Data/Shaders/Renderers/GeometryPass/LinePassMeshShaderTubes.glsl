@@ -1,10 +1,5 @@
 -- Mesh
 
-#version 450 core
-
-#extension GL_NV_mesh_shader : require
-//#extension GL_EXT_scalar_block_layout : require
-
 #define MESHLET_MAX_VERTICES 64
 #define MESHLET_MAX_PRIMITIVES (2 * MESHLET_MAX_VERTICES - 2 * NUM_TUBE_SUBDIVISIONS)
 
@@ -30,14 +25,6 @@ layout(location = 1) out vec3 screenSpacePosition[];
 layout(location = 2) out float fragmentAttribute[];
 layout(location = 3) out vec3 fragmentNormal[];
 layout(location = 4) out vec3 fragmentTangent[];
-
-/*
- * maxGeometryTotalOutputComponents is 1024 on NVIDIA hardware. When using stress line bands and ambient occlusion,
- * this value is exceeded for NUM_TUBE_SUBDIVISIONS = 8. Thus, we need to merge some attributes in this case.
- */
-#if NUM_TUBE_SUBDIVISIONS >= 8 && defined(USE_AMBIENT_OCCLUSION) && defined(USE_BANDS)
-#define COMPRESSED_GEOMETRY_OUTPUT_DATA
-#endif
 
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL)
 layout(location = 5) flat out uint fragmentPrincipalStressIndex[];
@@ -81,7 +68,7 @@ layout(location = 20) flat out uint fragmentMeshletIdx[];
 
 void main() {
     uint meshletIdx = gl_WorkGroupID.x;
-    uint threadIdx = gl_LocalInvocationID.x;
+    uint threadIdx = gl_LocalInvocationIndex;
 
     uvec2 meshletVec = meshlets[meshletIdx];
     MeshletData meshletData;
@@ -91,7 +78,11 @@ void main() {
     uint numVertices = meshletData.numLinePoints * NUM_TUBE_SUBDIVISIONS;
     uint numSegments = meshletData.numLinePoints - 1;
     uint numQuads = numSegments * NUM_TUBE_SUBDIVISIONS;
+#ifdef VK_NV_mesh_shader
     gl_PrimitiveCountNV = 2 * numQuads;
+#else
+    SetMeshOutputsEXT(numVertices, 2 * numQuads);
+#endif
 
     for (uint vertexIdx = threadIdx; vertexIdx < numVertices; vertexIdx += WORKGROUP_SIZE) {
         uint localLinePointIdx = vertexIdx / NUM_TUBE_SUBDIVISIONS;
@@ -226,7 +217,12 @@ void main() {
         fragmentAttribute[vertexIdx] = linePointData.lineAttribute;
         fragmentTangent[vertexIdx] = tangent;
 
+#ifdef VK_NV_mesh_shader
         gl_MeshVerticesNV[vertexIdx].gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
+#else
+        gl_MeshVerticesEXT[vertexIdx].gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
+#endif
+
         fragmentNormal[vertexIdx] = vertexNormal;
         fragmentPositionWorld[vertexIdx] = (mMatrix * vec4(vertexPosition, 1.0)).xyz;
 #ifdef USE_SCREEN_SPACE_POSITION
@@ -246,6 +242,7 @@ void main() {
         uint indexOffsetCurrent = (j) * NUM_TUBE_SUBDIVISIONS;
         uint indexOffsetNext = (j + 1) * NUM_TUBE_SUBDIVISIONS;
 
+#ifdef VK_NV_mesh_shader
         gl_PrimitiveIndicesNV[writeIdx] = indexOffsetCurrent + k;
         gl_PrimitiveIndicesNV[++writeIdx] = indexOffsetCurrent + kNext;
         gl_PrimitiveIndicesNV[++writeIdx] = indexOffsetNext + k;
@@ -253,5 +250,31 @@ void main() {
         gl_PrimitiveIndicesNV[++writeIdx] = indexOffsetNext + k;
         gl_PrimitiveIndicesNV[++writeIdx] = indexOffsetCurrent + kNext;
         gl_PrimitiveIndicesNV[++writeIdx] = indexOffsetNext + kNext;
+#else
+        gl_PrimitiveTriangleIndicesEXT[writeIdx] = uvec3(
+                indexOffsetCurrent + k, indexOffsetCurrent + kNext, indexOffsetNext + k);
+        gl_PrimitiveTriangleIndicesEXT[writeIdx + 1] = uvec3(
+                indexOffsetNext + k, indexOffsetCurrent + kNext, indexOffsetNext + kNext);
+#endif
     }
 }
+
+
+-- MeshNV
+
+#version 450 core
+
+#extension GL_NV_mesh_shader : require
+
+#define VK_NV_mesh_shader
+#import ".Mesh"
+
+
+-- MeshEXT
+
+#version 450 core
+
+#extension GL_EXT_mesh_shader : require
+
+#define VK_EXT_mesh_shader
+#import ".Mesh"

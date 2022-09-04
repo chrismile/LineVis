@@ -128,6 +128,7 @@ fi
 [ -d "./third_party/" ] || mkdir "./third_party/"
 pushd third_party > /dev/null
 
+os_arch="$(uname -m)"
 if [[ ! -v VULKAN_SDK ]]; then
     echo "------------------------"
     echo "searching for Vulkan SDK"
@@ -138,7 +139,7 @@ if [[ ! -v VULKAN_SDK ]]; then
     if [ -d "VulkanSDK" ]; then
         VK_LAYER_PATH=""
         source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
-        export PKG_CONFIG_PATH="$(realpath "VulkanSDK/$(ls VulkanSDK)/x86_64/lib/pkgconfig")"
+        export PKG_CONFIG_PATH="$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig")"
         found_vulkan=true
     fi
 
@@ -172,11 +173,11 @@ if [[ ! -v VULKAN_SDK ]]; then
         source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
 
         # Fix pkgconfig file.
-        shaderc_pkgconfig_file="VulkanSDK/$(ls VulkanSDK)/x86_64/lib/pkgconfig/shaderc.pc"
-        prefix_path=$(realpath "VulkanSDK/$(ls VulkanSDK)/x86_64")
+        shaderc_pkgconfig_file="VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig/shaderc.pc"
+        prefix_path=$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch")
         sed -i '3s;.*;prefix=\"'$prefix_path'\";' "$shaderc_pkgconfig_file"
         sed -i '5s;.*;libdir=${prefix}/lib;' "$shaderc_pkgconfig_file"
-        export PKG_CONFIG_PATH="$(realpath "VulkanSDK/$(ls VulkanSDK)/x86_64/lib/pkgconfig")"
+        export PKG_CONFIG_PATH="$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig")"
         found_vulkan=true
     fi
 
@@ -261,7 +262,7 @@ fi
 params=()
 
 embree_version="3.13.3"
-if ! $is_embree_installed; then
+if ! $is_embree_installed && [ $os_arch = "x86_64" ]; then
     if [ ! -d "./embree-${embree_version}.x86_64.linux" ]; then
         echo "------------------------"
         echo "   downloading Embree   "
@@ -273,7 +274,7 @@ if ! $is_embree_installed; then
 fi
 
 ospray_version="2.9.0"
-if ! $is_ospray_installed; then
+if ! $is_ospray_installed && [ $os_arch = "x86_64" ]; then
     if [ ! -d "./ospray-${ospray_version}.x86_64.linux" ]; then
         echo "------------------------"
         echo "   downloading OSPRay   "
@@ -341,7 +342,7 @@ rsync -a "$build_dir/LineVis" "$destination_dir/bin"
 
 # Copy all dependencies of the application to the destination directory.
 ldd_output="$(ldd $build_dir/LineVis)"
-if ! $is_ospray_installed; then
+if ! $is_ospray_installed && [ $os_arch = "x86_64" ]; then
     libembree3_so="$(readlink -f "${PROJECTPATH}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libembree3.so")"
     libospray_module_cpu_so="$(readlink -f "${PROJECTPATH}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libospray_module_cpu.so")"
     libopenvkl_so="$(readlink -f "${PROJECTPATH}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libopenvkl.so")"
@@ -452,7 +453,7 @@ if [[ -z "${LD_LIBRARY_PATH+x}" ]]; then
 elif [[ ! "${LD_LIBRARY_PATH}" == *"${PROJECTPATH}/third_party/sgl/install/lib"* ]]; then
     export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${PROJECTPATH}/third_party/sgl/install/lib"
 fi
-if ! $is_ospray_installed; then
+if ! $is_ospray_installed && [ $os_arch = "x86_64" ]; then
     export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${PROJECTPATH}/third_party/ospray-${ospray_version}.x86_64.linux/lib"
 fi
 export PYTHONHOME="../Shipping/bin/python3"

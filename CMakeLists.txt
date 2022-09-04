@@ -456,7 +456,8 @@ endif()
 
 # sgl provides Vulkan headers in its interface, which are provided if Vulkan was not found during its build.
 find_package(Vulkan QUIET)
-if (${Vulkan_FOUND} AND ${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.21.0")
+if (${Vulkan_FOUND} AND NOT "USE_SGL_VULKAN_HEADERS" IN_LIST SGL_INTERFACE_COMPILE_DEFINITIONS
+        AND ${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.21.0")
     target_link_libraries(LineVis PUBLIC Vulkan::Headers)
 endif()
 

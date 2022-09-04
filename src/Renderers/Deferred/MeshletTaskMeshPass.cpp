@@ -34,15 +34,27 @@
 #include "MeshletTaskMeskPass.hpp"
 
 MeshletTaskMeshPass::MeshletTaskMeshPass(LineRenderer* lineRenderer) : LineRasterPass(lineRenderer) {
-    const VkPhysicalDeviceMeshShaderPropertiesNV& meshShaderProperties =
+    const VkPhysicalDeviceMeshShaderPropertiesNV& meshShaderPropertiesNV =
             device->getPhysicalDeviceMeshShaderPropertiesNV();
-    WORKGROUP_SIZE = std::min(
-            meshShaderProperties.maxTaskWorkGroupSize[0], meshShaderProperties.maxMeshWorkGroupSize[0]);
+    WORKGROUP_SIZE_NV = std::min(
+            meshShaderPropertiesNV.maxTaskWorkGroupSize[0], meshShaderPropertiesNV.maxMeshWorkGroupSize[0]);
+#ifdef VK_EXT_mesh_shader
+    const VkPhysicalDeviceMeshShaderPropertiesEXT& meshShaderPropertiesEXT =
+            device->getPhysicalDeviceMeshShaderPropertiesEXT();
+    WORKGROUP_SIZE_EXT = meshShaderPropertiesEXT.maxPreferredTaskWorkGroupInvocations;
+#endif
 }
 
 void MeshletTaskMeshPass::setRecheckOccludedOnly(bool recheck) {
     if (recheckOccludedOnly != recheck) {
         recheckOccludedOnly = recheck;
+        setShaderDirty();
+    }
+}
+
+void MeshletTaskMeshPass::setUseMeshShaderNV(bool useNV) {
+    if (useMeshShaderNV != useNV) {
+        useMeshShaderNV = useNV;
         setShaderDirty();
     }
 }
@@ -83,13 +95,14 @@ void MeshletTaskMeshPass::loadShader() {
     lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);
     lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
 
+    uint32_t WORKGROUP_SIZE = useMeshShaderNV ? WORKGROUP_SIZE_NV : WORKGROUP_SIZE_EXT;
     preprocessorDefines.insert(std::make_pair(
             "WORKGROUP_SIZE", std::to_string(WORKGROUP_SIZE)));
     preprocessorDefines.insert(std::make_pair(
             "MESHLET_MAX_VERTICES", std::to_string(maxNumVerticesPerMeshlet)));
     preprocessorDefines.insert(std::make_pair(
             "MESHLET_MAX_PRIMITIVES", std::to_string(maxNumPrimitivesPerMeshlet)));
-    useMeshShaderWritePackedPrimitiveIndices = useMeshShaderWritePackedPrimitiveIndicesIfAvailable;
+    useMeshShaderWritePackedPrimitiveIndices = useMeshShaderWritePackedPrimitiveIndicesIfAvailable && useMeshShaderNV;
     if (useMeshShaderWritePackedPrimitiveIndicesIfAvailable) {
         /*
          * The number of indices needs to be divisible by four to be able to use writePackedPrimitiveIndices4x8NV.
@@ -108,9 +121,15 @@ void MeshletTaskMeshPass::loadShader() {
         preprocessorDefines.insert(std::make_pair("RECHECK_OCCLUDED_ONLY", ""));
     }
 
-    shaderStages = sgl::vk::ShaderManager->getShaderStages(
-            { "MeshletTaskMeshPass.Task", "MeshletTaskMeshPass.Mesh", "MeshletTaskMeshPass.Fragment" },
-            preprocessorDefines);
+    if (useMeshShaderNV) {
+        shaderStages = sgl::vk::ShaderManager->getShaderStages(
+                { "MeshletTaskMeshPass.TaskNV", "MeshletTaskMeshPass.MeshNV", "MeshletTaskMeshPass.Fragment" },
+                preprocessorDefines);
+    } else {
+        shaderStages = sgl::vk::ShaderManager->getShaderStages(
+                { "MeshletTaskMeshPass.TaskEXT", "MeshletTaskMeshPass.MeshEXT", "MeshletTaskMeshPass.Fragment" },
+                preprocessorDefines);
+    }
 }
 
 void MeshletTaskMeshPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
@@ -153,7 +172,12 @@ void MeshletTaskMeshPass::createRasterData(
     rasterData->setStaticBuffer(payload->getDedupTriangleIndicesBuffer(), "DedupTriangleIndicesBuffer");
     rasterData->setStaticBuffer(visibilityCullingUniformBuffer, "VisibilityCullingUniformBuffer");
     rasterData->setStaticTexture(depthBufferTexture, "depthBuffer");
-    rasterData->setMeshTasks(sgl::uiceil(numMeshlets, WORKGROUP_SIZE), 0);
+    if (useMeshShaderNV) {
+        rasterData->setMeshTasksNV(sgl::uiceil(numMeshlets, WORKGROUP_SIZE_NV), 0);
+    } else {
+        rasterData->setMeshTasksGroupCountEXT(
+                sgl::uiceil(numMeshlets, WORKGROUP_SIZE_EXT), 1, 1);
+    }
 }
 
 void MeshletTaskMeshPass::_render() {

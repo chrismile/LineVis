@@ -54,12 +54,18 @@ const char *const LINE_PRIMITIVE_MODE_DISPLAYNAMES[] = {
         "Tube (Programmable Pull)",
         "Tube (Geometry Shader)",
         "Tube (Triangle Mesh)",
+#ifdef VK_EXT_mesh_shader
         "Tube (Mesh Shader)",
+#endif
+        "Tube (Mesh Shader NV)",
         "Ribbon Quads (Geometry Shader)",
         "Tube Ribbons (Programmable Pull)",
         "Tube Ribbons (Geometry Shader)",
         "Tube Ribbons (Triangle Mesh)",
+#ifdef VK_EXT_mesh_shader
         "Tube Ribbons (Mesh Shader)",
+#endif
+        "Tube Ribbons (Mesh Shader NV)",
 };
 
 LineData::LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType)
@@ -147,8 +153,7 @@ bool LineData::setNewSettings(const SettingsMap& settings) {
                 reloadGatherShader = true;
             }
         }
-        if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
-                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
+        if (getLinePrimitiveModeUsesMeshShader(linePrimitiveMode)) {
             dirty = true;
         }
         setTriangleRepresentationDirty();
@@ -205,13 +210,23 @@ bool LineData::updateLinePrimitiveMode(LineRenderer* lineRenderer) {
                 "The selected line primitives mode uses geometry shaders, but geometry shaders are not "
                 "supported by the used GPU.";
     }
+#ifdef VK_EXT_mesh_shader
     if ((linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
-             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER)
-        && !device->getPhysicalDeviceMeshShaderFeaturesNV().meshShader) {
+                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER)
+            && !device->getPhysicalDeviceMeshShaderFeatures().meshShader) {
         unsupportedLineRenderingMode = true;
         warningText =
-                "The selected line primitives mode uses mesh shaders, but mesh shaders are not "
-                "supported by the used GPU.";
+                "The selected line primitives mode uses mesh shaders via the VK_EXT_mesh_shader extension, "
+                "but the extension is not supported by the used GPU.";
+    }
+#endif
+    if ((linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER_NV
+                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER_NV)
+            && !device->getPhysicalDeviceMeshShaderFeaturesNV().meshShader) {
+        unsupportedLineRenderingMode = true;
+        warningText =
+                "The selected line primitives mode uses mesh shaders via the VK_NV_mesh_shader extension, "
+                "but the extension is not supported by the used GPU.";
     }
     if (unsupportedLineRenderingMode) {
         sgl::Logfile::get()->writeWarning(
@@ -253,17 +268,15 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
                 && (linePrimitiveMode == LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL
                     || linePrimitiveMode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
                     || linePrimitiveMode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
-                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
                     || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL
                     || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
                     || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH
-                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER))) {
+                    || getLinePrimitiveModeUsesMeshShader(linePrimitiveMode)))) {
         if (propertyEditor.addSliderInt("Tube Subdivisions", &tubeNumSubdivisions, 3, 8)) {
             if (lineRenderer->getIsRasterizer()) {
                 shallReloadGatherShader = true;
             }
-            if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
-                    || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
+            if (getLinePrimitiveModeUsesMeshShader(linePrimitiveMode)) {
                 dirty = true;
             }
             setTriangleRepresentationDirty();
@@ -503,10 +516,20 @@ std::vector<std::string> LineData::getShaderModuleNames() {
                 "LinePassTriangleTubes.Vertex",
                 "LinePassGeometryShaderTubes.Fragment"
         };
-    } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
+    }
+#ifdef VK_EXT_mesh_shader
+    else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
         return {
-                "LinePassMeshShaderTubes.Mesh",
+                "LinePassMeshShaderTubes.MeshEXT",
+                "LinePassGeometryShaderTubes.Fragment"
+        };
+    }
+#endif
+    else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER_NV
+               || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER_NV) {
+        return {
+                "LinePassMeshShaderTubes.MeshNV",
                 "LinePassGeometryShaderTubes.Fragment"
         };
     } else {
@@ -557,15 +580,23 @@ void LineData::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
             rasterData->setStaticBuffer(
                     tubeRenderData.multiVarAttributeDataBuffer, "AttributeDataArrayBuffer");
         }
-    } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
-               || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
+    } else if (getLinePrimitiveModeUsesMeshShader(linePrimitiveMode)) {
         LinePassTubeRenderDataMeshShader tubeRenderData = this->getLinePassTubeRenderDataMeshShader();
         if (!tubeRenderData.meshletDataBuffer) {
             return;
         }
         rasterData->setStaticBuffer(tubeRenderData.meshletDataBuffer, "MeshletDataBuffer");
         rasterData->setStaticBuffer(tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");
-        rasterData->setMeshTasks(tubeRenderData.numMeshlets, 0);
+#ifdef VK_EXT_mesh_shader
+        if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
+                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
+            rasterData->setMeshTasksGroupCountEXT(tubeRenderData.numMeshlets, 1, 1);
+        } else {
+#endif
+            rasterData->setMeshTasksNV(tubeRenderData.numMeshlets, 0);
+#ifdef VK_EXT_mesh_shader
+        }
+#endif
         if (tubeRenderData.multiVarAttributeDataBuffer) {
             rasterData->setStaticBuffer(
                     tubeRenderData.multiVarAttributeDataBuffer, "AttributeDataArrayBuffer");
@@ -1031,10 +1062,9 @@ void LineData::getVulkanShaderPreprocessorDefines(
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL
-            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
-            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
-            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH) {
+            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH
+            || getLinePrimitiveModeUsesMeshShader(linePrimitiveMode)) {
         preprocessorDefines.insert(std::make_pair(
                 "NUM_TUBE_SUBDIVISIONS", std::to_string(tubeNumSubdivisions)));
     }
@@ -1043,8 +1073,7 @@ void LineData::getVulkanShaderPreprocessorDefines(
             || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER) {
         preprocessorDefines.insert(std::make_pair("USE_GEOMETRY_SHADER", ""));
     }
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
-            || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
+    if (getLinePrimitiveModeUsesMeshShader(linePrimitiveMode)) {
         sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
         uint32_t workgroupSize = device->getPhysicalDeviceMeshShaderPropertiesNV().maxMeshWorkGroupSize[0];
         preprocessorDefines.insert(std::make_pair("WORKGROUP_SIZE", std::to_string(workgroupSize)));

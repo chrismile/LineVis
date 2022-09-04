@@ -58,7 +58,8 @@ jobs:
     - name: Install Vulkan SDK
       shell: bash
       run: |
-        distro_code_name=$(lsb_release -c | grep -oP "\:\s+\K\S+")
+        distro_code_name="$(lsb_release -c | grep -oP "\:\s+\K\S+")"
+        os_arch="$(uname -m)"
         if ! curl -s -I "https://packages.lunarg.com/vulkan/lunarg-vulkan-${distro_code_name}.list" | grep "2 404" > /dev/null; then
           wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
           sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-${distro_code_name}.list \
@@ -70,11 +71,11 @@ jobs:
           mkdir -p VulkanSDK
           tar -xzf vulkan-sdk.tar.gz -C VulkanSDK
           # Fix pkgconfig file.
-          shaderc_pkgconfig_file="VulkanSDK/$(ls VulkanSDK)/x86_64/lib/pkgconfig/shaderc.pc"
-          prefix_path=$(realpath "VulkanSDK/$(ls VulkanSDK)/x86_64")
+          shaderc_pkgconfig_file="VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig/shaderc.pc"
+          prefix_path=$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch")
           sed -i '3s;.*;prefix=\"'$prefix_path'\";' "$shaderc_pkgconfig_file"
           sed -i '5s;.*;libdir=${prefix}/lib;' "$shaderc_pkgconfig_file"
-          echo "PKG_CONFIG_PATH=\"$(realpath "VulkanSDK/$(ls VulkanSDK)/x86_64/lib/pkgconfig")\"" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=\"$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig")\"" >> $GITHUB_ENV
         fi
 
     - name: Download Embree

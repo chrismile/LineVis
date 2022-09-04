@@ -26,6 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <unordered_map>
+
 #ifdef USE_PYTHON
 #if defined(PYTHONHOME_PATH) || defined(__APPLE__)
 #include <cstdlib>
@@ -41,7 +43,6 @@
 #include "Renderers/Ospray/OsprayRenderer.hpp"
 #endif
 
-
 #include <Utils/File/FileUtils.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Utils/AppSettings.hpp>
@@ -49,6 +50,7 @@
 #include <Graphics/Window.hpp>
 #include <Graphics/Vulkan/Utils/Device.hpp>
 #include <Graphics/Vulkan/Utils/Swapchain.hpp>
+#include <Graphics/Vulkan/Shader/ShaderManager.hpp>
 
 #include "MainApp.hpp"
 
@@ -56,12 +58,36 @@ int main(int argc, char *argv[]) {
     // Initialize the filesystem utilities.
     sgl::FileUtils::get()->initialize("LineVis", argc, argv);
 
+    // Parse the arguments.
+    bool usePerfMode = false;
+    bool useCustomShaderCompilerBackend = false;
+    sgl::vk::ShaderCompilerBackend shaderCompilerBackend = sgl::vk::ShaderCompilerBackend::SHADERC;
+    for (int i = 1; i < argc; i++) {
+        std::string command = argv[i];
+        if (command == "--perf") {
+            usePerfMode = true;
+        } else if (command == "--shader-backend") {
+            i++;
+            if (i >= argc) {
+                sgl::Logfile::get()->throwError(
+                        "Error: Command line argument '--shader-backend' expects a backend name.");
+            }
+            useCustomShaderCompilerBackend = true;
+            std::string backendName = argv[i];
+            if (backendName == "shaderc") {
+                shaderCompilerBackend = sgl::vk::ShaderCompilerBackend::SHADERC;
+            } else if (backendName == "glslang") {
+                shaderCompilerBackend = sgl::vk::ShaderCompilerBackend::GLSLANG;
+            }
+        }
+    }
+
     // Load the file containing the app settings
     std::string settingsFile = sgl::FileUtils::get()->getConfigDirectory() + "settings.txt";
     sgl::AppSettings::get()->loadSettings(settingsFile.c_str());
     sgl::AppSettings::get()->getSettings().addKeyValue("window-multisamples", 0);
     sgl::AppSettings::get()->getSettings().addKeyValue("window-debugContext", true);
-    if (argc > 1 && strcmp(sgl::FileUtils::get()->get_argv()[1], "--perf") == 0) {
+    if (usePerfMode) {
         sgl::AppSettings::get()->getSettings().addKeyValue("window-vSync", false);
     } else {
         sgl::AppSettings::get()->getSettings().addKeyValue("window-vSync", true);
@@ -105,11 +131,14 @@ int main(int argc, char *argv[]) {
             raytracingDeviceExtensions.begin(), raytracingDeviceExtensions.end());
     optionalDeviceExtensions.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
     optionalDeviceExtensions.push_back(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME);
-    optionalDeviceExtensions.push_back(VK_NV_MESH_SHADER_EXTENSION_NAME);
     optionalDeviceExtensions.push_back(VK_NV_FRAGMENT_SHADER_BARYCENTRIC_EXTENSION_NAME);
     optionalDeviceExtensions.push_back(VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
     optionalDeviceExtensions.push_back(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME);
     optionalDeviceExtensions.push_back(VK_KHR_8BIT_STORAGE_EXTENSION_NAME);
+    optionalDeviceExtensions.push_back(VK_NV_MESH_SHADER_EXTENSION_NAME);
+#ifdef VK_EXT_mesh_shader
+    optionalDeviceExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+#endif
 
     sgl::vk::Instance* instance = sgl::AppSettings::get()->getVulkanInstance();
     sgl::vk::Device* device = new sgl::vk::Device;
@@ -133,6 +162,9 @@ int main(int argc, char *argv[]) {
     sgl::AppSettings::get()->setPrimaryDevice(device);
     sgl::AppSettings::get()->setSwapchain(swapchain);
     sgl::AppSettings::get()->initializeSubsystems();
+    if (useCustomShaderCompilerBackend) {
+        sgl::vk::ShaderManager->setShaderCompilerBackend(shaderCompilerBackend);
+    }
 
 #ifdef USE_PYTHON
 #ifdef PYTHONHOME

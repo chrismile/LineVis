@@ -165,13 +165,20 @@ protected:
     std::vector<sgl::vk::TexturePtr> depthMipLevelTexturesPingPong[2];
     std::vector<sgl::vk::BlitRenderPassPtr> depthMipBlitRenderPassesPingPong[2];
 
+    void updateTaskMeshShaderMode();
+    bool supportsTaskMeshShadersNV = false;
+    bool supportsTaskMeshShadersEXT = false;
     bool supportsTaskMeshShaders = false;
     bool supportsDrawIndirect = false;
     bool supportsDrawIndirectCount = false;
     uint32_t drawIndirectMaxNumPrimitivesPerMeshlet = 128;
     uint32_t taskMeshShaderMaxNumPrimitivesPerMeshlet = 126;
     uint32_t taskMeshShaderMaxNumVerticesPerMeshlet = 64;
-    uint32_t taskMeshShaderMaxNumPrimitivesSupported = 512;
+    uint32_t taskMeshShaderMaxNumPrimitivesSupportedNV = 512;
+    uint32_t taskMeshShaderMaxNumVerticesSupportedNV = 256;
+    uint32_t taskMeshShaderMaxNumPrimitivesSupportedEXT = 256;
+    uint32_t taskMeshShaderMaxNumVerticesSupportedEXT = 256;
+    uint32_t taskMeshShaderMaxNumPrimitivesSupported = 256;
     uint32_t taskMeshShaderMaxNumVerticesSupported = 256;
 
     // Visible meshlets in pass 1/2.
@@ -195,7 +202,8 @@ protected:
     BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode::PRIMITIVE_CENTROID;
 
     // Task/mesh shader sub-modes.
-    bool useMeshShaderWritePackedPrimitiveIndicesIfAvailable = true;
+    bool useMeshShaderNV = false; ///< Whether to use VK_EXT_mesh_shader oder VK_NV_mesh_shader.
+    bool useMeshShaderWritePackedPrimitiveIndicesIfAvailable = true; ///< Sub-mode for VK_NV_mesh_shader.
 
     // Supersampling modes.
     const char* supersamplingModeNames[2] = {

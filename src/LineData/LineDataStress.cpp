@@ -1235,8 +1235,7 @@ void LineDataStress::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
                     tubeRenderData.stressLinePointPrincipalStressDataBuffer,
                     "StressLinePointPrincipalStressDataBuffer");
         }
-    } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_MESH_SHADER
-               || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
+    } else if (getLinePrimitiveModeUsesMeshShader(linePrimitiveMode)) {
         LinePassTubeRenderDataMeshShader tubeRenderData = this->getLinePassTubeRenderDataMeshShader();
         if (!tubeRenderData.meshletDataBuffer) {
             return;
@@ -1249,12 +1248,12 @@ void LineDataStress::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
                     "StressLinePointDataBuffer");
         }
         if (tubeRenderData.stressLinePointPrincipalStressDataBuffer
-                && linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER) {
+                && (getLinePrimitiveModeUsesMeshShader(linePrimitiveMode) && getUseBandRendering())) {
             rasterData->setStaticBuffer(
                     tubeRenderData.stressLinePointPrincipalStressDataBuffer,
                     "StressLinePointPrincipalStressDataBuffer");
         }
-        rasterData->setMeshTasks(tubeRenderData.numMeshlets, 0);
+        rasterData->setMeshTasksNV(tubeRenderData.numMeshlets, 0);
     } else if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
                || linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH) {
         TubeTriangleRenderData tubeRenderData = this->getLinePassTubeTriangleMeshRenderData(
@@ -2118,7 +2117,7 @@ LinePassTubeRenderDataMeshShader LineDataStress::getLinePassTubeRenderDataMeshSh
             VMA_MEMORY_USAGE_GPU_ONLY);
 
 #ifdef USE_EIGEN
-    if (linePrimitiveMode == LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER
+    if ((getLinePrimitiveModeUsesMeshShader(linePrimitiveMode) && getUseBandRendering())
             && bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
         renderData.stressLinePointPrincipalStressDataBuffer = std::make_shared<sgl::vk::Buffer>(
                 device, stressLinePointsPrincipalStress.size() * sizeof(StressLinePointPrincipalStressDataUnified),

@@ -180,10 +180,18 @@ void getTestModesRasterization(std::vector<InternalState>& states, InternalState
     states.push_back(state);
 
     if (device->getPhysicalDeviceMeshShaderFeaturesNV().meshShader) {
-        state.name = "Mesh Shader";
+        state.name = "Mesh Shader (NV)";
+        setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER_NV);
+        states.push_back(state);
+    }
+
+#ifdef VK_EXT_mesh_shader
+    if (device->getPhysicalDeviceMeshShaderFeaturesEXT().meshShader) {
+        state.name = "Mesh Shader (EXT)";
         setLinePrimitiveMode(state, LineData::LINE_PRIMITIVES_TUBE_RIBBONS_MESH_SHADER);
         states.push_back(state);
     }
+#endif
 
     // An out of memory error is triggered on Intel iGPUs for large data sets when trying to store the triangle mesh.
     bool isIntelIntegratedGpu =
