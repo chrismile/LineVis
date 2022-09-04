@@ -815,7 +815,7 @@ void DeferredRenderer::render() {
             if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
                 pipelineStageFlags = VK_PIPELINE_STAGE_TASK_SHADER_BIT_NV;
 #ifdef VK_EXT_mesh_shader
-                if (useMeshShaderEXT) {
+                if (!useMeshShaderNV) {
                     pipelineStageFlags = VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT;
                 }
 #endif
