@@ -153,7 +153,7 @@ if [[ ! -v VULKAN_SDK ]]; then
             https://packages.lunarg.com/vulkan/lunarg-vulkan-${distro_code_name}.list \
             --output /etc/apt/sources.list.d/lunarg-vulkan-${distro_code_name}.list
             sudo apt update
-            sudo apt install -y vulkan-sdk shaderc
+            sudo apt install -y vulkan-sdk shaderc glslang-dev
         fi
     fi
 
