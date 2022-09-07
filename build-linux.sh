@@ -51,6 +51,15 @@ else
     is_ospray_installed=false
 fi
 
+# Process command line arguments.
+custom_glslang=false
+for ((i=1;i<=$#;i++));
+do
+    if [ ${!i} = "--custom-glslang" ]; then
+        custom_glslang=true
+    fi
+done
+
 is_installed_apt() {
     local pkg_name="$1"
     if [ "$(dpkg -l | awk '/'"$pkg_name"'/ {print }'|wc -l)" -ge 1 ]; then
@@ -216,6 +225,31 @@ if [[ ! -v VULKAN_SDK ]]; then
     fi
 fi
 
+params_sgl=()
+
+if $custom_glslang; then
+    if [ ! -d "./glslang" ]; then
+        echo "------------------------"
+        echo "  downloading glslang   "
+        echo "------------------------"
+        # Make sure we have no leftovers from a failed build attempt.
+        if [ -d "./glslang-src" ]; then
+            rm -rf "./glslang-src"
+        fi
+        git clone https://github.com/KhronosGroup/glslang.git glslang-src
+        pushd glslang-src >/dev/null
+        ./update_glslang_sources.py
+        mkdir build
+        pushd build >/dev/null
+        cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="${PROJECTPATH}/third_party/glslang" ..
+        make -j $(nproc)
+        make install
+        popd >/dev/null
+        popd >/dev/null
+    fi
+    params_sgl+=(-Dglslang_DIR="${PROJECTPATH}/third_party/glslang" -DUSE_SHADERC=Off)
+fi
+
 if [ ! -d "./sgl" ]; then
     echo "------------------------"
     echo "     fetching sgl       "
@@ -250,7 +284,8 @@ if [ ! -d "./sgl/install" ]; then
     pushd "$build_dir_debug" >/dev/null
     cmake .. \
          -DCMAKE_BUILD_TYPE=Debug \
-         -DCMAKE_INSTALL_PREFIX="../install"
+         -DCMAKE_INSTALL_PREFIX="../install" \
+         "${params_sgl[@]}"
     make -j $(nproc)
     make install
     popd >/dev/null
@@ -258,7 +293,8 @@ if [ ! -d "./sgl/install" ]; then
     pushd $build_dir_release >/dev/null
     cmake .. \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="../install"
+        -DCMAKE_INSTALL_PREFIX="../install" \
+        "${params_sgl[@]}"
     make -j $(nproc)
     make install
     popd >/dev/null
