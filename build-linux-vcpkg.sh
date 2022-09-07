@@ -225,7 +225,7 @@ if $custom_glslang; then
         pushd glslang-src >/dev/null
         ./update_glslang_sources.py
         mkdir build
-        pushd glslang-src >/dev/null
+        pushd build >/dev/null
         cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="${PROJECTPATH}/third_party/glslang" ..
         make -j $(nproc)
         make install
