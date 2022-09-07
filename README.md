@@ -192,7 +192,7 @@ principal stress line (PSL) data sets using a file explorer via "File > Open Dat
 
 Below, a list of rendering modes supported in LineVis can be found.
 
-- Opaque line rendering with up to 32x MSAA (multisample anti-aliasing).
+- Opaque line rendering with up to 8x MSAA (multisample anti-aliasing).
 
 - Opaque and transparent line rendering using a ray tracer based on the
   [Vulkan Ray Tracing](https://www.khronos.org/blog/ray-tracing-in-vulkan) extension.
