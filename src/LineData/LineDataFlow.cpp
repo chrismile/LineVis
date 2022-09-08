@@ -300,8 +300,6 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                     reRender = true;
                 }
             }
-
-            propertyEditor.endNode();
         }
 
         if (propertyEditor.addCheckbox("Multi-Var Rendering", &useMultiVarRendering)) {
@@ -361,6 +359,8 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                 "Separator Width", &separatorWidth, 0.0f, 1.0f)) {
             reRender = true;
         }
+
+        propertyEditor.endNode();
     }
 
     return shallReloadGatherShader;
