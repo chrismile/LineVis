@@ -78,6 +78,33 @@ is_installed_pacman() {
     fi
 }
 
+is_installed_yay() {
+    local pkg_name="$1"
+    if yay -Ss $pkg_name > /dev/null | grep -q 'instal'; then
+        return 1
+    else
+        return 0
+    fi
+}
+
+is_installed_yum() {
+    local pkg_name="$1"
+    if yum list installed "$pkg_name" > /dev/null 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+is_installed_rpm() {
+    local pkg_name="$1"
+    if rpm -q "$pkg_name" > /dev/null 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 if command -v apt &> /dev/null; then
     if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
             || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null \
@@ -115,12 +142,12 @@ elif command -v pacman &> /dev/null; then
     fi
 
     # Dependencies of sgl and LineVis.
-    if ! is_installed_pacman "boost" || ! is_installed_pacman "libarchive" || ! is_installed_pacman "glm" \
-            || ! is_installed_pacman "tinyxml2" || ! is_installed_pacman "sdl2" \
-            || ! is_installed_pacman "sdl2_image" || ! is_installed_pacman "glew" \
-            || ! is_installed_pacman "vulkan-devel" || ! is_installed_pacman "shaderc" \
-            || ! is_installed_pacman "python3" || ! is_installed_pacman "eigen" \
-            || ! is_installed_pacman "jsoncpp" || ! is_installed_pacman "libarchive" \
+    if ! is_installed_pacman "boost" || ! is_installed_pacman "libarchive" \
+            || ! is_installed_pacman "glm" || ! is_installed_pacman "tinyxml2" \
+            || ! is_installed_pacman "sdl2" || ! is_installed_pacman "sdl2_image" \
+            || ! is_installed_pacman "glew" || ! is_installed_pacman "vulkan-devel" \
+            || ! is_installed_pacman "shaderc" || ! is_installed_pacman "python3" \
+            || ! is_installed_pacman "eigen" || ! is_installed_pacman "jsoncpp" \
             || ! is_installed_pacman "zeromq" || ! is_installed_pacman "netcdf" \
             || ! is_installed_pacman "ospray" || ! is_installed_pacman "openexr"; then
         echo "------------------------"
@@ -130,12 +157,39 @@ elif command -v pacman &> /dev/null; then
         python3 eigen jsoncpp zeromq netcdf ospray openexr
     fi
     if command -v yay &> /dev/null && ! is_installed_yay "eccodes"; then
-        yay -Ss eccodes
+        yay -S eccodes
+    fi
+elif command -v yum &> /dev/null; then
+    if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
+            || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null \
+            || ! command -v patchelf &> /dev/null; then
+        echo "------------------------"
+        echo "installing build essentials"
+        echo "------------------------"
+        sudo yum install -y cmake git curl pkgconf gcc gcc-c++ patchelf
+    fi
+
+    # Dependencies of sgl and LineVis.
+    if ! is_installed_rpm "boost-devel" || ! is_installed_rpm "libarchive-devel" \
+            || ! is_installed_rpm "glm-devel" || ! is_installed_rpm "tinyxml2-devel" \
+            || ! is_installed_rpm "SDL2-devel" || ! is_installed_rpm "SDL2_image-devel" \
+            || ! is_installed_rpm "libpng-devel" || ! is_installed_rpm "glew-devel" \
+            || ! is_installed_rpm "vulkan-headers" || ! is_installed_rpm "libshaderc-devel" \
+            || ! is_installed_rpm "python3-devel" || ! is_installed_rpm "python3-numpy" \
+            || ! is_installed_rpm "eigen3-devel" || ! is_installed_rpm "jsoncpp-devel" \
+            || ! is_installed_rpm "zeromq-devel" || ! is_installed_rpm "cppzmq-devel" \
+            || ! is_installed_rpm "netcdf-devel" || ! is_installed_rpm "openexr-devel" \
+            || ! is_installed_rpm "eccodes-devel"; then
+        echo "------------------------"
+        echo "installing dependencies "
+        echo "------------------------"
+        sudo yum install -y boost-devel libarchive-devel glm-devel tinyxml2-devel SDL2-devel SDL2_image-devel \
+        libpng-devel glew-devel vulkan-headers libshaderc-devel python3-devel python3-numpy eigen3-devel \
+        jsoncpp-devel zeromq-devel cppzmq-devel netcdf-devel openexr-devel eccodes-devel
     fi
 else
     echo "Warning: Unsupported system package manager detected." >&2
 fi
-
 
 if ! command -v cmake &> /dev/null; then
     echo "CMake was not found, but is required to build the program."

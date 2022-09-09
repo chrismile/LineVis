@@ -83,6 +83,24 @@ is_installed_pacman() {
     fi
 }
 
+is_installed_yum() {
+    local pkg_name="$1"
+    if yum list installed "$pkg_name" > /dev/null 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+is_installed_rpm() {
+    local pkg_name="$1"
+    if rpm -q "$pkg_name" > /dev/null 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 if command -v apt &> /dev/null; then
     if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
             || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null \
@@ -104,6 +122,15 @@ elif command -v pacman &> /dev/null; then
     # Dependencies of vcpkg GLEW port.
     if ! is_installed_pacman "libgl" || ! is_installed_pacman "vulkan-devel" || ! is_installed_pacman "shaderc"; then
         sudo pacman -S libgl vulkan-devel shaderc
+    fi
+elif command -v yum &> /dev/null; then
+    if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
+            || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null \
+            || ! command -v patchelf &> /dev/null; then
+        echo "------------------------"
+        echo "installing build essentials"
+        echo "------------------------"
+        sudo yum install -y cmake git curl pkgconf gcc gcc-c++ patchelf
     fi
 else
     echo "Warning: Unsupported system package manager detected." >&2
