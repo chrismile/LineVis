@@ -235,7 +235,6 @@ void main() {
     }
 
     for (uint quadIdx = threadIdx; quadIdx < numQuads; quadIdx += WORKGROUP_SIZE) {
-        uint writeIdx = 6 * quadIdx;
         uint j = quadIdx / NUM_TUBE_SUBDIVISIONS;
         uint k = quadIdx % NUM_TUBE_SUBDIVISIONS;
         uint kNext = (k + 1) % NUM_TUBE_SUBDIVISIONS;
@@ -243,6 +242,7 @@ void main() {
         uint indexOffsetNext = (j + 1) * NUM_TUBE_SUBDIVISIONS;
 
 #ifdef VK_NV_mesh_shader
+        uint writeIdx = 6 * quadIdx;
         gl_PrimitiveIndicesNV[writeIdx] = indexOffsetCurrent + k;
         gl_PrimitiveIndicesNV[++writeIdx] = indexOffsetCurrent + kNext;
         gl_PrimitiveIndicesNV[++writeIdx] = indexOffsetNext + k;
@@ -251,6 +251,7 @@ void main() {
         gl_PrimitiveIndicesNV[++writeIdx] = indexOffsetCurrent + kNext;
         gl_PrimitiveIndicesNV[++writeIdx] = indexOffsetNext + kNext;
 #else
+        uint writeIdx = 2 * quadIdx;
         gl_PrimitiveTriangleIndicesEXT[writeIdx] = uvec3(
                 indexOffsetCurrent + k, indexOffsetCurrent + kNext, indexOffsetNext + k);
         gl_PrimitiveTriangleIndicesEXT[writeIdx + 1] = uvec3(

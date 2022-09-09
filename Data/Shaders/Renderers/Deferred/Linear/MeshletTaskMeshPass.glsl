@@ -29,6 +29,7 @@
 -- Task
 
 #extension GL_EXT_shader_8bit_storage : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
 #extension GL_KHR_shader_subgroup_ballot : require
 
 layout(local_size_x = WORKGROUP_SIZE) in;
@@ -117,6 +118,7 @@ void main() {
 
 #extension GL_EXT_scalar_block_layout : require
 #extension GL_EXT_shader_8bit_storage : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int8 : require
 
 layout(local_size_x = WORKGROUP_SIZE) in;
 layout(triangles, max_vertices = MESHLET_MAX_VERTICES, max_primitives = MESHLET_MAX_PRIMITIVES) out;
@@ -174,6 +176,14 @@ void main() {
     SetMeshOutputsEXT(meshletData.vertexCount, meshletData.primitiveCount);
 #endif
 
+    /*for (uint i = 0; i < 0xFFFFFFFFu; i++) {
+#ifdef VK_NV_mesh_shader
+        gl_PrimitiveIndicesNV[0] = 0u;
+#else
+        gl_PrimitiveTriangleIndicesEXT[0] = uvec3(0u, 0u, 0u);
+#endif
+    }*/
+
     for (uint vertexIdx = threadIdx; vertexIdx < meshletData.vertexCount; vertexIdx += WORKGROUP_SIZE) {
         vec3 vertexPosition = dedupVertices[meshletData.vertexStart + vertexIdx];
 #ifdef VK_NV_mesh_shader
@@ -202,10 +212,10 @@ void main() {
     }
 #else
     for (uint triangleIdx = threadIdx; triangleIdx < meshletData.primitiveCount; triangleIdx += WORKGROUP_SIZE) {
-        uint writeIdx = triangleIdx * 3u;
-        uint readIdx = writeIdx + meshletData.primitiveStart * 3u;
+        uint readIdx = (triangleIdx + meshletData.primitiveStart) * 3u;
 
 #ifdef VK_NV_mesh_shader
+        uint writeIdx = triangleIdx * 3u;
         gl_PrimitiveIndicesNV[writeIdx] = uint(dedupTriangleIndices[readIdx]);
         gl_PrimitiveIndicesNV[writeIdx + 1u] = uint(dedupTriangleIndices[readIdx + 1u]);
         gl_PrimitiveIndicesNV[writeIdx + 2u] = uint(dedupTriangleIndices[readIdx + 2u]);
@@ -214,7 +224,7 @@ void main() {
         // https://github.com/KhronosGroup/GLSL/blob/master/extensions/nv/GLSL_NV_mesh_shader.txt
         gl_MeshPrimitivesNV[triangleIdx].gl_PrimitiveID = int(meshletData.meshletFirstPrimitiveIdx + triangleIdx);
 #else
-        gl_PrimitiveTriangleIndicesEXT[writeIdx] = uvec3(
+        gl_PrimitiveTriangleIndicesEXT[triangleIdx] = uvec3(
                 uint(dedupTriangleIndices[readIdx]),
                 uint(dedupTriangleIndices[readIdx + 1u]),
                 uint(dedupTriangleIndices[readIdx + 2u]));
