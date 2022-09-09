@@ -132,6 +132,13 @@ elif command -v yum &> /dev/null; then
         echo "------------------------"
         sudo yum install -y cmake git curl pkgconf gcc gcc-c++ patchelf
     fi
+
+    # Dependencies of vcpkg openssl, GLEW and SDL2 ports.
+    if ! is_installed_rpm "perl" || ! is_installed_rpm "libstdc++-devel" || ! is_installed_rpm "libstdc++-static" \
+            || ! is_installed_rpm "glew-devel" || ! is_installed_rpm "libXext-devel" \
+            || ! is_installed_rpm "vulkan-devel" || ! is_installed_rpm "libshaderc-devel"; then
+        sudo yum install -y perl libstdc++-devel libstdc++-static glew-devel vulkan-headers libshaderc-devel libXext-devel
+    fi
 else
     echo "Warning: Unsupported system package manager detected." >&2
 fi
