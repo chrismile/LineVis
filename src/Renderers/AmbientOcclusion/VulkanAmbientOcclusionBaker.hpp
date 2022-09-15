@@ -63,7 +63,7 @@ public:
     explicit VulkanAmbientOcclusionBaker(sgl::vk::Renderer* renderer);
     ~VulkanAmbientOcclusionBaker() override;
 
-    AmbientOcclusionBakerType getType() override { return AmbientOcclusionBakerType::VULKAN_RTAO_PREBAKER; }
+    AmbientOcclusionBakerType getType() override { return AmbientOcclusionBakerType::RTAO_PREBAKER; }
     bool getIsStaticPrebaker() override { return true; }
     void startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData) override;
     void updateIterative(VkPipelineStageFlags pipelineStageFlags) override;
@@ -73,13 +73,13 @@ public:
     bool getHasComputationFinished() override;
     bool getHasThreadUpdate() override { return hasThreadUpdate; }
 
-    sgl::vk::BufferPtr getAmbientOcclusionBufferVulkan() override;
-    sgl::vk::BufferPtr getBlendingWeightsBufferVulkan() override;
+    sgl::vk::BufferPtr getAmbientOcclusionBuffer() override;
+    sgl::vk::BufferPtr getBlendingWeightsBuffer() override;
     uint32_t getNumTubeSubdivisions() override;
     uint32_t getNumLineVertices() override;
     uint32_t getNumParametrizationVertices() override;
 
-    sgl::vk::TexturePtr getAmbientOcclusionFrameTextureVulkan() override { return {}; }
+    sgl::vk::TexturePtr getAmbientOcclusionFrameTexture() override { return {}; }
 
     /// Returns whether the baking process was re-run.
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;

@@ -374,11 +374,11 @@ bool VulkanAmbientOcclusionBaker::getHasComputationFinished() {
     return hasComputationFinished;
 }
 
-sgl::vk::BufferPtr VulkanAmbientOcclusionBaker::getAmbientOcclusionBufferVulkan() {
+sgl::vk::BufferPtr VulkanAmbientOcclusionBaker::getAmbientOcclusionBuffer() {
     return aoComputeRenderPass->getAmbientOcclusionBufferVulkan();
 }
 
-sgl::vk::BufferPtr VulkanAmbientOcclusionBaker::getBlendingWeightsBufferVulkan() {
+sgl::vk::BufferPtr VulkanAmbientOcclusionBaker::getBlendingWeightsBuffer() {
     return aoComputeRenderPass->getBlendingWeightsBufferVulkan();
 }
 

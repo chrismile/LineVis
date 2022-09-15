@@ -33,7 +33,7 @@ PROJECTPATH="$SCRIPTPATH"
 pushd $SCRIPTPATH > /dev/null
 
 debug=false
-link_dynamic=true
+link_dynamic=false
 params_link=()
 if [ $link_dynamic = true ]; then
     params_link+=(-DVCPKG_TARGET_TRIPLET=x64-linux-dynamic)
@@ -119,9 +119,10 @@ elif command -v pacman &> /dev/null; then
         sudo pacman -S cmake git curl pkgconf base-devel patchelf
     fi
 
-    # Dependencies of vcpkg GLEW port.
-    if ! is_installed_pacman "libgl" || ! is_installed_pacman "vulkan-devel" || ! is_installed_pacman "shaderc"; then
-        sudo pacman -S libgl vulkan-devel shaderc
+    # Dependencies of vcpkg GLEW and Python ports.
+    if ! is_installed_pacman "libgl" || ! is_installed_pacman "vulkan-devel" || ! is_installed_pacman "shaderc" \
+            || ! is_installed_pacman "openssl"; then
+        sudo pacman -S libgl vulkan-devel shaderc openssl
     fi
 elif command -v yum &> /dev/null; then
     if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
@@ -133,7 +134,7 @@ elif command -v yum &> /dev/null; then
         sudo yum install -y cmake git curl pkgconf gcc gcc-c++ patchelf
     fi
 
-    # Dependencies of vcpkg openssl, GLEW and SDL2 ports.
+    # Dependencies of vcpkg openssl, GLEW, SDL2 and python3 ports.
     if ! is_installed_rpm "perl" || ! is_installed_rpm "libstdc++-devel" || ! is_installed_rpm "libstdc++-static" \
             || ! is_installed_rpm "glew-devel" || ! is_installed_rpm "libXext-devel" \
             || ! is_installed_rpm "vulkan-devel" || ! is_installed_rpm "libshaderc-devel"; then

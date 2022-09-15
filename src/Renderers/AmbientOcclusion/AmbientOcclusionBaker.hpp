@@ -71,10 +71,10 @@ const char* const BAKING_MODE_NAMES[] = {
 };
 
 enum class AmbientOcclusionBakerType {
-    NONE = -1, VULKAN_RTAO_PREBAKER = 0, VULKAN_RTAO = 1
+    NONE = -1, RTAO_PREBAKER = 0, RTAO = 1, SSAO = 2
 };
 const char* const AMBIENT_OCCLUSION_BAKER_TYPE_NAMES[] = {
-        "RTAO (Prebaker)", "RTAO (Screen Space)"
+        "RTAO (Prebaker)", "RTAO (Screen Space)", "SSAO"
 };
 
 class AmbientOcclusionBaker {
@@ -95,14 +95,14 @@ public:
     virtual bool getHasThreadUpdate()=0;
 
     // Ambient occlusion baker type 1: Preprocessing of static ambient occlusion.
-    virtual sgl::vk::BufferPtr getAmbientOcclusionBufferVulkan()=0;
-    virtual sgl::vk::BufferPtr getBlendingWeightsBufferVulkan()=0;
+    virtual sgl::vk::BufferPtr getAmbientOcclusionBuffer()=0;
+    virtual sgl::vk::BufferPtr getBlendingWeightsBuffer()=0;
     virtual uint32_t getNumTubeSubdivisions()=0;
     virtual uint32_t getNumLineVertices()=0;
     virtual uint32_t getNumParametrizationVertices()=0;
 
     // Ambient occlusion baker type 2: Compute ambient occlusion per frame.
-    virtual sgl::vk::TexturePtr getAmbientOcclusionFrameTextureVulkan()=0;
+    virtual sgl::vk::TexturePtr getAmbientOcclusionFrameTexture()=0;
     virtual bool getHasTextureResolutionChanged() { return false; }
 
     /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.

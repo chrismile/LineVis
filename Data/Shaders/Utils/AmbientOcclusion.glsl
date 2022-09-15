@@ -26,12 +26,18 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef STATIC_AMBIENT_OCCLUSION_PREBAKING
-layout (std430, binding = AMBIENT_OCCLUSION_FACTORS_BUFFER_BINDING) readonly buffer AmbientOcclusionFactors {
+#if defined(STATIC_AMBIENT_OCCLUSION_PREBAKING)
+layout(std430, binding = AMBIENT_OCCLUSION_FACTORS_BUFFER_BINDING) readonly buffer AmbientOcclusionFactors {
     float ambientOcclusionFactors[];
 };
-layout (std430, binding = AMBIENT_OCCLUSION_BLENDING_WEIGHTS_BUFFER_BINDING) readonly buffer AmbientOcclusionBlendingWeights {
+layout(std430, binding = AMBIENT_OCCLUSION_BLENDING_WEIGHTS_BUFFER_BINDING) readonly buffer AmbientOcclusionBlendingWeights {
     float ambientOcclusionBlendingWeights[];
+};
+#elif defined(VOXEL_BASED_AMBIENT_OCCLUSION)
+layout(binding = AMBIENT_OCCLUSION_TEXTURE_BINDING) uniform sampler2D ambientOcclusionTexture;
+layout(binding = AMBIENT_OCCLUSION_UNIFORM_BUFFER) uniform AmbientOcclusionUniformBuffer {
+    // Converts points in world space to voxel texture space (range [0, 1]^3 if within the voxel grid).
+    mat4 worldSpaceToVoxelTextureSpace;
 };
 #else
 layout(binding = AMBIENT_OCCLUSION_TEXTURE_BINDING) uniform sampler2D ambientOcclusionTexture;
@@ -39,7 +45,7 @@ layout(binding = AMBIENT_OCCLUSION_TEXTURE_BINDING) uniform sampler2D ambientOcc
 
 #define M_PI 3.14159265358979323846
 
-#ifdef STATIC_AMBIENT_OCCLUSION_PREBAKING
+#if defined(STATIC_AMBIENT_OCCLUSION_PREBAKING)
 float getAoFactor(float interpolatedVertexId, float phi) {
     uint lastLinePointIdx = uint(interpolatedVertexId);
     uint nextLinePointIdx = min(lastLinePointIdx + 1, numLineVertices - 1);
@@ -67,6 +73,13 @@ float getAoFactor(float interpolatedVertexId, float phi) {
     aoFactor = pow(aoFactor, ambientOcclusionGamma);
     return 1.0 - ambientOcclusionStrength + ambientOcclusionStrength * aoFactor;
 }
+#elif defined(VOXEL_BASED_AMBIENT_OCCLUSION)
+float getAoFactor(vec3 positionWorld) {
+    vec3 voxelCoords = (worldSpaceToVoxelTextureSpace * vec4(positionWorld, 1.0)).xyz;
+    float aoFactor = texture(ambientOcclusionTexture, voxelCoords).x;
+    aoFactor = pow(aoFactor, ambientOcclusionGamma);
+    return 1.0 - ambientOcclusionStrength + ambientOcclusionStrength * aoFactor;
+}
 #else
 float getAoFactor(vec3 screenSpacePosition) {
 #ifdef VULKAN
@@ -79,6 +92,5 @@ float getAoFactor(vec3 screenSpacePosition) {
     float aoFactor = texture(ambientOcclusionTexture, ndcPosition.xy * 0.5 + 0.5).x;
     aoFactor = pow(aoFactor, ambientOcclusionGamma);
     return 1.0 - ambientOcclusionStrength + ambientOcclusionStrength * aoFactor;
-    //return ndcPosition.x > 0.0 ? 1.0 : 0.0;
 }
 #endif

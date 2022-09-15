@@ -61,7 +61,7 @@ public:
     VulkanRayTracedAmbientOcclusion(SceneData* sceneData, sgl::vk::Renderer* renderer);
     ~VulkanRayTracedAmbientOcclusion() override;
 
-    AmbientOcclusionBakerType getType() override { return AmbientOcclusionBakerType::VULKAN_RTAO; }
+    AmbientOcclusionBakerType getType() override { return AmbientOcclusionBakerType::RTAO; }
     bool getIsStaticPrebaker() override { return false; }
     void startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData) override;
     void updateIterative(VkPipelineStageFlags pipelineStageFlags) override;
@@ -71,13 +71,13 @@ public:
     bool getHasComputationFinished() override { return hasComputationFinished; }
     bool getHasThreadUpdate() override { return false; }
 
-    sgl::vk::BufferPtr getAmbientOcclusionBufferVulkan() override { return {}; }
-    sgl::vk::BufferPtr getBlendingWeightsBufferVulkan() override { return {}; }
+    sgl::vk::BufferPtr getAmbientOcclusionBuffer() override { return {}; }
+    sgl::vk::BufferPtr getBlendingWeightsBuffer() override { return {}; }
     uint32_t getNumTubeSubdivisions() override { return 0; }
     uint32_t getNumLineVertices() override { return 0; }
     uint32_t getNumParametrizationVertices() override { return 0; }
 
-    sgl::vk::TexturePtr getAmbientOcclusionFrameTextureVulkan() override;
+    sgl::vk::TexturePtr getAmbientOcclusionFrameTexture() override;
     bool getHasTextureResolutionChanged() override;
 
     /// Returns if the data needs to be re-rendered, but the visualization mapping is valid.

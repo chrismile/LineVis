@@ -30,13 +30,13 @@
 
 #version 450 core
 
-layout(location = 0) in vec4 vertexPosition;
+layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in vec2 vertexTexCoord;
 layout(location = 0) out vec2 fragTexCoord;
 
 void main() {
     fragTexCoord = vertexTexCoord;
-    gl_Position = mvpMatrix * vertexPosition;
+    gl_Position = vec4(vertexPosition, 1.0);
 }
 
 -- Fragment
@@ -58,7 +58,7 @@ const float offsets[3] = float[](0.0, 1.3846153846, 3.2307692308);
 const float weights[3] = float[](0.2270270270, 0.3162162162, 0.0702702703);
 
 void main() {
-    vec2 texSize = textureSize(inputTexture);
+    vec2 texSize = textureSize(inputTexture, 0);
     vec4 fragColor = texture(inputTexture, fragTexCoord) * weights[0];
     for (int i = 1; i < 3; i++) {
         vec2 offset;

@@ -121,8 +121,10 @@ vec4 blinnPhongShadingTube(
     vec3 phongColor = vec3(0.0);
 
 #if defined(USE_AMBIENT_OCCLUSION) && defined(GEOMETRY_PASS_TUBE)
-#ifdef STATIC_AMBIENT_OCCLUSION_PREBAKING
+#if defined(STATIC_AMBIENT_OCCLUSION_PREBAKING)
     float ambientOcclusionFactor = getAoFactor(fragmentVertexId, phi);
+#elif defined(VOXEL_BASED_AMBIENT_OCCLUSION)
+    float ambientOcclusionFactor = getAoFactor(fragmentPositionWorld);
 #else
     float ambientOcclusionFactor = getAoFactor(screenSpacePosition);
 #endif

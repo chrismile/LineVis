@@ -98,7 +98,7 @@ void VulkanRayTracedAmbientOcclusion::updateIterative(VkPipelineStageFlags pipel
     hasComputationFinished = accumulatedFramesCounter >= maxNumAccumulatedFrames;
 }
 
-sgl::vk::TexturePtr VulkanRayTracedAmbientOcclusion::getAmbientOcclusionFrameTextureVulkan()  {
+sgl::vk::TexturePtr VulkanRayTracedAmbientOcclusion::getAmbientOcclusionFrameTexture()  {
     return rtaoRenderPass->getAmbientOcclusionTextureVk();
 }
 

@@ -229,7 +229,7 @@ protected:
     void showRayQueriesUnsupportedWarning();
     void setAmbientOcclusionBaker();
     void updateAmbientOcclusionMode();
-    AmbientOcclusionBakerType ambientOcclusionBakerType = AmbientOcclusionBakerType::VULKAN_RTAO;
+    AmbientOcclusionBakerType ambientOcclusionBakerType = AmbientOcclusionBakerType::RTAO;
     AmbientOcclusionBakerPtr ambientOcclusionBaker;
     bool useAmbientOcclusion = false;
     float ambientOcclusionStrength = 0.0f;

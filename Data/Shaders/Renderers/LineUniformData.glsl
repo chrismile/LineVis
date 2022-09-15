@@ -7,6 +7,7 @@
 #define AMBIENT_OCCLUSION_TEXTURE_BINDING 13 // for AmbientOcclusion.glsl
 #define AMBIENT_OCCLUSION_FACTORS_BUFFER_BINDING 13 // for AmbientOcclusion.glsl
 #define AMBIENT_OCCLUSION_BLENDING_WEIGHTS_BUFFER_BINDING 14 // for AmbientOcclusion.glsl
+#define AMBIENT_OCCLUSION_UNIFORM_BUFFER 14 // for AmbientOcclusion.glsl
 #define MIN_MAX_BUFFER_BINDING 15 // for TransferFunction.glsl
 #define TRANSFER_FUNCTION_TEXTURE_BINDING 16 // for TransferFunction.glsl
 #define LINE_HIERARCHY_IMPORTANCE_MAP_BINDING 17

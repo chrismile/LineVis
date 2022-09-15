@@ -36,6 +36,7 @@
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
 #include "Renderers/AmbientOcclusion/VulkanAmbientOcclusionBaker.hpp"
 #include "Renderers/AmbientOcclusion/VulkanRayTracedAmbientOcclusion.hpp"
+#include "Renderers/AmbientOcclusion/SSAO.hpp"
 #include "Renderers/RayTracing/VulkanRayTracer.hpp"
 #include "DepthCues.hpp"
 #include "HullRasterPass.hpp"
@@ -181,8 +182,8 @@ void LineRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderDat
     }
     if (useAmbientOcclusion && ambientOcclusionBaker) {
         if (ambientOcclusionBaker->getIsStaticPrebaker()) {
-            auto ambientOcclusionBuffer = ambientOcclusionBaker->getAmbientOcclusionBufferVulkan();
-            auto blendingWeightsBuffer = ambientOcclusionBaker->getBlendingWeightsBufferVulkan();
+            auto ambientOcclusionBuffer = ambientOcclusionBaker->getAmbientOcclusionBuffer();
+            auto blendingWeightsBuffer = ambientOcclusionBaker->getBlendingWeightsBuffer();
             if (ambientOcclusionBuffer && blendingWeightsBuffer) {
                 renderData->setStaticBufferOptional(ambientOcclusionBuffer, "AmbientOcclusionFactors");
                 renderData->setStaticBufferOptional(blendingWeightsBuffer, "AmbientOcclusionBlendingWeights");
@@ -198,7 +199,7 @@ void LineRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderDat
             }
         } else {
             auto ambientOcclusionTexture =
-                    ambientOcclusionBaker->getAmbientOcclusionFrameTextureVulkan();
+                    ambientOcclusionBaker->getAmbientOcclusionFrameTexture();
             renderData->setStaticTextureOptional(ambientOcclusionTexture, "ambientOcclusionTexture");
         }
     }
@@ -293,7 +294,7 @@ void LineRenderer::setAmbientOcclusionBaker() {
     }
     ambientOcclusionBaker = {};
 
-    if (ambientOcclusionBakerType == AmbientOcclusionBakerType::VULKAN_RTAO_PREBAKER) {
+    if (ambientOcclusionBakerType == AmbientOcclusionBakerType::RTAO_PREBAKER) {
         sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
         if (!device || !device->getRayQueriesSupported()) {
             showRayQueriesUnsupportedWarning();
@@ -301,17 +302,19 @@ void LineRenderer::setAmbientOcclusionBaker() {
         }
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(
                 new VulkanAmbientOcclusionBaker(renderer));
-    } else if (ambientOcclusionBakerType == AmbientOcclusionBakerType::VULKAN_RTAO) {
+    } else if (ambientOcclusionBakerType == AmbientOcclusionBakerType::RTAO) {
         sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
         if (!device || !device->getRayQueriesSupported()) {
             showRayQueriesUnsupportedWarning();
             return;
         }
-        if (lineData && lineData->getUseCappedTubes() && isRasterizer) {
+        if (lineData && lineData->getUseCappedTubes() && isRasterizer && !getIsTriangleRepresentationUsed()) {
             lineData->setUseCappedTubes(this, false);
         }
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(
                 new VulkanRayTracedAmbientOcclusion(sceneData, renderer));
+    } else if (ambientOcclusionBakerType == AmbientOcclusionBakerType::SSAO) {
+        ambientOcclusionBaker = AmbientOcclusionBakerPtr(new SSAO(sceneData, renderer));
     }
 
     AmbientOcclusionBakerType newAmbientOcclusionBakerType = AmbientOcclusionBakerType::NONE;
