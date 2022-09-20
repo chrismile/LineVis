@@ -104,6 +104,9 @@ if command -v brew &> /dev/null && [ ! -d $build_dir_debug ] && [ ! -d $build_di
     if ! is_installed_brew "tinyxml2"; then
         brew install tinyxml2
     fi
+    if ! is_installed_brew "opencl-headers"; then
+        brew install opencl-headers
+    fi
 
     if ! is_installed_brew "jsoncpp"; then
         brew install jsoncpp

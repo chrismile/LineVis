@@ -63,6 +63,12 @@ do
     if [ ${!i} = "--custom-glslang" ]; then
         custom_glslang=true
     fi
+    if [ ${!i} = "--link-static" ]; then
+        link_dynamic=false
+    fi
+    if [ ${!i} = "--link-dynamic" ]; then
+        link_dynamic=true
+    fi
 done
 
 is_installed_apt() {

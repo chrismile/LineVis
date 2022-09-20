@@ -16,6 +16,7 @@
         },
         "tinyxml2",
         "vulkan-headers",
+        "opencl",
         "glm",
         "eigen3",
         "jsoncpp",

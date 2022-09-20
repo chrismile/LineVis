@@ -13,8 +13,8 @@ After that, all obligatory dependencies can be installed using the following com
 
 ```shell
 sudo apt-get install cmake libglm-dev libsdl2-dev libsdl2-image-dev libpng-dev libboost-filesystem-dev libtinyxml2-dev \
-libarchive-dev libjsoncpp-dev libeigen3-dev python3-dev libzmq3-dev libnetcdf-dev libopenexr-dev libeccodes-dev \
-libeccodes-tools libopenjp2-7-dev
+libarchive-dev opencl-c-headers libjsoncpp-dev libeigen3-dev python3-dev libzmq3-dev libnetcdf-dev libopenexr-dev \
+libeccodes-dev libeccodes-tools libopenjp2-7-dev
 ```
 
 Python 3 is an optional dependency necessary for enabling replay script support.
@@ -46,7 +46,7 @@ export LD_LIBRARY_PATH=<path-to-sgl>/lib
 The following command can be used to install all dependencies on Arch Linux (last tested in May 2021).
 
 ```shell
-sudo pacman -S cmake boost libarchive glm tinyxml2 sdl2 sdl2_image glew vulkan-devel shaderc \
+sudo pacman -S cmake boost libarchive glm tinyxml2 sdl2 sdl2_image glew vulkan-devel shaderc opencl-headers \
 python3 eigen jsoncpp zeromq netcdf ospray openexr
 ```
 

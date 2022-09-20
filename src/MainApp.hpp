@@ -166,6 +166,7 @@ private:
 #endif
     bool cudaInteropInitialized = false;
     bool optixInitialized = false;
+    bool openclInteropInitialized = false;
 
 
     /// --- Visualization pipeline ---

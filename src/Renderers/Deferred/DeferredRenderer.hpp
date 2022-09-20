@@ -35,16 +35,24 @@
 #include "Renderers/ResolvePass.hpp"
 #include "DeferredModes.hpp"
 
-class DeferredResolvePass;
-class DownsampleBlitPass;
+// Draw indexed.
 class VisibilityBufferDrawIndexedPass;
+// Draw indexed indirect.
 class VisibilityBufferDrawIndexedIndirectPass;
 class MeshletDrawCountNoReductionPass;
 class MeshletDrawCountAtomicPass;
 class MeshletVisibilityPass;
 class VisibilityBufferPrefixSumScanPass;
 class MeshletDrawCountPass;
+// Task/mesh.
 class MeshletTaskMeshPass;
+// BVH.
+class VisibilityBufferBVHDrawIndexedIndirectPass;
+class NodesBVHClearQueuePass;
+class NodesBVHDrawCountPass;
+// Resolve.
+class DeferredResolvePass;
+class DownsampleBlitPass;
 
 class DeferredRenderer : public LineRenderer {
 public:
@@ -113,9 +121,10 @@ protected:
     std::shared_ptr<MeshletDrawCountPass> meshletDrawCountPass;
     // DeferredRenderingMode::TASK_MESH_SHADER
     std::shared_ptr<MeshletTaskMeshPass> meshletTaskMeshPasses[2];
-    // DeferredRenderingMode::HLBVH_DRAW_INDIRECT
-    void renderHLBVH();
-    std::shared_ptr<VisibilityBufferDrawIndexedPass> visibilityBufferHLBVHDrawIndirectPass;
+    // DeferredRenderingMode::BVH_DRAW_INDIRECT
+    std::shared_ptr<NodesBVHClearQueuePass> nodesBVHClearQueuePass;
+    std::shared_ptr<NodesBVHDrawCountPass> nodesBVHDrawCountPasses[2];
+    std::shared_ptr<VisibilityBufferBVHDrawIndexedIndirectPass> visibilityBufferBVHDrawIndexedIndirectPasses[2];
     // Resolve/further passes.
     std::shared_ptr<DeferredResolvePass> deferredResolvePass;
     std::shared_ptr<DownsampleBlitPass> downsampleBlitPass;
@@ -187,6 +196,12 @@ protected:
     std::vector<sgl::vk::BufferPtr> visibleMeshletsStagingBuffers;
     std::vector<bool> frameHasNewStagingDataList;
 
+    // Max work left test buffer for debugging purposes.
+    bool showMaxWorkLeftDebugInfo = true;
+    std::vector<sgl::vk::BufferPtr> maxWorkLeftStagingBuffers;
+    int32_t maxWorkLeft0 = 0;
+    int32_t maxWorkLeft1 = 0;
+
     // Current rendering mode.
     DeferredRenderingMode deferredRenderingMode = DeferredRenderingMode::DRAW_INDEXED;
 
@@ -198,7 +213,7 @@ protected:
 
     // BVH draw indirect sub-modes.
     BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;
-    BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::MESHLETS;
+    BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::TRIANGLES;
     BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode::PRIMITIVE_CENTROID;
 
     // Task/mesh shader sub-modes.

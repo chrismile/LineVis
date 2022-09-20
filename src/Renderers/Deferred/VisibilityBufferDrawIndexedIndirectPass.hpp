@@ -54,10 +54,20 @@ protected:
     void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
     void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
 
-private:
     uint32_t maxNumPrimitivesPerMeshlet = 128;
     bool useDrawIndexedIndirectCount = true;
     uint32_t numMeshlets = 0;
+};
+
+/**
+ * Sub-class of @see VisibilityBufferDrawIndexedIndirectPass with payload of type @see NodesBVHTreePayload.
+ */
+class VisibilityBufferBVHDrawIndexedIndirectPass : public VisibilityBufferDrawIndexedIndirectPass {
+public:
+    explicit VisibilityBufferBVHDrawIndexedIndirectPass(LineRenderer* lineRenderer);
+
+protected:
+    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
 };
 
 #endif //LINEVIS_VISIBILITYBUFFERDRAWINDEXEDINDIRECTPASS_HPP

@@ -36,6 +36,8 @@
 // Spatial split BVH unsupported, as it relies on splitting the underlying primitives.
 //#include <bvh/spatial_split_bvh_builder.hpp>
 
+#include <Math/Math.hpp>
+#include <Utils/File/Logfile.hpp>
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
 #include "NodesBVHTreePayload.hpp"
 
@@ -66,11 +68,11 @@ void NodesBVHTreePayload::createPayloadPre(
         sgl::vk::Device* device, uint32_t tubeNumSubdivisions, std::vector<uint32_t>& tubeTriangleIndices,
         std::vector<TubeTriangleVertexData>& tubeTriangleVertexDataList,
         const std::vector<LinePointDataUnified>& tubeTriangleLinePointDataList) {
+    size_t numTriangles = tubeTriangleIndices.size() / 3;
     size_t numPrimitives = 0;
     if (bvhBuildGeometryMode == BvhBuildGeometryMode::TRIANGLES) {
         numPrimitives = tubeTriangleIndices.size() / 3;
     } else if (bvhBuildGeometryMode == BvhBuildGeometryMode::MESHLETS) {
-        // TODO
         numPrimitives = tubeTriangleIndices.size();
     }
 
@@ -114,16 +116,28 @@ void NodesBVHTreePayload::createPayloadPre(
     if (bvhBuildAlgorithm == BvhBuildAlgorithm::BINNED_SAH_CPU) {
         constexpr size_t binCount = 16;
         bvh::BinnedSahBuilder<Bvh, binCount> binnedSahBuilder(bvh);
+        if (bvhBuildGeometryMode == BvhBuildGeometryMode::TRIANGLES) {
+            binnedSahBuilder.max_leaf_size = maxNumPrimitivesPerMeshlet;
+            uint32_t minNumLeaves = sgl::uiceil(numTriangles, maxNumPrimitivesPerMeshlet);
+            uint32_t maxHeight = uint32_t(std::ceil(std::log2(double(minNumLeaves)))) + 1;
+            binnedSahBuilder.max_depth = maxHeight;
+        } else if (bvhBuildGeometryMode == BvhBuildGeometryMode::MESHLETS) {
+            binnedSahBuilder.max_leaf_size = 1;
+        }
         binnedSahBuilder.build(
                 globalBbox, bboxes.data(), centers.data(), numPrimitives);
-        //binnedSahBuilder.max_depth;
-        //binnedSahBuilder.max_leaf_size;
     } else if (bvhBuildAlgorithm == BvhBuildAlgorithm::SWEEP_SAH_CPU) {
         bvh::SweepSahBuilder<Bvh> sweepSahBuilder(bvh);
+        if (bvhBuildGeometryMode == BvhBuildGeometryMode::TRIANGLES) {
+            sweepSahBuilder.max_leaf_size = maxNumPrimitivesPerMeshlet;
+            uint32_t minNumLeaves = sgl::uiceil(numTriangles, maxNumPrimitivesPerMeshlet);
+            uint32_t maxHeight = uint32_t(std::ceil(std::log2(double(minNumLeaves)))) + 1;
+            sweepSahBuilder.max_depth = maxHeight;
+        } else if (bvhBuildGeometryMode == BvhBuildGeometryMode::MESHLETS) {
+            sweepSahBuilder.max_leaf_size = 1;
+        }
         sweepSahBuilder.build(
                 globalBbox, bboxes.data(), centers.data(), numPrimitives);
-        //sweepSahBuilder.max_depth;
-        //sweepSahBuilder.max_leaf_size;
     } else if (bvhBuildAlgorithm == BvhBuildAlgorithm::LOCALLY_ORDERED_CLUSTERING_CPU) {
         using Morton = uint32_t;
         bvh::LocallyOrderedClusteringBuilder<Bvh, Morton> locallyOrderedClusteringBuilder(bvh);
@@ -136,16 +150,18 @@ void NodesBVHTreePayload::createPayloadPre(
                 globalBbox, bboxes.data(), centers.data(), numPrimitives);
     }
 
-    uint32_t numLeafNodes = 0;
-    std::vector<BVHTreeNodePayload> treeNodes;
-    treeNodes.reserve(bvh.node_count);
+    nodeCount = bvh.node_count;
+    numLeafNodes = 0;
+    std::vector<BVHTreeNode> treeNodes;
+    treeNodes.resize(bvh.node_count);
     Bvh::Node* nodes = bvh.nodes.get();
     auto* primitiveIndices = bvh.primitive_indices.get();
     auto tubeTriangleIndicesOld = tubeTriangleIndices;
     tubeTriangleIndices.clear();
+    uint32_t minNumPrimitivesPerNode = std::numeric_limits<uint32_t>::max(), maxNumPrimitivesPerNode = 0;
     for (size_t i = 0; i < bvh.node_count; i++) {
         const Bvh::Node& node = nodes[i];
-        BVHTreeNodePayload treeNode;
+        BVHTreeNode& treeNode = treeNodes.at(i);
         treeNode.worldSpaceAabbMin = glm::vec3(node.bounds[0], node.bounds[2], node.bounds[4]);
         treeNode.worldSpaceAabbMax = glm::vec3(node.bounds[1], node.bounds[3], node.bounds[5]);
         treeNode.indexCount = node.primitive_count * 3;
@@ -154,21 +170,97 @@ void NodesBVHTreePayload::createPayloadPre(
             for (size_t primitiveIdx = 0; primitiveIdx < node.primitive_count; primitiveIdx++) {
                 size_t triangleIndicesIdx = primitiveIndices[node.first_child_or_primitive + primitiveIdx] * 3;
                 tubeTriangleIndices.push_back(tubeTriangleIndicesOld.at(triangleIndicesIdx));
-                tubeTriangleIndices.push_back(tubeTriangleIndicesOld.at(triangleIndicesIdx) + 1);
-                tubeTriangleIndices.push_back(tubeTriangleIndicesOld.at(triangleIndicesIdx) + 2);
+                tubeTriangleIndices.push_back(tubeTriangleIndicesOld.at(triangleIndicesIdx + 1));
+                tubeTriangleIndices.push_back(tubeTriangleIndicesOld.at(triangleIndicesIdx + 2));
             }
+            minNumPrimitivesPerNode = std::min(minNumPrimitivesPerNode, node.primitive_count);
+            maxNumPrimitivesPerNode = std::max(maxNumPrimitivesPerNode, node.primitive_count);
             numLeafNodes++;
         } else {
             treeNode.firstChildOrPrimitiveIndex = node.first_child_or_primitive;
         }
     }
 
+    // Compute tree height.
+    std::vector<std::pair<const Bvh::Node*, uint32_t>> nodeStack;
+    uint32_t treeHeight = 0;
+    nodeStack.emplace_back(nodes, 1);
+    while (!nodeStack.empty()) {
+        auto nodeHeightPair = nodeStack.back();
+        const Bvh::Node* node = nodeHeightPair.first;
+        uint32_t h = nodeHeightPair.second;
+        treeHeight = std::max(treeHeight, h);
+        nodeStack.pop_back();
+        if (!node->is_leaf()) {
+            nodeStack.emplace_back(&nodes[Bvh::sibling(node->first_child_or_primitive)], h + 1);
+            nodeStack.emplace_back(&nodes[node->first_child_or_primitive], h + 1);
+        }
+    }
+
+    sgl::Logfile::get()->writeInfo("Tree height: " + std::to_string(treeHeight));
+    sgl::Logfile::get()->writeInfo("Number of nodes: " + std::to_string(getNumNodes()));
+    sgl::Logfile::get()->writeInfo("Number of leaves: " + std::to_string(getNumLeafNodes()));
+    sgl::Logfile::get()->writeInfo("Min primitives/leaf: " + std::to_string(minNumPrimitivesPerNode));
+    sgl::Logfile::get()->writeInfo("Max primitives/leaf: " + std::to_string(maxNumPrimitivesPerNode));
+    sgl::Logfile::get()->writeInfo("Avg primitives/leaf: " + std::to_string(
+            float(numTriangles) / float(numLeafNodes)));
+
+    /*{
+        nodeCount = 3;
+        numLeafNodes = 2;
+        treeNodes.clear();
+        BVHTreeNode testNode;
+        testNode.worldSpaceAabbMin = glm::vec3(-0.5f);
+        testNode.worldSpaceAabbMax = glm::vec3(0.5f);
+        testNode.indexCount = 0;
+        testNode.firstChildOrPrimitiveIndex = 1;
+        treeNodes.push_back(testNode);
+        testNode.indexCount = maxNumPrimitivesPerMeshlet * 3;
+        testNode.firstChildOrPrimitiveIndex = 0;
+        treeNodes.push_back(testNode);
+        testNode.indexCount = maxNumPrimitivesPerMeshlet * 3;
+        testNode.firstChildOrPrimitiveIndex = maxNumPrimitivesPerMeshlet * 3;
+        treeNodes.push_back(testNode);
+    }*/
+    {
+        treeNodes.clear();
+        BVHTreeNode testNode;
+        testNode.worldSpaceAabbMin = glm::vec3(-0.5f);
+        testNode.worldSpaceAabbMax = glm::vec3(0.5f);
+        testNode.indexCount = 0;
+        int treeHeight = 12;
+        int nextLevelOffset = 0;
+        for (int h = 0; h < treeHeight; h++) {
+            int numNodesAtLevel = 1 << h;
+            nextLevelOffset += numNodesAtLevel;
+            for (int w = 0; w < numNodesAtLevel; w++) {
+                if (h == treeHeight - 1) {
+                    testNode.firstChildOrPrimitiveIndex = w * maxNumPrimitivesPerMeshlet * 3;
+                    testNode.indexCount = maxNumPrimitivesPerMeshlet * 3;
+                } else {
+                    testNode.firstChildOrPrimitiveIndex = nextLevelOffset + w * 2;
+                }
+                treeNodes.push_back(testNode);
+            }
+        }
+        nodeCount = uint32_t(treeNodes.size());
+        numLeafNodes = 1 << (treeHeight - 1);
+    }
+
+    if (treeNodes.empty()) {
+        return;
+    }
     nodeDataBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, treeNodes.size() * sizeof(BVHTreeNodePayload), treeNodes.data(),
+            device, treeNodes.size() * sizeof(BVHTreeNode), treeNodes.data(),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
-    meshletVisibilityArrayBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, numLeafNodes * sizeof(uint32_t),
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    queueStateBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, 4 * sizeof(uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    queueStateBufferRecheck = std::make_shared<sgl::vk::Buffer>(
+            device, 4 * sizeof(uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    queueBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, nodeCount * sizeof(uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    queueBufferRecheck = std::make_shared<sgl::vk::Buffer>(
+            device, nodeCount * sizeof(uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     indirectDrawBuffer = std::make_shared<sgl::vk::Buffer>(
             device, numLeafNodes * sizeof(VkDrawIndexedIndirectCommand),
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
@@ -176,6 +268,11 @@ void NodesBVHTreePayload::createPayloadPre(
             device, sizeof(uint32_t),
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT
             | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+    int32_t startTestVal = 0;
+    maxWorkLeftTestBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(int32_t), &startTestVal,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
 }
 

@@ -53,6 +53,9 @@
 #include <Graphics/Window.hpp>
 #include <Graphics/Vulkan/Utils/Instance.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
+#ifdef SUPPORT_OPENCL_INTEROP
+#include <Graphics/Vulkan/Utils/InteropOpenCL.hpp>
+#endif
 
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/ImGuiFileDialog/ImGuiFileDialog.h>
@@ -162,6 +165,12 @@ MainApp::MainApp()
 #ifdef SUPPORT_OPTIX
     if (cudaInteropInitialized) {
         optixInitialized = OptixVptDenoiser::initGlobal(cuContext, cuDevice);
+    }
+#endif
+#ifdef SUPPORT_OPENCL_INTEROP
+    openclInteropInitialized = true;
+    if (!sgl::vk::initializeOpenCLFunctionTable()) {
+        openclInteropInitialized = false;
     }
 #endif
 
@@ -499,6 +508,11 @@ MainApp::~MainApp() {
             cuContext = {};
         }
         sgl::vk::freeCudaDeviceApiFunctionTable();
+    }
+#endif
+#ifdef SUPPORT_OPENCL_INTEROP
+    if (sgl::vk::getIsOpenCLFunctionTableInitialized()) {
+        sgl::vk::freeOpenCLFunctionTable();
     }
 #endif
 

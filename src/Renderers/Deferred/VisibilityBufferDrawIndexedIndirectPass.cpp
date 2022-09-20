@@ -27,8 +27,9 @@
  */
 
 #include "Renderers/LineRenderer.hpp"
-#include "LineData/TrianglePayload/MeshletsDrawIndirectPayload.hpp"
 #include "VisibilityBufferDrawIndexedIndirectPass.hpp"
+#include "LineData/TrianglePayload/NodesBVHTreePayload.hpp"
+#include "LineData/TrianglePayload/MeshletsDrawIndirectPayload.hpp"
 
 VisibilityBufferDrawIndexedIndirectPass::VisibilityBufferDrawIndexedIndirectPass(LineRenderer* lineRenderer)
         : LineRasterPass(lineRenderer) {
@@ -110,5 +111,41 @@ void VisibilityBufferDrawIndexedIndirectPass::createRasterData(
                 payload->getIndirectDrawCountBuffer(), payload->getNumMeshlets());
     } else {
         rasterData->setIndirectDrawCount(payload->getNumMeshlets());
+    }
+}
+
+
+
+VisibilityBufferBVHDrawIndexedIndirectPass::VisibilityBufferBVHDrawIndexedIndirectPass(LineRenderer* lineRenderer)
+        : VisibilityBufferDrawIndexedIndirectPass(lineRenderer) {
+}
+
+void VisibilityBufferBVHDrawIndexedIndirectPass::createRasterData(
+        sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
+    rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
+    lineData->setVulkanRenderDataDescriptors(rasterData);
+    //lineRenderer->setRenderDataBindings(rasterData);
+
+    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new NodesBVHTreePayload(maxNumPrimitivesPerMeshlet));
+    TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
+            true, false, payloadSuperClass);
+
+    if (!tubeRenderData.indexBuffer) {
+        numMeshlets = 0;
+        return;
+    }
+    auto* payload = static_cast<NodesBVHTreePayload*>(payloadSuperClass.get());
+
+    numMeshlets = payload->getNumLeafNodes();
+    rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
+    rasterData->setVertexBuffer(tubeRenderData.vertexBuffer, "vertexPosition");
+    rasterData->setStaticBuffer(payload->getIndirectDrawBuffer(), "DrawIndexedIndirectCommandBuffer");
+    rasterData->setIndirectDrawBuffer(
+            payload->getIndirectDrawBuffer(), sizeof(VkDrawIndexedIndirectCommand));
+    if (useDrawIndexedIndirectCount) {
+        rasterData->setIndirectDrawCountBuffer(
+                payload->getIndirectDrawCountBuffer(), payload->getNumLeafNodes());
+    } else {
+        rasterData->setIndirectDrawCount(payload->getNumLeafNodes());
     }
 }

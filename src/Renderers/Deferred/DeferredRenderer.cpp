@@ -55,6 +55,8 @@
 #include "VisibilityBufferPrefixSumScanPass.hpp"
 #include "MeshletDrawCountPass.hpp"
 #include "MeshletTaskMeskPass.hpp"
+#include "Tree/NodesBVHClearQueuePass.hpp"
+#include "Tree/NodesBVHDrawCountPass.hpp"
 #include "DeferredRenderer.hpp"
 
 DeferredRenderer::DeferredRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
@@ -168,21 +170,27 @@ void DeferredRenderer::reloadGatherShader() {
             meshletTaskMeshPasses[i]->setShaderDirty();
         }
     } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
-        visibilityBufferHLBVHDrawIndirectPass->setShaderDirty();
+        nodesBVHClearQueuePass->setShaderDirty();
+        for (int i = 0; i < 2; i++) {
+            nodesBVHDrawCountPasses[i]->setShaderDirty();
+            visibilityBufferBVHDrawIndexedIndirectPasses[i]->setShaderDirty();
+        }
     }
 }
 
 void DeferredRenderer::updateRenderingMode() {
     frameNumber = 0;
     visibilityBufferDrawIndexedPass = {};
-    visibilityBufferHLBVHDrawIndirectPass = {};
     visibilityBufferPrefixSumScanPass = {};
     meshletDrawCountPass = {};
+    nodesBVHClearQueuePass = {};
     for (int i = 0; i < 2; i++) {
         visibilityBufferDrawIndexedIndirectPasses[i] = {};
         meshletDrawCountAtomicPasses[i] = {};
         meshletVisibilityPasses[i] = {};
         meshletTaskMeshPasses[i] = {};
+        nodesBVHDrawCountPasses[i] = {};
+        visibilityBufferBVHDrawIndexedIndirectPasses[i] = {};
     }
 
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
@@ -194,8 +202,8 @@ void DeferredRenderer::updateRenderingMode() {
         }
     } else if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
         for (int i = 0; i < 2; i++) {
-            visibilityBufferDrawIndexedIndirectPasses[i] = std::make_shared<VisibilityBufferDrawIndexedIndirectPass>(
-                    this);
+            visibilityBufferDrawIndexedIndirectPasses[i] =
+                    std::make_shared<VisibilityBufferDrawIndexedIndirectPass>(this);
             visibilityBufferDrawIndexedIndirectPasses[i]->setMaxNumPrimitivesPerMeshlet(
                     drawIndirectMaxNumPrimitivesPerMeshlet);
         }
@@ -222,7 +230,22 @@ void DeferredRenderer::updateRenderingMode() {
             setLineData(lineData, false);
         }
     } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
-        visibilityBufferHLBVHDrawIndirectPass = std::make_shared<VisibilityBufferDrawIndexedPass>(this);
+        nodesBVHClearQueuePass = std::make_shared<NodesBVHClearQueuePass>(renderer);
+        nodesBVHClearQueuePass->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+        nodesBVHClearQueuePass->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
+        for (int i = 0; i < 2; i++) {
+            visibilityBufferBVHDrawIndexedIndirectPasses[i] =
+                    std::make_shared<VisibilityBufferBVHDrawIndexedIndirectPass>(this);
+            visibilityBufferBVHDrawIndexedIndirectPasses[i]->setMaxNumPrimitivesPerMeshlet(
+                    drawIndirectMaxNumPrimitivesPerMeshlet);
+            visibilityBufferBVHDrawIndexedIndirectPasses[i]->setUseDrawIndexedIndirectCount(true);
+            nodesBVHDrawCountPasses[i] = std::make_shared<NodesBVHDrawCountPass>(renderer);
+            nodesBVHDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+            nodesBVHDrawCountPasses[i]->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
+        }
+        visibilityBufferBVHDrawIndexedIndirectPasses[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
+        visibilityBufferBVHDrawIndexedIndirectPasses[1]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD);
+        nodesBVHDrawCountPasses[1]->setRecheckOccludedOnly(true);
         updateGeometryMode();
         onResolutionChangedDeferredRenderingMode();
         if (lineData) {
@@ -378,9 +401,13 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
         meshletTaskMeshPasses[0]->buildIfNecessary();
         isDataEmpty = meshletTaskMeshPasses[0]->getNumMeshlets() == 0;
     } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
-        visibilityBufferHLBVHDrawIndirectPass->setLineData(lineData, isNewData);
-        visibilityBufferHLBVHDrawIndirectPass->buildIfNecessary();
-        isDataEmpty = visibilityBufferHLBVHDrawIndirectPass->getIsDataEmpty();
+        nodesBVHClearQueuePass->setLineData(lineData, isNewData);
+        for (int i = 0; i < 2; i++) {
+            nodesBVHDrawCountPasses[i]->setLineData(lineData, isNewData);
+            visibilityBufferBVHDrawIndexedIndirectPasses[i]->setLineData(lineData, isNewData);
+        }
+        visibilityBufferBVHDrawIndexedIndirectPasses[0]->buildIfNecessary();
+        isDataEmpty = visibilityBufferBVHDrawIndexedIndirectPasses[0]->getIsDataEmpty();
     }
 
     reloadResolveShader();
@@ -661,6 +688,17 @@ void DeferredRenderer::onResolutionChanged() {
                 VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU));
     }
 
+    if (showMaxWorkLeftDebugInfo) {
+        maxWorkLeftStagingBuffers.clear();
+        maxWorkLeftStagingBuffers.reserve(swapchain->getNumImages());
+        for (size_t i = 0; i < swapchain->getNumImages(); i++) {
+            int32_t initData[2] = { 0, 0 };
+            maxWorkLeftStagingBuffers.push_back(std::make_shared<sgl::vk::Buffer>(
+                    renderer->getDevice(), 2 * sizeof(int32_t), initData,
+                    VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU));
+        }
+    }
+
     framebufferMode = FramebufferMode::DEFERRED_RESOLVE_PASS;
     if (supersamplingMode == 0) {
         // No supersampling, thus we can directly draw the result to the scene data color image.
@@ -732,8 +770,18 @@ void DeferredRenderer::onResolutionChangedDeferredRenderingMode() {
         }
         framebufferModeIndex = 0;
     } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
-        framebufferMode = FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_PASS;
-        visibilityBufferHLBVHDrawIndirectPass->recreateSwapchain(renderWidth, renderHeight);
+        for (int i = 0; i < 2; i++) {
+            framebufferMode = FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_INDIRECT_PASS;
+            framebufferModeIndex = i;
+            visibilityBufferBVHDrawIndexedIndirectPasses[i]->recreateSwapchain(renderWidth, renderHeight);
+        }
+        framebufferModeIndex = 0;
+        nodesBVHClearQueuePass->setDepthBufferTexture(depthBufferTexturePingPong[0]);
+        nodesBVHClearQueuePass->recreateSwapchain(renderWidth, renderHeight);
+        for (int i = 0; i < 2; i++) {
+            nodesBVHDrawCountPasses[i]->setDepthBufferTexture(depthBufferTexturePingPong[i]);
+            nodesBVHDrawCountPasses[i]->recreateSwapchain(renderWidth, renderHeight);
+        }
     }
 }
 
@@ -778,8 +826,8 @@ void DeferredRenderer::render() {
         meshletTaskMeshPasses[0]->buildIfNecessary();
         isDataEmpty = meshletTaskMeshPasses[0]->getNumMeshlets() == 0;
     } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
-        visibilityBufferHLBVHDrawIndirectPass->buildIfNecessary();
-        isDataEmpty = visibilityBufferHLBVHDrawIndirectPass->getIsDataEmpty();
+        visibilityBufferBVHDrawIndexedIndirectPasses[0]->buildIfNecessary();
+        isDataEmpty = visibilityBufferBVHDrawIndexedIndirectPasses[0]->getIsDataEmpty();
     }
 
     if (isDataEmpty) {
@@ -787,8 +835,6 @@ void DeferredRenderer::render() {
     } else {
         if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
             renderDrawIndexed();
-        } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
-            renderHLBVH();
         } else {
             // If this is the first frame: Just clear the depth image and use the matrices of this frame.
             if (frameNumber == 0) {
@@ -805,13 +851,19 @@ void DeferredRenderer::render() {
 
             if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
                 visibilityBufferDrawIndexedIndirectPasses[0]->buildIfNecessary();
-                visibilityCullingUniformData.numMeshlets = visibilityBufferDrawIndexedIndirectPasses[0]->getNumMeshlets();
+                visibilityCullingUniformData.numMeshlets =
+                        visibilityBufferDrawIndexedIndirectPasses[0]->getNumMeshlets();
             } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
                 meshletTaskMeshPasses[0]->buildIfNecessary();
-                visibilityCullingUniformData.numMeshlets = meshletTaskMeshPasses[0]->getNumMeshlets();
+                visibilityCullingUniformData.numMeshlets =
+                        meshletTaskMeshPasses[0]->getNumMeshlets();
+            } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
+                visibilityBufferBVHDrawIndexedIndirectPasses[0]->buildIfNecessary();
+                visibilityCullingUniformData.numMeshlets =
+                        visibilityBufferBVHDrawIndexedIndirectPasses[0]->getNumMeshlets();
             }
 
-            VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+                VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
             if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
                 pipelineStageFlags = VK_PIPELINE_STAGE_TASK_SHADER_BIT_NV;
 #ifdef VK_EXT_mesh_shader
@@ -978,6 +1030,21 @@ void DeferredRenderer::renderDrawIndexedIndirectOrTaskMesh(int passIndex) {
         visibilityBufferDrawIndexedIndirectPasses[passIndex]->render();
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         meshletTaskMeshPasses[passIndex]->render();
+    } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
+        if (passIndex == 0) {
+            nodesBVHClearQueuePass->render();
+            renderer->insertMemoryBarrier(
+                    VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+        }
+        nodesBVHDrawCountPasses[passIndex]->render();
+        if (showVisibleMeshletStatistics) {
+            drawCountBuffer = nodesBVHDrawCountPasses[passIndex]->getDrawCountBuffer();
+        }
+        renderer->insertMemoryBarrier(
+                VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
+        visibilityBufferBVHDrawIndexedIndirectPasses[passIndex]->render();
     }
 
     if (showVisibleMeshletStatistics && drawCountBuffer) {
@@ -985,6 +1052,14 @@ void DeferredRenderer::renderDrawIndexedIndirectOrTaskMesh(int passIndex) {
         drawCountBuffer->copyDataTo(
                 visibleMeshletsStagingBuffers.at(swapchain->getImageIndex()),
                 0, passIndex * sizeof(uint32_t), sizeof(uint32_t),
+                renderer->getVkCommandBuffer());
+        frameHasNewStagingDataList.at(swapchain->getImageIndex()) = true;
+    }
+    if (showMaxWorkLeftDebugInfo && deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
+        auto* swapchain = sgl::AppSettings::get()->getSwapchain();
+        nodesBVHDrawCountPasses[passIndex]->getMaxWorkLeftTestBuffer()->copyDataTo(
+                maxWorkLeftStagingBuffers.at(swapchain->getImageIndex()),
+                0, passIndex * sizeof(int32_t), sizeof(int32_t),
                 renderer->getVkCommandBuffer());
         frameHasNewStagingDataList.at(swapchain->getImageIndex()) = true;
     }
@@ -1005,14 +1080,6 @@ void DeferredRenderer::renderComputeHZB(int passIndex) {
         if (mipWidth > 1) mipWidth /= 2;
         if (mipHeight > 1) mipHeight /= 2;
     }
-}
-
-void DeferredRenderer::renderHLBVH() {
-    visibilityBufferHLBVHDrawIndirectPass->render();
-    renderer->transitionImageLayout(
-            primitiveIndexImage->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    renderer->transitionImageLayout(
-            depthRenderTargetImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
 void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
@@ -1121,8 +1188,9 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
         }
     }
 
-    if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT
-            && drawIndirectReductionMode != DrawIndirectReductionMode::NO_REDUCTION) {
+    if ((deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT
+                && drawIndirectReductionMode != DrawIndirectReductionMode::NO_REDUCTION)
+            || deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
         bool showStatisticsChanged = false;
         if (propertyEditor.addCheckbox("Show Statistics", &showVisibleMeshletStatistics)) {
             reRender = true;
@@ -1152,6 +1220,11 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
             float numVisiblePct =
                     100.0f * float(visibleMeshletCounters[0] + visibleMeshletCounters[1])
                     / float(visibilityCullingUniformData.numMeshlets);
+            if (visibilityCullingUniformData.numMeshlets == 0) {
+                numVisiblePass1Pct = 0.0f;
+                numVisiblePass2Pct = 0.0f;
+                numVisiblePct = 0.0f;
+            }
             std::string str1 =
                     std::to_string(visibleMeshletCounters[0]) + " of "
                     + std::to_string(visibilityCullingUniformData.numMeshlets)
@@ -1167,6 +1240,16 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
             propertyEditor.addText("#Meshlets Visible (1): ", str1);
             propertyEditor.addText("#Meshlets Visible (2): ", str2);
             propertyEditor.addText("#Meshlets Visible Total: ", str);
+        }
+        if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT && showMaxWorkLeftDebugInfo) {
+            auto* swapchain = sgl::AppSettings::get()->getSwapchain();
+            auto stagingBuffer = maxWorkLeftStagingBuffers.at(swapchain->getImageIndex());
+            auto* maxWorkLeftBuffer = reinterpret_cast<int32_t*>(stagingBuffer->mapMemory());
+            maxWorkLeft0 = std::max(maxWorkLeft0, maxWorkLeftBuffer[0]);
+            maxWorkLeft1 = std::max(maxWorkLeft1, maxWorkLeftBuffer[1]);
+            stagingBuffer->unmapMemory();
+            propertyEditor.addText("Max work left (1): ", std::to_string(maxWorkLeft0));
+            propertyEditor.addText("Max work left (2): ", std::to_string(maxWorkLeft1));
         }
     }
 }

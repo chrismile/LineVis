@@ -32,20 +32,17 @@
 #include "Renderers/Deferred/DeferredModes.hpp"
 #include "../LineRenderData.hpp"
 
-struct BVHTreeNodePayload {
+struct BVHTreeNode {
     glm::vec3 worldSpaceAabbMin{};
     uint32_t indexCount = 0;
     glm::vec3 worldSpaceAabbMax{};
     uint32_t firstChildOrPrimitiveIndex = 0;
 };
-struct MeshletBVHPayloadData {
-    uint32_t indexCount = 0;
-    uint32_t firstIndex = 0;
-};
 
 class NodesBVHTreePayload : public TubeTriangleRenderDataPayload {
 public:
-    NodesBVHTreePayload() = default;
+    explicit NodesBVHTreePayload(uint32_t maxNumPrimitivesPerMeshlet)
+            : maxNumPrimitivesPerMeshlet(maxNumPrimitivesPerMeshlet) {}
     [[nodiscard]] Type getType() const override { return Type::NODES_HLBVH_TREE; }
     [[nodiscard]] bool settingsEqual(TubeTriangleRenderDataPayload* other) const override;
 
@@ -55,15 +52,18 @@ public:
             const std::vector<LinePointDataUnified>& tubeTriangleLinePointDataList) override;
     void createPayloadPost(sgl::vk::Device* device, TubeTriangleRenderData& tubeTriangleRenderData) override;
 
-    [[nodiscard]] inline uint32_t getNumMeshlets() const { return numMeshlets; }
-    [[nodiscard]] inline const sgl::vk::BufferPtr& getMeshletDataBuffer() const { return meshletDataBuffer; }
-    [[nodiscard]] inline const sgl::vk::BufferPtr& getMeshletVisibilityArrayBuffer() const {
-        return meshletVisibilityArrayBuffer;
-    }
+    [[nodiscard]] inline uint32_t getNumNodes() const { return nodeCount; }
+    [[nodiscard]] inline uint32_t getNumLeafNodes() const { return numLeafNodes; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getNodeDataBuffer() const { return nodeDataBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getQueueStateBuffer() const { return queueStateBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getQueueStateBufferRecheck() const { return queueStateBufferRecheck; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getQueueBuffer() const { return queueBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getQueueBufferRecheck() const { return queueBufferRecheck; }
     [[nodiscard]] inline const sgl::vk::BufferPtr& getIndirectDrawBuffer() const { return indirectDrawBuffer; }
     [[nodiscard]] inline const sgl::vk::BufferPtr& getIndirectDrawCountBuffer() const {
         return indirectDrawCountBuffer;
     }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getMaxWorkLeftTestBuffer() const { return maxWorkLeftTestBuffer; }
 
 private:
     // Settings.
@@ -76,11 +76,13 @@ private:
     uint32_t nodeCount = 0;
     uint32_t numLeafNodes = 0;
     sgl::vk::BufferPtr nodeDataBuffer; ///< BVHTreeNodePayload objects.
-    uint32_t numMeshlets = 0;
-    sgl::vk::BufferPtr meshletDataBuffer; ///< MeshletBVHPayloadData objects.
-    sgl::vk::BufferPtr meshletVisibilityArrayBuffer; ///< uint32_t objects.
+    ///< QueueStateBuffer object (see QueueStateBuffer in IndirectNodeCulling.glsl; 4x int/uint).
+    sgl::vk::BufferPtr queueStateBuffer, queueStateBufferRecheck;
+    ///< uint * nodeCount (maximum amount of queue elements).
+    sgl::vk::BufferPtr queueBuffer, queueBufferRecheck;
     sgl::vk::BufferPtr indirectDrawBuffer; ///< Padded VkDrawIndexedIndirectCommand objects.
-    sgl::vk::BufferPtr indirectDrawCountBuffer; ///< uint32_t objects.
+    sgl::vk::BufferPtr indirectDrawCountBuffer; ///< uint32_t object.
+    sgl::vk::BufferPtr maxWorkLeftTestBuffer; ///< int32_t object, for debugging.
 };
 
 #endif //LINEVIS_NODESBVHTREEPAYLOAD_HPP
