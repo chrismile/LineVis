@@ -27,6 +27,7 @@
  */
 
 #include <map>
+#include <Utils/File/Logfile.hpp>
 #include <Graphics/Vulkan/Utils/Device.hpp>
 #include "PersistentThreadHelper.hpp"
 
