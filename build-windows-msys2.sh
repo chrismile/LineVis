@@ -79,6 +79,7 @@ if command -v pacman &> /dev/null && [ ! -d $build_dir_debug ] && [ ! -d $build_
             || ! is_installed_pacman "mingw-w64-x86_64-vulkan-validation-layers" \
             || ! is_installed_pacman "mingw-w64-x86_64-shaderc" \
             || ! is_installed_pacman "mingw-w64-x86_64-opencl-headers" \
+            || ! is_installed_pacman "mingw-w64-x86_64-opencl-icd" \
             || ! is_installed_pacman "mingw-w64-x86_64-jsoncpp" \
             || ! is_installed_pacman "mingw-w64-x86_64-netcdf" \
             || ! is_installed_pacman "mingw-w64-x86_64-zeromq" \
@@ -96,7 +97,7 @@ if command -v pacman &> /dev/null && [ ! -d $build_dir_debug ] && [ ! -d $build_
         mingw64/mingw-w64-x86_64-SDL2 mingw64/mingw-w64-x86_64-SDL2_image mingw64/mingw-w64-x86_64-glew \
         mingw64/mingw-w64-x86_64-vulkan-headers mingw64/mingw-w64-x86_64-vulkan-loader \
         mingw64/mingw-w64-x86_64-vulkan-validation-layers mingw64/mingw-w64-x86_64-shaderc \
-        mingw64/mingw-w64-x86_64-opencl-headers \
+        mingw64/mingw-w64-x86_64-opencl-headers mingw64/mingw-w64-x86_64-opencl-icd \
         mingw64/mingw-w64-x86_64-jsoncpp mingw64/mingw-w64-x86_64-netcdf mingw64/mingw-w64-x86_64-zeromq \
         mingw64/mingw-w64-x86_64-eigen3 mingw64/mingw-w64-x86_64-python mingw64/mingw-w64-x86_64-python-numpy \
         mingw64/mingw-w64-x86_64-openexr mingw64/mingw-w64-x86_64-eccodes

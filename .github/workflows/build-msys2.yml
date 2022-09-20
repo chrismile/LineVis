@@ -48,6 +48,7 @@ jobs:
           mingw64/mingw-w64-x86_64-vulkan-validation-layers
           mingw64/mingw-w64-x86_64-shaderc
           mingw64/mingw-w64-x86_64-opencl-headers
+          mingw64/mingw-w64-x86_64-opencl-icd
           mingw64/mingw-w64-x86_64-jsoncpp
           mingw64/mingw-w64-x86_64-netcdf
           mingw64/mingw-w64-x86_64-zeromq

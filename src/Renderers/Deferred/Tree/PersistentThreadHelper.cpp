@@ -124,7 +124,10 @@ DevicePersistentThreadInfo getDevicePersistentThreadInfo(sgl::vk::Device* device
     }
 #endif
 #ifdef SUPPORT_OPENCL_INTEROP
-    else if (sgl::vk::getIsOpenCLFunctionTableInitialized()) {
+#ifdef SUPPORT_CUDA_INTEROP
+    else
+#endif
+    if (sgl::vk::getIsOpenCLFunctionTableInitialized()) {
         cl_int res;
         cl_device_id clDevice = getMatchingOpenCLDevice(device);
         if (clDevice != nullptr) {
