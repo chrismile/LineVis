@@ -118,7 +118,7 @@ void NodesBVHTreePayload::createPayloadPre(
         bvh::BinnedSahBuilder<Bvh, binCount> binnedSahBuilder(bvh);
         if (bvhBuildGeometryMode == BvhBuildGeometryMode::TRIANGLES) {
             binnedSahBuilder.max_leaf_size = maxNumPrimitivesPerMeshlet;
-            uint32_t minNumLeaves = sgl::uiceil(numTriangles, maxNumPrimitivesPerMeshlet);
+            uint32_t minNumLeaves = sgl::uiceil(uint32_t(numTriangles), maxNumPrimitivesPerMeshlet);
             uint32_t maxHeight = uint32_t(std::ceil(std::log2(double(minNumLeaves)))) + 1;
             binnedSahBuilder.max_depth = maxHeight;
         } else if (bvhBuildGeometryMode == BvhBuildGeometryMode::MESHLETS) {
@@ -130,7 +130,7 @@ void NodesBVHTreePayload::createPayloadPre(
         bvh::SweepSahBuilder<Bvh> sweepSahBuilder(bvh);
         if (bvhBuildGeometryMode == BvhBuildGeometryMode::TRIANGLES) {
             sweepSahBuilder.max_leaf_size = maxNumPrimitivesPerMeshlet;
-            uint32_t minNumLeaves = sgl::uiceil(numTriangles, maxNumPrimitivesPerMeshlet);
+            uint32_t minNumLeaves = sgl::uiceil(uint32_t(numTriangles), maxNumPrimitivesPerMeshlet);
             uint32_t maxHeight = uint32_t(std::ceil(std::log2(double(minNumLeaves)))) + 1;
             sweepSahBuilder.max_depth = maxHeight;
         } else if (bvhBuildGeometryMode == BvhBuildGeometryMode::MESHLETS) {
@@ -150,7 +150,7 @@ void NodesBVHTreePayload::createPayloadPre(
                 globalBbox, bboxes.data(), centers.data(), numPrimitives);
     }
 
-    nodeCount = bvh.node_count;
+    nodeCount = uint32_t(bvh.node_count);
     numLeafNodes = 0;
     std::vector<BVHTreeNode> treeNodes;
     treeNodes.resize(bvh.node_count);

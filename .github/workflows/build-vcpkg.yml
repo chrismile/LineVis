@@ -112,7 +112,7 @@ jobs:
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v10.2
       with:
-        vcpkgGitCommitId: '207fbcb55cef3544f3314ef783d169419f251b3f'
+        vcpkgGitCommitId: '82b7b4fbf53bd134e67b123a00cb15535cfaa6a5'
         #doNotCacheOnWorkflowFailure: true
 
     - name: Create custom vcpkg triplet
@@ -190,3 +190,7 @@ jobs:
       run: |
         find "${{env.VCPKG_ROOT}}/buildtrees" -type l -exec echo {} \;
         find "${{env.VCPKG_ROOT}}/buildtrees" -type l -exec rm {} \;
+        # Recently, there were some "There is not enough space on the disk" errors after having added OpenCL support.
+        # Remove some temporary files to make sure the vcpkg build artifacts can be packaged without out-of-memory errors.
+        rm -rf "${{env.VCPKG_ROOT}}/downloads"
+        
