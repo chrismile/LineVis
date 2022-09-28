@@ -211,7 +211,7 @@ if [[ ! -v VULKAN_SDK ]]; then
         if ! grep -q VULKAN_SDK ~/.bashrc; then
             echo 'export VULKAN_SDK="/usr"' >> ~/.bashrc
         fi
-        VULKAN_SDK="/usr"
+        export VULKAN_SDK="/usr"
         found_vulkan=true
     fi
 
