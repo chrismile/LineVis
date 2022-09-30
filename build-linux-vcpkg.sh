@@ -253,6 +253,10 @@ fi
 
 params_sgl=()
 
+if [ $link_dynamic = false ]; then
+    params_sgl+=(-DBUILD_STATIC_LIBRARY=On)
+fi
+
 if $custom_glslang; then
     if [ ! -d "./glslang" ]; then
         echo "------------------------"
@@ -325,11 +329,15 @@ if [ ! -d "./sgl/install" ]; then
 
     cmake --build $build_dir_debug --parallel $(nproc)
     cmake --build $build_dir_debug --target install
-    cp $build_dir_debug/libsgld.so install/lib/libsgld.so
+    if [ $link_dynamic = true ]; then
+        cp $build_dir_debug/libsgld.so install/lib/libsgld.so
+    fi
 
     cmake --build $build_dir_release --parallel $(nproc)
     cmake --build $build_dir_release --target install
-    cp $build_dir_release/libsgl.so install/lib/libsgl.so
+    if [ $link_dynamic = true ]; then
+        cp $build_dir_release/libsgl.so install/lib/libsgl.so
+    fi
 
     popd >/dev/null
 fi

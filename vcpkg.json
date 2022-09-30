@@ -14,8 +14,15 @@
             "name": "sdl2",
             "features": [ "vulkan" ]
         },
+        "sdl2-image",
         "tinyxml2",
+        {
+            "name": "libarchive",
+            "default-features": true,
+            "features": [ "bzip2", "lz4", "lzma", "zstd" ]
+        },
         "vulkan-headers",
+        "shaderc",
         "opencl",
         "glm",
         "eigen3",

@@ -1,0 +1,12 @@
+/*
+ * We need to hide LLVM symbols to make sure no symbol conflicts with Mesa drivers using different versions of LLVM
+ * happen when loading the Vulkan or OpenCL drivers. This is only necessary for static, shippable builds.
+ * See e.g. issue reports for Intel libigdrcl.so:
+ * - https://github.com/intel/compute-runtime/issues/194
+ * - https://github.com/intel/compute-runtime/issues/213
+ */
+{
+local:
+  /* Hide all symbols. */
+  *;
+};
