@@ -44,6 +44,9 @@ class PropertyEditor;
 enum class DenoiserType {
     NONE,
     EAW,
+#ifdef SUPPORT_PYTORCH_DENOISER
+    PYTORCH_DENOISER,
+#endif
 #ifdef SUPPORT_OPTIX
     OPTIX
 #endif
@@ -51,6 +54,9 @@ enum class DenoiserType {
 const char* const DENOISER_NAMES[] = {
         "None",
         "Edge-Avoiding À-Trous Wavelet Transform",
+#ifdef SUPPORT_PYTORCH_DENOISER
+        "PyTorch Denoiser Module",
+#endif
 #ifdef SUPPORT_OPTIX
         "OptiX Denoiser"
 #endif

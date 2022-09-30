@@ -28,6 +28,9 @@
 
 #include <Utils/File/Logfile.hpp>
 #include "EAWDenoiser.hpp"
+#ifdef SUPPORT_PYTORCH_DENOISER
+#include "PyTorchDenoiser.hpp"
+#endif
 #ifdef SUPPORT_OPTIX
 #include "OptixVptDenoiser.hpp"
 #endif
@@ -50,6 +53,11 @@ std::shared_ptr<Denoiser> createDenoiserObject(
             static_cast<EAWDenoiser*>(denoiser.get())->setWeightScaleNormal(1.0f);
         }
     }
+#ifdef SUPPORT_PYTORCH_DENOISER
+    else if (denoiserType == DenoiserType::PYTORCH_DENOISER) {
+        denoiser = std::shared_ptr<Denoiser>(new PyTorchDenoiser(renderer));
+    }
+#endif
 #ifdef SUPPORT_OPTIX
     else if (denoiserType == DenoiserType::OPTIX) {
         denoiser = std::shared_ptr<Denoiser>(new OptixVptDenoiser(renderer));

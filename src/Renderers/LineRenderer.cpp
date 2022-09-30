@@ -311,11 +311,11 @@ void LineRenderer::setAmbientOcclusionBaker() {
         if (lineData && lineData->getUseCappedTubes() && isRasterizer && !getIsTriangleRepresentationUsed()) {
             lineData->setUseCappedTubes(this, false);
         }
-        ambientOcclusionBaker = AmbientOcclusionBakerPtr(
-                new VulkanRayTracedAmbientOcclusion(sceneData, renderer));
+        ambientOcclusionBaker = AmbientOcclusionBakerPtr(new VulkanRayTracedAmbientOcclusion(sceneData, renderer));
     } else if (ambientOcclusionBakerType == AmbientOcclusionBakerType::SSAO) {
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(new SSAO(sceneData, renderer));
     }
+    ambientOcclusionBaker->setFileDialogInstance(fileDialogInstance);
 
     AmbientOcclusionBakerType newAmbientOcclusionBakerType = AmbientOcclusionBakerType::NONE;
     if (ambientOcclusionBaker) {

@@ -175,6 +175,10 @@ bool VulkanRayTracedAmbientOcclusion::renderGuiPropertyEditorNodes(sgl::Property
     return optionChanged;
 }
 
+void VulkanRayTracedAmbientOcclusion::setFileDialogInstance(ImGuiFileDialog* _fileDialogInstance) {
+    rtaoRenderPass->setFileDialogInstance(_fileDialogInstance);
+}
+
 
 
 VulkanRayTracedAmbientOcclusionPass::VulkanRayTracedAmbientOcclusionPass(

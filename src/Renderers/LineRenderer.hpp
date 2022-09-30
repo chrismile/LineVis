@@ -133,7 +133,9 @@ public:
      * as the transfer function data is automatically updated to use the correct format.
      */
     virtual void setUseLinearRGB(bool useLinearRGB) {}
-    virtual void setFileDialogInstance(ImGuiFileDialog* fileDialogInstance) {}
+    virtual void setFileDialogInstance(ImGuiFileDialog* _fileDialogInstance) {
+        fileDialogInstance = _fileDialogInstance;
+    }
     /// Returns the integer resolution scaling factor used internally by the renderer.
     [[nodiscard]] virtual int getResolutionIntegerScalingFactor() const { return 1; }
 
@@ -182,6 +184,7 @@ protected:
     // Metadata about renderer.
     bool isRasterizer = true;
     std::string windowName;
+    ImGuiFileDialog* fileDialogInstance = nullptr;
 
     // For rendering the simulation mesh hull.
     std::shared_ptr<HullRasterPass> hullRasterPass;

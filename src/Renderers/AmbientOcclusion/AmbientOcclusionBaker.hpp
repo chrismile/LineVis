@@ -32,6 +32,11 @@
 #include <memory>
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
 
+namespace IGFD {
+class FileDialog;
+}
+typedef IGFD::FileDialog ImGuiFileDialog;
+
 namespace sgl {
 
 class TransferFunctionWindow;
@@ -116,6 +121,7 @@ public:
 
     /// Returns whether the baking process was re-run.
     virtual bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) { return false; }
+    virtual void setFileDialogInstance(ImGuiFileDialog* _fileDialogInstance) {}
 
 protected:
     sgl::vk::Renderer* rendererMain;

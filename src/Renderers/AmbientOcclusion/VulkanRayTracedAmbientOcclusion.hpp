@@ -91,6 +91,7 @@ public:
 
     /// Returns whether the baking process was re-run.
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
+    void setFileDialogInstance(ImGuiFileDialog* _fileDialogInstance) override;
 
 private:
     std::shared_ptr<VulkanRayTracedAmbientOcclusionPass> rtaoRenderPass;
