@@ -42,6 +42,28 @@ void VisibilityBufferDrawIndexedIndirectPass::setMaxNumPrimitivesPerMeshlet(uint
     }
 }
 
+void VisibilityBufferDrawIndexedIndirectPass::setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm) {
+    if (bvhBuildAlgorithm != _bvhBuildAlgorithm) {
+        bvhBuildAlgorithm = _bvhBuildAlgorithm;
+        setDataDirty();
+    }
+}
+
+void VisibilityBufferDrawIndexedIndirectPass::setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode) {
+    if (bvhBuildGeometryMode != _bvhBuildGeometryMode) {
+        bvhBuildGeometryMode = _bvhBuildGeometryMode;
+        setDataDirty();
+    }
+}
+
+void VisibilityBufferDrawIndexedIndirectPass::setBvhBuildPrimitiveCenterMode(
+        BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode) {
+    if (bvhBuildPrimitiveCenterMode != _bvhBuildPrimitiveCenterMode) {
+        bvhBuildPrimitiveCenterMode = _bvhBuildPrimitiveCenterMode;
+        setDataDirty();
+    }
+}
+
 void VisibilityBufferDrawIndexedIndirectPass::setUseDrawIndexedIndirectCount(bool useIndirectCount) {
     if (useDrawIndexedIndirectCount != useIndirectCount) {
         useDrawIndexedIndirectCount = useIndirectCount;
@@ -126,7 +148,8 @@ void VisibilityBufferBVHDrawIndexedIndirectPass::createRasterData(
     lineData->setVulkanRenderDataDescriptors(rasterData);
     //lineRenderer->setRenderDataBindings(rasterData);
 
-    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new NodesBVHTreePayload(maxNumPrimitivesPerMeshlet));
+    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new NodesBVHTreePayload(
+            maxNumPrimitivesPerMeshlet, bvhBuildAlgorithm, bvhBuildGeometryMode, bvhBuildPrimitiveCenterMode));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
             true, false, payloadSuperClass);
 

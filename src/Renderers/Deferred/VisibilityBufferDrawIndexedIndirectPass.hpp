@@ -46,6 +46,9 @@ class VisibilityBufferDrawIndexedIndirectPass : public LineRasterPass {
 public:
     explicit VisibilityBufferDrawIndexedIndirectPass(LineRenderer* lineRenderer);
     void setMaxNumPrimitivesPerMeshlet(uint32_t numPrimitives);
+    void setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm);
+    void setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode);
+    void setBvhBuildPrimitiveCenterMode(BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode);
     void setUseDrawIndexedIndirectCount(bool useIndirectCount);
     [[nodiscard]] inline uint32_t getNumMeshlets() const { return numMeshlets; }
 
@@ -55,6 +58,9 @@ protected:
     void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
 
     uint32_t maxNumPrimitivesPerMeshlet = 128;
+    BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;
+    BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::TRIANGLES;
+    BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode::PRIMITIVE_CENTROID;
     bool useDrawIndexedIndirectCount = true;
     uint32_t numMeshlets = 0;
 };

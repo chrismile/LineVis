@@ -41,6 +41,9 @@ public:
     // Public interface.
     void setLineData(LineDataPtr& lineData, bool isNewData);
     void setMaxNumPrimitivesPerMeshlet(uint32_t num);
+    void setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm);
+    void setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode);
+    void setBvhBuildPrimitiveCenterMode(BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode);
     void setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer);
     void setDepthBufferTexture(const sgl::vk::TexturePtr& texture);
 
@@ -52,6 +55,9 @@ protected:
 private:
     LineDataPtr lineData;
     uint32_t maxNumPrimitivesPerMeshlet = 128;
+    BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;
+    BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::TRIANGLES;
+    BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode::PRIMITIVE_CENTROID;
     sgl::vk::BufferPtr visibilityCullingUniformBuffer;
     sgl::vk::TexturePtr depthBufferTexture;
 };

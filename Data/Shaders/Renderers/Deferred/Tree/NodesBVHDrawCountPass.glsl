@@ -127,7 +127,7 @@ layout(std430, binding = 14) buffer TestBuffer {
     int maxLeftWork;
 };
 
-#if WORKGROUP_SIZE != 1 && WORKGROUP_SIZE != SUBGROUP_SIZE
+#if WORKGROUP_SIZE != 1 && WORKGROUP_SIZE > SUBGROUP_SIZE
 shared uint numWorkShared;
 shared uint workIdxShared;
 #endif
@@ -159,13 +159,13 @@ void main() {
             }
             atomicExchange(queueLock, 0u);
         }
-#elif WORKGROUP_SIZE == SUBGROUP_SIZE
+#elif WORKGROUP_SIZE <= SUBGROUP_SIZE
         uint threadWritesChild = 0u;
         numWork = 0u;
         if (subgroupElect()) {
             if (atomicCompSwap(queueLock, 0u, 1u) == 0u) {
                 if (queueReadIdx < queueWriteIdx) {
-                    numWork = min(queueWriteIdx - queueReadIdx, gl_SubgroupSize);
+                    numWork = min(queueWriteIdx - queueReadIdx, WORKGROUP_SIZE);
                     workIdx = atomicAdd(queueReadIdx, numWork);
                 }
                 atomicExchange(queueLock, 0u);
@@ -247,7 +247,7 @@ void main() {
                         break;
                     }
                 }
-#elif WORKGROUP_SIZE == SUBGROUP_SIZE
+#elif WORKGROUP_SIZE <= SUBGROUP_SIZE
                 bool hasLock = false;
                 threadWritesChild = 2u;
                 uint numWrite = subgroupAdd(threadWritesChild);

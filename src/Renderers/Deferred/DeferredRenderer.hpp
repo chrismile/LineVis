@@ -215,6 +215,16 @@ protected:
     BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;
     BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::TRIANGLES;
     BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode::PRIMITIVE_CENTROID;
+    /**
+     * Some BVH building algorithms, like BINNED_SAH_CPU and SWEEP_SAH_CPU, support
+     */
+    void initializeOptimalNumWorkgroups();
+    uint32_t numWorkgroupsBvh = 0;
+    uint32_t workgroupSizeBvh = 0;
+    uint32_t optimalNumWorkgroups = 0;
+    uint32_t optimalWorkgroupSize = 0;
+    uint32_t maxNumWorkgroups = 0;
+    uint32_t maxWorkgroupSize = 0;
 
     // Task/mesh shader sub-modes.
     bool useMeshShaderNV = false; ///< Whether to use VK_EXT_mesh_shader oder VK_NV_mesh_shader.

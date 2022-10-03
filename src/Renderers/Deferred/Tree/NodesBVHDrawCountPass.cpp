@@ -54,6 +54,36 @@ void NodesBVHDrawCountPass::setMaxNumPrimitivesPerMeshlet(uint32_t num) {
     }
 }
 
+void NodesBVHDrawCountPass::setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm) {
+    if (bvhBuildAlgorithm != _bvhBuildAlgorithm) {
+        bvhBuildAlgorithm = _bvhBuildAlgorithm;
+        setDataDirty();
+    }
+}
+
+void NodesBVHDrawCountPass::setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode) {
+    if (bvhBuildGeometryMode != _bvhBuildGeometryMode) {
+        bvhBuildGeometryMode = _bvhBuildGeometryMode;
+        setDataDirty();
+    }
+}
+
+void NodesBVHDrawCountPass::setBvhBuildPrimitiveCenterMode(BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode) {
+    if (bvhBuildPrimitiveCenterMode != _bvhBuildPrimitiveCenterMode) {
+        bvhBuildPrimitiveCenterMode = _bvhBuildPrimitiveCenterMode;
+        setDataDirty();
+    }
+}
+
+void NodesBVHDrawCountPass::setNumWorkgroups(uint32_t numWorkgroupsBvh) {
+    numWorkgroups = numWorkgroupsBvh;
+}
+
+void NodesBVHDrawCountPass::setWorkgroupSize(uint32_t workgroupSizeBvh) {
+    workgroupSize = workgroupSizeBvh;
+    setShaderDirty();
+}
+
 void NodesBVHDrawCountPass::setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer) {
     visibilityCullingUniformBuffer = uniformBuffer;
 }
@@ -66,13 +96,9 @@ void NodesBVHDrawCountPass::setDepthBufferTexture(const sgl::vk::TexturePtr& tex
 void NodesBVHDrawCountPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
-    DevicePersistentThreadInfo threadInfo = getDevicePersistentThreadInfo(device);
-    threadInfo.optimalWorkgroupSize = device->getPhysicalDeviceSubgroupProperties().subgroupSize;
-    preprocessorDefines.insert(std::make_pair("WORKGROUP_SIZE", std::to_string(
-            threadInfo.optimalWorkgroupSize)));
+    preprocessorDefines.insert(std::make_pair("WORKGROUP_SIZE", std::to_string(workgroupSize)));
     preprocessorDefines.insert(std::make_pair("SUBGROUP_SIZE", std::to_string(
             device->getPhysicalDeviceSubgroupProperties().subgroupSize)));
-    workgroupSize = threadInfo.optimalWorkgroupSize;
     if (recheckOccludedOnly) {
         preprocessorDefines.insert(std::make_pair("RECHECK_OCCLUDED_ONLY", ""));
     }
@@ -83,7 +109,8 @@ void NodesBVHDrawCountPass::loadShader() {
 void NodesBVHDrawCountPass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
     computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
 
-    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new NodesBVHTreePayload(maxNumPrimitivesPerMeshlet));
+    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new NodesBVHTreePayload(
+            maxNumPrimitivesPerMeshlet, bvhBuildAlgorithm, bvhBuildGeometryMode, bvhBuildPrimitiveCenterMode));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
             true, false, payloadSuperClass);
 
@@ -92,8 +119,6 @@ void NodesBVHDrawCountPass::createComputeData(sgl::vk::Renderer* renderer, sgl::
     }
     auto* payload = static_cast<NodesBVHTreePayload*>(payloadSuperClass.get());
 
-    DevicePersistentThreadInfo threadInfo = getDevicePersistentThreadInfo(device);
-    numWorkgroups = threadInfo.optimalNumWorkgroups;
     numNodes = payload->getNumNodes();
     indirectDrawCountBuffer = payload->getIndirectDrawCountBuffer();
     computeData->setStaticBuffer(payload->getNodeDataBuffer(), "NodeBuffer");

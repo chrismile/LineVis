@@ -41,8 +41,11 @@ struct BVHTreeNode {
 
 class NodesBVHTreePayload : public TubeTriangleRenderDataPayload {
 public:
-    explicit NodesBVHTreePayload(uint32_t maxNumPrimitivesPerMeshlet)
-            : maxNumPrimitivesPerMeshlet(maxNumPrimitivesPerMeshlet) {}
+    explicit NodesBVHTreePayload(
+            uint32_t maxNumPrimitivesPerMeshlet, BvhBuildAlgorithm bvhBuildAlgorithm,
+            BvhBuildGeometryMode bvhBuildGeometryMode, BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode)
+            : maxNumPrimitivesPerMeshlet(maxNumPrimitivesPerMeshlet), bvhBuildAlgorithm(bvhBuildAlgorithm),
+              bvhBuildGeometryMode(bvhBuildGeometryMode), bvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode) {}
     [[nodiscard]] Type getType() const override { return Type::NODES_HLBVH_TREE; }
     [[nodiscard]] bool settingsEqual(TubeTriangleRenderDataPayload* other) const override;
 

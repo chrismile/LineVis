@@ -57,6 +57,7 @@
 #include "MeshletTaskMeskPass.hpp"
 #include "Tree/NodesBVHClearQueuePass.hpp"
 #include "Tree/NodesBVHDrawCountPass.hpp"
+#include "Tree/PersistentThreadHelper.hpp"
 #include "DeferredRenderer.hpp"
 
 DeferredRenderer::DeferredRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
@@ -192,6 +193,7 @@ void DeferredRenderer::updateRenderingMode() {
         nodesBVHDrawCountPasses[i] = {};
         visibilityBufferBVHDrawIndexedIndirectPasses[i] = {};
     }
+    deferredResolvePass->setDataDirty();
 
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
         visibilityBufferDrawIndexedPass = std::make_shared<VisibilityBufferDrawIndexedPass>(this);
@@ -230,17 +232,29 @@ void DeferredRenderer::updateRenderingMode() {
             setLineData(lineData, false);
         }
     } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
+        initializeOptimalNumWorkgroups();
         nodesBVHClearQueuePass = std::make_shared<NodesBVHClearQueuePass>(renderer);
         nodesBVHClearQueuePass->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+        nodesBVHClearQueuePass->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+        nodesBVHClearQueuePass->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+        nodesBVHClearQueuePass->setBvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode);
         nodesBVHClearQueuePass->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
         for (int i = 0; i < 2; i++) {
             visibilityBufferBVHDrawIndexedIndirectPasses[i] =
                     std::make_shared<VisibilityBufferBVHDrawIndexedIndirectPass>(this);
             visibilityBufferBVHDrawIndexedIndirectPasses[i]->setMaxNumPrimitivesPerMeshlet(
                     drawIndirectMaxNumPrimitivesPerMeshlet);
+            visibilityBufferBVHDrawIndexedIndirectPasses[i]->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+            visibilityBufferBVHDrawIndexedIndirectPasses[i]->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+            visibilityBufferBVHDrawIndexedIndirectPasses[i]->setBvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode);
             visibilityBufferBVHDrawIndexedIndirectPasses[i]->setUseDrawIndexedIndirectCount(true);
             nodesBVHDrawCountPasses[i] = std::make_shared<NodesBVHDrawCountPass>(renderer);
             nodesBVHDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+            nodesBVHDrawCountPasses[i]->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+            nodesBVHDrawCountPasses[i]->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+            nodesBVHDrawCountPasses[i]->setBvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode);
+            nodesBVHDrawCountPasses[i]->setNumWorkgroups(numWorkgroupsBvh);
+            nodesBVHDrawCountPasses[i]->setWorkgroupSize(workgroupSizeBvh);
             nodesBVHDrawCountPasses[i]->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
         }
         visibilityBufferBVHDrawIndexedIndirectPasses[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
@@ -341,6 +355,18 @@ void DeferredRenderer::updateTaskMeshShaderMode() {
             meshletTaskMeshPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
                     useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
         }
+    }
+}
+
+void DeferredRenderer::initializeOptimalNumWorkgroups() {
+    if (optimalNumWorkgroups == 0 || optimalWorkgroupSize == 0) {
+        DevicePersistentThreadInfo threadInfo = getDevicePersistentThreadInfo(renderer->getDevice());
+        optimalNumWorkgroups = threadInfo.optimalNumWorkgroups;
+        optimalWorkgroupSize = threadInfo.optimalWorkgroupSize;
+        numWorkgroupsBvh = optimalNumWorkgroups;
+        workgroupSizeBvh = optimalWorkgroupSize;
+        maxNumWorkgroups = sgl::nextPowerOfTwo(2 * int(optimalNumWorkgroups));
+        maxWorkgroupSize = renderer->getDevice()->getLimits().maxComputeWorkGroupSize[0];
     }
 }
 
@@ -1186,6 +1212,78 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                 reRender = true;
             }
         }
+    } else if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
+        if (propertyEditor.addCombo(
+                "BVH Build Algorithm", (int*)&bvhBuildAlgorithm,
+                bvhBuildAlgorithmNames, IM_ARRAYSIZE(bvhBuildAlgorithmNames))) {
+            nodesBVHClearQueuePass->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+            for (int i = 0; i < 2; i++) {
+                visibilityBufferBVHDrawIndexedIndirectPasses[i]->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+                nodesBVHDrawCountPasses[i]->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+            }
+            deferredResolvePass->setDataDirty();
+            reRender = true;
+        }
+        if (propertyEditor.addCombo(
+                "BVH Geometry Mode", (int*)&bvhBuildGeometryMode,
+                bvhBuildGeometryModeNames, IM_ARRAYSIZE(bvhBuildGeometryModeNames))) {
+            nodesBVHClearQueuePass->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+            for (int i = 0; i < 2; i++) {
+                visibilityBufferBVHDrawIndexedIndirectPasses[i]->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+                nodesBVHDrawCountPasses[i]->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+            }
+            deferredResolvePass->setDataDirty();
+            reRender = true;
+        }
+        if (propertyEditor.addCombo(
+                "BVH Primitive Centers", (int*)&bvhBuildPrimitiveCenterMode,
+                bvhBuildPrimitiveCenterModeNames, IM_ARRAYSIZE(bvhBuildPrimitiveCenterModeNames))) {
+            nodesBVHClearQueuePass->setBvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode);
+            for (int i = 0; i < 2; i++) {
+                visibilityBufferBVHDrawIndexedIndirectPasses[i]->setBvhBuildPrimitiveCenterMode(
+                        bvhBuildPrimitiveCenterMode);
+                nodesBVHDrawCountPasses[i]->setBvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode);
+            }
+            deferredResolvePass->setDataDirty();
+            reRender = true;
+        }
+        /**
+         * Some BVH building algorithms, like BINNED_SAH_CPU and SWEEP_SAH_CPU, support
+         */
+        if (propertyEditor.addSliderIntEdit(
+                "#Tri/Meshlet", (int*)&drawIndirectMaxNumPrimitivesPerMeshlet,
+                32, 1024) == ImGui::EditMode::INPUT_FINISHED) {
+            nodesBVHClearQueuePass->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+            for (int i = 0; i < 2; i++) {
+                visibilityBufferBVHDrawIndexedIndirectPasses[i]->setMaxNumPrimitivesPerMeshlet(
+                        drawIndirectMaxNumPrimitivesPerMeshlet);
+                nodesBVHDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+            }
+            reloadGatherShader();
+            reRender = true;
+        }
+
+        if (propertyEditor.beginNode("Advanced Settings##bvh")) {
+            if (propertyEditor.addSliderIntEdit(
+                    "#Workgroups", (int*)&numWorkgroupsBvh,
+                    1, int(maxNumWorkgroups)) == ImGui::EditMode::INPUT_FINISHED) {
+                numWorkgroupsBvh = std::clamp(numWorkgroupsBvh, 1u, maxNumWorkgroups);
+                for (int i = 0; i < 2; i++) {
+                    nodesBVHDrawCountPasses[i]->setNumWorkgroups(numWorkgroupsBvh);
+                }
+                reRender = true;
+            }
+            if (propertyEditor.addSliderIntEdit(
+                    "Workgroup Size", (int*)&workgroupSizeBvh,
+                    1, int(maxWorkgroupSize)) == ImGui::EditMode::INPUT_FINISHED) {
+                workgroupSizeBvh = std::clamp(workgroupSizeBvh, 1u, maxWorkgroupSize);
+                for (int i = 0; i < 2; i++) {
+                    nodesBVHDrawCountPasses[i]->setWorkgroupSize(workgroupSizeBvh);
+                }
+                reRender = true;
+            }
+            propertyEditor.endNode();
+        }
     }
 
     if ((deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT
@@ -1370,6 +1468,73 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
         }
         reRender = true;
     }
+
+    std::string bvhBuildAlgorithmString;
+    if (newState.rendererSettings.getValueOpt("bvhBuildAlgorithm", bvhBuildAlgorithmString)) {
+        for (int i = 0; i < IM_ARRAYSIZE(bvhBuildAlgorithmNames); i++) {
+            if (bvhBuildAlgorithmString == bvhBuildAlgorithmNames[i]) {
+                bvhBuildAlgorithm = BvhBuildAlgorithm(i);
+                nodesBVHClearQueuePass->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+                for (int i = 0; i < 2; i++) {
+                    visibilityBufferBVHDrawIndexedIndirectPasses[i]->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+                    nodesBVHDrawCountPasses[i]->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+                }
+                deferredResolvePass->setDataDirty();
+                reRender = true;
+                break;
+            }
+        }
+    }
+
+    std::string bvhBuildGeometryModeString;
+    if (newState.rendererSettings.getValueOpt("bvhBuildGeometryMode", bvhBuildGeometryModeString)) {
+        for (int i = 0; i < IM_ARRAYSIZE(bvhBuildGeometryModeNames); i++) {
+            if (bvhBuildGeometryModeString == bvhBuildGeometryModeNames[i]) {
+                bvhBuildGeometryMode = BvhBuildGeometryMode(i);
+                nodesBVHClearQueuePass->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+                for (int i = 0; i < 2; i++) {
+                    visibilityBufferBVHDrawIndexedIndirectPasses[i]->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+                    nodesBVHDrawCountPasses[i]->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+                }
+                deferredResolvePass->setDataDirty();
+                reRender = true;
+                break;
+            }
+        }
+    }
+
+    std::string bvhBuildPrimitiveCenterModeString;
+    if (newState.rendererSettings.getValueOpt("bvhBuildPrimitiveCenterMode", bvhBuildPrimitiveCenterModeString)) {
+        for (int i = 0; i < IM_ARRAYSIZE(bvhBuildPrimitiveCenterModeNames); i++) {
+            if (bvhBuildPrimitiveCenterModeString == bvhBuildPrimitiveCenterModeNames[i]) {
+                bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode(i);
+                nodesBVHClearQueuePass->setBvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode);
+                for (int i = 0; i < 2; i++) {
+                    visibilityBufferBVHDrawIndexedIndirectPasses[i]->setBvhBuildPrimitiveCenterMode(
+                            bvhBuildPrimitiveCenterMode);
+                    nodesBVHDrawCountPasses[i]->setBvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode);
+                }
+                deferredResolvePass->setDataDirty();
+                reRender = true;
+                break;
+            }
+        }
+    }
+
+    if (newState.rendererSettings.getValueOpt("numWorkgroupsBvh", numWorkgroupsBvh)) {
+        numWorkgroupsBvh = std::clamp(numWorkgroupsBvh, 1u, maxNumWorkgroups);
+        for (int i = 0; i < 2; i++) {
+            nodesBVHDrawCountPasses[i]->setNumWorkgroups(numWorkgroupsBvh);
+        }
+        reRender = true;
+    }
+    if (newState.rendererSettings.getValueOpt("workgroupSizeBvh", workgroupSizeBvh)) {
+        workgroupSizeBvh = std::clamp(workgroupSizeBvh, 1u, maxWorkgroupSize);
+        for (int i = 0; i < 2; i++) {
+            nodesBVHDrawCountPasses[i]->setWorkgroupSize(workgroupSizeBvh);
+        }
+        reRender = true;
+    }
 }
 
 bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
@@ -1485,6 +1650,73 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
                 meshletTaskMeshPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
                         useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
             }
+        }
+        reRender = true;
+    }
+
+    std::string bvhBuildAlgorithmString;
+    if (settings.getValueOpt("bvh_build_algorithm", bvhBuildAlgorithmString)) {
+        for (int i = 0; i < IM_ARRAYSIZE(bvhBuildAlgorithmNames); i++) {
+            if (bvhBuildAlgorithmString == bvhBuildAlgorithmNames[i]) {
+                bvhBuildAlgorithm = BvhBuildAlgorithm(i);
+                nodesBVHClearQueuePass->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+                for (int i = 0; i < 2; i++) {
+                    visibilityBufferBVHDrawIndexedIndirectPasses[i]->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+                    nodesBVHDrawCountPasses[i]->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+                }
+                deferredResolvePass->setDataDirty();
+                reRender = true;
+                break;
+            }
+        }
+    }
+
+    std::string bvhBuildGeometryModeString;
+    if (settings.getValueOpt("bvh_build_geometry_mode", bvhBuildGeometryModeString)) {
+        for (int i = 0; i < IM_ARRAYSIZE(bvhBuildGeometryModeNames); i++) {
+            if (bvhBuildGeometryModeString == bvhBuildGeometryModeNames[i]) {
+                bvhBuildGeometryMode = BvhBuildGeometryMode(i);
+                nodesBVHClearQueuePass->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+                for (int i = 0; i < 2; i++) {
+                    visibilityBufferBVHDrawIndexedIndirectPasses[i]->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+                    nodesBVHDrawCountPasses[i]->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+                }
+                deferredResolvePass->setDataDirty();
+                reRender = true;
+                break;
+            }
+        }
+    }
+
+    std::string bvhBuildPrimitiveCenterModeString;
+    if (settings.getValueOpt("bvh_build_primitive_center_mode", bvhBuildPrimitiveCenterModeString)) {
+        for (int i = 0; i < IM_ARRAYSIZE(bvhBuildPrimitiveCenterModeNames); i++) {
+            if (bvhBuildPrimitiveCenterModeString == bvhBuildPrimitiveCenterModeNames[i]) {
+                bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode(i);
+                nodesBVHClearQueuePass->setBvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode);
+                for (int i = 0; i < 2; i++) {
+                    visibilityBufferBVHDrawIndexedIndirectPasses[i]->setBvhBuildPrimitiveCenterMode(
+                            bvhBuildPrimitiveCenterMode);
+                    nodesBVHDrawCountPasses[i]->setBvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode);
+                }
+                deferredResolvePass->setDataDirty();
+                reRender = true;
+                break;
+            }
+        }
+    }
+
+    if (settings.getValueOpt("num_workgroups_bvh", numWorkgroupsBvh)) {
+        numWorkgroupsBvh = std::clamp(numWorkgroupsBvh, 1u, maxNumWorkgroups);
+        for (int i = 0; i < 2; i++) {
+            nodesBVHDrawCountPasses[i]->setNumWorkgroups(numWorkgroupsBvh);
+        }
+        reRender = true;
+    }
+    if (settings.getValueOpt("workgroup_size_bvh", workgroupSizeBvh)) {
+        workgroupSizeBvh = std::clamp(workgroupSizeBvh, 1u, maxWorkgroupSize);
+        for (int i = 0; i < 2; i++) {
+            nodesBVHDrawCountPasses[i]->setWorkgroupSize(workgroupSizeBvh);
         }
         reRender = true;
     }

@@ -42,6 +42,11 @@ public:
     void setLineData(LineDataPtr& lineData, bool isNewData);
     void setRecheckOccludedOnly(bool recheck);
     void setMaxNumPrimitivesPerMeshlet(uint32_t num);
+    void setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm);
+    void setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode);
+    void setBvhBuildPrimitiveCenterMode(BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode);
+    void setNumWorkgroups(uint32_t numWorkgroupsBvh);
+    void setWorkgroupSize(uint32_t workgroupSizeBvh);
     void setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer);
     void setDepthBufferTexture(const sgl::vk::TexturePtr& texture);
     [[nodiscard]] inline const sgl::vk::BufferPtr& getDrawCountBuffer() const { return indirectDrawCountBuffer; }
@@ -56,6 +61,9 @@ private:
     LineDataPtr lineData;
     bool recheckOccludedOnly = false;
     uint32_t maxNumPrimitivesPerMeshlet = 128;
+    BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;
+    BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::TRIANGLES;
+    BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode::PRIMITIVE_CENTROID;
     uint32_t numNodes = 0;
     uint32_t numWorkgroups = 0;
     uint32_t workgroupSize = 0;

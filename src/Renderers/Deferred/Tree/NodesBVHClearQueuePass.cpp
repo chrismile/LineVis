@@ -46,6 +46,27 @@ void NodesBVHClearQueuePass::setMaxNumPrimitivesPerMeshlet(uint32_t num) {
     }
 }
 
+void NodesBVHClearQueuePass::setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm) {
+    if (bvhBuildAlgorithm != _bvhBuildAlgorithm) {
+        bvhBuildAlgorithm = _bvhBuildAlgorithm;
+        setDataDirty();
+    }
+}
+
+void NodesBVHClearQueuePass::setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode) {
+    if (bvhBuildGeometryMode != _bvhBuildGeometryMode) {
+        bvhBuildGeometryMode = _bvhBuildGeometryMode;
+        setDataDirty();
+    }
+}
+
+void NodesBVHClearQueuePass::setBvhBuildPrimitiveCenterMode(BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode) {
+    if (bvhBuildPrimitiveCenterMode != _bvhBuildPrimitiveCenterMode) {
+        bvhBuildPrimitiveCenterMode = _bvhBuildPrimitiveCenterMode;
+        setDataDirty();
+    }
+}
+
 void NodesBVHClearQueuePass::setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer) {
     visibilityCullingUniformBuffer = uniformBuffer;
 }
@@ -65,7 +86,8 @@ void NodesBVHClearQueuePass::loadShader() {
 void NodesBVHClearQueuePass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
     computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
 
-    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new NodesBVHTreePayload(maxNumPrimitivesPerMeshlet));
+    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new NodesBVHTreePayload(
+            maxNumPrimitivesPerMeshlet, bvhBuildAlgorithm, bvhBuildGeometryMode, bvhBuildPrimitiveCenterMode));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
             true, false, payloadSuperClass);
 

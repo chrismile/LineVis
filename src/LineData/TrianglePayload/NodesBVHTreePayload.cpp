@@ -37,8 +37,10 @@
 //#include <bvh/spatial_split_bvh_builder.hpp>
 
 #include <Math/Math.hpp>
+#include <Math/Geometry/AABB3.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
+#include "MeshletsDrawIndirectPayload.hpp"
 #include "NodesBVHTreePayload.hpp"
 
 using Scalar = float;
@@ -70,17 +72,16 @@ void NodesBVHTreePayload::createPayloadPre(
         const std::vector<LinePointDataUnified>& tubeTriangleLinePointDataList) {
     size_t numTriangles = tubeTriangleIndices.size() / 3;
     size_t numPrimitives = 0;
-    if (bvhBuildGeometryMode == BvhBuildGeometryMode::TRIANGLES) {
-        numPrimitives = tubeTriangleIndices.size() / 3;
-    } else if (bvhBuildGeometryMode == BvhBuildGeometryMode::MESHLETS) {
-        numPrimitives = tubeTriangleIndices.size();
-    }
-
     std::vector<BoundingBox> bboxes;
     std::vector<Vector3> centers;
-    bboxes.reserve(numPrimitives);
-    centers.reserve(numPrimitives);
+
+    // Optional, if bvhBuildGeometryMode == BvhBuildGeometryMode::MESHLETS.
+    std::vector<MeshletDrawIndirectPayloadData> meshlets;
+
     if (bvhBuildGeometryMode == BvhBuildGeometryMode::TRIANGLES) {
+        numPrimitives = tubeTriangleIndices.size() / 3;
+        bboxes.reserve(numPrimitives);
+        centers.reserve(numPrimitives);
         for (size_t indexOffset = 0; indexOffset < tubeTriangleIndices.size(); indexOffset += 3) {
             uint32_t idx0 = tubeTriangleIndices.at(indexOffset);
             uint32_t idx1 = tubeTriangleIndices.at(indexOffset + 1);
@@ -106,7 +107,70 @@ void NodesBVHTreePayload::createPayloadPre(
             }
         }
     } else if (bvhBuildGeometryMode == BvhBuildGeometryMode::MESHLETS) {
-        // TODO
+        meshlets.reserve(sgl::uiceil(uint32_t(tubeTriangleIndices.size()), maxNumPrimitivesPerMeshlet));
+        MeshletDrawIndirectPayloadData currentMeshlet{};
+        sgl::AABB3 currentMeshletBB;
+        uint32_t currentLineIdx = 0;
+
+        for (size_t primitiveIdx = 0; primitiveIdx < tubeTriangleIndices.size(); primitiveIdx += 3) {
+            uint32_t idx0 = tubeTriangleIndices.at(primitiveIdx);
+            uint32_t idx1 = tubeTriangleIndices.at(primitiveIdx + 1);
+            uint32_t idx2 = tubeTriangleIndices.at(primitiveIdx + 2);
+            const auto& v0 = tubeTriangleVertexDataList.at(idx0);
+            const auto& v1 = tubeTriangleVertexDataList.at(idx1);
+            const auto& v2 = tubeTriangleVertexDataList.at(idx2);
+            uint32_t l0 = tubeTriangleLinePointDataList.at(v0.vertexLinePointIndex & 0x7FFFFFFFu).lineStartIndex;
+
+            if (currentMeshlet.indexCount >= maxNumPrimitivesPerMeshlet * 3
+                    || (currentLineIdx != l0 && currentMeshlet.indexCount > 0)) {
+                currentMeshlet.worldSpaceAabbMin = currentMeshletBB.min;
+                currentMeshlet.worldSpaceAabbMax = currentMeshletBB.max;
+                meshlets.push_back(currentMeshlet);
+                currentMeshletBB = {};
+                currentMeshlet = {};
+                currentMeshlet.firstIndex = uint32_t(primitiveIdx);
+            }
+            currentLineIdx = l0;
+
+            currentMeshletBB.combine(v0.vertexPosition);
+            currentMeshletBB.combine(v1.vertexPosition);
+            currentMeshletBB.combine(v2.vertexPosition);
+            currentMeshlet.indexCount += 3;
+        }
+
+        // Add any missing meshlet.
+        if (currentMeshlet.indexCount > 0) {
+            currentMeshlet.worldSpaceAabbMin = currentMeshletBB.min;
+            currentMeshlet.worldSpaceAabbMax = currentMeshletBB.max;
+            meshlets.push_back(currentMeshlet);
+        }
+
+        numPrimitives = meshlets.size();
+        bboxes.reserve(numPrimitives);
+        centers.reserve(numPrimitives);
+
+        for (size_t meshletIdx = 0; meshletIdx < meshlets.size(); meshletIdx++) {
+            const MeshletDrawIndirectPayloadData& meshlet = meshlets.at(meshletIdx);
+            BoundingBox bb;
+            bb.min = Vector3(
+                    meshlet.worldSpaceAabbMin.x, meshlet.worldSpaceAabbMin.y, meshlet.worldSpaceAabbMin.z);
+            bb.max = Vector3(
+                    meshlet.worldSpaceAabbMax.x, meshlet.worldSpaceAabbMax.y, meshlet.worldSpaceAabbMax.z);
+            bboxes.push_back(bb);
+            if (bvhBuildPrimitiveCenterMode == BvhBuildPrimitiveCenterMode::PRIMITIVE_CENTROID) {
+                uint32_t maxIdx = meshlet.firstIndex + meshlet.indexCount;
+                glm::vec3 avgVertexPos(0.0f);
+                for (uint32_t idx = meshlet.firstIndex; idx < maxIdx; idx++) {
+                    uint32_t vertexIdx = tubeTriangleIndices.at(idx);
+                    const auto& vertexPos = tubeTriangleVertexDataList.at(vertexIdx).vertexPosition;
+                    avgVertexPos += vertexPos;
+                }
+                avgVertexPos /= float(meshlet.indexCount);
+                centers.emplace_back(avgVertexPos.x, avgVertexPos.y, avgVertexPos.z);
+            } else if (bvhBuildPrimitiveCenterMode == BvhBuildPrimitiveCenterMode::BOUNDING_BOX_CENTER) {
+                centers.emplace_back(bb.center());
+            }
+        }
     }
 
     BoundingBox globalBbox = bvh::compute_bounding_boxes_union(bboxes.data(), numPrimitives);
@@ -150,34 +214,71 @@ void NodesBVHTreePayload::createPayloadPre(
                 globalBbox, bboxes.data(), centers.data(), numPrimitives);
     }
 
+    // Get statistics.
+    Bvh::Node* nodes = bvh.nodes.get();
     nodeCount = uint32_t(bvh.node_count);
     numLeafNodes = 0;
-    std::vector<BVHTreeNode> treeNodes;
-    treeNodes.resize(bvh.node_count);
-    Bvh::Node* nodes = bvh.nodes.get();
-    auto* primitiveIndices = bvh.primitive_indices.get();
-    auto tubeTriangleIndicesOld = tubeTriangleIndices;
-    tubeTriangleIndices.clear();
     uint32_t minNumPrimitivesPerNode = std::numeric_limits<uint32_t>::max(), maxNumPrimitivesPerNode = 0;
+    uint32_t minNumTrianglesPerNode = std::numeric_limits<uint32_t>::max(), maxNumTrianglesPerNode = 0;
     for (size_t i = 0; i < bvh.node_count; i++) {
         const Bvh::Node& node = nodes[i];
-        BVHTreeNode& treeNode = treeNodes.at(i);
-        treeNode.worldSpaceAabbMin = glm::vec3(node.bounds[0], node.bounds[2], node.bounds[4]);
-        treeNode.worldSpaceAabbMax = glm::vec3(node.bounds[1], node.bounds[3], node.bounds[5]);
-        treeNode.indexCount = node.primitive_count * 3;
         if (node.is_leaf()) {
-            treeNode.firstChildOrPrimitiveIndex = uint32_t(tubeTriangleIndices.size());
-            for (size_t primitiveIdx = 0; primitiveIdx < node.primitive_count; primitiveIdx++) {
-                size_t triangleIndicesIdx = primitiveIndices[node.first_child_or_primitive + primitiveIdx] * 3;
-                tubeTriangleIndices.push_back(tubeTriangleIndicesOld.at(triangleIndicesIdx));
-                tubeTriangleIndices.push_back(tubeTriangleIndicesOld.at(triangleIndicesIdx + 1));
-                tubeTriangleIndices.push_back(tubeTriangleIndicesOld.at(triangleIndicesIdx + 2));
-            }
             minNumPrimitivesPerNode = std::min(minNumPrimitivesPerNode, node.primitive_count);
             maxNumPrimitivesPerNode = std::max(maxNumPrimitivesPerNode, node.primitive_count);
             numLeafNodes++;
-        } else {
-            treeNode.firstChildOrPrimitiveIndex = node.first_child_or_primitive;
+        }
+    }
+
+    // Create tree nodes data for transfer to GPU.
+    std::vector<BVHTreeNode> treeNodes;
+    treeNodes.resize(bvh.node_count);
+    auto* primitiveIndices = bvh.primitive_indices.get();
+    auto tubeTriangleIndicesOld = tubeTriangleIndices;
+    tubeTriangleIndices.clear();
+    if (bvhBuildGeometryMode == BvhBuildGeometryMode::TRIANGLES) {
+        for (size_t i = 0; i < bvh.node_count; i++) {
+            const Bvh::Node& node = nodes[i];
+            BVHTreeNode& treeNode = treeNodes.at(i);
+            treeNode.worldSpaceAabbMin = glm::vec3(node.bounds[0], node.bounds[2], node.bounds[4]);
+            treeNode.worldSpaceAabbMax = glm::vec3(node.bounds[1], node.bounds[3], node.bounds[5]);
+            treeNode.indexCount = node.primitive_count * 3;
+            if (node.is_leaf()) {
+                treeNode.firstChildOrPrimitiveIndex = uint32_t(tubeTriangleIndices.size());
+                for (size_t primitiveIdx = 0; primitiveIdx < node.primitive_count; primitiveIdx++) {
+                    size_t triangleIndicesIdx = primitiveIndices[node.first_child_or_primitive + primitiveIdx] * 3;
+                    tubeTriangleIndices.push_back(tubeTriangleIndicesOld.at(triangleIndicesIdx));
+                    tubeTriangleIndices.push_back(tubeTriangleIndicesOld.at(triangleIndicesIdx + 1));
+                    tubeTriangleIndices.push_back(tubeTriangleIndicesOld.at(triangleIndicesIdx + 2));
+                }
+            } else {
+                treeNode.firstChildOrPrimitiveIndex = node.first_child_or_primitive;
+            }
+        }
+        minNumTrianglesPerNode = minNumPrimitivesPerNode;
+        maxNumTrianglesPerNode = maxNumPrimitivesPerNode;
+    } else {
+        for (size_t i = 0; i < bvh.node_count; i++) {
+            const Bvh::Node& node = nodes[i];
+            BVHTreeNode& treeNode = treeNodes.at(i);
+            treeNode.worldSpaceAabbMin = glm::vec3(node.bounds[0], node.bounds[2], node.bounds[4]);
+            treeNode.worldSpaceAabbMax = glm::vec3(node.bounds[1], node.bounds[3], node.bounds[5]);
+            treeNode.indexCount = 0;
+            if (node.is_leaf()) {
+                treeNode.firstChildOrPrimitiveIndex = uint32_t(tubeTriangleIndices.size());
+                for (size_t primitiveIdx = 0; primitiveIdx < node.primitive_count; primitiveIdx++) {
+                    size_t meshletIdx = primitiveIndices[node.first_child_or_primitive + primitiveIdx];
+                    auto& meshlet = meshlets.at(meshletIdx);
+                    uint32_t endIdx = meshlet.firstIndex + meshlet.indexCount;
+                    for (uint32_t triIdx = meshlet.firstIndex; triIdx < endIdx; triIdx++) {
+                        tubeTriangleIndices.push_back(tubeTriangleIndicesOld.at(triIdx));
+                    }
+                    treeNode.indexCount += meshlet.indexCount;
+                }
+                minNumTrianglesPerNode = std::min(minNumTrianglesPerNode, treeNode.indexCount / 3u);
+                maxNumTrianglesPerNode = std::max(maxNumTrianglesPerNode, treeNode.indexCount / 3u);
+            } else {
+                treeNode.firstChildOrPrimitiveIndex = node.first_child_or_primitive;
+            }
         }
     }
 
@@ -200,11 +301,18 @@ void NodesBVHTreePayload::createPayloadPre(
     sgl::Logfile::get()->writeInfo("Tree height: " + std::to_string(treeHeight));
     sgl::Logfile::get()->writeInfo("Number of nodes: " + std::to_string(getNumNodes()));
     sgl::Logfile::get()->writeInfo("Number of leaves: " + std::to_string(getNumLeafNodes()));
-    sgl::Logfile::get()->writeInfo("Min primitives/leaf: " + std::to_string(minNumPrimitivesPerNode));
-    sgl::Logfile::get()->writeInfo("Max primitives/leaf: " + std::to_string(maxNumPrimitivesPerNode));
-    sgl::Logfile::get()->writeInfo("Avg primitives/leaf: " + std::to_string(
+    if (bvhBuildGeometryMode == BvhBuildGeometryMode::MESHLETS) {
+        sgl::Logfile::get()->writeInfo("Min primitives/leaf: " + std::to_string(minNumPrimitivesPerNode));
+        sgl::Logfile::get()->writeInfo("Max primitives/leaf: " + std::to_string(maxNumPrimitivesPerNode));
+        sgl::Logfile::get()->writeInfo("Avg primitives/leaf: " + std::to_string(
+                float(numPrimitives) / float(numLeafNodes)));
+    }
+    sgl::Logfile::get()->writeInfo("Min triangles/leaf: " + std::to_string(minNumTrianglesPerNode));
+    sgl::Logfile::get()->writeInfo("Max triangles/leaf: " + std::to_string(maxNumTrianglesPerNode));
+    sgl::Logfile::get()->writeInfo("Avg triangles/leaf: " + std::to_string(
             float(numTriangles) / float(numLeafNodes)));
 
+    // Test cases for debugging purposes.
     /*{
         nodeCount = 3;
         numLeafNodes = 2;
@@ -222,7 +330,7 @@ void NodesBVHTreePayload::createPayloadPre(
         testNode.firstChildOrPrimitiveIndex = maxNumPrimitivesPerMeshlet * 3;
         treeNodes.push_back(testNode);
     }*/
-    {
+    /*{
         treeNodes.clear();
         BVHTreeNode testNode;
         testNode.worldSpaceAabbMin = glm::vec3(-0.5f);
@@ -245,7 +353,7 @@ void NodesBVHTreePayload::createPayloadPre(
         }
         nodeCount = uint32_t(treeNodes.size());
         numLeafNodes = 1 << (treeHeight - 1);
-    }
+    }*/
 
     if (treeNodes.empty()) {
         return;
