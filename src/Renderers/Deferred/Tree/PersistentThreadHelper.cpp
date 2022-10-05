@@ -116,6 +116,8 @@ DevicePersistentThreadInfo getDevicePersistentThreadInfo(sgl::vk::Device* device
                 } else {
                     numCoresPerMultiprocessor = 128;
                 }
+            } else if (major == 9) {
+                numCoresPerMultiprocessor = 128;
             }
             info.optimalWorkgroupSize = numCoresPerMultiprocessor;*/
 
