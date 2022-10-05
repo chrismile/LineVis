@@ -96,6 +96,9 @@ void NodesBVHClearQueuePass::createComputeData(sgl::vk::Renderer* renderer, sgl:
     }
     auto* payload = static_cast<NodesBVHTreePayload*>(payloadSuperClass.get());
 
+    queueBuffer = payload->getQueueBuffer();
+    queueBufferRecheck = payload->getQueueBufferRecheck();
+
     computeData->setStaticBuffer(payload->getNodeDataBuffer(), "NodeBuffer");
     computeData->setStaticBuffer(payload->getQueueBuffer(), "QueueBuffer");
     computeData->setStaticBuffer(payload->getQueueStateBuffer(), "QueueStateBuffer");
@@ -106,5 +109,17 @@ void NodesBVHClearQueuePass::createComputeData(sgl::vk::Renderer* renderer, sgl:
 }
 
 void NodesBVHClearQueuePass::_render() {
+    // TODO: Remove / check performance compared to write in shader.
+    uint32_t emptyData = 0xFFFFFFFFu;
+    queueBuffer->fill(
+            0, queueBuffer->getSizeInBytes(), emptyData,
+            renderer->getVkCommandBuffer());
+    queueBufferRecheck->fill(
+            0, queueBufferRecheck->getSizeInBytes(), emptyData,
+            renderer->getVkCommandBuffer());
+    renderer->insertMemoryBarrier(
+            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
     renderer->dispatch(computeData, 1, 1, 1);
 }

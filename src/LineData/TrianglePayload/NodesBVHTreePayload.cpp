@@ -366,9 +366,11 @@ void NodesBVHTreePayload::createPayloadPre(
     queueStateBufferRecheck = std::make_shared<sgl::vk::Buffer>(
             device, 4 * sizeof(uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     queueBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, nodeCount * sizeof(uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+            device, nodeCount * sizeof(uint32_t),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     queueBufferRecheck = std::make_shared<sgl::vk::Buffer>(
-            device, nodeCount * sizeof(uint32_t), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+            device, nodeCount * sizeof(uint32_t),
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     indirectDrawBuffer = std::make_shared<sgl::vk::Buffer>(
             device, numLeafNodes * sizeof(VkDrawIndexedIndirectCommand),
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
@@ -377,6 +379,9 @@ void NodesBVHTreePayload::createPayloadPre(
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT
             | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
+    queueInfoBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(uint32_t), &nodeCount,
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     int32_t startTestVal = 0;
     maxWorkLeftTestBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(int32_t), &startTestVal,

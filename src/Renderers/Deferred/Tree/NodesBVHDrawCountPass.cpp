@@ -102,8 +102,13 @@ void NodesBVHDrawCountPass::loadShader() {
     if (recheckOccludedOnly) {
         preprocessorDefines.insert(std::make_pair("RECHECK_OCCLUDED_ONLY", ""));
     }
-    shaderStages = sgl::vk::ShaderManager->getShaderStages(
-            { "NodesBVHDrawCountPass.Traverse.Compute" }, preprocessorDefines);
+    if (useSpinlock) {
+        shaderStages = sgl::vk::ShaderManager->getShaderStages(
+                { "NodesBVHDrawCountPass.TraverseSpinlock.Compute" }, preprocessorDefines);
+    } else {
+        shaderStages = sgl::vk::ShaderManager->getShaderStages(
+                { "NodesBVHDrawCountPass.Traverse.Compute" }, preprocessorDefines);
+    }
 }
 
 void NodesBVHDrawCountPass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
@@ -131,6 +136,7 @@ void NodesBVHDrawCountPass::createComputeData(sgl::vk::Renderer* renderer, sgl::
         computeData->setStaticBuffer(payload->getQueueBufferRecheck(), "QueueBufferRecheck");
         computeData->setStaticBuffer(payload->getQueueStateBufferRecheck(), "QueueStateBufferRecheck");
     }
+    computeData->setStaticBuffer(payload->getQueueInfoBuffer(), "QueueInfoBuffer");
     computeData->setStaticBuffer(payload->getIndirectDrawBuffer(), "DrawIndexedIndirectCommandBuffer");
     computeData->setStaticBuffer(indirectDrawCountBuffer, "IndirectDrawCountBuffer");
     computeData->setStaticBuffer(visibilityCullingUniformBuffer, "VisibilityCullingUniformBuffer");

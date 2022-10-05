@@ -60,6 +60,7 @@ protected:
 private:
     LineDataPtr lineData;
     bool recheckOccludedOnly = false;
+    bool useSpinlock = false;
     uint32_t maxNumPrimitivesPerMeshlet = 128;
     BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;
     BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::TRIANGLES;

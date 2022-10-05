@@ -66,6 +66,7 @@ public:
     [[nodiscard]] inline const sgl::vk::BufferPtr& getIndirectDrawCountBuffer() const {
         return indirectDrawCountBuffer;
     }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getQueueInfoBuffer() const { return queueInfoBuffer; }
     [[nodiscard]] inline const sgl::vk::BufferPtr& getMaxWorkLeftTestBuffer() const { return maxWorkLeftTestBuffer; }
 
 private:
@@ -85,6 +86,7 @@ private:
     sgl::vk::BufferPtr queueBuffer, queueBufferRecheck;
     sgl::vk::BufferPtr indirectDrawBuffer; ///< Padded VkDrawIndexedIndirectCommand objects.
     sgl::vk::BufferPtr indirectDrawCountBuffer; ///< uint32_t object.
+    sgl::vk::BufferPtr queueInfoBuffer; ///< uint32_t object.
     sgl::vk::BufferPtr maxWorkLeftTestBuffer; ///< int32_t object, for debugging.
 };
 

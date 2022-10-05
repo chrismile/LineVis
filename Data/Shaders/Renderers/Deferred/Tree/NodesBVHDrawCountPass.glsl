@@ -123,7 +123,133 @@ layout(std430, binding = 5) writeonly buffer DrawIndexedIndirectCommandBuffer {
 layout(std430, binding = 11) buffer IndirectDrawCountBuffer {
     uint drawCount;
 };
-layout(std430, binding = 14) buffer TestBuffer {
+layout(std430, binding = 13) buffer TestBuffer {
+    int maxLeftWork;
+};
+layout(binding = 14) uniform QueueInfoBuffer {
+    uint queueSize;
+};
+
+#if WORKGROUP_SIZE != 1 && WORKGROUP_SIZE > SUBGROUP_SIZE
+shared uint numWorkShared;
+shared uint workIdxShared;
+#endif
+
+#define INVALID_TASK 0xFFFFFFFFu
+
+void main() {
+    /*
+     * Uses persistent thread model.
+     */
+    uint workIdx = INVALID_TASK;
+    uint nodeIdx = INVALID_TASK;
+    int maxNumIteration = 100000;
+    int it = 0;
+    //bool hasChildrenToWrite = false;
+    uint childIdx0, childIdx1;
+    while (true) {
+        it++;
+        if (it > maxNumIteration) {
+            atomicMax(maxLeftWork, it);
+            break;
+        }
+
+        if (workIdx == INVALID_TASK) {
+            workIdx = atomicAdd(queueReadIdx, 1u);
+        }
+#ifndef USE_RINGBUFFER
+        if (workIdx >= queueSize) {
+            atomicMax(maxLeftWork, it);
+            return;
+        }
+#endif
+
+#ifdef USE_RINGBUFFER
+        workIdx = workIdx % queueSize;
+#endif
+
+        nodeIdx = nodeIndicesQueue[workIdx];
+        if (nodeIdx != INVALID_TASK) {
+            nodeIndicesQueue[workIdx] = INVALID_TASK;
+            Node node = nodes[nodeIdx];
+
+            if (visibilityCulling(node.worldSpaceAabbMin, node.worldSpaceAabbMax)) {
+                if (node.indexCount != 0u) {
+                    uint writePosition = atomicAdd(drawCount, 1u);
+                    VkDrawIndexedIndirectCommand cmd;
+                    cmd.indexCount = node.indexCount;
+                    cmd.instanceCount = 1u;
+                    cmd.firstIndex = node.firstChildOrPrimitiveIndex;
+                    cmd.vertexOffset = 0;
+                    cmd.firstInstance = 0u;
+                    commands[writePosition] = cmd;
+                } else {
+                    childIdx0 = node.firstChildOrPrimitiveIndex;
+                    childIdx1 =  childIdx0 % 2 == 1 ? childIdx0 + 1 : childIdx0 - 1;//node.firstChildOrPrimitiveIndex + 1;
+                    atomicAdd(numWorkPending, 2);
+                    // This is an inner node. Enqueue all children.
+                    uint queueIdx = atomicAdd(queueWriteIdx, 2u);
+#ifdef USE_RINGBUFFER
+                    queueIdx = queueIdx % queueSize;
+#endif
+                    nodeIndicesQueue[queueIdx] = childIdx0;
+                    nodeIndicesQueue[queueIdx + 1u] = childIdx1;
+                }
+            }
+#if !defined(RECHECK_OCCLUDED_ONLY)
+            else {
+                // Add node to queue that gets re-checked later.
+                uint writeIdxRecheck = atomicAdd(queueWriteIdxRecheck, 1u);
+                atomicAdd(numWorkPendingRecheck, 1);
+#ifdef USE_RINGBUFFER
+                writeIdxRecheck = writeIdxRecheck % queueSize;
+#endif
+                nodeIndicesQueueRecheck[writeIdxRecheck] = nodeIdx;
+            }
+#endif
+
+            atomicAdd(numWorkPending, -1);
+            workIdx = INVALID_TASK;
+        }
+
+        // Only necessary for ring buffer.
+        memoryBarrierBuffer();
+        if (numWorkPending == 0) {
+            atomicMax(maxLeftWork, it);
+            return;
+        }
+    }
+}
+
+
+-- TraverseSpinlock.Compute
+
+#version 450 core
+
+#extension GL_KHR_shader_subgroup_ballot : enable
+#extension GL_KHR_shader_subgroup_arithmetic : enable
+
+layout(local_size_x = WORKGROUP_SIZE) in;
+
+#include "VisibilityCulling.glsl"
+#import ".Header"
+
+// Buffers passed to vkCmdDrawIndexedIndirectCount.
+struct VkDrawIndexedIndirectCommand {
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int vertexOffset;
+    uint firstInstance;
+};
+// Uses stride of 8 bytes, or scalar layout otherwise.
+layout(std430, binding = 5) writeonly buffer DrawIndexedIndirectCommandBuffer {
+    VkDrawIndexedIndirectCommand commands[];
+};
+layout(std430, binding = 11) buffer IndirectDrawCountBuffer {
+    uint drawCount;
+};
+layout(std430, binding = 13) buffer TestBuffer {
     int maxLeftWork;
 };
 
@@ -134,7 +260,7 @@ shared uint workIdxShared;
 
 void main() {
     /*
-     * Use persistent thread model.
+     * Uses persistent thread model.
      */
 #if WORKGROUP_SIZE != 1
     uint numWork = 0u;

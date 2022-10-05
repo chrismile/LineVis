@@ -403,11 +403,15 @@ void MBOITRenderer::computeDepthRange() {
     const sgl::AABB3& boundingBox = lineData->getModelBoundingBox();
     sgl::AABB3 screenSpaceBoundingBox = boundingBox.transformed(sceneData->camera->getViewMatrix());
 
-    // Add offset of 0.1 for e.g. point data sets where additonal vertices may be added in the shader for quads.
-    float minViewZ = screenSpaceBoundingBox.getMaximum().z + 0.1f;
-    float maxViewZ = screenSpaceBoundingBox.getMinimum().z - 0.1f;
-    minViewZ = std::max(-minViewZ, sceneData->camera->getNearClipDistance());
-    maxViewZ = std::min(-maxViewZ, sceneData->camera->getFarClipDistance());
+    /*
+     * Add offset of 0.1 for e.g. point data sets where additonal vertices may be added in the shader for quads.
+     * Vulkan uses a right-handed coordinate system with the negative z axis pointing into the view direction.
+     * Consequently, we need to use the negative z position to get the depth and swap minimum and maximum.
+     */
+    float minViewZ = -screenSpaceBoundingBox.getMaximum().z - 0.1f;
+    float maxViewZ = -screenSpaceBoundingBox.getMinimum().z + 0.1f;
+    minViewZ = std::max(minViewZ, sceneData->camera->getNearClipDistance());
+    maxViewZ = std::min(maxViewZ, sceneData->camera->getFarClipDistance());
     minViewZ = std::min(minViewZ, sceneData->camera->getFarClipDistance());
     maxViewZ = std::max(maxViewZ, sceneData->camera->getNearClipDistance());
     float logmin = std::log(minViewZ);
