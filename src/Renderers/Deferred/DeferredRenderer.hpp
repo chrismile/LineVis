@@ -225,6 +225,7 @@ protected:
     uint32_t optimalWorkgroupSize = 0;
     uint32_t maxNumWorkgroups = 0;
     uint32_t maxWorkgroupSize = 0;
+    bool useSubgroupOps = false; ///< Use subgroup operations in NodesBVHDrawCountPass.glsl?
 
     // Task/mesh shader sub-modes.
     bool useMeshShaderNV = false; ///< Whether to use VK_EXT_mesh_shader oder VK_NV_mesh_shader.

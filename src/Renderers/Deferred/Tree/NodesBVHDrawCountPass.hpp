@@ -41,6 +41,7 @@ public:
     // Public interface.
     void setLineData(LineDataPtr& lineData, bool isNewData);
     void setRecheckOccludedOnly(bool recheck);
+    void setUseSubgroupOps(bool _useSubgroupOps);
     void setMaxNumPrimitivesPerMeshlet(uint32_t num);
     void setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm);
     void setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode);
@@ -60,6 +61,7 @@ protected:
 private:
     LineDataPtr lineData;
     bool recheckOccludedOnly = false;
+    bool useSubgroupOps = false; ///< Use subgroup operations in NodesBVHDrawCountPass.glsl?
     bool useSpinlock = false;
     uint32_t maxNumPrimitivesPerMeshlet = 128;
     BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;

@@ -39,6 +39,21 @@ struct BVHTreeNode {
     uint32_t firstChildOrPrimitiveIndex = 0;
 };
 
+struct BVHTreeNodeTaskMesh {
+    glm::vec3 worldSpaceAabbMin{};
+    uint32_t indexCount = 0;
+    glm::vec3 worldSpaceAabbMax{};
+    uint32_t firstChildOrMeshletIndex = 0;
+};
+
+struct BVHTreeLeafMeshlet {
+    uint32_t meshletFirstPrimitiveIdx = 0; ///< Value for gl_PrimitiveID.
+    uint32_t vertexStart = 0; ///< Pointer into dedupVerticesBuffer and dedupVertexIndexToOrigIndexMapBuffer.
+    uint32_t primitiveStart = 0; ///< Pointer into dedupTriangleIndicesBuffer.
+    ///< Bit 0-15: Vertex count. Bi 16-31: Primitive count.
+    uint32_t vertexAndPrimitiveCountCombined = 0;
+};
+
 class NodesBVHTreePayload : public TubeTriangleRenderDataPayload {
 public:
     explicit NodesBVHTreePayload(

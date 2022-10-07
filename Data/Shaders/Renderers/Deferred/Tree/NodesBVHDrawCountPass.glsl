@@ -137,6 +137,9 @@ shared uint workIdxShared;
 
 #define INVALID_TASK 0xFFFFFFFFu
 
+// For debugging purposes: Stop if we have exceeded a maximum number of iterations (i.e., the invocation has hung).
+#define LOOP_ITERATION_CHECK
+
 void main() {
     /*
      * Uses persistent thread model.
@@ -148,19 +151,31 @@ void main() {
     //bool hasChildrenToWrite = false;
     uint childIdx0, childIdx1;
     while (true) {
+#ifdef LOOP_ITERATION_CHECK
         it++;
         if (it > maxNumIteration) {
             atomicMax(maxLeftWork, it);
             break;
         }
+#endif
 
         if (workIdx == INVALID_TASK) {
+#if WORKGROUP_SIZE == 1 || !defined(USE_SUBGROUP_OPS)
             workIdx = atomicAdd(queueReadIdx, 1u);
+#else
+            uint numActiveInvocationsFetchTask = subgroupAdd(1u);
+            if (subgroupElect()) {
+                workIdx = atomicAdd(queueReadIdx, numActiveInvocationsFetchTask);
+            }
+            workIdx = subgroupBroadcastFirst(workIdx) + subgroupExclusiveAdd(1u);
+#endif
         }
 #ifndef USE_RINGBUFFER
         if (workIdx >= queueSize) {
+#ifdef LOOP_ITERATION_CHECK
             atomicMax(maxLeftWork, it);
-            return;
+#endif
+            break;
         }
 #endif
 
@@ -175,7 +190,16 @@ void main() {
 
             if (visibilityCulling(node.worldSpaceAabbMin, node.worldSpaceAabbMax)) {
                 if (node.indexCount != 0u) {
+#if WORKGROUP_SIZE == 1 || !defined(USE_SUBGROUP_OPS)
                     uint writePosition = atomicAdd(drawCount, 1u);
+#else
+                    uint numActiveInvocationsLeaf = subgroupAdd(1u);
+                    uint writePosition;
+                    if (subgroupElect()) {
+                        writePosition = atomicAdd(drawCount, numActiveInvocationsLeaf);
+                    }
+                    writePosition = subgroupBroadcastFirst(writePosition) + subgroupExclusiveAdd(1u);
+#endif
                     VkDrawIndexedIndirectCommand cmd;
                     cmd.indexCount = node.indexCount;
                     cmd.instanceCount = 1u;
@@ -186,9 +210,19 @@ void main() {
                 } else {
                     childIdx0 = node.firstChildOrPrimitiveIndex;
                     childIdx1 =  childIdx0 % 2 == 1 ? childIdx0 + 1 : childIdx0 - 1;//node.firstChildOrPrimitiveIndex + 1;
+ #if WORKGROUP_SIZE == 1 || !defined(USE_SUBGROUP_OPS)
                     atomicAdd(numWorkPending, 2);
                     // This is an inner node. Enqueue all children.
                     uint queueIdx = atomicAdd(queueWriteIdx, 2u);
+#else
+                    uint numChildren = subgroupAdd(2u);
+                    uint queueIdx;
+                    if (subgroupElect()) {
+                        atomicAdd(numWorkPending, int(numChildren));
+                        queueIdx = atomicAdd(queueWriteIdx, numChildren);
+                    }
+                    queueIdx = subgroupBroadcastFirst(queueIdx) + subgroupExclusiveAdd(2u);
+#endif
 #ifdef USE_RINGBUFFER
                     queueIdx = queueIdx % queueSize;
 #endif
@@ -199,8 +233,18 @@ void main() {
 #if !defined(RECHECK_OCCLUDED_ONLY)
             else {
                 // Add node to queue that gets re-checked later.
+#if WORKGROUP_SIZE == 1 || !defined(USE_SUBGROUP_OPS)
                 uint writeIdxRecheck = atomicAdd(queueWriteIdxRecheck, 1u);
                 atomicAdd(numWorkPendingRecheck, 1);
+#else
+                uint numActiveInvocationsRecheck = subgroupAdd(1u);
+                uint writeIdxRecheck;
+                if (subgroupElect()) {
+                    atomicAdd(numWorkPendingRecheck, int(numActiveInvocationsRecheck));
+                    writeIdxRecheck = atomicAdd(queueWriteIdxRecheck, numActiveInvocationsRecheck);
+                }
+                writeIdxRecheck = subgroupBroadcastFirst(writeIdxRecheck) + subgroupExclusiveAdd(1u);
+#endif
 #ifdef USE_RINGBUFFER
                 writeIdxRecheck = writeIdxRecheck % queueSize;
 #endif
@@ -208,15 +252,23 @@ void main() {
             }
 #endif
 
+#if WORKGROUP_SIZE == 1 || !defined(USE_SUBGROUP_OPS)
             atomicAdd(numWorkPending, -1);
+#else
+            int numActiveInvocations = subgroupAdd(-1);
+            if (subgroupElect()) {
+                atomicAdd(numWorkPending, numActiveInvocations);
+            }
+#endif
             workIdx = INVALID_TASK;
         }
 
-        // Only necessary for ring buffer.
         memoryBarrierBuffer();
         if (numWorkPending == 0) {
+#ifdef LOOP_ITERATION_CHECK
             atomicMax(maxLeftWork, it);
-            return;
+#endif
+            break;
         }
     }
 }

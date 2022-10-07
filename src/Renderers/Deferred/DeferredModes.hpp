@@ -59,6 +59,26 @@ enum class DrawIndirectReductionMode {
     NO_REDUCTION, ATOMIC_COUNTER, PREFIX_SUM_SCAN
 };
 
+/**
+ * Valid combinations:
+ *
+ * 1. Draw Indirect:
+ * a) BvhBuildGeometryMode::TRIANGLES:
+ * - BINNED_SAH_CPU, SWEEP_SAH_CPU: max_leaf_size, max_depth
+ *   Standard: max_leaf_size = maxNumPrimitivesPerMeshlet, max_depth = maxHeight
+ *   => UI: if (useMaxNumPrimitives): SliderInt. else: max_leaf_size, max_depth.
+ * - LOCALLY_ORDERED_CLUSTERING_CPU, LINEAR_BVH_CPU: No control.
+ * b) BvhBuildGeometryMode::MESHLETS:
+ * - BINNED_SAH_CPU, SWEEP_SAH_CPU: max_leaf_size, max_depth
+ *   Standard: max_leaf_size = 1, max_depth = 64 (library standard).
+ *   => UI: max_leaf_size, max_depth.
+ * - LOCALLY_ORDERED_CLUSTERING_CPU, LINEAR_BVH_CPU: No control.
+ *
+ * 2. Task/Mesh Shaders:
+ * a) BvhBuildGeometryMode::TRIANGLES:
+ * - BINNED_SAH_CPU, SWEEP_SAH_CPU: max_leaf_size = 1, max_depth configurable (standard: 64).
+ * - LOCALLY_ORDERED_CLUSTERING_CPU, LINEAR_BVH_CPU: Unsupported!
+ */
 const char* const bvhBuildAlgorithmNames[4] = {
         "Binned SAH (CPU)",
         "Sweep SAH (CPU)",

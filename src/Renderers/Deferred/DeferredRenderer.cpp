@@ -255,6 +255,7 @@ void DeferredRenderer::updateRenderingMode() {
             nodesBVHDrawCountPasses[i]->setBvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode);
             nodesBVHDrawCountPasses[i]->setNumWorkgroups(numWorkgroupsBvh);
             nodesBVHDrawCountPasses[i]->setWorkgroupSize(workgroupSizeBvh);
+            nodesBVHDrawCountPasses[i]->setUseSubgroupOps(useSubgroupOps);
             nodesBVHDrawCountPasses[i]->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
         }
         visibilityBufferBVHDrawIndexedIndirectPasses[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
@@ -756,6 +757,7 @@ void DeferredRenderer::onResolutionChanged() {
 
     deferredResolvePass->setOutputImage(colorRenderTargetImage);
     deferredResolvePass->recreateSwapchain(renderWidth, renderHeight);
+    frameNumber = 0;
 }
 
 void DeferredRenderer::onResolutionChangedDeferredRenderingMode() {
@@ -1282,6 +1284,12 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                 }
                 reRender = true;
             }
+            if (propertyEditor.addCheckbox("Use Subgroup Ops", &useSubgroupOps)) {
+                for (int i = 0; i < 2; i++) {
+                    nodesBVHDrawCountPasses[i]->setUseSubgroupOps(useSubgroupOps);
+                }
+                reRender = true;
+            }
             propertyEditor.endNode();
         }
     }
@@ -1535,6 +1543,12 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
         }
         reRender = true;
     }
+    if (newState.rendererSettings.getValueOpt("useSubgroupOps", useSubgroupOps)) {
+        for (int i = 0; i < 2; i++) {
+            nodesBVHDrawCountPasses[i]->setUseSubgroupOps(useSubgroupOps);
+        }
+        reRender = true;
+    }
 }
 
 bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
@@ -1717,6 +1731,12 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
         workgroupSizeBvh = std::clamp(workgroupSizeBvh, 1u, maxWorkgroupSize);
         for (int i = 0; i < 2; i++) {
             nodesBVHDrawCountPasses[i]->setWorkgroupSize(workgroupSizeBvh);
+        }
+        reRender = true;
+    }
+    if (settings.getValueOpt("use_subgroup_ops", useSubgroupOps)) {
+        for (int i = 0; i < 2; i++) {
+            nodesBVHDrawCountPasses[i]->setUseSubgroupOps(useSubgroupOps);
         }
         reRender = true;
     }

@@ -39,6 +39,7 @@
 #include <Math/Math.hpp>
 #include <Math/Geometry/AABB3.hpp>
 #include <Utils/File/Logfile.hpp>
+#include <Graphics/Vulkan/Utils/Device.hpp>
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
 #include "MeshletsDrawIndirectPayload.hpp"
 #include "NodesBVHTreePayload.hpp"
@@ -387,6 +388,15 @@ void NodesBVHTreePayload::createPayloadPre(
             device, sizeof(int32_t), &startTestVal,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
+
+    VkCommandBuffer commandBuffer = device->beginSingleTimeCommands();
+    uint32_t emptyData = 0xFFFFFFFFu;
+    queueBuffer->fill(0, queueBuffer->getSizeInBytes(), emptyData, commandBuffer);
+    queueBufferRecheck->fill(0, queueBufferRecheck->getSizeInBytes(), emptyData, commandBuffer);
+    //renderer->insertMemoryBarrier(
+    //        VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+    //        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    device->endSingleTimeCommands(commandBuffer);
 }
 
 void NodesBVHTreePayload::createPayloadPost(sgl::vk::Device* device, TubeTriangleRenderData& tubeTriangleRenderData) {

@@ -47,6 +47,13 @@ void NodesBVHDrawCountPass::setRecheckOccludedOnly(bool recheck) {
     }
 }
 
+void NodesBVHDrawCountPass::setUseSubgroupOps(bool _useSubgroupOps) {
+    if (useSubgroupOps != _useSubgroupOps) {
+        useSubgroupOps = _useSubgroupOps;
+        setShaderDirty();
+    }
+}
+
 void NodesBVHDrawCountPass::setMaxNumPrimitivesPerMeshlet(uint32_t num) {
     if (maxNumPrimitivesPerMeshlet != num) {
         maxNumPrimitivesPerMeshlet = num;
@@ -101,6 +108,9 @@ void NodesBVHDrawCountPass::loadShader() {
             device->getPhysicalDeviceSubgroupProperties().subgroupSize)));
     if (recheckOccludedOnly) {
         preprocessorDefines.insert(std::make_pair("RECHECK_OCCLUDED_ONLY", ""));
+    }
+    if (useSubgroupOps) {
+        preprocessorDefines.insert(std::make_pair("USE_SUBGROUP_OPS", ""));
     }
     if (useSpinlock) {
         shaderStages = sgl::vk::ShaderManager->getShaderStages(
