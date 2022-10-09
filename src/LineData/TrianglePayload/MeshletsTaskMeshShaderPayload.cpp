@@ -76,7 +76,7 @@ void MeshletsTaskMeshShaderPayload::createPayloadPre(
         uint32_t numSegmentsB = maxNumPrimitivesPerMeshlet / (2 * tubeNumSubdivisions);
         uint32_t numSegments = std::min(numSegmentsA, numSegmentsB);
         maxNumPrimitivesPerMeshletLocal = 2 * tubeNumSubdivisions * numSegments;
-        maxNumVerticesPerMeshletLocal = tubeNumSubdivisions + tubeNumSubdivisions * numSegments ;
+        maxNumVerticesPerMeshletLocal = tubeNumSubdivisions + tubeNumSubdivisions * numSegments;
     }
 
     for (size_t primitiveIdx = 0; primitiveIdx < tubeTriangleIndices.size(); primitiveIdx += 3) {

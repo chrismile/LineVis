@@ -32,7 +32,7 @@ struct Node {
     vec3 worldSpaceAabbMin;
     uint indexCount;
     vec3 worldSpaceAabbMax;
-    uint firstChildOrPrimitiveIndex;
+    uint firstChildOrPrimitiveIndex; ///< Meshlet index instead of primitive index for mesh shader.
 };
 
 layout(std430, binding = 0) readonly buffer NodeBuffer {
@@ -109,6 +109,7 @@ layout(local_size_x = WORKGROUP_SIZE) in;
 #import ".Header"
 
 // Buffers passed to vkCmdDrawIndexedIndirectCount.
+#ifdef OUTPUT_DRAW_INDEXED_INDIRECT
 struct VkDrawIndexedIndirectCommand {
     uint indexCount;
     uint instanceCount;
@@ -120,6 +121,12 @@ struct VkDrawIndexedIndirectCommand {
 layout(std430, binding = 5) writeonly buffer DrawIndexedIndirectCommandBuffer {
     VkDrawIndexedIndirectCommand commands[];
 };
+#elif defined(OUTPUT_MESH_SHADER)
+layout(std430, binding = 5) writeonly buffer VisibleMeshletIndexArrayBuffer {
+    uint visibleMeshletIndexArray[];
+};
+#endif
+
 layout(std430, binding = 11) buffer IndirectDrawCountBuffer {
     uint drawCount;
 };
@@ -190,6 +197,7 @@ void main() {
 
             if (visibilityCulling(node.worldSpaceAabbMin, node.worldSpaceAabbMax)) {
                 if (node.indexCount != 0u) {
+#ifdef OUTPUT_DRAW_INDEXED_INDIRECT
 #if WORKGROUP_SIZE == 1 || !defined(USE_SUBGROUP_OPS)
                     uint writePosition = atomicAdd(drawCount, 1u);
 #else
@@ -207,6 +215,21 @@ void main() {
                     cmd.vertexOffset = 0;
                     cmd.firstInstance = 0u;
                     commands[writePosition] = cmd;
+#elif defined(OUTPUT_MESH_SHADER)
+#if WORKGROUP_SIZE == 1 || !defined(USE_SUBGROUP_OPS)
+                    uint writePosition = atomicAdd(drawCount, node.indexCount);
+#else
+                    uint numActiveInvocationsLeaf = subgroupAdd(node.indexCount);
+                    uint writePosition;
+                    if (subgroupElect()) {
+                        writePosition = atomicAdd(drawCount, numActiveInvocationsLeaf);
+                    }
+                    writePosition = subgroupBroadcastFirst(writePosition) + subgroupExclusiveAdd(node.indexCount);
+#endif
+                    for (uint i = 0; i < node.indexCount; i++) {
+                        visibleMeshletIndexArray[writePosition + i] = node.firstChildOrPrimitiveIndex + i;
+                    }
+#endif
                 } else {
                     childIdx0 = node.firstChildOrPrimitiveIndex;
                     childIdx1 =  childIdx0 % 2 == 1 ? childIdx0 + 1 : childIdx0 - 1;//node.firstChildOrPrimitiveIndex + 1;

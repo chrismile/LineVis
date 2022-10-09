@@ -29,16 +29,18 @@
 #ifndef LINEVIS_DEFERREDMODES_HPP
 #define LINEVIS_DEFERREDMODES_HPP
 
-const char* const deferredRenderingModeNames[4] = {
+const char* const deferredRenderingModeNames[5] = {
         "Draw Indexed",
         "Draw Indirect",
-        "HLBVH Draw Indirect",
+        "BVH Draw Indirect",
+        "BVH Mesh Shader",
         "Task/Mesh Shader"
 };
 enum class DeferredRenderingMode {
     DRAW_INDEXED,
     DRAW_INDIRECT,
     BVH_DRAW_INDIRECT,
+    BVH_MESH_SHADER,
     TASK_MESH_SHADER
 };
 
@@ -61,7 +63,6 @@ enum class DrawIndirectReductionMode {
 
 /**
  * Valid combinations:
- *
  * 1. Draw Indirect:
  * a) BvhBuildGeometryMode::TRIANGLES:
  * - BINNED_SAH_CPU, SWEEP_SAH_CPU: max_leaf_size, max_depth
@@ -73,11 +74,7 @@ enum class DrawIndirectReductionMode {
  *   Standard: max_leaf_size = 1, max_depth = 64 (library standard).
  *   => UI: max_leaf_size, max_depth.
  * - LOCALLY_ORDERED_CLUSTERING_CPU, LINEAR_BVH_CPU: No control.
- *
- * 2. Task/Mesh Shaders:
- * a) BvhBuildGeometryMode::TRIANGLES:
- * - BINNED_SAH_CPU, SWEEP_SAH_CPU: max_leaf_size = 1, max_depth configurable (standard: 64).
- * - LOCALLY_ORDERED_CLUSTERING_CPU, LINEAR_BVH_CPU: Unsupported!
+ * 2. Task/Mesh Shaders: Like 1b).
  */
 const char* const bvhBuildAlgorithmNames[4] = {
         "Binned SAH (CPU)",

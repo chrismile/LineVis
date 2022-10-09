@@ -123,6 +123,7 @@ void main() {
 layout(local_size_x = WORKGROUP_SIZE) in;
 layout(triangles, max_vertices = MESHLET_MAX_VERTICES, max_primitives = MESHLET_MAX_PRIMITIVES) out;
 
+#ifndef BVH_MESHLETS
 #ifdef VK_NV_mesh_shader
 taskNV in Task {
     uint baseIndex;
@@ -135,7 +136,6 @@ struct Task {
 };
 taskPayloadSharedEXT Task IN;
 #endif
-
 struct MeshletData {
     vec3 worldSpaceAabbMin;
     float padding;
@@ -146,6 +146,18 @@ struct MeshletData {
     uint primitiveStart; ///< Pointer into dedupTriangleIndicesBuffer.
     uint primitiveCount;
 };
+#else //< if defined(BVH_MESHLETS)
+struct MeshletData {
+    uint meshletFirstPrimitiveIdx; ///< Value for gl_PrimitiveID.
+    uint vertexStart; ///< Pointer into dedupVerticesBuffer and dedupVertexIndexToOrigIndexMapBuffer.
+    uint primitiveStart; ///< Pointer into dedupTriangleIndicesBuffer.
+    uint vertexAndPrimitiveCountCombined; ///< Bit 0-15: Vertex count. Bit 16-31: Primitive count.
+};
+layout(std430, binding = 1) readonly buffer VisibleMeshletIndexArrayBuffer {
+    uint visibleMeshletIndexArray[];
+};
+#endif
+
 layout(std430, binding = 0) readonly buffer MeshletDataBuffer {
     MeshletData meshlets[];
 };
@@ -165,15 +177,24 @@ layout(scalar, binding = 3) readonly buffer DedupTriangleIndicesBuffer {
 #endif
 
 void main() {
-    uint meshletIdx = IN.baseIndex + uint(IN.subIndices[gl_WorkGroupID.x]);
     uint threadIdx = gl_LocalInvocationIndex;
 
+#ifndef BVH_MESHLETS
+    uint meshletIdx = IN.baseIndex + uint(IN.subIndices[gl_WorkGroupID.x]);
     MeshletData meshletData = meshlets[meshletIdx];
+    uint vertexCount = meshletData.vertexCount;
+    uint primitiveCount = meshletData.primitiveCount;
+#else
+    uint meshletIdx = visibleMeshletIndexArray[gl_WorkGroupID.x];
+    MeshletData meshletData = meshlets[meshletIdx];
+    uint vertexCount = meshletData.vertexAndPrimitiveCountCombined & 0xFFFFu;
+    uint primitiveCount = meshletData.vertexAndPrimitiveCountCombined >> 16u;
+#endif
 
 #ifdef VK_NV_mesh_shader
-    gl_PrimitiveCountNV = meshletData.primitiveCount;
+    gl_PrimitiveCountNV = primitiveCount;
 #else
-    SetMeshOutputsEXT(meshletData.vertexCount, meshletData.primitiveCount);
+    SetMeshOutputsEXT(vertexCount, primitiveCount);
 #endif
 
     /*for (uint i = 0; i < 0xFFFFFFFFu; i++) {
@@ -184,7 +205,7 @@ void main() {
 #endif
     }*/
 
-    for (uint vertexIdx = threadIdx; vertexIdx < meshletData.vertexCount; vertexIdx += WORKGROUP_SIZE) {
+    for (uint vertexIdx = threadIdx; vertexIdx < vertexCount; vertexIdx += WORKGROUP_SIZE) {
         vec3 vertexPosition = dedupVertices[meshletData.vertexStart + vertexIdx];
 #ifdef VK_NV_mesh_shader
         gl_MeshVerticesNV[vertexIdx].gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
@@ -194,8 +215,8 @@ void main() {
     }
 
 #if defined(VK_NV_mesh_shader) && defined(WRITE_PACKED_PRIMITIVE_INDICES)
-    //uint numPackedIndices = (meshletData.primitiveCount * 3u + WORKGROUP_SIZE * 4u - 1u) / (WORKGROUP_SIZE * 4u);
-    uint numPackedIndices = (meshletData.primitiveCount * 3u + 3u) / 4u;
+    //uint numPackedIndices = (primitiveCount * 3u + WORKGROUP_SIZE * 4u - 1u) / (WORKGROUP_SIZE * 4u);
+    uint numPackedIndices = (primitiveCount * 3u + 3u) / 4u;
     uint readOffset = meshletData.primitiveStart * 3u / 4u; // Assure alignment!
     for (uint packedIdx = threadIdx; packedIdx < numPackedIndices; packedIdx += WORKGROUP_SIZE) {
         uint writeIdx = packedIdx * 4u;
@@ -205,13 +226,13 @@ void main() {
         // => Ensure to only use WRITE_PACKED_PRIMITIVE_INDICES when this can be guaranteed!
         writePackedPrimitiveIndices4x8NV(writeIdx, dedupTriangleIndices[readIdx]);
     }
-    for (uint triangleIdx = threadIdx; triangleIdx < meshletData.primitiveCount; triangleIdx += WORKGROUP_SIZE) {
+    for (uint triangleIdx = threadIdx; triangleIdx < primitiveCount; triangleIdx += WORKGROUP_SIZE) {
         // Available in gl_MeshPrimitivesNV:
         // https://github.com/KhronosGroup/GLSL/blob/master/extensions/nv/GLSL_NV_mesh_shader.txt
         gl_MeshPrimitivesNV[triangleIdx].gl_PrimitiveID = int(meshletData.meshletFirstPrimitiveIdx + triangleIdx);
     }
 #else
-    for (uint triangleIdx = threadIdx; triangleIdx < meshletData.primitiveCount; triangleIdx += WORKGROUP_SIZE) {
+    for (uint triangleIdx = threadIdx; triangleIdx < primitiveCount; triangleIdx += WORKGROUP_SIZE) {
         uint readIdx = (triangleIdx + meshletData.primitiveStart) * 3u;
 
 #ifdef VK_NV_mesh_shader

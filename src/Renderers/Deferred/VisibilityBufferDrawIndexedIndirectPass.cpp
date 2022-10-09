@@ -27,40 +27,18 @@
  */
 
 #include "Renderers/LineRenderer.hpp"
-#include "VisibilityBufferDrawIndexedIndirectPass.hpp"
-#include "LineData/TrianglePayload/NodesBVHTreePayload.hpp"
 #include "LineData/TrianglePayload/MeshletsDrawIndirectPayload.hpp"
+#include "LineData/TrianglePayload/NodesBVHTreePayload.hpp"
+#include "VisibilityBufferDrawIndexedIndirectPass.hpp"
 
 VisibilityBufferDrawIndexedIndirectPass::VisibilityBufferDrawIndexedIndirectPass(LineRenderer* lineRenderer)
         : LineRasterPass(lineRenderer) {
 }
 
-void VisibilityBufferDrawIndexedIndirectPass::setMaxNumPrimitivesPerMeshlet(uint32_t numPrimitives) {
-    if (maxNumPrimitivesPerMeshlet != numPrimitives) {
-        maxNumPrimitivesPerMeshlet = numPrimitives;
+void VisibilityBufferDrawIndexedIndirectPass::setMaxNumPrimitivesPerMeshlet(uint32_t _maxNumPrimitivesPerMeshlet) {
+    if (maxNumPrimitivesPerMeshlet != _maxNumPrimitivesPerMeshlet) {
+        maxNumPrimitivesPerMeshlet = _maxNumPrimitivesPerMeshlet;
         setShaderDirty();
-    }
-}
-
-void VisibilityBufferDrawIndexedIndirectPass::setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm) {
-    if (bvhBuildAlgorithm != _bvhBuildAlgorithm) {
-        bvhBuildAlgorithm = _bvhBuildAlgorithm;
-        setDataDirty();
-    }
-}
-
-void VisibilityBufferDrawIndexedIndirectPass::setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode) {
-    if (bvhBuildGeometryMode != _bvhBuildGeometryMode) {
-        bvhBuildGeometryMode = _bvhBuildGeometryMode;
-        setDataDirty();
-    }
-}
-
-void VisibilityBufferDrawIndexedIndirectPass::setBvhBuildPrimitiveCenterMode(
-        BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode) {
-    if (bvhBuildPrimitiveCenterMode != _bvhBuildPrimitiveCenterMode) {
-        bvhBuildPrimitiveCenterMode = _bvhBuildPrimitiveCenterMode;
-        setDataDirty();
     }
 }
 
@@ -142,6 +120,49 @@ VisibilityBufferBVHDrawIndexedIndirectPass::VisibilityBufferBVHDrawIndexedIndire
         : VisibilityBufferDrawIndexedIndirectPass(lineRenderer) {
 }
 
+void VisibilityBufferBVHDrawIndexedIndirectPass::setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm) {
+    if (bvhBuildAlgorithm != _bvhBuildAlgorithm) {
+        bvhBuildAlgorithm = _bvhBuildAlgorithm;
+        setDataDirty();
+    }
+}
+
+void VisibilityBufferBVHDrawIndexedIndirectPass::setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode) {
+    if (bvhBuildGeometryMode != _bvhBuildGeometryMode) {
+        bvhBuildGeometryMode = _bvhBuildGeometryMode;
+        setDataDirty();
+    }
+}
+
+void VisibilityBufferBVHDrawIndexedIndirectPass::setBvhBuildPrimitiveCenterMode(
+        BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode) {
+    if (bvhBuildPrimitiveCenterMode != _bvhBuildPrimitiveCenterMode) {
+        bvhBuildPrimitiveCenterMode = _bvhBuildPrimitiveCenterMode;
+        setDataDirty();
+    }
+}
+
+void VisibilityBufferBVHDrawIndexedIndirectPass::setUseStdBvhParameters(bool _useStdBvhParameters) {
+    if (useStdBvhParameters != _useStdBvhParameters) {
+        useStdBvhParameters = _useStdBvhParameters;
+        setDataDirty();
+    }
+}
+
+void VisibilityBufferBVHDrawIndexedIndirectPass::setMaxLeafSizeBvh(uint32_t _maxLeafSizeBvh) {
+    if (maxLeafSizeBvh != _maxLeafSizeBvh) {
+        maxLeafSizeBvh = _maxLeafSizeBvh;
+        setDataDirty();
+    }
+}
+
+void VisibilityBufferBVHDrawIndexedIndirectPass::setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh) {
+    if (maxTreeDepthBvh != _maxTreeDepthBvh) {
+        maxTreeDepthBvh = _maxTreeDepthBvh;
+        setDataDirty();
+    }
+}
+
 void VisibilityBufferBVHDrawIndexedIndirectPass::createRasterData(
         sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
     rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
@@ -149,7 +170,10 @@ void VisibilityBufferBVHDrawIndexedIndirectPass::createRasterData(
     //lineRenderer->setRenderDataBindings(rasterData);
 
     TubeTriangleRenderDataPayloadPtr payloadSuperClass(new NodesBVHTreePayload(
-            maxNumPrimitivesPerMeshlet, bvhBuildAlgorithm, bvhBuildGeometryMode, bvhBuildPrimitiveCenterMode));
+            true, maxNumPrimitivesPerMeshlet,
+            0, false,
+            bvhBuildAlgorithm, bvhBuildGeometryMode, bvhBuildPrimitiveCenterMode,
+            useStdBvhParameters, maxLeafSizeBvh, maxTreeDepthBvh));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
             true, false, payloadSuperClass);
 

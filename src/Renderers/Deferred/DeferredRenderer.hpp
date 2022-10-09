@@ -47,9 +47,11 @@ class MeshletDrawCountPass;
 // Task/mesh.
 class MeshletTaskMeshPass;
 // BVH.
-class VisibilityBufferBVHDrawIndexedIndirectPass;
 class NodesBVHClearQueuePass;
 class NodesBVHDrawCountPass;
+class VisibilityBufferBVHDrawIndexedIndirectPass;
+class ConvertMeshletCommandsBVHPass;
+class MeshletMeshBVHPass;
 // Resolve.
 class DeferredResolvePass;
 class DownsampleBlitPass;
@@ -105,6 +107,14 @@ protected:
     void onResolutionChangedDeferredRenderingMode();
     void setUniformData();
 
+    void updateWritePackedPrimitives();
+    void updateBvhBuildAlgorithm();
+    void updateBvhBuildGeometryMode();
+    void updateBvhBuildPrimitiveCenterMode();
+    void updateUseStdBvhParameters();
+    void updateMaxLeafSizeBvh();
+    void updateMaxTreeDepthBvh();
+
     // Render passes.
     void renderDataEmpty();
     // DeferredRenderingMode::DRAW_INDEXED
@@ -121,10 +131,14 @@ protected:
     std::shared_ptr<MeshletDrawCountPass> meshletDrawCountPass;
     // DeferredRenderingMode::TASK_MESH_SHADER
     std::shared_ptr<MeshletTaskMeshPass> meshletTaskMeshPasses[2];
-    // DeferredRenderingMode::BVH_DRAW_INDIRECT
+    // DeferredRenderingMode::BVH_DRAW_INDIRECT or BVH_MESH_SHADER
     std::shared_ptr<NodesBVHClearQueuePass> nodesBVHClearQueuePass;
     std::shared_ptr<NodesBVHDrawCountPass> nodesBVHDrawCountPasses[2];
+    // DeferredRenderingMode::BVH_DRAW_INDIRECT
     std::shared_ptr<VisibilityBufferBVHDrawIndexedIndirectPass> visibilityBufferBVHDrawIndexedIndirectPasses[2];
+    // DeferredRenderingMode::BVH_MESH_SHADER
+    std::shared_ptr<ConvertMeshletCommandsBVHPass> convertMeshletCommandsBVHPass;
+    std::shared_ptr<MeshletMeshBVHPass> meshletMeshBVHPasses[2];
     // Resolve/further passes.
     std::shared_ptr<DeferredResolvePass> deferredResolvePass;
     std::shared_ptr<DownsampleBlitPass> downsampleBlitPass;
@@ -203,6 +217,10 @@ protected:
     int32_t maxWorkLeft1 = 0;
 
     // Current rendering mode.
+    inline bool getIsBvhRenderingMode() const {
+        return deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT
+                || deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER;
+    }
     DeferredRenderingMode deferredRenderingMode = DeferredRenderingMode::DRAW_INDEXED;
 
     // Draw indexed sub-modes.
@@ -211,13 +229,14 @@ protected:
     // Draw indirect sub-modes.
     DrawIndirectReductionMode drawIndirectReductionMode = DrawIndirectReductionMode::ATOMIC_COUNTER;
 
-    // BVH draw indirect sub-modes.
+    // BVH sub-modes.
     BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;
-    BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::TRIANGLES;
+    BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::MESHLETS;
     BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode::PRIMITIVE_CENTROID;
-    /**
-     * Some BVH building algorithms, like BINNED_SAH_CPU and SWEEP_SAH_CPU, support
-     */
+    // For bvhBuildAlgorithm == BvhBuildAlgorithm::BINNED_SAH_CPU and SWEEP_SAH_CPU.
+    bool useStdBvhParameters = true; ///< Whether to use the settings below.
+    uint32_t maxLeafSizeBvh = 16;
+    uint32_t maxTreeDepthBvh = 64;
     void initializeOptimalNumWorkgroups();
     uint32_t numWorkgroupsBvh = 0;
     uint32_t workgroupSizeBvh = 0;

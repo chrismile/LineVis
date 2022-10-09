@@ -30,6 +30,7 @@
 #define LINEVIS_NODESBVHCLEARQUEUEPASS_HPP
 
 #include <Graphics/Vulkan/Render/Passes/Pass.hpp>
+#include "../DeferredModes.hpp"
 
 class LineData;
 typedef std::shared_ptr<LineData> LineDataPtr;
@@ -40,10 +41,16 @@ public:
 
     // Public interface.
     void setLineData(LineDataPtr& lineData, bool isNewData);
-    void setMaxNumPrimitivesPerMeshlet(uint32_t num);
+    void setDrawIndexedIndirectMode(bool _drawIndexedIndirectMode);
+    void setMaxNumPrimitivesPerMeshlet(uint32_t _maxNumPrimitivesPerMeshlet);
+    void setMaxNumVerticesPerMeshlet(uint32_t _maxNumVerticesPerMeshlet);
+    void setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(bool _useMeshShaderWritePackedPrimitiveIndices);
     void setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm);
     void setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode);
     void setBvhBuildPrimitiveCenterMode(BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode);
+    void setUseStdBvhParameters(bool _useStdBvhParameters);
+    void setMaxLeafSizeBvh(uint32_t _maxLeafSizeBvh);
+    void setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh);
     void setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer);
     void setDepthBufferTexture(const sgl::vk::TexturePtr& texture);
 
@@ -54,10 +61,18 @@ protected:
 
 private:
     LineDataPtr lineData;
-    uint32_t maxNumPrimitivesPerMeshlet = 128;
+    bool drawIndexedIndirectMode = true; ///< Draw indexed indirect or mesh shader mode?
+    uint32_t maxNumPrimitivesPerMeshlet = 126;
+    uint32_t maxNumVerticesPerMeshlet = 64;
+    bool useMeshShaderWritePackedPrimitiveIndices = false;
     BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;
     BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::TRIANGLES;
     BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode::PRIMITIVE_CENTROID;
+    // For bvhBuildAlgorithm == BvhBuildAlgorithm::BINNED_SAH_CPU and SWEEP_SAH_CPU.
+    bool useStdBvhParameters = true; ///< Whether to use the settings below.
+    uint32_t maxLeafSizeBvh = 16;
+    uint32_t maxTreeDepthBvh = 64;
+
     sgl::vk::BufferPtr queueBuffer, queueBufferRecheck;
     sgl::vk::BufferPtr visibilityCullingUniformBuffer;
     sgl::vk::TexturePtr depthBufferTexture;

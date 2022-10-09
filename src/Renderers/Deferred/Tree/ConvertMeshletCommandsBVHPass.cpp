@@ -28,40 +28,41 @@
 
 #include <Math/Math.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
+#include <Graphics/Vulkan/Render/ComputePipeline.hpp>
 #include "LineData/LineData.hpp"
 #include "LineData/TrianglePayload/NodesBVHTreePayload.hpp"
-#include "NodesBVHClearQueuePass.hpp"
+#include "ConvertMeshletCommandsBVHPass.hpp"
 
-NodesBVHClearQueuePass::NodesBVHClearQueuePass(sgl::vk::Renderer* renderer) : ComputePass(renderer) {}
+ConvertMeshletCommandsBVHPass::ConvertMeshletCommandsBVHPass(sgl::vk::Renderer* renderer) : ComputePass(renderer) {}
 
-void NodesBVHClearQueuePass::setLineData(LineDataPtr& lineData, bool isNewData) {
+void ConvertMeshletCommandsBVHPass::setLineData(LineDataPtr& lineData, bool isNewData) {
     this->lineData = lineData;
     dataDirty = true;
 }
 
-void NodesBVHClearQueuePass::setDrawIndexedIndirectMode(bool _drawIndexedIndirectMode) {
-    if (drawIndexedIndirectMode != _drawIndexedIndirectMode) {
-        drawIndexedIndirectMode = _drawIndexedIndirectMode;
+void ConvertMeshletCommandsBVHPass::setUseMeshShaderNV(bool _useMeshShaderNV) {
+    if (useMeshShaderNV != _useMeshShaderNV) {
+        useMeshShaderNV = _useMeshShaderNV;
         setShaderDirty();
         setDataDirty();
     }
 }
 
-void NodesBVHClearQueuePass::setMaxNumPrimitivesPerMeshlet(uint32_t _maxNumPrimitivesPerMeshlet) {
+void ConvertMeshletCommandsBVHPass::setMaxNumPrimitivesPerMeshlet(uint32_t _maxNumPrimitivesPerMeshlet) {
     if (maxNumPrimitivesPerMeshlet != _maxNumPrimitivesPerMeshlet) {
         maxNumPrimitivesPerMeshlet = _maxNumPrimitivesPerMeshlet;
         setDataDirty();
     }
 }
 
-void NodesBVHClearQueuePass::setMaxNumVerticesPerMeshlet(uint32_t _maxNumVerticesPerMeshlet) {
+void ConvertMeshletCommandsBVHPass::setMaxNumVerticesPerMeshlet(uint32_t _maxNumVerticesPerMeshlet) {
     if (maxNumVerticesPerMeshlet != _maxNumVerticesPerMeshlet) {
         maxNumVerticesPerMeshlet = _maxNumVerticesPerMeshlet;
         setDataDirty();
     }
 }
 
-void NodesBVHClearQueuePass::setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
+void ConvertMeshletCommandsBVHPass::setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
         bool _useMeshShaderWritePackedPrimitiveIndices) {
     if (useMeshShaderWritePackedPrimitiveIndices != _useMeshShaderWritePackedPrimitiveIndices) {
         useMeshShaderWritePackedPrimitiveIndices = _useMeshShaderWritePackedPrimitiveIndices;
@@ -69,70 +70,65 @@ void NodesBVHClearQueuePass::setUseMeshShaderWritePackedPrimitiveIndicesIfAvaila
     }
 }
 
-void NodesBVHClearQueuePass::setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm) {
+void ConvertMeshletCommandsBVHPass::setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm) {
     if (bvhBuildAlgorithm != _bvhBuildAlgorithm) {
         bvhBuildAlgorithm = _bvhBuildAlgorithm;
         setDataDirty();
     }
 }
 
-void NodesBVHClearQueuePass::setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode) {
+void ConvertMeshletCommandsBVHPass::setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode) {
     if (bvhBuildGeometryMode != _bvhBuildGeometryMode) {
         bvhBuildGeometryMode = _bvhBuildGeometryMode;
         setDataDirty();
     }
 }
 
-void NodesBVHClearQueuePass::setBvhBuildPrimitiveCenterMode(BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode) {
+void ConvertMeshletCommandsBVHPass::setBvhBuildPrimitiveCenterMode(BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode) {
     if (bvhBuildPrimitiveCenterMode != _bvhBuildPrimitiveCenterMode) {
         bvhBuildPrimitiveCenterMode = _bvhBuildPrimitiveCenterMode;
         setDataDirty();
     }
 }
 
-void NodesBVHClearQueuePass::setUseStdBvhParameters(bool _useStdBvhParameters) {
+void ConvertMeshletCommandsBVHPass::setUseStdBvhParameters(bool _useStdBvhParameters) {
     if (useStdBvhParameters != _useStdBvhParameters) {
         useStdBvhParameters = _useStdBvhParameters;
         setDataDirty();
     }
 }
 
-void NodesBVHClearQueuePass::setMaxLeafSizeBvh(uint32_t _maxLeafSizeBvh) {
+void ConvertMeshletCommandsBVHPass::setMaxLeafSizeBvh(uint32_t _maxLeafSizeBvh) {
     if (maxLeafSizeBvh != _maxLeafSizeBvh) {
         maxLeafSizeBvh = _maxLeafSizeBvh;
         setDataDirty();
     }
 }
 
-void NodesBVHClearQueuePass::setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh) {
+void ConvertMeshletCommandsBVHPass::setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh) {
     if (maxTreeDepthBvh != _maxTreeDepthBvh) {
         maxTreeDepthBvh = _maxTreeDepthBvh;
         setDataDirty();
     }
 }
 
-void NodesBVHClearQueuePass::setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer) {
-    visibilityCullingUniformBuffer = uniformBuffer;
-}
-
-void NodesBVHClearQueuePass::setDepthBufferTexture(const sgl::vk::TexturePtr& texture) {
-    depthBufferTexture = texture;
-    setDataDirty();
-}
-
-void NodesBVHClearQueuePass::loadShader() {
+void ConvertMeshletCommandsBVHPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
+    if (useMeshShaderNV) {
+        preprocessorDefines.insert(std::make_pair("VK_NV_mesh_shader", ""));
+    } else {
+        preprocessorDefines.insert(std::make_pair("VK_EXT_mesh_shader", ""));
+    }
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
-            { "NodesBVHDrawCountPass.Initialize.Compute" }, preprocessorDefines);
+            { "ConvertMeshletCommands.Compute" }, preprocessorDefines);
 }
 
-void NodesBVHClearQueuePass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
+void ConvertMeshletCommandsBVHPass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
     computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
 
     TubeTriangleRenderDataPayloadPtr payloadSuperClass(new NodesBVHTreePayload(
-            drawIndexedIndirectMode,
-            maxNumPrimitivesPerMeshlet, maxNumVerticesPerMeshlet, useMeshShaderWritePackedPrimitiveIndices,
+            false, maxNumPrimitivesPerMeshlet, maxNumVerticesPerMeshlet, useMeshShaderWritePackedPrimitiveIndices,
             bvhBuildAlgorithm, bvhBuildGeometryMode, bvhBuildPrimitiveCenterMode,
             useStdBvhParameters, maxLeafSizeBvh, maxTreeDepthBvh));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
@@ -143,30 +139,21 @@ void NodesBVHClearQueuePass::createComputeData(sgl::vk::Renderer* renderer, sgl:
     }
     auto* payload = static_cast<NodesBVHTreePayload*>(payloadSuperClass.get());
 
-    queueBuffer = payload->getQueueBuffer();
-    queueBufferRecheck = payload->getQueueBufferRecheck();
-
-    computeData->setStaticBuffer(payload->getNodeDataBuffer(), "NodeBuffer");
-    computeData->setStaticBuffer(payload->getQueueBuffer(), "QueueBuffer");
-    computeData->setStaticBuffer(payload->getQueueStateBuffer(), "QueueStateBuffer");
-    computeData->setStaticBuffer(payload->getQueueBufferRecheck(), "QueueBufferRecheck");
-    computeData->setStaticBuffer(payload->getQueueStateBufferRecheck(), "QueueStateBufferRecheck");
-    computeData->setStaticBuffer(visibilityCullingUniformBuffer, "VisibilityCullingUniformBuffer");
-    computeData->setStaticTexture(depthBufferTexture, "depthBuffer");
+    computeData->setStaticBuffer(payload->getIndirectDrawCountBuffer(), "IndirectDrawCountBuffer");
+    computeData->setStaticBuffer(payload->getTasksIndirectCommandBuffer(), "TasksIndirectCommandBuffer");
+    if (useMeshShaderNV) {
+        computeData->setStaticBuffer(
+                payload->getTasksIndirectCommandsCountBuffer(), "TasksIndirectCommandsCountBuffer");
+    }
 }
 
-void NodesBVHClearQueuePass::_render() {
-    // Remove / check performance compared to write in shader.
-    /*uint32_t emptyData = 0xFFFFFFFFu;
-    queueBuffer->fill(
-            0, queueBuffer->getSizeInBytes(), emptyData,
-            renderer->getVkCommandBuffer());
-    queueBufferRecheck->fill(
-            0, queueBufferRecheck->getSizeInBytes(), emptyData,
-            renderer->getVkCommandBuffer());
-    renderer->insertMemoryBarrier(
-            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);*/
+void ConvertMeshletCommandsBVHPass::_render() {
+    if (useMeshShaderNV) {
+        uint32_t maxDrawMeshTasksCount = device->getPhysicalDeviceMeshShaderPropertiesNV().maxDrawMeshTasksCount;
+        renderer->pushConstants(
+                computeData->getComputePipeline(), VK_SHADER_STAGE_COMPUTE_BIT,
+                0, maxDrawMeshTasksCount);
+    }
 
     renderer->dispatch(computeData, 1, 1, 1);
 }

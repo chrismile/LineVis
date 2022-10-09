@@ -36,31 +36,34 @@ struct BVHTreeNode {
     glm::vec3 worldSpaceAabbMin{};
     uint32_t indexCount = 0;
     glm::vec3 worldSpaceAabbMax{};
-    uint32_t firstChildOrPrimitiveIndex = 0;
-};
-
-struct BVHTreeNodeTaskMesh {
-    glm::vec3 worldSpaceAabbMin{};
-    uint32_t indexCount = 0;
-    glm::vec3 worldSpaceAabbMax{};
-    uint32_t firstChildOrMeshletIndex = 0;
+    uint32_t firstChildOrPrimitiveIndex = 0; ///< Meshlet index instead of primitive index for mesh shader.
 };
 
 struct BVHTreeLeafMeshlet {
     uint32_t meshletFirstPrimitiveIdx = 0; ///< Value for gl_PrimitiveID.
     uint32_t vertexStart = 0; ///< Pointer into dedupVerticesBuffer and dedupVertexIndexToOrigIndexMapBuffer.
     uint32_t primitiveStart = 0; ///< Pointer into dedupTriangleIndicesBuffer.
-    ///< Bit 0-15: Vertex count. Bi 16-31: Primitive count.
-    uint32_t vertexAndPrimitiveCountCombined = 0;
+    uint32_t vertexAndPrimitiveCountCombined = 0; ///< Bit 0-15: Vertex count. Bit 16-31: Primitive count.
 };
 
 class NodesBVHTreePayload : public TubeTriangleRenderDataPayload {
 public:
     explicit NodesBVHTreePayload(
-            uint32_t maxNumPrimitivesPerMeshlet, BvhBuildAlgorithm bvhBuildAlgorithm,
-            BvhBuildGeometryMode bvhBuildGeometryMode, BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode)
-            : maxNumPrimitivesPerMeshlet(maxNumPrimitivesPerMeshlet), bvhBuildAlgorithm(bvhBuildAlgorithm),
-              bvhBuildGeometryMode(bvhBuildGeometryMode), bvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode) {}
+            bool drawIndexedIndirectMode, uint32_t maxNumPrimitivesPerMeshlet, uint32_t maxNumVerticesPerMeshlet,
+            bool useMeshShaderWritePackedPrimitiveIndices,
+            BvhBuildAlgorithm bvhBuildAlgorithm, BvhBuildGeometryMode bvhBuildGeometryMode,
+            BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode, bool useStdBvhParameters,
+            uint32_t maxLeafSize, uint32_t maxTreeDepth)
+            : drawIndexedIndirectMode(drawIndexedIndirectMode),
+              maxNumPrimitivesPerMeshlet(maxNumPrimitivesPerMeshlet),
+              maxNumVerticesPerMeshlet(maxNumVerticesPerMeshlet),
+              useMeshShaderWritePackedPrimitiveIndices(useMeshShaderWritePackedPrimitiveIndices),
+              bvhBuildAlgorithm(bvhBuildAlgorithm),
+              bvhBuildGeometryMode(bvhBuildGeometryMode),
+              bvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode),
+              useStdBvhParameters(useStdBvhParameters),
+              maxLeafSize(maxLeafSize),
+              maxTreeDepth(maxTreeDepth) {}
     [[nodiscard]] Type getType() const override { return Type::NODES_HLBVH_TREE; }
     [[nodiscard]] bool settingsEqual(TubeTriangleRenderDataPayload* other) const override;
 
@@ -77,32 +80,69 @@ public:
     [[nodiscard]] inline const sgl::vk::BufferPtr& getQueueStateBufferRecheck() const { return queueStateBufferRecheck; }
     [[nodiscard]] inline const sgl::vk::BufferPtr& getQueueBuffer() const { return queueBuffer; }
     [[nodiscard]] inline const sgl::vk::BufferPtr& getQueueBufferRecheck() const { return queueBufferRecheck; }
-    [[nodiscard]] inline const sgl::vk::BufferPtr& getIndirectDrawBuffer() const { return indirectDrawBuffer; }
     [[nodiscard]] inline const sgl::vk::BufferPtr& getIndirectDrawCountBuffer() const {
         return indirectDrawCountBuffer;
     }
     [[nodiscard]] inline const sgl::vk::BufferPtr& getQueueInfoBuffer() const { return queueInfoBuffer; }
     [[nodiscard]] inline const sgl::vk::BufferPtr& getMaxWorkLeftTestBuffer() const { return maxWorkLeftTestBuffer; }
 
+    // Draw indexed indirect mode.
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getIndirectDrawBuffer() const { return indirectDrawBuffer; }
+
+    // Mesh shader mode.
+    [[nodiscard]] inline uint32_t getNumTreeLeafMeshlets() const { return numTreeLeafMeshlets; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getTasksIndirectCommandBuffer() const { return tasksIndirectCommandBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getTasksIndirectCommandsCountBuffer() const { return tasksIndirectCommandsCountBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getVisibleMeshletIndexArrayBuffer() const { return visibleMeshletIndexArrayBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getTreeLeafMeshletsBuffer() const { return treeLeafMeshletsBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getDedupVerticesBuffer() const { return dedupVerticesBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getDedupVertexIndexToOrigIndexMapBuffer() const {
+        return dedupVertexIndexToOrigIndexMapBuffer;
+    }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getDedupTriangleIndicesBuffer() const {
+        return dedupTriangleIndicesBuffer;
+    }
+
 private:
-    // Settings.
-    uint32_t maxNumPrimitivesPerMeshlet = 128;
+    // Settings (choose valid values for entries of VkPhysicalDeviceMeshShaderPropertiesNV/EXT).
+    bool drawIndexedIndirectMode = true; ///< Draw indexed indirect or mesh shader mode?
+    uint32_t maxNumPrimitivesPerMeshlet = 126; ///< for mesh shaders <= maxMeshOutputPrimitives (512 for NVIDIA).
+    uint32_t maxNumVerticesPerMeshlet = 64; ///< for mesh shaders <= maxMeshOutputVertices (256 for NVIDIA).
+    bool useMeshShaderWritePackedPrimitiveIndices = false;
     BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;
     BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::TRIANGLES;
     BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode::PRIMITIVE_CENTROID;
+    // For bvhBuildAlgorithm == BvhBuildAlgorithm::BINNED_SAH_CPU and SWEEP_SAH_CPU.
+    bool useStdBvhParameters = true; ///< Whether to use the settings below.
+    uint32_t maxLeafSize = 16;
+    uint32_t maxTreeDepth = 64;
 
     // Data.
     uint32_t nodeCount = 0;
     uint32_t numLeafNodes = 0;
+    uint32_t numTreeLeafMeshlets = 0;
     sgl::vk::BufferPtr nodeDataBuffer; ///< BVHTreeNodePayload objects.
-    ///< QueueStateBuffer object (see QueueStateBuffer in IndirectNodeCulling.glsl; 4x int/uint).
+    /// QueueStateBuffer object (see QueueStateBuffer in IndirectNodeCulling.glsl; 4x int/uint).
     sgl::vk::BufferPtr queueStateBuffer, queueStateBufferRecheck;
-    ///< uint * nodeCount (maximum amount of queue elements).
+    /// uint * nodeCount (maximum amount of queue elements).
     sgl::vk::BufferPtr queueBuffer, queueBufferRecheck;
-    sgl::vk::BufferPtr indirectDrawBuffer; ///< Padded VkDrawIndexedIndirectCommand objects.
     sgl::vk::BufferPtr indirectDrawCountBuffer; ///< uint32_t object.
     sgl::vk::BufferPtr queueInfoBuffer; ///< uint32_t object.
     sgl::vk::BufferPtr maxWorkLeftTestBuffer; ///< int32_t object, for debugging.
+
+    // Draw indexed indirect mode.
+    sgl::vk::BufferPtr indirectDrawBuffer; ///< Padded VkDrawIndexedIndirectCommand objects.
+
+    // Mesh shader mode.
+    /// Padded VkDrawMeshTasksIndirectCommandNV or VkDrawMeshTasksIndirectCommandEXT objects.
+    sgl::vk::BufferPtr tasksIndirectCommandBuffer;
+    sgl::vk::BufferPtr tasksIndirectCommandsCountBuffer; ///< uint32_t object (VK_NV_mesh_shader only).
+    sgl::vk::BufferPtr visibleMeshletIndexArrayBuffer; ///< uint32_t objects.
+    sgl::vk::BufferPtr treeLeafMeshletsBuffer; ///< BVHTreeLeafMeshlet objects.
+    // Vertices need to be deduplicated, as vertices may be shared between adjacent meshlets.
+    sgl::vk::BufferPtr dedupVerticesBuffer; ///< vec3 objects.
+    sgl::vk::BufferPtr dedupVertexIndexToOrigIndexMapBuffer; ///< uint32_t objects.
+    sgl::vk::BufferPtr dedupTriangleIndicesBuffer; ///< uint8_t objects.
 };
 
 #endif //LINEVIS_NODESBVHTREEPAYLOAD_HPP

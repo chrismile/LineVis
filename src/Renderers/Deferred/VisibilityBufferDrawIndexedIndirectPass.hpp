@@ -45,10 +45,7 @@
 class VisibilityBufferDrawIndexedIndirectPass : public LineRasterPass {
 public:
     explicit VisibilityBufferDrawIndexedIndirectPass(LineRenderer* lineRenderer);
-    void setMaxNumPrimitivesPerMeshlet(uint32_t numPrimitives);
-    void setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm);
-    void setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode);
-    void setBvhBuildPrimitiveCenterMode(BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode);
+    void setMaxNumPrimitivesPerMeshlet(uint32_t _maxNumPrimitivesPerMeshlet);
     void setUseDrawIndexedIndirectCount(bool useIndirectCount);
     [[nodiscard]] inline uint32_t getNumMeshlets() const { return numMeshlets; }
 
@@ -58,9 +55,6 @@ protected:
     void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
 
     uint32_t maxNumPrimitivesPerMeshlet = 128;
-    BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;
-    BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::TRIANGLES;
-    BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode::PRIMITIVE_CENTROID;
     bool useDrawIndexedIndirectCount = true;
     uint32_t numMeshlets = 0;
 };
@@ -71,9 +65,22 @@ protected:
 class VisibilityBufferBVHDrawIndexedIndirectPass : public VisibilityBufferDrawIndexedIndirectPass {
 public:
     explicit VisibilityBufferBVHDrawIndexedIndirectPass(LineRenderer* lineRenderer);
+    void setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm);
+    void setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode);
+    void setBvhBuildPrimitiveCenterMode(BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode);
+    void setUseStdBvhParameters(bool _useStdBvhParameters);
+    void setMaxLeafSizeBvh(uint32_t _maxLeafSizeBvh);
+    void setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh);
 
 protected:
     void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
+    BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;
+    BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::TRIANGLES;
+    BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode::PRIMITIVE_CENTROID;
+    // For bvhBuildAlgorithm == BvhBuildAlgorithm::BINNED_SAH_CPU and SWEEP_SAH_CPU.
+    bool useStdBvhParameters = true; ///< Whether to use the settings below.
+    uint32_t maxLeafSizeBvh = 16;
+    uint32_t maxTreeDepthBvh = 64;
 };
 
 #endif //LINEVIS_VISIBILITYBUFFERDRAWINDEXEDINDIRECTPASS_HPP

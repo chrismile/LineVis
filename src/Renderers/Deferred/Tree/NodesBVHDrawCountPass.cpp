@@ -54,9 +54,32 @@ void NodesBVHDrawCountPass::setUseSubgroupOps(bool _useSubgroupOps) {
     }
 }
 
-void NodesBVHDrawCountPass::setMaxNumPrimitivesPerMeshlet(uint32_t num) {
-    if (maxNumPrimitivesPerMeshlet != num) {
-        maxNumPrimitivesPerMeshlet = num;
+void NodesBVHDrawCountPass::setDrawIndexedIndirectMode(bool _drawIndexedIndirectMode) {
+    if (drawIndexedIndirectMode != _drawIndexedIndirectMode) {
+        drawIndexedIndirectMode = _drawIndexedIndirectMode;
+        setShaderDirty();
+        setDataDirty();
+    }
+}
+
+void NodesBVHDrawCountPass::setMaxNumPrimitivesPerMeshlet(uint32_t _maxNumPrimitivesPerMeshlet) {
+    if (maxNumPrimitivesPerMeshlet != _maxNumPrimitivesPerMeshlet) {
+        maxNumPrimitivesPerMeshlet = _maxNumPrimitivesPerMeshlet;
+        setDataDirty();
+    }
+}
+
+void NodesBVHDrawCountPass::setMaxNumVerticesPerMeshlet(uint32_t _maxNumVerticesPerMeshlet) {
+    if (maxNumVerticesPerMeshlet != _maxNumVerticesPerMeshlet) {
+        maxNumVerticesPerMeshlet = _maxNumVerticesPerMeshlet;
+        setDataDirty();
+    }
+}
+
+void NodesBVHDrawCountPass::setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
+        bool _useMeshShaderWritePackedPrimitiveIndices) {
+    if (useMeshShaderWritePackedPrimitiveIndices != _useMeshShaderWritePackedPrimitiveIndices) {
+        useMeshShaderWritePackedPrimitiveIndices = _useMeshShaderWritePackedPrimitiveIndices;
         setDataDirty();
     }
 }
@@ -78,6 +101,27 @@ void NodesBVHDrawCountPass::setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBui
 void NodesBVHDrawCountPass::setBvhBuildPrimitiveCenterMode(BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode) {
     if (bvhBuildPrimitiveCenterMode != _bvhBuildPrimitiveCenterMode) {
         bvhBuildPrimitiveCenterMode = _bvhBuildPrimitiveCenterMode;
+        setDataDirty();
+    }
+}
+
+void NodesBVHDrawCountPass::setUseStdBvhParameters(bool _useStdBvhParameters) {
+    if (useStdBvhParameters != _useStdBvhParameters) {
+        useStdBvhParameters = _useStdBvhParameters;
+        setDataDirty();
+    }
+}
+
+void NodesBVHDrawCountPass::setMaxLeafSizeBvh(uint32_t _maxLeafSizeBvh) {
+    if (maxLeafSizeBvh != _maxLeafSizeBvh) {
+        maxLeafSizeBvh = _maxLeafSizeBvh;
+        setDataDirty();
+    }
+}
+
+void NodesBVHDrawCountPass::setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh) {
+    if (maxTreeDepthBvh != _maxTreeDepthBvh) {
+        maxTreeDepthBvh = _maxTreeDepthBvh;
         setDataDirty();
     }
 }
@@ -109,6 +153,11 @@ void NodesBVHDrawCountPass::loadShader() {
     if (recheckOccludedOnly) {
         preprocessorDefines.insert(std::make_pair("RECHECK_OCCLUDED_ONLY", ""));
     }
+    if (drawIndexedIndirectMode) {
+        preprocessorDefines.insert(std::make_pair("OUTPUT_DRAW_INDEXED_INDIRECT", ""));
+    } else {
+        preprocessorDefines.insert(std::make_pair("OUTPUT_MESH_SHADER", ""));
+    }
     if (useSubgroupOps) {
         preprocessorDefines.insert(std::make_pair("USE_SUBGROUP_OPS", ""));
     }
@@ -125,7 +174,10 @@ void NodesBVHDrawCountPass::createComputeData(sgl::vk::Renderer* renderer, sgl::
     computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
 
     TubeTriangleRenderDataPayloadPtr payloadSuperClass(new NodesBVHTreePayload(
-            maxNumPrimitivesPerMeshlet, bvhBuildAlgorithm, bvhBuildGeometryMode, bvhBuildPrimitiveCenterMode));
+            drawIndexedIndirectMode,
+            maxNumPrimitivesPerMeshlet, maxNumVerticesPerMeshlet, useMeshShaderWritePackedPrimitiveIndices,
+            bvhBuildAlgorithm, bvhBuildGeometryMode, bvhBuildPrimitiveCenterMode,
+            useStdBvhParameters, maxLeafSizeBvh, maxTreeDepthBvh));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
             true, false, payloadSuperClass);
 
@@ -147,7 +199,13 @@ void NodesBVHDrawCountPass::createComputeData(sgl::vk::Renderer* renderer, sgl::
         computeData->setStaticBuffer(payload->getQueueStateBufferRecheck(), "QueueStateBufferRecheck");
     }
     computeData->setStaticBuffer(payload->getQueueInfoBuffer(), "QueueInfoBuffer");
-    computeData->setStaticBuffer(payload->getIndirectDrawBuffer(), "DrawIndexedIndirectCommandBuffer");
+    if (drawIndexedIndirectMode) {
+        computeData->setStaticBuffer(
+                payload->getIndirectDrawBuffer(), "DrawIndexedIndirectCommandBuffer");
+    } else {
+        computeData->setStaticBuffer(
+                payload->getVisibleMeshletIndexArrayBuffer(), "VisibleMeshletIndexArrayBuffer");
+    }
     computeData->setStaticBuffer(indirectDrawCountBuffer, "IndirectDrawCountBuffer");
     computeData->setStaticBuffer(visibilityCullingUniformBuffer, "VisibilityCullingUniformBuffer");
     computeData->setStaticTexture(depthBufferTexture, "depthBuffer");

@@ -31,6 +31,7 @@
 #include "Renderers/LineRenderer.hpp"
 #include "LineData/LineData.hpp"
 #include "LineData/TrianglePayload/MeshletsTaskMeshShaderPayload.hpp"
+#include "LineData/TrianglePayload/NodesBVHTreePayload.hpp"
 #include "MeshletTaskMeskPass.hpp"
 
 MeshletTaskMeshPass::MeshletTaskMeshPass(LineRenderer* lineRenderer) : LineRasterPass(lineRenderer) {
@@ -52,9 +53,9 @@ void MeshletTaskMeshPass::setRecheckOccludedOnly(bool recheck) {
     }
 }
 
-void MeshletTaskMeshPass::setUseMeshShaderNV(bool useNV) {
-    if (useMeshShaderNV != useNV) {
-        useMeshShaderNV = useNV;
+void MeshletTaskMeshPass::setUseMeshShaderNV(bool _useMeshShaderNV) {
+    if (useMeshShaderNV != _useMeshShaderNV) {
+        useMeshShaderNV = _useMeshShaderNV;
         setShaderDirty();
     }
 }
@@ -120,16 +121,18 @@ void MeshletTaskMeshPass::loadShader() {
     if (recheckOccludedOnly) {
         preprocessorDefines.insert(std::make_pair("RECHECK_OCCLUDED_ONLY", ""));
     }
-
-    if (useMeshShaderNV) {
-        shaderStages = sgl::vk::ShaderManager->getShaderStages(
-                { "MeshletTaskMeshPass.TaskNV", "MeshletTaskMeshPass.MeshNV", "MeshletTaskMeshPass.Fragment" },
-                preprocessorDefines);
-    } else {
-        shaderStages = sgl::vk::ShaderManager->getShaderStages(
-                { "MeshletTaskMeshPass.TaskEXT", "MeshletTaskMeshPass.MeshEXT", "MeshletTaskMeshPass.Fragment" },
-                preprocessorDefines);
+    if (bvhMeshlets) {
+        preprocessorDefines.insert(std::make_pair("BVH_MESHLETS", ""));
     }
+
+    std::vector<std::string> shaderIds;
+    shaderIds.reserve(bvhMeshlets ? 2 : 3);
+    if (!bvhMeshlets) {
+        shaderIds.emplace_back(useMeshShaderNV ? "MeshletTaskMeshPass.TaskNV" : "MeshletTaskMeshPass.TaskEXT");
+    }
+    shaderIds.emplace_back(useMeshShaderNV ? "MeshletTaskMeshPass.MeshNV" : "MeshletTaskMeshPass.MeshEXT");
+    shaderIds.emplace_back("MeshletTaskMeshPass.Fragment");
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(shaderIds, preprocessorDefines);
 }
 
 void MeshletTaskMeshPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
@@ -182,4 +185,99 @@ void MeshletTaskMeshPass::createRasterData(
 
 void MeshletTaskMeshPass::_render() {
     renderer->render(rasterData);
+}
+
+
+
+MeshletMeshBVHPass::MeshletMeshBVHPass(LineRenderer* lineRenderer) : MeshletTaskMeshPass(lineRenderer) {
+    bvhMeshlets = true;
+}
+
+void MeshletMeshBVHPass::setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm) {
+    if (bvhBuildAlgorithm != _bvhBuildAlgorithm) {
+        bvhBuildAlgorithm = _bvhBuildAlgorithm;
+        setDataDirty();
+    }
+}
+
+void MeshletMeshBVHPass::setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode) {
+    if (bvhBuildGeometryMode != _bvhBuildGeometryMode) {
+        bvhBuildGeometryMode = _bvhBuildGeometryMode;
+        setDataDirty();
+    }
+}
+
+void MeshletMeshBVHPass::setBvhBuildPrimitiveCenterMode(BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode) {
+    if (bvhBuildPrimitiveCenterMode != _bvhBuildPrimitiveCenterMode) {
+        bvhBuildPrimitiveCenterMode = _bvhBuildPrimitiveCenterMode;
+        setDataDirty();
+    }
+}
+
+void MeshletMeshBVHPass::setUseStdBvhParameters(bool _useStdBvhParameters) {
+    if (useStdBvhParameters != _useStdBvhParameters) {
+        useStdBvhParameters = _useStdBvhParameters;
+        setDataDirty();
+    }
+}
+
+void MeshletMeshBVHPass::setMaxLeafSizeBvh(uint32_t _maxLeafSizeBvh) {
+    if (maxLeafSizeBvh != _maxLeafSizeBvh) {
+        maxLeafSizeBvh = _maxLeafSizeBvh;
+        setDataDirty();
+    }
+}
+
+void MeshletMeshBVHPass::setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh) {
+    if (maxTreeDepthBvh != _maxTreeDepthBvh) {
+        maxTreeDepthBvh = _maxTreeDepthBvh;
+        setDataDirty();
+    }
+}
+
+void MeshletMeshBVHPass::createRasterData(
+        sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
+    rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
+    lineData->setVulkanRenderDataDescriptors(rasterData);
+    //lineRenderer->setRenderDataBindings(rasterData);
+
+    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new NodesBVHTreePayload(
+            false, maxNumPrimitivesPerMeshlet, maxNumVerticesPerMeshlet, useMeshShaderWritePackedPrimitiveIndices,
+            bvhBuildAlgorithm, bvhBuildGeometryMode, bvhBuildPrimitiveCenterMode,
+            useStdBvhParameters, maxLeafSizeBvh, maxTreeDepthBvh));
+    TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
+            true, false, payloadSuperClass);
+
+    if (!tubeRenderData.indexBuffer) {
+        numMeshlets = 0;
+        return;
+    }
+    auto* payload = static_cast<NodesBVHTreePayload*>(payloadSuperClass.get());
+
+    numMeshlets = payload->getNumTreeLeafMeshlets();
+    rasterData->setStaticBuffer(payload->getTreeLeafMeshletsBuffer(), "MeshletDataBuffer");
+    rasterData->setStaticBuffer(payload->getDedupVerticesBuffer(), "DedupVerticesBuffer");
+    rasterData->setStaticBuffer(payload->getDedupTriangleIndicesBuffer(), "DedupTriangleIndicesBuffer");
+    rasterData->setStaticBuffer(
+            payload->getVisibleMeshletIndexArrayBuffer(), "VisibleMeshletIndexArrayBuffer");
+    uint32_t stride;
+    if (useMeshShaderNV) {
+        stride = 8; //< sizeof(VkDrawMeshTasksIndirectCommandNV)
+    } else {
+        stride = 12; //< sizeof(VkDrawMeshTasksIndirectCommandEXT)
+    }
+    rasterData->setIndirectDrawBuffer(payload->getTasksIndirectCommandBuffer(), stride);
+    if (useMeshShaderNV) {
+        const auto& meshShaderPropertiesNV =
+                device->getPhysicalDeviceMeshShaderPropertiesNV();
+        uint32_t numTreeLeafMeshlets = payload->getNumTreeLeafMeshlets();
+        uint32_t numDrawCallsMax = sgl::uiceil(numTreeLeafMeshlets, meshShaderPropertiesNV.maxDrawMeshTasksCount);
+        rasterData->setIndirectDrawCountBuffer(
+                payload->getTasksIndirectCommandsCountBuffer(), numDrawCallsMax);
+        rasterData->setMeshTasksNV(sgl::uiceil(numMeshlets, WORKGROUP_SIZE_NV), 0);
+    } else {
+        rasterData->setIndirectDrawCount(1);
+        rasterData->setMeshTasksGroupCountEXT(
+                sgl::uiceil(numMeshlets, WORKGROUP_SIZE_EXT), 1, 1);
+    }
 }

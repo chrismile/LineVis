@@ -42,10 +42,16 @@ public:
     void setLineData(LineDataPtr& lineData, bool isNewData);
     void setRecheckOccludedOnly(bool recheck);
     void setUseSubgroupOps(bool _useSubgroupOps);
-    void setMaxNumPrimitivesPerMeshlet(uint32_t num);
+    void setDrawIndexedIndirectMode(bool _drawIndexedIndirectMode);
+    void setMaxNumPrimitivesPerMeshlet(uint32_t _maxNumPrimitivesPerMeshlet);
+    void setMaxNumVerticesPerMeshlet(uint32_t _maxNumVerticesPerMeshlet);
+    void setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(bool _useMeshShaderWritePackedPrimitiveIndices);
     void setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm);
     void setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode);
     void setBvhBuildPrimitiveCenterMode(BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode);
+    void setUseStdBvhParameters(bool _useStdBvhParameters);
+    void setMaxLeafSizeBvh(uint32_t _maxLeafSizeBvh);
+    void setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh);
     void setNumWorkgroups(uint32_t numWorkgroupsBvh);
     void setWorkgroupSize(uint32_t workgroupSizeBvh);
     void setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer);
@@ -63,10 +69,19 @@ private:
     bool recheckOccludedOnly = false;
     bool useSubgroupOps = false; ///< Use subgroup operations in NodesBVHDrawCountPass.glsl?
     bool useSpinlock = false;
-    uint32_t maxNumPrimitivesPerMeshlet = 128;
+
+    bool drawIndexedIndirectMode = true; ///< Draw indexed indirect or mesh shader mode?
+    uint32_t maxNumPrimitivesPerMeshlet = 126;
+    uint32_t maxNumVerticesPerMeshlet = 64;
+    bool useMeshShaderWritePackedPrimitiveIndices = false;
     BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;
     BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::TRIANGLES;
     BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode::PRIMITIVE_CENTROID;
+    // For bvhBuildAlgorithm == BvhBuildAlgorithm::BINNED_SAH_CPU and SWEEP_SAH_CPU.
+    bool useStdBvhParameters = true; ///< Whether to use the settings below.
+    uint32_t maxLeafSizeBvh = 16;
+    uint32_t maxTreeDepthBvh = 64;
+
     uint32_t numNodes = 0;
     uint32_t numWorkgroups = 0;
     uint32_t workgroupSize = 0;

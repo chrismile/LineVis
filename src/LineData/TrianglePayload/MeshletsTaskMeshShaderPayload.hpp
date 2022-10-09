@@ -73,7 +73,7 @@ public:
     }
 
 private:
-    // Settings (choose valid values for entries of VkPhysicalDeviceMeshShaderPropertiesNV).
+    // Settings (choose valid values for entries of VkPhysicalDeviceMeshShaderPropertiesNV/EXT).
     uint32_t maxNumPrimitivesPerMeshlet = 126; ///< <= maxMeshOutputPrimitives (512 for NVIDIA).
     uint32_t maxNumVerticesPerMeshlet = 64; ///< <= maxMeshOutputVertices (256 for NVIDIA).
     bool useMeshShaderWritePackedPrimitiveIndices = false;

@@ -26,52 +26,25 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEVIS_MESHLETTASKMESKPASS_HPP
-#define LINEVIS_MESHLETTASKMESKPASS_HPP
+#ifndef LINEVIS_CONVERTMESHLETCOMMANDSBVHPASS_HPP
+#define LINEVIS_CONVERTMESHLETCOMMANDSBVHPASS_HPP
 
 #include <Graphics/Vulkan/Render/Passes/Pass.hpp>
-#include "Renderers/LineRasterPass.hpp"
+#include "../DeferredModes.hpp"
 
 class LineData;
 typedef std::shared_ptr<LineData> LineDataPtr;
 
-class MeshletTaskMeshPass : public LineRasterPass {
+class ConvertMeshletCommandsBVHPass : public sgl::vk::ComputePass {
 public:
-    explicit MeshletTaskMeshPass(LineRenderer* lineRenderer);
+    explicit ConvertMeshletCommandsBVHPass(sgl::vk::Renderer* renderer);
 
     // Public interface.
-    void setRecheckOccludedOnly(bool recheck);
+    void setLineData(LineDataPtr& lineData, bool isNewData);
     void setUseMeshShaderNV(bool _useMeshShaderNV);
-    void setMaxNumPrimitivesPerMeshlet(uint32_t numPrimitives);
-    void setMaxNumVerticesPerMeshlet(uint32_t numVertices);
-    void setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(bool useWritePacked);
-    void setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer);
-    void setDepthBufferTexture(const sgl::vk::TexturePtr& texture);
-    [[nodiscard]] inline uint32_t getNumMeshlets() const { return numMeshlets; }
-
-protected:
-    uint32_t WORKGROUP_SIZE_NV = 32;
-    uint32_t WORKGROUP_SIZE_EXT = 32;
-    void loadShader() override;
-    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
-    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
-    void _render() override;
-
-    bool recheckOccludedOnly = false;
-    bool useMeshShaderNV = false; ///< Whether to use VK_EXT_mesh_shader oder VK_NV_mesh_shader.
-    uint32_t maxNumPrimitivesPerMeshlet = 126;
-    uint32_t maxNumVerticesPerMeshlet = 64;
-    bool useMeshShaderWritePackedPrimitiveIndicesIfAvailable = true; ///< Sub-mode for VK_NV_mesh_shader.
-    bool useMeshShaderWritePackedPrimitiveIndices = false;
-    uint32_t numMeshlets = 0;
-    bool bvhMeshlets = false;
-    sgl::vk::BufferPtr visibilityCullingUniformBuffer;
-    sgl::vk::TexturePtr depthBufferTexture;
-};
-
-class MeshletMeshBVHPass : public MeshletTaskMeshPass {
-public:
-    explicit MeshletMeshBVHPass(LineRenderer* lineRenderer);
+    void setMaxNumPrimitivesPerMeshlet(uint32_t _maxNumPrimitivesPerMeshlet);
+    void setMaxNumVerticesPerMeshlet(uint32_t _maxNumVerticesPerMeshlet);
+    void setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(bool _useMeshShaderWritePackedPrimitiveIndices);
     void setBvhBuildAlgorithm(BvhBuildAlgorithm _bvhBuildAlgorithm);
     void setBvhBuildGeometryMode(BvhBuildGeometryMode _bvhBuildGeometryMode);
     void setBvhBuildPrimitiveCenterMode(BvhBuildPrimitiveCenterMode _bvhBuildPrimitiveCenterMode);
@@ -80,9 +53,16 @@ public:
     void setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh);
 
 protected:
-    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
+    void loadShader() override;
+    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
+    void _render() override;
 
 private:
+    LineDataPtr lineData;
+    bool useMeshShaderNV = false; ///< Whether to use VK_EXT_mesh_shader oder VK_NV_mesh_shader.
+    uint32_t maxNumPrimitivesPerMeshlet = 126;
+    uint32_t maxNumVerticesPerMeshlet = 64;
+    bool useMeshShaderWritePackedPrimitiveIndices = false;
     BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;
     BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::TRIANGLES;
     BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode = BvhBuildPrimitiveCenterMode::PRIMITIVE_CENTROID;
@@ -92,4 +72,4 @@ private:
     uint32_t maxTreeDepthBvh = 64;
 };
 
-#endif //LINEVIS_MESHLETTASKMESKPASS_HPP
+#endif //LINEVIS_CONVERTMESHLETCOMMANDSBVHPASS_HPP
