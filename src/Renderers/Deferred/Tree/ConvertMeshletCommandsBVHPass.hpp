@@ -62,6 +62,7 @@ private:
     bool useMeshShaderNV = false; ///< Whether to use VK_EXT_mesh_shader oder VK_NV_mesh_shader.
     uint32_t maxNumPrimitivesPerMeshlet = 126;
     uint32_t maxNumVerticesPerMeshlet = 64;
+    bool useMeshShaderWritePackedPrimitiveIndicesIfAvailable = false;
     bool useMeshShaderWritePackedPrimitiveIndices = false;
     BvhBuildAlgorithm bvhBuildAlgorithm = BvhBuildAlgorithm::SWEEP_SAH_CPU;
     BvhBuildGeometryMode bvhBuildGeometryMode = BvhBuildGeometryMode::TRIANGLES;

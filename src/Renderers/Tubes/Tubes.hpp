@@ -26,8 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HEXVOLUMERENDERER_TUBES_HPP
-#define HEXVOLUMERENDERER_TUBES_HPP
+#ifndef LINEVIS_TUBES_HPP
+#define LINEVIS_TUBES_HPP
 
 #include <vector>
 #include <memory>
@@ -249,4 +249,4 @@ void createLineTubesRenderDataCPU<std::vector<float>>(
         std::vector<uint32_t>& validLineIndices,
         std::vector<uint32_t>& numValidLineVertices);
 
-#endif //HEXVOLUMERENDERER_TUBES_HPP
+#endif //LINEVIS_TUBES_HPP

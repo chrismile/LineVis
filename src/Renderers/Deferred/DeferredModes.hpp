@@ -81,10 +81,12 @@ const char* const bvhBuildAlgorithmNames[4] = {
         "Sweep SAH (CPU)",
         "Locally Ordered Clustering (CPU)",
         "Linear BVH (CPU)",
-        //"Linear BVH (GPU),
+        //"Linear BVH (Parallel, CPU)",
+        //"Linear BVH (Parallel, GPU)"
 };
 enum class BvhBuildAlgorithm {
-    BINNED_SAH_CPU, SWEEP_SAH_CPU, LOCALLY_ORDERED_CLUSTERING_CPU, LINEAR_BVH_CPU, //LINEAR_BVH_GPU
+    BINNED_SAH_CPU, SWEEP_SAH_CPU, LOCALLY_ORDERED_CLUSTERING_CPU, LINEAR_BVH_CPU,
+    //LINEAR_BVH_PARALLEL_CPU, LINEAR_BVH_PARALLEL_GPU
 };
 
 const char* const bvhBuildGeometryModeNames[2] = {

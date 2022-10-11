@@ -214,6 +214,7 @@ protected:
     size_t outputDepthMinMaxBufferIndex = 0;
     std::shared_ptr<ComputeDepthValuesPass> computeDepthValuesPass;
     std::shared_ptr<MinMaxDepthReductionPass> minMaxDepthReductionPass[2];
+    bool recomputeIsEmptyOnResolutionChanged = false;
 
     // Tiling mode.
     static int tilingModeIndex;

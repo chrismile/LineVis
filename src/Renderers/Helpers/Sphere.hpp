@@ -26,8 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HEXVOLUMERENDERER_SPHERE_HPP
-#define HEXVOLUMERENDERER_SPHERE_HPP
+#ifndef LINEVIS_SPHERE_HPP
+#define LINEVIS_SPHERE_HPP
 
 #include <vector>
 #include <glm/vec3.hpp>
@@ -46,4 +46,4 @@ void getSphereSurfaceRenderData(
         std::vector<glm::vec3>& vertexPositions, std::vector<glm::vec3>& vertexNormals,
         std::vector<uint32_t>& triangleIndices);
 
-#endif //HEXVOLUMERENDERER_SPHERE_HPP
+#endif //LINEVIS_SPHERE_HPP

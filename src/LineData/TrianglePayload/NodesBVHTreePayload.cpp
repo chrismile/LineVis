@@ -422,6 +422,9 @@ void createTreeNodesMeshShader(
 /*
  * TODO: Add support for Parallel LBVH construction.
  * - https://developer.nvidia.com/blog/thinking-parallel-part-iii-tree-construction-gpu/
+ * - https://luebke.us/publications/eg09.pdf
+ * - https://devblogs.nvidia.com/parallelforall/wp-content/uploads/2012/11/karras2012hpg_paper.pdf
+ * - https://research.nvidia.com/publication/2012-06_maximizing-parallelism-construction-bvhs-octrees-and-k-d-trees
  * - https://fuchsia.googlesource.com/fuchsia/+/refs/heads/main/src/graphics/lib/compute/radix_sort/
  */
 

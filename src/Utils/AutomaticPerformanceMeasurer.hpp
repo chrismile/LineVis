@@ -26,8 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HEXVOLUMERENDERER_AUTOMATICPERFORMANCEMEASURER_HPP
-#define HEXVOLUMERENDERER_AUTOMATICPERFORMANCEMEASURER_HPP
+#ifndef LINEVIS_AUTOMATICPERFORMANCEMEASURER_HPP
+#define LINEVIS_AUTOMATICPERFORMANCEMEASURER_HPP
 
 #include <string>
 #include <functional>
@@ -61,7 +61,8 @@ public:
 
     // Called by OIT algorithms.
     void setCurrentAlgorithmBufferSizeBytes(size_t sizeInBytes);
-    inline void setPpllTimer(const sgl::vk::TimerPtr& ppllTimer) { this->ppllTimer = ppllTimer; }
+    inline void setPpllTimer(const sgl::vk::TimerPtr& _timer) { this->ppllTimer = _timer; }
+    inline void setDeferredRenderingTimer(const sgl::vk::TimerPtr& _timer) { this->deferredRenderingTimer = _timer; }
 
     // Called by the renderers to announce the size of the data set visual representation.
     void setCurrentDataSetBufferSizeBytes(size_t sizeInBytes);
@@ -77,6 +78,10 @@ private:
 
     /// Returns amount of used video memory size in GiB.
     float getUsedVideoMemorySizeGiB();
+
+    void openPpllFileIfNecessary();
+    void openDepthComplexityFileIfNecessary();
+    void openDeferredRenderingFileIfNecessary();
 
     sgl::vk::Renderer* renderer;
     bool isInitialized = false;
@@ -95,6 +100,7 @@ private:
     sgl::CsvWriter file;
     sgl::CsvWriter depthComplexityFile;
     sgl::CsvWriter perfFile;
+    std::string depthComplexityFilename;
     size_t depthComplexityFrameNumber = 0;
     size_t currentAlgorithmsBufferSizeBytes = 0;
     size_t currentDataSetBufferSizeBytes = 0;
@@ -106,9 +112,11 @@ private:
 
     // For per-pixel linked list renderers.
     sgl::CsvWriter ppllFile;
+    sgl::CsvWriter deferredRenderingFile;
     sgl::vk::TimerPtr ppllTimer = nullptr;
+    sgl::vk::TimerPtr deferredRenderingTimer = nullptr;
 };
 
 size_t getUsedSystemMemoryBytes();
 
-#endif //HEXVOLUMERENDERER_AUTOMATICPERFORMANCEMEASURER_HPP
+#endif //LINEVIS_AUTOMATICPERFORMANCEMEASURER_HPP

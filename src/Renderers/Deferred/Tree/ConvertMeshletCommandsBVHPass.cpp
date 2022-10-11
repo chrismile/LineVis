@@ -64,8 +64,8 @@ void ConvertMeshletCommandsBVHPass::setMaxNumVerticesPerMeshlet(uint32_t _maxNum
 
 void ConvertMeshletCommandsBVHPass::setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
         bool _useMeshShaderWritePackedPrimitiveIndices) {
-    if (useMeshShaderWritePackedPrimitiveIndices != _useMeshShaderWritePackedPrimitiveIndices) {
-        useMeshShaderWritePackedPrimitiveIndices = _useMeshShaderWritePackedPrimitiveIndices;
+    if (useMeshShaderWritePackedPrimitiveIndicesIfAvailable != _useMeshShaderWritePackedPrimitiveIndices) {
+        useMeshShaderWritePackedPrimitiveIndicesIfAvailable = _useMeshShaderWritePackedPrimitiveIndices;
         setDataDirty();
     }
 }
@@ -127,8 +127,22 @@ void ConvertMeshletCommandsBVHPass::loadShader() {
 void ConvertMeshletCommandsBVHPass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
     computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
 
+    useMeshShaderWritePackedPrimitiveIndices = useMeshShaderWritePackedPrimitiveIndicesIfAvailable && useMeshShaderNV;
+    if (useMeshShaderWritePackedPrimitiveIndicesIfAvailable) {
+        /*
+         * The number of indices needs to be divisible by four to be able to use writePackedPrimitiveIndices4x8NV.
+         * The number of vertices and primitives is (for N = subdivisions, x = segments):
+         * (N + Nx) vertices and (2Nx) primitives.
+         * Thus: The number of primitives is divisible by four if N is divisible by two.
+         */
+        if (lineData->getUseCappedTubes() || lineData->getTubeNumSubdivisions() % 2 != 0) {
+            useMeshShaderWritePackedPrimitiveIndices = false;
+        }
+    }
+
     TubeTriangleRenderDataPayloadPtr payloadSuperClass(new NodesBVHTreePayload(
-            false, maxNumPrimitivesPerMeshlet, maxNumVerticesPerMeshlet, useMeshShaderWritePackedPrimitiveIndices,
+            false, maxNumPrimitivesPerMeshlet, maxNumVerticesPerMeshlet,
+            useMeshShaderWritePackedPrimitiveIndices,
             bvhBuildAlgorithm, bvhBuildGeometryMode, bvhBuildPrimitiveCenterMode,
             useStdBvhParameters, maxLeafSizeBvh, maxTreeDepthBvh));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(

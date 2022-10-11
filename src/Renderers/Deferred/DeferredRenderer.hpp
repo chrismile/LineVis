@@ -56,11 +56,16 @@ class MeshletMeshBVHPass;
 class DeferredResolvePass;
 class DownsampleBlitPass;
 
+namespace sgl { namespace vk {
+class Timer;
+typedef std::shared_ptr<Timer> TimerPtr;
+}}
+
 class DeferredRenderer : public LineRenderer {
 public:
     DeferredRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     void initialize() override;
-    ~DeferredRenderer() override = default;
+    ~DeferredRenderer() override;
     [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_DEFERRED_SHADING; }
     bool getIsTransparencyUsed() override { return false; }
     [[nodiscard]] bool getIsTriangleRepresentationUsed() const override;
@@ -217,7 +222,7 @@ protected:
     int32_t maxWorkLeft1 = 0;
 
     // Current rendering mode.
-    inline bool getIsBvhRenderingMode() const {
+    [[nodiscard]] inline bool getIsBvhRenderingMode() const {
         return deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT
                 || deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER;
     }
@@ -258,6 +263,12 @@ protected:
     int supersamplingMode = 0;
     uint32_t renderWidth = 0, renderHeight = 0;
     uint32_t finalWidth = 0, finalHeight = 0;
+
+    // Data for performance measurements.
+    int frameCounter = 0;
+    std::string currentStateName;
+    bool timerDataIsWritten = true;
+    sgl::vk::TimerPtr timer;
 };
 
 /**

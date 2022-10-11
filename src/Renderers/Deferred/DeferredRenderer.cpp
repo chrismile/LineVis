@@ -34,6 +34,7 @@
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Window.hpp>
 #include <Graphics/Vulkan/Utils/Swapchain.hpp>
+#include <Graphics/Vulkan/Utils/Timer.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
@@ -43,6 +44,7 @@
 #include <memory>
 #include <utility>
 
+#include "Utils/AutomaticPerformanceMeasurer.hpp"
 #include "LineData/LineDataStress.hpp"
 #include "LineData/TrianglePayload/MeshletsDrawIndirectPayload.hpp"
 #include "../HullRasterPass.hpp"
@@ -133,6 +135,13 @@ void DeferredRenderer::initialize() {
 
     updateRenderingMode();
     onClearColorChanged();
+}
+
+DeferredRenderer::~DeferredRenderer()  {
+    if ((*sceneData->performanceMeasurer) && !timerDataIsWritten && timer) {
+        timer = {};
+        (*sceneData->performanceMeasurer)->setPpllTimer({});
+    }
 }
 
 void DeferredRenderer::reloadShaders() {
@@ -247,6 +256,7 @@ void DeferredRenderer::updateRenderingMode() {
         if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
             nodesBVHClearQueuePass->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
         } else {
+            nodesBVHClearQueuePass->setUseMeshShaderNV(useMeshShaderNV);
             nodesBVHClearQueuePass->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
             nodesBVHClearQueuePass->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
             nodesBVHClearQueuePass->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
@@ -280,6 +290,7 @@ void DeferredRenderer::updateRenderingMode() {
             if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
                 nodesBVHDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
             } else {
+                nodesBVHDrawCountPasses[i]->setUseMeshShaderNV(useMeshShaderNV);
                 nodesBVHDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
                 nodesBVHDrawCountPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
                 nodesBVHDrawCountPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
@@ -491,8 +502,10 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     bool isDataEmpty = true;
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
         visibilityBufferDrawIndexedPass->setLineData(lineData, isNewData);
-        visibilityBufferDrawIndexedPass->buildIfNecessary();
-        isDataEmpty = visibilityBufferDrawIndexedPass->getIsDataEmpty();
+        if (colorRenderTargetImage) {
+            visibilityBufferDrawIndexedPass->buildIfNecessary();
+            isDataEmpty = visibilityBufferDrawIndexedPass->getIsDataEmpty();
+        }
     } else if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
         for (int i = 0; i < 2; i++) {
             visibilityBufferDrawIndexedIndirectPasses[i]->setLineData(lineData, isNewData);
@@ -522,14 +535,18 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
                 meshletDrawCountPass->setPrefixSumScanBuffer(visibilityBufferPrefixSumScanPass->getOutputBuffer());
             }
         }
-        visibilityBufferDrawIndexedIndirectPasses[0]->buildIfNecessary();
-        isDataEmpty = visibilityBufferDrawIndexedIndirectPasses[0]->getIsDataEmpty();
+        if (colorRenderTargetImage) {
+            visibilityBufferDrawIndexedIndirectPasses[0]->buildIfNecessary();
+            isDataEmpty = visibilityBufferDrawIndexedIndirectPasses[0]->getIsDataEmpty();
+        }
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         for (int i = 0; i < 2; i++) {
             meshletTaskMeshPasses[i]->setLineData(lineData, isNewData);
         }
-        meshletTaskMeshPasses[0]->buildIfNecessary();
-        isDataEmpty = meshletTaskMeshPasses[0]->getNumMeshlets() == 0;
+        if (colorRenderTargetImage) {
+            meshletTaskMeshPasses[0]->buildIfNecessary();
+            isDataEmpty = meshletTaskMeshPasses[0]->getNumMeshlets() == 0;
+        }
     } else if (getIsBvhRenderingMode()) {
         nodesBVHClearQueuePass->setLineData(lineData, isNewData);
         if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER) {
@@ -543,12 +560,14 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
                 meshletMeshBVHPasses[i]->setLineData(lineData, isNewData);
             }
         }
-        if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
-            visibilityBufferBVHDrawIndexedIndirectPasses[0]->buildIfNecessary();
-            isDataEmpty = visibilityBufferBVHDrawIndexedIndirectPasses[0]->getIsDataEmpty();
-        } else {
-            meshletMeshBVHPasses[0]->buildIfNecessary();
-            isDataEmpty = meshletMeshBVHPasses[0]->getIsDataEmpty();
+        if (colorRenderTargetImage) {
+            if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
+                visibilityBufferBVHDrawIndexedIndirectPasses[0]->buildIfNecessary();
+                isDataEmpty = visibilityBufferBVHDrawIndexedIndirectPasses[0]->getIsDataEmpty();
+            } else {
+                meshletMeshBVHPasses[0]->buildIfNecessary();
+                isDataEmpty = meshletMeshBVHPasses[0]->getIsDataEmpty();
+            }
         }
     }
 
@@ -556,10 +575,14 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     deferredResolvePass->setDataDirty();
 
     if (hullRasterPass) {
-        framebufferMode = FramebufferMode::HULL_RASTER_PASS;
-        hullRasterPass->setAttachmentLoadOp(
-                isDataEmpty ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD);
-        hullRasterPass->updateFramebuffer();
+        if (colorRenderTargetImage) {
+            framebufferMode = FramebufferMode::HULL_RASTER_PASS;
+            hullRasterPass->setAttachmentLoadOp(
+                    isDataEmpty ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD);
+            hullRasterPass->updateFramebuffer();
+        } else {
+            recomputeIsEmptyOnResolutionChanged = true;
+        }
     }
 
     dirty = false;
@@ -873,6 +896,36 @@ void DeferredRenderer::onResolutionChanged() {
     deferredResolvePass->setOutputImage(colorRenderTargetImage);
     deferredResolvePass->recreateSwapchain(renderWidth, renderHeight);
     frameNumber = 0;
+
+    if (recomputeIsEmptyOnResolutionChanged) {
+        bool isDataEmpty = true;
+        if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
+            visibilityBufferDrawIndexedPass->buildIfNecessary();
+            isDataEmpty = visibilityBufferDrawIndexedPass->getIsDataEmpty();
+        } else if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
+            visibilityBufferDrawIndexedIndirectPasses[0]->buildIfNecessary();
+            isDataEmpty = visibilityBufferDrawIndexedIndirectPasses[0]->getIsDataEmpty();
+        } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
+            meshletTaskMeshPasses[0]->buildIfNecessary();
+            isDataEmpty = meshletTaskMeshPasses[0]->getNumMeshlets() == 0;
+        } else if (getIsBvhRenderingMode()) {
+            if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
+                visibilityBufferBVHDrawIndexedIndirectPasses[0]->buildIfNecessary();
+                isDataEmpty = visibilityBufferBVHDrawIndexedIndirectPasses[0]->getIsDataEmpty();
+            } else {
+                meshletMeshBVHPasses[0]->buildIfNecessary();
+                isDataEmpty = meshletMeshBVHPasses[0]->getIsDataEmpty();
+            }
+        }
+
+        framebufferMode = FramebufferMode::HULL_RASTER_PASS;
+        hullRasterPass->setAttachmentLoadOp(
+                isDataEmpty ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD);
+        hullRasterPass->updateFramebuffer();
+
+        recomputeIsEmptyOnResolutionChanged = false;
+    }
+
 }
 
 void DeferredRenderer::onResolutionChangedDeferredRenderingMode() {
@@ -1020,7 +1073,7 @@ void DeferredRenderer::render() {
                 }
             }
 
-                VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+            VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
             if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
                 pipelineStageFlags = VK_PIPELINE_STAGE_TASK_SHADER_BIT_NV;
 #ifdef VK_EXT_mesh_shader
@@ -1048,6 +1101,9 @@ void DeferredRenderer::render() {
             renderer->transitionImageLayout(
                     depthRenderTargetImagePingPong[1], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
+            if ((*sceneData->performanceMeasurer)) {
+                timer->startGPU("DeferredHZB" + std::to_string(0));
+            }
             // Rebuild the HZB.
             renderComputeHZB(1);
 
@@ -1075,6 +1131,9 @@ void DeferredRenderer::render() {
                     VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     VK_PIPELINE_STAGE_TRANSFER_BIT, pipelineStageFlags,
                     VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT);
+            if ((*sceneData->performanceMeasurer)) {
+                timer->endGPU("DeferredHZB" + std::to_string(0));
+            }
 
             // Set new MVP matrix as uniform.
             visibilityCullingUniformData.modelViewProjectionMatrix =
@@ -1092,12 +1151,18 @@ void DeferredRenderer::render() {
                     depthRenderTargetImagePingPong[0], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
             // Rebuild the HZB for next frame.
+            if ((*sceneData->performanceMeasurer)) {
+                timer->startGPU("DeferredHZB" + std::to_string(1));
+            }
             renderComputeHZB(0);
 
             renderer->transitionImageLayout(
                     primitiveIndexImage->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             renderer->transitionImageLayout(
                     depthRenderTargetImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            if ((*sceneData->performanceMeasurer)) {
+                timer->endGPU("DeferredHZB" + std::to_string(1));
+            }
 
             lastFrameViewMatrix = sceneData->camera->getViewMatrix();
             lastFrameProjectionMatrix = sceneData->camera->getProjectionMatrix();
@@ -1146,7 +1211,14 @@ void DeferredRenderer::renderDataEmpty() {
 }
 
 void DeferredRenderer::renderDrawIndexed() {
+    if ((*sceneData->performanceMeasurer)) {
+        timer->startGPU("DeferredRaster0");
+    }
     visibilityBufferDrawIndexedPass->render();
+    if ((*sceneData->performanceMeasurer)) {
+        timer->endGPU("DeferredRaster0");
+    }
+
     renderer->transitionImageLayout(
             primitiveIndexImage->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     renderer->transitionImageLayout(
@@ -1160,6 +1232,9 @@ void DeferredRenderer::renderDrawIndexed() {
 void DeferredRenderer::renderDrawIndexedIndirectOrTaskMesh(int passIndex) {
     sgl::vk::BufferPtr drawCountBuffer;
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
+        if ((*sceneData->performanceMeasurer)) {
+            timer->startGPU("DeferredVisibility" + std::to_string(passIndex));
+        }
         if (drawIndirectReductionMode == DrawIndirectReductionMode::NO_REDUCTION) {
             meshletDrawCountNoReductionPasses[passIndex]->render();
         } else if (drawIndirectReductionMode == DrawIndirectReductionMode::ATOMIC_COUNTER) {
@@ -1184,10 +1259,29 @@ void DeferredRenderer::renderDrawIndexedIndirectOrTaskMesh(int passIndex) {
         renderer->insertMemoryBarrier(
                 VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
+        if ((*sceneData->performanceMeasurer)) {
+            timer->endGPU("DeferredVisibility" + std::to_string(passIndex));
+        }
+
+        if ((*sceneData->performanceMeasurer)) {
+            timer->startGPU("DeferredRaster" + std::to_string(passIndex));
+        }
         visibilityBufferDrawIndexedIndirectPasses[passIndex]->render();
+        if ((*sceneData->performanceMeasurer)) {
+            timer->endGPU("DeferredRaster" + std::to_string(passIndex));
+        }
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
+        if ((*sceneData->performanceMeasurer)) {
+            timer->startGPU("DeferredRaster" + std::to_string(passIndex));
+        }
         meshletTaskMeshPasses[passIndex]->render();
+        if ((*sceneData->performanceMeasurer)) {
+            timer->endGPU("DeferredRaster" + std::to_string(passIndex));
+        }
     } else if (getIsBvhRenderingMode()) {
+        if ((*sceneData->performanceMeasurer)) {
+            timer->startGPU("DeferredVisibility" + std::to_string(passIndex));
+        }
         if (passIndex == 0) {
             nodesBVHClearQueuePass->render();
             renderer->insertMemoryBarrier(
@@ -1207,10 +1301,20 @@ void DeferredRenderer::renderDrawIndexedIndirectOrTaskMesh(int passIndex) {
         renderer->insertMemoryBarrier(
                 VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
+        if ((*sceneData->performanceMeasurer)) {
+            timer->endGPU("DeferredVisibility" + std::to_string(passIndex));
+        }
+
+        if ((*sceneData->performanceMeasurer)) {
+            timer->startGPU("DeferredRaster" + std::to_string(passIndex));
+        }
         if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
             visibilityBufferBVHDrawIndexedIndirectPasses[passIndex]->render();
         } else {
             meshletMeshBVHPasses[passIndex]->render();
+        }
+        if ((*sceneData->performanceMeasurer)) {
+            timer->endGPU("DeferredRaster" + std::to_string(passIndex));
         }
     }
 
@@ -1697,13 +1801,26 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
 }
 
 void DeferredRenderer::setNewState(const InternalState& newState) {
+    currentStateName = newState.name;
+    timerDataIsWritten = false;
+    if ((*sceneData->performanceMeasurer) && !timerDataIsWritten) {
+        timer = {};
+        (*sceneData->performanceMeasurer)->setDeferredRenderingTimer({});
+        timer = std::make_shared<sgl::vk::Timer>(renderer);
+        timer->setStoreFrameTimeList(true);
+        (*sceneData->performanceMeasurer)->setDeferredRenderingTimer(timer);
+    }
+
     std::string deferredRenderingModeString;
     if (newState.rendererSettings.getValueOpt("deferredRenderingMode", deferredRenderingModeString)) {
         for (int i = 0; i < IM_ARRAYSIZE(deferredRenderingModeNames); i++) {
             if (deferredRenderingModeString == deferredRenderingModeNames[i]) {
                 deferredRenderingMode = DeferredRenderingMode(i);
-                updateGeometryMode();
+                updateRenderingMode();
                 reloadGatherShader();
+                if ((*sceneData->sceneTexture)) {
+                    onResolutionChanged();
+                }
                 reRender = true;
                 break;
             }
@@ -1715,7 +1832,9 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
         for (int i = 0; i < IM_ARRAYSIZE(supersamplingModeNames); i++) {
             if (std::to_string(supersamplingFactor) + "x" == supersamplingModeNames[i]) {
                 supersamplingMode = i;
-                onResolutionChanged();
+                if ((*sceneData->sceneTexture)) {
+                    onResolutionChanged();
+                }
                 reRender = true;
                 break;
             }
@@ -1914,7 +2033,11 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
         for (int i = 0; i < IM_ARRAYSIZE(deferredRenderingModeNames); i++) {
             if (deferredRenderingModeString == deferredRenderingModeNames[i]) {
                 deferredRenderingMode = DeferredRenderingMode(i);
+                updateRenderingMode();
                 reloadGatherShader();
+                if ((*sceneData->sceneTexture)) {
+                    onResolutionChanged();
+                }
                 reRender = true;
                 break;
             }
@@ -1926,7 +2049,9 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
         for (int i = 0; i < IM_ARRAYSIZE(supersamplingModeNames); i++) {
             if (std::to_string(supersamplingFactor) + "x" == supersamplingModeNames[i]) {
                 supersamplingMode = i;
-                onResolutionChanged();
+                if ((*sceneData->sceneTexture)) {
+                    onResolutionChanged();
+                }
                 reRender = true;
                 break;
             }
@@ -1938,6 +2063,7 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
         for (int i = 0; i < IM_ARRAYSIZE(drawIndexedGeometryModeNames); i++) {
             if (drawIndexedGeometryModeString == drawIndexedGeometryModeNames[i]) {
                 drawIndexedGeometryMode = DrawIndexedGeometryMode(i);
+                updateGeometryMode();
                 reloadGatherShader();
                 reRender = true;
                 break;

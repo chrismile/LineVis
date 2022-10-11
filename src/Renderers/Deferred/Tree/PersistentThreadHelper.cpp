@@ -69,13 +69,13 @@ DevicePersistentThreadInfo getDevicePersistentThreadInfo(sgl::vk::Device* device
             sgl::vk::checkCUresult(cuResult, "Error in cuDeviceGetAttribute: ");
 
             /*
-             * TODO: Use more threads than warp size. Factor 4 seems to make sense at least for RTX 3090.
+             * Use more threads than warp size. Factor 4 seems to make sense at least for RTX 3090.
              * For more details see: https://stackoverflow.com/questions/32530604/how-can-i-get-number-of-cores-in-cuda-device
              * Or: https://github.com/NVIDIA/cuda-samples/blob/master/Common/helper_cuda.h
              * https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#compute-capabilities
              * https://developer.nvidia.com/blog/inside-pascal/
              */
-            /*int warpSize = 32;
+            int warpSize = 32;
             cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuDeviceGetAttribute(
                     &warpSize, CU_DEVICE_ATTRIBUTE_WARP_SIZE, cuDevice);
             sgl::vk::checkCUresult(cuResult, "Error in cuDeviceGetAttribute: ");
@@ -119,7 +119,7 @@ DevicePersistentThreadInfo getDevicePersistentThreadInfo(sgl::vk::Device* device
             } else if (major == 9) {
                 numCoresPerMultiprocessor = 128;
             }
-            info.optimalWorkgroupSize = numCoresPerMultiprocessor;*/
+            info.optimalWorkgroupSize = numCoresPerMultiprocessor;
 
             info.optimalNumWorkgroups = numMultiprocessors;
         }
