@@ -53,12 +53,18 @@ public:
     void setUseStdBvhParameters(bool _useStdBvhParameters);
     void setMaxLeafSizeBvh(uint32_t _maxLeafSizeBvh);
     void setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh);
+    void setShallVisualizeNodes(uint32_t _shallVisualizeNodes);
     void setNumWorkgroups(uint32_t numWorkgroupsBvh);
     void setWorkgroupSize(uint32_t workgroupSizeBvh);
     void setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer);
     void setDepthBufferTexture(const sgl::vk::TexturePtr& texture);
     [[nodiscard]] inline const sgl::vk::BufferPtr& getDrawCountBuffer() const { return indirectDrawCountBuffer; }
     [[nodiscard]] inline const sgl::vk::BufferPtr& getMaxWorkLeftTestBuffer() const { return maxWorkLeftTestBuffer; }
+
+    // Visualization of BVH hierarchy.
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getNodeAabbBuffer() const { return nodeAabbBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getNodeAabbCountBuffer() const { return nodeAabbCountBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getNodeIdxToTreeHeightBuffer() const { return nodeIdxToTreeHeightBuffer; }
 
 protected:
     void loadShader() override;
@@ -84,6 +90,7 @@ private:
     bool useStdBvhParameters = true; ///< Whether to use the settings below.
     uint32_t maxLeafSizeBvh = 16;
     uint32_t maxTreeDepthBvh = 64;
+    bool shallVisualizeNodes = false; ///< Whether to visualize the BVH hierarchy and meshlet bounds.
 
     uint32_t numNodes = 0;
     uint32_t numWorkgroups = 0;
@@ -92,6 +99,11 @@ private:
     sgl::vk::BufferPtr visibilityCullingUniformBuffer;
     sgl::vk::TexturePtr depthBufferTexture;
     sgl::vk::BufferPtr maxWorkLeftTestBuffer;
+
+    // Visualization of BVH hierarchy.
+    sgl::vk::BufferPtr nodeAabbBuffer;
+    sgl::vk::BufferPtr nodeAabbCountBuffer;
+    sgl::vk::BufferPtr nodeIdxToTreeHeightBuffer;
 };
 
 #endif //LINEVIS_NODESBVHDRAWCOUNTPASS_HPP

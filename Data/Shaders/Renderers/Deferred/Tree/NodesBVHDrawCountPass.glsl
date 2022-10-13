@@ -72,6 +72,7 @@ layout(std430, binding = 4) coherent buffer QueueStateBufferRecheck {
 layout(local_size_x = 1) in;
 
 #include "VisibilityCulling.glsl"
+#include "VisualizeBvhHierarchy.glsl"
 #import ".Header"
 
 void main() {
@@ -92,6 +93,10 @@ void main() {
         numWorkPendingRecheck = 0;
         queueReadIdxRecheck = 0u;
         queueWriteIdxRecheck = 0u;
+
+#ifdef VISUALIZE_BVH_HIERARCHY
+        numNodeAabbs = 0u;
+#endif
     }
 }
 
@@ -106,6 +111,7 @@ void main() {
 layout(local_size_x = WORKGROUP_SIZE) in;
 
 #include "VisibilityCulling.glsl"
+#include "VisualizeBvhHierarchy.glsl"
 #import ".Header"
 
 // Buffers passed to vkCmdDrawIndexedIndirectCount.
@@ -117,7 +123,6 @@ struct VkDrawIndexedIndirectCommand {
     int vertexOffset;
     uint firstInstance;
 };
-// Uses stride of 8 bytes, or scalar layout otherwise.
 layout(std430, binding = 5) writeonly buffer DrawIndexedIndirectCommandBuffer {
     VkDrawIndexedIndirectCommand commands[];
 };
@@ -136,6 +141,12 @@ layout(std430, binding = 13) buffer TestBuffer {
 layout(binding = 14) uniform QueueInfoBuffer {
     uint queueSize;
 };
+
+#ifdef VISUALIZE_BVH_HIERARCHY
+layout(std430, binding = 17) readonly buffer NodeIdxToTreeHeightBuffer {
+    uint nodeIdxToTreeHeightMap[];
+};
+#endif
 
 #if WORKGROUP_SIZE != 1 && WORKGROUP_SIZE > SUBGROUP_SIZE
 shared uint numWorkShared;
@@ -196,6 +207,29 @@ void main() {
             Node node = nodes[nodeIdx];
 
             if (visibilityCulling(node.worldSpaceAabbMin, node.worldSpaceAabbMax)) {
+#ifdef VISUALIZE_BVH_HIERARCHY
+#if WORKGROUP_SIZE == 1 || !defined(USE_SUBGROUP_OPS)
+                uint writePositionNodeAabb = atomicAdd(numNodeAabbs, 1u);
+#else
+                uint numActiveInvocationsVisibleNode = subgroupAdd(1u);
+                uint writePositionNodeAabb;
+                if (subgroupElect()) {
+                    writePositionNodeAabb = atomicAdd(numNodeAabbs, numActiveInvocationsVisibleNode);
+                }
+                writePositionNodeAabb = subgroupBroadcastFirst(writePositionNodeAabb) + subgroupExclusiveAdd(1u);
+#endif
+                NodeAabb nodeAabb;
+                nodeAabb.worldSpaceAabbMin = node.worldSpaceAabbMin;
+                nodeAabb.worldSpaceAabbMax = node.worldSpaceAabbMax;
+                nodeAabb.normalizedHierarchyLevel = float(nodeIdxToTreeHeightMap[nodeIdx]) / float(treeHeight - 1);
+#ifdef RECHECK_OCCLUDED_ONLY
+                nodeAabb.passIdx = 1u;
+#else
+                nodeAabb.passIdx = 0u;
+#endif
+                nodeAabbs[writePositionNodeAabb] = nodeAabb;
+#endif
+
                 if (node.indexCount != 0u) {
 #ifdef OUTPUT_DRAW_INDEXED_INDIRECT
 #if WORKGROUP_SIZE == 1 || !defined(USE_SUBGROUP_OPS)

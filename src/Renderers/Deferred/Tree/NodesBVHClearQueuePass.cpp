@@ -119,6 +119,14 @@ void NodesBVHClearQueuePass::setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh) {
     }
 }
 
+void NodesBVHClearQueuePass::setShallVisualizeNodes(uint32_t _shallVisualizeNodes) {
+    if (shallVisualizeNodes != _shallVisualizeNodes) {
+        shallVisualizeNodes = _shallVisualizeNodes;
+        setShaderDirty();
+        setDataDirty();
+    }
+}
+
 void NodesBVHClearQueuePass::setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer) {
     visibilityCullingUniformBuffer = uniformBuffer;
 }
@@ -131,6 +139,9 @@ void NodesBVHClearQueuePass::setDepthBufferTexture(const sgl::vk::TexturePtr& te
 void NodesBVHClearQueuePass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
+    if (shallVisualizeNodes) {
+        preprocessorDefines.insert(std::make_pair("VISUALIZE_BVH_HIERARCHY", ""));
+    }
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
             { "NodesBVHDrawCountPass.Initialize.Compute" }, preprocessorDefines);
 }
@@ -155,7 +166,7 @@ void NodesBVHClearQueuePass::createComputeData(sgl::vk::Renderer* renderer, sgl:
             drawIndexedIndirectMode,
             maxNumPrimitivesPerMeshlet, maxNumVerticesPerMeshlet, useMeshShaderWritePackedPrimitiveIndices,
             bvhBuildAlgorithm, bvhBuildGeometryMode, bvhBuildPrimitiveCenterMode,
-            useStdBvhParameters, maxLeafSizeBvh, maxTreeDepthBvh));
+            useStdBvhParameters, maxLeafSizeBvh, maxTreeDepthBvh, shallVisualizeNodes));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
             true, false, payloadSuperClass);
 
@@ -167,6 +178,10 @@ void NodesBVHClearQueuePass::createComputeData(sgl::vk::Renderer* renderer, sgl:
     queueBuffer = payload->getQueueBuffer();
     queueBufferRecheck = payload->getQueueBufferRecheck();
 
+    if (shallVisualizeNodes) {
+        computeData->setStaticBuffer(payload->getNodeAabbBuffer(), "NodeAabbBuffer");
+        computeData->setStaticBuffer(payload->getNodeAabbCountBuffer(), "NodeAabbCountBuffer");
+    }
     computeData->setStaticBuffer(payload->getNodeDataBuffer(), "NodeBuffer");
     computeData->setStaticBuffer(payload->getQueueBuffer(), "QueueBuffer");
     computeData->setStaticBuffer(payload->getQueueStateBuffer(), "QueueStateBuffer");

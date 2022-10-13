@@ -45,9 +45,14 @@ public:
     void setMaxNumPrimitivesPerMeshlet(uint32_t numPrimitives);
     void setMaxNumVerticesPerMeshlet(uint32_t numVertices);
     void setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(bool useWritePacked);
+    void setShallVisualizeNodes(uint32_t _shallVisualizeNodes);
     void setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer);
     void setDepthBufferTexture(const sgl::vk::TexturePtr& texture);
     [[nodiscard]] inline uint32_t getNumMeshlets() const { return numMeshlets; }
+
+    // Visualization of meshlet bounds.
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getNodeAabbBuffer() const { return nodeAabbBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getNodeAabbCountBuffer() const { return nodeAabbCountBuffer; }
 
 protected:
     uint32_t WORKGROUP_SIZE_NV = 32;
@@ -63,10 +68,15 @@ protected:
     uint32_t maxNumVerticesPerMeshlet = 64;
     bool useMeshShaderWritePackedPrimitiveIndicesIfAvailable = true; ///< Sub-mode for VK_NV_mesh_shader.
     bool useMeshShaderWritePackedPrimitiveIndices = false;
+    bool shallVisualizeNodes = false; ///< Whether to visualize the BVH hierarchy and meshlet bounds.
     uint32_t numMeshlets = 0;
     bool bvhMeshlets = false;
     sgl::vk::BufferPtr visibilityCullingUniformBuffer;
     sgl::vk::TexturePtr depthBufferTexture;
+
+    // Visualization of meshlet bounds.
+    sgl::vk::BufferPtr nodeAabbBuffer;
+    sgl::vk::BufferPtr nodeAabbCountBuffer;
 };
 
 class MeshletMeshBVHPass : public MeshletTaskMeshPass {
@@ -78,6 +88,7 @@ public:
     void setUseStdBvhParameters(bool _useStdBvhParameters);
     void setMaxLeafSizeBvh(uint32_t _maxLeafSizeBvh);
     void setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh);
+    [[nodiscard]] inline uint32_t getTreeHeight() const { return treeHeight; }
 
 protected:
     void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
@@ -90,6 +101,7 @@ private:
     bool useStdBvhParameters = true; ///< Whether to use the settings below.
     uint32_t maxLeafSizeBvh = 16;
     uint32_t maxTreeDepthBvh = 64;
+    uint32_t treeHeight = 0;
 };
 
 #endif //LINEVIS_MESHLETTASKMESKPASS_HPP

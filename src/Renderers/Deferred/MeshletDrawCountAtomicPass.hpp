@@ -42,6 +42,7 @@ public:
     void setLineData(LineDataPtr& lineData, bool isNewData);
     void setRecheckOccludedOnly(bool recheck);
     void setMaxNumPrimitivesPerMeshlet(uint32_t num);
+    void setShallVisualizeNodes(uint32_t _shallVisualizeNodes);
     void setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer);
     void setDepthBufferTexture(const sgl::vk::TexturePtr& texture);
     [[nodiscard]] inline const sgl::vk::BufferPtr& getDrawCountBuffer() const { return indirectDrawCountBuffer; }
@@ -56,6 +57,7 @@ private:
     LineDataPtr lineData;
     bool recheckOccludedOnly = false;
     uint32_t maxNumPrimitivesPerMeshlet = 128;
+    bool shallVisualizeNodes = false; ///< Whether to visualize the BVH hierarchy and meshlet bounds.
     uint32_t numMeshlets = 0;
     sgl::vk::BufferPtr indirectDrawCountBuffer;
     sgl::vk::BufferPtr visibilityCullingUniformBuffer;

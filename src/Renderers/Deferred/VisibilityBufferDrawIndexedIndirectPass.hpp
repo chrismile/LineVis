@@ -46,8 +46,13 @@ class VisibilityBufferDrawIndexedIndirectPass : public LineRasterPass {
 public:
     explicit VisibilityBufferDrawIndexedIndirectPass(LineRenderer* lineRenderer);
     void setMaxNumPrimitivesPerMeshlet(uint32_t _maxNumPrimitivesPerMeshlet);
+    void setShallVisualizeNodes(uint32_t _shallVisualizeNodes);
     void setUseDrawIndexedIndirectCount(bool useIndirectCount);
     [[nodiscard]] inline uint32_t getNumMeshlets() const { return numMeshlets; }
+
+    // Visualization of meshlet bounds.
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getNodeAabbBuffer() const { return nodeAabbBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getNodeAabbCountBuffer() const { return nodeAabbCountBuffer; }
 
 protected:
     void loadShader() override;
@@ -55,8 +60,13 @@ protected:
     void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
 
     uint32_t maxNumPrimitivesPerMeshlet = 128;
+    bool shallVisualizeNodes = false; ///< Whether to visualize the BVH hierarchy and meshlet bounds.
     bool useDrawIndexedIndirectCount = true;
     uint32_t numMeshlets = 0;
+
+    // Visualization of meshlet bounds.
+    sgl::vk::BufferPtr nodeAabbBuffer;
+    sgl::vk::BufferPtr nodeAabbCountBuffer;
 };
 
 /**
@@ -71,6 +81,7 @@ public:
     void setUseStdBvhParameters(bool _useStdBvhParameters);
     void setMaxLeafSizeBvh(uint32_t _maxLeafSizeBvh);
     void setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh);
+    [[nodiscard]] inline uint32_t getTreeHeight() const { return treeHeight; }
 
 protected:
     void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
@@ -81,6 +92,7 @@ protected:
     bool useStdBvhParameters = true; ///< Whether to use the settings below.
     uint32_t maxLeafSizeBvh = 16;
     uint32_t maxTreeDepthBvh = 64;
+    uint32_t treeHeight = 0;
 };
 
 #endif //LINEVIS_VISIBILITYBUFFERDRAWINDEXEDINDIRECTPASS_HPP

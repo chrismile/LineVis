@@ -39,16 +39,24 @@ void MeshletVisibilityPass::setLineData(LineDataPtr& lineData, bool isNewData) {
     dataDirty = true;
 }
 
-void MeshletVisibilityPass::setRecheckOccludedOnly(bool recheck) {
-    if (recheckOccludedOnly != recheck) {
-        recheckOccludedOnly = recheck;
+void MeshletVisibilityPass::setRecheckOccludedOnly(bool _recheckOccludedOnly) {
+    if (recheckOccludedOnly != _recheckOccludedOnly) {
+        recheckOccludedOnly = _recheckOccludedOnly;
         setShaderDirty();
     }
 }
 
-void MeshletVisibilityPass::setMaxNumPrimitivesPerMeshlet(uint32_t num) {
-    if (maxNumPrimitivesPerMeshlet != num) {
-        maxNumPrimitivesPerMeshlet = num;
+void MeshletVisibilityPass::setMaxNumPrimitivesPerMeshlet(uint32_t _maxNumPrimitivesPerMeshlet) {
+    if (maxNumPrimitivesPerMeshlet != _maxNumPrimitivesPerMeshlet) {
+        maxNumPrimitivesPerMeshlet = _maxNumPrimitivesPerMeshlet;
+        setShaderDirty();
+    }
+}
+
+void MeshletVisibilityPass::setShallVisualizeNodes(uint32_t _shallVisualizeNodes) {
+    if (shallVisualizeNodes != _shallVisualizeNodes) {
+        shallVisualizeNodes = _shallVisualizeNodes;
+        setDataDirty();
         setShaderDirty();
     }
 }
@@ -76,7 +84,8 @@ void MeshletVisibilityPass::loadShader() {
 void MeshletVisibilityPass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
     computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
 
-    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new MeshletsDrawIndirectPayload(maxNumPrimitivesPerMeshlet));
+    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new MeshletsDrawIndirectPayload(
+            maxNumPrimitivesPerMeshlet, shallVisualizeNodes));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
             true, false, payloadSuperClass);
 

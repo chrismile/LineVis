@@ -134,6 +134,14 @@ void NodesBVHDrawCountPass::setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh) {
     }
 }
 
+void NodesBVHDrawCountPass::setShallVisualizeNodes(uint32_t _shallVisualizeNodes) {
+    if (shallVisualizeNodes != _shallVisualizeNodes) {
+        shallVisualizeNodes = _shallVisualizeNodes;
+        setShaderDirty();
+        setDataDirty();
+    }
+}
+
 void NodesBVHDrawCountPass::setNumWorkgroups(uint32_t numWorkgroupsBvh) {
     numWorkgroups = numWorkgroupsBvh;
 }
@@ -169,6 +177,9 @@ void NodesBVHDrawCountPass::loadShader() {
     if (useSubgroupOps) {
         preprocessorDefines.insert(std::make_pair("USE_SUBGROUP_OPS", ""));
     }
+    if (shallVisualizeNodes) {
+        preprocessorDefines.insert(std::make_pair("VISUALIZE_BVH_HIERARCHY", ""));
+    }
     if (useSpinlock) {
         shaderStages = sgl::vk::ShaderManager->getShaderStages(
                 { "NodesBVHDrawCountPass.TraverseSpinlock.Compute" }, preprocessorDefines);
@@ -198,7 +209,7 @@ void NodesBVHDrawCountPass::createComputeData(sgl::vk::Renderer* renderer, sgl::
             drawIndexedIndirectMode,
             maxNumPrimitivesPerMeshlet, maxNumVerticesPerMeshlet, useMeshShaderWritePackedPrimitiveIndices,
             bvhBuildAlgorithm, bvhBuildGeometryMode, bvhBuildPrimitiveCenterMode,
-            useStdBvhParameters, maxLeafSizeBvh, maxTreeDepthBvh));
+            useStdBvhParameters, maxLeafSizeBvh, maxTreeDepthBvh, shallVisualizeNodes));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
             true, false, payloadSuperClass);
 
@@ -210,6 +221,14 @@ void NodesBVHDrawCountPass::createComputeData(sgl::vk::Renderer* renderer, sgl::
     numNodes = payload->getNumNodes();
     indirectDrawCountBuffer = payload->getIndirectDrawCountBuffer();
     computeData->setStaticBuffer(payload->getNodeDataBuffer(), "NodeBuffer");
+    if (shallVisualizeNodes) {
+        nodeAabbBuffer = payload->getNodeAabbBuffer();
+        nodeAabbCountBuffer = payload->getNodeAabbCountBuffer();
+        nodeIdxToTreeHeightBuffer = payload->getNodeIdxToTreeHeightBuffer();
+        computeData->setStaticBuffer(nodeAabbBuffer, "NodeAabbBuffer");
+        computeData->setStaticBuffer(nodeAabbCountBuffer, "NodeAabbCountBuffer");
+        computeData->setStaticBuffer(nodeIdxToTreeHeightBuffer, "NodeIdxToTreeHeightBuffer");
+    }
     if (recheckOccludedOnly) {
         computeData->setStaticBuffer(payload->getQueueBufferRecheck(), "QueueBuffer");
         computeData->setStaticBuffer(payload->getQueueStateBufferRecheck(), "QueueStateBuffer");

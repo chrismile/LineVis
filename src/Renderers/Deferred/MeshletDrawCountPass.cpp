@@ -40,9 +40,24 @@ void MeshletDrawCountPass::setLineData(LineDataPtr& lineData, bool isNewData) {
     dataDirty = true;
 }
 
-void MeshletDrawCountPass::setMaxNumPrimitivesPerMeshlet(uint32_t num) {
-    if (maxNumPrimitivesPerMeshlet != num) {
-        maxNumPrimitivesPerMeshlet = num;
+void MeshletDrawCountPass::setRecheckOccludedOnly(bool _recheckOccludedOnly) {
+    if (recheckOccludedOnly != _recheckOccludedOnly) {
+        recheckOccludedOnly = _recheckOccludedOnly;
+        setShaderDirty();
+    }
+}
+
+void MeshletDrawCountPass::setMaxNumPrimitivesPerMeshlet(uint32_t _maxNumPrimitivesPerMeshlet) {
+    if (maxNumPrimitivesPerMeshlet != _maxNumPrimitivesPerMeshlet) {
+        maxNumPrimitivesPerMeshlet = _maxNumPrimitivesPerMeshlet;
+        setShaderDirty();
+    }
+}
+
+void MeshletDrawCountPass::setShallVisualizeNodes(uint32_t _shallVisualizeNodes) {
+    if (shallVisualizeNodes != _shallVisualizeNodes) {
+        shallVisualizeNodes = _shallVisualizeNodes;
+        setDataDirty();
         setShaderDirty();
     }
 }
@@ -55,6 +70,12 @@ void MeshletDrawCountPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
     preprocessorDefines.insert(std::make_pair("WORKGROUP_SIZE", std::to_string(WORKGROUP_SIZE)));
+    if (recheckOccludedOnly) {
+        preprocessorDefines.insert(std::make_pair("RECHECK_OCCLUDED_ONLY", ""));
+    }
+    if (shallVisualizeNodes) {
+        preprocessorDefines.insert(std::make_pair("VISUALIZE_BVH_HIERARCHY", ""));
+    }
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
             { "MeshletDrawCountPass.Compute" }, preprocessorDefines);
 }
@@ -62,7 +83,8 @@ void MeshletDrawCountPass::loadShader() {
 void MeshletDrawCountPass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
     computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
 
-    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new MeshletsDrawIndirectPayload(maxNumPrimitivesPerMeshlet));
+    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new MeshletsDrawIndirectPayload(
+            maxNumPrimitivesPerMeshlet, shallVisualizeNodes));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
             true, false, payloadSuperClass);
 
@@ -73,6 +95,10 @@ void MeshletDrawCountPass::createComputeData(sgl::vk::Renderer* renderer, sgl::v
 
     numMeshlets = payload->getNumMeshlets();
     indirectDrawCountBuffer = payload->getIndirectDrawCountBuffer();
+    if (shallVisualizeNodes) {
+        computeData->setStaticBuffer(payload->getNodeAabbBuffer(), "NodeAabbBuffer");
+        computeData->setStaticBuffer(payload->getNodeAabbCountBuffer(), "NodeAabbCountBuffer");
+    }
     computeData->setStaticBuffer(payload->getMeshletDataBuffer(), "MeshletDataBuffer");
     computeData->setStaticBuffer(payload->getMeshletVisibilityArrayBuffer(), "MeshletVisibilityArrayBuffer");
     computeData->setStaticBuffer(prefixSumScanBuffer, "ExclusivePrefixSumScanArrayBuffer");

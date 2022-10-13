@@ -39,7 +39,8 @@ bool MeshletsTaskMeshShaderPayload::settingsEqual(TubeTriangleRenderDataPayload*
     auto* otherCast = static_cast<MeshletsTaskMeshShaderPayload*>(other);
     return this->maxNumPrimitivesPerMeshlet == otherCast->maxNumPrimitivesPerMeshlet
             && this->maxNumVerticesPerMeshlet == otherCast->maxNumVerticesPerMeshlet
-            && this->useMeshShaderWritePackedPrimitiveIndices == otherCast->useMeshShaderWritePackedPrimitiveIndices;
+            && this->useMeshShaderWritePackedPrimitiveIndices == otherCast->useMeshShaderWritePackedPrimitiveIndices
+            && this->shallVisualizeNodes == otherCast->shallVisualizeNodes;
 }
 
 void MeshletsTaskMeshShaderPayload::createPayloadPre(
@@ -176,6 +177,16 @@ void MeshletsTaskMeshShaderPayload::createPayloadPre(
     dedupTriangleIndicesBuffer = std::make_shared<sgl::vk::Buffer>(
             device, dedupTriangleIndices.size() * sizeof(uint8_t), dedupTriangleIndices.data(),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    if (shallVisualizeNodes) {
+        nodeAabbBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, numMeshlets * sizeof(float) * 8,
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+        nodeAabbCountBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, sizeof(uint32_t),
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VMA_MEMORY_USAGE_GPU_ONLY);
+    }
 }
 
 void MeshletsTaskMeshShaderPayload::createPayloadPost(

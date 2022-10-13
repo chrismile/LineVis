@@ -61,6 +61,7 @@
 #include "Tree/NodesBVHClearQueuePass.hpp"
 #include "Tree/NodesBVHDrawCountPass.hpp"
 #include "Tree/ConvertMeshletCommandsBVHPass.hpp"
+#include "Visualize/VisualizeNodesPass.hpp"
 #include "DeferredRenderer.hpp"
 
 DeferredRenderer::DeferredRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
@@ -133,6 +134,10 @@ void DeferredRenderer::initialize() {
 
     downsampleBlitPass = std::make_shared<DownsampleBlitPass>(renderer);
 
+    visualizeNodesPass = std::make_shared<VisualizeNodesPass>(this);
+    visualizeNodesPass->setLineWidth(nodeAabbLineWidth);
+    visualizeNodesPass->setUseScreenSpaceLineWidth(nodeAabbUseScreenSpaceLineWidth);
+
     updateRenderingMode();
     onClearColorChanged();
 }
@@ -172,9 +177,9 @@ void DeferredRenderer::reloadGatherShader() {
         } else if (drawIndirectReductionMode == DrawIndirectReductionMode::PREFIX_SUM_SCAN) {
             for (int i = 0; i < 2; i++) {
                 meshletVisibilityPasses[i]->setShaderDirty();
+                meshletDrawCountPasses[i]->setShaderDirty();
             }
             visibilityBufferPrefixSumScanPass->setShaderDirty();
-            meshletDrawCountPass->setShaderDirty();
         }
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         for (int i = 0; i < 2; i++) {
@@ -200,17 +205,19 @@ void DeferredRenderer::updateRenderingMode() {
     frameNumber = 0;
     visibilityBufferDrawIndexedPass = {};
     visibilityBufferPrefixSumScanPass = {};
-    meshletDrawCountPass = {};
     nodesBVHClearQueuePass = {};
     for (int i = 0; i < 2; i++) {
         visibilityBufferDrawIndexedIndirectPasses[i] = {};
         meshletDrawCountAtomicPasses[i] = {};
         meshletVisibilityPasses[i] = {};
+        meshletDrawCountPasses[i] = {};
         meshletTaskMeshPasses[i] = {};
         nodesBVHDrawCountPasses[i] = {};
         visibilityBufferBVHDrawIndexedIndirectPasses[i] = {};
     }
     deferredResolvePass->setDataDirty();
+    visualizeNodesPass->setNodeAabbBuffer({});
+    visualizeNodesPass->setNodeAabbCountBuffer({});
 
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
         visibilityBufferDrawIndexedPass = std::make_shared<VisibilityBufferDrawIndexedPass>(this);
@@ -225,6 +232,7 @@ void DeferredRenderer::updateRenderingMode() {
                     std::make_shared<VisibilityBufferDrawIndexedIndirectPass>(this);
             visibilityBufferDrawIndexedIndirectPasses[i]->setMaxNumPrimitivesPerMeshlet(
                     drawIndirectMaxNumPrimitivesPerMeshlet);
+            visibilityBufferDrawIndexedIndirectPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
         }
         visibilityBufferDrawIndexedIndirectPasses[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
         visibilityBufferDrawIndexedIndirectPasses[1]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD);
@@ -238,6 +246,7 @@ void DeferredRenderer::updateRenderingMode() {
             meshletTaskMeshPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
             meshletTaskMeshPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
                     useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
+            meshletTaskMeshPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
             meshletTaskMeshPasses[i]->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
         }
         meshletTaskMeshPasses[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
@@ -269,6 +278,7 @@ void DeferredRenderer::updateRenderingMode() {
         nodesBVHClearQueuePass->setUseStdBvhParameters(useStdBvhParameters);
         nodesBVHClearQueuePass->setMaxLeafSizeBvh(maxLeafSizeBvh);
         nodesBVHClearQueuePass->setMaxTreeDepthBvh(maxTreeDepthBvh);
+        nodesBVHClearQueuePass->setShallVisualizeNodes(shallVisualizeNodes);
         if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER) {
             convertMeshletCommandsBVHPass = std::make_shared<ConvertMeshletCommandsBVHPass>(renderer);
             convertMeshletCommandsBVHPass->setUseMeshShaderNV(useMeshShaderNV);
@@ -282,6 +292,7 @@ void DeferredRenderer::updateRenderingMode() {
             convertMeshletCommandsBVHPass->setUseStdBvhParameters(useStdBvhParameters);
             convertMeshletCommandsBVHPass->setMaxLeafSizeBvh(maxLeafSizeBvh);
             convertMeshletCommandsBVHPass->setMaxTreeDepthBvh(maxTreeDepthBvh);
+            convertMeshletCommandsBVHPass->setShallVisualizeNodes(shallVisualizeNodes);
         }
         for (int i = 0; i < 2; i++) {
             nodesBVHDrawCountPasses[i] = std::make_shared<NodesBVHDrawCountPass>(renderer);
@@ -302,6 +313,7 @@ void DeferredRenderer::updateRenderingMode() {
             nodesBVHDrawCountPasses[i]->setUseStdBvhParameters(useStdBvhParameters);
             nodesBVHDrawCountPasses[i]->setMaxLeafSizeBvh(maxLeafSizeBvh);
             nodesBVHDrawCountPasses[i]->setMaxTreeDepthBvh(maxTreeDepthBvh);
+            nodesBVHDrawCountPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
             nodesBVHDrawCountPasses[i]->setNumWorkgroups(numWorkgroupsBvh);
             nodesBVHDrawCountPasses[i]->setWorkgroupSize(workgroupSizeBvh);
             nodesBVHDrawCountPasses[i]->setUseSubgroupOps(useSubgroupOps);
@@ -317,6 +329,7 @@ void DeferredRenderer::updateRenderingMode() {
                 visibilityBufferBVHDrawIndexedIndirectPasses[i]->setUseStdBvhParameters(useStdBvhParameters);
                 visibilityBufferBVHDrawIndexedIndirectPasses[i]->setMaxLeafSizeBvh(maxLeafSizeBvh);
                 visibilityBufferBVHDrawIndexedIndirectPasses[i]->setMaxTreeDepthBvh(maxTreeDepthBvh);
+                visibilityBufferBVHDrawIndexedIndirectPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
                 visibilityBufferBVHDrawIndexedIndirectPasses[i]->setUseDrawIndexedIndirectCount(true);
             } else {
                 meshletMeshBVHPasses[i] =
@@ -332,6 +345,7 @@ void DeferredRenderer::updateRenderingMode() {
                 meshletMeshBVHPasses[i]->setUseStdBvhParameters(useStdBvhParameters);
                 meshletMeshBVHPasses[i]->setMaxLeafSizeBvh(maxLeafSizeBvh);
                 meshletMeshBVHPasses[i]->setMaxTreeDepthBvh(maxTreeDepthBvh);
+                meshletMeshBVHPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
             }
         }
         if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
@@ -366,14 +380,15 @@ void DeferredRenderer::updateDrawIndirectReductionMode() {
         meshletDrawCountNoReductionPasses[i] = {};
         meshletDrawCountAtomicPasses[i] = {};
         meshletVisibilityPasses[i] = {};
+        meshletDrawCountPasses[i] = {};
     }
     visibilityBufferPrefixSumScanPass = {};
-    meshletDrawCountPass = {};
 
     if (drawIndirectReductionMode == DrawIndirectReductionMode::NO_REDUCTION) {
         for (int i = 0; i < 2; i++) {
             meshletDrawCountNoReductionPasses[i] = std::make_shared<MeshletDrawCountNoReductionPass>(renderer);
             meshletDrawCountNoReductionPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+            meshletDrawCountNoReductionPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
             meshletDrawCountNoReductionPasses[i]->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
             visibilityBufferDrawIndexedIndirectPasses[i]->setUseDrawIndexedIndirectCount(false);
         }
@@ -382,6 +397,7 @@ void DeferredRenderer::updateDrawIndirectReductionMode() {
         for (int i = 0; i < 2; i++) {
             meshletDrawCountAtomicPasses[i] = std::make_shared<MeshletDrawCountAtomicPass>(renderer);
             meshletDrawCountAtomicPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+            meshletDrawCountAtomicPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
             meshletDrawCountAtomicPasses[i]->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
             visibilityBufferDrawIndexedIndirectPasses[i]->setUseDrawIndexedIndirectCount(true);
         }
@@ -390,13 +406,16 @@ void DeferredRenderer::updateDrawIndirectReductionMode() {
         for (int i = 0; i < 2; i++) {
             meshletVisibilityPasses[i] = std::make_shared<MeshletVisibilityPass>(renderer);
             meshletVisibilityPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+            meshletVisibilityPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
             meshletVisibilityPasses[i]->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
+            meshletDrawCountPasses[i] = std::make_shared<MeshletDrawCountPass>(renderer);
+            meshletDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+            meshletDrawCountPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
             visibilityBufferDrawIndexedIndirectPasses[i]->setUseDrawIndexedIndirectCount(true);
         }
         meshletVisibilityPasses[1]->setRecheckOccludedOnly(true);
+        meshletDrawCountPasses[1]->setRecheckOccludedOnly(true);
         visibilityBufferPrefixSumScanPass = std::make_shared<VisibilityBufferPrefixSumScanPass>(renderer);
-        meshletDrawCountPass = std::make_shared<MeshletDrawCountPass>(renderer);
-        meshletDrawCountPass->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
     }
 
     onResolutionChangedDeferredRenderingMode();
@@ -521,18 +540,20 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
         } else if (drawIndirectReductionMode == DrawIndirectReductionMode::PREFIX_SUM_SCAN) {
             for (int i = 0; i < 2; i++) {
                 meshletVisibilityPasses[i]->setLineData(lineData, isNewData);
+                meshletDrawCountPasses[i]->setLineData(lineData, isNewData);
             }
-            meshletDrawCountPass->setLineData(lineData, isNewData);
 
             TubeTriangleRenderDataPayloadPtr payloadSuperClass(new MeshletsDrawIndirectPayload(
-                    drawIndirectMaxNumPrimitivesPerMeshlet));
+                    drawIndirectMaxNumPrimitivesPerMeshlet, shallVisualizeNodes));
             TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
                     true, false, payloadSuperClass);
 
             if (tubeRenderData.indexBuffer) {
                 auto* payload = static_cast<MeshletsDrawIndirectPayload*>(payloadSuperClass.get());
                 visibilityBufferPrefixSumScanPass->setInputBuffer(payload->getMeshletVisibilityArrayBuffer());
-                meshletDrawCountPass->setPrefixSumScanBuffer(visibilityBufferPrefixSumScanPass->getOutputBuffer());
+                for (int i = 0; i < 2; i++) {
+                    meshletDrawCountPasses[i]->setPrefixSumScanBuffer(visibilityBufferPrefixSumScanPass->getOutputBuffer());
+                }
             }
         }
         if (colorRenderTargetImage) {
@@ -584,6 +605,11 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
             recomputeIsEmptyOnResolutionChanged = true;
         }
     }
+
+    framebufferMode = FramebufferMode::NODE_AABB_PASS;
+    visualizeNodesPass->setNodeAabbBuffer({});
+    visualizeNodesPass->setNodeAabbCountBuffer({});
+    visualizeNodesPass->updateFramebuffer();
 
     dirty = false;
     reRender = true;
@@ -727,6 +753,21 @@ void DeferredRenderer::setFramebufferAttachments(sgl::vk::FramebufferPtr& frameb
         depthAttachmentState.initialLayout =
                 loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR ?
                 VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        framebuffer->setDepthStencilAttachment(
+                depthRenderTargetImage, depthAttachmentState, 1.0f);
+    } else if (framebufferMode == FramebufferMode::NODE_AABB_PASS) {
+        // Node AABB pass.
+        sgl::vk::AttachmentState colorAttachmentState;
+        colorAttachmentState.loadOp = loadOp;
+        colorAttachmentState.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        framebuffer->setColorAttachment(
+                colorRenderTargetImage, 0, colorAttachmentState,
+                sceneData->clearColor->getFloatColorRGBA());
+
+        sgl::vk::AttachmentState depthAttachmentState;
+        depthAttachmentState.loadOp = loadOp;
+        depthAttachmentState.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         framebuffer->setDepthStencilAttachment(
                 depthRenderTargetImage, depthAttachmentState, 1.0f);
@@ -888,13 +929,18 @@ void DeferredRenderer::onResolutionChanged() {
         downsampleBlitPass->recreateSwapchain(finalWidth, finalHeight);
     }
 
+    deferredResolvePass->setOutputImage(colorRenderTargetImage);
+    deferredResolvePass->recreateSwapchain(renderWidth, renderHeight);
+
     if (hullRasterPass) {
         framebufferMode = FramebufferMode::HULL_RASTER_PASS;
         hullRasterPass->recreateSwapchain(renderWidth, renderHeight);
     }
 
-    deferredResolvePass->setOutputImage(colorRenderTargetImage);
-    deferredResolvePass->recreateSwapchain(renderWidth, renderHeight);
+    framebufferMode = FramebufferMode::NODE_AABB_PASS;
+    visualizeNodesPass->setViewportScaleFactor(supersamplingMode == 0 ? 1 : int(scalingFactor));
+    visualizeNodesPass->recreateSwapchain(renderWidth, renderHeight);
+
     frameNumber = 0;
 
     if (recomputeIsEmptyOnResolutionChanged) {
@@ -923,9 +969,11 @@ void DeferredRenderer::onResolutionChanged() {
                 isDataEmpty ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD);
         hullRasterPass->updateFramebuffer();
 
+        framebufferMode = FramebufferMode::NODE_AABB_PASS;
+        visualizeNodesPass->updateFramebuffer();
+
         recomputeIsEmptyOnResolutionChanged = false;
     }
-
 }
 
 void DeferredRenderer::onResolutionChangedDeferredRenderingMode() {
@@ -953,9 +1001,9 @@ void DeferredRenderer::onResolutionChangedDeferredRenderingMode() {
             for (int i = 0; i < 2; i++) {
                 meshletVisibilityPasses[i]->setDepthBufferTexture(depthBufferTexturePingPong[i]);
                 meshletVisibilityPasses[i]->recreateSwapchain(renderWidth, renderHeight);
+                meshletDrawCountPasses[i]->recreateSwapchain(renderWidth, renderHeight);
             }
             visibilityBufferPrefixSumScanPass->recreateSwapchain(renderWidth, renderHeight);
-            meshletDrawCountPass->recreateSwapchain(renderWidth, renderHeight);
         }
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         for (int i = 0; i < 2; i++) {
@@ -1058,18 +1106,23 @@ void DeferredRenderer::render() {
                 visibilityBufferDrawIndexedIndirectPasses[0]->buildIfNecessary();
                 visibilityCullingUniformData.numMeshlets =
                         visibilityBufferDrawIndexedIndirectPasses[0]->getNumMeshlets();
+                visibilityCullingUniformData.treeHeight = 0;
             } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
                 meshletTaskMeshPasses[0]->buildIfNecessary();
                 visibilityCullingUniformData.numMeshlets =
                         meshletTaskMeshPasses[0]->getNumMeshlets();
+                visibilityCullingUniformData.treeHeight = 0;
             } else if (getIsBvhRenderingMode()) {
                 if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
                     visibilityBufferBVHDrawIndexedIndirectPasses[0]->buildIfNecessary();
                     visibilityCullingUniformData.numMeshlets =
                             visibilityBufferBVHDrawIndexedIndirectPasses[0]->getNumMeshlets();
+                    visibilityCullingUniformData.treeHeight =
+                            visibilityBufferBVHDrawIndexedIndirectPasses[0]->getTreeHeight();
                 } else {
                     meshletMeshBVHPasses[0]->buildIfNecessary();
                     visibilityCullingUniformData.numMeshlets = meshletMeshBVHPasses[0]->getNumMeshlets();
+                    visibilityCullingUniformData.treeHeight = meshletMeshBVHPasses[0]->getTreeHeight();
                 }
             }
 
@@ -1091,6 +1144,27 @@ void DeferredRenderer::render() {
             renderer->insertMemoryBarrier(
                     VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
                     VK_PIPELINE_STAGE_TRANSFER_BIT, pipelineStageFlags);
+
+            // If we want to visualize the tree node/meshlets: Clear the AABB counter buffer.
+            if (shallVisualizeNodes && deferredRenderingMode != DeferredRenderingMode::DRAW_INDEXED) {
+                sgl::vk::BufferPtr nodeAabbCountBuffer;
+                if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
+                    nodeAabbCountBuffer = visibilityBufferDrawIndexedIndirectPasses[0]->getNodeAabbCountBuffer();
+                } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
+                    nodeAabbCountBuffer = meshletTaskMeshPasses[0]->getNodeAabbCountBuffer();
+                }
+                // Not necessary, as nodesBVHClearQueuePass does the clear step.
+                //else if (getIsBvhRenderingMode()) {
+                //    nodeAabbCountBuffer = nodesBVHDrawCountPasses[0]->getNodeAabbCountBuffer();
+                //}
+                if (nodeAabbCountBuffer) {
+                    nodeAabbCountBuffer->fill(0, renderer->getVkCommandBuffer());
+                    renderer->insertBufferMemoryBarrier(
+                            VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+                            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                            nodeAabbCountBuffer);
+                }
+            }
 
             // Prepare depth buffer 0 for reading.
             renderer->transitionImageLayout(
@@ -1168,6 +1242,33 @@ void DeferredRenderer::render() {
             lastFrameProjectionMatrix = sceneData->camera->getProjectionMatrix();
         }
         deferredResolvePass->render();
+
+        if (shallVisualizeNodes && deferredRenderingMode != DeferredRenderingMode::DRAW_INDEXED) {
+            sgl::vk::BufferPtr nodeAabbBuffer;
+            sgl::vk::BufferPtr nodeAabbCountBuffer;
+            if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
+                nodeAabbBuffer = visibilityBufferDrawIndexedIndirectPasses[0]->getNodeAabbBuffer();
+                nodeAabbCountBuffer = visibilityBufferDrawIndexedIndirectPasses[0]->getNodeAabbCountBuffer();
+            } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
+                nodeAabbBuffer = meshletTaskMeshPasses[0]->getNodeAabbBuffer();
+                nodeAabbCountBuffer = meshletTaskMeshPasses[0]->getNodeAabbCountBuffer();
+            } else if (getIsBvhRenderingMode()) {
+                nodeAabbBuffer = nodesBVHDrawCountPasses[0]->getNodeAabbBuffer();
+                nodeAabbCountBuffer = nodesBVHDrawCountPasses[0]->getNodeAabbCountBuffer();
+            }
+            if (visualizeNodesPass->getNodeAabbBuffer() != nodeAabbBuffer
+                    || visualizeNodesPass->getNodeAabbCountBuffer() != nodeAabbCountBuffer) {
+                visualizeNodesPass->setNodeAabbBuffer(nodeAabbBuffer);
+                visualizeNodesPass->setNodeAabbCountBuffer(nodeAabbCountBuffer);
+            }
+
+            renderer->insertImageMemoryBarrier(
+                    depthRenderTargetImage,//->getImage(),
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+                    VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT);
+            visualizeNodesPass->render();
+        }
     }
 
     // Render the hull mesh after the resolve pass has finished and use the resulting depth buffer for depth testing.
@@ -1176,7 +1277,7 @@ void DeferredRenderer::render() {
         // Can't use transitionImageLayout, as subresource transition by HZB build leaves wrong internal layout set.
         //renderer->transitionImageLayout(
         //        depthRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-        if (!isDataEmpty) {
+        if (!isDataEmpty && !(shallVisualizeNodes && deferredRenderingMode != DeferredRenderingMode::DRAW_INDEXED)) {
             renderer->insertImageMemoryBarrier(
                     depthRenderTargetImage,//->getImage(),
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
@@ -1251,9 +1352,9 @@ void DeferredRenderer::renderDrawIndexedIndirectOrTaskMesh(int passIndex) {
             renderer->insertMemoryBarrier(
                     VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
                     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-            meshletDrawCountPass->render();
+            meshletDrawCountPasses[passIndex]->render();
             if (showVisibleMeshletStatistics) {
-                drawCountBuffer = meshletDrawCountPass->getDrawCountBuffer();
+                drawCountBuffer = meshletDrawCountPasses[passIndex]->getDrawCountBuffer();
             }
         }
         renderer->insertMemoryBarrier(
@@ -1505,6 +1606,48 @@ void DeferredRenderer::updateMaxTreeDepthBvh() {
     reRender = true;
 }
 
+void DeferredRenderer::updateShallVisualizeNodes() {
+    if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
+        for (int i = 0; i < 2; i++) {
+            visibilityBufferDrawIndexedIndirectPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
+        }
+        if (drawIndirectReductionMode == DrawIndirectReductionMode::NO_REDUCTION) {
+            for (int i = 0; i < 2; i++) {
+                meshletDrawCountNoReductionPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
+            }
+        } else if (drawIndirectReductionMode == DrawIndirectReductionMode::ATOMIC_COUNTER) {
+            for (int i = 0; i < 2; i++) {
+                meshletDrawCountAtomicPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
+            }
+        } else if (drawIndirectReductionMode == DrawIndirectReductionMode::PREFIX_SUM_SCAN) {
+            for (int i = 0; i < 2; i++) {
+                meshletVisibilityPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
+                meshletDrawCountPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
+            }
+        }
+    } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
+        for (int i = 0; i < 2; i++) {
+            meshletTaskMeshPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
+        }
+    } else if (getIsBvhRenderingMode()) {
+        nodesBVHClearQueuePass->setShallVisualizeNodes(shallVisualizeNodes);
+        if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER) {
+            convertMeshletCommandsBVHPass->setShallVisualizeNodes(shallVisualizeNodes);
+        }
+        for (int i = 0; i < 2; i++) {
+            nodesBVHDrawCountPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
+            if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
+                visibilityBufferBVHDrawIndexedIndirectPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
+            } else {
+                meshletMeshBVHPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
+            }
+        }
+    }
+    deferredResolvePass->setDataDirty();
+    visualizeNodesPass->setShaderDirty();
+    reRender = true;
+}
+
 void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 
@@ -1568,11 +1711,25 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
             } else if (drawIndirectReductionMode == DrawIndirectReductionMode::PREFIX_SUM_SCAN) {
                 for (int i = 0; i < 2; i++) {
                     meshletVisibilityPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
+                    meshletDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
                 }
-                meshletDrawCountPass->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
             }
             reloadGatherShader();
             reRender = true;
+        }
+        if (propertyEditor.addCheckbox("Show Meshlets", &shallVisualizeNodes)) {
+            updateShallVisualizeNodes();
+        }
+        if (shallVisualizeNodes) {
+            if (propertyEditor.addSliderFloat(
+                    "Wireframe Width", &nodeAabbLineWidth, 0.0f, 0.01f)) {
+                visualizeNodesPass->setLineWidth(nodeAabbLineWidth);
+                reRender = true;
+            }
+            if (propertyEditor.addCheckbox("Screen Space Lines", &nodeAabbUseScreenSpaceLineWidth)) {
+                visualizeNodesPass->setUseScreenSpaceLineWidth(nodeAabbUseScreenSpaceLineWidth);
+                reRender = true;
+            }
         }
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         if (propertyEditor.addSliderIntEdit(
@@ -1592,6 +1749,20 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
             }
             reloadGatherShader();
             reRender = true;
+        }
+        if (propertyEditor.addCheckbox("Show Meshlets", &shallVisualizeNodes)) {
+            updateShallVisualizeNodes();
+        }
+        if (shallVisualizeNodes) {
+            if (propertyEditor.addSliderFloat(
+                    "Wireframe Width", &nodeAabbLineWidth, 0.0f, 1.0f)) {
+                visualizeNodesPass->setLineWidth(nodeAabbLineWidth);
+                reRender = true;
+            }
+            if (propertyEditor.addCheckbox("Screen Space Lines", &nodeAabbUseScreenSpaceLineWidth)) {
+                visualizeNodesPass->setUseScreenSpaceLineWidth(nodeAabbUseScreenSpaceLineWidth);
+                reRender = true;
+            }
         }
         if (supportsTaskMeshShadersNV && supportsTaskMeshShadersEXT) {
             if (propertyEditor.addCheckbox("Use NVIDIA Mesh Shaders", &useMeshShaderNV)) {
@@ -1681,6 +1852,21 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                         "Write Packed Primitives", &useMeshShaderWritePackedPrimitiveIndicesIfAvailable)) {
                     updateWritePackedPrimitives();
                 }
+            }
+        }
+
+        if (propertyEditor.addCheckbox("Show BVH Structure", &shallVisualizeNodes)) {
+            updateShallVisualizeNodes();
+        }
+        if (shallVisualizeNodes) {
+            if (propertyEditor.addSliderFloat(
+                    "Wireframe Width", &nodeAabbLineWidth, 0.0f, 1.0f)) {
+                visualizeNodesPass->setLineWidth(nodeAabbLineWidth);
+                reRender = true;
+            }
+            if (propertyEditor.addCheckbox("Screen Space Lines", &nodeAabbUseScreenSpaceLineWidth)) {
+                visualizeNodesPass->setUseScreenSpaceLineWidth(nodeAabbUseScreenSpaceLineWidth);
+                reRender = true;
             }
         }
 
@@ -1888,10 +2074,10 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
                     meshletVisibilityPasses[i]->setMaxNumPrimitivesPerMeshlet(
                             drawIndirectMaxNumPrimitivesPerMeshlet);
                 }
-            }
-            if (meshletDrawCountPass) {
-                meshletDrawCountPass->setMaxNumPrimitivesPerMeshlet(
-                        drawIndirectMaxNumPrimitivesPerMeshlet);
+                if (meshletDrawCountPasses[i]) {
+                    meshletDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(
+                            drawIndirectMaxNumPrimitivesPerMeshlet);
+                }
             }
         }
         if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
@@ -2023,6 +2209,19 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
         }
         reRender = true;
     }
+
+    if (newState.rendererSettings.getValueOpt("shallVisualizeNodes", shallVisualizeNodes)) {
+        updateShallVisualizeNodes();
+    }
+    if (newState.rendererSettings.getValueOpt("nodeAabbLineWidth", nodeAabbLineWidth)) {
+        visualizeNodesPass->setLineWidth(nodeAabbLineWidth);
+        reRender = true;
+    }
+    if (newState.rendererSettings.getValueOpt(
+            "nodeAabbUseScreenSpaceLineWidth", nodeAabbUseScreenSpaceLineWidth)) {
+        visualizeNodesPass->setUseScreenSpaceLineWidth(nodeAabbUseScreenSpaceLineWidth);
+        reRender = true;
+    }
 }
 
 bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
@@ -2105,10 +2304,10 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
                     meshletVisibilityPasses[i]->setMaxNumPrimitivesPerMeshlet(
                             drawIndirectMaxNumPrimitivesPerMeshlet);
                 }
-            }
-            if (meshletDrawCountPass) {
-                meshletDrawCountPass->setMaxNumPrimitivesPerMeshlet(
-                        drawIndirectMaxNumPrimitivesPerMeshlet);
+                if (meshletDrawCountPasses[i]) {
+                    meshletDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(
+                            drawIndirectMaxNumPrimitivesPerMeshlet);
+                }
             }
         }
         if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
@@ -2236,6 +2435,19 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
                 nodesBVHDrawCountPasses[i]->setUseSubgroupOps(useSubgroupOps);
             }
         }
+        reRender = true;
+    }
+
+    if (settings.getValueOpt("shall_visualize_nodes", shallVisualizeNodes)) {
+        updateShallVisualizeNodes();
+    }
+    if (settings.getValueOpt("node_aabb_line_width", nodeAabbLineWidth)) {
+        visualizeNodesPass->setLineWidth(nodeAabbLineWidth);
+        reRender = true;
+    }
+    if (settings.getValueOpt(
+            "node_aabb_use_screen_space_line_width", nodeAabbUseScreenSpaceLineWidth)) {
+        visualizeNodesPass->setUseScreenSpaceLineWidth(nodeAabbUseScreenSpaceLineWidth);
         reRender = true;
     }
 

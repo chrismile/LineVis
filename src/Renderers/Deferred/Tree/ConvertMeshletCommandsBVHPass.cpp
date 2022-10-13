@@ -112,6 +112,13 @@ void ConvertMeshletCommandsBVHPass::setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh
     }
 }
 
+void ConvertMeshletCommandsBVHPass::setShallVisualizeNodes(uint32_t _shallVisualizeNodes) {
+    if (shallVisualizeNodes != _shallVisualizeNodes) {
+        shallVisualizeNodes = _shallVisualizeNodes;
+        setDataDirty();
+    }
+}
+
 void ConvertMeshletCommandsBVHPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
@@ -144,7 +151,7 @@ void ConvertMeshletCommandsBVHPass::createComputeData(sgl::vk::Renderer* rendere
             false, maxNumPrimitivesPerMeshlet, maxNumVerticesPerMeshlet,
             useMeshShaderWritePackedPrimitiveIndices,
             bvhBuildAlgorithm, bvhBuildGeometryMode, bvhBuildPrimitiveCenterMode,
-            useStdBvhParameters, maxLeafSizeBvh, maxTreeDepthBvh));
+            useStdBvhParameters, maxLeafSizeBvh, maxTreeDepthBvh, shallVisualizeNodes));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
             true, false, payloadSuperClass);
 

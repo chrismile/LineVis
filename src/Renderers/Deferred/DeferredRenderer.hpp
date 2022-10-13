@@ -55,6 +55,8 @@ class MeshletMeshBVHPass;
 // Resolve.
 class DeferredResolvePass;
 class DownsampleBlitPass;
+// Visualize the BVH hierarchy and meshlet bounds.
+class VisualizeNodesPass;
 
 namespace sgl { namespace vk {
 class Timer;
@@ -119,6 +121,7 @@ protected:
     void updateUseStdBvhParameters();
     void updateMaxLeafSizeBvh();
     void updateMaxTreeDepthBvh();
+    void updateShallVisualizeNodes();
 
     // Render passes.
     void renderDataEmpty();
@@ -133,7 +136,7 @@ protected:
     std::shared_ptr<MeshletDrawCountAtomicPass> meshletDrawCountAtomicPasses[2];
     std::shared_ptr<MeshletVisibilityPass> meshletVisibilityPasses[2];
     std::shared_ptr<VisibilityBufferPrefixSumScanPass> visibilityBufferPrefixSumScanPass;
-    std::shared_ptr<MeshletDrawCountPass> meshletDrawCountPass;
+    std::shared_ptr<MeshletDrawCountPass> meshletDrawCountPasses[2];
     // DeferredRenderingMode::TASK_MESH_SHADER
     std::shared_ptr<MeshletTaskMeshPass> meshletTaskMeshPasses[2];
     // DeferredRenderingMode::BVH_DRAW_INDIRECT or BVH_MESH_SHADER
@@ -149,6 +152,12 @@ protected:
     std::shared_ptr<DownsampleBlitPass> downsampleBlitPass;
     size_t frameNumber = 0; ///< The frame number is reset when the visualization mapping changes.
 
+    // For visualizing the BVH hierarchy and meshlet bounds.
+    std::shared_ptr<VisualizeNodesPass> visualizeNodesPass;
+    bool shallVisualizeNodes = false; ///< Whether to visualize the BVH hierarchy and meshlet bounds.
+    float nodeAabbLineWidth = 0.001f;
+    bool nodeAabbUseScreenSpaceLineWidth = false;
+
     enum class FramebufferMode {
         // DeferredRenderingMode::DRAW_INDEXED
         VISIBILITY_BUFFER_DRAW_INDEXED_PASS,
@@ -157,7 +166,7 @@ protected:
         // DeferredRenderingMode::TASK_MESH_SHADER
         VISIBILITY_BUFFER_TASK_MESH_SHADER_PASS,
         // Resolve/further passes.
-        DEFERRED_RESOLVE_PASS, HULL_RASTER_PASS
+        DEFERRED_RESOLVE_PASS, HULL_RASTER_PASS, NODE_AABB_PASS
     };
     int framebufferModeIndex = 0;
     FramebufferMode framebufferMode = FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_PASS;
@@ -167,6 +176,8 @@ protected:
         glm::ivec2 viewportSize;
         uint32_t numMeshlets; // only for linear meshlet list.
         uint32_t rootNodeIdx; // only for meshlet node tree.
+        glm::uvec3 visibilityCullingUniformBufferPadding;
+        uint32_t treeHeight; // only for meshlet node tree.
     };
     VisibilityCullingUniformData visibilityCullingUniformData{};
     sgl::vk::BufferPtr visibilityCullingUniformDataBuffer;

@@ -81,6 +81,14 @@ void MeshletTaskMeshPass::setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable
     }
 }
 
+void MeshletTaskMeshPass::setShallVisualizeNodes(uint32_t _shallVisualizeNodes) {
+    if (shallVisualizeNodes != _shallVisualizeNodes) {
+        shallVisualizeNodes = _shallVisualizeNodes;
+        setDataDirty();
+        setShaderDirty();
+    }
+}
+
 void MeshletTaskMeshPass::setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer) {
     visibilityCullingUniformBuffer = uniformBuffer;
 }
@@ -124,6 +132,9 @@ void MeshletTaskMeshPass::loadShader() {
     if (bvhMeshlets) {
         preprocessorDefines.insert(std::make_pair("BVH_MESHLETS", ""));
     }
+    if (!bvhMeshlets && shallVisualizeNodes) {
+        preprocessorDefines.insert(std::make_pair("VISUALIZE_BVH_HIERARCHY", ""));
+    }
 
     std::vector<std::string> shaderIds;
     shaderIds.reserve(bvhMeshlets ? 2 : 3);
@@ -158,7 +169,8 @@ void MeshletTaskMeshPass::createRasterData(
     //lineRenderer->setRenderDataBindings(rasterData);
 
     TubeTriangleRenderDataPayloadPtr payloadSuperClass(new MeshletsTaskMeshShaderPayload(
-            maxNumPrimitivesPerMeshlet, maxNumVerticesPerMeshlet, useMeshShaderWritePackedPrimitiveIndices));
+            maxNumPrimitivesPerMeshlet, maxNumVerticesPerMeshlet, useMeshShaderWritePackedPrimitiveIndices,
+            shallVisualizeNodes));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
             true, false, payloadSuperClass);
 
@@ -169,6 +181,12 @@ void MeshletTaskMeshPass::createRasterData(
     auto* payload = static_cast<MeshletsTaskMeshShaderPayload*>(payloadSuperClass.get());
 
     numMeshlets = payload->getNumMeshlets();
+    if (shallVisualizeNodes) {
+        nodeAabbBuffer = payload->getNodeAabbBuffer();
+        nodeAabbCountBuffer = payload->getNodeAabbCountBuffer();
+        rasterData->setStaticBuffer(nodeAabbBuffer, "NodeAabbBuffer");
+        rasterData->setStaticBuffer(nodeAabbCountBuffer, "NodeAabbCountBuffer");
+    }
     rasterData->setStaticBuffer(payload->getMeshletDataBuffer(), "MeshletDataBuffer");
     rasterData->setStaticBuffer(payload->getMeshletVisibilityArrayBuffer(), "MeshletVisibilityArrayBuffer");
     rasterData->setStaticBuffer(payload->getDedupVerticesBuffer(), "DedupVerticesBuffer");
@@ -244,7 +262,7 @@ void MeshletMeshBVHPass::createRasterData(
     TubeTriangleRenderDataPayloadPtr payloadSuperClass(new NodesBVHTreePayload(
             false, maxNumPrimitivesPerMeshlet, maxNumVerticesPerMeshlet, useMeshShaderWritePackedPrimitiveIndices,
             bvhBuildAlgorithm, bvhBuildGeometryMode, bvhBuildPrimitiveCenterMode,
-            useStdBvhParameters, maxLeafSizeBvh, maxTreeDepthBvh));
+            useStdBvhParameters, maxLeafSizeBvh, maxTreeDepthBvh, shallVisualizeNodes));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
             true, false, payloadSuperClass);
 
@@ -255,6 +273,11 @@ void MeshletMeshBVHPass::createRasterData(
     auto* payload = static_cast<NodesBVHTreePayload*>(payloadSuperClass.get());
 
     numMeshlets = payload->getNumTreeLeafMeshlets();
+    treeHeight = payload->getTreeHeight();
+    if (shallVisualizeNodes) {
+        nodeAabbBuffer = payload->getNodeAabbBuffer();
+        nodeAabbCountBuffer = payload->getNodeAabbBuffer();
+    }
     rasterData->setStaticBuffer(payload->getTreeLeafMeshletsBuffer(), "MeshletDataBuffer");
     rasterData->setStaticBuffer(payload->getDedupVerticesBuffer(), "DedupVerticesBuffer");
     rasterData->setStaticBuffer(payload->getDedupTriangleIndicesBuffer(), "DedupTriangleIndicesBuffer");

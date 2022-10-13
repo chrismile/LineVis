@@ -141,7 +141,7 @@ bool GuiVarData::loadTfFromFile(const std::string& filename) {
     }
 
     interpolationColorSpace = sgl::COLOR_SPACE_SRGB; // Standard
-    const char* interpolationColorSpaceName = tfNode->Attribute("colorspace_interpolation");
+    const char* interpolationColorSpaceName = tfNode->Attribute("interpolation_colorspace");
     if (interpolationColorSpaceName != nullptr) {
         for (int i = 0; i < 2; i++) {
             if (strcmp(interpolationColorSpaceName, sgl::COLOR_SPACE_NAMES[interpolationColorSpace]) == 0) {

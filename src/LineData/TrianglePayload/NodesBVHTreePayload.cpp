@@ -60,7 +60,8 @@ bool NodesBVHTreePayload::settingsEqual(TubeTriangleRenderDataPayload* other) co
             && this->bvhBuildAlgorithm == otherCast->bvhBuildAlgorithm
             && this->bvhBuildGeometryMode == otherCast->bvhBuildGeometryMode
             && this->bvhBuildPrimitiveCenterMode == otherCast->bvhBuildPrimitiveCenterMode
-            && this->useStdBvhParameters == otherCast->useStdBvhParameters;
+            && this->useStdBvhParameters == otherCast->useStdBvhParameters
+            && this->shallVisualizeNodes == otherCast->shallVisualizeNodes;
 
     if (!drawIndexedIndirectMode) {
         isEqual =
@@ -551,18 +552,41 @@ void NodesBVHTreePayload::createPayloadPre(
     }
 
     // Compute tree height.
-    std::vector<std::pair<const Bvh::Node*, uint32_t>> nodeStack;
-    uint32_t treeHeight = 0;
-    nodeStack.emplace_back(nodes, 1);
-    while (!nodeStack.empty()) {
-        auto nodeHeightPair = nodeStack.back();
-        const Bvh::Node* node = nodeHeightPair.first;
-        uint32_t h = nodeHeightPair.second;
-        treeHeight = std::max(treeHeight, h);
-        nodeStack.pop_back();
-        if (!node->is_leaf()) {
-            nodeStack.emplace_back(&nodes[Bvh::sibling(node->first_child_or_primitive)], h + 1);
-            nodeStack.emplace_back(&nodes[node->first_child_or_primitive], h + 1);
+    treeHeight = 0;
+    std::vector<uint32_t> nodeIdxToTreeHeightMap;
+    if (shallVisualizeNodes) {
+        nodeIdxToTreeHeightMap.resize(nodeCount);
+        std::vector<std::pair<uint32_t, uint32_t>> nodeStack;
+        nodeStack.emplace_back(0, 1);
+        while (!nodeStack.empty()) {
+            auto nodeHeightPair = nodeStack.back();
+            const uint32_t nodeIdx = nodeHeightPair.first;
+            const Bvh::Node* node = &nodes[nodeIdx];
+            uint32_t h = nodeHeightPair.second;
+            treeHeight = std::max(treeHeight, h);
+            nodeIdxToTreeHeightMap.at(nodeIdx) = h - 1u;
+            nodeStack.pop_back();
+            if (!node->is_leaf()) {
+                nodeStack.emplace_back(Bvh::sibling(node->first_child_or_primitive), h + 1);
+                nodeStack.emplace_back(node->first_child_or_primitive, h + 1);
+            }
+        }
+        nodeIdxToTreeHeightBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, nodeCount * sizeof(uint32_t), nodeIdxToTreeHeightMap.data(),
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    } else {
+        std::vector<std::pair<const Bvh::Node*, uint32_t>> nodeStack;
+        nodeStack.emplace_back(nodes, 1);
+        while (!nodeStack.empty()) {
+            auto nodeHeightPair = nodeStack.back();
+            const Bvh::Node* node = nodeHeightPair.first;
+            uint32_t h = nodeHeightPair.second;
+            treeHeight = std::max(treeHeight, h);
+            nodeStack.pop_back();
+            if (!node->is_leaf()) {
+                nodeStack.emplace_back(&nodes[Bvh::sibling(node->first_child_or_primitive)], h + 1);
+                nodeStack.emplace_back(&nodes[node->first_child_or_primitive], h + 1);
+            }
         }
     }
 
@@ -688,6 +712,19 @@ void NodesBVHTreePayload::createPayloadPre(
         dedupTriangleIndicesBuffer = std::make_shared<sgl::vk::Buffer>(
                 device, dedupTriangleIndices.size() * sizeof(uint8_t), dedupTriangleIndices.data(),
                 VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    }
+
+    if (shallVisualizeNodes) {
+        nodeAabbBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, nodeCount * sizeof(float) * 8,
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+        nodeAabbCountBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, sizeof(uint32_t),
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VMA_MEMORY_USAGE_GPU_ONLY);
+        nodeIdxToTreeHeightBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, nodeCount * sizeof(uint32_t), nodeIdxToTreeHeightMap.data(),
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     }
 
     VkCommandBuffer commandBuffer = device->beginSingleTimeCommands();

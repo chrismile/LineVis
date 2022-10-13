@@ -72,6 +72,7 @@ layout(std430, binding = 1) writeonly buffer MeshletVisibilityArrayBuffer {
 #endif
 
 #include "VisibilityCulling.glsl"
+#include "VisualizeBvhHierarchy.glsl"
 
 void main() {
     uint meshletIdx = gl_GlobalInvocationID.x;
@@ -88,6 +89,20 @@ void main() {
         }
 #else
         isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMax);
+#endif
+
+#ifdef VISUALIZE_BVH_HIERARCHY
+        uint writePositionNodeAabb = atomicAdd(numNodeAabbs, 1u);
+        NodeAabb nodeAabb;
+        nodeAabb.worldSpaceAabbMin = meshlet.worldSpaceAabbMin;
+        nodeAabb.worldSpaceAabbMax = meshlet.worldSpaceAabbMax;
+        nodeAabb.normalizedHierarchyLevel = 0;
+#ifdef RECHECK_OCCLUDED_ONLY
+        nodeAabb.passIdx = 1u;
+#else
+        nodeAabb.passIdx = 0u;
+#endif
+        nodeAabbs[writePositionNodeAabb] = nodeAabb;
 #endif
     }
     meshletVisibilityArray[meshletIdx] = isVisible ? 1u : 0u;

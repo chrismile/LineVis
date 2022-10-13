@@ -6,6 +6,8 @@ layout(binding = 7) uniform VisibilityCullingUniformBuffer {
     ivec2 viewportSize;
     uint numMeshlets; // only for linear meshlet list.
     uint rootNodeIdx; // only for meshlet node tree.
+    uvec3 visibilityCullingUniformBufferPadding;
+    uint treeHeight;
 };
 
 /*

@@ -52,6 +52,7 @@ public:
     void setUseStdBvhParameters(bool _useStdBvhParameters);
     void setMaxLeafSizeBvh(uint32_t _maxLeafSizeBvh);
     void setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh);
+    void setShallVisualizeNodes(uint32_t _shallVisualizeNodes);
     void setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer);
     void setDepthBufferTexture(const sgl::vk::TexturePtr& texture);
 
@@ -75,6 +76,7 @@ private:
     bool useStdBvhParameters = true; ///< Whether to use the settings below.
     uint32_t maxLeafSizeBvh = 16;
     uint32_t maxTreeDepthBvh = 64;
+    bool shallVisualizeNodes = false; ///< Whether to visualize the BVH hierarchy and meshlet bounds.
 
     sgl::vk::BufferPtr queueBuffer, queueBufferRecheck;
     sgl::vk::BufferPtr visibilityCullingUniformBuffer;

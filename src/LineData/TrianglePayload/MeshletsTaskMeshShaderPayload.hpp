@@ -46,10 +46,11 @@ class MeshletsTaskMeshShaderPayload : public TubeTriangleRenderDataPayload {
 public:
     explicit MeshletsTaskMeshShaderPayload(
             uint32_t maxNumPrimitivesPerMeshlet, uint32_t maxNumVerticesPerMeshlet,
-            bool useMeshShaderWritePackedPrimitiveIndices)
+            bool useMeshShaderWritePackedPrimitiveIndices, bool shallVisualizeNodes)
             : maxNumPrimitivesPerMeshlet(maxNumPrimitivesPerMeshlet),
               maxNumVerticesPerMeshlet(maxNumVerticesPerMeshlet),
-              useMeshShaderWritePackedPrimitiveIndices(useMeshShaderWritePackedPrimitiveIndices) {}
+              useMeshShaderWritePackedPrimitiveIndices(useMeshShaderWritePackedPrimitiveIndices),
+              shallVisualizeNodes(shallVisualizeNodes) {}
     [[nodiscard]] Type getType() const override { return Type::MESHLETS_TASK_MESH_SHADER; }
     [[nodiscard]] bool settingsEqual(TubeTriangleRenderDataPayload* other) const override;
 
@@ -72,11 +73,16 @@ public:
         return dedupTriangleIndicesBuffer;
     }
 
+    // Visualization.
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getNodeAabbBuffer() const { return nodeAabbBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getNodeAabbCountBuffer() const { return nodeAabbCountBuffer; }
+
 private:
     // Settings (choose valid values for entries of VkPhysicalDeviceMeshShaderPropertiesNV/EXT).
     uint32_t maxNumPrimitivesPerMeshlet = 126; ///< <= maxMeshOutputPrimitives (512 for NVIDIA).
     uint32_t maxNumVerticesPerMeshlet = 64; ///< <= maxMeshOutputVertices (256 for NVIDIA).
     bool useMeshShaderWritePackedPrimitiveIndices = false;
+    bool shallVisualizeNodes = false; ///< Whether to visualize the BVH hierarchy and meshlet bounds.
 
     // Data.
     uint32_t numMeshlets = 0;
@@ -86,6 +92,10 @@ private:
     sgl::vk::BufferPtr dedupVerticesBuffer; ///< vec3 objects.
     sgl::vk::BufferPtr dedupVertexIndexToOrigIndexMapBuffer; ///< uint32_t objects.
     sgl::vk::BufferPtr dedupTriangleIndicesBuffer; ///< uint8_t objects.
+
+    // Visualization.
+    sgl::vk::BufferPtr nodeAabbBuffer; ///< 8 * sizeof(float) * nodeCount.
+    sgl::vk::BufferPtr nodeAabbCountBuffer; ///< uint32_t object.
 };
 
 #endif //LINEVIS_MESHLETSTASKMESHSHADERPAYLOAD_HPP

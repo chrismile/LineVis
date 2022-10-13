@@ -40,8 +40,8 @@ struct MeshletDrawIndirectPayloadData {
 
 class MeshletsDrawIndirectPayload : public TubeTriangleRenderDataPayload {
 public:
-    explicit MeshletsDrawIndirectPayload(uint32_t maxNumPrimitivesPerMeshlet)
-            : maxNumPrimitivesPerMeshlet(maxNumPrimitivesPerMeshlet) {}
+    explicit MeshletsDrawIndirectPayload(uint32_t maxNumPrimitivesPerMeshlet, bool shallVisualizeNodes)
+            : maxNumPrimitivesPerMeshlet(maxNumPrimitivesPerMeshlet), shallVisualizeNodes(shallVisualizeNodes) {}
     [[nodiscard]] Type getType() const override { return Type::MESHLETS_DRAW_INDIRECT; }
     [[nodiscard]] bool settingsEqual(TubeTriangleRenderDataPayload* other) const override;
 
@@ -61,9 +61,14 @@ public:
         return indirectDrawCountBuffer;
     }
 
+    // Visualization.
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getNodeAabbBuffer() const { return nodeAabbBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getNodeAabbCountBuffer() const { return nodeAabbCountBuffer; }
+
 private:
     // Settings.
     uint32_t maxNumPrimitivesPerMeshlet = 128;
+    bool shallVisualizeNodes = false; ///< Whether to visualize the BVH hierarchy and meshlet bounds.
 
     // Data.
     uint32_t numMeshlets = 0;
@@ -71,6 +76,10 @@ private:
     sgl::vk::BufferPtr meshletVisibilityArrayBuffer; ///< uint32_t objects.
     sgl::vk::BufferPtr indirectDrawBuffer; ///< Padded VkDrawIndexedIndirectCommand objects.
     sgl::vk::BufferPtr indirectDrawCountBuffer; ///< uint32_t objects.
+
+    // Visualization.
+    sgl::vk::BufferPtr nodeAabbBuffer; ///< 8 * sizeof(float) * nodeCount.
+    sgl::vk::BufferPtr nodeAabbCountBuffer; ///< uint32_t object.
 };
 
 #endif //LINEVIS_MESHLETSDRAWINDIRECTPAYLOAD_HPP

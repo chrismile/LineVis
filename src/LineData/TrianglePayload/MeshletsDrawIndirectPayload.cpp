@@ -36,7 +36,8 @@ bool MeshletsDrawIndirectPayload::settingsEqual(TubeTriangleRenderDataPayload* o
         return false;
     }
     auto* otherCast = static_cast<MeshletsDrawIndirectPayload*>(other);
-    return this->maxNumPrimitivesPerMeshlet == otherCast->maxNumPrimitivesPerMeshlet;
+    return this->maxNumPrimitivesPerMeshlet == otherCast->maxNumPrimitivesPerMeshlet
+            && this->shallVisualizeNodes == otherCast->shallVisualizeNodes;
 }
 
 void MeshletsDrawIndirectPayload::createPayloadPre(
@@ -98,6 +99,16 @@ void MeshletsDrawIndirectPayload::createPayloadPre(
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT
             | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
+
+    if (shallVisualizeNodes) {
+        nodeAabbBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, numMeshlets * sizeof(float) * 8,
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+        nodeAabbCountBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, sizeof(uint32_t),
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VMA_MEMORY_USAGE_GPU_ONLY);
+    }
 }
 
 void MeshletsDrawIndirectPayload::createPayloadPost(

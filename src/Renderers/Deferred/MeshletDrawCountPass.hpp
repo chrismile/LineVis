@@ -40,7 +40,9 @@ public:
 
     // Public interface.
     void setLineData(LineDataPtr& lineData, bool isNewData);
-    void setMaxNumPrimitivesPerMeshlet(uint32_t num);
+    void setRecheckOccludedOnly(bool _recheckOccludedOnly);
+    void setMaxNumPrimitivesPerMeshlet(uint32_t _maxNumPrimitivesPerMeshlet);
+    void setShallVisualizeNodes(uint32_t _shallVisualizeNodes);
     void setPrefixSumScanBuffer(const sgl::vk::BufferPtr& _prefixSumScanBuffer);
     [[nodiscard]] inline const sgl::vk::BufferPtr& getDrawCountBuffer() const { return indirectDrawCountBuffer; }
 
@@ -52,7 +54,9 @@ protected:
 
 private:
     LineDataPtr lineData;
+    bool recheckOccludedOnly = false;
     uint32_t maxNumPrimitivesPerMeshlet = 128;
+    bool shallVisualizeNodes = false; ///< Whether to visualize the BVH hierarchy and meshlet bounds.
     uint32_t numMeshlets = 0;
     sgl::vk::BufferPtr indirectDrawCountBuffer;
     sgl::vk::BufferPtr prefixSumScanBuffer;

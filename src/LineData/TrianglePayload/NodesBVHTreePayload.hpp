@@ -53,7 +53,7 @@ public:
             bool useMeshShaderWritePackedPrimitiveIndices,
             BvhBuildAlgorithm bvhBuildAlgorithm, BvhBuildGeometryMode bvhBuildGeometryMode,
             BvhBuildPrimitiveCenterMode bvhBuildPrimitiveCenterMode, bool useStdBvhParameters,
-            uint32_t maxLeafSize, uint32_t maxTreeDepth)
+            uint32_t maxLeafSize, uint32_t maxTreeDepth, bool shallVisualizeNodes)
             : drawIndexedIndirectMode(drawIndexedIndirectMode),
               maxNumPrimitivesPerMeshlet(maxNumPrimitivesPerMeshlet),
               maxNumVerticesPerMeshlet(maxNumVerticesPerMeshlet),
@@ -63,7 +63,8 @@ public:
               bvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode),
               useStdBvhParameters(useStdBvhParameters),
               maxLeafSize(maxLeafSize),
-              maxTreeDepth(maxTreeDepth) {}
+              maxTreeDepth(maxTreeDepth),
+              shallVisualizeNodes(shallVisualizeNodes) {}
     [[nodiscard]] Type getType() const override { return Type::NODES_HLBVH_TREE; }
     [[nodiscard]] bool settingsEqual(TubeTriangleRenderDataPayload* other) const override;
 
@@ -75,6 +76,7 @@ public:
 
     [[nodiscard]] inline uint32_t getNumNodes() const { return nodeCount; }
     [[nodiscard]] inline uint32_t getNumLeafNodes() const { return numLeafNodes; }
+    [[nodiscard]] inline uint32_t getTreeHeight() const { return treeHeight; }
     [[nodiscard]] inline const sgl::vk::BufferPtr& getNodeDataBuffer() const { return nodeDataBuffer; }
     [[nodiscard]] inline const sgl::vk::BufferPtr& getQueueStateBuffer() const { return queueStateBuffer; }
     [[nodiscard]] inline const sgl::vk::BufferPtr& getQueueStateBufferRecheck() const { return queueStateBufferRecheck; }
@@ -103,6 +105,11 @@ public:
         return dedupTriangleIndicesBuffer;
     }
 
+    // Visualization.
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getNodeAabbBuffer() const { return nodeAabbBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getNodeAabbCountBuffer() const { return nodeAabbCountBuffer; }
+    [[nodiscard]] inline const sgl::vk::BufferPtr& getNodeIdxToTreeHeightBuffer() const { return nodeIdxToTreeHeightBuffer; }
+
 private:
     // Settings (choose valid values for entries of VkPhysicalDeviceMeshShaderPropertiesNV/EXT).
     bool drawIndexedIndirectMode = true; ///< Draw indexed indirect or mesh shader mode?
@@ -116,11 +123,13 @@ private:
     bool useStdBvhParameters = true; ///< Whether to use the settings below.
     uint32_t maxLeafSize = 16;
     uint32_t maxTreeDepth = 64;
+    bool shallVisualizeNodes = false; ///< Whether to visualize the BVH hierarchy and meshlet bounds.
 
     // Data.
     uint32_t nodeCount = 0;
     uint32_t numLeafNodes = 0;
     uint32_t numTreeLeafMeshlets = 0;
+    uint32_t treeHeight = 0;
     sgl::vk::BufferPtr nodeDataBuffer; ///< BVHTreeNodePayload objects.
     /// QueueStateBuffer object (see QueueStateBuffer in IndirectNodeCulling.glsl; 4x int/uint).
     sgl::vk::BufferPtr queueStateBuffer, queueStateBufferRecheck;
@@ -143,6 +152,11 @@ private:
     sgl::vk::BufferPtr dedupVerticesBuffer; ///< vec3 objects.
     sgl::vk::BufferPtr dedupVertexIndexToOrigIndexMapBuffer; ///< uint32_t objects.
     sgl::vk::BufferPtr dedupTriangleIndicesBuffer; ///< uint8_t objects.
+
+    // Visualization.
+    sgl::vk::BufferPtr nodeAabbBuffer; ///< 8 * sizeof(float) * nodeCount.
+    sgl::vk::BufferPtr nodeAabbCountBuffer; ///< uint32_t object.
+    sgl::vk::BufferPtr nodeIdxToTreeHeightBuffer; ///< uint32_t objects (nodeCount).
 };
 
 #endif //LINEVIS_NODESBVHTREEPAYLOAD_HPP

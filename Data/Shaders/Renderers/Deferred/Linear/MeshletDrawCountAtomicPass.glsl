@@ -33,6 +33,7 @@
 layout(local_size_x = WORKGROUP_SIZE) in;
 
 #include "VisibilityCulling.glsl"
+#include "VisualizeBvhHierarchy.glsl"
 
 struct MeshletData {
     vec3 worldSpaceAabbMin;
@@ -98,5 +99,19 @@ void main() {
         cmd.vertexOffset = 0;
         cmd.firstInstance = 0u;
         commands[writePosition] = cmd;
+
+#ifdef VISUALIZE_BVH_HIERARCHY
+        uint writePositionNodeAabb = atomicAdd(numNodeAabbs, 1u);
+        NodeAabb nodeAabb;
+        nodeAabb.worldSpaceAabbMin = meshlet.worldSpaceAabbMin;
+        nodeAabb.worldSpaceAabbMax = meshlet.worldSpaceAabbMax;
+        nodeAabb.normalizedHierarchyLevel = 0;
+#ifdef RECHECK_OCCLUDED_ONLY
+        nodeAabb.passIdx = 1u;
+#else
+        nodeAabb.passIdx = 0u;
+#endif
+        nodeAabbs[writePositionNodeAabb] = nodeAabb;
+#endif
     }
 }

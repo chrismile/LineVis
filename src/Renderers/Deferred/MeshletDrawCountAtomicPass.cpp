@@ -53,6 +53,14 @@ void MeshletDrawCountAtomicPass::setMaxNumPrimitivesPerMeshlet(uint32_t num) {
     }
 }
 
+void MeshletDrawCountAtomicPass::setShallVisualizeNodes(uint32_t _shallVisualizeNodes) {
+    if (shallVisualizeNodes != _shallVisualizeNodes) {
+        shallVisualizeNodes = _shallVisualizeNodes;
+        setDataDirty();
+        setShaderDirty();
+    }
+}
+
 void MeshletDrawCountAtomicPass::setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer) {
     visibilityCullingUniformBuffer = uniformBuffer;
 }
@@ -69,6 +77,9 @@ void MeshletDrawCountAtomicPass::loadShader() {
     if (recheckOccludedOnly) {
         preprocessorDefines.insert(std::make_pair("RECHECK_OCCLUDED_ONLY", ""));
     }
+    if (shallVisualizeNodes) {
+        preprocessorDefines.insert(std::make_pair("VISUALIZE_BVH_HIERARCHY", ""));
+    }
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
             { "MeshletDrawCountAtomicPass.Compute" }, preprocessorDefines);
 }
@@ -76,7 +87,8 @@ void MeshletDrawCountAtomicPass::loadShader() {
 void MeshletDrawCountAtomicPass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
     computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
 
-    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new MeshletsDrawIndirectPayload(maxNumPrimitivesPerMeshlet));
+    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new MeshletsDrawIndirectPayload(
+            maxNumPrimitivesPerMeshlet, shallVisualizeNodes));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
             true, false, payloadSuperClass);
 
@@ -87,6 +99,10 @@ void MeshletDrawCountAtomicPass::createComputeData(sgl::vk::Renderer* renderer, 
 
     numMeshlets = payload->getNumMeshlets();
     indirectDrawCountBuffer = payload->getIndirectDrawCountBuffer();
+    if (shallVisualizeNodes) {
+        computeData->setStaticBuffer(payload->getNodeAabbBuffer(), "NodeAabbBuffer");
+        computeData->setStaticBuffer(payload->getNodeAabbCountBuffer(), "NodeAabbCountBuffer");
+    }
     computeData->setStaticBuffer(payload->getMeshletDataBuffer(), "MeshletDataBuffer");
     computeData->setStaticBuffer(payload->getMeshletVisibilityArrayBuffer(), "MeshletVisibilityArrayBuffer");
     computeData->setStaticBuffer(payload->getIndirectDrawBuffer(), "DrawIndexedIndirectCommandBuffer");

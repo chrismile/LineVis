@@ -42,6 +42,13 @@ void VisibilityBufferDrawIndexedIndirectPass::setMaxNumPrimitivesPerMeshlet(uint
     }
 }
 
+void VisibilityBufferDrawIndexedIndirectPass::setShallVisualizeNodes(uint32_t _shallVisualizeNodes) {
+    if (shallVisualizeNodes != _shallVisualizeNodes) {
+        shallVisualizeNodes = _shallVisualizeNodes;
+        setDataDirty();
+    }
+}
+
 void VisibilityBufferDrawIndexedIndirectPass::setUseDrawIndexedIndirectCount(bool useIndirectCount) {
     if (useDrawIndexedIndirectCount != useIndirectCount) {
         useDrawIndexedIndirectCount = useIndirectCount;
@@ -90,7 +97,8 @@ void VisibilityBufferDrawIndexedIndirectPass::createRasterData(
     lineData->setVulkanRenderDataDescriptors(rasterData);
     //lineRenderer->setRenderDataBindings(rasterData);
 
-    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new MeshletsDrawIndirectPayload(maxNumPrimitivesPerMeshlet));
+    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new MeshletsDrawIndirectPayload(
+            maxNumPrimitivesPerMeshlet, shallVisualizeNodes));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
             true, false, payloadSuperClass);
 
@@ -101,6 +109,10 @@ void VisibilityBufferDrawIndexedIndirectPass::createRasterData(
     auto* payload = static_cast<MeshletsDrawIndirectPayload*>(payloadSuperClass.get());
 
     numMeshlets = payload->getNumMeshlets();
+    if (shallVisualizeNodes) {
+        nodeAabbBuffer = payload->getNodeAabbBuffer();
+        nodeAabbCountBuffer = payload->getNodeAabbCountBuffer();
+    }
     rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
     rasterData->setVertexBuffer(tubeRenderData.vertexBuffer, "vertexPosition");
     rasterData->setStaticBuffer(payload->getIndirectDrawBuffer(), "DrawIndexedIndirectCommandBuffer");
@@ -173,7 +185,7 @@ void VisibilityBufferBVHDrawIndexedIndirectPass::createRasterData(
             true, maxNumPrimitivesPerMeshlet,
             0, false,
             bvhBuildAlgorithm, bvhBuildGeometryMode, bvhBuildPrimitiveCenterMode,
-            useStdBvhParameters, maxLeafSizeBvh, maxTreeDepthBvh));
+            useStdBvhParameters, maxLeafSizeBvh, maxTreeDepthBvh, shallVisualizeNodes));
     TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
             true, false, payloadSuperClass);
 
@@ -184,6 +196,11 @@ void VisibilityBufferBVHDrawIndexedIndirectPass::createRasterData(
     auto* payload = static_cast<NodesBVHTreePayload*>(payloadSuperClass.get());
 
     numMeshlets = payload->getNumLeafNodes();
+    treeHeight = payload->getTreeHeight();
+    if (shallVisualizeNodes) {
+        nodeAabbBuffer = payload->getNodeAabbBuffer();
+        nodeAabbCountBuffer = payload->getNodeAabbCountBuffer();
+    }
     rasterData->setIndexBuffer(tubeRenderData.indexBuffer);
     rasterData->setVertexBuffer(tubeRenderData.vertexBuffer, "vertexPosition");
     rasterData->setStaticBuffer(payload->getIndirectDrawBuffer(), "DrawIndexedIndirectCommandBuffer");
