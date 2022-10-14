@@ -1268,6 +1268,14 @@ void DeferredRenderer::render() {
                     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
                     VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT);
             visualizeNodesPass->render();
+
+            if (lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
+                renderer->insertImageMemoryBarrier(
+                        colorRenderTargetImage,//->getImage(),
+                        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+            }
         }
     }
 
@@ -1277,7 +1285,7 @@ void DeferredRenderer::render() {
         // Can't use transitionImageLayout, as subresource transition by HZB build leaves wrong internal layout set.
         //renderer->transitionImageLayout(
         //        depthRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-        if (!isDataEmpty && !(shallVisualizeNodes && deferredRenderingMode != DeferredRenderingMode::DRAW_INDEXED)) {
+        if (!isDataEmpty) {
             renderer->insertImageMemoryBarrier(
                     depthRenderTargetImage,//->getImage(),
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
