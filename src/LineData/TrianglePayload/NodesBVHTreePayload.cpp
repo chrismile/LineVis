@@ -540,14 +540,14 @@ void NodesBVHTreePayload::createPayloadPre(
         tubeTriangleIndices.clear();
         createTreeNodesDrawIndexedIndirect(
                 tubeTriangleIndices, tubeTriangleIndicesOld, meshlets,
-                bvh.node_count, nodes, primitiveIndices, treeNodes, bvhBuildGeometryMode,
+                uint32_t(bvh.node_count), nodes, primitiveIndices, treeNodes, bvhBuildGeometryMode,
                 minNumPrimitivesPerNode, maxNumPrimitivesPerNode, minNumTrianglesPerNode, maxNumTrianglesPerNode);
     } else {
         auto treeLeafMeshletsOld = treeLeafMeshlets;
         treeLeafMeshlets.clear();
         createTreeNodesMeshShader(
                 treeLeafMeshlets, treeLeafMeshletsOld,
-                bvh.node_count, nodes, primitiveIndices, treeNodes, bvhBuildGeometryMode,
+                uint32_t(bvh.node_count), nodes, primitiveIndices, treeNodes, bvhBuildGeometryMode,
                 minNumPrimitivesPerNode, maxNumPrimitivesPerNode, minNumTrianglesPerNode, maxNumTrianglesPerNode);
     }
 
@@ -567,7 +567,7 @@ void NodesBVHTreePayload::createPayloadPre(
             nodeIdxToTreeHeightMap.at(nodeIdx) = h - 1u;
             nodeStack.pop_back();
             if (!node->is_leaf()) {
-                nodeStack.emplace_back(Bvh::sibling(node->first_child_or_primitive), h + 1);
+                nodeStack.emplace_back(uint32_t(Bvh::sibling(node->first_child_or_primitive)), h + 1);
                 nodeStack.emplace_back(node->first_child_or_primitive, h + 1);
             }
         }

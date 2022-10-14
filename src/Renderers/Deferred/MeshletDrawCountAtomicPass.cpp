@@ -53,7 +53,7 @@ void MeshletDrawCountAtomicPass::setMaxNumPrimitivesPerMeshlet(uint32_t num) {
     }
 }
 
-void MeshletDrawCountAtomicPass::setShallVisualizeNodes(uint32_t _shallVisualizeNodes) {
+void MeshletDrawCountAtomicPass::setShallVisualizeNodes(bool _shallVisualizeNodes) {
     if (shallVisualizeNodes != _shallVisualizeNodes) {
         shallVisualizeNodes = _shallVisualizeNodes;
         setDataDirty();

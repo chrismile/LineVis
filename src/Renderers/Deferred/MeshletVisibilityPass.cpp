@@ -53,7 +53,7 @@ void MeshletVisibilityPass::setMaxNumPrimitivesPerMeshlet(uint32_t _maxNumPrimit
     }
 }
 
-void MeshletVisibilityPass::setShallVisualizeNodes(uint32_t _shallVisualizeNodes) {
+void MeshletVisibilityPass::setShallVisualizeNodes(bool _shallVisualizeNodes) {
     if (shallVisualizeNodes != _shallVisualizeNodes) {
         shallVisualizeNodes = _shallVisualizeNodes;
         setDataDirty();

@@ -142,8 +142,8 @@ private:
     sgl::vk::ImageViewPtr aoImage;
 
     struct SettingsData {
-        float radius = 0.05;
-        float bias = 0.005;
+        float radius = 0.05f;
+        float bias = 0.005f;
     };
     SettingsData settingsData{};
     sgl::vk::BufferPtr settingsDataBuffer;

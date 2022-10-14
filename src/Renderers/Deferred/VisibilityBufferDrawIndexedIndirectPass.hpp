@@ -46,7 +46,7 @@ class VisibilityBufferDrawIndexedIndirectPass : public LineRasterPass {
 public:
     explicit VisibilityBufferDrawIndexedIndirectPass(LineRenderer* lineRenderer);
     void setMaxNumPrimitivesPerMeshlet(uint32_t _maxNumPrimitivesPerMeshlet);
-    void setShallVisualizeNodes(uint32_t _shallVisualizeNodes);
+    void setShallVisualizeNodes(bool _shallVisualizeNodes);
     void setUseDrawIndexedIndirectCount(bool useIndirectCount);
     [[nodiscard]] inline uint32_t getNumMeshlets() const { return numMeshlets; }
 

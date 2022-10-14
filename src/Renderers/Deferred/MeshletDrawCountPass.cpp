@@ -54,7 +54,7 @@ void MeshletDrawCountPass::setMaxNumPrimitivesPerMeshlet(uint32_t _maxNumPrimiti
     }
 }
 
-void MeshletDrawCountPass::setShallVisualizeNodes(uint32_t _shallVisualizeNodes) {
+void MeshletDrawCountPass::setShallVisualizeNodes(bool _shallVisualizeNodes) {
     if (shallVisualizeNodes != _shallVisualizeNodes) {
         shallVisualizeNodes = _shallVisualizeNodes;
         setDataDirty();

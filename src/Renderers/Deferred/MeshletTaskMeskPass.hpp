@@ -45,7 +45,7 @@ public:
     void setMaxNumPrimitivesPerMeshlet(uint32_t numPrimitives);
     void setMaxNumVerticesPerMeshlet(uint32_t numVertices);
     void setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(bool useWritePacked);
-    void setShallVisualizeNodes(uint32_t _shallVisualizeNodes);
+    void setShallVisualizeNodes(bool _shallVisualizeNodes);
     void setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer);
     void setDepthBufferTexture(const sgl::vk::TexturePtr& texture);
     [[nodiscard]] inline uint32_t getNumMeshlets() const { return numMeshlets; }

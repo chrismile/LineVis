@@ -42,7 +42,7 @@ public:
     void setLineData(LineDataPtr& lineData, bool isNewData);
     void setRecheckOccludedOnly(bool _recheckOccludedOnly);
     void setMaxNumPrimitivesPerMeshlet(uint32_t _maxNumPrimitivesPerMeshlet);
-    void setShallVisualizeNodes(uint32_t _shallVisualizeNodes);
+    void setShallVisualizeNodes(bool _shallVisualizeNodes);
     void setPrefixSumScanBuffer(const sgl::vk::BufferPtr& _prefixSumScanBuffer);
     [[nodiscard]] inline const sgl::vk::BufferPtr& getDrawCountBuffer() const { return indirectDrawCountBuffer; }
 

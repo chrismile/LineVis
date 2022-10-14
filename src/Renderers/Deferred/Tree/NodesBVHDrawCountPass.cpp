@@ -134,7 +134,7 @@ void NodesBVHDrawCountPass::setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh) {
     }
 }
 
-void NodesBVHDrawCountPass::setShallVisualizeNodes(uint32_t _shallVisualizeNodes) {
+void NodesBVHDrawCountPass::setShallVisualizeNodes(bool _shallVisualizeNodes) {
     if (shallVisualizeNodes != _shallVisualizeNodes) {
         shallVisualizeNodes = _shallVisualizeNodes;
         setShaderDirty();

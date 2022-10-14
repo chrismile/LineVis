@@ -81,7 +81,7 @@ void MeshletTaskMeshPass::setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable
     }
 }
 
-void MeshletTaskMeshPass::setShallVisualizeNodes(uint32_t _shallVisualizeNodes) {
+void MeshletTaskMeshPass::setShallVisualizeNodes(bool _shallVisualizeNodes) {
     if (shallVisualizeNodes != _shallVisualizeNodes) {
         shallVisualizeNodes = _shallVisualizeNodes;
         setDataDirty();

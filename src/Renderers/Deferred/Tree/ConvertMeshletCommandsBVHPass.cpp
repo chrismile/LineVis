@@ -112,7 +112,7 @@ void ConvertMeshletCommandsBVHPass::setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh
     }
 }
 
-void ConvertMeshletCommandsBVHPass::setShallVisualizeNodes(uint32_t _shallVisualizeNodes) {
+void ConvertMeshletCommandsBVHPass::setShallVisualizeNodes(bool _shallVisualizeNodes) {
     if (shallVisualizeNodes != _shallVisualizeNodes) {
         shallVisualizeNodes = _shallVisualizeNodes;
         setDataDirty();

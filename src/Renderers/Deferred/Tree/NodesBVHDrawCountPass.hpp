@@ -53,7 +53,7 @@ public:
     void setUseStdBvhParameters(bool _useStdBvhParameters);
     void setMaxLeafSizeBvh(uint32_t _maxLeafSizeBvh);
     void setMaxTreeDepthBvh(uint32_t _maxTreeDepthBvh);
-    void setShallVisualizeNodes(uint32_t _shallVisualizeNodes);
+    void setShallVisualizeNodes(bool _shallVisualizeNodes);
     void setNumWorkgroups(uint32_t numWorkgroupsBvh);
     void setWorkgroupSize(uint32_t workgroupSizeBvh);
     void setVisibilityCullingUniformBuffer(const sgl::vk::BufferPtr& uniformBuffer);

@@ -42,7 +42,7 @@ void VisibilityBufferDrawIndexedIndirectPass::setMaxNumPrimitivesPerMeshlet(uint
     }
 }
 
-void VisibilityBufferDrawIndexedIndirectPass::setShallVisualizeNodes(uint32_t _shallVisualizeNodes) {
+void VisibilityBufferDrawIndexedIndirectPass::setShallVisualizeNodes(bool _shallVisualizeNodes) {
     if (shallVisualizeNodes != _shallVisualizeNodes) {
         shallVisualizeNodes = _shallVisualizeNodes;
         setDataDirty();
