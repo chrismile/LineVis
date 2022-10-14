@@ -105,7 +105,7 @@ void main() {
         NodeAabb nodeAabb;
         nodeAabb.worldSpaceAabbMin = meshlet.worldSpaceAabbMin;
         nodeAabb.worldSpaceAabbMax = meshlet.worldSpaceAabbMax;
-        nodeAabb.normalizedHierarchyLevel = 0;
+        nodeAabb.normalizedHierarchyLevel = 1.0;
 #ifdef RECHECK_OCCLUDED_ONLY
         nodeAabb.passIdx = 1u;
 #else

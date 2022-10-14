@@ -30,9 +30,10 @@
 #include <Utils/File/Logfile.hpp>
 #include "Tubes.hpp"
 
-void addHemisphereToMesh(
-        const glm::vec3& center, glm::vec3 tangent, glm::vec3 normal, uint32_t indexOffset, uint32_t vertexLinePointIndex,
-        float tubeRadius, int numLongitudeSubdivisions, int numLatitudeSubdivisions, bool isStartHemisphere,
+void addHemisphereToMeshStart(
+        const glm::vec3& center, glm::vec3 tangent, glm::vec3 normal,
+        uint32_t indexOffset, uint32_t indexOffsetCap, uint32_t triOffsetCap,
+        uint32_t vertexLinePointIndex, float tubeRadius, int numLongitudeSubdivisions, int numLatitudeSubdivisions,
         std::vector<uint32_t>& triangleIndices, std::vector<TubeTriangleVertexData>& vertexDataList) {
     glm::vec3 binormal = glm::cross(normal, tangent);
     glm::vec3 scaledTangent = tubeRadius * tangent;
@@ -42,7 +43,95 @@ void addHemisphereToMesh(
     float theta; // azimuth;
     float phi; // zenith;
 
-    uint32_t vertexIndexOffset = uint32_t(vertexDataList.size()) - indexOffset - numLongitudeSubdivisions;
+    uint32_t vertexOffsetCap = indexOffsetCap;
+    for (int lat = numLatitudeSubdivisions; lat >= 1; lat--) {
+        phi = sgl::HALF_PI * (1.0f - float(lat) / float(numLatitudeSubdivisions));
+        for (int lon = 0; lon < numLongitudeSubdivisions; lon++) {
+            theta = sgl::TWO_PI * float(lon) / float(numLongitudeSubdivisions);
+
+            glm::vec3 pt(
+                    std::cos(theta) * std::sin(phi),
+                    std::sin(theta) * std::sin(phi),
+                    std::cos(phi)
+            );
+
+            glm::vec3 transformedPoint(
+                    pt.x * scaledNormal.x + pt.y * scaledBinormal.x + pt.z * scaledTangent.x + center.x,
+                    pt.x * scaledNormal.y + pt.y * scaledBinormal.y + pt.z * scaledTangent.y + center.y,
+                    pt.x * scaledNormal.z + pt.y * scaledBinormal.z + pt.z * scaledTangent.z + center.z
+            );
+            glm::vec3 vertexNormal = glm::normalize(glm::vec3(
+                    pt.x * scaledNormal.x + pt.y * scaledBinormal.x + pt.z * scaledTangent.x,
+                    pt.x * scaledNormal.y + pt.y * scaledBinormal.y + pt.z * scaledTangent.y,
+                    pt.x * scaledNormal.z + pt.y * scaledBinormal.z + pt.z * scaledTangent.z
+            ));
+
+            TubeTriangleVertexData tubeTriangleVertexData{};
+            tubeTriangleVertexData.vertexPosition = transformedPoint;
+            tubeTriangleVertexData.vertexLinePointIndex = vertexLinePointIndex | 0x80000000u;
+            tubeTriangleVertexData.vertexNormal = vertexNormal;
+            tubeTriangleVertexData.phi = theta;
+            vertexDataList.at(vertexOffsetCap++) = tubeTriangleVertexData;
+
+            if (lat == numLatitudeSubdivisions) {
+                break;
+            }
+        }
+    }
+    for (int lat = 0; lat < numLatitudeSubdivisions; lat++) {
+        for (int lon = 0; lon < numLongitudeSubdivisions; lon++) {
+            if (lat > 0) {
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffsetCap + 1
+                        + (lon)%numLongitudeSubdivisions
+                        + (lat-1)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffsetCap + 1
+                        + (lon+1)%numLongitudeSubdivisions
+                        + (lat-1)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffsetCap + 1
+                        + (lon)%numLongitudeSubdivisions
+                        + (lat)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffsetCap + 1
+                        + (lon+1)%numLongitudeSubdivisions
+                        + (lat-1)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffsetCap + 1
+                        + (lon+1)%numLongitudeSubdivisions
+                        + (lat)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffsetCap + 1
+                        + (lon)%numLongitudeSubdivisions
+                        + (lat)*numLongitudeSubdivisions;
+            } else {
+                triangleIndices.at(triOffsetCap++) = indexOffsetCap;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffsetCap + 1
+                        + (lon+1)%numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffsetCap + 1
+                        + (lon)%numLongitudeSubdivisions;
+            }
+        }
+    }
+}
+
+void addHemisphereToMeshStop(
+        const glm::vec3& center, glm::vec3 tangent, glm::vec3 normal,
+        uint32_t indexOffset, uint32_t indexOffsetCap, uint32_t triOffsetCap,
+        uint32_t vertexLinePointIndex, float tubeRadius, int numLongitudeSubdivisions, int numLatitudeSubdivisions,
+        std::vector<uint32_t>& triangleIndices, std::vector<TubeTriangleVertexData>& vertexDataList) {
+    glm::vec3 binormal = glm::cross(normal, tangent);
+    glm::vec3 scaledTangent = tubeRadius * tangent;
+    glm::vec3 scaledNormal = tubeRadius * normal;
+    glm::vec3 scaledBinormal = tubeRadius * binormal;
+
+    float theta; // azimuth;
+    float phi; // zenith;
+
+    uint32_t vertexIndexOffset = indexOffsetCap - indexOffset - numLongitudeSubdivisions;
     for (int lat = 1; lat <= numLatitudeSubdivisions; lat++) {
         phi = sgl::HALF_PI * (1.0f - float(lat) / float(numLatitudeSubdivisions));
         for (int lon = 0; lon < numLongitudeSubdivisions; lon++) {
@@ -69,9 +158,8 @@ void addHemisphereToMesh(
             tubeTriangleVertexData.vertexPosition = transformedPoint;
             tubeTriangleVertexData.vertexLinePointIndex = vertexLinePointIndex | 0x80000000u;
             tubeTriangleVertexData.vertexNormal = vertexNormal;
-            float tubeAngle = sgl::TWO_PI + theta;
-            tubeTriangleVertexData.phi = isStartHemisphere ? tubeAngle : sgl::TWO_PI - tubeAngle;//glm::mod(-theta + sgl::TWO_PI, sgl::TWO_PI);
-            vertexDataList.push_back(tubeTriangleVertexData);
+            tubeTriangleVertexData.phi = -theta;
+            vertexDataList.at(indexOffsetCap++) = tubeTriangleVertexData;
 
             if (lat == numLatitudeSubdivisions) {
                 break;
@@ -80,54 +168,44 @@ void addHemisphereToMesh(
     }
     for (int lat = 0; lat < numLatitudeSubdivisions; lat++) {
         for (int lon = 0; lon < numLongitudeSubdivisions; lon++) {
-            if (isStartHemisphere && lat == 0) {
-                triangleIndices.push_back(indexOffset +
-                        (2*numLongitudeSubdivisions-lon)%numLongitudeSubdivisions
-                        + (lat)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset +
-                        (2*numLongitudeSubdivisions-lon-1)%numLongitudeSubdivisions
-                        + (lat)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                             + (lon)%numLongitudeSubdivisions
-                             + (lat+1)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset +
-                        (2*numLongitudeSubdivisions-lon-1)%numLongitudeSubdivisions
-                        + (lat)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                             + (lon+1)%numLongitudeSubdivisions
-                             + (lat+1)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                             + (lon)%numLongitudeSubdivisions
-                             + (lat+1)*numLongitudeSubdivisions);
-            } else if (lat < numLatitudeSubdivisions-1) {
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                             + (lon)%numLongitudeSubdivisions
-                             + (lat)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                             + (lon+1)%numLongitudeSubdivisions
-                             + (lat)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                             + (lon)%numLongitudeSubdivisions
-                             + (lat+1)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                             + (lon+1)%numLongitudeSubdivisions
-                             + (lat)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                             + (lon+1)%numLongitudeSubdivisions
-                             + (lat+1)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                             + (lon)%numLongitudeSubdivisions
-                             + (lat+1)*numLongitudeSubdivisions);
+            if (lat < numLatitudeSubdivisions-1) {
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + (lon)%numLongitudeSubdivisions
+                        + (lat)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + (lon+1)%numLongitudeSubdivisions
+                        + (lat)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + (lon)%numLongitudeSubdivisions
+                        + (lat+1)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + (lon+1)%numLongitudeSubdivisions
+                        + (lat)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + (lon+1)%numLongitudeSubdivisions
+                        + (lat+1)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + (lon)%numLongitudeSubdivisions
+                        + (lat+1)*numLongitudeSubdivisions;
             } else {
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                             + (lon)%numLongitudeSubdivisions
-                             + (lat)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                             + (lon+1)%numLongitudeSubdivisions
-                             + (lat)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                             + 0
-                             + (lat+1)*numLongitudeSubdivisions);
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + (lon)%numLongitudeSubdivisions
+                        + (lat)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + (lon+1)%numLongitudeSubdivisions
+                        + (lat)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + 0
+                        + (lat+1)*numLongitudeSubdivisions;
             }
         }
     }
@@ -147,11 +225,20 @@ void createCappedTriangleTubesRenderDataCPU(
         initGlobalCircleVertexPositions(numCircleSubdivisions, tubeRadius);
     }
 
+    /*
+     * If the tube is open, close it with two hemisphere caps at the ends.
+     */
+    int numLongitudeSubdivisions = numCircleSubdivisions; // azimuth
+    int numLatitudeSubdivisions = int(std::ceil(numCircleSubdivisions / 2)); // zenith
+    uint32_t numCapVertices =
+            numLongitudeSubdivisions * (numLatitudeSubdivisions - 1) + 1;
+    uint32_t numCapIndices =
+            numLongitudeSubdivisions * (numLatitudeSubdivisions - 1) * 6 + numLongitudeSubdivisions * 3;
+
     for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
         const std::vector<glm::vec3>& lineCenters = lineCentersList.at(lineId);
         size_t n = lineCenters.size();
-        uint32_t indexOffset = uint32_t(vertexDataList.size());
-        uint32_t lineIndexOffset = uint32_t(lineTangents.size());
+        auto lineIndexOffset = uint32_t(lineTangents.size());
 
         // Assert that we have a valid input data range
         if (tubeClosed && n < 3) {
@@ -160,6 +247,14 @@ void createCappedTriangleTubesRenderDataCPU(
         if (!tubeClosed && n < 2) {
             continue;
         }
+
+        auto indexOffsetCapStart = uint32_t(vertexDataList.size());
+        auto triOffsetCapStart = uint32_t(triangleIndices.size());
+        if (!tubeClosed) {
+            vertexDataList.resize(vertexDataList.size() + numCapVertices);
+            triangleIndices.resize(triangleIndices.size() + numCapIndices);
+        }
+        auto indexOffset = uint32_t(vertexDataList.size());
 
         glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
         int firstIdx = int(n) - 2;
@@ -196,9 +291,7 @@ void createCappedTriangleTubesRenderDataCPU(
 
         if (numValidLinePoints == 1) {
             // Only one vertex left -> output nothing (tube consisting only of one point).
-            for (int subdivIdx = 0; subdivIdx < numCircleSubdivisions; subdivIdx++) {
-                vertexDataList.pop_back();
-            }
+            vertexDataList.resize(indexOffsetCapStart);
             linePointReferenceList.pop_back();
             lineTangents.pop_back();
             lineNormals.pop_back();
@@ -226,6 +319,13 @@ void createCappedTriangleTubesRenderDataCPU(
                 triangleIndices.push_back(
                         indexOffset + ((i+1)%numValidLinePoints)*numCircleSubdivisions+j);
             }
+        }
+
+        auto indexOffsetCapEnd = uint32_t(vertexDataList.size());
+        auto triOffsetCapEnd = uint32_t(triangleIndices.size());
+        if (!tubeClosed) {
+            vertexDataList.resize(vertexDataList.size() + numCapVertices);
+            triangleIndices.resize(triangleIndices.size() + numCapIndices);
         }
 
         if (tubeClosed) {
@@ -256,12 +356,6 @@ void createCappedTriangleTubesRenderDataCPU(
                 triangleIndices.push_back(indexOffset + 0*numCircleSubdivisions+(j+jOffset)%numCircleSubdivisions);
             }
         } else {
-            /*
-             * If the tube is open, close it with two hemisphere caps at the ends.
-             */
-            int numLongitudeSubdivisions = numCircleSubdivisions; // azimuth
-            int numLatitudeSubdivisions = int(std::ceil(numCircleSubdivisions/2)); // zenith
-
             // Hemisphere at the start
             glm::vec3 center0 = lineCenters[firstIdx];
             glm::vec3 tangent0 = lineCenters[firstIdx] - lineCenters[firstIdx + 1];
@@ -274,15 +368,15 @@ void createCappedTriangleTubesRenderDataCPU(
             tangent1 = glm::normalize(tangent1);
             glm::vec3 normal1 = lineNormals[lineIndexOffset + numValidLinePoints - 1];
 
-            addHemisphereToMesh(
-                    center1, tangent1, normal1, indexOffset,
-                    linePointOffset + uint32_t(lineTangents.size() - 1),
-                    tubeRadius, numLongitudeSubdivisions, numLatitudeSubdivisions, false,
-                    triangleIndices, vertexDataList);
-            addHemisphereToMesh(
-                    center0, tangent0, normal0, indexOffset,
+            addHemisphereToMeshStart(
+                    center0, tangent0, normal0, indexOffset, indexOffsetCapStart, triOffsetCapStart,
                     linePointOffset + uint32_t(lineIndexOffset),
-                    tubeRadius, numLongitudeSubdivisions, numLatitudeSubdivisions, true,
+                    tubeRadius, numLongitudeSubdivisions, numLatitudeSubdivisions,
+                    triangleIndices, vertexDataList);
+            addHemisphereToMeshStop(
+                    center1, tangent1, normal1, indexOffset, indexOffsetCapEnd, triOffsetCapEnd,
+                    linePointOffset + uint32_t(lineTangents.size() - 1),
+                    tubeRadius, numLongitudeSubdivisions, numLatitudeSubdivisions,
                     triangleIndices, vertexDataList);
         }
     }
@@ -290,10 +384,11 @@ void createCappedTriangleTubesRenderDataCPU(
 
 
 
-void addEllipticHemisphereToMesh(
-        const glm::vec3& center, glm::vec3 tangent, glm::vec3 normal, uint32_t indexOffset, uint32_t vertexLinePointIndex,
-        float tubeNormalRadius, float tubeBinormalRadius,
-        int numLongitudeSubdivisions, int numLatitudeSubdivisions, bool isStartHemisphere,
+void addEllipticHemisphereToMeshStart(
+        const glm::vec3& center, glm::vec3 tangent, glm::vec3 normal,
+        uint32_t indexOffset, uint32_t indexOffsetCap, uint32_t triOffsetCap,
+        uint32_t vertexLinePointIndex, float tubeNormalRadius, float tubeBinormalRadius,
+        int numLongitudeSubdivisions, int numLatitudeSubdivisions,
         std::vector<uint32_t>& triangleIndices, std::vector<TubeTriangleVertexData>& vertexDataList) {
     glm::vec3 binormal = glm::cross(normal, tangent);
     glm::vec3 scaledTangent = std::min(tubeNormalRadius, tubeBinormalRadius) * tangent;
@@ -306,7 +401,96 @@ void addEllipticHemisphereToMesh(
     glm::mat3 frameMatrix(scaledNormal, scaledBinormal, scaledTangent);
     glm::mat3 normalFrameMatrix = glm::transpose(glm::inverse(frameMatrix));
 
-    uint32_t vertexIndexOffset = uint32_t(vertexDataList.size()) - indexOffset - numLongitudeSubdivisions;
+    uint32_t vertexOffsetCap = indexOffsetCap;
+    for (int lat = numLatitudeSubdivisions; lat >= 1; lat--) {
+        phi = sgl::HALF_PI * (1.0f - float(lat) / float(numLatitudeSubdivisions));
+        for (int lon = 0; lon < numLongitudeSubdivisions; lon++) {
+            theta = sgl::TWO_PI * float(lon) / float(numLongitudeSubdivisions);
+
+            glm::vec3 pt(
+                    std::cos(theta) * std::sin(phi),
+                    std::sin(theta) * std::sin(phi),
+                    std::cos(phi)
+            );
+
+            glm::vec3 transformedPoint(
+                    pt.x * scaledNormal.x + pt.y * scaledBinormal.x + pt.z * scaledTangent.x + center.x,
+                    pt.x * scaledNormal.y + pt.y * scaledBinormal.y + pt.z * scaledTangent.y + center.y,
+                    pt.x * scaledNormal.z + pt.y * scaledBinormal.z + pt.z * scaledTangent.z + center.z
+            );
+            glm::vec3 vertexNormal = glm::normalize(normalFrameMatrix * pt);
+
+            TubeTriangleVertexData tubeTriangleVertexData{};
+            tubeTriangleVertexData.vertexPosition = transformedPoint;
+            tubeTriangleVertexData.vertexLinePointIndex = vertexLinePointIndex | 0x80000000u;
+            tubeTriangleVertexData.vertexNormal = vertexNormal;
+            //tubeTriangleVertexData.phi = theta;
+            tubeTriangleVertexData.phi = phi;
+            vertexDataList.at(vertexOffsetCap++) = tubeTriangleVertexData;
+
+            if (lat == numLatitudeSubdivisions) {
+                break;
+            }
+        }
+    }
+    for (int lat = 0; lat < numLatitudeSubdivisions; lat++) {
+        for (int lon = 0; lon < numLongitudeSubdivisions; lon++) {
+            if (lat > 0) {
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffsetCap + 1
+                        + (lon)%numLongitudeSubdivisions
+                        + (lat-1)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffsetCap + 1
+                        + (lon+1)%numLongitudeSubdivisions
+                        + (lat-1)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffsetCap + 1
+                        + (lon)%numLongitudeSubdivisions
+                        + (lat)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffsetCap + 1
+                        + (lon+1)%numLongitudeSubdivisions
+                        + (lat-1)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffsetCap + 1
+                        + (lon+1)%numLongitudeSubdivisions
+                        + (lat)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffsetCap + 1
+                        + (lon)%numLongitudeSubdivisions
+                        + (lat)*numLongitudeSubdivisions;
+            } else {
+                triangleIndices.at(triOffsetCap++) = indexOffsetCap;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffsetCap + 1
+                        + (lon+1)%numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffsetCap + 1
+                        + (lon)%numLongitudeSubdivisions;
+            }
+        }
+    }
+}
+
+void addEllipticHemisphereToMeshStop(
+        const glm::vec3& center, glm::vec3 tangent, glm::vec3 normal,
+        uint32_t indexOffset, uint32_t indexOffsetCap, uint32_t triOffsetCap,
+        uint32_t vertexLinePointIndex, float tubeNormalRadius, float tubeBinormalRadius,
+        int numLongitudeSubdivisions, int numLatitudeSubdivisions,
+        std::vector<uint32_t>& triangleIndices, std::vector<TubeTriangleVertexData>& vertexDataList) {
+    glm::vec3 binormal = glm::cross(normal, tangent);
+    glm::vec3 scaledTangent = std::min(tubeNormalRadius, tubeBinormalRadius) * tangent;
+    glm::vec3 scaledNormal = tubeNormalRadius * normal;
+    glm::vec3 scaledBinormal = tubeBinormalRadius * binormal;
+
+    float theta; // azimuth;
+    float phi; // zenith;
+
+    glm::mat3 frameMatrix(scaledNormal, scaledBinormal, scaledTangent);
+    glm::mat3 normalFrameMatrix = glm::transpose(glm::inverse(frameMatrix));
+
+    uint32_t vertexIndexOffset = indexOffsetCap - indexOffset - numLongitudeSubdivisions;
     for (int lat = 1; lat <= numLatitudeSubdivisions; lat++) {
         phi = sgl::HALF_PI * (1.0f - float(lat) / float(numLatitudeSubdivisions));
         for (int lon = 0; lon < numLongitudeSubdivisions; lon++) {
@@ -329,8 +513,9 @@ void addEllipticHemisphereToMesh(
             tubeTriangleVertexData.vertexPosition = transformedPoint;
             tubeTriangleVertexData.vertexLinePointIndex = vertexLinePointIndex | 0x80000000u;
             tubeTriangleVertexData.vertexNormal = vertexNormal;
+            //tubeTriangleVertexData.phi = -theta;
             tubeTriangleVertexData.phi = phi;
-            vertexDataList.push_back(tubeTriangleVertexData);
+            vertexDataList.at(indexOffsetCap++) = tubeTriangleVertexData;
 
             if (lat == numLatitudeSubdivisions) {
                 break;
@@ -339,54 +524,44 @@ void addEllipticHemisphereToMesh(
     }
     for (int lat = 0; lat < numLatitudeSubdivisions; lat++) {
         for (int lon = 0; lon < numLongitudeSubdivisions; lon++) {
-            if (isStartHemisphere && lat == 0) {
-                triangleIndices.push_back(indexOffset +
-                                          (2*numLongitudeSubdivisions-lon)%numLongitudeSubdivisions
-                                          + (lat)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset +
-                                          (2*numLongitudeSubdivisions-lon-1)%numLongitudeSubdivisions
-                                          + (lat)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                                          + (lon)%numLongitudeSubdivisions
-                                          + (lat+1)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset +
-                                          (2*numLongitudeSubdivisions-lon-1)%numLongitudeSubdivisions
-                                          + (lat)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                                          + (lon+1)%numLongitudeSubdivisions
-                                          + (lat+1)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                                          + (lon)%numLongitudeSubdivisions
-                                          + (lat+1)*numLongitudeSubdivisions);
-            } else if (lat < numLatitudeSubdivisions-1) {
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                                          + (lon)%numLongitudeSubdivisions
-                                          + (lat)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                                          + (lon+1)%numLongitudeSubdivisions
-                                          + (lat)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                                          + (lon)%numLongitudeSubdivisions
-                                          + (lat+1)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                                          + (lon+1)%numLongitudeSubdivisions
-                                          + (lat)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                                          + (lon+1)%numLongitudeSubdivisions
-                                          + (lat+1)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                                          + (lon)%numLongitudeSubdivisions
-                                          + (lat+1)*numLongitudeSubdivisions);
+            if (lat < numLatitudeSubdivisions-1) {
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + (lon)%numLongitudeSubdivisions
+                        + (lat)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + (lon+1)%numLongitudeSubdivisions
+                        + (lat)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + (lon)%numLongitudeSubdivisions
+                        + (lat+1)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + (lon+1)%numLongitudeSubdivisions
+                        + (lat)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + (lon+1)%numLongitudeSubdivisions
+                        + (lat+1)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + (lon)%numLongitudeSubdivisions
+                        + (lat+1)*numLongitudeSubdivisions;
             } else {
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                                          + (lon)%numLongitudeSubdivisions
-                                          + (lat)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                                          + (lon+1)%numLongitudeSubdivisions
-                                          + (lat)*numLongitudeSubdivisions);
-                triangleIndices.push_back(indexOffset + vertexIndexOffset
-                                          + 0
-                                          + (lat+1)*numLongitudeSubdivisions);
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + (lon)%numLongitudeSubdivisions
+                        + (lat)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + (lon+1)%numLongitudeSubdivisions
+                        + (lat)*numLongitudeSubdivisions;
+                triangleIndices.at(triOffsetCap++) =
+                        indexOffset + vertexIndexOffset
+                        + 0
+                        + (lat+1)*numLongitudeSubdivisions;
             }
         }
     }
@@ -409,12 +584,21 @@ void createCappedTriangleEllipticTubesRenderDataCPU(
         initGlobalEllipseVertexPositions(numEllipseSubdivisions, tubeNormalRadius, tubeBinormalRadius);
     }
 
+    /*
+     * If the tube is open, close it with two hemisphere caps at the ends.
+     */
+    int numLongitudeSubdivisions = numEllipseSubdivisions; // azimuth
+    int numLatitudeSubdivisions = int(std::ceil(numEllipseSubdivisions/2)); // zenith
+    uint32_t numCapVertices =
+            numLongitudeSubdivisions * (numLatitudeSubdivisions - 1) + 1;
+    uint32_t numCapIndices =
+            numLongitudeSubdivisions * (numLatitudeSubdivisions - 1) * 6 + numLongitudeSubdivisions * 3;
+
     for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
         const std::vector<glm::vec3>& lineCenters = lineCentersList.at(lineId);
         const std::vector<glm::vec3>& lineRightVectors = lineRightVectorsList.at(lineId);
         size_t n = lineCenters.size();
-        uint32_t indexOffset = uint32_t(vertexDataList.size());
-        uint32_t lineIndexOffset = uint32_t(lineTangents.size());
+        auto lineIndexOffset = uint32_t(lineTangents.size());
 
         // Assert that we have a valid input data range
         if (tubeClosed && n < 3) {
@@ -423,6 +607,14 @@ void createCappedTriangleEllipticTubesRenderDataCPU(
         if (!tubeClosed && n < 2) {
             continue;
         }
+
+        auto indexOffsetCapStart = uint32_t(vertexDataList.size());
+        auto triOffsetCapStart = uint32_t(triangleIndices.size());
+        if (!tubeClosed) {
+            vertexDataList.resize(vertexDataList.size() + numCapVertices);
+            triangleIndices.resize(triangleIndices.size() + numCapIndices);
+        }
+        auto indexOffset = uint32_t(vertexDataList.size());
 
         int firstIdx = int(n) - 2;
         int lastIdx = 1;
@@ -459,9 +651,7 @@ void createCappedTriangleEllipticTubesRenderDataCPU(
 
         if (numValidLinePoints == 1) {
             // Only one vertex left -> output nothing (tube consisting only of one point).
-            for (int subdivIdx = 0; subdivIdx < numEllipseSubdivisions; subdivIdx++) {
-                vertexDataList.pop_back();
-            }
+            vertexDataList.resize(indexOffsetCapStart);
             linePointReferenceList.pop_back();
             lineTangents.pop_back();
             lineNormals.pop_back();
@@ -489,6 +679,13 @@ void createCappedTriangleEllipticTubesRenderDataCPU(
                 triangleIndices.push_back(
                         indexOffset + ((i+1)%numValidLinePoints)*numEllipseSubdivisions+j);
             }
+        }
+
+        auto indexOffsetCapEnd = uint32_t(vertexDataList.size());
+        auto triOffsetCapEnd = uint32_t(triangleIndices.size());
+        if (!tubeClosed) {
+            vertexDataList.resize(vertexDataList.size() + numCapVertices);
+            triangleIndices.resize(triangleIndices.size() + numCapIndices);
         }
 
         if (tubeClosed) {
@@ -519,12 +716,6 @@ void createCappedTriangleEllipticTubesRenderDataCPU(
                 triangleIndices.push_back(indexOffset + 0*numEllipseSubdivisions+(j+jOffset)%numEllipseSubdivisions);
             }
         } else {
-            /*
-             * If the tube is open, close it with two hemisphere caps at the ends.
-             */
-            int numLongitudeSubdivisions = numEllipseSubdivisions; // azimuth
-            int numLatitudeSubdivisions = int(std::ceil(numEllipseSubdivisions/2)); // zenith
-
             // Hemisphere at the start
             glm::vec3 center0 = lineCenters[firstIdx];
             glm::vec3 tangent0 = lineCenters[firstIdx] - lineCenters[firstIdx + 1];
@@ -537,16 +728,16 @@ void createCappedTriangleEllipticTubesRenderDataCPU(
             tangent1 = glm::normalize(tangent1);
             glm::vec3 normal1 = lineNormals[lineIndexOffset + numValidLinePoints - 1];
 
-            addEllipticHemisphereToMesh(
-                    center1, tangent1, normal1, indexOffset,
-                    linePointOffset + uint32_t(lineTangents.size() - 1),
-                    tubeNormalRadius, tubeBinormalRadius, numLongitudeSubdivisions, numLatitudeSubdivisions,
-                    false, triangleIndices, vertexDataList);
-            addEllipticHemisphereToMesh(
-                    center0, tangent0, normal0, indexOffset,
+            addEllipticHemisphereToMeshStart(
+                    center0, tangent0, normal0, indexOffset, indexOffsetCapStart, triOffsetCapStart,
                     linePointOffset + uint32_t(lineIndexOffset),
                     tubeNormalRadius, tubeBinormalRadius, numLongitudeSubdivisions, numLatitudeSubdivisions,
-                    true, triangleIndices, vertexDataList);
+                    triangleIndices, vertexDataList);
+            addEllipticHemisphereToMeshStop(
+                    center1, tangent1, normal1, indexOffset, indexOffsetCapEnd, triOffsetCapEnd,
+                    linePointOffset + uint32_t(lineTangents.size() - 1),
+                    tubeNormalRadius, tubeBinormalRadius, numLongitudeSubdivisions, numLatitudeSubdivisions,
+                    triangleIndices, vertexDataList);
         }
     }
 }
@@ -570,6 +761,17 @@ void createCappedTrianglePrincipalStressTubesRenderDataCPU(
         std::vector<glm::vec3>& lineTangents,
         std::vector<glm::vec3>& lineNormals) {
     numEllipseSubdivisions = std::max(numEllipseSubdivisions, 4);
+
+    /*
+     * If the tube is open, close it with two hemisphere caps at the ends.
+     */
+    int numLongitudeSubdivisions = numEllipseSubdivisions; // azimuth
+    int numLatitudeSubdivisions = int(std::ceil(numEllipseSubdivisions/2)); // zenith
+    uint32_t numCapVertices =
+            numLongitudeSubdivisions * (numLatitudeSubdivisions - 1) + 1;
+    uint32_t numCapIndices =
+            numLongitudeSubdivisions * (numLatitudeSubdivisions - 1) * 6 + numLongitudeSubdivisions * 3;
+
     for (size_t lineId = 0; lineId < lineCentersList.size(); lineId++) {
         const std::vector<glm::vec3>& lineCenters = lineCentersList.at(lineId);
         const std::vector<glm::vec3> &lineRightVectors = lineRightVectorsList.at(lineId);
@@ -577,8 +779,7 @@ void createCappedTrianglePrincipalStressTubesRenderDataCPU(
         const std::vector<float> &lineMediumStresses = lineMediumStressesList.at(lineId);
         const std::vector<float> &lineMinorStresses = lineMinorStressesList.at(lineId);
         size_t n = lineCenters.size();
-        uint32_t indexOffset = uint32_t(vertexDataList.size());
-        uint32_t lineIndexOffset = uint32_t(lineTangents.size());
+        auto lineIndexOffset = uint32_t(lineTangents.size());
         uint32_t principalStressIndex = linePrincipalStressIndexList.at(lineId);
 
         // Assert that we have a valid input data range
@@ -592,6 +793,14 @@ void createCappedTrianglePrincipalStressTubesRenderDataCPU(
         bool radiusStartSet = false;
         float tubeNormalRadiusStart = tubeRadius, tubeBinormalRadiusStart = tubeRadius;
         float tubeNormalRadiusEnd = tubeRadius, tubeBinormalRadiusEnd = tubeRadius;
+
+        auto indexOffsetCapStart = uint32_t(vertexDataList.size());
+        auto triOffsetCapStart = uint32_t(triangleIndices.size());
+        if (!tubeClosed) {
+            vertexDataList.resize(vertexDataList.size() + numCapVertices);
+            triangleIndices.resize(triangleIndices.size() + numCapIndices);
+        }
+        auto indexOffset = uint32_t(vertexDataList.size());
 
         int numValidLinePoints = 0;
         int firstIdx = int(n) - 2;
@@ -695,9 +904,7 @@ void createCappedTrianglePrincipalStressTubesRenderDataCPU(
 
         if (numValidLinePoints == 1) {
             // Only one vertex left -> output nothing (tube consisting only of one point).
-            for (int subdivIdx = 0; subdivIdx < numEllipseSubdivisions; subdivIdx++) {
-                vertexDataList.pop_back();
-            }
+            vertexDataList.resize(indexOffsetCapStart);
             linePointReferenceList.pop_back();
             lineTangents.pop_back();
             lineNormals.pop_back();
@@ -725,6 +932,13 @@ void createCappedTrianglePrincipalStressTubesRenderDataCPU(
                 triangleIndices.push_back(
                         indexOffset + ((i+1)%numValidLinePoints)*numEllipseSubdivisions+j);
             }
+        }
+
+        auto indexOffsetCapEnd = uint32_t(vertexDataList.size());
+        auto triOffsetCapEnd = uint32_t(triangleIndices.size());
+        if (!tubeClosed) {
+            vertexDataList.resize(vertexDataList.size() + numCapVertices);
+            triangleIndices.resize(triangleIndices.size() + numCapIndices);
         }
 
         if (tubeClosed) {
@@ -755,12 +969,6 @@ void createCappedTrianglePrincipalStressTubesRenderDataCPU(
                 triangleIndices.push_back(indexOffset + 0*numEllipseSubdivisions+(j+jOffset)%numEllipseSubdivisions);
             }
         } else {
-            /*
-             * If the tube is open, close it with two hemisphere caps at the ends.
-             */
-            int numLongitudeSubdivisions = numEllipseSubdivisions; // azimuth
-            int numLatitudeSubdivisions = int(std::ceil(numEllipseSubdivisions/2)); // zenith
-
             // Hemisphere at the start
             glm::vec3 center0 = lineCenters[firstIdx];
             glm::vec3 tangent0 = lineCenters[firstIdx] - lineCenters[firstIdx + 1];
@@ -773,18 +981,18 @@ void createCappedTrianglePrincipalStressTubesRenderDataCPU(
             tangent1 = glm::normalize(tangent1);
             glm::vec3 normal1 = lineNormals[lineIndexOffset + numValidLinePoints - 1];
 
-            addEllipticHemisphereToMesh(
-                    center1, tangent1, normal1, indexOffset,
-                    linePointOffset + uint32_t(lineTangents.size() - 1),
-                    tubeNormalRadiusEnd, tubeBinormalRadiusEnd,
-                    numLongitudeSubdivisions, numLatitudeSubdivisions,
-                    false, triangleIndices, vertexDataList);
-            addEllipticHemisphereToMesh(
-                    center0, tangent0, normal0, indexOffset,
+            addEllipticHemisphereToMeshStart(
+                    center0, tangent0, normal0, indexOffset, indexOffsetCapStart, triOffsetCapStart,
                     linePointOffset + uint32_t(lineIndexOffset),
                     tubeNormalRadiusStart, tubeBinormalRadiusStart,
                     numLongitudeSubdivisions, numLatitudeSubdivisions,
-                    true, triangleIndices, vertexDataList);
+                    triangleIndices, vertexDataList);
+            addEllipticHemisphereToMeshStop(
+                    center1, tangent1, normal1, indexOffset, indexOffsetCapEnd, triOffsetCapEnd,
+                    linePointOffset + uint32_t(lineTangents.size() - 1),
+                    tubeNormalRadiusEnd, tubeBinormalRadiusEnd,
+                    numLongitudeSubdivisions, numLatitudeSubdivisions,
+                    triangleIndices, vertexDataList);
         }
     }
 }

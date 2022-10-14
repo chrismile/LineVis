@@ -26,6 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <filesystem>
 #include <unordered_map>
 
 #ifdef USE_PYTHON
@@ -57,6 +58,16 @@
 int main(int argc, char *argv[]) {
     // Initialize the filesystem utilities.
     sgl::FileUtils::get()->initialize("LineVis", argc, argv);
+
+#ifdef DATA_PATH
+    if (!sgl::FileUtils::get()->directoryExists("Data") && !sgl::FileUtils::get()->directoryExists("../Data")) {
+        sgl::AppSettings::get()->setDataDirectory(DATA_PATH);
+    }
+#endif
+    sgl::AppSettings::get()->initializeDataDirectory();
+
+    std::string iconPath = sgl::AppSettings::get()->getDataDirectory() + "Fonts/icon_256.png";
+    sgl::AppSettings::get()->loadApplicationIconFromFile(iconPath);
 
     // Parse the arguments.
     bool usePerfMode = false;
@@ -94,11 +105,6 @@ int main(int argc, char *argv[]) {
     }
     sgl::AppSettings::get()->getSettings().addKeyValue("window-resizable", true);
     sgl::AppSettings::get()->getSettings().addKeyValue("window-savePosition", true);
-#ifdef DATA_PATH
-    if (!sgl::FileUtils::get()->directoryExists("Data") && !sgl::FileUtils::get()->directoryExists("../Data")) {
-        sgl::AppSettings::get()->setDataDirectory(DATA_PATH);
-    }
-#endif
 
     ImVector<ImWchar> fontRanges;
     ImFontGlyphRangesBuilder builder;

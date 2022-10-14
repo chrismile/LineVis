@@ -1722,7 +1722,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
         }
         if (shallVisualizeNodes) {
             if (propertyEditor.addSliderFloat(
-                    "Wireframe Width", &nodeAabbLineWidth, 0.0f, 0.01f)) {
+                    "Wireframe Width", &nodeAabbLineWidth, 0.0f, 0.01f, "%.4f")) {
                 visualizeNodesPass->setLineWidth(nodeAabbLineWidth);
                 reRender = true;
             }
@@ -1755,7 +1755,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
         }
         if (shallVisualizeNodes) {
             if (propertyEditor.addSliderFloat(
-                    "Wireframe Width", &nodeAabbLineWidth, 0.0f, 1.0f)) {
+                    "Wireframe Width", &nodeAabbLineWidth, 0.0f, 0.01f, "%.4f")) {
                 visualizeNodesPass->setLineWidth(nodeAabbLineWidth);
                 reRender = true;
             }
@@ -1860,7 +1860,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
         }
         if (shallVisualizeNodes) {
             if (propertyEditor.addSliderFloat(
-                    "Wireframe Width", &nodeAabbLineWidth, 0.0f, 1.0f)) {
+                    "Wireframe Width", &nodeAabbLineWidth, 0.0f, 0.01f, "%.4f")) {
                 visualizeNodesPass->setLineWidth(nodeAabbLineWidth);
                 reRender = true;
             }
