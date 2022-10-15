@@ -220,8 +220,8 @@ Below, a list of rendering modes supported in LineVis can be found.
   (I3D ’14). ACM, New York, NY, USA, 151–158. https://doi.org/10.1145/2556700.2556705
 
 - Transparent line rendering with Multi-Layer Alpha Tracing (MLAT).
-  For more details see: F. Brüll and T. Grosch. Multi-Layer Alpha Tracing. In J. Krüger, M. Niessner, and J. Stückler,
-  editors, Vision, Modeling, and Visualization. The Eurographics Association, 2020.
+  For more details see: F. Brüll and T. Grosch. Multi-Layer Alpha Tracing. In Vision, Modeling, and Visualization.
+  The Eurographics Association, 2020.
 
 - Transparent line rendering with Multi-Layer Alpha Blending using depth buckets (MLABDB).
   For more details see: M. Kern, C. Neuhauser, T. Maack, M. Han, W. Usher and R. Westermann, "A Comparison of Rendering
@@ -252,4 +252,5 @@ When [reporting a bug](https://github.com/chrismile/sgl/issues), please also att
 Below, the location of the logfile on different operating systems can be found.
 
 - Linux: `~/.config/linevis/Logfile.html`
-- Windows: `C:/Users/<USER>/AppData/Roaming/LineVis/Logfile.html`
+- Windows: `%AppData%/LineVis/Logfile.html` (i.e., `C:/Users/<USER>/AppData/Roaming/LineVis/Logfile.html`)
+- macOS: `~/Library/Preferences/LineVis/Logfile.html`
