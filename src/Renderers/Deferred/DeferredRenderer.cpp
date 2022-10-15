@@ -1661,11 +1661,11 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
 
     int numRenderingModes = IM_ARRAYSIZE(deferredRenderingModeNames);
     if (!supportsDrawIndirect) {
-        numRenderingModes -= 3;
+        numRenderingModes -= 4;
     } if (!supportsDrawIndirectCount) {
-        numRenderingModes -= 2;
+        numRenderingModes -= 3;
     } else if (!supportsTaskMeshShaders) {
-        numRenderingModes -= 1;
+        numRenderingModes -= 2;
     }
     if (propertyEditor.addCombo(
             "Deferred Mode", (int*)&deferredRenderingMode,

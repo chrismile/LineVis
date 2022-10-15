@@ -504,10 +504,18 @@ if ! $is_ospray_installed; then
     ln -sf "./$(basename "$libopenvkl_module_cpu_device_16_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_16.so.1"
 fi
 
+# Install numpy if not done in a previous script run.
+python_lib_dir="vcpkg_installed/$(ls --ignore=vcpkg vcpkg_installed)/lib/$Python3_VERSION"
+if [ ! -d "$python_lib_dir/site-packages/numpy" ]; then
+    python_bin="vcpkg_installed/$(ls --ignore=vcpkg vcpkg_installed)/tools/python3/$Python3_VERSION"
+    "$python_bin" -m ensurepip --upgrade
+    "$python_bin" -m pip install -U numpy
+fi
+
 # Copy python3 to the destination directory.
 [ -d $destination_dir/bin/python3 ]     || mkdir $destination_dir/bin/python3
 [ -d $destination_dir/bin/python3/lib ] || mkdir $destination_dir/bin/python3/lib
-rsync -a "vcpkg_installed/$(ls --ignore=vcpkg vcpkg_installed)/lib/$Python3_VERSION" $destination_dir/bin/python3/lib
+rsync -a "$python_lib_dir" $destination_dir/bin/python3/lib
 #rsync -a "$(eval echo "vcpkg_installed/$(ls --ignore=vcpkg vcpkg_installed)/lib/python*")" $destination_dir/python3/lib
 
 # Copy the docs to the destination directory.
