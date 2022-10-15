@@ -114,9 +114,10 @@ if command -v apt &> /dev/null; then
         sudo apt install -y cmake git curl pkg-config build-essential patchelf
     fi
 
-    # Dependencies of vcpkg GLEW port.
+    # Dependencies of vcpkg GLEW and SDL2[x11, wayland] ports.
     if ! is_installed_apt "libxmu-dev" || ! is_installed_apt "libxi-dev" || ! is_installed_apt "libgl-dev"; then
-        sudo apt install libxmu-dev libxi-dev libgl-dev
+        sudo apt install libgl-dev libxmu-dev libxi-dev libx11-dev libxft-dev libxext-dev \
+        libwayland-dev libxkbcommon-dev libegl1-mesa-dev
     fi
 elif command -v pacman &> /dev/null; then
     if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v curl &> /dev/null \
