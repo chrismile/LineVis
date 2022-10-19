@@ -39,10 +39,18 @@ where cmake >NUL 2>&1 || echo cmake was not found but is required to build the p
 
 :: Creates a string with, e.g., -G "Visual Studio 17 2022".
 :: Needs to be run from a Visual Studio developer PowerShell or command prompt.
-set VCINSTALLDIR_ESC=%VCINSTALLDIR:\=\\%
-set "x=%VCINSTALLDIR_ESC:Microsoft Visual Studio\\=" & set "VsPathEnd=%"
-set VsYear=%VsPathEnd:~0,4%
-set cmake_generator=-G "Visual Studio %VisualStudioVersion:~0,2% %VsYear%"
+if defined VCINSTALLDIR (
+    set VCINSTALLDIR_ESC=%VCINSTALLDIR:\=\\%
+)
+if defined VCINSTALLDIR (
+    set "x=%VCINSTALLDIR_ESC:Microsoft Visual Studio\\=" & set "VsPathEnd=%"
+)
+if defined VCINSTALLDIR (
+    set cmake_generator=-G "Visual Studio %VisualStudioVersion:~0,2% %VsPathEnd:~0,4%"
+)
+if not defined VCINSTALLDIR (
+    set cmake_generator=
+)
 
 if not exist .\third_party\ mkdir .\third_party\
 pushd third_party

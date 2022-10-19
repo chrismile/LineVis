@@ -606,10 +606,12 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
         }
     }
 
-    framebufferMode = FramebufferMode::NODE_AABB_PASS;
     visualizeNodesPass->setNodeAabbBuffer({});
     visualizeNodesPass->setNodeAabbCountBuffer({});
-    visualizeNodesPass->updateFramebuffer();
+    if (colorRenderTargetImage) {
+        framebufferMode = FramebufferMode::NODE_AABB_PASS;
+        visualizeNodesPass->updateFramebuffer();
+    }
 
     dirty = false;
     reRender = true;
