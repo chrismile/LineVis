@@ -173,7 +173,15 @@ int main(int argc, char *argv[]) {
 
 #ifdef USE_PYTHON
 #ifdef PYTHONHOME
+#ifdef _MSC_VER
+    char* pythonhomeEnvVar = nullptr;
+    size_t stringSize = 0;
+    if (_dupenv_s(&pythonhomeEnvVar, &stringSize, "PYTHONHOME") != 0) {
+        pythonhomeEnvVar = nullptr;
+    }
+#else
     const char* pythonhomeEnvVar = getenv("PYTHONHOME");
+#endif
     if (!pythonhomeEnvVar || strlen(pythonhomeEnvVar) == 0) {
 #if !defined(__APPLE__) || !defined(PYTHONPATH)
         Py_SetPythonHome(PYTHONHOME);
@@ -225,6 +233,10 @@ int main(int argc, char *argv[]) {
 #endif
 #endif
     }
+#ifdef _MSC_VER
+    free(pythonhomeEnvVar);
+    pythonhomeEnvVar = nullptr;
+#endif
 #endif
     wchar_t** argvWidestr = (wchar_t**)PyMem_Malloc(sizeof(wchar_t*) * argc);
     for (int i = 0; i < argc; i++) {

@@ -104,7 +104,11 @@ Trajectories loadTrajectoriesFromObj(const std::string& filename, std::vector<st
         } else if (command == 'v') {
             // Path line vertex position
             glm::vec3 position;
-            sscanf(lineBuffer.c_str()+2, "%f %f %f", &position.x, &position.y, &position.z);
+#ifdef _MSC_VER
+            sscanf_s(lineBuffer.c_str() + 2, "%f %f %f", &position.x, &position.y, &position.z);
+#else
+            sscanf(lineBuffer.c_str() + 2, "%f %f %f", &position.x, &position.y, &position.z);
+#endif
             globalLineVertices.push_back(position);
         } else if (command == 'l') {
             // Get indices of current path line

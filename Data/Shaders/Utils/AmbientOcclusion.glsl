@@ -71,14 +71,14 @@ float getAoFactor(float interpolatedVertexId, float phi) {
     float aoFactor1 = mix(aoFactor10, aoFactor11, interpolationFactorLine);
     float aoFactor = mix(aoFactor0, aoFactor1, interpolationFactorCircle);
     aoFactor = pow(aoFactor, ambientOcclusionGamma);
-    return 1.0 - ambientOcclusionStrength + ambientOcclusionStrength * aoFactor;
+    return max(0.0, 1.0 - ambientOcclusionStrength + ambientOcclusionStrength * aoFactor);
 }
 #elif defined(VOXEL_BASED_AMBIENT_OCCLUSION)
 float getAoFactor(vec3 positionWorld) {
     vec3 voxelCoords = (worldSpaceToVoxelTextureSpace * vec4(positionWorld, 1.0)).xyz;
     float aoFactor = texture(ambientOcclusionTexture, voxelCoords).x;
     aoFactor = pow(aoFactor, ambientOcclusionGamma);
-    return 1.0 - ambientOcclusionStrength + ambientOcclusionStrength * aoFactor;
+    return max(0.0, 1.0 - ambientOcclusionStrength + ambientOcclusionStrength * aoFactor);
 }
 #else
 float getAoFactor(vec3 screenSpacePosition) {
@@ -91,6 +91,10 @@ float getAoFactor(vec3 screenSpacePosition) {
     ndcPosition.xyz /= ndcPosition.w;
     float aoFactor = texture(ambientOcclusionTexture, ndcPosition.xy * 0.5 + 0.5).x;
     aoFactor = pow(aoFactor, ambientOcclusionGamma);
-    return 1.0 - ambientOcclusionStrength + ambientOcclusionStrength * aoFactor;
+#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+    return max(0.0, 1.0 - ambientOcclusionStrength * 4.0 + ambientOcclusionStrength * aoFactor * 4.0);
+#else
+    return max(0.0, 1.0 - ambientOcclusionStrength + ambientOcclusionStrength * aoFactor);
+#endif
 }
 #endif

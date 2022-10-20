@@ -83,11 +83,20 @@ GuiVarData::GuiVarData(
 }
 
 bool GuiVarData::saveTfToFile(const std::string& filename) {
+#ifdef _MSC_VER
+    FILE* file = nullptr;
+    errno_t errorCode = fopen_s(&file, filename.c_str(), "w");
+    if (errorCode != 0) {
+        sgl::Logfile::get()->writeError(
+                std::string() + "Error in GuiVarData::saveTfToFile: Couldn't create file \"" + filename + "\"!");
+        return false;
+    }
+#else
     FILE* file = fopen(filename.c_str(), "w");
+#endif
     if (file == nullptr) {
         sgl::Logfile::get()->writeError(
-                std::string() + "ERROR: MultiVarTransferFunctionWindow::saveFunctionToFile: Couldn't create file \""
-                + filename + "\"!");
+                std::string() + "Error in GuiVarData::saveTfToFile: Couldn't create file \"" + filename + "\"!");
         return false;
     }
 

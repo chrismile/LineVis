@@ -127,6 +127,9 @@ void LineRenderer::getVulkanShaderPreprocessorDefines(std::map<std::string, std:
         if (ambientOcclusionBaker->getIsStaticPrebaker()) {
             preprocessorDefines.insert(std::make_pair("STATIC_AMBIENT_OCCLUSION_PREBAKING", ""));
         }
+        if (ambientOcclusionBaker->getType() == AmbientOcclusionBakerType::SSAO) {
+            preprocessorDefines.insert(std::make_pair("SCREEN_SPACE_AMBIENT_OCCLUSION", ""));
+        }
         preprocessorDefines.insert(std::make_pair("GEOMETRY_PASS_TUBE", ""));
     }
 
