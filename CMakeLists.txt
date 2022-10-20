@@ -579,43 +579,54 @@ endif()
 # https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros?view=msvc-170,
 # both Visual Studio 2019 version 16.8 and 16.9 have _MSC_VER / MSVC_VERSION 1928, so we need to check
 # for a minimum version 1929.
-find_package(OpenMP REQUIRED)
-if(MSVC)
-    option(USE_MSVC_OPENMP_LLVM "Use LLVM OpenMP with MSVC (available since Visual Studio 2019 version 16.9)." ON)
-    option(USE_MSVC_OPENMP_EXPERIMENTAL "Use experimental OpenMP with MSVC (available since Visual Studio 2019 version 16.9)." ON)
-
-    if(${MSVC_VERSION} GREATER_EQUAL 1929 AND (USE_MSVC_OPENMP_LLVM OR USE_MSVC_OPENMP_EXPERIMENTAL))
-        define_property(
-                SOURCE
-                PROPERTY COMPILE_FLAGS
-                INHERITED
-                BRIEF_DOCS "brief-doc"
-                FULL_DOCS "full-doc"
-        )
-        if(USE_MSVC_OPENMP_LLVM)
-            #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /openmp:llvm")
-            #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /openmp:llvm")
-            set_directory_properties(PROPERTIES COMPILE_FLAGS "/openmp:llvm")
-        endif()
-        if(USE_MSVC_OPENMP_EXPERIMENTAL)
-            #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /openmp:experimental")
-            #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /openmp:experimental")
-            set_directory_properties(PROPERTIES COMPILE_FLAGS "/openmp:experimental")
-        endif()
-        if(USE_MSVC_OPENMP_LLVM AND USE_MSVC_OPENMP_EXPERIMENTAL)
-            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /w44005")
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /w44005")
-        endif()
-        set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/src/LineData/TrianglePayload/NodesBVHTreePayload.cpp" PROPERTIES COMPILE_FLAGS "")
+if (APPLE)
+    # There are some problems with Homebrew OpenMP as of 2022-10-20.
+    find_package(OpenMP QUIET)
+    if (OpenMP_FOUND)
+        MESSAGE(STATUS "Found OpenMP version ${OpenMP_CXX_VERSION}. Enabling OpenMP threading support.")
+    else()
+        MESSAGE(STATUS "OpenMP not found. Disabling OpenMP threading support.")
     endif()
-
-elseif(NOT TARGET OpenMP::OpenMP_CXX)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 else()
-    target_link_libraries(LineVis PUBLIC OpenMP::OpenMP_CXX)
-    if (USE_GTEST)
-        target_link_libraries(LineVis_test PUBLIC OpenMP::OpenMP_CXX)
+    find_package(OpenMP REQUIRED)
+endif()
+if(OpenMP_FOUND)
+    if(MSVC)
+        option(USE_MSVC_OPENMP_LLVM "Use LLVM OpenMP with MSVC (available since Visual Studio 2019 version 16.9)." ON)
+        option(USE_MSVC_OPENMP_EXPERIMENTAL "Use experimental OpenMP with MSVC (available since Visual Studio 2019 version 16.9)." ON)
+
+        if(${MSVC_VERSION} GREATER_EQUAL 1929 AND (USE_MSVC_OPENMP_LLVM OR USE_MSVC_OPENMP_EXPERIMENTAL))
+            define_property(
+                    SOURCE
+                    PROPERTY COMPILE_FLAGS
+                    INHERITED
+                    BRIEF_DOCS "brief-doc"
+                    FULL_DOCS "full-doc"
+            )
+            if(USE_MSVC_OPENMP_LLVM)
+                #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /openmp:llvm")
+                #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /openmp:llvm")
+                set_directory_properties(PROPERTIES COMPILE_FLAGS "/openmp:llvm")
+            endif()
+            if(USE_MSVC_OPENMP_EXPERIMENTAL)
+                #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /openmp:experimental")
+                #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /openmp:experimental")
+                set_directory_properties(PROPERTIES COMPILE_FLAGS "/openmp:experimental")
+            endif()
+            if(USE_MSVC_OPENMP_LLVM AND USE_MSVC_OPENMP_EXPERIMENTAL)
+                set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /w44005")
+                set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /w44005")
+            endif()
+            set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/src/LineData/TrianglePayload/NodesBVHTreePayload.cpp" PROPERTIES COMPILE_FLAGS "")
+        endif()
+    elseif(NOT TARGET OpenMP::OpenMP_CXX)
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+    else()
+        target_link_libraries(LineVis PUBLIC OpenMP::OpenMP_CXX)
+        if (USE_GTEST)
+            target_link_libraries(LineVis_test PUBLIC OpenMP::OpenMP_CXX)
+        endif()
     endif()
 endif()
