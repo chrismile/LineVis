@@ -244,7 +244,7 @@ endif()
 
 
 if(WIN32)
-    add_executable(LineVis WIN32 ${SOURCES})
+    add_executable(LineVis WIN32 ${SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/CMake/winres.rc)
 elseif(APPLE)
     add_executable(LineVis MACOSX_BUNDLE ${SOURCES})
 else()
