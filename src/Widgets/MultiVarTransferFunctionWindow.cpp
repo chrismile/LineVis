@@ -787,8 +787,9 @@ MultiVarTransferFunctionWindow::MultiVarTransferFunctionWindow(
     updateAvailableFiles();
 }
 
-MultiVarTransferFunctionWindow::~MultiVarTransferFunctionWindow() {
-}
+MultiVarTransferFunctionWindow::MultiVarTransferFunctionWindow() = default;
+
+MultiVarTransferFunctionWindow::~MultiVarTransferFunctionWindow() = default;
 
 void MultiVarTransferFunctionWindow::setAttributesValues(
         const std::vector<std::string>& names,

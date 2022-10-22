@@ -65,7 +65,7 @@
 #include "DeferredRenderer.hpp"
 
 DeferredRenderer::DeferredRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
-        : LineRenderer("Opaque Line Renderer", sceneData, transferFunctionWindow) {
+        : LineRenderer("Deferred Renderer", sceneData, transferFunctionWindow) {
     sgl::vk::Device* device = (*sceneData->renderer)->getDevice();
 
     // Needs gl_DrawIDARB via shaderDrawParameters in the shader to get the indirect draw call-corrected gl_PrimitiveID.

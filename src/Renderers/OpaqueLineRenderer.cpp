@@ -43,7 +43,7 @@
 #include "OpaqueLineRenderer.hpp"
 
 OpaqueLineRenderer::OpaqueLineRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
-        : LineRenderer("Opaque Line Renderer", sceneData, transferFunctionWindow) {
+        : LineRenderer("Opaque Renderer", sceneData, transferFunctionWindow) {
     // Get all available multisampling modes.
     maximumNumberOfSamples = (*sceneData->renderer)->getDevice()->getMaxUsableSampleCount();
     if (maximumNumberOfSamples <= 1) {

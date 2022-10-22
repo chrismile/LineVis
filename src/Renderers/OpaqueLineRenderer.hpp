@@ -41,7 +41,7 @@ class OpaqueLineRenderer : public LineRenderer {
 public:
     OpaqueLineRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
     ~OpaqueLineRenderer() override = default;
-    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_ALL_LINES_OPAQUE; }
+    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_OPAQUE; }
     bool getIsTransparencyUsed() override { return false; }
 
     /**

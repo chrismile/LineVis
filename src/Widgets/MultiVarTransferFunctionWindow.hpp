@@ -130,6 +130,7 @@ public:
     explicit MultiVarTransferFunctionWindow(
             const std::string& saveDirectoryPrefix,
             const std::vector<std::string>& tfPresetFiles = {});
+    MultiVarTransferFunctionWindow();
     ~MultiVarTransferFunctionWindow();
 
     // Multi-var functions.

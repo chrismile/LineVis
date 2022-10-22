@@ -65,6 +65,7 @@
 
 #include "LineData/LineDataFlow.hpp"
 #include "LineData/LineDataStress.hpp"
+#include "LineData/TriangleMesh/TriangleMeshData.hpp"
 #include "LineData/Filters/LineLengthFilter.hpp"
 #include "LineData/Filters/MaxLineAttributeFilter.hpp"
 #include "LineData/Flow/StreamlineTracingRequester.hpp"
@@ -284,6 +285,9 @@ MainApp::MainApp()
             } else if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
                 LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
                 multiVarTransferFunctionWindow = &lineDataStress->getMultiVarTransferFunctionWindow();
+            } else if (lineData->getType() == DATA_SET_TYPE_TRIANGLE_MESH) {
+                TriangleMeshData* triangleMeshData = static_cast<TriangleMeshData*>(lineData.get());
+                multiVarTransferFunctionWindow = &triangleMeshData->getMultiVarTransferFunctionWindow();
             } else {
                 sgl::Logfile::get()->writeError(
                         "Error in replay widget load multi-var transfer functions callback: Invalid data type.");
@@ -305,6 +309,9 @@ MainApp::MainApp()
             } else if (lineData->getType() == DATA_SET_TYPE_STRESS_LINES) {
                 LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
                 multiVarTransferFunctionWindow = &lineDataStress->getMultiVarTransferFunctionWindow();
+            } else if (lineData->getType() == DATA_SET_TYPE_TRIANGLE_MESH) {
+                TriangleMeshData* triangleMeshData = static_cast<TriangleMeshData*>(lineData.get());
+                multiVarTransferFunctionWindow = &triangleMeshData->getMultiVarTransferFunctionWindow();
             } else {
                 sgl::Logfile::get()->writeError(
                         "Error in replay widget multi-var transfer functions ranges callback: Invalid data type.");
@@ -625,7 +632,7 @@ void MainApp::setNewState(const InternalState &newState) {
         }
         if (selectedDataSetIndex == 0) {
             if (dataSetInformationList.at(selectedDataSetIndex - NUM_MANUAL_LOADERS)->type
-                == DATA_SET_TYPE_STRESS_LINES && newState.dataSetDescriptor.enabledFileIndices.size() == 3) {
+                    == DATA_SET_TYPE_STRESS_LINES && newState.dataSetDescriptor.enabledFileIndices.size() == 3) {
                 LineDataStress::setUseMajorPS(newState.dataSetDescriptor.enabledFileIndices.at(0));
                 LineDataStress::setUseMediumPS(newState.dataSetDescriptor.enabledFileIndices.at(1));
                 LineDataStress::setUseMinorPS(newState.dataSetDescriptor.enabledFileIndices.at(2));
@@ -633,7 +640,7 @@ void MainApp::setNewState(const InternalState &newState) {
             loadLineDataSet(newState.dataSetDescriptor.filenames, true);
         } else {
             if (newState.dataSetDescriptor.type == DATA_SET_TYPE_STRESS_LINES
-                && newState.dataSetDescriptor.enabledFileIndices.size() == 3) {
+                    && newState.dataSetDescriptor.enabledFileIndices.size() == 3) {
                 LineDataStress::setUseMajorPS(newState.dataSetDescriptor.enabledFileIndices.at(0));
                 LineDataStress::setUseMediumPS(newState.dataSetDescriptor.enabledFileIndices.at(1));
                 LineDataStress::setUseMinorPS(newState.dataSetDescriptor.enabledFileIndices.at(2));
@@ -694,12 +701,12 @@ void MainApp::setRenderer(
 
     if (oldRenderingMode != newRenderingMode) {
         // User depth buffer with higher accuracy when rendering lines opaquely.
-        if (newRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE
+        if (newRenderingMode == RENDERING_MODE_OPAQUE
                 || newRenderingMode == RENDERING_MODE_DEFERRED_SHADING
-                || oldRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE
+                || oldRenderingMode == RENDERING_MODE_OPAQUE
                 || oldRenderingMode == RENDERING_MODE_DEFERRED_SHADING) {
             VkFormat depthFormat;
-            if (newRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE
+            if (newRenderingMode == RENDERING_MODE_OPAQUE
                     || newRenderingMode == RENDERING_MODE_DEFERRED_SHADING) {
                 depthFormat = device->getSupportedDepthFormat();
             } else {
@@ -716,7 +723,7 @@ void MainApp::setRenderer(
         oldRenderingMode = newRenderingMode;
     }
 
-    if (newRenderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
+    if (newRenderingMode == RENDERING_MODE_OPAQUE) {
         newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
     } else if (newRenderingMode == RENDERING_MODE_DEFERRED_SHADING) {
         newLineRenderer = new DeferredRenderer(&sceneDataRef, transferFunctionWindow);
@@ -813,7 +820,7 @@ void MainApp::onUnuspportedRendererSelected(
     auto handle = sgl::dialog::openMessageBox(
             "Unsupported Renderer", warningText, sgl::dialog::Icon::WARNING);
     nonBlockingMsgBoxHandles.push_back(handle);
-    newRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+    newRenderingMode = RENDERING_MODE_OPAQUE;
     newLineRenderer = new OpaqueLineRenderer(&sceneDataRef, transferFunctionWindow);
 }
 
@@ -875,7 +882,7 @@ void MainApp::render() {
     if (visualizeSeedingProcess) {
         if (useDockSpaceMode) {
             for (DataViewPtr& dataView : dataViews) {
-                if (dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_ALL_LINES_OPAQUE
+                if (dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_OPAQUE
                         || dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_VULKAN_RAY_TRACER) {
                     dataView->lineRenderer->notifyReRenderTriggeredExternally();
                     dataView->reRender = true;
@@ -1075,6 +1082,8 @@ void MainApp::renderGui() {
                     dataSetType = DATA_SET_TYPE_FLOW_LINES;
                 } else if (isDatFile) {
                     dataSetType = DATA_SET_TYPE_STRESS_LINES;
+                } if (boost::ends_with(filenameLower, ".bobj")) {
+                    dataSetType = DATA_SET_TYPE_TRIANGLE_MESH;
                 } else {
                     sgl::Logfile::get()->writeError("The selected file name has an unknown extension.");
                 }
@@ -1100,7 +1109,7 @@ void MainApp::renderGui() {
             ImGuiID dockLeftId, dockMainId;
             ImGui::DockBuilderSplitNode(
                     dockSpaceId, ImGuiDir_Left, 0.29f, &dockLeftId, &dockMainId);
-            ImGui::DockBuilderDockWindow("Opaque Line Renderer (1)###data_view_0", dockMainId);
+            ImGui::DockBuilderDockWindow("Opaque Renderer (1)###data_view_0", dockMainId);
 
             ImGuiID dockLeftUpId, dockLeftDownId;
             ImGui::DockBuilderSplitNode(
@@ -1481,11 +1490,11 @@ void MainApp::renderGuiGeneralSettingsPropertyEditor() {
         }
     }
 
-    if (lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES && renderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
+    if (lineData && lineData->getType() == DATA_SET_TYPE_STRESS_LINES && renderingMode == RENDERING_MODE_OPAQUE) {
         if (useDockSpaceMode) {
             bool rendererSupportsVisualizingSeedingProcess = false;
             for (DataViewPtr& dataView : dataViews) {
-                if (dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_ALL_LINES_OPAQUE
+                if (dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_OPAQUE
                         || dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_VULKAN_RAY_TRACER) {
                     rendererSupportsVisualizingSeedingProcess = true;
                 }
@@ -1496,7 +1505,7 @@ void MainApp::renderGuiGeneralSettingsPropertyEditor() {
                     LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
                     lineDataStress->setShallRenderSeedingProcess(visualizeSeedingProcess);
                     for (DataViewPtr& dataView : dataViews) {
-                        if (dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_ALL_LINES_OPAQUE) {
+                        if (dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_OPAQUE) {
                             OpaqueLineRenderer* opaqueLineRenderer = static_cast<OpaqueLineRenderer*>(
                                     dataView->lineRenderer);
                             opaqueLineRenderer->setVisualizeSeedingProcess(true);
@@ -1514,7 +1523,7 @@ void MainApp::renderGuiGeneralSettingsPropertyEditor() {
                 }
             }
         } else {
-            if (renderingMode == RENDERING_MODE_ALL_LINES_OPAQUE) {
+            if (renderingMode == RENDERING_MODE_OPAQUE) {
                 if (propertyEditor.addCheckbox("Visualize Seeding Process", &visualizeSeedingProcess)) {
                     LineDataStress* lineDataStress = static_cast<LineDataStress*>(lineData.get());
                     lineDataStress->setShallRenderSeedingProcess(visualizeSeedingProcess);
@@ -1542,7 +1551,7 @@ void MainApp::addNewDataView() {
 
 void MainApp::initializeFirstDataView() {
     DataViewPtr dataView = dataViews.back();
-    dataView->renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+    dataView->renderingMode = RENDERING_MODE_OPAQUE;
     //dataView->renderingMode = RENDERING_MODE_WBOIT;
     //dataView->resize(1, 1); // Use arbitrary size for initialization.
     setRenderer(
@@ -2176,6 +2185,9 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames, bool bl
     } else if (dataSetType == DATA_SET_TYPE_STRESS_LINES) {
         LineDataStress* lineDataStress = new LineDataStress(transferFunctionWindow);
         lineData = LineDataPtr(lineDataStress);
+    } else if (dataSetType == DATA_SET_TYPE_TRIANGLE_MESH) {
+        TriangleMeshData* triangleMeshData = new TriangleMeshData(transferFunctionWindow);
+        lineData = LineDataPtr(triangleMeshData);
     } else {
         sgl::Logfile::get()->writeError("Error in MainApp::loadLineDataSet: Invalid data set type.");
         return;

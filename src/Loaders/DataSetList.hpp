@@ -39,7 +39,8 @@ enum DataSetType {
     DATA_SET_TYPE_NODE, //< Hierarchical container.
     DATA_SET_TYPE_FLOW_LINES, //< Streamlines or streamribbons.
     DATA_SET_TYPE_STRESS_LINES, //< Principal stress lines (PSLs).
-    DATA_SET_TYPE_SCATTERING_LINES //< Lines created through path scattering in participating media.
+    DATA_SET_TYPE_SCATTERING_LINES, //< Lines created through path scattering in participating media.
+    DATA_SET_TYPE_TRIANGLE_MESH //< Pre-generated triangle mesh.
 };
 
 const float STANDARD_LINE_WIDTH = 0.002f;

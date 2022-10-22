@@ -28,6 +28,7 @@
 
 #include <iostream>
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <json/json.h>
 
 #include <Utils/File/Logfile.hpp>
@@ -49,6 +50,8 @@ void processDataSetNodeChildren(Json::Value& childList, DataSetInformation* data
             dataSetInformation->type = DATA_SET_TYPE_FLOW_LINES;
         } else if (typeName == "stress") {
             dataSetInformation->type = DATA_SET_TYPE_STRESS_LINES;
+        } else if (typeName == "trimesh") {
+            dataSetInformation->type = DATA_SET_TYPE_TRIANGLE_MESH;
         } else {
             sgl::Logfile::get()->writeError(
                     "Error in processDataSetNodeChildren: Invalid type name \"" + typeName + "\".");
@@ -67,10 +70,34 @@ void processDataSetNodeChildren(Json::Value& childList, DataSetInformation* data
         const std::string lineDataSetsDirectory = sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/";
         if (filenames.isArray()) {
             for (const auto& filename : filenames) {
-                dataSetInformation->filenames.push_back(lineDataSetsDirectory + filename.asString());
+                std::string pathString = filename.asString();
+#ifdef _WIN32
+                bool isAbsolutePath =
+                    (pathString.size() > 1 && pathString.at(1) == ':')
+                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
+#else
+                bool isAbsolutePath = boost::starts_with(pathString, "/");
+#endif
+                if (isAbsolutePath) {
+                    dataSetInformation->filenames.push_back(pathString);
+                } else {
+                    dataSetInformation->filenames.push_back(lineDataSetsDirectory + pathString);
+                }
             }
         } else {
-            dataSetInformation->filenames.push_back(lineDataSetsDirectory + filenames.asString());
+            std::string pathString = filenames.asString();
+#ifdef _WIN32
+            bool isAbsolutePath =
+                    (pathString.size() > 1 && pathString.at(1) == ':')
+                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
+#else
+            bool isAbsolutePath = boost::starts_with(pathString, "/");
+#endif
+            if (isAbsolutePath) {
+                dataSetInformation->filenames.push_back(pathString);
+            } else {
+                dataSetInformation->filenames.push_back(lineDataSetsDirectory + pathString);
+            }
         }
 
         // Optional data: Line width.

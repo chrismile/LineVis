@@ -105,7 +105,7 @@ void LineDataStress::update(float dt) {
 void LineDataStress::setRenderingModes(const std::vector<RenderingMode>& renderingModes) {
     LineData::setRenderingModes(renderingModes);
     rendererSupportsTransparency = std::all_of(renderingModes.cbegin(), renderingModes.cend(), [](RenderingMode mode){
-        return mode != RENDERING_MODE_ALL_LINES_OPAQUE
+        return mode != RENDERING_MODE_OPAQUE
                && mode != RENDERING_MODE_DEFERRED_SHADING
                && mode != RENDERING_MODE_VULKAN_RAY_TRACER
                && mode != RENDERING_MODE_VOXEL_RAY_CASTING

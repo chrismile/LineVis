@@ -172,7 +172,7 @@ struct TubeTriangleVertexData {
     glm::vec3 vertexPosition;
     uint32_t vertexLinePointIndex; ///< Pointer to LinePointDataUnified entry.
     glm::vec3 vertexNormal;
-    float phi; ///< Angle.
+    float phi; ///< Angle (or vertex attribute for pure triangle mesh data).
 };
 
 struct LinePointReference {

@@ -123,8 +123,8 @@ private:
     glm::ivec2 fixedViewportSize{ 2186, 1358 };
 
     /// Scene data used in user interface.
-    RenderingMode renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
-    RenderingMode oldRenderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+    RenderingMode renderingMode = RENDERING_MODE_OPAQUE;
+    RenderingMode oldRenderingMode = RENDERING_MODE_OPAQUE;
 
     // Data set GUI information.
     void loadAvailableDataSetInformation();

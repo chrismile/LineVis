@@ -186,7 +186,7 @@ struct InternalState {
 
     DataSetDescriptor dataSetDescriptor;
     std::string name, nameRaw;
-    RenderingMode renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+    RenderingMode renderingMode = RENDERING_MODE_OPAQUE;
     SettingsMap rendererSettings;
     SettingsMap dataSetSettings;
     std::vector<SettingsMap> filterSettings;

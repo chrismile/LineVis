@@ -44,6 +44,27 @@
 #include "StressTrajectoriesDatLoader.hpp"
 #include "TrajectoryFile.hpp"
 
+sgl::AABB3 computeVertexPositionsAABB3(const std::vector<glm::vec3>& positions) {
+    sgl::AABB3 aabb;
+    float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX, maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
+#if _OPENMP >= 201107
+    #pragma omp parallel for shared(positions) default(none) reduction(min: minX) reduction(min: minY) \
+    reduction(min: minZ) reduction(max: maxX) reduction(max: maxY) reduction(max: maxZ)
+#endif
+    for (size_t trajectoryIdx = 0; trajectoryIdx < positions.size(); trajectoryIdx++) {
+        const glm::vec3& pt = positions.at(trajectoryIdx);
+        minX = std::min(minX, pt.x);
+        minY = std::min(minY, pt.y);
+        minZ = std::min(minZ, pt.z);
+        maxX = std::max(maxX, pt.x);
+        maxY = std::max(maxY, pt.y);
+        maxZ = std::max(maxZ, pt.z);
+    }
+    aabb.min = glm::vec3(minX, minY, minZ);
+    aabb.max = glm::vec3(maxX, maxY, maxZ);
+    return aabb;
+}
+
 sgl::AABB3 computeTrajectoriesAABB3(const Trajectories& trajectories) {
     sgl::AABB3 aabb;
     float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX, maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
@@ -150,6 +171,31 @@ void normalizeVertexPosition(
         glm::vec3& v = vertexPosition;
         glm::vec4 transformedVec = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
         v = glm::vec3(transformedVec.x, transformedVec.y, transformedVec.z);
+    }
+}
+
+void normalizeVertexAttributes(std::vector<std::vector<float>>& vertexAttributesList) {
+    const size_t numAttributes = vertexAttributesList.size();
+
+    for (size_t attributeIdx = 0; attributeIdx < numAttributes; attributeIdx++) {
+        float minVal = FLT_MAX, maxVal = -FLT_MAX;
+        std::vector<float>& vertexAttributes = vertexAttributesList.at(attributeIdx);
+#if _OPENMP >= 201107
+        #pragma omp parallel for shared(vertexAttributes) default(none) reduction(min: minVal) reduction(max: maxVal)
+#endif
+        for (size_t i = 0; i < vertexAttributes.size(); i++) {
+            float attrVal = vertexAttributes.at(i);
+            minVal = std::min(minVal, attrVal);
+            maxVal = std::max(maxVal, attrVal);
+        }
+
+#if _OPENMP >= 200805
+        #pragma omp parallel for shared(vertexAttributes, minVal, maxVal) default(none)
+#endif
+        for (size_t i = 0; i < vertexAttributes.size(); i++) {
+            float& attrVal = vertexAttributes.at(i);
+            attrVal = (attrVal - minVal) / (maxVal - minVal);
+        }
     }
 }
 

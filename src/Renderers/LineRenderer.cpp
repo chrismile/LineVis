@@ -501,16 +501,18 @@ void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
         reRender = true;
         internalReRender = true;
     }
-    ImGui::EditMode editMode = propertyEditor.addSliderFloatEdit(
-            "Line Width", &displayLineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f");
-    if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
+    if (!lineData || lineData->getType() != DATA_SET_TYPE_TRIANGLE_MESH) {
+        ImGui::EditMode editMode = propertyEditor.addSliderFloatEdit(
+                "Line Width", &displayLineWidth, MIN_LINE_WIDTH, MAX_LINE_WIDTH, "%.4f");
+        if ((canUseLiveUpdate && editMode != ImGui::EditMode::NO_CHANGE)
             || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
-        lineWidth = displayLineWidth;
-        if (lineData) {
-            lineData->setTriangleRepresentationDirty();
+            lineWidth = displayLineWidth;
+            if (lineData) {
+                lineData->setTriangleRepresentationDirty();
+            }
+            reRender = true;
+            internalReRender = true;
         }
-        reRender = true;
-        internalReRender = true;
     }
 
     if (lineData) {

@@ -33,7 +33,7 @@
 #include "InternalState.hpp"
 
 void getTestModesOpaque(std::vector<InternalState>& states, InternalState state) {
-    state.renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+    state.renderingMode = RENDERING_MODE_OPAQUE;
     state.name = "Opaque";
     states.push_back(state);
 }
@@ -158,7 +158,7 @@ void setLinePrimitiveMode(InternalState& state, LineData::LinePrimitiveMode line
 void getTestModesRasterization(std::vector<InternalState>& states, InternalState state) {
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
 
-    state.renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+    state.renderingMode = RENDERING_MODE_OPAQUE;
     state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
             { "numSamples", "1" }
     })};
@@ -393,7 +393,7 @@ std::vector<InternalState> getTestModesOpaqueRendering() {
 }
 
 void getTestModesRasterizationTriMesh(std::vector<InternalState>& states, InternalState state) {
-    state.renderingMode = RENDERING_MODE_ALL_LINES_OPAQUE;
+    state.renderingMode = RENDERING_MODE_OPAQUE;
     state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
             { "numSamples", "1" }
     })};
