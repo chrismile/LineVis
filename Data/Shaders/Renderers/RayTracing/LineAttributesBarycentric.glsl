@@ -1,3 +1,4 @@
+#ifndef GENERAL_TRIANGLE_MESH
 #ifdef USE_CAPPED_TUBES
     uint vertexLinePointIndex0 = vertexData0.vertexLinePointIndex & 0x7FFFFFFFu;
     uint vertexLinePointIndex1 = vertexData1.vertexLinePointIndex & 0x7FFFFFFFu;
@@ -20,19 +21,26 @@
     LinePointData linePointData1 = linePoints[vertexLinePointIndex1];
     LinePointData linePointData2 = linePoints[vertexLinePointIndex2];
 #endif
-#endif
+#endif // defined(USE_CAPPED_TUBES)
+#endif // !defined(GENERAL_TRIANGLE_MESH)
 
     vec3 fragmentNormal = interpolateVec3(
             vertexData0.vertexNormal, vertexData1.vertexNormal, vertexData2.vertexNormal, barycentricCoordinates);
     fragmentNormal = normalize(fragmentNormal);
+#ifndef GENERAL_TRIANGLE_MESH
     vec3 fragmentTangent = interpolateVec3(
             linePointData0.lineTangent, linePointData1.lineTangent, linePointData2.lineTangent, barycentricCoordinates);
     fragmentTangent = normalize(fragmentTangent);
     float fragmentAttribute = interpolateFloat(
             linePointData0.lineAttribute, linePointData1.lineAttribute, linePointData2.lineAttribute,
             barycentricCoordinates);
+#else
+    // 'phi' stores attribute for general triangle meshes.
+    float fragmentAttribute = interpolateFloat(
+            vertexData0.phi, vertexData1.phi, vertexData2.phi, barycentricCoordinates);
+#endif // !defined(GENERAL_TRIANGLE_MESH)
 
-#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
     float phi = interpolateAngle(
             vertexData0.phi, vertexData1.phi, vertexData2.phi, barycentricCoordinates);
 #endif
@@ -133,11 +141,14 @@
 #endif
 
     computeFragmentColor(
-            fragmentPositionWorld, fragmentNormal, fragmentTangent,
-#ifdef USE_CAPPED_TUBES
+            fragmentPositionWorld, fragmentNormal,
+#ifndef GENERAL_TRIANGLE_MESH
+            fragmentTangent,
+#endif
+#if defined(USE_CAPPED_TUBES) && !defined(GENERAL_TRIANGLE_MESH)
             isCap,
 #endif
-#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
+#if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
             phi,
 #endif
 #if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)

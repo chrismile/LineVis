@@ -485,26 +485,28 @@ bool LineDataStress::loadFromFile(
         }
         setUsedPsDirections(usedPsDirections);
 
-        // Disable bands for minor PSLs if first PS direction is not used.
-        psUseBands = {false, false, true};
-        if (!usedPsDirections.at(0)) {
-            psUseBands.at(2) = false;
-        }
-
-        // Use bands if possible.
-        if (hasBandsData && !getUseBandRendering()) {
-            linePrimitiveMode = LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL;
-        } else if (!hasBandsData && getUseBandRendering()) {
-            linePrimitiveMode = LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL;
-        }
-        if (hasBandsData) {
-            tubeNumSubdivisions = std::max(tubeNumSubdivisions, 8);
-        }
-
         //recomputeHistogram(); ///< Called after data is loaded using LineDataRequester.
     }
 
     return dataLoaded;
+}
+
+void LineDataStress::onMainThreadDataInit(){
+    // Disable bands for minor PSLs if first PS direction is not used.
+    psUseBands = {false, false, true};
+    if (!usedPsDirections.at(0)) {
+        psUseBands.at(2) = false;
+    }
+
+    // Use bands if possible.
+    if (hasBandsData && !getUseBandRendering()) {
+        linePrimitiveMode = LINE_PRIMITIVES_TUBE_RIBBONS_PROGRAMMABLE_PULL;
+    } else if (!hasBandsData && getUseBandRendering()) {
+        linePrimitiveMode = LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL;
+    }
+    if (hasBandsData) {
+        tubeNumSubdivisions = std::max(tubeNumSubdivisions, 8);
+    }
 }
 
 void LineDataStress::setStressTrajectoryData(

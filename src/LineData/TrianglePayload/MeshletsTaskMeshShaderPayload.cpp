@@ -89,7 +89,10 @@ void MeshletsTaskMeshShaderPayload::createPayloadPre(
         const auto& v0 = tubeTriangleVertexDataList.at(idx0);
         const auto& v1 = tubeTriangleVertexDataList.at(idx1);
         const auto& v2 = tubeTriangleVertexDataList.at(idx2);
-        uint32_t l0 = tubeTriangleLinePointDataList.at(v0.vertexLinePointIndex & 0x7FFFFFFFu).lineStartIndex;
+        uint32_t l0 = 0;
+        if (!tubeTriangleLinePointDataList.empty()) {
+            l0 = tubeTriangleLinePointDataList.at(v0.vertexLinePointIndex & 0x7FFFFFFFu).lineStartIndex;
+        }
         auto it0 = currentMeshletIndices.find(idx0);
         auto it1 = currentMeshletIndices.find(idx1);
         auto it2 = currentMeshletIndices.find(idx2);

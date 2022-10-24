@@ -106,6 +106,7 @@ layout(std430, binding = 10) readonly buffer InstanceTriangleIndexOffsetBuffer {
 };
 #endif
 
+#ifndef GENERAL_TRIANGLE_MESH
 struct LinePointData {
     vec3 linePosition;
     float lineAttribute;
@@ -118,6 +119,7 @@ struct LinePointData {
 layout(std430, binding = 11) readonly buffer LinePointDataBuffer {
     LinePointData linePoints[];
 };
+#endif
 
 
 #define M_PI 3.14159265358979323846
@@ -206,6 +208,7 @@ void main() {
         TubeTriangleVertexData vertexData1 = tubeTriangleVertexDataBuffer[triangleIndices.y];
         TubeTriangleVertexData vertexData2 = tubeTriangleVertexDataBuffer[triangleIndices.z];
 
+#ifndef GENERAL_TRIANGLE_MESH
         //#ifdef USE_CAPPED_TUBES
         uint vertexLinePointIndex0 = vertexData0.vertexLinePointIndex & 0x7FFFFFFFu;
         uint vertexLinePointIndex1 = vertexData1.vertexLinePointIndex & 0x7FFFFFFFu;
@@ -218,22 +221,34 @@ void main() {
         LinePointData linePointData0 = linePoints[vertexLinePointIndex0];
         LinePointData linePointData1 = linePoints[vertexLinePointIndex1];
         LinePointData linePointData2 = linePoints[vertexLinePointIndex2];
+#endif
 
         vertexPositionWorld = interpolateVec3(
                 vertexData0.vertexPosition, vertexData1.vertexPosition, vertexData2.vertexPosition, barycentricCoordinates);
         surfaceNormal = interpolateVec3(
                 vertexData0.vertexNormal, vertexData1.vertexNormal, vertexData2.vertexNormal, barycentricCoordinates);
         surfaceNormal = normalize(surfaceNormal);
+
+#ifndef GENERAL_TRIANGLE_MESH
+        vec3 linePosition = interpolateVec3(
+                linePointData0.linePosition, linePointData1.linePosition, linePointData2.linePosition, barycentricCoordinates);
         vec3 surfaceTangent = interpolateVec3(
                 linePointData0.lineTangent, linePointData1.lineTangent, linePointData2.lineTangent, barycentricCoordinates);
         surfaceTangent = normalize(surfaceTangent);
-        vec3 linePosition = interpolateVec3(
-                linePointData0.linePosition, linePointData1.linePosition, linePointData2.linePosition, barycentricCoordinates);
-
         vec3 surfaceBitangent = cross(surfaceNormal, surfaceTangent);
+#else
+        vec3 surfaceTangent;
+        vec3 surfaceBitangent;
+        ComputeDefaultBasis(surfaceNormal, surfaceTangent, surfaceBitangent);
+#endif
+
         mat3 frame = mat3(surfaceTangent, surfaceBitangent, surfaceNormal);
 
+#ifndef GENERAL_TRIANGLE_MESH
         const float offsetFactor = length(linePosition - vertexPositionWorld) / subdivisionCorrectionFactor;
+#else
+        const float offsetFactor = 1e-4;
+#endif
 
 
         // 3. Trace the requested number of samples in the hemisphere around the hit point.
@@ -248,7 +263,11 @@ void main() {
 
             rayQueryEXT rayQuery;
             //const float offsetFactor = length(cameraPosition - vertexPositionWorld) * 1e-3;
+#ifndef GENERAL_TRIANGLE_MESH
             float occlusionFactor = traceAoRay(rayQuery, vertexPositionWorld + rayDirection * offsetFactor, rayDirection);
+#else
+            float occlusionFactor = traceAoRay(rayQuery, vertexPositionWorld + surfaceNormal * offsetFactor, rayDirection);
+#endif
             aoFactor += occlusionFactor;
         }
 

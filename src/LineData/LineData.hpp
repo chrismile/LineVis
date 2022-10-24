@@ -89,6 +89,8 @@ public:
     LineData(sgl::TransferFunctionWindow &transferFunctionWindow, DataSetType dataSetType);
     virtual ~LineData();
     virtual void update(float dt) {}
+    // Called before the data is first used on the main thread.
+    virtual void onMainThreadDataInit() {}
     [[nodiscard]] inline int getSelectedAttributeIndex() const { return selectedAttributeIndex; }
     [[nodiscard]] inline const std::vector<std::string>& getAttributeNames() const { return attributeNames; }
     [[nodiscard]] inline size_t getNumAttributes() const { return attributeNames.size(); }
@@ -301,6 +303,9 @@ public:
     static bool getLinePrimitiveModeUsesGeometryShader(LinePrimitiveMode mode) {
         return mode == LINE_PRIMITIVES_QUADS_GEOMETRY_SHADER || mode == LINE_PRIMITIVES_TUBE_GEOMETRY_SHADER
                || mode == LINE_PRIMITIVES_TUBE_RIBBONS_GEOMETRY_SHADER || mode == LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER;
+    }
+    static bool getLinePrimitiveModeUsesTriangleMesh(LinePrimitiveMode mode) {
+        return mode == LINE_PRIMITIVES_TUBE_TRIANGLE_MESH || mode == LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH;
     }
     static inline LinePrimitiveMode getLinePrimitiveMode() { return linePrimitiveMode; }
     static inline void setLinePrimitiveMode(LinePrimitiveMode mode) { linePrimitiveMode = mode; }

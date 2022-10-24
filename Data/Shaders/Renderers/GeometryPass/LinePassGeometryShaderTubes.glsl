@@ -591,7 +591,9 @@ layout(location = 1) in vec3 screenSpacePosition;
 #endif
 layout(location = 2) in float fragmentAttribute;
 layout(location = 3) in vec3 fragmentNormal;
+#ifndef GENERAL_TRIANGLE_MESH
 layout(location = 4) in vec3 fragmentTangent;
+#endif
 
 /*
  * maxGeometryTotalOutputComponents is 1024 on NVIDIA hardware. When using stress line bands and ambient occlusion,
@@ -686,6 +688,7 @@ layout(binding = LINE_HIERARCHY_IMPORTANCE_MAP_BINDING) uniform sampler1DArray l
 #include "Antialiasing.glsl"
 #include "MultiVar.glsl"
 
+#ifndef GENERAL_TRIANGLE_MESH
 #ifdef UNIFORM_HELICITY_BAND_WIDTH
 #ifdef USE_GEOMETRY_SHADER
 layout(scalar, binding = LINE_POINTS_BUFFER_BINDING) readonly buffer LinePositionsBuffer {
@@ -698,6 +701,7 @@ layout(std430, binding = STRESS_LINE_POINTS_BUFFER_BINDING) readonly buffer Line
 #include "LineDataSSBO.glsl"
 #endif
 #endif
+#endif // !defined(GENERAL_TRIANGLE_MESH)
 
 //#define USE_ORTHOGRAPHIC_TUBE_PROJECTION
 
@@ -771,6 +775,7 @@ void main() {
 
     const vec3 n = normalize(fragmentNormal);
     const vec3 v = normalize(cameraPosition - fragmentPositionWorld);
+#ifndef GENERAL_TRIANGLE_MESH
     const vec3 t = normalize(fragmentTangent);
     // Project v into plane perpendicular to t to get newV.
     vec3 helperVec = normalize(cross(t, v));
@@ -809,7 +814,7 @@ void main() {
     
         ribbonPosition = min(ribbonPosition, abs(ribbonPosition2));
     } else {
-#endif
+#endif // defined(USE_CAPPED_TUBES)
 
 #ifdef USE_BANDS
         vec3 lineN = normalize(lineNormal);
@@ -845,7 +850,7 @@ void main() {
     
         float x = d / sin(beta) * sin(alpha);
         ribbonPosition = x / totalDist * 2.0;
-#else
+#else // !defined(USE_ORTHOGRAPHIC_TUBE_PROJECTION)
         // Project onto the tangent plane.
         const vec3 cNorm = cameraPosition - linePosition;
         const float dist = dot(cNorm, fragmentTangent);
@@ -927,9 +932,9 @@ void main() {
         vec2 pLine = pLineHomogeneous.xy / pLineHomogeneous.z;
     
         ribbonPosition = length(pLine - pointMax0) / length(pointMax1 - pointMax0) * 2.0 - 1.0;
-#endif
+#endif // defined(USE_ORTHOGRAPHIC_TUBE_PROJECTION)
     
-#else
+#else // !defined(USE_BANDS)
         // Get the symmetric ribbon position (ribbon direction is perpendicular to line direction) between 0 and 1.
         // NOTE: len(cross(a, b)) == area of parallelogram spanned by a and b.
         vec3 crossProdVn = cross(newV, n);
@@ -952,7 +957,7 @@ void main() {
         // Normalize the ribbon position: [-1, 1] -> [0, 1].
         //ribbonPosition = ribbonPosition / 2.0 + 0.5;
         ribbonPosition = clamp(ribbonPosition, -1.0, 1.0);
-#endif
+#endif // defined(USE_BANDS)
     
 #ifdef USE_CAPPED_TUBES
     }
@@ -965,6 +970,7 @@ void main() {
 #endif
 
 #endif // defined(USE_HALOS) || defined(USE_MULTI_VAR_RENDERING)
+#endif // !defined(GENERAL_TRIANGLE_MESH)
 
 
 #ifdef USE_ROTATING_HELICITY_BANDS
@@ -1003,7 +1009,11 @@ void main() {
             lineHierarchyImportanceMap, vec2(fragmentLineHierarchyLevel, float(fragmentPrincipalStressIndex))).r;
 #endif
 
+#ifndef GENERAL_TRIANGLE_MESH
     fragmentColor = blinnPhongShadingTube(fragmentColor, n, t);
+#else
+    fragmentColor = blinnPhongShadingTriangleMesh(fragmentColor, n);
+#endif
 
 #ifdef USE_ROTATING_HELICITY_BANDS
     float separatorWidth = separatorBaseWidth;
@@ -1050,6 +1060,7 @@ void main() {
     }
 #endif
 
+#ifndef GENERAL_TRIANGLE_MESH
 #if defined(USE_HALOS) || defined(USE_MULTI_VAR_RENDERING)
     float absCoords = abs(ribbonPosition);
 #else
@@ -1090,6 +1101,9 @@ void main() {
             mix(fragmentColor.rgb, foregroundColor.rgb,
             smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),
             fragmentColor.a * coverage);
+#else // defined(GENERAL_TRIANGLE_MESH)
+    vec4 colorOut = fragmentColor;
+#endif // !defined(GENERAL_TRIANGLE_MESH)
 
 #ifdef DEBUG_MESHLETS
     vec3 colorMap[2] = {

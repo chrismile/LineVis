@@ -83,9 +83,44 @@ bool TriangleMeshData::loadFromFile(
         vertexNormals = {};
         vertexAttributesList = {};
         attributeNames = {};
+    } else {
+        for (size_t attrIdx = attributeNames.size(); attrIdx < getNumAttributes(); attrIdx++) {
+            attributeNames.push_back(std::string() + "Attribute #" + std::to_string(attrIdx + 1));
+        }
+
+        colorLegendWidgets.clear();
+        colorLegendWidgets.resize(attributeNames.size());
+        for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
+            colorLegendWidgets.at(i).setPositionIndex(0, 1);
+        }
+
+        minMaxAttributeValues.clear();
+        for (size_t varIdx = 0; varIdx < colorLegendWidgets.size(); varIdx++) {
+            float minAttr = std::numeric_limits<float>::max();
+            float maxAttr = std::numeric_limits<float>::lowest();
+            std::vector<float>& vertexAttributes = vertexAttributesList.at(varIdx);
+#if _OPENMP >= 201107
+            #pragma omp parallel for default(none) shared(vertexAttributes) \
+            reduction(min: minAttr) reduction(max: maxAttr)
+#endif
+            for (size_t i = 0; i < vertexAttributes.size(); i++) {
+                float val = vertexAttributes.at(i);
+                minAttr = std::min(minAttr, val);
+                maxAttr = std::max(maxAttr, val);
+            }
+            minMaxAttributeValues.emplace_back(minAttr, maxAttr);
+            colorLegendWidgets[varIdx].setAttributeMinValue(minAttr);
+            colorLegendWidgets[varIdx].setAttributeMaxValue(maxAttr);
+            colorLegendWidgets[varIdx].setAttributeDisplayName(
+                    std::string() + attributeNames.at(varIdx));
+        }
     }
 
     return dataLoaded;
+}
+
+void TriangleMeshData::onMainThreadDataInit(){
+    linePrimitiveMode = LINE_PRIMITIVES_TUBE_TRIANGLE_MESH;
 }
 
 MultiVarTransferFunctionWindow& TriangleMeshData::getMultiVarTransferFunctionWindow() {
@@ -101,6 +136,11 @@ MultiVarTransferFunctionWindow& TriangleMeshData::getMultiVarTransferFunctionWin
 void TriangleMeshData::setGraphicsPipelineInfo(
         sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) {
     pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::TRIANGLE_LIST);
+    if (useBackfaceCulling) {
+        pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
+    } else {
+        pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
+    }
 }
 
 void TriangleMeshData::setVulkanRenderDataDescriptors(const sgl::vk::RenderDataPtr& renderData) {
@@ -116,6 +156,10 @@ void TriangleMeshData::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sg
 
 void TriangleMeshData::setRasterDataBindings(sgl::vk::RasterDataPtr& rasterData) {
     setVulkanRenderDataDescriptors(rasterData);
+
+    if (!getLinePrimitiveModeUsesTriangleMesh(linePrimitiveMode)) {
+        return;
+    }
 
     TubeTriangleRenderData tubeRenderData = this->getLinePassTubeTriangleMeshRenderData(
             true, false);

@@ -149,12 +149,12 @@ void MeshletTaskMeshPass::loadShader() {
 void MeshletTaskMeshPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
     pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::TRIANGLE_LIST);
 
-    lineRenderer->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
     if (lineData->getUseCappedTubes()) {
         pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
     } else {
         pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
     }
+    lineRenderer->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
 
     pipelineInfo.setColorWriteEnabled(true);
     pipelineInfo.setDepthTestEnabled(true);

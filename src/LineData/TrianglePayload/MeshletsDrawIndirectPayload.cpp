@@ -58,7 +58,10 @@ void MeshletsDrawIndirectPayload::createPayloadPre(
         const auto& v0 = tubeTriangleVertexDataList.at(idx0);
         const auto& v1 = tubeTriangleVertexDataList.at(idx1);
         const auto& v2 = tubeTriangleVertexDataList.at(idx2);
-        uint32_t l0 = tubeTriangleLinePointDataList.at(v0.vertexLinePointIndex & 0x7FFFFFFFu).lineStartIndex;
+        uint32_t l0 = 0;
+        if (!tubeTriangleLinePointDataList.empty()) {
+            l0 = tubeTriangleLinePointDataList.at(v0.vertexLinePointIndex & 0x7FFFFFFFu).lineStartIndex;
+        }
 
         if (currentMeshlet.indexCount >= maxNumPrimitivesPerMeshlet * 3
                 || (currentLineIdx != l0 && currentMeshlet.indexCount > 0)) {

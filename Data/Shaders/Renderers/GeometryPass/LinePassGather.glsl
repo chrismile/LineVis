@@ -1,4 +1,5 @@
 #if defined(DIRECT_BLIT_GATHER)
+#ifndef GENERAL_TRIANGLE_MESH
     // To counteract depth fighting with overlay wireframe.
     float depthOffset = -0.00001;
     if (absCoords >= WHITE_THRESHOLD - EPSILON_WHITE) {
@@ -8,6 +9,7 @@
     gl_FragDepth = convertLinearDepthToDepthBufferValue(
             convertDepthBufferValueToLinearDepth(gl_FragCoord.z) + fragmentDepth
             - length(fragmentPositionWorld - cameraPosition) - 0.0001);
+#endif
 #ifdef LOW_OPACITY_DISCARD
     if (colorOut.a < 0.01) {
         discard;

@@ -48,6 +48,8 @@ public:
     bool settingsDiffer(LineData* other) override;
     [[nodiscard]] bool getIsSmallDataSet() const override;
     void update(float dt) override;
+    // Called before the data is first used on the main thread.
+    void onMainThreadDataInit() override;
 
     /// For changing internal settings programmatically and not via the GUI.
     bool setNewSettings(const SettingsMap& settings) override;

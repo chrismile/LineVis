@@ -70,12 +70,12 @@ void VisibilityBufferDrawIndexedPass::setGraphicsPipelineInfo(sgl::vk::GraphicsP
                 "vertexPosition", sizeof(TubeTriangleVertexData));
     }
 
-    lineRenderer->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
     if (lineData->getUseCappedTubes() && geometryMode == DrawIndexedGeometryMode::TRIANGLES) {
         pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
     } else {
         pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
     }
+    lineRenderer->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
 
     pipelineInfo.setColorWriteEnabled(true);
     pipelineInfo.setDepthTestEnabled(true);

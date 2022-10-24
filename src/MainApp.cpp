@@ -2204,6 +2204,7 @@ void MainApp::loadLineDataSet(const std::vector<std::string>& fileNames, bool bl
             }
 
             this->lineData = lineData;
+            lineData->onMainThreadDataInit();
             lineData->recomputeHistogram();
             lineData->setClearColor(clearColor);
             lineData->setUseLinearRGB(useLinearRGB);
@@ -2275,6 +2276,7 @@ void MainApp::checkLoadingRequestFinished() {
         sgl::ColorLegendWidget::resetStandardSize();
 
         this->lineData = lineData;
+        lineData->onMainThreadDataInit();
         lineData->recomputeHistogram();
         lineData->setClearColor(clearColor);
         lineData->setUseLinearRGB(useLinearRGB);

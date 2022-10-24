@@ -29,8 +29,11 @@
 #if defined(VULKAN_RAY_TRACING_SHADER)
 #include "TubeRayTracingHeader.glsl"
 #endif
-#include "LineDataSSBO.glsl"
 #include "TransferFunction.glsl"
+
+#ifndef GENERAL_TRIANGLE_MESH
+#include "LineDataSSBO.glsl"
+#endif // !defined(GENERAL_TRIANGLE_MESH)
 
 #ifdef USE_MLAT
 #include "MlatInsert.glsl"
@@ -69,8 +72,11 @@ vec4 sampleHelicityBandsTexture(in float u, in float globalPos) {
 #endif
 
 void computeFragmentColor(
-        vec3 fragmentPositionWorld, vec3 fragmentNormal, vec3 fragmentTangent,
-#ifdef USE_CAPPED_TUBES
+        vec3 fragmentPositionWorld, vec3 fragmentNormal,
+#ifndef GENERAL_TRIANGLE_MESH
+        vec3 fragmentTangent,
+#endif
+#if defined(USE_CAPPED_TUBES) && !defined(GENERAL_TRIANGLE_MESH)
         bool isCap,
 #endif
 #if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
@@ -129,6 +135,7 @@ void computeFragmentColor(
 
     const vec3 n = normalize(fragmentNormal);
     const vec3 v = normalize(cameraPosition - fragmentPositionWorld);
+#ifndef GENERAL_TRIANGLE_MESH
     const vec3 t = normalize(fragmentTangent);
     // Project v into plane perpendicular to t to get newV.
     vec3 helperVec = normalize(cross(t, v));
@@ -180,7 +187,7 @@ void computeFragmentColor(
 #if defined(USE_HALOS) || defined(USE_MULTI_VAR_RENDERING)
     float ribbonPosition;
 
-#ifdef USE_CAPPED_TUBES
+#if defined(USE_CAPPED_TUBES) && !defined(GENERAL_TRIANGLE_MESH)
     if (isCap) {
         vec3 crossProdVn = cross(v, n);
         ribbonPosition = length(crossProdVn);
@@ -285,19 +292,19 @@ void computeFragmentColor(
         const mat3 M_l = shearSymmetricMatrix(l);
         //const mat3 B = transpose(M_l) * A * M_l;
 
-        #if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
+#if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
         const mat3 B = mat3(
             b*l.z*l.z - l.y*l.y, l.x*l.y, -b*l.x*l.z,
             l.x*l.y, a*l.z*l.z - l.x*l.x, -a*l.y*l.z,
             -b*l.x*l.z, -a*l.y*l.z, a*l.y*l.y + b*l.x*l.x
         );
-        #else
+#else
         const mat3 B = mat3(
             l.z*l.z - l.y*l.y, l.x*l.y, -l.x*l.z,
             l.x*l.y, a*l.z*l.z - l.x*l.x, -a*l.y*l.z,
             -l.x*l.z, -a*l.y*l.z, a*l.y*l.y + l.x*l.x
         );
-        #endif
+#endif
 
         const float EPSILON = 1e-4;
         float alpha = 0.0;
@@ -372,6 +379,7 @@ void computeFragmentColor(
 #endif
 
 #endif // defined(USE_HALOS) || defined(USE_MULTI_VAR_RENDERING)
+#endif // !defined(GENERAL_TRIANGLE_MESH)
 
 
 #if defined(USE_DEPTH_CUES) || (defined(USE_AMBIENT_OCCLUSION) && !defined(STATIC_AMBIENT_OCCLUSION_PREBAKING))
@@ -397,6 +405,7 @@ void computeFragmentColor(
 #endif
 #endif
 
+#ifndef GENERAL_TRIANGLE_MESH
     fragmentColor = blinnPhongShadingTube(
             fragmentColor, fragmentPositionWorld,
 #if defined(USE_DEPTH_CUES) || (defined(USE_AMBIENT_OCCLUSION) && !defined(STATIC_AMBIENT_OCCLUSION_PREBAKING))
@@ -409,7 +418,16 @@ void computeFragmentColor(
             useBand ? 1 : 0,
 #endif
             n, t);
+#else // defined(GENERAL_TRIANGLE_MESH)
+    fragmentColor = blinnPhongShadingTriangleMesh(
+            fragmentColor, fragmentPositionWorld,
+#if defined(USE_DEPTH_CUES) || (defined(USE_AMBIENT_OCCLUSION) && !defined(STATIC_AMBIENT_OCCLUSION_PREBAKING))
+            screenSpacePosition,
+#endif
+            n);
+#endif // !defined(GENERAL_TRIANGLE_MESH)
 
+#ifndef GENERAL_TRIANGLE_MESH
 #if defined(USE_HALOS) || defined(USE_MULTI_VAR_RENDERING)
     float absCoords = abs(ribbonPosition);
 #else
@@ -481,6 +499,9 @@ void computeFragmentColor(
             mix(fragmentColor.rgb, foregroundColor.rgb,
             smoothstep(WHITE_THRESHOLD - EPSILON_WHITE, WHITE_THRESHOLD + EPSILON_WHITE, absCoords)),
             fragmentColor.a * coverage);
+#else // defined(GENERAL_TRIANGLE_MESH)
+    vec4 colorOut = fragmentColor;
+#endif // !defined(GENERAL_TRIANGLE_MESH)
 
     // Code for debugging acceleration structure instances.
     // https://colorbrewer2.org/#type=qualitative&scheme=Set1&n=8

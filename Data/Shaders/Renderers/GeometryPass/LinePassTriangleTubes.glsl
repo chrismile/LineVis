@@ -3,7 +3,10 @@
 #version 450 core
 
 #include "LineUniformData.glsl"
+
+#ifndef GENERAL_TRIANGLE_MESH
 #include "LineDataSSBO.glsl"
+#endif
 
 struct TubeTriangleVertexData {
     vec3 vertexPosition;
@@ -22,7 +25,9 @@ layout(location = 1) out vec3 screenSpacePosition;
 #endif
 layout(location = 2) out float fragmentAttribute;
 layout(location = 3) out vec3 fragmentNormal;
+#ifndef GENERAL_TRIANGLE_MESH
 layout(location = 4) out vec3 fragmentTangent;
+#endif
 
 /*
  * maxGeometryTotalOutputComponents is 1024 on NVIDIA hardware. When using stress line bands and ambient occlusion,
@@ -82,7 +87,10 @@ void main() {
 #else
     uint linePointIdx = vertexData.vertexLinePointIndex;
 #endif
+
+#ifndef GENERAL_TRIANGLE_MESH
     LinePointData linePointData = linePoints[linePointIdx];
+#endif
 
 #if defined(USE_PRINCIPAL_STRESS_DIRECTION_INDEX) || defined(USE_LINE_HIERARCHY_LEVEL) || defined(VISUALIZE_SEEDING_PROCESS)
     StressLinePointData stressLinePointData = stressLinePoints[linePointIdx];
@@ -108,7 +116,9 @@ void main() {
 #endif
 #endif
 
+#ifndef GENERAL_TRIANGLE_MESH
     vec3 lineCenterPosition = (mMatrix * vec4(linePointData.linePosition, 1.0)).xyz;
+#endif
 
 #ifdef USE_BANDS
 #if defined(USE_NORMAL_STRESS_RATIO_TUBES) || defined(USE_HYPERSTREAMLINES)
@@ -202,8 +212,13 @@ void main() {
     fragmentRotation = linePointData.lineRotation * helicityRotationFactor;
 #endif
 
+#ifndef GENERAL_TRIANGLE_MESH
     fragmentAttribute = linePointData.lineAttribute;
     fragmentTangent = linePointData.lineTangent;
+#else
+    // 'phi' stores attribute for general triangle meshes.
+    fragmentAttribute = vertexData.phi;
+#endif
 
     gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
     fragmentNormal = vertexNormal;

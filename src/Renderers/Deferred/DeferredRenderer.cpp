@@ -648,7 +648,9 @@ void DeferredRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& rende
         if (tubeRenderData.indexBuffer) {
             renderData->setStaticBuffer(tubeRenderData.indexBuffer, "TriangleIndexBuffer");
             renderData->setStaticBuffer(tubeRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
-            renderData->setStaticBuffer(tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");
+            if (tubeRenderData.linePointDataBuffer) {
+                renderData->setStaticBuffer(tubeRenderData.linePointDataBuffer, "LinePointDataBuffer");
+            }
             if (tubeRenderData.multiVarAttributeDataBuffer) {
                 renderData->setStaticBufferOptional(
                         tubeRenderData.multiVarAttributeDataBuffer, "AttributeDataArrayBuffer");

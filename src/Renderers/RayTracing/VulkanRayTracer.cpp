@@ -486,7 +486,7 @@ void RayTracingRenderPass::createRayTracingData(
                     tubeTriangleRenderData.indexBuffer, "TubeIndexBuffer");
             rayTracingData->setStaticBuffer(
                     tubeTriangleRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
-            rayTracingData->setStaticBuffer(
+            rayTracingData->setStaticBufferOptional(
                     tubeTriangleRenderData.linePointDataBuffer, "LinePointDataBuffer");
             rayTracingData->setStaticBufferOptional(
                     tubeTriangleRenderData.stressLinePointDataBuffer, "StressLinePointDataBuffer");
@@ -508,7 +508,7 @@ void RayTracingRenderPass::createRayTracingData(
                     hullTriangleRenderData.indexBuffer, "TubeIndexBuffer");
             rayTracingData->setStaticBuffer(
                     hullTriangleRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
-            rayTracingData->setStaticBuffer(
+            rayTracingData->setStaticBufferOptional(
                     hullTriangleRenderData.vertexBuffer, "LinePointDataBuffer");
             rayTracingData->setStaticBufferOptional(
                     hullTriangleRenderData.vertexBuffer, "StressLinePointDataBuffer");

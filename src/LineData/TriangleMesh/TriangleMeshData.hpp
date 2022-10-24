@@ -41,6 +41,8 @@ public:
     explicit TriangleMeshData(sgl::TransferFunctionWindow& transferFunctionWindow);
     ~TriangleMeshData() override;
     [[nodiscard]] bool getIsSmallDataSet() const override;
+    // Called before the data is first used on the main thread.
+    void onMainThreadDataInit() override;
 
     /**
      * Load the data from the selected file(s).
@@ -120,6 +122,9 @@ protected:
     ///< The maximum number of vertices/indices to be considered a small data set (important, e.g., for live UI updates).
     const size_t SMALL_DATASET_VERTICES_MAX = 1000000;
     const size_t SMALL_DATASET_INDICES_MAX = 1000000;
+
+    // Rendering options.
+    bool useBackfaceCulling = false;
 
     MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
 };
