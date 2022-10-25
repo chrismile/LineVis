@@ -365,7 +365,6 @@ protected:
     std::vector<std::string> supportedRenderingModes;
     bool useCappedTubes = true;
     bool useHalos = true;
-    bool showLineDataWindow = true;
     std::string lineDataWindowName;
 
     // If optional band data is provided.

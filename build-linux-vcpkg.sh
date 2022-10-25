@@ -197,7 +197,7 @@ if [[ ! -v VULKAN_SDK ]]; then
     if ! $found_vulkan && lsb_release -a 2> /dev/null | grep -q 'Ubuntu'; then
         distro_code_name=$(lsb_release -c | grep -oP "\:\s+\K\S+")
         if ! compgen -G "/etc/apt/sources.list.d/lunarg-vulkan-*" > /dev/null \
-              && ! curl -s -I "https://packages.lunarg.com/vulkan/lunarg-vulkan-${distro_code_name}.list" | grep "2 404" > /dev/null; then
+              && ! curl -s -I "https://packages.lunarg.com/vulkan/dists/{distro_code_name}/" | grep "2 404" > /dev/null; then
             echo "Setting up Vulkan SDK for Ubuntu $(lsb_release -r | grep -oP "\:\s+\K\S+")..."
             wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
             sudo curl --silent --show-error --fail \
