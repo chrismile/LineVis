@@ -425,6 +425,19 @@ SphereRasterPass::SphereRasterPass(LineRenderer* lineRenderer)
     getSphereSurfaceRenderData(
             glm::vec3(0,0,0), 1.0f, 32, 32,
             sphereVertexPositions, sphereVertexNormals, sphereIndices);
+
+    vertexPositionBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(glm::vec3) * sphereVertexPositions.size(), sphereVertexPositions.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+    vertexNormalBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(glm::vec3) * sphereVertexNormals.size(), sphereVertexNormals.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+    indexBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(uint32_t) * sphereIndices.size(), sphereIndices.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
 }
 
 void SphereRasterPass::setAttachmentLoadOp(VkAttachmentLoadOp loadOp) {
@@ -447,8 +460,8 @@ void SphereRasterPass::loadShader() {
 void SphereRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
     lineRenderer->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
     pipelineInfo.setVertexBufferBinding(0, sizeof(glm::vec3));
-    pipelineInfo.setInputAttributeDescription(0, 0, "vertexPosition");
-    pipelineInfo.setInputAttributeDescription(1, 0, "vertexNormal");
+    pipelineInfo.setVertexBufferBindingByLocationIndex("vertexPosition", sizeof(glm::vec3));
+    pipelineInfo.setVertexBufferBindingByLocationIndex("vertexNormal", sizeof(glm::vec3));
 }
 
 void SphereRasterPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {

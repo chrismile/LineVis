@@ -39,6 +39,16 @@ typedef std::shared_ptr<BlitRenderPass> BlitRenderPassPtr;
 
 }}
 
+class TexturedSphereRasterPass;
+
+enum class SphericalMapType {
+    MOLLWEIDE_KD_TREE, MOLLWEIDE, MOLLWEIDE_SPHERE
+};
+
+const char* const SPHERICAL_MAP_TYPE_NAMES[] = {
+    "Mollweide (k-D Tree)", "Mollweide", "Mollweide (Sphere)"
+};
+
 class SphericalHeatMapRenderer : public LineRenderer {
 public:
     SphericalHeatMapRenderer(
@@ -48,6 +58,9 @@ public:
 
     /// Returns whether the triangle representation is used by the renderer.
     [[nodiscard]] bool getIsTriangleRepresentationUsed() const override { return false; }
+
+    /// Whether to use a 3D or 2D camera for the renderer.
+    [[nodiscard]] bool getUseCamera3d() override { return sphericalMapType == SphericalMapType::MOLLWEIDE_SPHERE; }
 
     /**
      * Re-generates the visualization mapping.
@@ -64,9 +77,44 @@ public:
     void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
 private:
+    void recreateMapImage();
+    void renderImage();
+    void renderSphere();
+    SphericalMapType sphericalMapType = SphericalMapType::MOLLWEIDE;
     Image heat_map = {};
     sgl::vk::BlitRenderPassPtr blitRenderPass;
+    std::shared_ptr<TexturedSphereRasterPass> sphereRasterPass;
     sgl::vk::TexturePtr heatMapTexture;
+};
+
+
+class TexturedSphereRasterPass : public sgl::vk::RasterPass {
+public:
+    explicit TexturedSphereRasterPass(LineRenderer* lineRenderer);
+
+    // Public interface.
+    void setMollweideMapImage(const sgl::vk::TexturePtr& _texture);
+
+    void setAttachmentLoadOp(VkAttachmentLoadOp loadOp);
+    void recreateSwapchain(uint32_t width, uint32_t height) override;
+
+protected:
+    void loadShader() override;
+    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
+    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
+    void _render() override;
+
+private:
+    LineRenderer* lineRenderer;
+    SceneData* sceneData;
+    sgl::CameraPtr* camera;
+    LineDataPtr lineData;
+    VkAttachmentLoadOp attachmentLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+
+    sgl::vk::BufferPtr indexBuffer;
+    sgl::vk::BufferPtr vertexPositionBuffer;
+    sgl::vk::BufferPtr vertexTexCoordBuffer;
+    sgl::vk::TexturePtr mollweideMapImage;
 };
 
 #endif //LINEVIS_SPHERICALHEATMAPRENDERER_HPP

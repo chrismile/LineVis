@@ -1208,6 +1208,10 @@ void MainApp::renderGui() {
 
                     if (dataView->viewportWidth > 0 && dataView->viewportHeight > 0
                             && (reRenderLocal || continuousRendering)) {
+                        //if (dataView->lineRenderer && dataView->lineRenderer->getRenderingMode() == ) {
+                        dataView->updateCameraMode();
+                        //}
+
                         dataView->beginRender();
 
                         if (renderingMode != RENDERING_MODE_PER_PIXEL_LINKED_LIST && usePerformanceMeasurementMode) {
@@ -1999,8 +2003,7 @@ void MainApp::update(float dt) {
                     continue;
                 }
                 // 3D camera movement disabled for certain renderers.
-                if (dataView->lineRenderer
-                        && dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER) {
+                if (dataView->lineRenderer && !dataView->lineRenderer->getUseCamera3d()) {
                     dataView->moveCamera2dKeyboard(dt);
                     continue;
                 }
@@ -2044,8 +2047,7 @@ void MainApp::update(float dt) {
                     continue;
                 }
                 // 3D camera movement disabled for certain renderers.
-                if (dataView->lineRenderer
-                        && dataView->lineRenderer->getRenderingMode() == RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER) {
+                if (dataView->lineRenderer && !dataView->lineRenderer->getUseCamera3d()) {
                     dataView->moveCamera2dMouse(dt);
                     continue;
                 }

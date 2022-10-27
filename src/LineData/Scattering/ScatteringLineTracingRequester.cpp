@@ -485,10 +485,7 @@ void ScatteringLineTracingRequester::traceLines(
         }
     }
 
-    KdTree<Empty>* kd_tree_exit_dirs = new KdTree<Empty>;
-    kd_tree_exit_dirs->build(exit_directions);
-
-    lineData->setExitDirections(kd_tree_exit_dirs);
+    lineData->setExitDirections(exit_directions);
 
     lineData->setDataSetInformation(gridDataSetFilename, { "Attribute #1" });
     lineData->setTrajectoryData(trajectories);

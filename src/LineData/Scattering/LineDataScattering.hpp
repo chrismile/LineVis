@@ -87,8 +87,8 @@ public:
 
     void setDataSetInformation(const std::string& dataSetName, const std::vector<std::string>& attributeNames);
 
-    void setExitDirections(KdTree<Empty>* exit_dirs);
-    KdTree<Empty>* getExitDirections();
+    void setExitDirections(const std::vector<glm::vec3>& exit_dirs);
+    const std::vector<glm::vec3>& getExitDirections();
 
     void setGridData(
             const sgl::vk::TexturePtr& scalarFieldTexture,
@@ -119,7 +119,7 @@ private:
     bool lineRenderersUseVolumeRenderer = false;
     bool isVolumeRenderer = false;
     bool useLineSegmentLengthForDensityField = true;
-    KdTree<Empty>* ray_exit_directions;
+    std::vector<glm::vec3> ray_exit_directions;
 
     // Caches the rendering data when using Vulkan.
     VulkanLineDataScatteringRenderData vulkanScatteredLinesGridRenderData;

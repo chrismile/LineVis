@@ -55,11 +55,11 @@ LineDataScattering::LineDataScattering(
 LineDataScattering::~LineDataScattering() {
 }
 
-KdTree<Empty>* LineDataScattering::getExitDirections() {
+const std::vector<glm::vec3>& LineDataScattering::getExitDirections() {
     return ray_exit_directions;
 }
 
-void LineDataScattering::setExitDirections(KdTree<Empty>* exit_dirs) {
+void LineDataScattering::setExitDirections(const std::vector<glm::vec3>& exit_dirs) {
     ray_exit_directions = exit_dirs;
 }
 

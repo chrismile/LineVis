@@ -217,11 +217,10 @@ void DataView::setClearColor(const sgl::Color& color) {
 }
 
 void DataView::updateCameraMode() {
-    bool useCamera2dNew = lineRenderer->getRenderingMode() == RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER;
-    if (useCamera2dNew) {
-        sceneData.camera = camera2d;
-    } else {
+    if (lineRenderer->getUseCamera3d()) {
         sceneData.camera = camera;
+    } else {
+        sceneData.camera = camera2d;
     }
 }
 

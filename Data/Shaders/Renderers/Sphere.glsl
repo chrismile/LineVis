@@ -33,9 +33,9 @@
 layout(location = 0) in vec3 vertexPosition;
 layout(location = 1) in vec3 vertexNormal;
 
-out vec3 fragmentPositionWorld;
-out vec3 screenSpacePosition;
-out vec3 fragmentNormal;
+layout(location = 0) out vec3 fragmentPositionWorld;
+layout(location = 1) out vec3 screenSpacePosition;
+layout(location = 2) out vec3 fragmentNormal;
 
 layout(binding = 0) uniform UniformDataBuffer {
     vec3 cameraPosition;
@@ -62,11 +62,11 @@ void main() {
 
 #version 450 core
 
-in vec3 fragmentPositionWorld;
-in vec3 screenSpacePosition;
-in vec3 fragmentNormal;
+layout(location = 0) in vec3 fragmentPositionWorld;
+layout(location = 1) in vec3 screenSpacePosition;
+layout(location = 2) in vec3 fragmentNormal;
 
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
 
 layout(binding = 0) uniform UniformDataBuffer {
     vec3 cameraPosition;
@@ -99,4 +99,34 @@ void main() {
             fragmentColor.a * coverage);
 
     fragColor = colorOut;
+}
+
+
+-- Vertex.Textured
+
+#version 450 core
+
+layout(location = 0) in vec3 vertexPosition;
+layout(location = 1) in vec2 vertexTexCoords;
+
+layout(location = 0) out vec2 fragmentTexCoords;
+
+void main() {
+    fragmentTexCoords = vertexTexCoords;
+    gl_Position = mvpMatrix * vec4(vertexPosition, 1.0);
+}
+
+
+-- Fragment.Textured
+
+#version 450 core
+
+layout(location = 0) in vec2 fragmentTexCoords;
+
+layout(location = 0) out vec4 fragColor;
+
+layout(binding = 0) uniform sampler2D mollweideMapImage;
+
+void main() {
+    fragColor = texture(mollweideMapImage, fragmentTexCoords);
 }

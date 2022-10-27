@@ -145,6 +145,9 @@ public:
      */
     virtual void setRenderSimulationMeshHull(bool shallRenderSimulationMeshHull) {}
 
+    /// Whether to use a 3D or 2D camera for the renderer.
+    [[nodiscard]] virtual bool getUseCamera3d() { return true; }
+
     // For changing performance measurement modes.
     virtual void setNewState(const InternalState& newState) { }
     virtual bool setNewSettings(const SettingsMap& settings);

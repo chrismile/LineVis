@@ -115,7 +115,7 @@ public:
 
     // Public interface.
     void setInputTextures(sgl::vk::TexturePtr& _positionTexture, sgl::vk::TexturePtr& _normalTexture);
-    void setOutputImage(sgl::vk::ImageViewPtr& _aoImage);
+    void setOutputImage(sgl::vk::ImageViewPtr& _aoImage) override;
     void recreateSwapchain(uint32_t width, uint32_t height) override;
 
 protected:
