@@ -659,9 +659,9 @@ struct Mollweide_Grid {
         lat_lng_to_mollweide(phi, lambda, &x, &y);
 
         Entry new_entry {
-                .u = x,
-                .v = y,
-                .payload = payload
+                x,
+                y,
+                payload
         };
 
         insert(&new_entry);
