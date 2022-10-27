@@ -41,38 +41,69 @@ namespace sgl {
 class PropertyEditor;
 }
 
-enum class DenoiserType {
-    NONE,
-    EAW,
-#ifdef SUPPORT_PYTORCH_DENOISER
-    PYTORCH_DENOISER,
-#endif
+// enum type, name, num channels, num channels padded
+#define FEATURE_MAPS                            \
+    FEATURE_MAP(COLOR,    "Color",     4, 4)    \
+    FEATURE_MAP(ALBEDO,   "Albedo",    4, 4)    \
+    FEATURE_MAP(NORMAL,   "Normal",    3, 4)    \
+    FEATURE_MAP(DEPTH,    "Depth",     1, 1)    \
+    FEATURE_MAP(POSITION, "Position",  3, 4)    \
+    FEATURE_MAP(FLOW,     "Flow",      2, 2)    \
+
+// denoiser type, name
+#define STD_DENOISERS                                           \
+    DENOISER(NONE, "None")                                      \
+    DENOISER(SVGF, "SVGF")                                      \
+    DENOISER(EAW,  "Edge-Avoiding À-Trous Wavelet Transform")   \
+
 #ifdef SUPPORT_OPTIX
-    OPTIX
+#  define OPTIX_DENOISER                        \
+    DENOISER(OPTIX, "OptiX Denoiser")
+#else
+#  define OPTIX_DENOISER
 #endif
+
+#ifdef SUPPORT_PYTORCH_DENOISER
+#  define PYTORCH_DENOISER                                  \
+    DENOISER(PYTORCH_DENOISER, "PyTorch Denoiser Module")
+#else
+#  define PYTORCH_DENOISER
+#endif
+
+#define DENOISERS STD_DENOISERS OPTIX_DENOISER PYTORCH_DENOISER
+
+enum class DenoiserType {
+#define DENOISER(type, name) type,
+    DENOISERS
+#undef DENOISER
 };
 const char* const DENOISER_NAMES[] = {
-        "None",
-        "Edge-Avoiding À-Trous Wavelet Transform",
-#ifdef SUPPORT_PYTORCH_DENOISER
-        "PyTorch Denoiser Module",
-#endif
-#ifdef SUPPORT_OPTIX
-        "OptiX Denoiser"
-#endif
+#define DENOISER(type, name) name,
+    DENOISERS
+#undef DENOISER
 };
 
 enum class FeatureMapType {
-    COLOR, ALBEDO, NORMAL, DEPTH, POSITION, FLOW
+#define FEATURE_MAP(enum_name, _1, _2, _3) enum_name,
+    FEATURE_MAPS
+#undef FEATURE_MAP
 };
+
 const char* const FEATURE_MAP_NAMES[] = {
-        "Color", "Albedo", "Normal", "Depth", "Position", "Flow",
+#define FEATURE_MAP(_1, string_name, _2, _3) string_name,
+    FEATURE_MAPS
+#undef FEATURE_MAP
 };
+
 const uint32_t FEATURE_MAP_NUM_CHANNELS[] = {
-        4, 4, 3, 1, 3, 2
+#define FEATURE_MAP(_1, _2, num_channels, _3) num_channels,
+    FEATURE_MAPS
+#undef FEATURE_MAP
 };
 const uint32_t FEATURE_MAP_NUM_CHANNELS_PADDED[] = {
-        4, 4, 4, 1, 4, 2
+#define FEATURE_MAP(_1, _2, _3, num_channels_padded) num_channels_padded,
+    FEATURE_MAPS
+#undef FEATURE_MAP
 };
 
 class Denoiser {
