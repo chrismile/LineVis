@@ -793,9 +793,8 @@ struct Mollweide_Grid {
 
         for (u32 y = 0; y < height; ++y) {
             for (u32 x = 0; x < width; ++x) {
-
-                u32 b_x_idx = remap<float>(0, x, width,  0, grid_width);
-                u32 b_y_idx = remap<float>(0, y, height, 0, grid_height);
+                u32 b_x_idx = remap<u32>(0, x, width,  0, grid_width);
+                u32 b_y_idx = remap<u32>(0, y, height, 0, grid_height);
 
                 if (b_x_idx >= grid_width)
                     b_x_idx = grid_width-1;
@@ -823,10 +822,10 @@ struct Mollweide_Grid {
                 }
 
                 pixels[width * y + x] = {
-                        .r = (u8)(color.r*255),
-                        .g = (u8)(color.g*255),
-                        .b = (u8)(color.b*255),
-                        .a = 255,
+                        (u8)(color.r*255),
+                        (u8)(color.g*255),
+                        (u8)(color.b*255),
+                        255,
                 };
             }
         }
