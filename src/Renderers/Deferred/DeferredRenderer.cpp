@@ -1310,15 +1310,25 @@ void DeferredRenderer::render() {
 
 void DeferredRenderer::renderDataEmpty() {
     // In case the data is empty, we can simply clear the color and depth render target.
-    renderer->transitionImageLayout(
-            colorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    renderer->insertImageMemoryBarrier(
+            colorRenderTargetImage->getImage(),
+            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_WRITE_BIT);
+    //renderer->transitionImageLayout(
+    //        colorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     colorRenderTargetImage->clearColor(
             sceneData->clearColor->getFloatColorRGBA(), renderer->getVkCommandBuffer());
     renderer->transitionImageLayout(
             colorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-    renderer->transitionImageLayout(
-            depthRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    renderer->insertImageMemoryBarrier(
+            depthRenderTargetImage->getImage(),
+            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_WRITE_BIT);
+    //renderer->transitionImageLayout(
+    //        depthRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     depthRenderTargetImage->clearDepthStencil(
             1.0f, 0, renderer->getVkCommandBuffer());
 }

@@ -29,9 +29,11 @@
 #ifndef RENDERERS_HEXAHEDRALMESHRENDERER_HPP
 #define RENDERERS_HEXAHEDRALMESHRENDERER_HPP
 
+#include <utility>
+
 #include <Utils/Events/EventManager.hpp>
 #include <Renderers/AmbientOcclusion/AmbientOcclusionBaker.hpp>
-#include <utility>
+
 #include "LineData/LineData.hpp"
 #include "RenderingModes.hpp"
 #include "LineRasterPass.hpp"

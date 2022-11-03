@@ -738,7 +738,7 @@ void MainApp::setRenderer(
             std::string warningText =
                     std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
                     + "supported on this hardware due to the missing geometry shader physical device feature.";
-            onUnuspportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
+            onUnsupportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
         }
     } else if (newRenderingMode == RENDERING_MODE_DEPTH_COMPLEXITY) {
         newLineRenderer = new DepthComplexityRenderer(&sceneDataRef, transferFunctionWindow);
@@ -753,7 +753,7 @@ void MainApp::setRenderer(
             std::string warningText =
                     std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
                     + "supported on this hardware due to the missing independentBlend physical device feature.";
-            onUnuspportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
+            onUnsupportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
         }
     } else if (newRenderingMode == RENDERING_MODE_DEPTH_PEELING) {
         newLineRenderer = new DepthPeelingRenderer(&sceneDataRef, transferFunctionWindow);
@@ -764,7 +764,7 @@ void MainApp::setRenderer(
             std::string warningText =
                     std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
                     + "supported on this hardware due to missing Vulkan ray pipelines.";
-            onUnuspportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
+            onUnsupportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
         }
     } else if (newRenderingMode == RENDERING_MODE_VOXEL_RAY_CASTING) {
         newLineRenderer = new VoxelRayCastingRenderer(&sceneDataRef, transferFunctionWindow);
@@ -785,7 +785,7 @@ void MainApp::setRenderer(
         std::string warningText =
                 std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[idx] + "\" is not "
                 + "supported in this build configuration or incompatible with this system.";
-        onUnuspportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
+        onUnsupportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
     }
 
     newLineRenderer->initialize();
@@ -812,7 +812,7 @@ void MainApp::setRenderer(
     }
 }
 
-void MainApp::onUnuspportedRendererSelected(
+void MainApp::onUnsupportedRendererSelected(
         const std::string& warningText,
         SceneData& sceneDataRef, RenderingMode& newRenderingMode, LineRenderer*& newLineRenderer) {
     sgl::Logfile::get()->writeWarning(
@@ -1209,8 +1209,9 @@ void MainApp::renderGui() {
                     if (dataView->viewportWidth > 0 && dataView->viewportHeight > 0
                             && (reRenderLocal || continuousRendering)) {
                         //if (dataView->lineRenderer && dataView->lineRenderer->getRenderingMode() == ) {
-                        dataView->updateCameraMode();
-                        //}
+                        if (dataView->lineRenderer) {
+                            dataView->updateCameraMode();
+                        }
 
                         dataView->beginRender();
 
@@ -1576,7 +1577,7 @@ void MainApp::openFileDialog() {
     IGFD_OpenModal(
             fileDialogInstance,
             "ChooseDataSetFile", "Choose a File",
-            ".*,.obj,.dat,.binlines,.nc,.vtk,.bin,.stress,.carti,.xyz,.nvdb",
+            ".*,.obj,.dat,.binlines,.nc,.vtk,.vti,.vts,.bin,.stress,.carti,.am,.field,.grib,.grb,.raw,.xyz,.nvdb,.bobj",
             fileDialogDirectory.c_str(),
             "", 1, nullptr,
             ImGuiFileDialogFlags_ConfirmOverwrite);
@@ -2338,6 +2339,7 @@ void MainApp::prepareVisualizationPipeline() {
             filterData(isPreviousNodeDirty);
             if (isPreviousNodeDirty) {
                 lineData->setTriangleRepresentationDirty();
+                lineData->setIsDirty(true);
             }
             bool isTriangleRepresentationDirty = lineData->isTriangleRepresentationDirty();
             for (DataViewPtr& dataView : dataViews) {
