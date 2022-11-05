@@ -37,6 +37,9 @@
 #include <Utils/File/FileUtils.hpp>
 #include <Utils/File/FileLoader.hpp>
 #include <Utils/Events/Stream/Stream.hpp>
+#include <Utils/Mesh/TriangleNormals.hpp>
+#include <Utils/Mesh/IndexMesh.hpp>
+#include <Utils/Mesh/MeshSmoothing.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
@@ -45,9 +48,6 @@
 #include <IsosurfaceCpp/src/MarchingCubes.hpp>
 #include <IsosurfaceCpp/src/SnapMC.hpp>
 
-#include "Utils/TriangleNormals.hpp"
-#include "Utils/MeshSmoothing.hpp"
-#include "Utils/IndexMesh.hpp"
 #include "LineDataScattering.hpp"
 #include "ScatteringLineTracingRequester.hpp"
 #include "Texture3d.hpp"

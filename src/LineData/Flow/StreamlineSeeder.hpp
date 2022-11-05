@@ -35,11 +35,12 @@
 #include <memory>
 
 #include <glm/vec3.hpp>
+
+#include <Utils/SearchStructures/KdTree.hpp>
+#include <Utils/SearchStructures/HashedGrid.hpp>
 #include <Math/Geometry/AABB3.hpp>
 
 #include "Utils/InternalState.hpp"
-#include "LineData/SearchStructures/KdTree.hpp"
-#include "LineData/SearchStructures/HashedGrid.hpp"
 #include "StreamlineTracingDefines.hpp"
 
 struct Trajectory;

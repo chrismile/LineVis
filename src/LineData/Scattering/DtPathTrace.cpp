@@ -1,12 +1,12 @@
-#include "DtPathTrace.hpp"
 #include <vector>
 #include <variant>
 #include <cstdint>
 #include <cmath>
 
 #include <Utils/Defer.hpp>
+#include <Utils/SearchStructures/KdTree.hpp>
 
-#include "../SearchStructures/KdTree.hpp"
+#include "DtPathTrace.hpp"
 
 #define ERROR(...) printf("ERROR: "  __VA_ARGS__);
 #define INFO(...)

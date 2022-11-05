@@ -459,7 +459,6 @@ void SphereRasterPass::loadShader() {
 
 void SphereRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
     lineRenderer->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
-    pipelineInfo.setVertexBufferBinding(0, sizeof(glm::vec3));
     pipelineInfo.setVertexBufferBindingByLocationIndex("vertexPosition", sizeof(glm::vec3));
     pipelineInfo.setVertexBufferBindingByLocationIndex("vertexNormal", sizeof(glm::vec3));
 }

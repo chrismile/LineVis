@@ -291,7 +291,7 @@ void GribLoader::load(
         std::vector<float*>& variableSliceArray = variableSliceArrays.at(varIdx);
         float*& variableArray = variableArrays.at(varIdx);
         variableArray = new float[numLevels * size_t(numLatsGlobal) * size_t(numLonsGlobal)];
-        for (size_t level = 0; level < variableSliceArrays.size(); level++) {
+        for (size_t level = 0; level < variableSliceArray.size(); level++) {
             const float* variableSlice = variableSliceArray.at(level);
             if (variableSlice == nullptr) {
                 for (long latIdx = 0; latIdx < numLatsGlobal; latIdx++) {

@@ -56,7 +56,6 @@ if (USE_GTEST)
             GTEST_SOURCES
             # Test 1: Kd-tree functionality.
             ${CMAKE_CURRENT_SOURCE_DIR}/test/TestKdTreeNearestNeighbor.cpp
-            ${CMAKE_CURRENT_SOURCE_DIR}/src/LineData/SearchStructures/NearestNeighborNaive.cpp
             # Test 2: Volumetric path tracing.
             ${CMAKE_CURRENT_SOURCE_DIR}/test/VolumetricPathTracingTestData.cpp
             ${CMAKE_CURRENT_SOURCE_DIR}/test/VolumetricPathTracingTestRenderer.cpp

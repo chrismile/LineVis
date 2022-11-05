@@ -29,12 +29,12 @@
 #ifndef LINEVIS_LINEDATASCATTERING_HPP
 #define LINEVIS_LINEDATASCATTERING_HPP
 
+#include <Utils/SearchStructures/KdTree.hpp>
 #include <Graphics/Vulkan/Render/Passes/Pass.hpp>
 
 #include "../LineDataFlow.hpp"
 #include "CloudData.hpp"
 #include "Texture3d.hpp"
-#include "../SearchStructures/KdTree.hpp"
 
 namespace sgl { namespace vk {
 class Renderer;

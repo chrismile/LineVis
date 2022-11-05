@@ -110,7 +110,7 @@ jobs:
         fi
 
     - name: Setup vcpkg
-      uses: lukka/run-vcpkg@v10.2
+      uses: lukka/run-vcpkg@v10
       with:
         vcpkgGitCommitId: '2de7f388c5aac1f7d63c5986fe9b1b60e7d6bbb5'
         #doNotCacheOnWorkflowFailure: true

@@ -89,7 +89,7 @@ void main() {
 #endif
 
     uint channelsCounter = 0;
-    if (gl_GlobalInvocationID.x >= inputImageSize.x && gl_GlobalInvocationID.y >= inputImageSize.y) {
+    if (gl_GlobalInvocationID.x >= inputImageSize.x || gl_GlobalInvocationID.y >= inputImageSize.y) {
         return;
     }
     ivec2 readPos = ivec2(gl_GlobalInvocationID.xy);

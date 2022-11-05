@@ -34,8 +34,8 @@
 
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/LineReader.hpp>
+#include <Utils/Mesh/TriangleNormals.hpp>
 
-#include "Utils/TriangleNormals.hpp"
 #include "StressTrajectoriesDatLoader.hpp"
 
 #ifdef USE_EIGEN

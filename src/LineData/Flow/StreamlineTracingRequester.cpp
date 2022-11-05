@@ -37,13 +37,13 @@
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/FileUtils.hpp>
 #include <Utils/File/FileLoader.hpp>
+#include <Utils/Mesh/IndexMesh.hpp>
+#include <Utils/Mesh/TriangleNormals.hpp>
+#include <Utils/Mesh/MeshSmoothing.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
 #include <ImGui/imgui_custom.h>
 #include <ImGui/imgui_stdlib.h>
 
-#include "Utils/IndexMesh.hpp"
-#include "Utils/MeshSmoothing.hpp"
-#include "Utils/TriangleNormals.hpp"
 #include "../LineDataFlow.hpp"
 #include "StreamlineSeeder.hpp"
 #include "StreamlineTracingGrid.hpp"

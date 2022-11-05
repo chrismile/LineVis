@@ -29,8 +29,8 @@
 #include <random>
 #include <glm/glm.hpp>
 #include <gtest/gtest.h>
-#include "LineData/SearchStructures/NearestNeighborNaive.hpp"
-#include "LineData/SearchStructures/KdTree.hpp"
+#include <Utils/SearchStructures/NearestNeighborNaive.hpp>
+#include <Utils/SearchStructures/KdTree.hpp>
 
 class KdTreeNearestNeighborTest : public ::testing::TestWithParam<int> {
 protected:

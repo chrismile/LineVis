@@ -31,6 +31,9 @@
 #endif
 
 #include <Utils/File/Logfile.hpp>
+#include <Utils/Mesh/TriangleNormals.hpp>
+#include <Utils/Mesh/MeshSmoothing.hpp>
+#include <Utils/SearchStructures/KdTree.hpp>
 #include <Graphics/Vulkan/Buffers/Buffer.hpp>
 #include <Graphics/Vulkan/Render/Data.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
@@ -41,10 +44,7 @@
 #include "Renderers/Tubes/Tubes.hpp"
 #include "Renderers/OIT/OpacityOptimizationRenderer.hpp"
 
-#include "Utils/TriangleNormals.hpp"
-#include "Utils/MeshSmoothing.hpp"
 #include "Loaders/DegeneratePointsDatLoader.hpp"
-#include "SearchStructures/KdTree.hpp"
 #include "Renderers/LineRenderer.hpp"
 #include "LineDataStress.hpp"
 
