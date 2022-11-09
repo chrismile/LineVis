@@ -77,7 +77,6 @@ enum class MeshType {
     CARTESIAN, UNSTRUCTURED
 };
 
-sgl::AABB3 computeVertexPositionsAABB3(const std::vector<glm::vec3>& positions);
 sgl::AABB3 computeTrajectoriesAABB3(const Trajectories& trajectories);
 void normalizeTrajectoriesVertexPositions(
         Trajectories& trajectories, const glm::mat4* vertexTransformationMatrixPtr = nullptr);

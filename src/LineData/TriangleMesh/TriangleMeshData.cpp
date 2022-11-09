@@ -27,6 +27,7 @@
  */
 
 #include <Utils/File/Logfile.hpp>
+#include <Utils/Parallel/Reduction.hpp>
 #include <Graphics/Vulkan/Render/Data.hpp>
 
 #include "Loaders/TriangleMesh/BinaryObjLoader.hpp"
@@ -96,18 +97,8 @@ bool TriangleMeshData::loadFromFile(
 
         minMaxAttributeValues.clear();
         for (size_t varIdx = 0; varIdx < colorLegendWidgets.size(); varIdx++) {
-            float minAttr = std::numeric_limits<float>::max();
-            float maxAttr = std::numeric_limits<float>::lowest();
             std::vector<float>& vertexAttributes = vertexAttributesList.at(varIdx);
-#if _OPENMP >= 201107
-            #pragma omp parallel for default(none) shared(vertexAttributes) \
-            reduction(min: minAttr) reduction(max: maxAttr)
-#endif
-            for (size_t i = 0; i < vertexAttributes.size(); i++) {
-                float val = vertexAttributes.at(i);
-                minAttr = std::min(minAttr, val);
-                maxAttr = std::max(maxAttr, val);
-            }
+            auto [minAttr, maxAttr] = sgl::reduceFloatArrayMinMax(vertexAttributes);
             minMaxAttributeValues.emplace_back(minAttr, maxAttr);
             colorLegendWidgets[varIdx].setAttributeMinValue(minAttr);
             colorLegendWidgets[varIdx].setAttributeMaxValue(maxAttr);

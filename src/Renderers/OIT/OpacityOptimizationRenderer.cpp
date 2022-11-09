@@ -26,6 +26,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef USE_TBB
+#include <tbb/parallel_reduce.h>
+#include <tbb/blocked_range.h>
+#endif
+
 #include <Math/Geometry/MatrixUtil.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
@@ -269,11 +274,22 @@ void OpacityOptimizationRenderer::generateBlendingWeightParametrization(bool isN
     polylineLengths.shrink_to_fit();
     polylineLengths.resize(lines.size());
 
+#ifdef USE_TBB
+    auto& lines = this->lines;
+    auto& polylineLengths = this->polylineLengths;
+    std::tie(linesLengthSum, numPolylineSegments) = tbb::parallel_reduce(
+            tbb::blocked_range<size_t>(0, lines.size()), std::make_pair(0.0f, 0),
+            [&lines, &polylineLengths](tbb::blocked_range<size_t> const& r, std::pair<float, uint32_t> init) {
+                float& linesLengthSum = init.first;
+                uint32_t& numPolylineSegments = init.second;
+                for (auto lineIdx = r.begin(); lineIdx != r.end(); lineIdx++) {
+#else
 #if _OPENMP >= 201107
     #pragma omp parallel for reduction(+: linesLengthSum) reduction(+: numPolylineSegments) shared(polylineLengths) \
     default(none)
 #endif
     for (size_t lineIdx = 0; lineIdx < lines.size(); lineIdx++) {
+#endif
         std::vector<glm::vec3>& line = lines.at(lineIdx);
         const size_t n = line.size();
         float polylineLength = 0.0f;
@@ -284,6 +300,12 @@ void OpacityOptimizationRenderer::generateBlendingWeightParametrization(bool isN
         linesLengthSum += polylineLength;
         numPolylineSegments += uint32_t(n - 1);
     }
+#ifdef USE_TBB
+                return init;
+            }, [&](std::pair<float, uint32_t> lhs, std::pair<float, uint32_t> rhs) -> std::pair<float, uint32_t> {
+                return { lhs.first + rhs.first, lhs.second + rhs.second };
+            });
+#endif
 
     if (useViewDependentParametrization) {
         recomputeViewDependentParametrization();

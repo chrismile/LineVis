@@ -38,6 +38,12 @@
 #include <glm/glm.hpp>
 #include <netcdf.h>
 
+#ifdef USE_TBB
+#include <tbb/parallel_reduce.h>
+#include <tbb/blocked_range.h>
+#include <Utils/Parallel/Reduction.hpp>
+#endif
+
 #include <Utils/File/Logfile.hpp>
 
 #include "NetCdfLineLoader.hpp"
@@ -244,18 +250,34 @@ Trajectories convertLatLonToCartesian(
     Trajectories trajectories;
     trajectories.reserve(timeDim);
 
+#ifndef USE_TBB
     float minPressure = std::numeric_limits<float>::max();
     float maxPressure = std::numeric_limits<float>::lowest();
+#endif
+#ifdef USE_TBB
+    auto [minPressure, maxPressure] = tbb::parallel_reduce(
+            tbb::blocked_range<size_t>(0, trajectoryDim * timeDim),
+            std::make_pair(std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest()),
+            [&pressure](tbb::blocked_range<size_t> const& r, std::pair<float, float> init) {
+                auto& minPressure = init.first;
+                auto& maxPressure = init.second;
+                for (auto idx = r.begin(); idx != r.end(); idx++) {
+#else
 #if _OPENMP >= 201107
 	#pragma omp parallel for shared(trajectoryDim, timeDim, pressure) \
     reduction(min:minPressure) reduction(max:maxPressure) default(none)
 #endif
-	for (size_t idx = 0; idx < trajectoryDim*timeDim; idx++) {
+	for (size_t idx = 0; idx < trajectoryDim * timeDim; idx++) {
+#endif
 	    if (pressure[idx] > 0.0f) {
             minPressure = std::min(minPressure, pressure[idx]);
 	    }
 		maxPressure = std::max(maxPressure, pressure[idx]);
 	}
+#ifdef USE_TBB
+                return init;
+            }, &sgl::reductionFunctionFloatMinMax);
+#endif
 	float logMinPressure = std::log(minPressure);
 	float logMaxPressure = std::log(maxPressure);
 

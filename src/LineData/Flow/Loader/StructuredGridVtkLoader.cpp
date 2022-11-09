@@ -28,6 +28,11 @@
 
 #include <boost/algorithm/string/case_conv.hpp>
 
+#ifdef USE_TBB
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
+#endif
+
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/FileLoader.hpp>
 #include <Utils/StringUtils.hpp>
@@ -128,8 +133,13 @@ void StructuredGridVtkLoader::_readFieldLine(
 
 void StructuredGridVtkLoader::_convertScalarFieldCellToPointMode(
         const float* scalarFieldCell, float* scalarFieldPoint, int xs, int ys, int zs) {
-    #pragma omp parallel for shared(xs, ys, zs, scalarFieldCell, scalarFieldPoint)  default(none)
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<int>(0, zs), [&](auto const& r) {
+        for (auto z = r.begin(); z != r.end(); z++) {
+#else
+    #pragma omp parallel for shared(xs, ys, zs, scalarFieldCell, scalarFieldPoint) default(none)
     for (int z = 0; z < zs; z++) {
+#endif
         for (int y = 0; y < ys; y++) {
             for (int x = 0; x < xs; x++) {
                 int numNeighboringCells = 0;
@@ -148,6 +158,9 @@ void StructuredGridVtkLoader::_convertScalarFieldCellToPointMode(
             }
         }
     }
+#ifdef USE_TBB
+    });
+#endif
 }
 
 void StructuredGridVtkLoader::load(

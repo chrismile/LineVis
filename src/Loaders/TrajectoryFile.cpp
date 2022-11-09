@@ -32,10 +32,18 @@
 #include <cstdio>
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+
+#ifdef USE_TBB
+#include <tbb/parallel_for.h>
+#include <tbb/parallel_reduce.h>
+#include <tbb/blocked_range.h>
+#endif
+
 #include <Utils/File/Logfile.hpp>
 #include <Math/Geometry/AABB3.hpp>
 #include <Utils/Events/Stream/Stream.hpp>
 #include <Utils/File/FileLoader.hpp>
+#include <Utils/Parallel/Reduction.hpp>
 #include <tracy/Tracy.hpp>
 
 #include "ObjLoader.hpp"
@@ -44,30 +52,35 @@
 #include "StressTrajectoriesDatLoader.hpp"
 #include "TrajectoryFile.hpp"
 
-sgl::AABB3 computeVertexPositionsAABB3(const std::vector<glm::vec3>& positions) {
-    sgl::AABB3 aabb;
-    float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX, maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
-#if _OPENMP >= 201107
-    #pragma omp parallel for shared(positions) default(none) reduction(min: minX) reduction(min: minY) \
-    reduction(min: minZ) reduction(max: maxX) reduction(max: maxY) reduction(max: maxZ)
-#endif
-    for (size_t trajectoryIdx = 0; trajectoryIdx < positions.size(); trajectoryIdx++) {
-        const glm::vec3& pt = positions.at(trajectoryIdx);
-        minX = std::min(minX, pt.x);
-        minY = std::min(minY, pt.y);
-        minZ = std::min(minZ, pt.z);
-        maxX = std::max(maxX, pt.x);
-        maxY = std::max(maxY, pt.y);
-        maxZ = std::max(maxZ, pt.z);
-    }
-    aabb.min = glm::vec3(minX, minY, minZ);
-    aabb.max = glm::vec3(maxX, maxY, maxZ);
-    return aabb;
-}
-
 sgl::AABB3 computeTrajectoriesAABB3(const Trajectories& trajectories) {
-    sgl::AABB3 aabb;
-    float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX, maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
+#ifdef USE_TBB
+
+    return tbb::parallel_reduce(
+            tbb::blocked_range<size_t>(0, trajectories.size()), sgl::AABB3(),
+            [&trajectories](tbb::blocked_range<size_t> const& r, sgl::AABB3 init) {
+                for (auto trajectoryIdx = r.begin(); trajectoryIdx != r.end(); trajectoryIdx++) {
+                    const Trajectory& trajectory = trajectories.at(trajectoryIdx);
+                    for (const glm::vec3& pt : trajectory.positions) {
+                        init.min.x = std::min(init.min.x, pt.x);
+                        init.min.y = std::min(init.min.y, pt.y);
+                        init.min.z = std::min(init.min.z, pt.z);
+                        init.max.x = std::max(init.max.x, pt.x);
+                        init.max.y = std::max(init.max.y, pt.y);
+                        init.max.z = std::max(init.max.z, pt.z);
+                    }
+                }
+                return init;
+            },
+            [&](sgl::AABB3 lhs, sgl::AABB3 rhs) -> sgl::AABB3 {
+                lhs.combine(rhs);
+                return lhs;
+            });
+
+#else
+
+    float minX, minY, minZ, maxX, maxY, maxZ;
+    minX = minY = minZ = std::numeric_limits<float>::max();
+    maxX = maxY = maxZ = std::numeric_limits<float>::lowest();
 #if _OPENMP >= 201107
     #pragma omp parallel for shared(trajectories) default(none) reduction(min: minX) reduction(min: minY) \
     reduction(min: minZ) reduction(max: maxX) reduction(max: maxY) reduction(max: maxZ)
@@ -83,9 +96,12 @@ sgl::AABB3 computeTrajectoriesAABB3(const Trajectories& trajectories) {
             maxZ = std::max(maxZ, pt.z);
         }
     }
+    sgl::AABB3 aabb;
     aabb.min = glm::vec3(minX, minY, minZ);
     aabb.max = glm::vec3(maxX, maxY, maxZ);
     return aabb;
+
+#endif
 }
 
 void normalizeTrajectoriesVertexPositions(
@@ -94,29 +110,45 @@ void normalizeTrajectoriesVertexPositions(
     glm::vec3 scale3D = 0.5f / aabb.getDimensions();
     float scale = std::min(scale3D.x, std::min(scale3D.y, scale3D.z));
 
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, trajectories.size()), [&](auto const& r) {
+        for (auto trajectoryIdx = r.begin(); trajectoryIdx != r.end(); trajectoryIdx++) {
+#else
 #if _OPENMP >= 200805
     #pragma omp parallel for shared(trajectories, scale, translation) default(none)
 #endif
     for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+#endif
         Trajectory& trajectory = trajectories.at(trajectoryIdx);
         for (glm::vec3& v : trajectory.positions) {
             v = (v + translation) * scale;
         }
     }
+#ifdef USE_TBB
+    });
+#endif
 
     if (vertexTransformationMatrixPtr != nullptr) {
         glm::mat4 transformationMatrix = *vertexTransformationMatrixPtr;
 
+#ifdef USE_TBB
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, trajectories.size()), [&](auto const& r) {
+            for (auto trajectoryIdx = r.begin(); trajectoryIdx != r.end(); trajectoryIdx++) {
+#else
 #if _OPENMP >= 200805
         #pragma omp parallel for shared(trajectories, transformationMatrix) default(none)
 #endif
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+#endif
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
             for (glm::vec3& v : trajectory.positions) {
                 glm::vec4 transformedVec = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
                 v = glm::vec3(transformedVec.x, transformedVec.y, transformedVec.z);
             }
         }
+#ifdef USE_TBB
+        });
+#endif
     }
 }
 
@@ -134,25 +166,41 @@ void normalizeVertexPositions(
     glm::vec3 scale3D = 0.5f / aabb.getDimensions();
     float scale = std::min(scale3D.x, std::min(scale3D.y, scale3D.z));
 
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, vertexPositions.size()), [&](auto const& r) {
+        for (size_t vertexIdx = r.begin(); vertexIdx != r.end(); vertexIdx++) {
+#else
 #if _OPENMP >= 200805
     #pragma omp parallel for shared(vertexPositions, translation, scale) default(none)
 #endif
     for (size_t vertexIdx = 0; vertexIdx < vertexPositions.size(); vertexIdx++) {
+#endif
         glm::vec3& v = vertexPositions.at(vertexIdx);
         v = (v + translation) * scale;
     }
+#ifdef USE_TBB
+    });
+#endif
 
     if (vertexTransformationMatrixPtr != nullptr) {
         glm::mat4 transformationMatrix = *vertexTransformationMatrixPtr;
 
+#ifdef USE_TBB
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, vertexPositions.size()), [&](auto const& r) {
+            for (auto vertexIdx = r.begin(); vertexIdx != r.end(); vertexIdx++) {
+#else
 #if _OPENMP >= 200805
         #pragma omp parallel for shared(vertexPositions, transformationMatrix) default(none)
 #endif
         for (size_t vertexIdx = 0; vertexIdx < vertexPositions.size(); vertexIdx++) {
+#endif
             glm::vec3& v = vertexPositions.at(vertexIdx);
             glm::vec4 transformedVec = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
             v = glm::vec3(transformedVec.x, transformedVec.y, transformedVec.z);
         }
+#ifdef USE_TBB
+        });
+#endif
     }
 }
 
@@ -178,24 +226,24 @@ void normalizeVertexAttributes(std::vector<std::vector<float>>& vertexAttributes
     const size_t numAttributes = vertexAttributesList.size();
 
     for (size_t attributeIdx = 0; attributeIdx < numAttributes; attributeIdx++) {
-        float minVal = FLT_MAX, maxVal = -FLT_MAX;
         std::vector<float>& vertexAttributes = vertexAttributesList.at(attributeIdx);
-#if _OPENMP >= 201107
-        #pragma omp parallel for shared(vertexAttributes) default(none) reduction(min: minVal) reduction(max: maxVal)
-#endif
-        for (size_t i = 0; i < vertexAttributes.size(); i++) {
-            float attrVal = vertexAttributes.at(i);
-            minVal = std::min(minVal, attrVal);
-            maxVal = std::max(maxVal, attrVal);
-        }
+        auto [minVal, maxVal] = sgl::reduceFloatArrayMinMax(vertexAttributes);
 
+#ifdef USE_TBB
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, vertexAttributes.size()), [&](auto const& r) {
+            for (size_t i = r.begin(); i != r.end(); i++) {
+#else
 #if _OPENMP >= 200805
         #pragma omp parallel for shared(vertexAttributes, minVal, maxVal) default(none)
 #endif
         for (size_t i = 0; i < vertexAttributes.size(); i++) {
+#endif
             float& attrVal = vertexAttributes.at(i);
             attrVal = (attrVal - minVal) / (maxVal - minVal);
         }
+#ifdef USE_TBB
+        });
+#endif
     }
 }
 
@@ -203,7 +251,24 @@ void normalizeTrajectoriesVertexAttributes(Trajectories& trajectories) {
     const size_t numAttributes = trajectories.empty() ? 0 : trajectories.front().attributes.size();
 
     for (size_t attributeIdx = 0; attributeIdx < numAttributes; attributeIdx++) {
-        float minVal = FLT_MAX, maxVal = -FLT_MAX;
+#ifdef USE_TBB
+        auto [minVal, maxVal] = tbb::parallel_reduce(
+                tbb::blocked_range<size_t>(0, trajectories.size()),
+                std::make_pair(std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest()),
+                [&trajectories, attributeIdx](tbb::blocked_range<size_t> const& r, std::pair<float, float> init) {
+                    for (auto trajectoryIdx = r.begin(); trajectoryIdx != r.end(); trajectoryIdx++) {
+                        const std::vector<float>& attributes = trajectories.at(trajectoryIdx).attributes.at(attributeIdx);
+                        for (const float& attrVal : attributes) {
+                            init.first = std::min(init.first, attrVal);
+                            init.second = std::max(init.second, attrVal);
+                        }
+                    }
+                    return init;
+                }, &sgl::reductionFunctionFloatMinMax);
+
+#else
+        float minVal = std::numeric_limits<float>::max();
+        float maxVal = std::numeric_limits<float>::lowest();
 #if _OPENMP >= 201107
         #pragma omp parallel for shared(trajectories, attributeIdx) default(none) \
         reduction(min: minVal) reduction(max: maxVal)
@@ -215,16 +280,25 @@ void normalizeTrajectoriesVertexAttributes(Trajectories& trajectories) {
                 maxVal = std::max(maxVal, attrVal);
             }
         }
+#endif
 
+#ifdef USE_TBB
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, trajectories.size()), [&](auto const& r) {
+            for (size_t trajectoryIdx = r.begin(); trajectoryIdx != r.end(); trajectoryIdx++) {
+#else
 #if _OPENMP >= 200805
         #pragma omp parallel for shared(trajectories, attributeIdx, minVal, maxVal) default(none)
 #endif
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+#endif
             std::vector<float>& attributes = trajectories.at(trajectoryIdx).attributes.at(attributeIdx);
             for (float& attrVal : attributes) {
                 attrVal = (attrVal - minVal) / (maxVal - minVal);
             }
         }
+#ifdef USE_TBB
+        });
+#endif
     }
 }
 
@@ -246,29 +320,45 @@ void normalizeTrajectoriesPsVertexPositions(
     float scale = std::min(scale3D.x, std::min(scale3D.y, scale3D.z));
 
     for (Trajectories& trajectories : trajectoriesPs) {
+#ifdef USE_TBB
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, trajectories.size()), [&](auto const& r) {
+            for (size_t trajectoryIdx = r.begin(); trajectoryIdx != r.end(); trajectoryIdx++) {
+#else
 #if _OPENMP >= 200805
         #pragma omp parallel for shared(trajectories, scale, translation) default(none)
 #endif
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+#endif
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
             for (glm::vec3& v : trajectory.positions) {
                 v = (v + translation) * scale;
             }
         }
+#ifdef USE_TBB
+        });
+#endif
 
         if (vertexTransformationMatrixPtr != nullptr) {
             glm::mat4 transformationMatrix = *vertexTransformationMatrixPtr;
 
+#ifdef USE_TBB
+            tbb::parallel_for(tbb::blocked_range<size_t>(0, trajectories.size()), [&](auto const& r) {
+                for (size_t trajectoryIdx = r.begin(); trajectoryIdx != r.end(); trajectoryIdx++) {
+#else
 #if _OPENMP >= 200805
             #pragma omp parallel for shared(trajectories, transformationMatrix) default(none)
 #endif
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+#endif
                 Trajectory& trajectory = trajectories.at(trajectoryIdx);
                 for (glm::vec3& v : trajectory.positions) {
                     glm::vec4 transformedVec = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
                     v = glm::vec3(transformedVec.x, transformedVec.y, transformedVec.z);
                 }
             }
+#ifdef USE_TBB
+            });
+#endif
         }
     }
 }
@@ -291,11 +381,16 @@ void normalizeTrajectoriesPsVertexPositions(
         std::vector<std::vector<glm::vec3>>& bandPointsSmoothedListLeft = bandPointsSmoothedListLeftPs.at(psIdx);
         std::vector<std::vector<glm::vec3>>& bandPointsSmoothedListRight = bandPointsSmoothedListRightPs.at(psIdx);
 
+#ifdef USE_TBB
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, trajectories.size()), [&](auto const& r) {
+            for (size_t trajectoryIdx = r.begin(); trajectoryIdx != r.end(); trajectoryIdx++) {
+#else
 #if _OPENMP >= 200805
         #pragma omp parallel for shared(trajectories, bandPointsUnsmoothedListLeft, bandPointsUnsmoothedListRight) \
         shared(bandPointsSmoothedListLeft, bandPointsSmoothedListRight, scale, translation) default(none)
 #endif
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+#endif
             Trajectory& trajectory = trajectories.at(trajectoryIdx);
             for (glm::vec3& v : trajectory.positions) {
                 v = (v + translation) * scale;
@@ -321,15 +416,23 @@ void normalizeTrajectoriesPsVertexPositions(
                 v = (v + translation) * scale;
             }
         }
+#ifdef USE_TBB
+        });
+#endif
 
         if (vertexTransformationMatrixPtr != nullptr) {
             glm::mat4 transformationMatrix = *vertexTransformationMatrixPtr;
 
+#ifdef USE_TBB
+            tbb::parallel_for(tbb::blocked_range<size_t>(0, trajectories.size()), [&](auto const& r) {
+                for (size_t trajectoryIdx = r.begin(); trajectoryIdx != r.end(); trajectoryIdx++) {
+#else
 #if _OPENMP >= 200805
             #pragma omp parallel for shared(trajectories, bandPointsUnsmoothedListLeft, bandPointsUnsmoothedListRight) \
             shared(bandPointsSmoothedListLeft, bandPointsSmoothedListRight, transformationMatrix) default(none)
 #endif
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+#endif
                 Trajectory& trajectory = trajectories.at(trajectoryIdx);
                 for (glm::vec3& v : trajectory.positions) {
                     glm::vec4 transformedVec = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
@@ -360,6 +463,9 @@ void normalizeTrajectoriesPsVertexPositions(
                     v = glm::vec3(transformedVec.x, transformedVec.y, transformedVec.z);
                 }
             }
+#ifdef USE_TBB
+            });
+#endif
         }
     }
 }
@@ -378,8 +484,26 @@ void normalizeTrajectoriesPsVertexAttributes_Total(std::vector<Trajectories>& tr
     }
 
     for (size_t attributeIdx = 0; attributeIdx < numAttributes; attributeIdx++) {
-        float minVal = FLT_MAX, maxVal = -FLT_MAX;
+        float minVal = std::numeric_limits<float>::max();
+        float maxVal = std::numeric_limits<float>::lowest();
         for (Trajectories& trajectories : trajectoriesPs) {
+#ifdef USE_TBB
+            auto [minValNew, maxValNew] = tbb::parallel_reduce(
+                    tbb::blocked_range<size_t>(0, trajectories.size()),
+                    std::make_pair(std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest()),
+                    [&trajectories, attributeIdx](tbb::blocked_range<size_t> const& r, std::pair<float, float> init) {
+                        for (auto trajectoryIdx = r.begin(); trajectoryIdx != r.end(); trajectoryIdx++) {
+                            const std::vector<float>& attributes = trajectories.at(trajectoryIdx).attributes.at(attributeIdx);
+                            for (const float& attrVal : attributes) {
+                                init.first = std::min(init.first, attrVal);
+                                init.second = std::max(init.second, attrVal);
+                            }
+                        }
+                        return init;
+                    }, &sgl::reductionFunctionFloatMinMax);
+            minVal = std::min(minVal, minValNew);
+            maxVal = std::min(maxVal, maxValNew);
+#else
 #if _OPENMP >= 201107
             #pragma omp parallel for shared(trajectories, attributeIdx) default(none) reduction(min: minVal) \
             reduction(max: maxVal)
@@ -391,17 +515,27 @@ void normalizeTrajectoriesPsVertexAttributes_Total(std::vector<Trajectories>& tr
                     maxVal = std::max(maxVal, attrVal);
                 }
             }
+#endif
         }
+
         for (Trajectories& trajectories : trajectoriesPs) {
+#ifdef USE_TBB
+            tbb::parallel_for(tbb::blocked_range<size_t>(0, trajectories.size()), [&](auto const& r) {
+                for (size_t trajectoryIdx = r.begin(); trajectoryIdx != r.end(); trajectoryIdx++) {
+#else
 #if _OPENMP >= 200805
             #pragma omp parallel for shared(trajectories, attributeIdx, minVal, maxVal) default(none)
 #endif
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+#endif
                 std::vector<float>& attributes = trajectories.at(trajectoryIdx).attributes.at(attributeIdx);
                 for (float& attrVal : attributes) {
                     attrVal = (attrVal - minVal) / (maxVal - minVal);
                 }
             }
+#ifdef USE_TBB
+            });
+#endif
         }
     }
 }
@@ -414,7 +548,24 @@ void normalizeTrajectoriesPsVertexAttributes_PerPs(std::vector<Trajectories>& tr
 
     for (size_t attributeIdx = 0; attributeIdx < numAttributes; attributeIdx++) {
         for (Trajectories& trajectories : trajectoriesPs) {
-            float minVal = FLT_MAX, maxVal = -FLT_MAX;
+#ifdef USE_TBB
+            auto [minVal, maxVal] = tbb::parallel_reduce(
+                    tbb::blocked_range<size_t>(0, trajectories.size()),
+                    std::make_pair(std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest()),
+                    [&trajectories, attributeIdx](tbb::blocked_range<size_t> const& r, std::pair<float, float> init) {
+                        for (auto trajectoryIdx = r.begin(); trajectoryIdx != r.end(); trajectoryIdx++) {
+                            const std::vector<float>& attributes = trajectories.at(trajectoryIdx).attributes.at(attributeIdx);
+                            for (const float& attrVal : attributes) {
+                                init.first = std::min(init.first, attrVal);
+                                init.second = std::max(init.second, attrVal);
+                            }
+                        }
+                        return init;
+                    }, &sgl::reductionFunctionFloatMinMax);
+
+#else
+            float minVal = std::numeric_limits<float>::max();
+            float maxVal = std::numeric_limits<float>::lowest();
 #if _OPENMP >= 201107
             #pragma omp parallel for shared(trajectories, attributeIdx) default(none) reduction(min: minVal) \
             reduction(max: maxVal)
@@ -426,16 +577,25 @@ void normalizeTrajectoriesPsVertexAttributes_PerPs(std::vector<Trajectories>& tr
                     maxVal = std::max(maxVal, attrVal);
                 }
             }
+#endif
 
+#ifdef USE_TBB
+            tbb::parallel_for(tbb::blocked_range<size_t>(0, trajectories.size()), [&](auto const& r) {
+                for (size_t trajectoryIdx = r.begin(); trajectoryIdx != r.end(); trajectoryIdx++) {
+#else
 #if _OPENMP >= 200805
             #pragma omp parallel for shared(trajectories, attributeIdx, minVal, maxVal) default(none)
 #endif
             for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+#endif
                 std::vector<float>& attributes = trajectories.at(trajectoryIdx).attributes.at(attributeIdx);
                 for (float& attrVal : attributes) {
                     attrVal = (attrVal - minVal) / (maxVal - minVal);
                 }
             }
+#ifdef USE_TBB
+            });
+#endif
         }
     }
 }

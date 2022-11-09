@@ -30,6 +30,13 @@
 #include <Eigen/Eigenvalues>
 #endif
 
+#ifdef USE_TBB
+#include <tbb/parallel_for.h>
+#include <tbb/parallel_reduce.h>
+#include <tbb/blocked_range.h>
+#include <Utils/Parallel/Reduction.hpp>
+#endif
+
 #include <Utils/File/Logfile.hpp>
 #include <Utils/Mesh/TriangleNormals.hpp>
 #include <Utils/Mesh/MeshSmoothing.hpp>
@@ -558,6 +565,17 @@ void LineDataStress::setStressTrajectoryData(
 
     numTotalTrajectoryPoints = 0;
     for (const Trajectories& trajectories : trajectoriesPs) {
+#ifdef USE_TBB
+        numTotalTrajectoryPoints += tbb::parallel_reduce(
+                tbb::blocked_range<size_t>(0, trajectories.size()), 0,
+                [&trajectories](tbb::blocked_range<size_t> const& r, size_t numTotalTrajectoryPoints) {
+                    for (auto i = r.begin(); i != r.end(); i++) {
+                        const Trajectory& trajectory = trajectories.at(i);
+                        numTotalTrajectoryPoints += trajectory.positions.size();
+                    }
+                    return numTotalTrajectoryPoints;
+                }, std::plus<>{});
+#else
 #if _OPENMP >= 201107
         #pragma omp parallel for reduction(+: numTotalTrajectoryPoints) shared(trajectories) default(none)
 #endif
@@ -565,6 +583,7 @@ void LineDataStress::setStressTrajectoryData(
             const Trajectory& trajectory = trajectories.at(i);
             numTotalTrajectoryPoints += trajectory.positions.size();
         }
+#endif
     }
 
     dirty = true;
@@ -624,12 +643,17 @@ void LineDataStress::setDegeneratePoints(
             std::vector<float> distanceMeasuresSquaredExponentialKernel;
             distanceMeasuresExponentialKernel.resize(trajectory.positions.size());
             distanceMeasuresSquaredExponentialKernel.resize(trajectory.positions.size());
+#ifdef USE_TBB
+            tbb::parallel_for(tbb::blocked_range<size_t>(0, trajectory.positions.size()), [&](auto const& r) {
+                for (size_t linePointIdx = r.begin(); linePointIdx != r.end(); linePointIdx++) {
+#else
 #if _OPENMP >= 201107
             #pragma omp parallel for shared(trajectory, kdTree, degeneratePoints, \
             distanceMeasuresExponentialKernel, distanceMeasuresSquaredExponentialKernel) \
             firstprivate(lengthScale) default(none)
 #endif
             for (size_t linePointIdx = 0; linePointIdx < trajectory.positions.size(); linePointIdx++) {
+#endif
                 const glm::vec3& linePoint = trajectory.positions.at(linePointIdx);
 
                 auto nearestNeighbor = kdTree.findNearestNeighbor(linePoint);
@@ -641,6 +665,10 @@ void LineDataStress::setDegeneratePoints(
                 distanceMeasuresExponentialKernel.at(linePointIdx) = distanceExponentialKernel;
                 distanceMeasuresSquaredExponentialKernel.at(linePointIdx) = distanceSquaredExponentialKernel;
             }
+#ifdef USE_TBB
+            });
+#endif
+
             trajectory.attributes.push_back(distanceMeasuresExponentialKernel);
             trajectory.attributes.push_back(distanceMeasuresSquaredExponentialKernel);
         }
@@ -1332,11 +1360,19 @@ void LineDataStress::computeMaxPrincipalStress() {
         Trajectories &trajectories = trajectoriesPs.at(i);
         std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
 
+#ifdef USE_TBB
+        float maxPrincipalStressMagnitudeNew = tbb::parallel_reduce(
+                tbb::blocked_range<size_t>(0, trajectories.size()), std::numeric_limits<float>::epsilon(),
+                [&filteredTrajectories, &trajectories, majorStressIdx, mediumStressIdx, minorStressIdx](
+                        tbb::blocked_range<size_t> const& r, float maxPrincipalStressMagnitude) {
+                    for (auto trajectoryIdx = r.begin(); trajectoryIdx != r.end(); trajectoryIdx++) {
+#else
 #if _OPENMP >= 201107
         #pragma omp parallel for reduction(max: maxPrincipalStressMagnitude) default(none) \
         shared(trajectories, filteredTrajectories, majorStressIdx, mediumStressIdx, minorStressIdx)
 #endif
         for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+#endif
             if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
                 continue;
             }
@@ -1351,6 +1387,11 @@ void LineDataStress::computeMaxPrincipalStress() {
                 maxPrincipalStressMagnitude = std::max(maxPrincipalStressMagnitude, minorStress);
             }
         }
+#ifdef USE_TBB
+                    return maxPrincipalStressMagnitude;
+                }, sgl::max_predicate());
+        maxPrincipalStressMagnitude = std::max(maxPrincipalStressMagnitude, maxPrincipalStressMagnitudeNew);
+#endif
     }
 }
 #endif

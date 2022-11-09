@@ -28,6 +28,11 @@
 
 #include <iostream>
 
+#ifdef USE_TBB
+#include <tbb/parallel_reduce.h>
+#include <tbb/blocked_range.h>
+#endif
+
 #include <Math/Geometry/MatrixUtil.hpp>
 #include <Utils/Timer.hpp>
 #include <Utils/AppSettings.hpp>
@@ -282,26 +287,55 @@ void DepthComplexityRenderer::computeStatistics(bool isReRender) {
     auto *data = (uint32_t*)stagingBuffer->mapMemory();
 
     // Local reduction variables necessary for older OpenMP implementations
+    uint64_t minComplexity = 0;
+#ifdef USE_TBB
+    using T = std::tuple<uint64_t, uint64_t, uint64_t, uint64_t>;
+    std::tie(totalNumFragments, usedLocations, maxComplexity, minComplexity) = tbb::parallel_reduce(
+            tbb::blocked_range<uint64_t>(0, bufferSize), T{},
+            [&data](tbb::blocked_range<uint64_t> const& r, T init) {
+                uint64_t& totalNumFragments = std::get<0>(init);
+                uint64_t& usedLocations = std::get<1>(init);
+                uint64_t& maxComplexity = std::get<2>(init);
+                uint64_t& minComplexity = std::get<3>(init);
+                for (auto i = r.begin(); i != r.end(); i++) {
+#else
     uint64_t totalNumFragments = 0;
     uint64_t usedLocations = 0;
     uint64_t maxComplexity = 0;
-    uint64_t minComplexity = 0;
 #if _OPENMP >= 201107
     #pragma omp parallel for reduction(+:totalNumFragments,usedLocations) reduction(max:maxComplexity) \
     reduction(min:minComplexity) schedule(static) default(none) shared(data)
 #endif
     for (uint64_t i = 0; i < bufferSize; i++) {
+#endif
         totalNumFragments += data[i];
         if (data[i] > 0) {
             usedLocations++;
         }
-        maxComplexity = std::max(maxComplexity, (uint64_t)data[i]);
-        minComplexity = std::min(maxComplexity, (uint64_t)data[i]);
+        maxComplexity = std::max(maxComplexity, uint64_t(data[i]));
+        minComplexity = std::min(minComplexity, uint64_t(data[i]));
     }
-    if (totalNumFragments == 0) usedLocations = 1; // Avoid dividing by zero in code below
+#ifdef USE_TBB
+                return init;
+            }, [&](T lhs, T rhs) -> T {
+                return {
+                        std::get<0>(lhs) + std::get<0>(lhs),
+                        std::get<1>(lhs) + std::get<1>(lhs),
+                        std::max(std::get<2>(lhs), std::get<2>(lhs)),
+                        std::min(std::get<3>(lhs), std::get<3>(lhs))
+                };
+            });
+#endif
+    // Avoid dividing by zero in code below
+    if (totalNumFragments == 0) {
+        usedLocations = 1;
+    }
+#ifndef USE_TBB
     this->totalNumFragments = totalNumFragments;
     this->usedLocations = usedLocations;
     this->maxComplexity = maxComplexity;
+#endif
+
 
     stagingBuffer->unmapMemory();
 

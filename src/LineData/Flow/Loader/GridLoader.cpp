@@ -27,13 +27,25 @@
  */
 
 #include <cmath>
+
+#ifdef USE_TBB
+#include <tbb/parallel_for.h>
+#include <tbb/parallel_reduce.h>
+#include <tbb/blocked_range.h>
+#endif
+
 #include "../StreamlineTracingDefines.hpp"
 #include "GridLoader.hpp"
 
 void computeVectorMagnitudeField(
         const float* vectorField, float* vectorMagnitudeField, int xs, int ys, int zs) {
-    #pragma omp parallel for shared(xs, ys, zs, vectorField, vectorMagnitudeField)  default(none)
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<int>(0, zs), [&](auto const& r) {
+        for (auto z = r.begin(); z != r.end(); z++) {
+#else
+    #pragma omp parallel for shared(xs, ys, zs, vectorField, vectorMagnitudeField) default(none)
     for (int z = 0; z < zs; z++) {
+#endif
         for (int y = 0; y < ys; y++) {
             for (int x = 0; x < xs; x++) {
                 float vx = vectorField[IDXV(x, y, z, 0)];
@@ -43,12 +55,20 @@ void computeVectorMagnitudeField(
             }
         }
     }
+#ifdef USE_TBB
+    });
+#endif
 }
 
 void computeVorticityField(
         const float* velocityField, float* vorticityField, int xs, int ys, int zs, float dx, float dy, float dz) {
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<int>(0, zs), [&](auto const& r) {
+        for (auto z = r.begin(); z != r.end(); z++) {
+#else
     #pragma omp parallel for shared(xs, ys, zs, dx, dy, dz, velocityField, vorticityField) default(none)
     for (int z = 0; z < zs; z++) {
+#endif
         for (int y = 0; y < ys; y++) {
             for (int x = 0; x < xs; x++) {
                 int left = x > 0 ? -1 : 0;
@@ -85,12 +105,20 @@ void computeVorticityField(
             }
         }
     }
+#ifdef USE_TBB
+    });
+#endif
 }
 
 void computeHelicityField(
         const float* velocityField, const float* vorticityField, float* helicityField, int xs, int ys, int zs) {
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<int>(0, zs), [&](auto const& r) {
+        for (auto z = r.begin(); z != r.end(); z++) {
+#else
     #pragma omp parallel for shared(xs, ys, zs, velocityField, vorticityField, helicityField) default(none)
     for (int z = 0; z < zs; z++) {
+#endif
         for (int y = 0; y < ys; y++) {
             for (int x = 0; x < xs; x++) {
                 float vorticityX = vorticityField[IDXV(x, y, z, 0)];
@@ -103,13 +131,21 @@ void computeHelicityField(
             }
         }
     }
+#ifdef USE_TBB
+    });
+#endif
 }
 
 void computeHelicityFieldNormalized(
         const float* velocityField, const float* vorticityField, float* helicityField, int xs, int ys, int zs,
         bool normalizeVelocity, bool normalizeVorticity) {
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<int>(0, zs), [&](auto const& r) {
+        for (auto z = r.begin(); z != r.end(); z++) {
+#else
     #pragma omp parallel for shared(xs, ys, zs, velocityField, vorticityField, helicityField, normalizeVelocity, normalizeVorticity) default(none)
     for (int z = 0; z < zs; z++) {
+#endif
         for (int y = 0; y < ys; y++) {
             for (int x = 0; x < xs; x++) {
                 float vorticityX = vorticityField[IDXV(x, y, z, 0)];
@@ -140,4 +176,29 @@ void computeHelicityFieldNormalized(
             }
         }
     }
+#ifdef USE_TBB
+    });
+#endif
+}
+
+void swapEndianness(uint8_t* byteArray, size_t sizeInBytes, size_t bytesPerEntry) {
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, sizeInBytes, bytesPerEntry), [&byteArray, bytesPerEntry](auto const& r) {
+        uint8_t swappedEntry[bytesPerEntry];
+        for (auto i = r.begin(); i != r.end(); i += r.grainsize()) {
+#else
+    uint8_t swappedEntry[bytesPerEntry];
+    #pragma omp parallel for shared(byteArray, sizeInBytes, bytesPerEntry) private(swappedEntry) default(none)
+    for (size_t i = 0; i < sizeInBytes; i += bytesPerEntry) {
+#endif
+        for (size_t j = 0; j < bytesPerEntry; j++) {
+            swappedEntry[j] = byteArray[i + bytesPerEntry - j - 1];
+        }
+        for (size_t j = 0; j < bytesPerEntry; j++) {
+            byteArray[i + j] = swappedEntry[j];
+        }
+    }
+#ifdef USE_TBB
+    });
+#endif
 }
