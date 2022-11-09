@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2021, Christoph Neuhauser
+ * Copyright (c) 2021-2022, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,9 +30,10 @@
 
 #ifdef USE_TBB
 #include <tbb/parallel_for.h>
-#include <tbb/parallel_reduce.h>
 #include <tbb/blocked_range.h>
 #endif
+
+#include <Utils/File/Logfile.hpp>
 
 #include "../StreamlineTracingDefines.hpp"
 #include "GridLoader.hpp"
@@ -182,12 +183,22 @@ void computeHelicityFieldNormalized(
 }
 
 void swapEndianness(uint8_t* byteArray, size_t sizeInBytes, size_t bytesPerEntry) {
+    /*
+     * Variable length arrays (VLAs) are a C99-only feature, and supported by GCC and Clang merely as C++ extensions.
+     * Visual Studio reports the following error when attempting to use VLAs:
+     * "error C3863: array type 'uint8_t [this->8<L_ALIGN>8]' is not assignable".
+     * Consequently, we will assume 'sizeInBytes' is less than or equal to 8 (i.e., 64 bit values).
+     */
+    if (sizeInBytes > 8) {
+        sgl::Logfile::get()->throwError("Error in swapEndianness: sizeInBytes is larger than 8.");
+        return;
+    }
 #ifdef USE_TBB
     tbb::parallel_for(tbb::blocked_range<size_t>(0, sizeInBytes, bytesPerEntry), [&byteArray, bytesPerEntry](auto const& r) {
-        uint8_t swappedEntry[bytesPerEntry];
+        uint8_t swappedEntry[8];
         for (auto i = r.begin(); i != r.end(); i += r.grainsize()) {
 #else
-    uint8_t swappedEntry[bytesPerEntry];
+    uint8_t swappedEntry[8];
     #pragma omp parallel for shared(byteArray, sizeInBytes, bytesPerEntry) private(swappedEntry) default(none)
     for (size_t i = 0; i < sizeInBytes; i += bytesPerEntry) {
 #endif
