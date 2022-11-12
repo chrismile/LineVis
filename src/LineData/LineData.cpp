@@ -670,8 +670,8 @@ void LineData::loadSimulationMeshOutlineFromFile(
     loadMeshBoundarySurfaceFromFile(
             simulationMeshFilename, simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
     normalizeVertexPositions(simulationMeshOutlineVertexPositions, oldAABB, transformationMatrixPtr);
-    laplacianSmoothing(simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
-    computeSmoothTriangleNormals(
+    sgl::laplacianSmoothing(simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
+    sgl::computeSmoothTriangleNormals(
             simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions,
             simulationMeshOutlineVertexNormals);
 }

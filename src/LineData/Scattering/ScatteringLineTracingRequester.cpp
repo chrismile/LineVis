@@ -550,11 +550,11 @@ void ScatteringLineTracingRequester::createIsosurface() {
     }
 
     if (!isosurfaceVertexPositions.empty()) {
-        computeSharedIndexRepresentation(
+        sgl::computeSharedIndexRepresentation(
                 isosurfaceVertexPositions, isosurfaceVertexNormals,
                 outlineTriangleIndices, outlineVertexPositions, outlineVertexNormals);
         normalizeVertexPositions(outlineVertexPositions, gridAabb, nullptr);
 
-        laplacianSmoothing(outlineTriangleIndices, outlineVertexPositions);
+        sgl::laplacianSmoothing(outlineTriangleIndices, outlineVertexPositions);
     }
 }

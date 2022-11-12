@@ -447,9 +447,9 @@ bool LineDataStress::loadFromFile(
     if (!simulationMeshOutlineTriangleIndices.empty()) {
         normalizeVertexPositions(simulationMeshOutlineVertexPositions, oldAABB, transformationMatrixPtr);
         if (meshType == MeshType::CARTESIAN) {
-            laplacianSmoothing(simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
+            sgl::laplacianSmoothing(simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
         }
-        computeSmoothTriangleNormals(
+        sgl::computeSmoothTriangleNormals(
                 simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions,
                 simulationMeshOutlineVertexNormals);
     }

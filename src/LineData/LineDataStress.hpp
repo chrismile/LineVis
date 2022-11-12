@@ -31,9 +31,10 @@
 
 #include <array>
 
+#include <ImGui/Widgets/MultiVarTransferFunctionWindow.hpp>
+
 #include "LineData.hpp"
 #include "Widgets/StressLineHierarchyMappingWidget.hpp"
-#include "Widgets/MultiVarTransferFunctionWindow.hpp"
 
 //const char *const DISTANCE_MEASURES[] = {
 //        "Distance Exponential Kernel",
@@ -76,7 +77,7 @@ public:
     static inline bool getUsePrincipalStressDirectionIndex() { return usePrincipalStressDirectionIndex; }
     [[nodiscard]] inline bool getUseLineHierarchy() const { return useLineHierarchy; }
     inline bool getHasDegeneratePoints() { return !degeneratePoints.empty(); }
-    inline MultiVarTransferFunctionWindow& getMultiVarTransferFunctionWindow() { return multiVarTransferFunctionWindow; }
+    inline sgl::MultiVarTransferFunctionWindow& getMultiVarTransferFunctionWindow() { return multiVarTransferFunctionWindow; }
 
     // Statistics.
     [[nodiscard]] size_t getNumStressDirections() const { return trajectoriesPs.size(); }
@@ -248,7 +249,7 @@ private:
 
     // Color legend widgets for different principal stress directions.
     StressLineHierarchyMappingWidget stressLineHierarchyMappingWidget;
-    MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
+    sgl::MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
 
     struct StressLineUniformData {
         glm::vec3 lineHierarchySlider{}; // USE_LINE_HIERARCHY_LEVEL && !USE_TRANSPARENCY

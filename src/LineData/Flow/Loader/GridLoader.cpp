@@ -189,7 +189,7 @@ void swapEndianness(uint8_t* byteArray, size_t sizeInBytes, size_t bytesPerEntry
      * "error C3863: array type 'uint8_t [this->8<L_ALIGN>8]' is not assignable".
      * Consequently, we will assume 'sizeInBytes' is less than or equal to 8 (i.e., 64 bit values).
      */
-    if (sizeInBytes > 8) {
+    if (bytesPerEntry > 8) {
         sgl::Logfile::get()->throwError("Error in swapEndianness: sizeInBytes is larger than 8.");
         return;
     }

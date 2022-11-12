@@ -278,7 +278,7 @@ MainApp::MainApp()
     replayWidget.setLoadMultiVarTransferFunctionsCallback([this](
             const std::vector<std::string>& tfNames) {
         if (lineData) {
-            MultiVarTransferFunctionWindow* multiVarTransferFunctionWindow;
+            sgl::MultiVarTransferFunctionWindow* multiVarTransferFunctionWindow;
             if (lineData->getType() == DATA_SET_TYPE_FLOW_LINES) {
                 LineDataFlow* lineDataFlow = static_cast<LineDataFlow*>(lineData.get());
                 multiVarTransferFunctionWindow = &lineDataFlow->getMultiVarTransferFunctionWindow();
@@ -302,7 +302,7 @@ MainApp::MainApp()
     replayWidget.setMultiVarTransferFunctionsRangesCallback([this](
             const std::vector<glm::vec2>& tfRanges) {
         if (lineData) {
-            MultiVarTransferFunctionWindow* multiVarTransferFunctionWindow;
+            sgl::MultiVarTransferFunctionWindow* multiVarTransferFunctionWindow;
             if (lineData->getType() == DATA_SET_TYPE_FLOW_LINES) {
                 LineDataFlow* lineDataFlow = static_cast<LineDataFlow*>(lineData.get());
                 multiVarTransferFunctionWindow = &lineDataFlow->getMultiVarTransferFunctionWindow();

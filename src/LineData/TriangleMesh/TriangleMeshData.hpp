@@ -29,7 +29,7 @@
 #ifndef LINEVIS_TRIANGLEMESHDATA_HPP
 #define LINEVIS_TRIANGLEMESHDATA_HPP
 
-#include "Widgets/MultiVarTransferFunctionWindow.hpp"
+#include <ImGui/Widgets/MultiVarTransferFunctionWindow.hpp>
 #include "../LineData.hpp"
 
 /**
@@ -109,7 +109,7 @@ public:
      */
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
-    MultiVarTransferFunctionWindow& getMultiVarTransferFunctionWindow();
+    sgl::MultiVarTransferFunctionWindow& getMultiVarTransferFunctionWindow();
 
 protected:
     void recomputeHistogram() override;
@@ -126,7 +126,7 @@ protected:
     // Rendering options.
     bool useBackfaceCulling = false;
 
-    MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
+    sgl::MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
 };
 
 #endif //LINEVIS_TRIANGLEMESHDATA_HPP

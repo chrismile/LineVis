@@ -114,7 +114,7 @@ void TriangleMeshData::onMainThreadDataInit(){
     linePrimitiveMode = LINE_PRIMITIVES_TUBE_TRIANGLE_MESH;
 }
 
-MultiVarTransferFunctionWindow& TriangleMeshData::getMultiVarTransferFunctionWindow() {
+sgl::MultiVarTransferFunctionWindow& TriangleMeshData::getMultiVarTransferFunctionWindow() {
     sgl::Logfile::get()->throwError(
             "Error in TriangleMeshData::getMultiVarTransferFunctionWindow: "
             "Multi-parameter visualizations not supported for this data type.");

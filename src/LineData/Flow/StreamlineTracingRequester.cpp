@@ -791,12 +791,12 @@ void StreamlineTracingRequester::traceLines(
                 simulationMeshOutlineTriangleIndices,
                 simulationMeshOutlineVertexPositions);
         if (guiTracingSettings.smoothedSimulationGridOutline) {
-            laplacianSmoothing(
+            sgl::laplacianSmoothing(
                     simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
         }
         normalizeVertexPositions(
                 simulationMeshOutlineVertexPositions, gridBox, nullptr);
-        computeSmoothTriangleNormals(
+        sgl::computeSmoothTriangleNormals(
                 simulationMeshOutlineTriangleIndices,
                 simulationMeshOutlineVertexPositions,
                 simulationMeshOutlineVertexNormals);
