@@ -64,8 +64,10 @@ void computePrincipalStresses(
 }
 
 float computeDegeneracyMeasure(float sigma1, float sigma2, float sigma3) {
-    float degeneracyMeasure = 0.5f * std::abs((sigma1 - sigma2) / (sigma1 + sigma2));
-    degeneracyMeasure = std::min(degeneracyMeasure, 0.5f * std::abs((sigma3 - sigma2) / (sigma3 + sigma2)));
+    //float degeneracyMeasure = 0.5f * std::abs((sigma1 - sigma2) / (sigma1 + sigma2));
+    //degeneracyMeasure = std::min(degeneracyMeasure, 0.5f * std::abs((sigma3 - sigma2) / (sigma3 + sigma2)));
+    float degeneracyMeasure = 1.0f - std::abs((sigma1 - sigma2) / (sigma1 + sigma2));
+    degeneracyMeasure = std::max(degeneracyMeasure, 1.0f - std::abs((sigma3 - sigma2) / (sigma3 + sigma2)));
     return degeneracyMeasure;
 }
 #endif
