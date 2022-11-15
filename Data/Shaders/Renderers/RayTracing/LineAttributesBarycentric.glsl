@@ -44,7 +44,7 @@
     float phi = interpolateAngle(
             vertexData0.phi, vertexData1.phi, vertexData2.phi, barycentricCoordinates);
 #endif
-#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
+#if (defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)) && !defined(GENERAL_TRIANGLE_MESH)
     float fragmentVertexId = interpolateFloat(
             float(vertexLinePointIndex0), float(vertexLinePointIndex1), float(vertexLinePointIndex2),
             barycentricCoordinates);
@@ -151,7 +151,7 @@
 #if defined(USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
             phi,
 #endif
-#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
+#if (defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)) && !defined(GENERAL_TRIANGLE_MESH)
             fragmentVertexId,
 #endif
 #ifdef USE_BANDS

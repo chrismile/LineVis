@@ -118,8 +118,12 @@ bool TriangleMeshData::loadFromFile(
             colorLegendWidgets[varIdx].setAttributeDisplayName(
                     std::string() + attributeNames.at(varIdx));
         }
+
+        modelBoundingBox = sgl::reduceVec3ArrayAabb(vertexPositions);
+        focusBoundingBox = modelBoundingBox;
     }
 
+    dirty = true;
     return dataLoaded;
 }
 

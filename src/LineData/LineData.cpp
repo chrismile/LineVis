@@ -250,7 +250,7 @@ bool LineData::updateLinePrimitiveMode(LineRenderer* lineRenderer) {
 bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer) {
     bool shallReloadGatherShader = false;
 
-    if (lineRenderer->getIsRasterizer()) {
+    if (lineRenderer->getIsRasterizer() && getType() != DATA_SET_TYPE_TRIANGLE_MESH) {
         int numPrimitiveModes = IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES);
         if (!hasBandsData) {
             numPrimitiveModes -= 5;

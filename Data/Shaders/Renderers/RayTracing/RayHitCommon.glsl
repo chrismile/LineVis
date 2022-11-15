@@ -39,7 +39,7 @@
 #include "MlatInsert.glsl"
 #endif
 
-#define ANALYTIC_HIT_COMPUTATION
+//#define ANALYTIC_HIT_COMPUTATION
 #include "Lighting.glsl"
 #include "Antialiasing.glsl"
 #include "MultiVar.glsl"
@@ -82,7 +82,7 @@ void computeFragmentColor(
 #if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
         float phi,
 #endif
-#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
+#if (defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)) && !defined(GENERAL_TRIANGLE_MESH)
         float fragmentVertexId,
 #endif
 #ifdef USE_BANDS

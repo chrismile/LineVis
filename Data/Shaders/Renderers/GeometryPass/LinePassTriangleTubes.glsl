@@ -47,7 +47,7 @@ layout(location = 6) flat out float fragmentLineHierarchyLevel;
 layout(location = 7) flat out uint fragmentLineAppearanceOrder;
 #endif
 
-#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING) || defined(UNIFORM_HELICITY_BAND_WIDTH)
+#if (defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING) || defined(UNIFORM_HELICITY_BAND_WIDTH)) && !defined(GENERAL_TRIANGLE_MESH)
 layout(location = 8) out float interpolationFactorLine;
 layout(location = 9) flat out uint fragmentVertexIdUint;
 #endif
@@ -174,7 +174,7 @@ void main() {
 #ifdef USE_LINE_HIERARCHY_LEVEL
     fragmentLineHierarchyLevel = stressLinePointData.lineLineHierarchyLevel;
 #endif
-#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING) || defined(UNIFORM_HELICITY_BAND_WIDTH)
+#if (defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING) || defined(UNIFORM_HELICITY_BAND_WIDTH)) && !defined(GENERAL_TRIANGLE_MESH)
     interpolationFactorLine = float(linePointIdx - linePointData.lineStartIndex);
     fragmentVertexIdUint = linePointData.lineStartIndex;//linePointIdx;
 #endif

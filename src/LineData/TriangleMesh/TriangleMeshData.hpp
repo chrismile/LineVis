@@ -102,6 +102,7 @@ public:
     void getTriangleMesh(
             LineRenderer* lineRenderer,
             std::vector<uint32_t>& _triangleIndices, std::vector<glm::vec3>& _vertexPositions) override;
+    inline const std::vector<glm::vec3>& getVertexPositions() { return vertexPositions; }
 
     /**
      * Renders the entries in the property editor.
