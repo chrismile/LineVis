@@ -37,6 +37,7 @@
 #include <Utils/Parallel/Reduction.hpp>
 
 #include "../TrajectoryFile.hpp"
+#include "Curvature.hpp"
 #include "BinaryObjLoader.hpp"
 
 void computeNormals(
@@ -46,16 +47,6 @@ void computeNormals(
     vertexNormals.resize(vertexPositions.size());
     for (size_t vertexIdx = 0; vertexIdx < vertexPositions.size(); vertexIdx++) {
         vertexNormals.at(vertexIdx) = glm::vec3(1.0f);
-    }
-}
-
-void computeCurvature(
-        const std::vector<uint32_t>& triangleIndices, const std::vector<glm::vec3>& vertexPositions,
-        std::vector<glm::vec3>& vertexNormals, std::vector<float>& vertexAttributes) {
-    // TODO
-    vertexAttributes.resize(vertexPositions.size());
-    for (size_t vertexIdx = 0; vertexIdx < vertexPositions.size(); vertexIdx++) {
-        vertexAttributes.at(vertexIdx) = 0.0f;
     }
 }
 

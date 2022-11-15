@@ -31,6 +31,8 @@
 #include <Graphics/Vulkan/Render/Data.hpp>
 
 #include "Loaders/TriangleMesh/BinaryObjLoader.hpp"
+#include "Loaders/TriangleMesh/ObjLoader.hpp"
+#include "Loaders/TriangleMesh/StlLoader.hpp"
 #include "TriangleMeshData.hpp"
 
 TriangleMeshData::TriangleMeshData(sgl::TransferFunctionWindow& transferFunctionWindow)
@@ -73,9 +75,20 @@ bool TriangleMeshData::loadFromFile(
         glm::mat4* transformationMatrixPtr) {
     this->fileNames = fileNames;
     attributeNames = dataSetInformation.attributeNames;
-    loadBinaryObjTriangleMesh(
-            fileNames.front(), triangleIndices, vertexPositions, vertexNormals, vertexAttributesList, attributeNames,
-            true, false, nullptr, transformationMatrixPtr);
+    std::string extension = sgl::FileUtils::get()->getFileExtensionLower(fileNames.front());
+    if (extension == "bobj") {
+        loadBinaryObjTriangleMesh(
+                fileNames.front(), triangleIndices, vertexPositions, vertexNormals, vertexAttributesList, attributeNames,
+                true, false, nullptr, transformationMatrixPtr);
+    } if (extension == "obj") {
+        loadObjTriangleMesh(
+                fileNames.front(), triangleIndices, vertexPositions, vertexNormals, vertexAttributesList, attributeNames,
+                true, false, nullptr, transformationMatrixPtr);
+    } if (extension == "stl") {
+        loadStlTriangleMesh(
+                fileNames.front(), triangleIndices, vertexPositions, vertexNormals, vertexAttributesList, attributeNames,
+                true, false, nullptr, transformationMatrixPtr);
+    }
     bool dataLoaded = !triangleIndices.empty();
 
     if (!dataLoaded) {
