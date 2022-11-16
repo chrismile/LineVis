@@ -138,5 +138,6 @@ void loadBinaryObjTriangleMesh(
             *oldAABB = aabb;
         }
         normalizeVertexPositions(vertexPositions, aabb, vertexTransformationMatrixPtr);
+        normalizeVertexNormals(vertexNormals, aabb, vertexTransformationMatrixPtr);
     }
 }

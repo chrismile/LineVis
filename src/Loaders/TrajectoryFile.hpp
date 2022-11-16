@@ -88,6 +88,9 @@ void normalizeVertexPositions(
 void normalizeVertexPosition(
         glm::vec3& vertexPosition, const sgl::AABB3& aabb,
         const glm::mat4* vertexTransformationMatrixPtr = nullptr);
+void normalizeVertexNormals(
+        std::vector<glm::vec3>& vertexNormals, const sgl::AABB3& aabb,
+        const glm::mat4* vertexTransformationMatrixPtr = nullptr);
 void normalizeVertexAttributes(std::vector<std::vector<float>>& vertexAttributesList);
 void normalizeTrajectoriesVertexAttributes(Trajectories& trajectories);
 

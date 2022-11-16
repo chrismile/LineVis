@@ -185,5 +185,6 @@ void loadStlTriangleMesh(
             *oldAABB = aabb;
         }
         normalizeVertexPositions(vertexPositions, aabb, vertexTransformationMatrixPtr);
+        normalizeVertexNormals(vertexNormals, aabb, vertexTransformationMatrixPtr);
     }
 }

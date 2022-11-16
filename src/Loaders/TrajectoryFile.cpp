@@ -222,6 +222,34 @@ void normalizeVertexPosition(
     }
 }
 
+void normalizeVertexNormals(
+        std::vector<glm::vec3>& vertexNormals, const sgl::AABB3& aabb,
+        const glm::mat4* vertexTransformationMatrixPtr) {
+    ZoneScoped;
+
+    if (vertexTransformationMatrixPtr != nullptr) {
+        glm::mat4 transformationMatrix = *vertexTransformationMatrixPtr;
+        transformationMatrix = glm::transpose(glm::inverse(transformationMatrix));
+
+#ifdef USE_TBB
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, vertexPositions.size()), [&](auto const& r) {
+            for (auto vertexIdx = r.begin(); vertexIdx != r.end(); vertexIdx++) {
+#else
+#if _OPENMP >= 200805
+        #pragma omp parallel for shared(vertexNormals, transformationMatrix) default(none)
+#endif
+        for (size_t vertexIdx = 0; vertexIdx < vertexNormals.size(); vertexIdx++) {
+#endif
+            glm::vec3& v = vertexNormals.at(vertexIdx);
+            glm::vec4 transformedVec = transformationMatrix * glm::vec4(v.x, v.y, v.z, 0.0f);
+            v = glm::vec3(transformedVec.x, transformedVec.y, transformedVec.z);
+        }
+#ifdef USE_TBB
+        });
+#endif
+    }
+}
+
 void normalizeVertexAttributes(std::vector<std::vector<float>>& vertexAttributesList) {
     const size_t numAttributes = vertexAttributesList.size();
 

@@ -39,6 +39,7 @@
 #include <zmq.h>
 #endif
 
+#include <Utils/StringUtils.hpp>
 #include <Utils/Timer.hpp>
 #include <Utils/AppSettings.hpp>
 #include <Utils/Dialog.hpp>
@@ -997,8 +998,35 @@ void MainApp::renderGui() {
             fileDialogDirectory = sgl::FileUtils::get()->getPathToFile(filename);
 
             std::string filenameLower = boost::to_lower_copy(filename);
+            bool isObjFile = boost::ends_with(filenameLower, ".obj");
             bool isDatFile = boost::ends_with(filenameLower, ".dat");
             bool isNcFile = boost::ends_with(filenameLower, ".nc");
+
+            /*
+             * The program supports loading flow lines or triangle meshes from .dat files.
+             */
+            bool isObjTriangleMeshFile = false;
+            if (isObjFile) {
+                if (sgl::FileUtils::get()->exists(filename) && !sgl::FileUtils::get()->isDirectory(filename)) {
+                    std::ifstream objFile(filename);
+                    std::string lineString;
+                    std::getline(objFile, lineString);
+                    if (lineString.find("# Blender") != std::string::npos) {
+                        isObjTriangleMeshFile = true;
+                    }
+                    while (std::getline(objFile, lineString)) {
+                        if (sgl::startsWith(lineString, "f ")) {
+                            isObjTriangleMeshFile = true;
+                            break;
+                        }
+                        if (sgl::startsWith(lineString, "l ")) {
+                            isObjTriangleMeshFile = false;
+                            break;
+                        }
+                    }
+                    objFile.close();
+                }
+            }
 
             /*
              * The program supports two types of .dat file:
@@ -1077,12 +1105,14 @@ void MainApp::renderGui() {
                 scatteringLineTracingRequester->setShowWindow(true);
             } else {
                 selectedDataSetIndex = 0;
-                if (boost::ends_with(filenameLower, ".obj")
+                if ((isObjFile && !isObjTriangleMeshFile)
                         || boost::ends_with(filenameLower, ".binlines") || isNcFile) {
                     dataSetType = DATA_SET_TYPE_FLOW_LINES;
                 } else if (isDatFile) {
                     dataSetType = DATA_SET_TYPE_STRESS_LINES;
-                } if (boost::ends_with(filenameLower, ".bobj")) {
+                } else if ((isObjFile && isObjTriangleMeshFile)
+                        || boost::ends_with(filenameLower, ".bobj")
+                        || boost::ends_with(filenameLower, ".stl")) {
                     dataSetType = DATA_SET_TYPE_TRIANGLE_MESH;
                 } else {
                     sgl::Logfile::get()->writeError("The selected file name has an unknown extension.");
@@ -1577,7 +1607,8 @@ void MainApp::openFileDialog() {
     IGFD_OpenModal(
             fileDialogInstance,
             "ChooseDataSetFile", "Choose a File",
-            ".*,.obj,.dat,.binlines,.nc,.vtk,.vti,.vts,.bin,.stress,.carti,.am,.field,.grib,.grb,.raw,.xyz,.nvdb,.bobj",
+            ".*,.obj,.dat,.binlines,.nc,.vtk,.vti,.vts,.bin,.stress,.carti,.am,.field,.grib,.grb,.raw,.xyz,.nvdb,"
+            ".bobj,.stl",
             fileDialogDirectory.c_str(),
             "", 1, nullptr,
             ImGuiFileDialogFlags_ConfirmOverwrite);
