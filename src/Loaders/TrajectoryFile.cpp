@@ -232,7 +232,7 @@ void normalizeVertexNormals(
         transformationMatrix = glm::transpose(glm::inverse(transformationMatrix));
 
 #ifdef USE_TBB
-        tbb::parallel_for(tbb::blocked_range<size_t>(0, vertexPositions.size()), [&](auto const& r) {
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, vertexNormals.size()), [&](auto const& r) {
             for (auto vertexIdx = r.begin(); vertexIdx != r.end(); vertexIdx++) {
 #else
 #if _OPENMP >= 200805
