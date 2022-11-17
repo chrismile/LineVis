@@ -94,7 +94,6 @@ PyTorchDenoiser::PyTorchDenoiser(sgl::vk::Renderer* renderer) : renderer(rendere
 #endif
 
     renderFinishedFence = std::make_shared<sgl::vk::Fence>(device);
-    denoiseFinishedFence = std::make_shared<sgl::vk::Fence>(device);
     featureCombinePass = std::make_shared<FeatureCombinePass>(renderer);
 
     // When loading a model, the metadata in the TorchScript file is read to get the used feature map names.
