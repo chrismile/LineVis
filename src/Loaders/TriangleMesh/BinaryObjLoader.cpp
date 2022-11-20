@@ -35,20 +35,11 @@
 
 #include <Utils/File/Logfile.hpp>
 #include <Utils/Parallel/Reduction.hpp>
+#include <Utils/Mesh/TriangleNormals.hpp>
 
 #include "../TrajectoryFile.hpp"
 #include "Curvature.hpp"
 #include "BinaryObjLoader.hpp"
-
-void computeNormals(
-        const std::vector<uint32_t>& triangleIndices, const std::vector<glm::vec3>& vertexPositions,
-        std::vector<glm::vec3>& vertexNormals) {
-    // TODO
-    vertexNormals.resize(vertexPositions.size());
-    for (size_t vertexIdx = 0; vertexIdx < vertexPositions.size(); vertexIdx++) {
-        vertexNormals.at(vertexIdx) = glm::vec3(1.0f);
-    }
-}
 
 void loadBinaryObjTriangleMesh(
         const std::string &filename, std::vector<uint32_t>& triangleIndices,
@@ -122,7 +113,7 @@ void loadBinaryObjTriangleMesh(
     triangleIndices64 = {};
 
     // Compute the vertex normals for the triangle mesh.
-    computeNormals(triangleIndices, vertexPositions, vertexNormals);
+    sgl::computeSmoothTriangleNormals(triangleIndices, vertexPositions, vertexNormals);
 
     // Compute the mesh curvature as one attribute.
     vertexAttributeNames.emplace_back("Curvature");

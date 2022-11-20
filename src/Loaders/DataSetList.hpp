@@ -71,6 +71,9 @@ struct DataSetInformation {
     std::string meshFilename;
     std::string degeneratePointsFilename;
     std::vector<std::string> filenamesStressLineHierarchy;
+
+    // For type DATA_SET_TYPE_TRIANGLE_MESH.
+    bool shallComputeSharedVertexRepresentation = false;
 };
 
 DataSetInformationPtr loadDataSetList(const std::string& filename);

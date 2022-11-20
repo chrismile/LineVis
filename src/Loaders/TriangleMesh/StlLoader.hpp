@@ -42,6 +42,7 @@ void loadStlTriangleMesh(
         std::vector<glm::vec3>& vertexPositions, std::vector<glm::vec3>& vertexNormals,
         std::vector<std::vector<float>>& vertexAttributesList, std::vector<std::string>& vertexAttributeNames,
         bool shallNormalizeVertexPositions = true, bool shallNormalizeAttributes = false,
+        bool shallComputeSharedVertexRepresentation = false,
         sgl::AABB3* oldAABB = nullptr, const glm::mat4* vertexTransformationMatrixPtr = nullptr);
 
 #endif //LINEVIS_STLLOADER_HPP

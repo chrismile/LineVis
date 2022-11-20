@@ -31,6 +31,8 @@
 #include <Utils/File/FileLoader.hpp>
 #include <Utils/Parallel/Reduction.hpp>
 #include <Utils/Events/Stream/Stream.hpp>
+#include <Utils/Mesh/TriangleNormals.hpp>
+#include <Utils/Mesh/IndexMesh.hpp>
 
 #include "../TrajectoryFile.hpp"
 #include "Curvature.hpp"
@@ -140,6 +142,7 @@ void loadStlTriangleMesh(
         std::vector<glm::vec3>& vertexPositions, std::vector<glm::vec3>& vertexNormals,
         std::vector<std::vector<float>>& vertexAttributesList, std::vector<std::string>& vertexAttributeNames,
         bool shallNormalizeVertexPositions, bool shallNormalizeAttributes,
+        bool shallComputeSharedVertexRepresentation,
         sgl::AABB3* oldAABB, const glm::mat4* vertexTransformationMatrixPtr) {
     uint8_t* buffer = nullptr;
     size_t length = 0;
@@ -169,6 +172,16 @@ void loadStlTriangleMesh(
                 buffer, length,
                 filename, triangleIndices, vertexPositions, vertexNormals, vertexAttributesList, vertexAttributeNames,
                 shallNormalizeVertexPositions, shallNormalizeAttributes, oldAABB, vertexTransformationMatrixPtr);
+    }
+
+    if (shallComputeSharedVertexRepresentation) {
+        std::vector<glm::vec3> vertexPositionsNotShared = vertexPositions;
+        triangleIndices.clear();
+        vertexPositions.clear();
+        vertexNormals.clear();
+        std::vector<glm::vec3> vertexNormalsNotShared;
+        sgl::computeSharedIndexRepresentation(vertexPositionsNotShared, triangleIndices, vertexPositions);
+        sgl::computeSmoothTriangleNormals(triangleIndices, vertexPositions, vertexNormals);
     }
 
     // Compute the mesh curvature as one attribute.

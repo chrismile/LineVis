@@ -216,7 +216,6 @@ void normalizeVertexPosition(
 
     if (vertexTransformationMatrixPtr != nullptr) {
         glm::mat4 transformationMatrix = *vertexTransformationMatrixPtr;
-        glm::vec3& v = vertexPosition;
         glm::vec4 transformedVec = transformationMatrix * glm::vec4(v.x, v.y, v.z, 1.0f);
         v = glm::vec3(transformedVec.x, transformedVec.y, transformedVec.z);
     }

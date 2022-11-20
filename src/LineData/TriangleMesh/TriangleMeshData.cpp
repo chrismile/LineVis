@@ -87,7 +87,9 @@ bool TriangleMeshData::loadFromFile(
     } if (extension == "stl") {
         loadStlTriangleMesh(
                 fileNames.front(), triangleIndices, vertexPositions, vertexNormals, vertexAttributesList, attributeNames,
-                true, false, nullptr, transformationMatrixPtr);
+                true, false,
+                dataSetInformation.shallComputeSharedVertexRepresentation,
+                nullptr, transformationMatrixPtr);
     }
     bool dataLoaded = !triangleIndices.empty();
 
