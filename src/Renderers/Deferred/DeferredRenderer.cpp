@@ -629,6 +629,9 @@ void DeferredRenderer::getVulkanShaderPreprocessorDefines(std::map<std::string, 
 
 void DeferredRenderer::setGraphicsPipelineInfo(
         sgl::vk::GraphicsPipelineInfo& pipelineInfo, const sgl::vk::ShaderStagesPtr& shaderStages) {
+    if (lineData->getType() == DATA_SET_TYPE_TRIANGLE_MESH) {
+        lineData->setGraphicsPipelineInfo(pipelineInfo, shaderStages);
+    }
 }
 
 void DeferredRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) {
@@ -1737,6 +1740,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                 }
             }
             reloadGatherShader();
+            deferredResolvePass->setDataDirty();
             reRender = true;
         }
         if (propertyEditor.addCheckbox("Show Meshlets", &shallVisualizeNodes)) {
@@ -1761,6 +1765,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                 meshletTaskMeshPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
             }
             reloadGatherShader();
+            deferredResolvePass->setDataDirty();
             reRender = true;
         }
         if (propertyEditor.addSliderIntEdit(
@@ -1836,6 +1841,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                     }
                 }
                 reloadGatherShader();
+                deferredResolvePass->setDataDirty();
                 reRender = true;
             }
         } else if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER && meshletSizeConfigurable) {
@@ -1849,6 +1855,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                             taskMeshShaderMaxNumPrimitivesPerMeshlet);
                 }
                 reloadGatherShader();
+                deferredResolvePass->setDataDirty();
                 reRender = true;
             }
             if (propertyEditor.addSliderIntEdit(
@@ -1861,6 +1868,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                             taskMeshShaderMaxNumVerticesPerMeshlet);
                 }
                 reloadGatherShader();
+                deferredResolvePass->setDataDirty();
                 reRender = true;
             }
             if (supportsTaskMeshShadersNV && supportsTaskMeshShadersEXT) {
@@ -2111,6 +2119,7 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
             }
         }
         reloadGatherShader();
+        deferredResolvePass->setDataDirty();
         reRender = true;
     }
 
@@ -2130,6 +2139,7 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
             }
         }
         reloadGatherShader();
+        deferredResolvePass->setDataDirty();
         reRender = true;
     }
     if (newState.rendererSettings.getValueOpt(
@@ -2148,6 +2158,7 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
             }
         }
         reloadGatherShader();
+        deferredResolvePass->setDataDirty();
         reRender = true;
     }
 
@@ -2341,6 +2352,7 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
             }
         }
         reloadGatherShader();
+        deferredResolvePass->setDataDirty();
         reRender = true;
     }
 
@@ -2360,6 +2372,7 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
             }
         }
         reloadGatherShader();
+        deferredResolvePass->setDataDirty();
         reRender = true;
     }
     if (settings.getValueOpt(
@@ -2376,6 +2389,7 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
             }
         }
         reloadGatherShader();
+        deferredResolvePass->setDataDirty();
         reRender = true;
     }
 

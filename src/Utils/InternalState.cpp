@@ -462,7 +462,7 @@ void getTestModesDeferred(std::vector<InternalState>& states, InternalState stat
     states.push_back(state);
     state.rendererSettings.addKeyValue("useSubgroupOps", "false");
 
-    for (uint32_t i = 8; i <= 256; i *= 2) {
+    /*for (uint32_t i = 8; i <= 256; i *= 2) {
         state.name = "Deferred BVH Draw Indirect (" + std::to_string(i) + ")";
         state.rendererSettings.addKeyValue("workgroupSizeBvh", std::to_string(i));
         states.push_back(state);
@@ -486,7 +486,7 @@ void getTestModesDeferred(std::vector<InternalState>& states, InternalState stat
     state.rendererSettings.addKeyValue(
             "numWorkgroupsBvh", std::to_string(persistentThreadInfo.optimalNumWorkgroups));
     state.rendererSettings.addKeyValue(
-            "workgroupSizeBvh", std::to_string(persistentThreadInfo.optimalWorkgroupSize));
+            "workgroupSizeBvh", std::to_string(persistentThreadInfo.optimalWorkgroupSize));*/
 
     for (int i = 0; i < IM_ARRAYSIZE(bvhBuildGeometryModeNames); i++) {
         for (int j = 0; j < IM_ARRAYSIZE(bvhBuildAlgorithmNames); j++) {
@@ -526,13 +526,8 @@ std::vector<InternalState> getTestModesDeferredRendering() {
         windowResolutions = { glm::ivec2(3840, 2160) };
     }
     std::vector<DataSetDescriptor> dataSetDescriptors = {
-            //DataSetDescriptor("Rings"),
             DataSetDescriptor("Aneurysm"),
-            //DataSetDescriptor("Convection Rolls"),
-            //DataSetDescriptor("Femur (Vis2021)"),
-            //DataSetDescriptor("Bearing"),
-            //DataSetDescriptor("Convection Rolls"),
-            //DataSetDescriptor("Tangaroa (t=200)"),
+            DataSetDescriptor("Ejecta (t=272, 1024x1024x1024, iso=0.40)"),
     };
     std::vector<std::string> transferFunctionNames = {
             //"Standard.xml"
