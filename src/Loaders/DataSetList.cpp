@@ -191,10 +191,16 @@ void processDataSetNodeChildren(Json::Value& childList, DataSetInformation* data
             }
         }
 
-        // Optional triangle mesh information: Line hierarchy.
+        // Optional triangle mesh information: Convert disconnected triangles with a shared vertex representation?
         if (dataSetInformation->type == DATA_SET_TYPE_TRIANGLE_MESH && source.isMember("shared_vertex_representation")) {
             Json::Value sharedVertexRepresentation = source["shared_vertex_representation"];
             dataSetInformation->shallComputeSharedVertexRepresentation = jsonValueToBool(sharedVertexRepresentation);
+        }
+
+        // Optional triangle mesh information: Use vertex cache optimization after loading the data.
+        if (dataSetInformation->type == DATA_SET_TYPE_TRIANGLE_MESH && source.isMember("vertex_cache_optimization")) {
+            Json::Value vertexCacheOptimization = source["vertex_cache_optimization"];
+            dataSetInformation->useVertexCacheOptimization = jsonValueToBool(vertexCacheOptimization);
         }
 
         dataSetInformationParent->children.emplace_back(dataSetInformation);

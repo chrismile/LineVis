@@ -33,6 +33,7 @@
 #include "Loaders/TriangleMesh/BinaryObjLoader.hpp"
 #include "Loaders/TriangleMesh/ObjLoader.hpp"
 #include "Loaders/TriangleMesh/StlLoader.hpp"
+#include "forsyth.h"
 #include "TriangleMeshData.hpp"
 
 TriangleMeshData::TriangleMeshData(sgl::TransferFunctionWindow& transferFunctionWindow)
@@ -123,6 +124,14 @@ bool TriangleMeshData::loadFromFile(
 
         modelBoundingBox = sgl::reduceVec3ArrayAabb(vertexPositions);
         focusBoundingBox = modelBoundingBox;
+
+        if (dataSetInformation.useVertexCacheOptimization) {
+            std::vector<uint32_t> triangleIndicesOld = std::move(triangleIndices);
+            triangleIndices.resize(triangleIndicesOld.size());
+            forsythReorderIndices(
+                    triangleIndices.data(), triangleIndicesOld.data(),
+                    int(triangleIndices.size() / 3), int(triangleIndices.size()));
+        }
     }
 
     dirty = true;
