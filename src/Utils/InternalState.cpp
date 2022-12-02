@@ -94,7 +94,7 @@ void getTestModesOITForDataSet(std::vector<InternalState>& states, InternalState
     //getTestModesOpacityOptimization(states, state);
     //getTestModesOpacityOptimization(states, state);
     getTestModesOpaque(states, state);
-    getTestModesDepthComplexity(states, state);
+    //getTestModesDepthComplexity(states, state);
     getTestModesPerPixelLinkedLists(states, state);
     getTestModesMlab(states, state);
 }
@@ -107,12 +107,12 @@ std::vector<InternalState> getTestModesOIT() {
     //std::vector<glm::ivec2> windowResolutions = { glm::ivec2(2560, 1440) };
     //std::vector<glm::ivec2> windowResolutions = { glm::ivec2(2186, 1358) };
     std::vector<DataSetDescriptor> dataSetDescriptors = {
-            //DataSetDescriptor("Aneurysm"),
-            DataSetDescriptor("Femur (Vis2021)"),
+            DataSetDescriptor("Aneurysm"),
+            //DataSetDescriptor("Femur (Vis2021)"),
     };
     std::vector<std::string> transferFunctionNames = {
-            //"Transparent_Aneurysm.xml",
-            "Standard.xml",
+            "Transparent_Aneurysm.xml",
+            //"Standard.xml",
     };
     InternalState state;
 
@@ -575,5 +575,6 @@ std::vector<InternalState> getTestModesDeferredRendering() {
 }
 
 std::vector<InternalState> getTestModes() {
+    //return getTestModesOIT();
     return getTestModesDeferredRendering();
 }

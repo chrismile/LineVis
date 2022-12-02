@@ -94,7 +94,7 @@ void MBOITRenderer::updateSyncMode() {
     getScreenSizeWithTiling(paddedWidth, paddedHeight);
 
     spinlockViewportBuffer = {};
-    if (syncMode == SYNC_SPINLOCK) {
+    if (syncMode == SYNC_SPINLOCK && *sceneData->viewportWidth > 0 && *sceneData->viewportHeight > 0) {
         spinlockViewportBuffer = std::make_shared<sgl::vk::Buffer>(
                 renderer->getDevice(), sizeof(uint32_t) * size_t(paddedWidth) * size_t(paddedHeight),
                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
