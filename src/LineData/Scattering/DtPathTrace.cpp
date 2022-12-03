@@ -81,7 +81,7 @@ inline uint32_t min(uint32_t a, uint32_t b) {
 }
 
 
-Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_height) {
+Image create_spherical_heatmap_image(sgl::KdTree<sgl::Empty>* kd_tree, uint32_t image_height) {
     const float search_radius = 0.1f;
     const float rbf_epsilon = 3.0f;
 
@@ -97,7 +97,7 @@ Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_heig
     assert(out_image.width > 0);
     assert(out_image.height > 0);
 
-    std::vector<std::pair<glm::vec3, Empty>> searchCache;
+    std::vector<std::pair<glm::vec3, sgl::Empty>> searchCache;
     float max_rbf_value = 0.0f;
 
     for (uint32_t y = 0; y < out_image.height; ++y) {
@@ -132,7 +132,7 @@ Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_heig
 
                 p->f32 = 0.0f;
 
-                for (std::pair<glm::vec3, Empty>& hit : searchCache) {
+                for (std::pair<glm::vec3, sgl::Empty>& hit : searchCache) {
                     glm::vec3 pos = hit.first;
 
                     float dist = glm::length(point_on_sphere - pos);

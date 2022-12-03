@@ -56,7 +56,7 @@ protected:
         }
 
         // Build the search structure on the points.
-        KdTree<ptrdiff_t> kdTree;
+        sgl::KdTree<ptrdiff_t> kdTree;
         std::vector<ptrdiff_t> pointIndices;
         pointIndices.reserve(pointSetSearch.size());
         for (size_t i = 0; i < pointSetSearch.size(); i++) {
@@ -72,7 +72,7 @@ protected:
 
         // Get the ground-truth distances.
         for (int i = 0; i < N; i++) {
-            glm::vec3 nearestNeighbor = nearestNeighborNaive(pointSetFind.at(i), pointSetSearch);
+            glm::vec3 nearestNeighbor = sgl::nearestNeighborNaive(pointSetFind.at(i), pointSetSearch);
             distancesSlow.at(i) = glm::distance(pointSetFind.at(i), nearestNeighbor);
         }
     }
@@ -81,7 +81,7 @@ protected:
     }
 
     int N = 0;
-    KdTree<ptrdiff_t> kdTree;
+    sgl::KdTree<ptrdiff_t> kdTree;
     std::vector<glm::vec3> pointSetSearch;
     std::vector<glm::vec3> pointSetFind;
     std::vector<float> distancesSlow;

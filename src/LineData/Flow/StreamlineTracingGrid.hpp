@@ -37,8 +37,11 @@
 
 #include "Loaders/TrajectoryFile.hpp"
 
+namespace sgl {
 template<class T>
 class HashedGrid;
+}
+
 struct StreamlineTracingSettings;
 class StreamlineSeeder;
 
@@ -161,7 +164,7 @@ private:
     // LoopCheckMode::START_POINT and LoopCheckMode::ALL_POINTS
     float terminationDistanceStart = 0.0f;
     // LoopCheckMode::ALL_POINTS
-    HashedGrid<glm::vec3>* hashedGridLoop = nullptr;
+    sgl::HashedGrid<glm::vec3>* hashedGridLoop = nullptr;
     std::vector<std::pair<glm::vec3, glm::vec3>> closePoints;
     // LoopCheckMode::GRID
     std::vector<bool> selfOccupationGrid;

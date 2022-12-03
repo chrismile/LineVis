@@ -625,7 +625,7 @@ void LineDataStress::setDegeneratePoints(
     }
 
     // Build a search structure on the degenerate points.
-    KdTree<ptrdiff_t> kdTree;
+    sgl::KdTree<ptrdiff_t> kdTree;
     std::vector<std::pair<glm::vec3, ptrdiff_t>> pointsAndIndices(degeneratePoints.size());
     for (size_t i = 0; i < degeneratePoints.size(); i++) {
         pointsAndIndices.at(i) = std::make_pair(degeneratePoints.at(i), ptrdiff_t(i));

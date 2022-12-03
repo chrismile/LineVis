@@ -772,7 +772,7 @@ void StreamlineTracingGrid::_traceStreamribbonsDecreasingHelicity(
     float dt = 1.0f / maxVectorMagnitude * std::min(dx, std::min(dy, dz)) * tracingSettings.timeStepScale;
 
     if (tracingSettings.loopCheckMode == LoopCheckMode::ALL_POINTS) {
-        hashedGridLoop = new HashedGrid<glm::vec3>(
+        hashedGridLoop = new sgl::HashedGrid<glm::vec3>(
                 tracingSettings.maxNumIterations + 17, std::min(dx, std::min(dy, dz)));
     } else if (tracingSettings.loopCheckMode == LoopCheckMode::GRID) {
         selfOccupationGrid.resize((xs - 1) * (ys - 1) * (zs - 1), false);

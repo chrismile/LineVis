@@ -199,8 +199,8 @@ private:
     float minimumSeparationDistance = 0.0f;
     TerminationCheckType terminationCheckType = TerminationCheckType::GRID_BASED;
     int gridSubsamplingFactor = 1;
-    KdTree<Empty> kdTree; ///< For terminationCheckType == TerminationCheckType::KD_TREE_BASED.
-    HashedGrid<Empty> hashedGrid; ///< For terminationCheckType == TerminationCheckType::HASHED_GRID_BASED.
+    sgl::KdTree<sgl::Empty> kdTree; ///< For terminationCheckType == TerminationCheckType::KD_TREE_BASED.
+    sgl::HashedGrid<sgl::Empty> hashedGrid; ///< For terminationCheckType == TerminationCheckType::HASHED_GRID_BASED.
     std::vector<glm::vec3> kdTreePointCache;
 
     struct GridSample {
