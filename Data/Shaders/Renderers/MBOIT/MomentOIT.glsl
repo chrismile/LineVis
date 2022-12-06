@@ -322,7 +322,17 @@ void generateMoments(float depth, float transmittance, vec4 wrapping_zone_parame
 void generateMoments(float depth, float transmittance, vec4 wrapping_zone_parameters, out float b_0, out vec4 b_even, out vec4 b_odd)
 #endif
 {
+    // Return early if the surface is fully transparent
+    //clip(0.9999999f - transmittance);
+    if (transmittance > 0.9999999f) {
+        discard;
+    }
+
+    // Absorbance would be infinite for zero transmittance. Thus, make sure transittance is never close to zero.
     float absorbance = -log(transmittance);
+    if (absorbance > ABSORBANCE_MAX_VALUE) {
+        absorbance = ABSORBANCE_MAX_VALUE;
+    }
 
     b_0 = absorbance;
 #if TRIGONOMETRIC

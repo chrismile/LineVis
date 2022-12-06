@@ -16,7 +16,30 @@
 #include "MomentOIT.glsl"
 #include "TiledAddress.glsl"
 
+#if ROV
+
 layout(location = 0) out vec4 fragColor;
+
+#else
+
+layout(location = 0) out float b_0;
+#if NUM_MOMENTS == 4
+layout(location = 1) out vec4 b;
+#elif NUM_MOMENTS == 6
+#if USE_R_RG_RGBA_FOR_MBOIT6
+layout(location = 1) out vec2 b_12;
+layout(location = 2) out vec4 b_3456;
+#else
+layout(location = 1) out vec2 b_12;
+layout(location = 2) out vec2 b_34;
+layout(location = 3) out vec2 b_56;
+#endif
+#elif NUM_MOMENTS == 8
+layout(location = 1) out vec4 b_even;
+layout(location = 2) out vec4 b_odd;
+#endif
+
+#endif
 
 void gatherFragment(vec4 color) {
     float depth = logDepthWarp(-screenSpacePosition.z, logDepthMin, logDepthMax); // gl_FragCoord.z
@@ -30,10 +53,26 @@ void gatherFragment(vec4 color) {
     //ivec2 addr2D = addrGen2D(ivec2(gl_FragCoord.xy));
     ivec2 addr2D = ivec2(gl_FragCoord.xy);
 
+#if ROV
     memoryBarrierImage();
     generateMoments(depth, transmittance, addr2D, MomentOIT.wrapping_zone_parameters);
-
     fragColor = vec4(color);
+#else
+    generateMoments(
+            depth, transmittance, MomentOIT.wrapping_zone_parameters,
+#if NUM_MOMENTS == 4
+            b_0, b
+#elif NUM_MOMENTS == 6
+#if USE_R_RG_RGBA_FOR_MBOIT6
+            b_0, b_12, b_3456
+#else
+            b_0, b_12, b_34, b_56
+#endif
+#elif NUM_MOMENTS == 8
+            b_0, b_even, b_odd
+#endif
+    );
+#endif
 }
 
 void gatherFragmentCustomDepth(vec4 color, float depth) {
@@ -48,8 +87,24 @@ void gatherFragmentCustomDepth(vec4 color, float depth) {
     //ivec2 addr2D = addrGen2D(ivec2(gl_FragCoord.xy));
     ivec2 addr2D = ivec2(gl_FragCoord.xy);
 
+#if ROV
     memoryBarrierImage();
     generateMoments(depthLog, transmittance, addr2D, MomentOIT.wrapping_zone_parameters);
-
     fragColor = vec4(color);
+#else
+    generateMoments(
+            depthLog, transmittance, MomentOIT.wrapping_zone_parameters,
+#if NUM_MOMENTS == 4
+            b_0, b
+#elif NUM_MOMENTS == 6
+#if USE_R_RG_RGBA_FOR_MBOIT6
+            b_0, b_12, b_3456
+#else
+            b_0, b_12, b_34, b_56
+#endif
+#elif NUM_MOMENTS == 8
+            b_0, b_even, b_odd
+#endif
+);
+#endif
 }

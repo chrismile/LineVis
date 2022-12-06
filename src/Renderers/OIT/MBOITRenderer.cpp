@@ -74,6 +74,7 @@ void MBOITRenderer::initialize() {
 
     mboitPass1 = std::make_shared<MBOITPass1>(this);
     mboitPass1->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
+    mboitPass1->setUseRenderTargets(useRenderTargets);
     mboitPass2 = std::make_shared<MBOITPass2>(this);
     mboitPass2->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
     mboitPass2->setUpdateUniformData(false);
@@ -94,7 +95,7 @@ void MBOITRenderer::updateSyncMode() {
     getScreenSizeWithTiling(paddedWidth, paddedHeight);
 
     spinlockViewportBuffer = {};
-    if (syncMode == SYNC_SPINLOCK && *sceneData->viewportWidth > 0 && *sceneData->viewportHeight > 0) {
+    if (!useRenderTargets && syncMode == SYNC_SPINLOCK && width > 0 && height > 0) {
         spinlockViewportBuffer = std::make_shared<sgl::vk::Buffer>(
                 renderer->getDevice(), sizeof(uint32_t) * size_t(paddedWidth) * size_t(paddedHeight),
                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
@@ -127,85 +128,6 @@ void MBOITRenderer::reloadResolveShader() {
 void MBOITRenderer::updateMomentMode() {
     // Reload the shaders.
     reloadShaders();
-
-    // Create moment images.
-    int width = int(*sceneData->viewportWidth);
-    int height = int(*sceneData->viewportHeight);
-
-    VkFormat format1 = VK_FORMAT_R32_SFLOAT;
-    VkFormat format2 =
-            pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32 ? VK_FORMAT_R32G32_SFLOAT : VK_FORMAT_R16G16_UNORM;
-    VkFormat format4 =
-            pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32 ? VK_FORMAT_R32G32B32A32_SFLOAT : VK_FORMAT_R16G16B16A16_UNORM;
-
-    int depthB0 = 1;
-    int depthB = 1;
-    int depthBExtra = 0;
-    VkFormat formatB0 = format1;
-    VkFormat formatB = format4;
-    VkFormat formatBExtra = format4;
-
-    if (numMoments == 6) {
-        if (USE_R_RG_RGBA_FOR_MBOIT6) {
-            depthBExtra = 1;
-            formatB = format2;
-            formatBExtra = format4;
-        } else {
-            depthB = 3;
-            formatB = format2;
-        }
-    } else if (numMoments == 8) {
-        depthB = 2;
-    }
-
-    momentImageArray.clear();
-
-    imageSettingsB0 = {};
-    imageSettingsB0.format = formatB0;
-    imageSettingsB0.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    imageSettingsB0.width = width;
-    imageSettingsB0.height = height;
-    imageSettingsB0.arrayLayers = depthB0;
-    b0 = std::make_shared<sgl::vk::ImageView>(
-            std::make_shared<sgl::vk::Image>(renderer->getDevice(), imageSettingsB0),
-            VK_IMAGE_VIEW_TYPE_2D_ARRAY);
-    renderer->transitionImageLayout(b0->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    b0->clearColor({ 0.0f, 0.0f, 0.0f, 0.0f }, renderer->getVkCommandBuffer());
-    momentImageArray.push_back(b0->getImage());
-
-    imageSettingsB = imageSettingsB0;
-    imageSettingsB.format = formatB;
-    imageSettingsB.arrayLayers = depthB;
-    b = std::make_shared<sgl::vk::ImageView>(
-            std::make_shared<sgl::vk::Image>(renderer->getDevice(), imageSettingsB),
-            VK_IMAGE_VIEW_TYPE_2D_ARRAY);
-    renderer->transitionImageLayout(b->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    b->clearColor({ 0.0f, 0.0f, 0.0f, 0.0f }, renderer->getVkCommandBuffer());
-    momentImageArray.push_back(b->getImage());
-
-    if (numMoments == 6 && USE_R_RG_RGBA_FOR_MBOIT6) {
-        imageSettingsBExtra = imageSettingsB0;
-        imageSettingsBExtra.format = formatBExtra;
-        imageSettingsB.arrayLayers = depthBExtra;
-        bExtra = std::make_shared<sgl::vk::ImageView>(
-                std::make_shared<sgl::vk::Image>(renderer->getDevice(), imageSettingsBExtra),
-                VK_IMAGE_VIEW_TYPE_2D_ARRAY);
-        renderer->transitionImageLayout(bExtra->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        bExtra->clearColor({ 0.0f, 0.0f, 0.0f, 0.0f }, renderer->getVkCommandBuffer());
-        momentImageArray.push_back(bExtra->getImage());
-    }
-
-    renderer->insertImageMemoryBarriers(
-            momentImageArray, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
-            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            VK_ACCESS_TRANSFER_WRITE_BIT,
-            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
-
-    size_t baseSizeBytes = pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32 ? 4 : 2;
-    if ((*sceneData->performanceMeasurer)) {
-        (*sceneData->performanceMeasurer)->setCurrentAlgorithmBufferSizeBytes(
-                baseSizeBytes * numMoments * width * height + 4 * width * height);
-    }
 
     // Set algorithm-dependent bias.
     if (usePowerMoments) {
@@ -241,6 +163,121 @@ void MBOITRenderer::updateMomentMode() {
     momentOITUniformBuffer->updateData(
             sizeof(MomentOITUniformData), &momentUniformData,
             renderer->getVkCommandBuffer());
+
+    // Create moment images.
+    int width = int(*sceneData->viewportWidth);
+    int height = int(*sceneData->viewportHeight);
+
+    if (width == 0 || height == 0) {
+        return;
+    }
+
+    VkFormat format1 = VK_FORMAT_R32_SFLOAT;
+    VkFormat format2 =
+            (useRenderTargets || pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32)
+            ? VK_FORMAT_R32G32_SFLOAT : VK_FORMAT_R16G16_UNORM;
+    VkFormat format4 =
+            (useRenderTargets || pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32)
+            ? VK_FORMAT_R32G32B32A32_SFLOAT : VK_FORMAT_R16G16B16A16_UNORM;
+
+    int depthB0 = 1;
+    int depthB = 1;
+    int depthBExtra = 0;
+    VkFormat formatB0 = format1;
+    VkFormat formatB = format4;
+    VkFormat formatBExtra = format4;
+
+    if (numMoments == 6) {
+        if (USE_R_RG_RGBA_FOR_MBOIT6) {
+            depthBExtra = 1;
+            formatB = format2;
+            formatBExtra = format4;
+        } else {
+            depthB = 3;
+            formatB = format2;
+        }
+    } else if (numMoments == 8) {
+        depthB = 2;
+    }
+
+    momentImageArray.clear();
+    b0 = b = bExtra = {};
+    b0Layer0 = bLayer0 = bLayer1 = bLayer2 = bExtraLayer0 = {};
+
+    imageSettingsB0 = {};
+    imageSettingsB0.format = formatB0;
+    imageSettingsB0.usage =
+            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    if (useRenderTargets) {
+        imageSettingsB0.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    }
+    imageSettingsB0.width = width;
+    imageSettingsB0.height = height;
+    imageSettingsB0.arrayLayers = depthB0;
+    b0 = std::make_shared<sgl::vk::ImageView>(
+            std::make_shared<sgl::vk::Image>(renderer->getDevice(), imageSettingsB0),
+            VK_IMAGE_VIEW_TYPE_2D_ARRAY);
+    renderer->transitionImageLayout(b0->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    b0->clearColor({ 0.0f, 0.0f, 0.0f, 0.0f }, renderer->getVkCommandBuffer());
+    momentImageArray.push_back(b0->getImage());
+
+    imageSettingsB = imageSettingsB0;
+    imageSettingsB.format = formatB;
+    imageSettingsB.arrayLayers = depthB;
+    b = std::make_shared<sgl::vk::ImageView>(
+            std::make_shared<sgl::vk::Image>(renderer->getDevice(), imageSettingsB),
+            VK_IMAGE_VIEW_TYPE_2D_ARRAY);
+    renderer->transitionImageLayout(b->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    b->clearColor({ 0.0f, 0.0f, 0.0f, 0.0f }, renderer->getVkCommandBuffer());
+    momentImageArray.push_back(b->getImage());
+
+    if (numMoments == 6 && USE_R_RG_RGBA_FOR_MBOIT6) {
+        imageSettingsBExtra = imageSettingsB0;
+        imageSettingsBExtra.format = formatBExtra;
+        imageSettingsB.arrayLayers = depthBExtra;
+        bExtra = std::make_shared<sgl::vk::ImageView>(
+                std::make_shared<sgl::vk::Image>(renderer->getDevice(), imageSettingsBExtra),
+                VK_IMAGE_VIEW_TYPE_2D_ARRAY);
+        renderer->transitionImageLayout(bExtra->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        bExtra->clearColor({ 0.0f, 0.0f, 0.0f, 0.0f }, renderer->getVkCommandBuffer());
+        momentImageArray.push_back(bExtra->getImage());
+    }
+
+    if (useRenderTargets) {
+        b0Layer0 = std::make_shared<sgl::vk::ImageView>(
+                b0->getImage(), VK_IMAGE_VIEW_TYPE_2D, 0, 1, 0, 1, VK_IMAGE_VIEW_TYPE_2D);
+        bLayer0 = std::make_shared<sgl::vk::ImageView>(
+                b->getImage(), VK_IMAGE_VIEW_TYPE_2D, 0, 1, 0, 1, VK_IMAGE_VIEW_TYPE_2D);
+        if (depthB > 1) {
+            bLayer1 = std::make_shared<sgl::vk::ImageView>(
+                    b->getImage(), VK_IMAGE_VIEW_TYPE_2D, 0, 1, 1, 1, VK_IMAGE_VIEW_TYPE_2D);
+        }
+        if (depthB > 2) {
+            bLayer2 = std::make_shared<sgl::vk::ImageView>(
+                    b->getImage(), VK_IMAGE_VIEW_TYPE_2D, 0, 1, 2, 1, VK_IMAGE_VIEW_TYPE_2D);
+        }
+        if (numMoments == 6 && USE_R_RG_RGBA_FOR_MBOIT6) {
+            bExtraLayer0 = std::make_shared<sgl::vk::ImageView>(
+                    bExtra->getImage(), VK_IMAGE_VIEW_TYPE_2D, 0, 1, 0, 1, VK_IMAGE_VIEW_TYPE_2D);
+        }
+    }
+
+    renderer->insertImageMemoryBarriers(
+            momentImageArray, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+
+    size_t baseSizeBytes = pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32 ? 4 : 2;
+    if ((*sceneData->performanceMeasurer)) {
+        (*sceneData->performanceMeasurer)->setCurrentAlgorithmBufferSizeBytes(
+                baseSizeBytes * numMoments * width * height + 4 * width * height);
+    }
+
+    if (useRenderTargets && *sceneData->viewportWidth > 0 && *sceneData->viewportHeight > 0) {
+        passIdx = 0;
+        mboitPass1->recreateSwapchain(*sceneData->viewportWidth, *sceneData->viewportHeight);
+    }
 }
 
 void MBOITRenderer::setNewState(const InternalState& newState) {
@@ -263,6 +300,19 @@ void MBOITRenderer::setNewState(const InternalState& newState) {
     }
 
     bool recompileGatherShader = false;
+    bool shallUpdateSyncMode = false;
+
+    if (newState.rendererSettings.getValueOpt("useRenderTargets", useRenderTargets)) {
+        shallUpdateSyncMode = true;
+        recompileGatherShader = true;
+        mboitPass1->setUseRenderTargets(useRenderTargets);
+        if (*sceneData->viewportWidth > 0 && *sceneData->viewportHeight > 0) {
+            passIdx = 0;
+            mboitPass1->recreateSwapchain(*sceneData->viewportWidth, *sceneData->viewportHeight);
+        }
+        reRender = true;
+    }
+
     if (newState.rendererSettings.getValueOpt(
             "useOrderedFragmentShaderInterlock", useOrderedFragmentShaderInterlock)) {
         recompileGatherShader = true;
@@ -270,8 +320,11 @@ void MBOITRenderer::setNewState(const InternalState& newState) {
     int syncModeInt = int(syncMode);
     if (newState.rendererSettings.getValueOpt("syncMode", syncModeInt)) {
         syncMode = SyncMode(syncModeInt);
-        updateSyncMode();
+        shallUpdateSyncMode = true;
         recompileGatherShader = true;
+    }
+    if (shallUpdateSyncMode) {
+        updateSyncMode();
     }
     if (recompileGatherShader && lineData) {
         reloadGatherShader();
@@ -293,26 +346,28 @@ void MBOITRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 void MBOITRenderer::getVulkanShaderPreprocessorDefines(
         std::map<std::string, std::string> &preprocessorDefines) {
     LineRenderer::getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    preprocessorDefines.insert(std::make_pair("USE_SCREEN_SPACE_POSITION", ""));
     preprocessorDefines.insert(std::make_pair("OIT_GATHER_HEADER", "\"MLABGather.glsl\""));
-    preprocessorDefines.insert(std::make_pair("ROV", "1")); // Always use ROV mode for now.
     preprocessorDefines.insert(std::make_pair("NUM_MOMENTS", sgl::toString(numMoments)));
     preprocessorDefines.insert(std::make_pair(
             "SINGLE_PRECISION", sgl::toString((int)(pixelFormat == MBOIT_PIXEL_FORMAT_FLOAT_32))));
     preprocessorDefines.insert(std::make_pair("TRIGONOMETRIC", sgl::toString((int)(!usePowerMoments))));
     preprocessorDefines.insert(std::make_pair(
             "USE_R_RG_RGBA_FOR_MBOIT6", sgl::toString((int)USE_R_RG_RGBA_FOR_MBOIT6)));
-    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
-        preprocessorDefines.insert(std::make_pair("__extensions", "GL_ARB_fragment_shader_interlock"));
-        preprocessorDefines.insert(std::make_pair("USE_SYNC_FRAGMENT_SHADER_INTERLOCK", ""));
-        if (!useOrderedFragmentShaderInterlock) {
-            preprocessorDefines.insert(std::make_pair("INTERLOCK_UNORDERED", ""));
+    if (passIdx == 0) {
+        preprocessorDefines.insert(std::make_pair("ROV", useRenderTargets ? "0" : "1"));
+        if (!useRenderTargets && syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK) {
+            preprocessorDefines.insert(std::make_pair("__extensions", "GL_ARB_fragment_shader_interlock"));
+            preprocessorDefines.insert(std::make_pair("USE_SYNC_FRAGMENT_SHADER_INTERLOCK", ""));
+            if (!useOrderedFragmentShaderInterlock) {
+                preprocessorDefines.insert(std::make_pair("INTERLOCK_UNORDERED", ""));
+            }
+        } else if (!useRenderTargets && syncMode == SYNC_SPINLOCK) {
+            preprocessorDefines.insert(std::make_pair("USE_SYNC_SPINLOCK", ""));
+            // Do not discard while keeping the spinlock locked.
+            preprocessorDefines.insert(std::make_pair("GATHER_NO_DISCARD", ""));
         }
-    } else if (syncMode == SYNC_SPINLOCK) {
-        preprocessorDefines.insert(std::make_pair("USE_SYNC_SPINLOCK", ""));
-        // Do not discard while keeping the spinlock locked.
-        preprocessorDefines.insert(std::make_pair("GATHER_NO_DISCARD", ""));
     }
-    preprocessorDefines.insert(std::make_pair("USE_SCREEN_SPACE_POSITION", ""));
 }
 
 void MBOITRenderer::setGraphicsPipelineInfo(
@@ -324,15 +379,17 @@ void MBOITRenderer::setGraphicsPipelineInfo(
 
 void MBOITRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) {
     LineRenderer::setRenderDataBindings(renderData);
-    renderData->setStaticImageView(b0, 0);
-    renderData->setStaticImageView(b, 1);
-    if (numMoments == 6 && USE_R_RG_RGBA_FOR_MBOIT6) {
-        renderData->setStaticImageView(bExtra, 2);
+    if (passIdx != 0 || !useRenderTargets) {
+        renderData->setStaticImageView(b0, 0);
+        renderData->setStaticImageView(b, 1);
+        if (numMoments == 6 && USE_R_RG_RGBA_FOR_MBOIT6) {
+            renderData->setStaticImageView(bExtra, 2);
+        }
     }
     renderData->setStaticTextureOptional(blendRenderTexture, "transparentSurfaceAccumulator");
     renderData->setStaticBufferOptional(uniformDataBuffer, "UniformDataBuffer");
     renderData->setStaticBufferOptional(momentOITUniformBuffer, "MomentOITUniformData");
-    if (syncMode == SYNC_SPINLOCK) {
+    if (!useRenderTargets && syncMode == SYNC_SPINLOCK) {
         renderData->setStaticBufferOptional(spinlockViewportBuffer, "SpinlockViewportBuffer");
     }
 }
@@ -342,6 +399,28 @@ void MBOITRenderer::updateVulkanUniformBuffers() {
 
 void MBOITRenderer::setFramebufferAttachments(
         sgl::vk::FramebufferPtr& framebuffer, VkAttachmentLoadOp loadOp) {
+    if (useRenderTargets && passIdx == 0) {
+        sgl::vk::AttachmentState attachmentState;
+        attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachmentState.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        attachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        attachmentState.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
+        framebuffer->setColorAttachment(b0Layer0, 0, attachmentState, { 0.0f, 0.0f, 0.0f, 0.0f });
+        if (numMoments == 4) {
+            framebuffer->setColorAttachment(bLayer0, 1, attachmentState, { 0.0f, 0.0f, 0.0f, 0.0f });
+        } else if (numMoments == 6 && USE_R_RG_RGBA_FOR_MBOIT6) {
+            framebuffer->setColorAttachment(bLayer0, 1, attachmentState, { 0.0f, 0.0f, 0.0f, 0.0f });
+            framebuffer->setColorAttachment(bExtraLayer0, 2, attachmentState, { 0.0f, 0.0f, 0.0f, 0.0f });
+        } else if (numMoments == 6 && !USE_R_RG_RGBA_FOR_MBOIT6) {
+            framebuffer->setColorAttachment(bLayer0, 1, attachmentState, { 0.0f, 0.0f, 0.0f, 0.0f });
+            framebuffer->setColorAttachment(bLayer1, 2, attachmentState, { 0.0f, 0.0f, 0.0f, 0.0f });
+            framebuffer->setColorAttachment(bLayer2, 3, attachmentState, { 0.0f, 0.0f, 0.0f, 0.0f });
+        } else if (numMoments == 8) {
+            framebuffer->setColorAttachment(bLayer0, 1, attachmentState, { 0.0f, 0.0f, 0.0f, 0.0f });
+            framebuffer->setColorAttachment(bLayer1, 2, attachmentState, { 0.0f, 0.0f, 0.0f, 0.0f });
+        }
+        return;
+    }
     sgl::vk::AttachmentState attachmentState;
     if (loadOp == VK_ATTACHMENT_LOAD_OP_DONT_CARE) {
         attachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -379,9 +458,12 @@ void MBOITRenderer::onResolutionChanged() {
     imageSettings.height = height;
     blendRenderTexture = std::make_shared<sgl::vk::Texture>(renderer->getDevice(), imageSettings);
 
+    passIdx = 0;
     mboitPass1->recreateSwapchain(width, height);
+    passIdx = 1;
     mboitPass2->recreateSwapchain(width, height);
 
+    passIdx = 2;
     resolveRasterPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
     resolveRasterPass->recreateSwapchain(*sceneData->viewportWidth, *sceneData->viewportHeight);
 }
@@ -434,22 +516,26 @@ void MBOITRenderer::gather() {
     //renderer->setViewMatrix(sceneData->camera->getViewMatrix());
     //renderer->setModelMatrix(sgl::matrixIdentity());
 
+    passIdx = 0;
     mboitPass1->buildIfNecessary();
     if (!mboitPass1->getIsDataEmpty()) {
         mboitPass1->render();
     }
 
-    if (syncMode == SYNC_SPINLOCK) {
+    if (!useRenderTargets && syncMode == SYNC_SPINLOCK) {
         renderer->insertMemoryBarrier(
                 VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
                 VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
     }
-    renderer->insertImageMemoryBarriers(
-            momentImageArray, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
-            VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+    if (!useRenderTargets) {
+        renderer->insertImageMemoryBarriers(
+                momentImageArray, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT,
+                VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT);
+    }
 
+    passIdx = 1;
     mboitPass2->buildIfNecessary();
     if (!mboitPass2->getIsDataEmpty()) {
         mboitPass2->render();
@@ -463,6 +549,7 @@ void MBOITRenderer::gather() {
 }
 
 void MBOITRenderer::resolve() {
+    passIdx = 2;
     renderer->transitionImageLayout(
             blendRenderTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     resolveRasterPass->render();
@@ -470,6 +557,18 @@ void MBOITRenderer::resolve() {
 
 void MBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
+
+    if (propertyEditor.addCheckbox("Use Render Targets", &useRenderTargets)) {
+        updateSyncMode();
+        updateMomentMode();
+        reloadGatherShader();
+        if (!useRenderTargets && *sceneData->viewportWidth > 0 && *sceneData->viewportHeight > 0) {
+            passIdx = 0;
+            mboitPass1->recreateSwapchain(*sceneData->viewportWidth, *sceneData->viewportHeight);
+        }
+        mboitPass1->setUseRenderTargets(useRenderTargets);
+        reRender = true;
+    }
 
     // USE_R_RG_RGBA_FOR_MBOIT6
     const char *const momentModes[] = {
@@ -497,7 +596,7 @@ void MBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEd
     }
 
     const char *const pixelFormatModes[] = {"Float 32-bit", "UNORM Integer 16-bit"};
-    if (propertyEditor.addCombo(
+    if (!useRenderTargets && propertyEditor.addCombo(
             "Pixel Format", (int*)&pixelFormat, pixelFormatModes,
             IM_ARRAYSIZE(pixelFormatModes))) {
         updateMomentMode();
@@ -514,13 +613,13 @@ void MBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEd
     }
 
     const char *syncModeNames[] = { "No Sync (Unsafe)", "Fragment Shader Interlock", "Spinlock" };
-    if (propertyEditor.addCombo(
+    if (!useRenderTargets && propertyEditor.addCombo(
             "Sync Mode", (int*)&syncMode, syncModeNames, IM_ARRAYSIZE(syncModeNames))) {
         updateSyncMode();
         reloadGatherShader();
         reRender = true;
     }
-    if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK && propertyEditor.addCheckbox(
+    if (!useRenderTargets && syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK && propertyEditor.addCheckbox(
             "Ordered Sync", &useOrderedFragmentShaderInterlock)) {
         reloadGatherShader();
         reRender = true;
@@ -532,6 +631,12 @@ void MBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEd
 MBOITPass1::MBOITPass1(LineRenderer* lineRenderer) : LineRasterPass(lineRenderer) {
 }
 
+
+void MBOITPass1::setUseRenderTargets(bool _useRenderTargets) {
+    useRenderTargets = _useRenderTargets;
+    setDataDirty();
+}
+
 void MBOITPass1::loadShader() {
     std::map<std::string, std::string> preprocessorDefines;
     lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);
@@ -539,6 +644,22 @@ void MBOITPass1::loadShader() {
     preprocessorDefines["OIT_GATHER_HEADER"] = "\"MBOITPass1.glsl\"";
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
             lineData->getShaderModuleNames(), preprocessorDefines);
+}
+
+void MBOITPass1::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
+    LineRasterPass::setGraphicsPipelineInfo(pipelineInfo);
+    pipelineInfo.setColorWriteEnabled(useRenderTargets);
+    if (useRenderTargets) {
+        pipelineInfo.setBlendMode(sgl::vk::BlendMode::ONE, 0);
+        pipelineInfo.setBlendMode(sgl::vk::BlendMode::ONE, 1);
+        if (framebuffer->getColorAttachmentCount() >= 3) {
+            pipelineInfo.setBlendMode(sgl::vk::BlendMode::ONE, 2);
+        }
+        if (framebuffer->getColorAttachmentCount() >= 4) {
+            pipelineInfo.setBlendMode(sgl::vk::BlendMode::ONE, 3);
+        }
+        return;
+    }
 }
 
 
