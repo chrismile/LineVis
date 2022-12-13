@@ -1268,6 +1268,9 @@ void MainApp::renderGui() {
                             std::string screenshotFilename =
                                     saveDirectoryScreenshots + saveFilenameScreenshots
                                     + "_" + sgl::toString(screenshotNumber);
+                            if (dataViews.size() > 1) {
+                                screenshotFilename += "_view" + sgl::toString(i);
+                            }
                             screenshotFilename += ".png";
 
                             dataView->screenshotReadbackHelper->setScreenshotTransparentBackground(
