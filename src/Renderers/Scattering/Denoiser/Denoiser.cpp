@@ -28,6 +28,7 @@
 
 #include <Utils/File/Logfile.hpp>
 #include "EAWDenoiser.hpp"
+#include "SVGF.hpp"
 #ifdef SUPPORT_PYTORCH_DENOISER
 #include "PyTorchDenoiser.hpp"
 #endif
@@ -52,6 +53,8 @@ std::shared_ptr<Denoiser> createDenoiserObject(
             static_cast<EAWDenoiser*>(denoiser.get())->setWeightScalePosition(0.0001f);
             static_cast<EAWDenoiser*>(denoiser.get())->setWeightScaleNormal(1.0f);
         }
+    } else if (denoiserType == DenoiserType::SVGF) {
+        denoiser = std::shared_ptr<Denoiser>(new SVGFDenoiser(renderer));
     }
 #ifdef SUPPORT_PYTORCH_DENOISER
     else if (denoiserType == DenoiserType::PYTORCH_DENOISER) {

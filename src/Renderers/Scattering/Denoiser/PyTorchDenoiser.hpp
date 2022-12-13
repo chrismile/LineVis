@@ -94,8 +94,7 @@ class PyTorchDenoiser : public Denoiser {
 public:
     explicit PyTorchDenoiser(sgl::vk::Renderer* renderer);
     ~PyTorchDenoiser() override;
-    DenoiserType getDenoiserType() override { return DenoiserType::PYTORCH_DENOISER; }
-    [[nodiscard]] const char* getDenoiserName() const override { return "PyTorch Denoiser Module"; }
+    DenoiserType getDenoiserType() const override { return DenoiserType::PYTORCH_DENOISER; }
     [[nodiscard]] bool getIsEnabled() const override { return wrapper != nullptr; }
     void setOutputImage(sgl::vk::ImageViewPtr& outputImage) override;
     void setFeatureMap(FeatureMapType featureMapType, const sgl::vk::TexturePtr& featureTexture) override;

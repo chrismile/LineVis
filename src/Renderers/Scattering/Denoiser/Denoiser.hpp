@@ -109,8 +109,8 @@ const uint32_t FEATURE_MAP_NUM_CHANNELS_PADDED[] = {
 class Denoiser {
 public:
     virtual ~Denoiser() = default;
-    virtual DenoiserType getDenoiserType() = 0;
-    [[nodiscard]] virtual const char* getDenoiserName() const = 0;
+    virtual DenoiserType getDenoiserType() const = 0;
+    [[nodiscard]] const char* getDenoiserName() const { return DENOISER_NAMES[(int)getDenoiserType()]; }
     [[nodiscard]] virtual bool getIsEnabled() const { return true; }
     virtual void setOutputImage(sgl::vk::ImageViewPtr& outputImage) = 0;
     virtual void setFeatureMap(FeatureMapType featureMapType, const sgl::vk::TexturePtr& featureTexture) = 0;
