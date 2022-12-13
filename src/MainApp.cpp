@@ -84,15 +84,14 @@
 #include "Renderers/OIT/WBOITRenderer.hpp"
 #include "Renderers/OIT/DepthPeelingRenderer.hpp"
 #include "Renderers/VRC/VoxelRayCastingRenderer.hpp"
-
 #include "Renderers/RayTracing/VulkanRayTracer.hpp"
+#include "Renderers/RayTracing/RayTracerCompute.hpp"
 #include "Renderers/Scattering/LineDensityMapRenderer.hpp"
 #include "Renderers/Scattering/SphericalHeatMapRenderer.hpp"
 #include "Renderers/Scattering/PathTracer/VolumetricPathTracingRenderer.hpp"
 #ifdef SUPPORT_OPTIX
 #include "Renderers/Scattering/Denoiser/OptixVptDenoiser.hpp"
 #endif
-
 #ifdef USE_OSPRAY
 #include "Renderers/Ospray/OsprayRenderer.hpp"
 #endif
@@ -775,7 +774,9 @@ void MainApp::setRenderer(
         newLineRenderer = new OsprayRenderer(&sceneDataRef, transferFunctionWindow);
     }
 #endif
-    else if (newRenderingMode == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
+    else if (newRenderingMode == RENDERING_MODE_RAY_TRACER_COMPUTE) {
+        newLineRenderer = new RayTracerCompute(&sceneDataRef, transferFunctionWindow);
+    } else if (newRenderingMode == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER) {
         newLineRenderer = new LineDensityMapRenderer(&sceneDataRef, transferFunctionWindow);
     } else if (newRenderingMode == RENDERING_MODE_VOLUMETRIC_PATH_TRACER) {
         newLineRenderer = new VolumetricPathTracingRenderer(&sceneDataRef, transferFunctionWindow);

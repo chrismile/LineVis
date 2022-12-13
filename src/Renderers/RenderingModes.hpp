@@ -44,11 +44,12 @@ enum RenderingMode : int32_t {
     RENDERING_MODE_VULKAN_RAY_TRACER = 10,
     RENDERING_MODE_VOXEL_RAY_CASTING = 11,
     RENDERING_MODE_OSPRAY_RAY_TRACER = 12,
+    RENDERING_MODE_RAY_TRACER_COMPUTE = 13,
 
     // For LineDataScattering:
-    RENDERING_MODE_LINE_DENSITY_MAP_RENDERER = 13,
-    RENDERING_MODE_VOLUMETRIC_PATH_TRACER = 14,
-    RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER = 15
+    RENDERING_MODE_LINE_DENSITY_MAP_RENDERER = 14,
+    RENDERING_MODE_VOLUMETRIC_PATH_TRACER = 15,
+    RENDERING_MODE_SPHERICAL_HEAT_MAP_RENDERER = 16
 };
 const char* const RENDERING_MODE_NAMES[] = {
         "Opaque",
@@ -64,6 +65,7 @@ const char* const RENDERING_MODE_NAMES[] = {
         "Vulkan Ray Tracer",
         "Voxel Ray Casting",
         "OSPRay Ray Tracer",
+        "Ray Tracer (Compute)",
 
         // For LineDataScattering:
         "Line Density Map Renderer",

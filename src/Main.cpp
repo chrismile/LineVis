@@ -98,6 +98,7 @@ int main(int argc, char *argv[]) {
     }
     sgl::AppSettings::get()->getSettings().addKeyValue("window-resizable", true);
     sgl::AppSettings::get()->getSettings().addKeyValue("window-savePosition", true);
+    //sgl::AppSettings::get()->setVulkanDebugPrintfEnabled();
 
     ImVector<ImWchar> fontRanges;
     ImFontGlyphRangesBuilder builder;
@@ -138,6 +139,7 @@ int main(int argc, char *argv[]) {
 #ifdef VK_EXT_mesh_shader
     optionalDeviceExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
 #endif
+    //optionalDeviceExtensions.push_back(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME); //< For debug printf.
 
     sgl::vk::Instance* instance = sgl::AppSettings::get()->getVulkanInstance();
     sgl::vk::Device* device = new sgl::vk::Device;
