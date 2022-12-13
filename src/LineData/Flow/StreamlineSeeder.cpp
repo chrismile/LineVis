@@ -378,7 +378,7 @@ void StreamlineMaxHelicityFirstSeeder::reset(
     if (terminationCheckType == TerminationCheckType::GRID_BASED) {
         cellOccupancyGrid.resize((xs - 1) * (ys - 1) * (zs - 1), false);
     } else if (terminationCheckType == TerminationCheckType::HASHED_GRID_BASED) {
-        hashedGrid = HashedGrid<Empty>(
+        hashedGrid = sgl::HashedGrid<sgl::Empty>(
                 std::max(((xs - 1) * (ys - 1) * (zs - 1)) / 4, 1), std::min(dx, std::min(dy, dz)));
     }
 
@@ -506,7 +506,7 @@ void StreamlineMaxHelicityFirstSeeder::addFinishedTrajectory(const Trajectory& t
         kdTree.build(kdTreePointCache);
     } else if (terminationCheckType == TerminationCheckType::HASHED_GRID_BASED) {
         for (const glm::vec3& position : trajectory.positions) {
-            hashedGrid.add(std::make_pair(position, Empty{}));
+            hashedGrid.add(std::make_pair(position, sgl::Empty{}));
         }
     }
 }

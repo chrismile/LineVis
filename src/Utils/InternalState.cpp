@@ -88,15 +88,63 @@ void getTestModesMlab(std::vector<InternalState>& states, InternalState state) {
     states.push_back(state);
 }
 
+void getTestModesMboit(std::vector<InternalState>& states, InternalState state) {
+    state.renderingMode = RENDERING_MODE_MBOIT;
+
+    for (int i = 4; i <= 8; i += 4) {
+        state.name = "MBOIT (" + std::to_string(i) + " Moments, No Sync)";
+        state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
+                { "numMoments", std::to_string(i) },
+                { "syncMode", std::to_string((int)NO_SYNC) },
+                { "useRenderTargets", "false" }
+        })};
+        states.push_back(state);
+
+        state.name = "MBOIT (" + std::to_string(i) + " Moments, Spinlock)";
+        state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
+                { "numMoments", std::to_string(i) },
+                { "syncMode", std::to_string((int)SYNC_SPINLOCK) },
+                { "useRenderTargets", "false" }
+        })};
+        states.push_back(state);
+
+        state.name = "MBOIT (" + std::to_string(i) + " Moments, Unordered Interlock)";
+        state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
+                { "numMoments", std::to_string(i) },
+                { "syncMode", std::to_string((int)SYNC_FRAGMENT_SHADER_INTERLOCK) },
+                { "useOrderedFragmentShaderInterlock", "false" },
+                { "useRenderTargets", "false" }
+        })};
+        states.push_back(state);
+
+        state.name = "MBOIT (" + std::to_string(i) + " Moments, Ordered Interlock)";
+        state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
+                { "numMoments", std::to_string(i) },
+                { "syncMode", std::to_string((int)SYNC_FRAGMENT_SHADER_INTERLOCK) },
+                { "useOrderedFragmentShaderInterlock", "true" },
+                { "useRenderTargets", "false" }
+        })};
+        states.push_back(state);
+
+        state.name = "MBOIT (" + std::to_string(i) + " Moments, Render Targets)";
+        state.rendererSettings = { SettingsMap(std::map<std::string, std::string>{
+                { "numMoments", std::to_string(i) },
+                { "useRenderTargets", "true" }
+        })};
+        states.push_back(state);
+    }
+}
+
 void getTestModesOITForDataSet(std::vector<InternalState>& states, InternalState state) {
     //getTestModesDepthComplexity(states, state);
     //getTestModesPerPixelLinkedLists(states, state);
     //getTestModesOpacityOptimization(states, state);
     //getTestModesOpacityOptimization(states, state);
     getTestModesOpaque(states, state);
-    getTestModesDepthComplexity(states, state);
+    //getTestModesDepthComplexity(states, state);
     getTestModesPerPixelLinkedLists(states, state);
     getTestModesMlab(states, state);
+    getTestModesMboit(states, state);
 }
 
 std::vector<InternalState> getTestModesOIT() {
@@ -107,12 +155,12 @@ std::vector<InternalState> getTestModesOIT() {
     //std::vector<glm::ivec2> windowResolutions = { glm::ivec2(2560, 1440) };
     //std::vector<glm::ivec2> windowResolutions = { glm::ivec2(2186, 1358) };
     std::vector<DataSetDescriptor> dataSetDescriptors = {
-            //DataSetDescriptor("Aneurysm"),
-            DataSetDescriptor("Femur (Vis2021)"),
+            DataSetDescriptor("Aneurysm"),
+            //DataSetDescriptor("Femur (Vis2021)"),
     };
     std::vector<std::string> transferFunctionNames = {
-            //"Transparent_Aneurysm.xml",
-            "Standard.xml",
+            "Transparent_Aneurysm.xml",
+            //"Standard.xml",
     };
     InternalState state;
 
@@ -137,11 +185,28 @@ std::vector<InternalState> getTestModesOIT() {
         }
     }
 
+    bool runStatesTwoTimesForErrorMeasure = true;
+    if (runStatesTwoTimesForErrorMeasure) {
+        std::vector<InternalState> oldStates = states;
+        states.clear();
+        for (size_t i = 0; i < oldStates.size(); i++) {
+            InternalState state = oldStates.at(i);
+            states.push_back(state);
+            state.name += "(2)";
+            states.push_back(state);
+        }
+    }
+
+    for (InternalState& state : states) {
+        state.nameRaw = state.name;
+    }
+
     // Append model name to state name if more than one model is loaded
-    if (!dataSetDescriptors.empty() || windowResolutions.size() > 1) {
+    if (dataSetDescriptors.size() > 1 || windowResolutions.size() > 1) {
         for (InternalState& state : states) {
             state.name =
-                    sgl::toString(state.windowResolution.x) + "x" + sgl::toString(state.windowResolution.y)
+                    sgl::toString(state.windowResolution.x)
+                    + "x" + sgl::toString(state.windowResolution.y)
                     + " " + state.dataSetDescriptor.name + " " + state.name;
         }
     }
@@ -462,7 +527,7 @@ void getTestModesDeferred(std::vector<InternalState>& states, InternalState stat
     states.push_back(state);
     state.rendererSettings.addKeyValue("useSubgroupOps", "false");
 
-    for (uint32_t i = 8; i <= 256; i *= 2) {
+    /*for (uint32_t i = 8; i <= 256; i *= 2) {
         state.name = "Deferred BVH Draw Indirect (" + std::to_string(i) + ")";
         state.rendererSettings.addKeyValue("workgroupSizeBvh", std::to_string(i));
         states.push_back(state);
@@ -486,7 +551,7 @@ void getTestModesDeferred(std::vector<InternalState>& states, InternalState stat
     state.rendererSettings.addKeyValue(
             "numWorkgroupsBvh", std::to_string(persistentThreadInfo.optimalNumWorkgroups));
     state.rendererSettings.addKeyValue(
-            "workgroupSizeBvh", std::to_string(persistentThreadInfo.optimalWorkgroupSize));
+            "workgroupSizeBvh", std::to_string(persistentThreadInfo.optimalWorkgroupSize));*/
 
     for (int i = 0; i < IM_ARRAYSIZE(bvhBuildGeometryModeNames); i++) {
         for (int j = 0; j < IM_ARRAYSIZE(bvhBuildAlgorithmNames); j++) {
@@ -526,13 +591,8 @@ std::vector<InternalState> getTestModesDeferredRendering() {
         windowResolutions = { glm::ivec2(3840, 2160) };
     }
     std::vector<DataSetDescriptor> dataSetDescriptors = {
-            //DataSetDescriptor("Rings"),
             DataSetDescriptor("Aneurysm"),
-            //DataSetDescriptor("Convection Rolls"),
-            //DataSetDescriptor("Femur (Vis2021)"),
-            //DataSetDescriptor("Bearing"),
-            //DataSetDescriptor("Convection Rolls"),
-            //DataSetDescriptor("Tangaroa (t=200)"),
+            DataSetDescriptor("Ejecta (t=272, 1024x1024x1024, iso=0.40)"),
     };
     std::vector<std::string> transferFunctionNames = {
             //"Standard.xml"
@@ -580,5 +640,6 @@ std::vector<InternalState> getTestModesDeferredRendering() {
 }
 
 std::vector<InternalState> getTestModes() {
-    return getTestModesDeferredRendering();
+    return getTestModesOIT();
+    //return getTestModesDeferredRendering();
 }

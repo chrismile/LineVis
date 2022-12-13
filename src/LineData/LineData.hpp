@@ -99,6 +99,8 @@ public:
     inline DataSetType getType() { return dataSetType; }
     /// Returns if the visualization mapping needs to be re-generated.
     [[nodiscard]] inline bool isDirty() const { return dirty; }
+    /// Sets whether the visualization mapping needs to be re-generated.
+    inline void setIsDirty(bool _dirty) { dirty = _dirty; }
     /// Returns if the triangle mesh visualization mapping needs to be re-generated.
     [[nodiscard]] inline bool isTriangleRepresentationDirty() const { return triangleRepresentationDirty; }
     /// A renderer can signal that the triangle representation has changed.

@@ -34,16 +34,16 @@ void getSphereSurfaceRenderData(
         std::vector<glm::vec3>& vertexPositions, std::vector<glm::vec3>& vertexNormals,
         std::vector<uint32_t>& triangleIndices) {
     float phi, theta, sinPhi, cosPhi;
-    float sectorStep = sgl::TWO_PI / sectorCount;
-    float stackStep = sgl::PI / stackCount;
+    float sectorStep = sgl::TWO_PI / float(sectorCount);
+    float stackStep = sgl::PI / float(stackCount);
 
     // 1. Build the vertex buffers.
     for (int stackIdx = 0; stackIdx <= stackCount; ++stackIdx) {
-        phi = sgl::HALF_PI - stackIdx * stackStep;
+        phi = sgl::HALF_PI - float(stackIdx) * stackStep;
         cosPhi = std::cos(phi);
         sinPhi = std::sin(phi);
         for (int sectorIdx = 0; sectorIdx <= sectorCount; ++sectorIdx) {
-            theta = sectorIdx * sectorStep;
+            theta = float(sectorIdx) * sectorStep;
             glm::vec3 normal(cosPhi * std::cos(theta), cosPhi * std::sin(theta), sinPhi);
             glm::vec3 position = center + radius * normal;
             vertexPositions.push_back(position);

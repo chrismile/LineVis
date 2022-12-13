@@ -237,6 +237,9 @@ void main() {
         surfaceTangent = normalize(surfaceTangent);
         vec3 surfaceBitangent = cross(surfaceNormal, surfaceTangent);
 #else
+        if (dot(surfaceNormal, rayDirection) > 0) {
+            surfaceNormal = -surfaceNormal;
+        }
         vec3 surfaceTangent;
         vec3 surfaceBitangent;
         ComputeDefaultBasis(surfaceNormal, surfaceTangent, surfaceBitangent);

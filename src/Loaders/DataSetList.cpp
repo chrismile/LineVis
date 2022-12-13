@@ -37,6 +37,22 @@
 
 #include "DataSetList.hpp"
 
+bool jsonValueToBool(const Json::Value& value) {
+    if (value.isString()) {
+        std::string valueString = value.asString();
+        if (valueString == "true") {
+            return true;
+        } else if (valueString == "false") {
+            return false;
+        } else {
+            sgl::Logfile::get()->throwError("Error in jsonValueToBool: Invalid value \"" + valueString + "\".");
+            return false;
+        }
+    } else {
+        return value.asBool();
+    }
+}
+
 void processDataSetNodeChildren(Json::Value& childList, DataSetInformation* dataSetInformationParent) {
     for (Json::Value& source : childList) {
         auto* dataSetInformation = new DataSetInformation;
@@ -173,6 +189,18 @@ void processDataSetNodeChildren(Json::Value& childList, DataSetInformation* data
                 dataSetInformation->filenamesStressLineHierarchy.push_back(
                         lineDataSetsDirectory + lineHierarchyFilenames.asString());
             }
+        }
+
+        // Optional triangle mesh information: Convert disconnected triangles with a shared vertex representation?
+        if (dataSetInformation->type == DATA_SET_TYPE_TRIANGLE_MESH && source.isMember("shared_vertex_representation")) {
+            Json::Value sharedVertexRepresentation = source["shared_vertex_representation"];
+            dataSetInformation->shallComputeSharedVertexRepresentation = jsonValueToBool(sharedVertexRepresentation);
+        }
+
+        // Optional triangle mesh information: Use vertex cache optimization after loading the data.
+        if (dataSetInformation->type == DATA_SET_TYPE_TRIANGLE_MESH && source.isMember("vertex_cache_optimization")) {
+            Json::Value vertexCacheOptimization = source["vertex_cache_optimization"];
+            dataSetInformation->useVertexCacheOptimization = jsonValueToBool(vertexCacheOptimization);
         }
 
         dataSetInformationParent->children.emplace_back(dataSetInformation);

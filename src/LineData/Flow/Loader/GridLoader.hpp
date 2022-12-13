@@ -86,21 +86,38 @@ void computeHelicityFieldNormalized(
 
 /**
  * Swaps the endianness of the passed array.
+ * @param values The array to swap endianness for.
+ * @param sizeInBytes The byte size of the array.
+ * @param bytesPerEntry The size in bytes of one array entry. The bytes in each entry are shuffled.
+ */
+void swapEndianness(uint8_t* byteArray, size_t sizeInBytes, size_t bytesPerEntry);
+
+/**
+ * Swaps the endianness of the passed array.
  * @tparam T The data type. The bytes in each range of sizeof(T) are shuffled.
  * @param values The array to swap endianness for.
  * @param n The number of entries of byte size sizeof(T) in the array.
  */
 template <typename T>
 void swapEndianness(T* values, int n) {
-    auto* byteArray = (uint8_t*)values;
+    swapEndianness((uint8_t*)values, size_t(n) * sizeof(T), sizeof(T));
+    /*auto* byteArray = (uint8_t*)values;
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<int>(0, n), [&values, &byteArray](auto const& r) {
+        for (auto i = r.begin(); i != r.end(); i++) {
+#else
     #pragma omp parallel for shared(byteArray, values, n) default(none)
     for (int i = 0; i < n; i++) {
+#endif
         uint8_t swappedEntry[sizeof(T)];
         for (size_t j = 0; j < sizeof(T); j++) {
             swappedEntry[j] = byteArray[i * sizeof(T) + sizeof(T) - j - 1];
         }
         values[i] = *((T*)&swappedEntry);
     }
+#ifdef USE_TBB
+    });
+#endif*/
 }
 
 #endif //LINEVIS_GRIDLOADER_HPP

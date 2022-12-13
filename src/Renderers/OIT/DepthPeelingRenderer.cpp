@@ -29,6 +29,12 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 
+#ifdef USE_TBB
+#include <tbb/parallel_reduce.h>
+#include <tbb/blocked_range.h>
+#include <Utils/Parallel/Reduction.hpp>
+#endif
+
 #include <Math/Geometry/MatrixUtil.hpp>
 #include <Utils/AppSettings.hpp>
 #include <Graphics/Vulkan/Utils/Swapchain.hpp>
@@ -370,14 +376,25 @@ void DepthPeelingRenderer::computeDepthComplexity() {
 
     auto *data = (uint32_t*)stagingBuffer->mapMemory();
 
+#ifdef USE_TBB
+    maxDepthComplexity = tbb::parallel_reduce(
+            tbb::blocked_range<int>(0, bufferSize), 0,
+            [&data](tbb::blocked_range<int> const& r, uint64_t maxDepthComplexity) {
+                for (auto i = r.begin(); i != r.end(); i++) {
+                    maxDepthComplexity = std::max(maxDepthComplexity, uint64_t(data[i]));
+                }
+                return maxDepthComplexity;
+            }, sgl::max_predicate());
+#else
     uint64_t maxDepthComplexity = 0;
 #if _OPENMP >= 201107
     #pragma omp parallel for reduction(max:maxDepthComplexity) default(none) shared(data, bufferSize) schedule(static)
 #endif
     for (int i = 0; i < bufferSize; i++) {
-        maxDepthComplexity = std::max(maxDepthComplexity, (uint64_t)data[i]);
+        maxDepthComplexity = std::max(maxDepthComplexity, uint64_t(data[i]));
     }
     this->maxDepthComplexity = maxDepthComplexity;
+#endif
 
     stagingBuffer->unmapMemory();
 }

@@ -29,7 +29,7 @@
 #ifndef LINEVIS_TRIANGLEMESHDATA_HPP
 #define LINEVIS_TRIANGLEMESHDATA_HPP
 
-#include "Widgets/MultiVarTransferFunctionWindow.hpp"
+#include <ImGui/Widgets/MultiVarTransferFunctionWindow.hpp>
 #include "../LineData.hpp"
 
 /**
@@ -102,6 +102,7 @@ public:
     void getTriangleMesh(
             LineRenderer* lineRenderer,
             std::vector<uint32_t>& _triangleIndices, std::vector<glm::vec3>& _vertexPositions) override;
+    inline const std::vector<glm::vec3>& getVertexPositions() { return vertexPositions; }
 
     /**
      * Renders the entries in the property editor.
@@ -109,7 +110,7 @@ public:
      */
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
-    MultiVarTransferFunctionWindow& getMultiVarTransferFunctionWindow();
+    sgl::MultiVarTransferFunctionWindow& getMultiVarTransferFunctionWindow();
 
 protected:
     void recomputeHistogram() override;
@@ -126,7 +127,7 @@ protected:
     // Rendering options.
     bool useBackfaceCulling = false;
 
-    MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
+    sgl::MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
 };
 
 #endif //LINEVIS_TRIANGLEMESHDATA_HPP

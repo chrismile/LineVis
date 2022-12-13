@@ -378,6 +378,9 @@ void VulkanRayTracedAmbientOcclusionPass::onHasMoved() {
 void VulkanRayTracedAmbientOcclusionPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
+    if (lineData && lineData->getType() == DATA_SET_TYPE_TRIANGLE_MESH) {
+        preprocessorDefines.insert(std::make_pair("GENERAL_TRIANGLE_MESH", ""));
+    }
     if (useSplitBlases) {
         preprocessorDefines.insert(std::make_pair("USE_INSTANCE_TRIANGLE_INDEX_OFFSET", ""));
     }
@@ -424,8 +427,10 @@ void VulkanRayTracedAmbientOcclusionPass::createComputeData(
             tubeTriangleRenderData.indexBuffer, "TubeIndexBuffer");
     computeData->setStaticBuffer(
             tubeTriangleRenderData.vertexBuffer, "TubeTriangleVertexDataBuffer");
-    computeData->setStaticBuffer(
-            tubeTriangleRenderData.linePointDataBuffer, "LinePointDataBuffer");
+    if (tubeTriangleRenderData.linePointDataBuffer) {
+        computeData->setStaticBuffer(
+                tubeTriangleRenderData.linePointDataBuffer, "LinePointDataBuffer");
+    }
     if (tubeTriangleRenderData.instanceTriangleIndexOffsetBuffer) {
         computeData->setStaticBuffer(
                 tubeTriangleRenderData.instanceTriangleIndexOffsetBuffer,

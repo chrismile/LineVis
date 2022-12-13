@@ -622,7 +622,7 @@ layout(location = 7) flat in uint fragmentLineAppearanceOrder;
 #endif
 #endif
 
-#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING) || defined(UNIFORM_HELICITY_BAND_WIDTH)
+#if (defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING) || defined(UNIFORM_HELICITY_BAND_WIDTH)) && !defined(GENERAL_TRIANGLE_MESH)
 layout(location = 8) in float interpolationFactorLine;
 layout(location = 9) flat in uint fragmentVertexIdUint;
 float fragmentVertexId;
@@ -754,7 +754,7 @@ void main() {
     }
 #endif
 
-#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING) || defined(UNIFORM_HELICITY_BAND_WIDTH)
+#if (defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING) || defined(UNIFORM_HELICITY_BAND_WIDTH)) && !defined(GENERAL_TRIANGLE_MESH)
     fragmentVertexId = interpolationFactorLine + float(fragmentVertexIdUint);
 #endif
 

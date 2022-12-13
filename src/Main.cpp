@@ -29,13 +29,7 @@
 #include <unordered_map>
 
 #ifdef USE_PYTHON
-#if defined(PYTHONHOME_PATH) || defined(__APPLE__)
-#include <cstdlib>
-#endif
-#include <Python.h>
-#ifdef __APPLE__
-#include <mach-o/dyld.h>
-#endif
+#include <Utils/Python/PythonInit.hpp>
 #endif
 
 #ifdef USE_OSPRAY
@@ -172,79 +166,7 @@ int main(int argc, char *argv[]) {
     }
 
 #ifdef USE_PYTHON
-#ifdef PYTHONHOME
-#ifdef _MSC_VER
-    char* pythonhomeEnvVar = nullptr;
-    size_t stringSize = 0;
-    if (_dupenv_s(&pythonhomeEnvVar, &stringSize, "PYTHONHOME") != 0) {
-        pythonhomeEnvVar = nullptr;
-    }
-#else
-    const char* pythonhomeEnvVar = getenv("PYTHONHOME");
-#endif
-    if (!pythonhomeEnvVar || strlen(pythonhomeEnvVar) == 0) {
-#if !defined(__APPLE__) || !defined(PYTHONPATH)
-        Py_SetPythonHome(PYTHONHOME);
-#endif
-        // As of 2022-01-25, "lib-dynload" is not automatically found when using MSYS2 together with MinGW.
-#if (defined(__MINGW32__) || defined(__APPLE__)) && defined(PYTHONPATH)
-#ifdef __MINGW32__
-        Py_SetPath(PYTHONPATH ";" PYTHONPATH "/site-packages;" PYTHONPATH "/lib-dynload");
-#else
-        std::wstring pythonhomeWide = PYTHONHOME;
-        std::string pythonhomeNormal(pythonhomeWide.size(), ' ');
-        pythonhomeNormal.resize(std::wcstombs(
-                &pythonhomeNormal[0], pythonhomeWide.c_str(), pythonhomeWide.size()));
-        std::wstring pythonpathWide = PYTHONPATH;
-        std::string pythonpathNormal(pythonpathWide.size(), ' ');
-        pythonpathNormal.resize(std::wcstombs(
-                &pythonpathNormal[0], pythonpathWide.c_str(), pythonpathWide.size()));
-        if (!sgl::FileUtils::get()->exists(pythonhomeNormal)) {
-            uint32_t pathBufferSize = 0;
-            _NSGetExecutablePath(nullptr, &pathBufferSize);
-            char* pathBuffer = new char[pathBufferSize];
-            _NSGetExecutablePath(pathBuffer, &pathBufferSize);
-            std::string executablePythonHome =
-                    sgl::FileUtils::get()->getPathToFile(std::string() + pathBuffer) + "python3";
-            if (sgl::FileUtils::get()->exists(executablePythonHome)) {
-                std::wstring pythonHomeLocal(executablePythonHome.size(), L' ');
-                pythonHomeLocal.resize(std::mbstowcs(
-                        &pythonHomeLocal[0], executablePythonHome.c_str(), executablePythonHome.size()));
-                std::string pythonVersionString = sgl::FileUtils::get()->getPathAsList(pythonpathNormal).back();
-                 std::wstring pythonVersionStringWide(pythonVersionString.size(), L' ');
-                pythonVersionStringWide.resize(std::mbstowcs(
-                        &pythonVersionStringWide[0], pythonVersionString.c_str(), pythonVersionString.size()));
-               std::wstring pythonPathLocal =
-                        pythonHomeLocal + L"/lib/" + pythonVersionStringWide;
-                std::wstring inputPath =
-                        pythonPathLocal + L":"
-                        + pythonPathLocal + L"/site-packages:"
-                        + pythonPathLocal + L"/lib-dynload";
-                Py_SetPythonHome(pythonHomeLocal.c_str());
-                Py_SetPath(inputPath.c_str());
-            } else {
-                sgl::Logfile::get()->throwError("Fatal error: Couldn't find Python home.");
-            }
-            delete[] pathBuffer;
-        } else {
-            Py_SetPythonHome(PYTHONHOME);
-            Py_SetPath(PYTHONPATH ":" PYTHONPATH "/site-packages:" PYTHONPATH "/lib-dynload");
-        }
-#endif
-#endif
-    }
-#ifdef _MSC_VER
-    free(pythonhomeEnvVar);
-    pythonhomeEnvVar = nullptr;
-#endif
-#endif
-    wchar_t** argvWidestr = (wchar_t**)PyMem_Malloc(sizeof(wchar_t*) * argc);
-    for (int i = 0; i < argc; i++) {
-        wchar_t* argWidestr = Py_DecodeLocale(argv[i], nullptr);
-        argvWidestr[i] = argWidestr;
-    }
-    Py_Initialize();
-    PySys_SetArgv(argc, argvWidestr);
+    sgl::pythonInit(argc, argv);
 #endif
 
     auto app = new MainApp();

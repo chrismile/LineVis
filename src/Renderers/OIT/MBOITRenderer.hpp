@@ -95,6 +95,7 @@ private:
     void reloadResolveShader();
 
     // Render passes.
+    int passIdx = 0;
     std::shared_ptr<MBOITPass1> mboitPass1;
     std::shared_ptr<MBOITPass2> mboitPass2;
     std::shared_ptr<ResolvePass> resolveRasterPass;
@@ -125,8 +126,16 @@ private:
     sgl::vk::ImageSettings imageSettingsBExtra;
     std::vector<sgl::vk::ImagePtr> momentImageArray;
 
+    // For render target mode (views into certain array layers of b and bExtra).
+    sgl::vk::ImageViewPtr b0Layer0;
+    sgl::vk::ImageViewPtr bLayer0;
+    sgl::vk::ImageViewPtr bLayer1;
+    sgl::vk::ImageViewPtr bLayer2;
+    sgl::vk::ImageViewPtr bExtraLayer0;
+
     sgl::vk::TexturePtr blendRenderTexture; ///< Accumulator.
 
+    bool useRenderTargets = false;
     sgl::vk::BufferPtr spinlockViewportBuffer; ///< if (syncMode == SYNC_SPINLOCK)
     SyncMode syncMode = SYNC_SPINLOCK; ///< Initialized depending on system capabilities.
     bool useOrderedFragmentShaderInterlock = true;
@@ -142,9 +151,14 @@ private:
 class MBOITPass1 : public LineRasterPass {
 public:
     explicit MBOITPass1(LineRenderer* lineRenderer);
+    void setUseRenderTargets(bool _useRenderTargets);
 
 protected:
     void loadShader() override;
+    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
+
+private:
+    bool useRenderTargets = false;
 };
 
 class MBOITPass2 : public LineRasterPass {

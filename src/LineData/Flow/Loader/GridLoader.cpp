@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2021, Christoph Neuhauser
+ * Copyright (c) 2021-2022, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,13 +27,26 @@
  */
 
 #include <cmath>
+
+#ifdef USE_TBB
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
+#endif
+
+#include <Utils/File/Logfile.hpp>
+
 #include "../StreamlineTracingDefines.hpp"
 #include "GridLoader.hpp"
 
 void computeVectorMagnitudeField(
         const float* vectorField, float* vectorMagnitudeField, int xs, int ys, int zs) {
-    #pragma omp parallel for shared(xs, ys, zs, vectorField, vectorMagnitudeField)  default(none)
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<int>(0, zs), [&](auto const& r) {
+        for (auto z = r.begin(); z != r.end(); z++) {
+#else
+    #pragma omp parallel for shared(xs, ys, zs, vectorField, vectorMagnitudeField) default(none)
     for (int z = 0; z < zs; z++) {
+#endif
         for (int y = 0; y < ys; y++) {
             for (int x = 0; x < xs; x++) {
                 float vx = vectorField[IDXV(x, y, z, 0)];
@@ -43,12 +56,20 @@ void computeVectorMagnitudeField(
             }
         }
     }
+#ifdef USE_TBB
+    });
+#endif
 }
 
 void computeVorticityField(
         const float* velocityField, float* vorticityField, int xs, int ys, int zs, float dx, float dy, float dz) {
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<int>(0, zs), [&](auto const& r) {
+        for (auto z = r.begin(); z != r.end(); z++) {
+#else
     #pragma omp parallel for shared(xs, ys, zs, dx, dy, dz, velocityField, vorticityField) default(none)
     for (int z = 0; z < zs; z++) {
+#endif
         for (int y = 0; y < ys; y++) {
             for (int x = 0; x < xs; x++) {
                 int left = x > 0 ? -1 : 0;
@@ -85,12 +106,20 @@ void computeVorticityField(
             }
         }
     }
+#ifdef USE_TBB
+    });
+#endif
 }
 
 void computeHelicityField(
         const float* velocityField, const float* vorticityField, float* helicityField, int xs, int ys, int zs) {
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<int>(0, zs), [&](auto const& r) {
+        for (auto z = r.begin(); z != r.end(); z++) {
+#else
     #pragma omp parallel for shared(xs, ys, zs, velocityField, vorticityField, helicityField) default(none)
     for (int z = 0; z < zs; z++) {
+#endif
         for (int y = 0; y < ys; y++) {
             for (int x = 0; x < xs; x++) {
                 float vorticityX = vorticityField[IDXV(x, y, z, 0)];
@@ -103,13 +132,21 @@ void computeHelicityField(
             }
         }
     }
+#ifdef USE_TBB
+    });
+#endif
 }
 
 void computeHelicityFieldNormalized(
         const float* velocityField, const float* vorticityField, float* helicityField, int xs, int ys, int zs,
         bool normalizeVelocity, bool normalizeVorticity) {
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<int>(0, zs), [&](auto const& r) {
+        for (auto z = r.begin(); z != r.end(); z++) {
+#else
     #pragma omp parallel for shared(xs, ys, zs, velocityField, vorticityField, helicityField, normalizeVelocity, normalizeVorticity) default(none)
     for (int z = 0; z < zs; z++) {
+#endif
         for (int y = 0; y < ys; y++) {
             for (int x = 0; x < xs; x++) {
                 float vorticityX = vorticityField[IDXV(x, y, z, 0)];
@@ -140,4 +177,39 @@ void computeHelicityFieldNormalized(
             }
         }
     }
+#ifdef USE_TBB
+    });
+#endif
+}
+
+void swapEndianness(uint8_t* byteArray, size_t sizeInBytes, size_t bytesPerEntry) {
+    /*
+     * Variable length arrays (VLAs) are a C99-only feature, and supported by GCC and Clang merely as C++ extensions.
+     * Visual Studio reports the following error when attempting to use VLAs:
+     * "error C3863: array type 'uint8_t [this->8<L_ALIGN>8]' is not assignable".
+     * Consequently, we will assume 'sizeInBytes' is less than or equal to 8 (i.e., 64 bit values).
+     */
+    if (bytesPerEntry > 8) {
+        sgl::Logfile::get()->throwError("Error in swapEndianness: sizeInBytes is larger than 8.");
+        return;
+    }
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, sizeInBytes, bytesPerEntry), [&byteArray, bytesPerEntry](auto const& r) {
+        uint8_t swappedEntry[8];
+        for (auto i = r.begin(); i != r.end(); i += r.grainsize()) {
+#else
+    uint8_t swappedEntry[8];
+    #pragma omp parallel for shared(byteArray, sizeInBytes, bytesPerEntry) private(swappedEntry) default(none)
+    for (size_t i = 0; i < sizeInBytes; i += bytesPerEntry) {
+#endif
+        for (size_t j = 0; j < bytesPerEntry; j++) {
+            swappedEntry[j] = byteArray[i + bytesPerEntry - j - 1];
+        }
+        for (size_t j = 0; j < bytesPerEntry; j++) {
+            byteArray[i + j] = swappedEntry[j];
+        }
+    }
+#ifdef USE_TBB
+    });
+#endif
 }

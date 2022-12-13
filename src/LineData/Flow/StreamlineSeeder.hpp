@@ -35,11 +35,12 @@
 #include <memory>
 
 #include <glm/vec3.hpp>
+
+#include <Utils/SearchStructures/KdTree.hpp>
+#include <Utils/SearchStructures/HashedGrid.hpp>
 #include <Math/Geometry/AABB3.hpp>
 
 #include "Utils/InternalState.hpp"
-#include "LineData/SearchStructures/KdTree.hpp"
-#include "LineData/SearchStructures/HashedGrid.hpp"
 #include "StreamlineTracingDefines.hpp"
 
 struct Trajectory;
@@ -198,8 +199,8 @@ private:
     float minimumSeparationDistance = 0.0f;
     TerminationCheckType terminationCheckType = TerminationCheckType::GRID_BASED;
     int gridSubsamplingFactor = 1;
-    KdTree<Empty> kdTree; ///< For terminationCheckType == TerminationCheckType::KD_TREE_BASED.
-    HashedGrid<Empty> hashedGrid; ///< For terminationCheckType == TerminationCheckType::HASHED_GRID_BASED.
+    sgl::KdTree<sgl::Empty> kdTree; ///< For terminationCheckType == TerminationCheckType::KD_TREE_BASED.
+    sgl::HashedGrid<sgl::Empty> hashedGrid; ///< For terminationCheckType == TerminationCheckType::HASHED_GRID_BASED.
     std::vector<glm::vec3> kdTreePointCache;
 
     struct GridSample {

@@ -103,7 +103,9 @@ void PerPixelLinkedListLineRenderer::updateLargeMeshMode() {
         largeMeshMode = newMeshLargeMeshMode;
         expectedAvgDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES_PPLL[int(largeMeshMode)][0];
         expectedMaxDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES_PPLL[int(largeMeshMode)][1];
-        reallocateFragmentBuffer();
+        if (*sceneData->viewportWidth > 0 && *sceneData->viewportHeight > 0) {
+            reallocateFragmentBuffer();
+        }
         reloadResolveShader();
     }
 }

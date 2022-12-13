@@ -77,7 +77,7 @@ void LineRasterPass::loadShader() {
 
 void LineRasterPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
     if ((lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TUBE_TRIANGLE_MESH && lineData->getUseCappedTubes())
-        || (lineRenderer->getIsTransparencyUsed() && lineData->getLinePrimitiveMode() != LineData::LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER)) {
+            || (lineRenderer->getIsTransparencyUsed() && lineData->getLinePrimitiveMode() != LineData::LINE_PRIMITIVES_RIBBON_QUADS_GEOMETRY_SHADER)) {
         pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
     } else {
         pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);

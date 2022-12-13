@@ -55,6 +55,8 @@ vec3 convertDepthBufferValueToViewSpacePosition(vec2 ndcPositionXY, float depth)
 
 #else
 
+#ifdef REVERSE_DEPTH
+// Near plane is at 1, far plane at 0.
 float convertDepthBufferValueToLinearDepth(float z_ndc) {
     float z_eye = zNear * zFar / (zNear + z_ndc * (zFar - zNear));
     return z_eye;
@@ -65,6 +67,19 @@ float convertLinearDepthToDepthBufferValue(float z_eye) {
     float z_ndc = (zNear * zFar / diff - z_eye * zNear / diff) / z_eye;
     return z_ndc;
 }
+#else
+// Near plane is at 0, far plane at 1.
+float convertDepthBufferValueToLinearDepth(float z_ndc) {
+    float z_eye = zNear * zFar / (zFar + z_ndc * (zNear - zFar));
+    return z_eye;
+}
+
+float convertLinearDepthToDepthBufferValue(float z_eye) {
+    float diff = zNear - zFar;
+    float z_ndc = (zNear * zFar / diff - z_eye * zFar / diff) / z_eye;
+    return z_ndc;
+}
+#endif
 
 #endif
 

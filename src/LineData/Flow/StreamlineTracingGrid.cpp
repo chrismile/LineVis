@@ -36,6 +36,13 @@
 
 #include <tracy/Tracy.hpp>
 
+#ifdef USE_TBB
+#include <tbb/parallel_for.h>
+#include <tbb/parallel_reduce.h>
+#include <tbb/blocked_range.h>
+#include <Utils/Parallel/Reduction.hpp>
+#endif
+
 #include <Utils/File/Logfile.hpp>
 #include <Math/Geometry/Plane.hpp>
 #include <Math/Math.hpp>
@@ -117,10 +124,15 @@ void StreamlineTracingGrid::addVectorField(float* vectorField, const std::string
         }
         auto* vectorFieldCopy = new float[3 * ssxs * ssys * sszs];
         memcpy(vectorFieldCopy, vectorField, sizeof(float) * 3 * ssxs * ssys * sszs);
+#ifdef USE_TBB
+        tbb::parallel_for(tbb::blocked_range<int>(0, sszs), [&](auto const& r) {
+            for (auto z = r.begin(); z != r.end(); z++) {
+#else
 #if _OPENMP >= 201107
         #pragma omp parallel for shared(vectorField, vectorFieldCopy) default(none)
 #endif
         for (int z = 0; z < sszs; z++) {
+#endif
             for (int y = 0; y < ssys; y++) {
                 for (int x = 0; x < ssxs; x++) {
                     int readPos = ((y)*ssxs*sszs*3 + (z)*ssxs*3 + (x)*3);
@@ -131,16 +143,24 @@ void StreamlineTracingGrid::addVectorField(float* vectorField, const std::string
                 }
             }
         }
+#ifdef USE_TBB
+        });
+#endif
         delete[] vectorFieldCopy;
     }
 
     if (subsamplingFactor > 1) {
         float* vectorFieldOld = vectorField;
         vectorField = new float[3 * xs * ys * zs];
+#ifdef USE_TBB
+        tbb::parallel_for(tbb::blocked_range<int>(0, zs), [&](auto const& r) {
+            for (auto z = r.begin(); z != r.end(); z++) {
+#else
 #if _OPENMP >= 201107
         #pragma omp parallel for shared(vectorField, vectorFieldOld) default(none)
 #endif
         for (int z = 0; z < zs; z++) {
+#endif
             for (int y = 0; y < ys; y++) {
                 for (int x = 0; x < xs; x++) {
                     int readPos =
@@ -154,6 +174,9 @@ void StreamlineTracingGrid::addVectorField(float* vectorField, const std::string
                 }
             }
         }
+#ifdef USE_TBB
+    });
+#endif
         delete[] vectorFieldOld;
     }
 
@@ -165,11 +188,18 @@ void StreamlineTracingGrid::addVectorField(float* vectorField, const std::string
         vorticityField = vectorField;
     }
 
+#ifdef USE_TBB
+    float maxVectorMagnitude = tbb::parallel_reduce(
+            tbb::blocked_range<int>(0, zs), 0.0f,
+            [&vectorField, this](tbb::blocked_range<int> const& r, float maxVectorMagnitude) {
+                for (auto z = r.begin(); z != r.end(); z++) {
+#else
     float maxVectorMagnitude = 0.0f;
 #if _OPENMP >= 201107
     #pragma omp parallel for shared(vectorField) reduction(max: maxVectorMagnitude) default(none)
 #endif
     for (int z = 0; z < zs; z++) {
+#endif
         for (int y = 0; y < ys; y++) {
             for (int x = 0; x < xs; x++) {
                 float vx = vectorField[IDXV(x, y, z, 0)];
@@ -180,6 +210,10 @@ void StreamlineTracingGrid::addVectorField(float* vectorField, const std::string
             }
         }
     }
+#ifdef USE_TBB
+                return maxVectorMagnitude;
+            }, sgl::max_predicate());
+#endif
     maxVectorFieldMagnitudes.insert(std::make_pair(vectorName, maxVectorMagnitude));
 }
 
@@ -208,10 +242,15 @@ void StreamlineTracingGrid::addScalarField(float* scalarField, const std::string
         }
         auto* scalarFieldCopy = new float[ssxs * ssys * sszs];
         memcpy(scalarFieldCopy, scalarField, sizeof(float) * ssxs * ssys * sszs);
+#ifdef USE_TBB
+        tbb::parallel_for(tbb::blocked_range<int>(0, sszs), [&](auto const& r) {
+            for (auto z = r.begin(); z != r.end(); z++) {
+#else
 #if _OPENMP >= 201107
         #pragma omp parallel for shared(scalarField, scalarFieldCopy) default(none)
 #endif
         for (int z = 0; z < sszs; z++) {
+#endif
             for (int y = 0; y < ssys; y++) {
                 for (int x = 0; x < ssxs; x++) {
                     int readPos = ((y)*ssxs*sszs + (z)*ssxs + (x));
@@ -220,16 +259,24 @@ void StreamlineTracingGrid::addScalarField(float* scalarField, const std::string
                 }
             }
         }
+#ifdef USE_TBB
+        });
+#endif
         delete[] scalarFieldCopy;
     }
 
     if (subsamplingFactor > 1) {
         float* scalarFieldOld = scalarField;
         scalarField = new float[xs * ys * zs];
+#ifdef USE_TBB
+        tbb::parallel_for(tbb::blocked_range<int>(0, zs), [&](auto const& r) {
+            for (auto z = r.begin(); z != r.end(); z++) {
+#else
 #if _OPENMP >= 201107
-#pragma omp parallel for shared(scalarField, scalarFieldOld) default(none)
+        #pragma omp parallel for shared(scalarField, scalarFieldOld) default(none)
 #endif
         for (int z = 0; z < zs; z++) {
+#endif
             for (int y = 0; y < ys; y++) {
                 for (int x = 0; x < xs; x++) {
                     int readPos =
@@ -241,6 +288,9 @@ void StreamlineTracingGrid::addScalarField(float* scalarField, const std::string
                 }
             }
         }
+#ifdef USE_TBB
+        });
+#endif
         delete[] scalarFieldOld;
     }
 
@@ -249,11 +299,18 @@ void StreamlineTracingGrid::addScalarField(float* scalarField, const std::string
     if (scalarName == "Helicity") {
         helicityField = scalarField;
 
+#ifdef USE_TBB
+        maxHelicityMagnitude = tbb::parallel_reduce(
+                tbb::blocked_range<int>(0, zs), 0.0f,
+                [this](tbb::blocked_range<int> const& r, float maxHelicityMagnitude) {
+                    for (auto z = r.begin(); z != r.end(); z++) {
+#else
         maxHelicityMagnitude = 0.0f;
 #if _OPENMP >= 201107
         #pragma omp parallel for shared(xs, ys, zs) reduction(max: maxHelicityMagnitude) default(none)
 #endif
         for (int z = 0; z < zs; z++) {
+#endif
             for (int y = 0; y < ys; y++) {
                 for (int x = 0; x < xs; x++) {
                     float helicityMagnitude = std::abs(helicityField[IDXS(x, y, z)]);
@@ -261,6 +318,10 @@ void StreamlineTracingGrid::addScalarField(float* scalarField, const std::string
                 }
             }
         }
+#ifdef USE_TBB
+                    return maxHelicityMagnitude;
+                }, sgl::max_predicate());
+#endif
     }
 }
 
@@ -306,8 +367,13 @@ void StreamlineTracingGrid::traceStreamlines(
             seedPoint = seeder->getNextPoint();
         }
 
+#ifdef USE_TBB
+        tbb::parallel_for(tbb::blocked_range<int>(0, numTrajectories), [&](auto const& r) {
+            for (auto i = r.begin(); i != r.end(); i++) {
+#else
         #pragma omp parallel for shared(numTrajectories, trajectories, seedPoints, tracingSettings) default(none)
         for (int i = 0; i < numTrajectories; i++) {
+#endif
             Trajectory& trajectory = trajectories.at(i);
             const glm::vec3& seedPoint = seedPoints.at(i);
             if (tracingSettings.integrationDirection == StreamlineIntegrationDirection::FORWARD) {
@@ -323,6 +389,9 @@ void StreamlineTracingGrid::traceStreamlines(
                 _insertBackwardTrajectory(trajectoryBackward, trajectory);
             }
         }
+#ifdef USE_TBB
+        });
+#endif
     } else {
         for (int i = 0; i < numTrajectories; i++) {
             Trajectory& trajectory = trajectories.at(i);
@@ -390,9 +459,14 @@ void StreamlineTracingGrid::traceStreamribbons(
             seedPoint = seeder->getNextPoint();
         }
 
+#ifdef USE_TBB
+        tbb::parallel_for(tbb::blocked_range<int>(0, numTrajectories), [&](auto const& r) {
+            for (auto i = r.begin(); i != r.end(); i++) {
+#else
         #pragma omp parallel for shared(numTrajectories, trajectories, ribbonsDirections, seedPoints, tracingSettings) \
         default(none)
         for (int i = 0; i < numTrajectories; i++) {
+#endif
             Trajectory& trajectory = trajectories.at(i);
             std::vector<glm::vec3>& ribbonDirections = ribbonsDirections.at(i);
             const glm::vec3& seedPoint = seedPoints.at(i);
@@ -412,6 +486,9 @@ void StreamlineTracingGrid::traceStreamribbons(
                 _insertBackwardRibbon(trajectoryBackward, ribbonDirectionsBackward, trajectory, ribbonDirections);
             }
         }
+#ifdef USE_TBB
+        });
+#endif
     } else {
         for (int i = 0; i < numTrajectories; i++) {
             Trajectory& trajectory = trajectories.at(i);
@@ -695,7 +772,7 @@ void StreamlineTracingGrid::_traceStreamribbonsDecreasingHelicity(
     float dt = 1.0f / maxVectorMagnitude * std::min(dx, std::min(dy, dz)) * tracingSettings.timeStepScale;
 
     if (tracingSettings.loopCheckMode == LoopCheckMode::ALL_POINTS) {
-        hashedGridLoop = new HashedGrid<glm::vec3>(
+        hashedGridLoop = new sgl::HashedGrid<glm::vec3>(
                 tracingSettings.maxNumIterations + 17, std::min(dx, std::min(dy, dz)));
     } else if (tracingSettings.loopCheckMode == LoopCheckMode::GRID) {
         selfOccupationGrid.resize((xs - 1) * (ys - 1) * (zs - 1), false);

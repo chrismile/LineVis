@@ -29,7 +29,7 @@
 #ifndef STRESSLINEVIS_LINEDATAFLOW_HPP
 #define STRESSLINEVIS_LINEDATAFLOW_HPP
 
-#include "Widgets/MultiVarTransferFunctionWindow.hpp"
+#include <ImGui/Widgets/MultiVarTransferFunctionWindow.hpp>
 #include "LineData.hpp"
 
 class LineDataFlow : public LineData {
@@ -124,7 +124,7 @@ public:
     /// Whether to use linear RGB when rendering.
     void setUseLinearRGB(bool useLinearRGB) override;
     bool shallRenderTransferFunctionWindow() override { return !useMultiVarRendering; }
-    inline MultiVarTransferFunctionWindow& getMultiVarTransferFunctionWindow() { return multiVarTransferFunctionWindow; }
+    inline sgl::MultiVarTransferFunctionWindow& getMultiVarTransferFunctionWindow() { return multiVarTransferFunctionWindow; }
 
 protected:
     void recomputeHistogram() override;
@@ -188,7 +188,7 @@ protected:
     bool setNumSubdivisionsManually = false;
     std::string comboValue;
     std::vector<uint32_t> isAttributeSelectedArray;
-    MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
+    sgl::MultiVarTransferFunctionWindow multiVarTransferFunctionWindow;
     // Uniform buffers with settings for rendering.
     struct MultiVarUniformData {
         uint32_t numSelectedAttributes{};

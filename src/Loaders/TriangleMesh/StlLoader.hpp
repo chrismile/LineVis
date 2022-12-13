@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2021, Christoph Neuhauser
+ * Copyright (c) 2022, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,35 +26,23 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEVIS_INDEXMESH_HPP
-#define LINEVIS_INDEXMESH_HPP
+#ifndef LINEVIS_STLLOADER_HPP
+#define LINEVIS_STLLOADER_HPP
 
 #include <vector>
+#include <string>
 
 #include <glm/vec3.hpp>
+#include <glm/mat4x4.hpp>
 
-/**
- * Computes a shared index representation for the passed list of vertices.
- * @param vertexPositions The vertex positions.
- * @param vertexNormals The output vertex normals.
- * @param vertexPositionsShared The shared vertex positions (output).
- * @param vertexNormalsShared The shared vertex normals (output).
- * @param triangleIndices A list of triangle indices. Three consecutive entries form one triangle.
- */
-void computeSharedIndexRepresentation(
-        const std::vector<glm::vec3>& vertexPositions, const std::vector<glm::vec3>& vertexNormals,
-        std::vector<uint32_t>& triangleIndices,
-        std::vector<glm::vec3>& vertexPositionsShared, std::vector<glm::vec3>& vertexNormalsShared);
+#include <Math/Geometry/AABB3.hpp>
 
-/**
- * Computes a shared index representation for the passed list of vertices.
- * @param vertexPositions The vertex positions.
- * @param vertexPositionsShared The shared vertex positions (output).
- * @param triangleIndices A list of triangle indices. Three consecutive entries form one triangle.
- */
-void computeSharedIndexRepresentation(
-        const std::vector<glm::vec3>& vertexPositions,
-        std::vector<uint32_t>& triangleIndices,
-        std::vector<glm::vec3>& vertexPositionsShared);
+void loadStlTriangleMesh(
+        const std::string &filename, std::vector<uint32_t>& triangleIndices,
+        std::vector<glm::vec3>& vertexPositions, std::vector<glm::vec3>& vertexNormals,
+        std::vector<std::vector<float>>& vertexAttributesList, std::vector<std::string>& vertexAttributeNames,
+        bool shallNormalizeVertexPositions = true, bool shallNormalizeAttributes = false,
+        bool shallComputeSharedVertexRepresentation = false,
+        sgl::AABB3* oldAABB = nullptr, const glm::mat4* vertexTransformationMatrixPtr = nullptr);
 
-#endif //LINEVIS_INDEXMESH_HPP
+#endif //LINEVIS_STLLOADER_HPP

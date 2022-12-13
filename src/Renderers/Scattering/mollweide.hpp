@@ -793,8 +793,8 @@ struct Mollweide_Grid {
 
         for (u32 y = 0; y < height; ++y) {
             for (u32 x = 0; x < width; ++x) {
-                u32 b_x_idx = remap<u32>(0, x, width,  0, grid_width);
-                u32 b_y_idx = remap<u32>(0, y, height, 0, grid_height);
+                u32 b_x_idx = u32(remap(float(0), float(x), float(width), float(0), float(grid_width)));
+                u32 b_y_idx = u32(remap(float(0), float(y), float(height), float(0), float(grid_height)));
 
                 if (b_x_idx >= grid_width)
                     b_x_idx = grid_width-1;

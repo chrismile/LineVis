@@ -149,7 +149,7 @@ void GribLoader::load(
 
         // Only load data for one single time step.
         if (dataDate != dataDateLoad || dataTime != dataTimeLoad) {
-            CODES_CHECK(codes_handle_delete(handle), 0);
+            CODES_CHECK(codes_handle_delete(handle), nullptr);
             if (dataDate < dataDateLoad || (dataDate == dataDateLoad && dataTime < dataTimeLoad)) {
                 continue;
             } else {
@@ -257,7 +257,7 @@ void GribLoader::load(
         }
 
         size_t valuesLength = 0;
-        CODES_CHECK(codes_get_size(handle, "values", &valuesLength), 0);
+        CODES_CHECK(codes_get_size(handle, "values", &valuesLength), nullptr);
         auto* valuesArrayDouble = new double[valuesLength];
         auto* valuesArrayFloat = new float[valuesLength];
         if (valuesLength != size_t(numberOfPoints)) {
@@ -265,14 +265,14 @@ void GribLoader::load(
                     "Error in GribLoader::load: The values array size and numberOfPoints do not match in file \""
                     + dataSourceFilename + "\".");
         }
-        CODES_CHECK(codes_get_double_array(handle, "values", valuesArrayDouble, &valuesLength), 0);
+        CODES_CHECK(codes_get_double_array(handle, "values", valuesArrayDouble, &valuesLength), nullptr);
         for (size_t i = 0; i < valuesLength; i++) {
             valuesArrayFloat[i] = static_cast<float>(valuesArrayDouble[i]);
         }
         variableSliceArrays.at(variableIdx).push_back(valuesArrayFloat);
         delete[] valuesArrayDouble;
 
-        CODES_CHECK(codes_handle_delete(handle), 0);
+        CODES_CHECK(codes_handle_delete(handle), nullptr);
     }
 
     size_t numLevels = levelValues.size();
@@ -291,7 +291,7 @@ void GribLoader::load(
         std::vector<float*>& variableSliceArray = variableSliceArrays.at(varIdx);
         float*& variableArray = variableArrays.at(varIdx);
         variableArray = new float[numLevels * size_t(numLatsGlobal) * size_t(numLonsGlobal)];
-        for (size_t level = 0; level < variableSliceArrays.size(); level++) {
+        for (size_t level = 0; level < variableSliceArray.size(); level++) {
             const float* variableSlice = variableSliceArray.at(level);
             if (variableSlice == nullptr) {
                 for (long latIdx = 0; latIdx < numLatsGlobal; latIdx++) {

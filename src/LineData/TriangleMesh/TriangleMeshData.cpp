@@ -27,9 +27,13 @@
  */
 
 #include <Utils/File/Logfile.hpp>
+#include <Utils/Parallel/Reduction.hpp>
 #include <Graphics/Vulkan/Render/Data.hpp>
 
 #include "Loaders/TriangleMesh/BinaryObjLoader.hpp"
+#include "Loaders/TriangleMesh/ObjLoader.hpp"
+#include "Loaders/TriangleMesh/StlLoader.hpp"
+#include "forsyth.h"
 #include "TriangleMeshData.hpp"
 
 TriangleMeshData::TriangleMeshData(sgl::TransferFunctionWindow& transferFunctionWindow)
@@ -72,9 +76,22 @@ bool TriangleMeshData::loadFromFile(
         glm::mat4* transformationMatrixPtr) {
     this->fileNames = fileNames;
     attributeNames = dataSetInformation.attributeNames;
-    loadBinaryObjTriangleMesh(
-            fileNames.front(), triangleIndices, vertexPositions, vertexNormals, vertexAttributesList, attributeNames,
-            true, false, nullptr, transformationMatrixPtr);
+    std::string extension = sgl::FileUtils::get()->getFileExtensionLower(fileNames.front());
+    if (extension == "bobj") {
+        loadBinaryObjTriangleMesh(
+                fileNames.front(), triangleIndices, vertexPositions, vertexNormals, vertexAttributesList, attributeNames,
+                true, false, nullptr, transformationMatrixPtr);
+    } if (extension == "obj") {
+        loadObjTriangleMesh(
+                fileNames.front(), triangleIndices, vertexPositions, vertexNormals, vertexAttributesList, attributeNames,
+                true, false, nullptr, transformationMatrixPtr);
+    } if (extension == "stl") {
+        loadStlTriangleMesh(
+                fileNames.front(), triangleIndices, vertexPositions, vertexNormals, vertexAttributesList, attributeNames,
+                true, false,
+                dataSetInformation.shallComputeSharedVertexRepresentation,
+                nullptr, transformationMatrixPtr);
+    }
     bool dataLoaded = !triangleIndices.empty();
 
     if (!dataLoaded) {
@@ -96,26 +113,28 @@ bool TriangleMeshData::loadFromFile(
 
         minMaxAttributeValues.clear();
         for (size_t varIdx = 0; varIdx < colorLegendWidgets.size(); varIdx++) {
-            float minAttr = std::numeric_limits<float>::max();
-            float maxAttr = std::numeric_limits<float>::lowest();
             std::vector<float>& vertexAttributes = vertexAttributesList.at(varIdx);
-#if _OPENMP >= 201107
-            #pragma omp parallel for default(none) shared(vertexAttributes) \
-            reduction(min: minAttr) reduction(max: maxAttr)
-#endif
-            for (size_t i = 0; i < vertexAttributes.size(); i++) {
-                float val = vertexAttributes.at(i);
-                minAttr = std::min(minAttr, val);
-                maxAttr = std::max(maxAttr, val);
-            }
+            auto [minAttr, maxAttr] = sgl::reduceFloatArrayMinMax(vertexAttributes);
             minMaxAttributeValues.emplace_back(minAttr, maxAttr);
             colorLegendWidgets[varIdx].setAttributeMinValue(minAttr);
             colorLegendWidgets[varIdx].setAttributeMaxValue(maxAttr);
             colorLegendWidgets[varIdx].setAttributeDisplayName(
                     std::string() + attributeNames.at(varIdx));
         }
+
+        modelBoundingBox = sgl::reduceVec3ArrayAabb(vertexPositions);
+        focusBoundingBox = modelBoundingBox;
+
+        if (dataSetInformation.useVertexCacheOptimization) {
+            std::vector<uint32_t> triangleIndicesOld = std::move(triangleIndices);
+            triangleIndices.resize(triangleIndicesOld.size());
+            forsythReorderIndices(
+                    triangleIndices.data(), triangleIndicesOld.data(),
+                    int(triangleIndices.size() / 3), int(triangleIndices.size()));
+        }
     }
 
+    dirty = true;
     return dataLoaded;
 }
 
@@ -123,7 +142,7 @@ void TriangleMeshData::onMainThreadDataInit(){
     linePrimitiveMode = LINE_PRIMITIVES_TUBE_TRIANGLE_MESH;
 }
 
-MultiVarTransferFunctionWindow& TriangleMeshData::getMultiVarTransferFunctionWindow() {
+sgl::MultiVarTransferFunctionWindow& TriangleMeshData::getMultiVarTransferFunctionWindow() {
     sgl::Logfile::get()->throwError(
             "Error in TriangleMeshData::getMultiVarTransferFunctionWindow: "
             "Multi-parameter visualizations not supported for this data type.");

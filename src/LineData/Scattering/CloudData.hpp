@@ -95,10 +95,37 @@ private:
 
     // --- Dense field. ---
     /**
+     * A .xyz file contains data in the following format:
+     * 3x uint32_t: Grid size sx, sy ,sz
+     * 3x double: Voxel size vx, vy, vz
+     * (sx*sy*sz)x float: The dense density field data.
      * @param filename The filename of the .xyz file to load.
      * @return Whether the file was loaded successfully.
      */
     bool loadFromXyzFile(const std::string& filename);
+    /**
+     * Loading function for pairs of .dat and .raw files.
+     * .dat files store metadata about the grid, while .raw files store the data.
+     * .dat files contain case-insensitive pairs of keys and values separated by a colon.
+     * Example for such a key-value pair: "ObjectFileName: volume_50.raw"
+     *
+     * Below, a list of valid key-value pairs can be found.
+     * ObjectFileName: <string> (location of the .raw data file relative to the .dat file)
+     * ObjectIndices: <uint-triplet> (triplet start-stop-step of indices to use if the ObjectFileName contains a format string like "%02i").
+     * TaggedFileName: <string> (optional)
+     * MeshFileName: <string> (optional)
+     * Name: <string> (optional)
+     * Resolution: <uint> <uint> <uint>
+     * Format: uchar | ushort | float | float3 | float4 (only scalar values supported!)
+     * SliceThickness: <float> <float> <float>
+     * Range: <float> <float> (optional)
+     * NbrTags: <uint> (optional)
+     * ObjectType: <enum-string>=TEXTURE_VOLUME_OBJECT (optional)
+     * ObjectModel: RGBA (optional)
+     * GridType: <enum-string>=EQUIDISTANT (optional)
+     * Timestep: <float> (optional)
+     */
+    bool loadFromDatRawFile(const std::string& filename);
     float* densityField = nullptr;
 
     // --- Sparse field. ---

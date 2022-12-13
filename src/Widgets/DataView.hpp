@@ -46,7 +46,7 @@ class LineRenderer;
 
 class DataView {
 public:
-    DataView(SceneData* parentSceneData);
+    explicit DataView(SceneData* parentSceneData);
     ~DataView();
     virtual void resize(int newWidth, int newHeight);
     virtual void beginRender();
@@ -102,6 +102,7 @@ public:
     uint32_t viewportHeight = 0;
     SceneData sceneData;
 };
+
 typedef std::shared_ptr<DataView> DataViewPtr;
 
 #endif //LINEVIS_DATAVIEW_HPP

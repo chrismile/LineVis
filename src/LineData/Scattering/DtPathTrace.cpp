@@ -1,12 +1,40 @@
-#include "DtPathTrace.hpp"
+/*
+ * BSD 2-Clause License
+ *
+ * Copyright (c) 2022, Felix Brendel, Christoph Neuhauser
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include <vector>
 #include <variant>
 #include <cstdint>
 #include <cmath>
 
 #include <Utils/Defer.hpp>
+#include <Utils/SearchStructures/KdTree.hpp>
 
-#include "../SearchStructures/KdTree.hpp"
+#include "DtPathTrace.hpp"
 
 #define ERROR(...) printf("ERROR: "  __VA_ARGS__);
 #define INFO(...)
@@ -53,7 +81,7 @@ inline uint32_t min(uint32_t a, uint32_t b) {
 }
 
 
-Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_height) {
+Image create_spherical_heatmap_image(sgl::KdTree<sgl::Empty>* kd_tree, uint32_t image_height) {
     const float search_radius = 0.1f;
     const float rbf_epsilon = 3.0f;
 
@@ -69,7 +97,7 @@ Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_heig
     assert(out_image.width > 0);
     assert(out_image.height > 0);
 
-    std::vector<std::pair<glm::vec3, Empty>> searchCache;
+    std::vector<std::pair<glm::vec3, sgl::Empty>> searchCache;
     float max_rbf_value = 0.0f;
 
     for (uint32_t y = 0; y < out_image.height; ++y) {
@@ -104,7 +132,7 @@ Image create_spherical_heatmap_image(KdTree<Empty>* kd_tree, uint32_t image_heig
 
                 p->f32 = 0.0f;
 
-                for (std::pair<glm::vec3, Empty>& hit : searchCache) {
+                for (std::pair<glm::vec3, sgl::Empty>& hit : searchCache) {
                     glm::vec3 pos = hit.first;
 
                     float dist = glm::length(point_on_sphere - pos);

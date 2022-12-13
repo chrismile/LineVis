@@ -31,11 +31,20 @@
         "shaderc",
         "opencl",
         "glm",
+        "tbb",
         "eigen3",
         "jsoncpp",
         "python3",
         "cppzmq",
         "netcdf-c",
         "openexr"
-    ]
+    ],
+    "features": {
+        "tbb": {
+            "description": "Use TBB instead of OpenMP for multi-threading",
+            "dependencies": [
+                "tbb"
+            ]
+        }
+    }
 }

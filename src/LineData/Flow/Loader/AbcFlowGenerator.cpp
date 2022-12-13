@@ -27,6 +27,12 @@
  */
 
 #include <cmath>
+
+#ifdef USE_TBB
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
+#endif
+
 #include <ImGui/imgui_custom.h>
 #include "../StreamlineTracingDefines.hpp"
 #include "../StreamlineTracingGrid.hpp"
@@ -40,10 +46,15 @@ AbcFlowGenerator::AbcFlowGenerator() {
 }
 
 void AbcFlowGenerator::generateAbcFlow(float* v) const {
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<int>(0, zs), [&](auto const& r) {
+        for (auto iz = r.begin(); iz != r.end(); iz++) {
+#else
 #if _OPENMP >= 201107
     #pragma omp parallel for default(none) shared(v)
 #endif
     for (int iz = 0; iz < zs; iz++) {
+#endif
         for (int iy = 0; iy < ys; iy++) {
             for (int ix = 0; ix < xs; ix++) {
                 float x = float(ix) / float(xs - 1) * resScale;
@@ -55,6 +66,9 @@ void AbcFlowGenerator::generateAbcFlow(float* v) const {
             }
         }
     }
+#ifdef USE_TBB
+    });
+#endif
 }
 
 void AbcFlowGenerator::load(const GridDataSetMetaData& gridDataSetMetaData, StreamlineTracingGrid* grid) const {

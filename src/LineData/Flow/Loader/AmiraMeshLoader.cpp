@@ -128,12 +128,12 @@ void AmiraMeshLoader::load(
                 "Error in AmiraMeshLoader::load: Misformed BoundingBox statement in file \""
                 + dataSourceFilename + "\" does not contain 6 entries.");
     }
-    float xmin = sgl::fromString<float>(boundingBoxStringList.at(0));
-    float xmax = sgl::fromString<float>(boundingBoxStringList.at(1));
-    float ymin = sgl::fromString<float>(boundingBoxStringList.at(2));
-    float ymax = sgl::fromString<float>(boundingBoxStringList.at(3));
-    float zmin = sgl::fromString<float>(boundingBoxStringList.at(4));
-    float zmax = sgl::fromString<float>(boundingBoxStringList.at(5));
+    auto xmin = sgl::fromString<float>(boundingBoxStringList.at(0));
+    auto xmax = sgl::fromString<float>(boundingBoxStringList.at(1));
+    auto ymin = sgl::fromString<float>(boundingBoxStringList.at(2));
+    auto ymax = sgl::fromString<float>(boundingBoxStringList.at(3));
+    auto zmin = sgl::fromString<float>(boundingBoxStringList.at(4));
+    auto zmax = sgl::fromString<float>(boundingBoxStringList.at(5));
     float bbDimX = xmax - xmin;
     float bbDimY = ymax - ymin;
     float bbDimZ = zmax - zmin;

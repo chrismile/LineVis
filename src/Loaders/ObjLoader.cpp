@@ -44,6 +44,7 @@ Trajectories loadTrajectoriesFromObj(const std::string& filename, std::vector<st
     size_t length = 0;
     bool loaded = sgl::loadFileFromSource(filename, buffer, length, false);
     if (!loaded) {
+        sgl::Logfile::get()->writeError("Error in loadTrajectoriesFromObj: Could not open file \"" + filename + "\".");
         return trajectories;
     }
     char* fileBuffer = reinterpret_cast<char*>(buffer);

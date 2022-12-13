@@ -84,6 +84,11 @@ bool VulkanRayTracer::getIsTriangleRepresentationUsed() const {
 void VulkanRayTracer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
 
+    if (lineData->getType() == DATA_SET_TYPE_TRIANGLE_MESH) {
+        useAnalyticIntersections = false;
+        rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
+        rayTracingRenderPass->setShaderDirty();
+    }
     rayTracingRenderPass->setLineData(lineData, isNewData);
 
     accumulatedFramesCounter = 0;
@@ -168,7 +173,8 @@ void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& property
         accumulatedFramesCounter = 0;
     }
 
-    if (propertyEditor.addCheckbox("Use Analytic Intersections", &useAnalyticIntersections)) {
+    if ((!lineData || lineData->getType() != DATA_SET_TYPE_TRIANGLE_MESH) && propertyEditor.addCheckbox(
+            "Use Analytic Intersections", &useAnalyticIntersections)) {
         rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
         rayTracingRenderPass->setShaderDirty();
         if (lineData) {

@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2022, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,21 +26,22 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <limits>
+#ifndef LINEVIS_TRIANGLEMESH_OBJLOADER_HPP
+#define LINEVIS_TRIANGLEMESH_OBJLOADER_HPP
 
-#include "NaiveSearchStructure.hpp"
-#include "NearestNeighborNaive.hpp"
+#include <vector>
+#include <string>
 
-glm::vec3 nearestNeighborNaive(const glm::vec3& point, const std::vector<glm::vec3>& searchPointList) {
-    float closestPointDistance = std::numeric_limits<float>::max();
-    glm::vec3 nearestNeighbor;
-    for (const glm::vec3& searchPoint : searchPointList) {
-        glm::vec3 diff = point - searchPoint;
-        float dist = diff.x * diff.x + diff.y * diff.y + diff.z * diff.z;
-        if (dist < closestPointDistance) {
-            closestPointDistance = dist;
-            nearestNeighbor = searchPoint;
-        }
-    }
-    return nearestNeighbor;
-}
+#include <glm/vec3.hpp>
+#include <glm/mat4x4.hpp>
+
+#include <Math/Geometry/AABB3.hpp>
+
+void loadObjTriangleMesh(
+        const std::string &filename, std::vector<uint32_t>& triangleIndices,
+        std::vector<glm::vec3>& vertexPositions, std::vector<glm::vec3>& vertexNormals,
+        std::vector<std::vector<float>>& vertexAttributesList, std::vector<std::string>& vertexAttributeNames,
+        bool shallNormalizeVertexPositions = true, bool shallNormalizeAttributes = false,
+        sgl::AABB3* oldAABB = nullptr, const glm::mat4* vertexTransformationMatrixPtr = nullptr);
+
+#endif //LINEVIS_TRIANGLEMESH_OBJLOADER_HPP

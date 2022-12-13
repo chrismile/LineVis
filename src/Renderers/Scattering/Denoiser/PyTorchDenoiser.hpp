@@ -136,7 +136,6 @@ private:
     std::vector<sgl::vk::BufferPtr> renderImageStagingBuffers;
     sgl::vk::BufferPtr denoisedImageStagingBuffer;
     sgl::vk::FencePtr renderFinishedFence;
-    sgl::vk::FencePtr denoiseFinishedFence;
     float* renderedImageData = nullptr;
     float* denoisedImageData = nullptr;
 

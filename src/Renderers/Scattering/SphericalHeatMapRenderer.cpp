@@ -88,12 +88,12 @@ void SphericalHeatMapRenderer::recreateMapImage() {
 
     Image heat_map;
     if (sphericalMapType == SphericalMapType::MOLLWEIDE_KD_TREE) {
-        KdTree<Empty>* kd_tree_exit_dirs = new KdTree<Empty>;
+        sgl::KdTree<sgl::Empty>* kd_tree_exit_dirs = new sgl::KdTree<sgl::Empty>;
         kd_tree_exit_dirs->build(lineDataScattering->getExitDirections());
         heat_map = create_spherical_heatmap_image(kd_tree_exit_dirs, 300);
     } else if (sphericalMapType == SphericalMapType::MOLLWEIDE
             || sphericalMapType == SphericalMapType::MOLLWEIDE_SPHERE) {
-        Mollweide_Grid<Empty>* grid = new Mollweide_Grid<Empty>;
+        Mollweide_Grid<sgl::Empty>* grid = new Mollweide_Grid<sgl::Empty>;
         grid->init(6);
         const auto& exitDirections = lineDataScattering->getExitDirections();
         for (const glm::vec3& direction : exitDirections) {

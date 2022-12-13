@@ -1,9 +1,43 @@
+/*
+ * BSD 2-Clause License
+ *
+ * Copyright (c) 2022, Felix Brendel, Christoph Neuhauser
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include "Texture3d.hpp"
+
+#ifdef USE_TBB
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
+#endif
 
 #include <Utils/AppSettings.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/FileUtils.hpp>
 #include <Utils/File/FileLoader.hpp>
+#include <Utils/Parallel/Reduction.hpp>
 #include <Utils/Events/Stream/Stream.hpp>
 #include <Utils/Defer.hpp>
 
@@ -49,40 +83,45 @@ Texture3D load_xyz_file(std::string file_name) {
 
     // NOTE(Felix): Since the .xyz file stores the densities in zyx order, and
     //   we want to have them in xyz order, we are transposing them here.
-    {
-#   if _OPENMP >= 201107
-#     pragma omp parallel for shared(grid, transposed_data) default(none)
-#   endif
-        for (uint32_t z = 0; z < grid.size_z; z++) {
-            for (uint32_t y = 0; y < grid.size_y; y++) {
-                for (uint32_t x = 0; x < grid.size_x; x++) {
-                    grid.data[x + (y + z * grid.size_y) * grid.size_x] =
-                        transposed_data[z + (y + x * grid.size_y) * grid.size_z];
-                }
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<uint32_t>(0, grid.size_z), [&](auto const& r) {
+        for (auto z = r.begin(); z != r.end(); z++) {
+#else
+#if _OPENMP >= 201107
+    #pragma omp parallel for shared(grid, transposed_data) default(none)
+#endif
+    for (uint32_t z = 0; z < grid.size_z; z++) {
+#endif
+        for (uint32_t y = 0; y < grid.size_y; y++) {
+            for (uint32_t x = 0; x < grid.size_x; x++) {
+                grid.data[x + (y + z * grid.size_y) * grid.size_x] =
+                    transposed_data[z + (y + x * grid.size_y) * grid.size_z];
             }
         }
     }
+#ifdef USE_TBB
+    });
+#endif
 
     // Normalization
     {
-        float min_val = 0.0f;//std::numeric_limits<float>::max();
-        float max_val = std::numeric_limits<float>::lowest();
+        auto [min_val, max_val] = sgl::reduceFloatArrayMinMax(
+                grid.data, num_floats, std::make_pair(0.0f, std::numeric_limits<float>::lowest()));
 
-#   if _OPENMP >= 201107
-#     pragma omp parallel for default(none) shared(num_floats, grid) reduction(min: min_val) reduction(max: max_val)
-#   endif
+#ifdef USE_TBB
+        tbb::parallel_for(tbb::blocked_range<size_t>(0, num_floats), [&](auto const& r) {
+            for (auto i = r.begin(); i != r.end(); i++) {
+#else
+#if _OPENMP >= 201107
+        #pragma omp parallel for shared(num_floats, grid, min_val, max_val) default(none)
+#endif
         for (size_t i = 0; i < num_floats; i++) {
-            float val = grid.data[i];
-            min_val = std::min(min_val, val);
-            max_val = std::max(max_val, val);
-        }
-
-#   if _OPENMP >= 201107
-#     pragma omp parallel for shared(num_floats, grid, min_val, max_val) default(none)
-#   endif
-        for (size_t i = 0; i < num_floats; i++) {
+#endif
             grid.data[i] = (grid.data[i] - min_val) / (max_val - min_val);
         }
+#ifdef USE_TBB
+        });
+#endif
     }
 
     return grid;

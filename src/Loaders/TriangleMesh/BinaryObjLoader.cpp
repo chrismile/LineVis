@@ -28,30 +28,18 @@
 
 #include <fstream>
 
+#ifdef USE_TBB
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
+#endif
+
 #include <Utils/File/Logfile.hpp>
+#include <Utils/Parallel/Reduction.hpp>
+#include <Utils/Mesh/TriangleNormals.hpp>
 
 #include "../TrajectoryFile.hpp"
+#include "Curvature.hpp"
 #include "BinaryObjLoader.hpp"
-
-void computeNormals(
-        const std::vector<uint32_t>& triangleIndices, const std::vector<glm::vec3>& vertexPositions,
-        std::vector<glm::vec3>& vertexNormals) {
-    // TODO
-    vertexNormals.resize(vertexPositions.size());
-    for (size_t vertexIdx = 0; vertexIdx < vertexPositions.size(); vertexIdx++) {
-        vertexNormals.at(vertexIdx) = glm::vec3(1.0f);
-    }
-}
-
-void computeCurvature(
-        const std::vector<uint32_t>& triangleIndices, const std::vector<glm::vec3>& vertexPositions,
-        std::vector<glm::vec3>& vertexNormals, std::vector<float>& vertexAttributes) {
-    // TODO
-    vertexAttributes.resize(vertexPositions.size());
-    for (size_t vertexIdx = 0; vertexIdx < vertexPositions.size(); vertexIdx++) {
-        vertexAttributes.at(vertexIdx) = 0.0f;
-    }
-}
 
 void loadBinaryObjTriangleMesh(
         const std::string &filename, std::vector<uint32_t>& triangleIndices,
@@ -82,15 +70,23 @@ void loadBinaryObjTriangleMesh(
             triangleIndices64.data()), std::streamsize(sizeof(uint64_t) * 3 * numTriangles));
 
     // Interchange the y and z axis and mirror the y axis.
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, vertexPositions.size()), [&](auto const& r) {
+        for (size_t i = r.begin(); i != r.end(); i++) {
+#else
 #if _OPENMP >= 200805
     #pragma omp parallel for default(none) shared(vertexPositions)
 #endif
     for (size_t i = 0; i < vertexPositions.size(); i++) {
+#endif
         auto& vertexPosition = vertexPositions.at(i);
         float z = vertexPosition.z;
         vertexPosition.z = vertexPosition.y;
         vertexPosition.y = -z;
     }
+#ifdef USE_TBB
+    });
+#endif
 
     // Check if we can safely convert the 64-bit indices to 32-bit indices.
     if (vertexPositions.size() / 3 > std::numeric_limits<uint32_t>::max()) {
@@ -100,16 +96,24 @@ void loadBinaryObjTriangleMesh(
         return;
     }
     triangleIndices.resize(numTriangles * 3);
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, triangleIndices64.size()), [&](auto const& r) {
+        for (size_t i = r.begin(); i != r.end(); i++) {
+#else
 #if _OPENMP >= 200805
     #pragma omp parallel for default(none) shared(triangleIndices, triangleIndices64)
 #endif
     for (size_t i = 0; i < triangleIndices64.size(); i++) {
+#endif
         triangleIndices.at(i) = static_cast<uint32_t>(triangleIndices64.at(i));
     }
+#ifdef USE_TBB
+    });
+#endif
     triangleIndices64 = {};
 
     // Compute the vertex normals for the triangle mesh.
-    computeNormals(triangleIndices, vertexPositions, vertexNormals);
+    sgl::computeSmoothTriangleNormals(triangleIndices, vertexPositions, vertexNormals);
 
     // Compute the mesh curvature as one attribute.
     vertexAttributeNames.emplace_back("Curvature");
@@ -120,10 +124,11 @@ void loadBinaryObjTriangleMesh(
         normalizeVertexAttributes(vertexAttributesList);
     }
     if (shallNormalizeVertexPositions) {
-        sgl::AABB3 aabb = computeVertexPositionsAABB3(vertexPositions);
+        sgl::AABB3 aabb = sgl::reduceVec3ArrayAabb(vertexPositions);
         if (oldAABB) {
             *oldAABB = aabb;
         }
         normalizeVertexPositions(vertexPositions, aabb, vertexTransformationMatrixPtr);
+        normalizeVertexNormals(vertexNormals, aabb, vertexTransformationMatrixPtr);
     }
 }

@@ -34,6 +34,7 @@
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include "Utils/AutomaticPerformanceMeasurer.hpp"
+#include "LineData/TriangleMesh/TriangleMeshData.hpp"
 #include "Renderers/AmbientOcclusion/VulkanAmbientOcclusionBaker.hpp"
 #include "Renderers/AmbientOcclusion/VulkanRayTracedAmbientOcclusion.hpp"
 #include "Renderers/AmbientOcclusion/SSAO.hpp"
@@ -236,7 +237,7 @@ void LineRenderer::renderBase(VkPipelineStageFlags pipelineStageFlags) {
         computeDepthRange();
         renderer->insertBufferMemoryBarrier(
                 VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, pipelineStageFlags,
                 depthMinMaxBuffers[outputDepthMinMaxBufferIndex]);
     }
 
@@ -343,11 +344,19 @@ void LineRenderer::updateAmbientOcclusionMode() {
 }
 
 void LineRenderer::updateDepthCueGeometryData() {
-    filteredLines = lineData->getFilteredLines(this);
     std::vector<glm::vec4> filteredLinesVertices;
-    for (std::vector<glm::vec3>& line : filteredLines) {
-        for (const glm::vec3& point : line) {
+    if (lineData->getType() == DATA_SET_TYPE_TRIANGLE_MESH) {
+        TriangleMeshData* triangleMeshData = static_cast<TriangleMeshData*>(lineData.get());
+        const std::vector<glm::vec3>& vertexPositions = triangleMeshData->getVertexPositions();
+        for (const glm::vec3& point : vertexPositions) {
             filteredLinesVertices.emplace_back(point.x, point.y, point.z, 1.0f);
+        }
+    } else {
+        filteredLines = lineData->getFilteredLines(this);
+        for (std::vector<glm::vec3>& line : filteredLines) {
+            for (const glm::vec3& point : line) {
+                filteredLinesVertices.emplace_back(point.x, point.y, point.z, 1.0f);
+            }
         }
     }
 

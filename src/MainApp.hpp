@@ -185,7 +185,7 @@ private:
     void setRenderer(
             SceneData& sceneDataRef, RenderingMode& oldRenderingMode, RenderingMode& newRenderingMode,
             LineRenderer*& newLineRenderer, int dataViewIndex);
-    void onUnuspportedRendererSelected(
+    void onUnsupportedRendererSelected(
             const std::string& warningText,
             SceneData& sceneDataRef, RenderingMode& newRenderingMode, LineRenderer*& newLineRenderer);
 

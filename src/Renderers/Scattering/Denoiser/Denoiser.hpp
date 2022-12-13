@@ -57,20 +57,20 @@ class PropertyEditor;
     DENOISER(EAW,  "Edge-Avoiding À-Trous Wavelet Transform")   \
 
 #ifdef SUPPORT_OPTIX
-#  define OPTIX_DENOISER                        \
+#  define OPTIX_DENOISER_OPT \
     DENOISER(OPTIX, "OptiX Denoiser")
 #else
-#  define OPTIX_DENOISER
+#  define OPTIX_DENOISER_OPT
 #endif
 
 #ifdef SUPPORT_PYTORCH_DENOISER
-#  define PYTORCH_DENOISER                                  \
+#  define PYTORCH_DENOISER_OPT \
     DENOISER(PYTORCH_DENOISER, "PyTorch Denoiser Module")
 #else
-#  define PYTORCH_DENOISER
+#  define PYTORCH_DENOISER_OPT
 #endif
 
-#define DENOISERS STD_DENOISERS OPTIX_DENOISER PYTORCH_DENOISER
+#define DENOISERS STD_DENOISERS OPTIX_DENOISER_OPT PYTORCH_DENOISER_OPT
 
 enum class DenoiserType {
 #define DENOISER(type, name) type,

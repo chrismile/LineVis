@@ -39,6 +39,7 @@
 #include <zmq.h>
 #endif
 
+#include <Utils/StringUtils.hpp>
 #include <Utils/Timer.hpp>
 #include <Utils/AppSettings.hpp>
 #include <Utils/Dialog.hpp>
@@ -278,7 +279,7 @@ MainApp::MainApp()
     replayWidget.setLoadMultiVarTransferFunctionsCallback([this](
             const std::vector<std::string>& tfNames) {
         if (lineData) {
-            MultiVarTransferFunctionWindow* multiVarTransferFunctionWindow;
+            sgl::MultiVarTransferFunctionWindow* multiVarTransferFunctionWindow;
             if (lineData->getType() == DATA_SET_TYPE_FLOW_LINES) {
                 LineDataFlow* lineDataFlow = static_cast<LineDataFlow*>(lineData.get());
                 multiVarTransferFunctionWindow = &lineDataFlow->getMultiVarTransferFunctionWindow();
@@ -302,7 +303,7 @@ MainApp::MainApp()
     replayWidget.setMultiVarTransferFunctionsRangesCallback([this](
             const std::vector<glm::vec2>& tfRanges) {
         if (lineData) {
-            MultiVarTransferFunctionWindow* multiVarTransferFunctionWindow;
+            sgl::MultiVarTransferFunctionWindow* multiVarTransferFunctionWindow;
             if (lineData->getType() == DATA_SET_TYPE_FLOW_LINES) {
                 LineDataFlow* lineDataFlow = static_cast<LineDataFlow*>(lineData.get());
                 multiVarTransferFunctionWindow = &lineDataFlow->getMultiVarTransferFunctionWindow();
@@ -738,7 +739,7 @@ void MainApp::setRenderer(
             std::string warningText =
                     std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
                     + "supported on this hardware due to the missing geometry shader physical device feature.";
-            onUnuspportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
+            onUnsupportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
         }
     } else if (newRenderingMode == RENDERING_MODE_DEPTH_COMPLEXITY) {
         newLineRenderer = new DepthComplexityRenderer(&sceneDataRef, transferFunctionWindow);
@@ -753,7 +754,7 @@ void MainApp::setRenderer(
             std::string warningText =
                     std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
                     + "supported on this hardware due to the missing independentBlend physical device feature.";
-            onUnuspportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
+            onUnsupportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
         }
     } else if (newRenderingMode == RENDERING_MODE_DEPTH_PEELING) {
         newLineRenderer = new DepthPeelingRenderer(&sceneDataRef, transferFunctionWindow);
@@ -764,7 +765,7 @@ void MainApp::setRenderer(
             std::string warningText =
                     std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
                     + "supported on this hardware due to missing Vulkan ray pipelines.";
-            onUnuspportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
+            onUnsupportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
         }
     } else if (newRenderingMode == RENDERING_MODE_VOXEL_RAY_CASTING) {
         newLineRenderer = new VoxelRayCastingRenderer(&sceneDataRef, transferFunctionWindow);
@@ -785,7 +786,7 @@ void MainApp::setRenderer(
         std::string warningText =
                 std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[idx] + "\" is not "
                 + "supported in this build configuration or incompatible with this system.";
-        onUnuspportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
+        onUnsupportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
     }
 
     newLineRenderer->initialize();
@@ -812,7 +813,7 @@ void MainApp::setRenderer(
     }
 }
 
-void MainApp::onUnuspportedRendererSelected(
+void MainApp::onUnsupportedRendererSelected(
         const std::string& warningText,
         SceneData& sceneDataRef, RenderingMode& newRenderingMode, LineRenderer*& newLineRenderer) {
     sgl::Logfile::get()->writeWarning(
@@ -997,8 +998,35 @@ void MainApp::renderGui() {
             fileDialogDirectory = sgl::FileUtils::get()->getPathToFile(filename);
 
             std::string filenameLower = boost::to_lower_copy(filename);
+            bool isObjFile = boost::ends_with(filenameLower, ".obj");
             bool isDatFile = boost::ends_with(filenameLower, ".dat");
             bool isNcFile = boost::ends_with(filenameLower, ".nc");
+
+            /*
+             * The program supports loading flow lines or triangle meshes from .dat files.
+             */
+            bool isObjTriangleMeshFile = false;
+            if (isObjFile) {
+                if (sgl::FileUtils::get()->exists(filename) && !sgl::FileUtils::get()->isDirectory(filename)) {
+                    std::ifstream objFile(filename);
+                    std::string lineString;
+                    std::getline(objFile, lineString);
+                    if (lineString.find("# Blender") != std::string::npos) {
+                        isObjTriangleMeshFile = true;
+                    }
+                    while (std::getline(objFile, lineString)) {
+                        if (sgl::startsWith(lineString, "f ")) {
+                            isObjTriangleMeshFile = true;
+                            break;
+                        }
+                        if (sgl::startsWith(lineString, "l ")) {
+                            isObjTriangleMeshFile = false;
+                            break;
+                        }
+                    }
+                    objFile.close();
+                }
+            }
 
             /*
              * The program supports two types of .dat file:
@@ -1077,12 +1105,14 @@ void MainApp::renderGui() {
                 scatteringLineTracingRequester->setShowWindow(true);
             } else {
                 selectedDataSetIndex = 0;
-                if (boost::ends_with(filenameLower, ".obj")
+                if ((isObjFile && !isObjTriangleMeshFile)
                         || boost::ends_with(filenameLower, ".binlines") || isNcFile) {
                     dataSetType = DATA_SET_TYPE_FLOW_LINES;
                 } else if (isDatFile) {
                     dataSetType = DATA_SET_TYPE_STRESS_LINES;
-                } if (boost::ends_with(filenameLower, ".bobj")) {
+                } else if ((isObjFile && isObjTriangleMeshFile)
+                        || boost::ends_with(filenameLower, ".bobj")
+                        || boost::ends_with(filenameLower, ".stl")) {
                     dataSetType = DATA_SET_TYPE_TRIANGLE_MESH;
                 } else {
                     sgl::Logfile::get()->writeError("The selected file name has an unknown extension.");
@@ -1209,8 +1239,9 @@ void MainApp::renderGui() {
                     if (dataView->viewportWidth > 0 && dataView->viewportHeight > 0
                             && (reRenderLocal || continuousRendering)) {
                         //if (dataView->lineRenderer && dataView->lineRenderer->getRenderingMode() == ) {
-                        dataView->updateCameraMode();
-                        //}
+                        if (dataView->lineRenderer) {
+                            dataView->updateCameraMode();
+                        }
 
                         dataView->beginRender();
 
@@ -1237,6 +1268,9 @@ void MainApp::renderGui() {
                             std::string screenshotFilename =
                                     saveDirectoryScreenshots + saveFilenameScreenshots
                                     + "_" + sgl::toString(screenshotNumber);
+                            if (dataViews.size() > 1) {
+                                screenshotFilename += "_view" + sgl::toString(i);
+                            }
                             screenshotFilename += ".png";
 
                             dataView->screenshotReadbackHelper->setScreenshotTransparentBackground(
@@ -1576,7 +1610,8 @@ void MainApp::openFileDialog() {
     IGFD_OpenModal(
             fileDialogInstance,
             "ChooseDataSetFile", "Choose a File",
-            ".*,.obj,.dat,.binlines,.nc,.vtk,.bin,.stress,.carti,.xyz,.nvdb",
+            ".*,.obj,.dat,.binlines,.nc,.vtk,.vti,.vts,.bin,.stress,.carti,.am,.field,.grib,.grb,.raw,.xyz,.nvdb,"
+            ".bobj,.stl",
             fileDialogDirectory.c_str(),
             "", 1, nullptr,
             ImGuiFileDialogFlags_ConfirmOverwrite);
@@ -2338,6 +2373,7 @@ void MainApp::prepareVisualizationPipeline() {
             filterData(isPreviousNodeDirty);
             if (isPreviousNodeDirty) {
                 lineData->setTriangleRepresentationDirty();
+                lineData->setIsDirty(true);
             }
             bool isTriangleRepresentationDirty = lineData->isTriangleRepresentationDirty();
             for (DataViewPtr& dataView : dataViews) {

@@ -27,6 +27,12 @@
  */
 
 #include <glm/glm.hpp>
+
+#ifdef USE_TBB
+#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
+#endif
+
 #include <Math/Math.hpp>
 #include "VolumetricPathTracingPass.hpp"
 #include "SuperVoxelGrid.hpp"
@@ -95,11 +101,16 @@ SuperVoxelGridResidualRatioTracking::~SuperVoxelGridResidualRatioTracking() {
 void SuperVoxelGridResidualRatioTracking::computeSuperVoxels(const float* voxelGridData) {
     int superVoxelGridSize = superVoxelGridSizeX * superVoxelGridSizeY * superVoxelGridSizeZ;
 
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<int>(0, superVoxelGridSize), [&](auto const& r) {
+        for (auto superVoxelIdx = r.begin(); superVoxelIdx != r.end(); superVoxelIdx++) {
+#else
 #if _OPENMP >= 200805
-#pragma omp parallel for firstprivate(superVoxelGridSize) default(none) \
+    #pragma omp parallel for firstprivate(superVoxelGridSize) default(none) \
     shared(voxelGridData, superVoxelGridMinDensity, superVoxelGridMaxDensity, superVoxelGridAvgDensity, clampToZeroBorder)
 #endif
     for (int superVoxelIdx = 0; superVoxelIdx < superVoxelGridSize; superVoxelIdx++) {
+#endif
         int superVoxelIdxX = superVoxelIdx % superVoxelGridSizeX;
         int superVoxelIdxY = (superVoxelIdx / superVoxelGridSizeX) % superVoxelGridSizeY;
         int superVoxelIdxZ = superVoxelIdx / (superVoxelGridSizeX * superVoxelGridSizeY);
@@ -194,6 +205,9 @@ void SuperVoxelGridResidualRatioTracking::computeSuperVoxels(const float* voxelG
         superVoxelGridMaxDensity[superVoxelIdx] = densityMax;
         superVoxelGridAvgDensity[superVoxelIdx] = densityAvg;
     }
+#ifdef USE_TBB
+    });
+#endif
 }
 
 void SuperVoxelGridResidualRatioTracking::setExtinction(float extinction) {
@@ -207,11 +221,16 @@ void SuperVoxelGridResidualRatioTracking::recomputeSuperVoxels() {
     const float gamma = 2.0f;
     const float D = std::sqrt(3.0f) * float(std::max(superVoxelSize.x, std::max(superVoxelSize.y, superVoxelSize.z)));
 
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<int>(0, superVoxelGridSize), [&](auto const& r) {
+        for (auto superVoxelIdx = r.begin(); superVoxelIdx != r.end(); superVoxelIdx++) {
+#else
 #if _OPENMP >= 200805
-#pragma omp parallel for firstprivate(superVoxelGridSize, D, gamma) default(none) \
+    #pragma omp parallel for firstprivate(superVoxelGridSize, D, gamma) default(none) \
     shared(superVoxelGridMinDensity, superVoxelGridMaxDensity, superVoxelGridAvgDensity)
 #endif
     for (int superVoxelIdx = 0; superVoxelIdx < superVoxelGridSize; superVoxelIdx++) {
+#endif
         float densityMin = superVoxelGridMinDensity[superVoxelIdx];
         float densityMax = superVoxelGridMaxDensity[superVoxelIdx];
         float densityAvg = superVoxelGridAvgDensity[superVoxelIdx];
@@ -235,6 +254,9 @@ void SuperVoxelGridResidualRatioTracking::recomputeSuperVoxels() {
         bool isSuperVoxelEmpty = densityMax < 1e-5f;
         superVoxelGridOccupany[superVoxelIdx] = isSuperVoxelEmpty ? 0 : 1;
     }
+#ifdef USE_TBB
+    });
+#endif
 
     superVoxelGridTexture->getImage()->uploadData(
             superVoxelGridSize * sizeof(SuperVoxelResidualRatioTracking), superVoxelGrid);
@@ -291,11 +313,16 @@ SuperVoxelGridDecompositionTracking::SuperVoxelGridDecompositionTracking(
     samplerSettings.borderColor = VK_BORDER_COLOR_INT_TRANSPARENT_BLACK;
     superVoxelGridOccupancyTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
 
+#ifdef USE_TBB
+    tbb::parallel_for(tbb::blocked_range<int>(0, superVoxelGridSize), [&](auto const& r) {
+        for (auto superVoxelIdx = r.begin(); superVoxelIdx != r.end(); superVoxelIdx++) {
+#else
 #if _OPENMP >= 200805
-#pragma omp parallel for firstprivate(superVoxelGridSize) default(none) \
+    #pragma omp parallel for firstprivate(superVoxelGridSize) default(none) \
     shared(voxelGridSizeX, voxelGridSizeY, voxelGridSizeZ, voxelGridData, superVoxelGridMinMaxDensity, clampToZeroBorder)
 #endif
     for (int superVoxelIdx = 0; superVoxelIdx < superVoxelGridSize; superVoxelIdx++) {
+#endif
         int superVoxelIdxX = superVoxelIdx % superVoxelGridSizeX;
         int superVoxelIdxY = (superVoxelIdx / superVoxelGridSizeX) % superVoxelGridSizeY;
         int superVoxelIdxZ = superVoxelIdx / (superVoxelGridSizeX * superVoxelGridSizeY);
@@ -367,6 +394,9 @@ SuperVoxelGridDecompositionTracking::SuperVoxelGridDecompositionTracking(
         bool isSuperVoxelEmpty = densityMax < 1e-5f;
         superVoxelGridOccupany[superVoxelIdx] = isSuperVoxelEmpty ? 0 : 1;
     }
+#ifdef USE_TBB
+    });
+#endif
 
     superVoxelGridTexture->getImage()->uploadData(
             superVoxelGridSize * sizeof(glm::vec2), superVoxelGridMinMaxDensity);

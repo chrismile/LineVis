@@ -30,6 +30,11 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
 
+#ifdef USE_TBB
+#include <tbb/parallel_reduce.h>
+#include <tbb/blocked_range.h>
+#endif
+
 #include <Utils/StringUtils.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Texture/Bitmap.hpp>
@@ -544,6 +549,17 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
         maxHelicity = std::max(std::abs(minMaxHelicity.x), std::abs(minMaxHelicity.y));
     }
 
+#ifdef USE_TBB
+    numTotalTrajectoryPoints = tbb::parallel_reduce(
+            tbb::blocked_range<size_t>(0, trajectories.size()), 0,
+            [&trajectories](tbb::blocked_range<size_t> const& r, size_t numTotalTrajectoryPoints) {
+                for (auto i = r.begin(); i != r.end(); i++) {
+                    const Trajectory& trajectory = trajectories.at(i);
+                    numTotalTrajectoryPoints += trajectory.positions.size();
+                }
+                return numTotalTrajectoryPoints;
+            }, std::plus<>{});
+#else
     numTotalTrajectoryPoints = 0;
 #if _OPENMP >= 201107
     #pragma omp parallel for reduction(+: numTotalTrajectoryPoints) shared(trajectories) default(none)
@@ -552,6 +568,7 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
         const Trajectory& trajectory = trajectories.at(i);
         numTotalTrajectoryPoints += trajectory.positions.size();
     }
+#endif
 
     modelBoundingBox = computeTrajectoriesAABB3(this->trajectories);
     focusBoundingBox = modelBoundingBox;

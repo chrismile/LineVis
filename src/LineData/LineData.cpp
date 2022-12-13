@@ -26,6 +26,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef USE_TBB
+#include <tbb/parallel_reduce.h>
+#include <tbb/blocked_range.h>
+#endif
+
 #include <Utils/Dialog.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Vulkan/Shader/ShaderManager.hpp>
@@ -33,12 +38,12 @@
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <Graphics/Vulkan/Render/AccelerationStructure.hpp>
 
+#include <Utils/Mesh/TriangleNormals.hpp>
+#include <Utils/Mesh/MeshSmoothing.hpp>
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_custom.h>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 
-#include "Utils/TriangleNormals.hpp"
-#include "Utils/MeshSmoothing.hpp"
 #include "Renderers/LineRenderer.hpp"
 #include "Mesh/MeshBoundarySurface.hpp"
 #include "LineData.hpp"
@@ -245,7 +250,7 @@ bool LineData::updateLinePrimitiveMode(LineRenderer* lineRenderer) {
 bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer) {
     bool shallReloadGatherShader = false;
 
-    if (lineRenderer->getIsRasterizer()) {
+    if (lineRenderer->getIsRasterizer() && getType() != DATA_SET_TYPE_TRIANGLE_MESH) {
         int numPrimitiveModes = IM_ARRAYSIZE(LINE_PRIMITIVE_MODE_DISPLAYNAMES);
         if (!hasBandsData) {
             numPrimitiveModes -= 5;
@@ -665,8 +670,8 @@ void LineData::loadSimulationMeshOutlineFromFile(
     loadMeshBoundarySurfaceFromFile(
             simulationMeshFilename, simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
     normalizeVertexPositions(simulationMeshOutlineVertexPositions, oldAABB, transformationMatrixPtr);
-    laplacianSmoothing(simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
-    computeSmoothTriangleNormals(
+    sgl::laplacianSmoothing(simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
+    sgl::computeSmoothTriangleNormals(
             simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions,
             simulationMeshOutlineVertexNormals);
 }
@@ -746,11 +751,34 @@ std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> LineData::getTubeTrian
 void LineData::splitTriangleIndices(
         std::vector<uint32_t>& tubeTriangleIndices,
         const std::vector<TubeTriangleVertexData> &tubeTriangleVertexDataList) {
+#ifdef USE_TBB
+
+    sgl::AABB3 geometryAABB = tbb::parallel_reduce(
+            tbb::blocked_range<size_t>(0, tubeTriangleVertexDataList.size()), sgl::AABB3(),
+            [&tubeTriangleVertexDataList](tbb::blocked_range<size_t> const& r, sgl::AABB3 init) {
+                for (auto i = r.begin(); i != r.end(); i++) {
+                    const glm::vec3& pt = tubeTriangleVertexDataList.at(i).vertexPosition;
+                    init.min.x = std::min(init.min.x, pt.x);
+                    init.min.y = std::min(init.min.y, pt.y);
+                    init.min.z = std::min(init.min.z, pt.z);
+                    init.max.x = std::max(init.max.x, pt.x);
+                    init.max.y = std::max(init.max.y, pt.y);
+                    init.max.z = std::max(init.max.z, pt.z);
+                }
+                return init;
+            },
+            [&](sgl::AABB3 lhs, sgl::AABB3 rhs) -> sgl::AABB3 {
+                lhs.combine(rhs);
+                return lhs;
+            });
+
+#else
+
     sgl::AABB3 geometryAABB;
     float minX = FLT_MAX, minY = FLT_MAX, minZ = FLT_MAX, maxX = -FLT_MAX, maxY = -FLT_MAX, maxZ = -FLT_MAX;
 #if _OPENMP >= 201107
     #pragma omp parallel for shared(tubeTriangleVertexDataList) default(none) reduction(min: minX) \
-    reduction(min: minY)  reduction(min: minZ) reduction(max: maxX) reduction(max: maxY) reduction(max: maxZ)
+    reduction(min: minY) reduction(min: minZ) reduction(max: maxX) reduction(max: maxY) reduction(max: maxZ)
 #endif
     for (size_t i = 0; i < tubeTriangleVertexDataList.size(); i++) {
         const glm::vec3& pt = tubeTriangleVertexDataList.at(i).vertexPosition;
@@ -763,6 +791,8 @@ void LineData::splitTriangleIndices(
     }
     geometryAABB.min = glm::vec3(minX, minY, minZ);
     geometryAABB.max = glm::vec3(maxX, maxY, maxZ);
+
+#endif
 
     // Assume here that in all subdivisions we have the same amount of data.
     size_t numIndicesPerBatch = batchSizeLimit;
