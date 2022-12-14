@@ -123,6 +123,10 @@ jobs:
         echo "USER=$USER" >> $GITHUB_ENV
         #export LD_LIBRARY_PATH="${{env.swiftshader_DIR}}/build/Linux"
         export VK_ICD_FILENAMES="${{env.swiftshader_DIR}}/build/Linux/vk_swiftshader_icd.json"
+        if [ "${{env.PKG_CONFIG_PATH}}" != "" ]; then
+          VK_LAYER_PATH=""
+          source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
+        fi
         ${{github.workspace}}/build/LineVis_test
 
     - name: Archive logs and failure case images
