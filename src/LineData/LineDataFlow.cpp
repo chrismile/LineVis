@@ -551,7 +551,7 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
 
 #ifdef USE_TBB
     numTotalTrajectoryPoints = tbb::parallel_reduce(
-            tbb::blocked_range<size_t>(0, trajectories.size()), 0,
+            tbb::blocked_range<size_t>(0, trajectories.size()), size_t(0),
             [&trajectories](tbb::blocked_range<size_t> const& r, size_t numTotalTrajectoryPoints) {
                 for (auto i = r.begin(); i != r.end(); i++) {
                     const Trajectory& trajectory = trajectories.at(i);
