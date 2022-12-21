@@ -290,7 +290,7 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                             ".*,.png",
                             sgl::AppSettings::get()->getDataDirectory().c_str(),
                             "", 1, nullptr,
-                            ImGuiFileDialogFlags_ConfirmOverwrite);
+                            ImGuiFileDialogFlags_None);
                 }
                 if (propertyEditor.addCombo(
                         "Texture Filtering", &textureFilteringModeIndex,

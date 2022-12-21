@@ -825,7 +825,7 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
                     ".*,.png,.exr",
                     sgl::AppSettings::get()->getDataDirectory().c_str(),
                     "", 1, nullptr,
-                    ImGuiFileDialogFlags_ConfirmOverwrite);
+                    ImGuiFileDialogFlags_None);
         }
 
         if (isEnvironmentMapLoaded && propertyEditor.addCheckbox(

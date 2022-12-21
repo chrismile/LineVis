@@ -1614,7 +1614,7 @@ void MainApp::openFileDialog() {
             ".bobj,.stl",
             fileDialogDirectory.c_str(),
             "", 1, nullptr,
-            ImGuiFileDialogFlags_ConfirmOverwrite);
+            ImGuiFileDialogFlags_None);
 }
 
 void MainApp::renderGuiMenuBar() {
