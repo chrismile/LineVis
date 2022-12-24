@@ -946,7 +946,7 @@ glm::dvec3 StreamlineTracingGrid::_getVectorAtPositionDouble(
 /**
  * Helper function for StreamlineTracingGrid::rayBoxIntersection (see below).
  */
-bool StreamlineTracingGrid::rayBoxPlaneIntersection(
+bool StreamlineTracingGrid::_rayBoxPlaneIntersection(
         float rayOriginX, float rayDirectionX, float lowerX, float upperX, float& tNear, float& tFar) {
     if (std::abs(rayDirectionX) < 0.00001f) {
         // Ray is parallel to the x planes
@@ -998,7 +998,7 @@ bool StreamlineTracingGrid::_rayBoxIntersection(
     tNear = std::numeric_limits<float>::lowest();
     tFar = std::numeric_limits<float>::max();
     for (int i = 0; i < 3; i++) {
-        if (!rayBoxPlaneIntersection(
+        if (!_rayBoxPlaneIntersection(
                 rayOrigin[i], rayDirection[i], lower[i], upper[i], tNear, tFar)) {
             return false;
         }

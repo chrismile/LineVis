@@ -1830,7 +1830,8 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
             ImGui::SameLine();
             float indentWidth = ImGui::GetContentRegionAvail().x;
             ImGui::Indent(indentWidth);
-            if (ImGui::Button("X")) {
+            std::string buttonName = "X###x_view" + std::to_string(i);
+            if (ImGui::Button(buttonName.c_str())) {
                 removeView = true;
             }
             ImGui::Unindent(indentWidth);

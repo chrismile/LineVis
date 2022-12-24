@@ -241,7 +241,7 @@ fi
 
 if [ ! -d "./vcpkg" ]; then
     echo "------------------------"
-    echo "   fetching vcpkg       "
+    echo "    fetching vcpkg      "
     echo "------------------------"
     if [[ ! -v VULKAN_SDK ]]; then
         echo "The environment variable VULKAN_SDK is not set but is required in the installation process."
