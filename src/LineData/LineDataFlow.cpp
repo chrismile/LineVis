@@ -547,6 +547,8 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
         //useRibbons = false;
         glm::vec2 minMaxHelicity = minMaxAttributeValues.at(helicityAttributeIndex);
         maxHelicity = std::max(std::abs(minMaxHelicity.x), std::abs(minMaxHelicity.y));
+    } else {
+        useRotatingHelicityBands = false;
     }
 
 #ifdef USE_TBB

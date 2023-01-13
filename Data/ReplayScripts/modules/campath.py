@@ -75,6 +75,27 @@ def camera_path_circle(
         g.set_duration(total_time / subdivisions)
 
 
+def camera_pitch_rotation_smooth(yaw, pitch_start, pitch_end, total_time, acceleration=0.4):
+    # Bezier curve control points.
+    p0 = (0, 0)
+    p1 = (0.0 + acceleration, 0)
+    p2 = (1.0 - acceleration, 1)
+    p3 = (1, 1)
+
+    subdivisions = 256
+
+    def f(t):
+        return t * (3 + t * (-6 + t * 4))
+
+    g.set_duration(0.0)
+    for i in range(subdivisions + 1):
+        t = f_cubic_bezier(i / subdivisions, p0, p1, p2, p3)
+        pitch = pitch_start + t * (pitch_end - pitch_start)
+        yaw_pitch = (yaw, pitch)
+        g.set_camera_yaw_pitch_rad(yaw_pitch)
+        g.set_duration(total_time / subdivisions)
+
+
 def jitter_camera(center, position, yaw, pitch, num_iterations=1, radius=None):
     pitch *= -1
     angle_std = yaw - math.pi

@@ -877,6 +877,9 @@ void MainApp::render() {
         if (videoWriter) {
             videoWriter->onSwapchainRecreated();
         }
+        if (!useDockSpaceMode && lineRenderer) {
+            lineRenderer->onResolutionChanged();
+        }
         scheduledRecreateSceneFramebuffer = false;
     }
 
