@@ -41,11 +41,16 @@ def f_cubic_bezier(x, p0, p1, p2, p3):
 
 def camera_path_circle(
         angle_start, angle_end, radius_start, radius_end, total_time,
-        pitch=0.0, center=(0.0, 0.0, 0.0), acceleration=0.4):
+        pitch=0.0, center=(0.0, 0.0, 0.0), acceleration=0.4, acceleration_start=None, acceleration_end=None,
+        radius_functor=None):
     # Bezier curve control points.
+    if acceleration_start is None:
+        acceleration_start = acceleration
+    if acceleration_end is None:
+        acceleration_end = acceleration
     p0 = (0, 0)
-    p1 = (0.0 + acceleration, 0)
-    p2 = (1.0 - acceleration, 1)
+    p1 = (0.0 + acceleration_start, 0)
+    p2 = (1.0 - acceleration_end, 1)
     p3 = (1, 1)
 
     subdivisions = 256
@@ -58,7 +63,10 @@ def camera_path_circle(
         t = f_cubic_bezier(i / subdivisions, p0, p1, p2, p3)
         time = t * total_time
         angle = angle_start + t * (angle_end - angle_start)
-        radius = radius_start + t * (radius_end - radius_start)
+        if radius_functor is None:
+            radius = radius_start + t * (radius_end - radius_start)
+        else:
+            radius = radius_functor(t)
 
         if pitch == 0.0:
             camera_pos = (math.cos(angle) * radius + center[0], center[1], math.sin(angle) * radius + center[2])

@@ -1,4 +1,5 @@
 import math
+from functools import partial
 from modules.campath import camera_path_circle, jitter_camera, camera_pitch_rotation_smooth
 import g
 
@@ -25,6 +26,7 @@ def init_scene(start_look_at, start_position, start_yaw, start_pitch):
         'ambient_occlusion_denoiser': 'OptiX Denoiser',
     })
     g.set_dataset_settings({
+        'use_capped_tubes' : True,
         'tube_num_subdivisions': 32,
         'hull_opacity': 0.0,
         'thick_bands': True,
@@ -65,13 +67,22 @@ def multivar():
         'use_multi_var_rendering': True,
         'selected_multi_vars_string': 'Turbulence_Kinetic5'
     })
+    # Helicity, Pressure, Total_Pressure, Total_Pressure_in_4, Turbulence_Kinetic5, Velocity Magnitude, Vorticity Magnitude
     g.set_transfer_functions([
-        'Standard.xml', 'Standard.xml', 'Standard.xml', 'Standard.xml', 'reds.xml', 'Standard.xml', 'blues.xml'
+        'Standard.xml', 'Standard.xml', 'greens.xml', 'greens.xml', 'reds.xml', 'Standard.xml', 'blues.xml'
     ])
     g.set_transfer_functions_ranges([
-        (0.0, 1.0), (0.0, 1.0), (0.0, 1.0), (0.0, 1.0), (0.0, 0.6), (0.0, 1.0), (0.0, 600.0)
+        (0.0, 1.0), (0.0, 1.0), (-32000.0, -49000.0), (-40000.0, 30000.0), (0.0, 0.6), (0.0, 1.0), (0.0, 600.0)
     ])
 
+
+def radius_functor(closeup_radius, t):
+    t2 = math.fmod(2.0 * t, 1.0)
+    if t < 0.5:
+        radius_factor = 0.7
+    else:
+        radius_factor = 1.0
+    return closeup_radius * (1.0 + radius_factor * (1.0 - abs(1.0 - 2.0 * t2)))
 
 def replay():
     start_look_at = (0.0, 0.0, 0.0)
@@ -103,17 +114,31 @@ def replay():
         'selected_multi_vars_string': 'Turbulence_Kinetic5,Vorticity Magnitude'
     })
     g.set_duration(4)
-    g.set_duration(6)
 
     camera_pitch_rotation_smooth(closeup_yaw, closeup_pitch, closeup_pitch + math.pi / 12, 4)
     camera_pitch_rotation_smooth(closeup_yaw, closeup_pitch + math.pi / 12, closeup_pitch - math.pi / 10, 8)
     camera_pitch_rotation_smooth(closeup_yaw, closeup_pitch - math.pi / 10, closeup_pitch, 4)
-
     g.set_duration(4)
 
     change_twist_line_frequency()
+    g.set_duration(2)
 
-    g.set_duration(4)
+    g.set_duration(0)
+    g.set_dataset_settings({
+        'selected_multi_vars_string': 'Total_Pressure,Turbulence_Kinetic5,Vorticity Magnitude'
+    })
+    g.set_duration(6)
+
+    diff_vec = (
+        closeup_center[0] - closeup_position[0],
+        closeup_center[1] - closeup_position[1],
+        closeup_center[2] - closeup_position[2])
+    closeup_radius = math.sqrt(diff_vec[0] * diff_vec[0] + diff_vec[1] * diff_vec[1] + diff_vec[2] * diff_vec[2])
+    camera_path_circle(
+        angle_start=closeup_yaw - math.pi, angle_end=closeup_yaw + math.pi, pitch=-closeup_pitch,
+        radius_start=closeup_radius, radius_end=closeup_radius, radius_functor=partial(radius_functor, closeup_radius),
+        total_time=40, center=closeup_center, acceleration=0.2)
+    g.set_duration(2)
 
     g.set_duration(0)
     g.set_dataset_settings({
