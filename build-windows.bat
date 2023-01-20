@@ -52,9 +52,6 @@ if not defined VCINSTALLDIR (
     set cmake_generator=
 )
 
-if not exist .\third_party\ mkdir .\third_party\
-pushd third_party
-
 if not exist .\submodules\IsosurfaceCpp\src (
    echo ------------------------
    echo initializing submodules
@@ -62,6 +59,9 @@ if not exist .\submodules\IsosurfaceCpp\src (
    git submodule init   || exit /b 1
    git submodule update || exit /b 1
 )
+
+if not exist .\third_party\ mkdir .\third_party\
+pushd third_party
 
 if not exist .\vcpkg (
    echo ------------------------
