@@ -112,7 +112,7 @@ jobs:
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v10
       with:
-        vcpkgGitCommitId: 'e51afe4695ebf5e6c6f523dbd3bb518db1970531'
+        vcpkgGitCommitId: 'e69dd972ba64840955f46704ecce6241bf607c0f'
         #doNotCacheOnWorkflowFailure: true
 
     - name: Create custom vcpkg triplet
@@ -148,6 +148,14 @@ jobs:
 
     - name: Install (sgl)
       run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --target install
+
+    - name: Cleanup sgl build files (Windows only)
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        # Recently, there were some "There is not enough space on the disk" errors when building the application.
+        # Remove the sgl build folder after install to make sure enough space is left on the disk for the next steps.
+        rm -rf "${{env.sgl_REPO_DIR}}/build"
 
     - name: Configure CMake (LineVis)
       shell: bash
