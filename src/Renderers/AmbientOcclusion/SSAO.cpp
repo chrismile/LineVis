@@ -123,6 +123,8 @@ void SSAO::onResolutionChanged() {
     //imageSettings.format = VK_FORMAT_R32_SFLOAT;
     aoTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
     blurPassTmpTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
+    hasTextureResolutionChanged = true;
+    onHasMoved();
 
     gbufferPass->setOutputImages(positionTexture->getImageView(), normalTexture->getImageView());
     gbufferPass->recreateSwapchain(width, height);
