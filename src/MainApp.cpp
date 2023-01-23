@@ -915,7 +915,7 @@ void MainApp::render() {
 
     if (!useDockSpaceMode) {
         if (lineRenderer != nullptr) {
-            reRender = reRender || lineRenderer->needsReRender();
+            reRender |= lineRenderer->needsReRender();
             componentOtherThanRendererNeedsReRender |= lineRenderer->needsInternalReRender();
         }
         if (lineRenderer && componentOtherThanRendererNeedsReRender) {

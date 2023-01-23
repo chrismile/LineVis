@@ -16,7 +16,10 @@ def init_scene(start_look_at, start_position, start_yaw, start_pitch):
         'line_width': 0.006,
         'band_width': 0.007,
         'depth_cue_strength': 0.4,
-        'supersampling': 2
+        'supersampling': 2,
+        'ambient_occlusion_mode': 'SSAO',
+        'ambient_occlusion_strength': 0.75,
+        'ambient_occlusion_gamma': 1.5
     })
     g.set_dataset_settings({
         'use_capped_tubes' : True,

@@ -440,6 +440,20 @@ bool LineRenderer::setNewSettings(const SettingsMap& settings) {
         }
     }
 
+    std::string ambientOcclusionModeName;
+    if (settings.getValueOpt("ambient_occlusion_mode", ambientOcclusionModeName)) {
+        for (int i = 0; i < IM_ARRAYSIZE(AMBIENT_OCCLUSION_BAKER_TYPE_NAMES); i++) {
+            if (ambientOcclusionModeName == AMBIENT_OCCLUSION_BAKER_TYPE_NAMES[i]) {
+                if (ambientOcclusionBakerType == AmbientOcclusionBakerType(i)) {
+                    break;
+                }
+                ambientOcclusionBakerType = AmbientOcclusionBakerType(i);
+                setAmbientOcclusionBaker();
+                break;
+            }
+        }
+    }
+
     if (settings.getValueOpt("ambient_occlusion_strength", ambientOcclusionStrength)) {
         if (ambientOcclusionStrength <= 0.0f && useAmbientOcclusion) {
             useAmbientOcclusion = false;
