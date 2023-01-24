@@ -243,6 +243,12 @@ bool LineData::updateLinePrimitiveMode(LineRenderer* lineRenderer) {
         linePrimitiveMode = LINE_PRIMITIVES_TUBE_PROGRAMMABLE_PULL;
     }
     dirty = true;
+
+    if (lineRenderer && lineRenderer->useAmbientOcclusion && lineRenderer->ambientOcclusionBaker && getUseCappedTubes()
+            && lineRenderer->isRasterizer && !lineRenderer->getIsTriangleRepresentationUsedByPrimitiveMode()) {
+        setUseCappedTubes(lineRenderer, false);
+    }
+
     shallReloadGatherShader = true;
     return shallReloadGatherShader;
 }

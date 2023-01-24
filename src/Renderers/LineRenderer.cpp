@@ -104,6 +104,13 @@ bool LineRenderer::getIsTriangleRepresentationUsed() const {
     return (lineData && primitiveModeUsesTriMesh) || (useAmbientOcclusion && ambientOcclusionBaker);
 }
 
+bool LineRenderer::getIsTriangleRepresentationUsedByPrimitiveMode() const {
+    bool primitiveModeUsesTriMesh =
+            lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
+            || lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH;
+    return primitiveModeUsesTriMesh;
+}
+
 void LineRenderer::update(float dt) {
 }
 
@@ -312,7 +319,8 @@ void LineRenderer::setAmbientOcclusionBaker() {
             showRayQueriesUnsupportedWarning();
             return;
         }
-        if (lineData && lineData->getUseCappedTubes() && isRasterizer && !getIsTriangleRepresentationUsed()) {
+        if (lineData && lineData->getUseCappedTubes() && isRasterizer
+                && !getIsTriangleRepresentationUsedByPrimitiveMode()) {
             lineData->setUseCappedTubes(this, false);
         }
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(new VulkanRayTracedAmbientOcclusion(sceneData, renderer));
