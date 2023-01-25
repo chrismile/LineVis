@@ -27,6 +27,7 @@
  */
 
 #include <Utils/AppSettings.hpp>
+#include <Utils/Defer.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <Graphics/Vulkan/Render/CommandBuffer.hpp>
 #include <Graphics/Vulkan/Render/RayTracingPipeline.hpp>
@@ -314,6 +315,16 @@ void VulkanRayTracedAmbientOcclusionPass::recreateFeatureMaps() {
     }
 
     setDenoiserFeatureMaps();
+
+    // NOTE(Felix): initialization code
+    static bool first_iteration = true;
+    defer { first_iteration = false; };
+    if (first_iteration) {
+        denoiserType = DenoiserType::SVGF;
+        changedDenoiserSettings = true;
+        createDenoiser();
+    }
+
 }
 
 void VulkanRayTracedAmbientOcclusionPass::checkRecreateFeatureMaps() {
@@ -405,6 +416,7 @@ void VulkanRayTracedAmbientOcclusionPass::setComputePipelineInfo(sgl::vk::Comput
 
 void VulkanRayTracedAmbientOcclusionPass::createComputeData(
         sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
+
     computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
     computeData->setStaticImageView(accumulationTexture->getImageView(), "outputImage");
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::NORMAL)) {

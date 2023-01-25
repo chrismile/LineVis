@@ -27,6 +27,7 @@
  */
 
 #include <Utils/Dialog.hpp>
+#include <Utils/Defer.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
@@ -105,6 +106,13 @@ bool LineRenderer::getIsTriangleRepresentationUsed() const {
 }
 
 void LineRenderer::update(float dt) {
+    static bool first_run = true;
+    defer { first_run = false; };
+    if (first_run) {
+        ambientOcclusionStrength = 1;
+        useAmbientOcclusion = true;
+        updateAmbientOcclusionMode();
+    }
 }
 
 void LineRenderer::onResolutionChanged() {
@@ -563,6 +571,7 @@ void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                 && mode != RENDERING_MODE_VOLUMETRIC_PATH_TRACER) {
             ImGui::EditMode editModeAo = propertyEditor.addSliderFloatEdit(
                     "AO Strength", &ambientOcclusionStrength, 0.0f, 1.0f);
+
             if (editModeAo != ImGui::EditMode::NO_CHANGE) {
                 reRender = true;
                 internalReRender = true;

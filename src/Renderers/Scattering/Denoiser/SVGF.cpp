@@ -43,20 +43,23 @@
   SVGF NEEDS
   ----------
   Current Frame:
-    - Color
+    - AO (Color)
     - Motion
     - Normal
-    - Depth&Mesh ID
+    - Depth
+    - Mesh ID
 
   Last Frame:
-    - Moment History
-    - Color History
+    - Moment History (intgrated variance)
+    - Color History (result of first iteration of last frame)
     - Normal
-    - Depth&Mesh ID
+    - Depth
+    - Mesh ID
 
  */
 
 #include "SVGF.hpp"
+
 
 SVGFDenoiser::SVGFDenoiser(sgl::vk::Renderer* renderer) {
     svgfBlitPass = std::make_shared<SVGFBlitPass>(renderer);
@@ -94,8 +97,9 @@ void SVGFDenoiser::setUseFeatureMap(FeatureMapType featureMapType, bool useFeatu
 
 void SVGFDenoiser::denoise() {
     svgfBlitPass->render();
-    svgfBlitPass->set_previous_frame_data();
+    // svgfBlitPass->set_previous_frame_data();
 }
+
 
 void SVGFDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
     svgfBlitPass->recreateSwapchain(width, height);
@@ -182,18 +186,18 @@ void SVGFBlitPass::recreateSwapchain(uint32_t width, uint32_t height) {
         }
 
         // normal
+        sgl::vk::ImageSettings im_settings = current_frame.normal_texture->getImage()->getImageSettings();
+        im_settings.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
         previous_frame.normal_texture = {};
-        previous_frame.normal_texture =
-            std::make_shared<sgl::vk::Texture>(
-                current_frame.color_texture->getImageView()->copy(true, false),
-                current_frame.color_texture->getImageSampler());
+        previous_frame.normal_texture = std::make_shared<sgl::vk::Texture>(device, im_settings);
 
         // depth
+        im_settings = current_frame.depth_texture->getImage()->getImageSettings();
+        im_settings.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
         previous_frame.depth_texture = {};
-        previous_frame.depth_texture =
-            std::make_shared<sgl::vk::Texture>(
-                current_frame.color_texture->getImageView()->copy(true, false),
-                current_frame.color_texture->getImageSampler());
+        previous_frame.depth_texture = std::make_shared<sgl::vk::Texture>(device, im_settings);
     }
 
 
@@ -243,14 +247,26 @@ void SVGFBlitPass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::Compu
         computeDataPingPong[i]->setStaticTexture(current_frame.motion_texture, "motion_texture");
         computeDataPingPongFinal[i]->setStaticTexture(current_frame.motion_texture, "motion_texture");
 
+        // prev frame
+        computeDataPingPong[i]->setStaticTexture(previous_frame.color_history_texture, "color_history_texture");
+        computeDataPingPongFinal[i]->setStaticTexture(previous_frame.color_history_texture, "color_history_texture");
+
+        // TODO(Felix): warum war moments_history_texture hier pingpong??
+        computeDataPingPong[i]->setStaticTexture(previous_frame.moments_history_texture[0], "variance_history_texture");
+        computeDataPingPongFinal[i]->setStaticTexture(previous_frame.moments_history_texture[0], "variance_history_texture");
+
+        computeDataPingPong[i]->setStaticTexture(previous_frame.depth_texture, "depth_history_texture");
+        computeDataPingPongFinal[i]->setStaticTexture(previous_frame.depth_texture, "depth_history_texture");
+
+        // computeDataPingPong[i]->setStaticTexture(previous_frame.normal_texture, "normals_history_texture");
+        // computeDataPingPongFinal[i]->setStaticTexture(previous_frame.normal_texture, "normals_history_texture");
+
     }
 }
 
 void SVGFBlitPass::_render() {
     if (maxNumIterations < 1) {
         renderer->transitionImageLayout(current_frame.color_texture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-        // TODO(Felix) I changed `outputImageViews.front()->getImage()` to
-        // `output_image->getImage()`, is that okay?
         renderer->transitionImageLayout(output_image->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         current_frame.color_texture->getImage()->blit(output_image->getImage(), renderer->getVkCommandBuffer());
         renderer->syncWithCpu();
@@ -276,7 +292,6 @@ void SVGFBlitPass::_render() {
         auto width = int(current_frame.color_texture->getImage()->getImageSettings().width);
         auto height = int(current_frame.color_texture->getImage()->getImageSettings().height);
 
-        int32_t stepWidth = 1;
         for (int i = 0; i < maxNumIterations; i++) {
             int computeDataIdx;
             sgl::vk::ComputeDataPtr computeData;
@@ -291,9 +306,17 @@ void SVGFBlitPass::_render() {
                 computeData = computeDataPingPong[computeDataIdx];
             }
 
+            struct {
+                int i;
+                float z_multiplier;
+            } pc;
+
+            pc.i = i;
+            pc.z_multiplier = z_multiplier;
+
             renderer->pushConstants(
                 std::static_pointer_cast<sgl::vk::Pipeline>(computeData->getComputePipeline()),
-                VK_SHADER_STAGE_COMPUTE_BIT, 0, stepWidth);
+                VK_SHADER_STAGE_COMPUTE_BIT, 0, pc);
             renderer->transitionImageLayout(
                 computeData->getImageView("color_texture")->getImage(),
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -317,7 +340,6 @@ void SVGFBlitPass::_render() {
             int numWorkgroupsX = sgl::iceil(width, computeBlockSize);
             int numWorkgroupsY = sgl::iceil(height, computeBlockSize);
             renderer->dispatch(computeData, numWorkgroupsX, numWorkgroupsY, 1);
-            stepWidth *= 2;
 
             renderer->syncWithCpu();
         }
@@ -346,20 +368,20 @@ void SVGFBlitPass::_render() {
 
             // depth texture
             renderer->insertImageMemoryBarrier(
-                previous_frame.normal_texture->getImage(),
+                previous_frame.depth_texture->getImage(),
                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
                 VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
 
             renderer->insertImageMemoryBarrier(
-                current_frame.normal_texture->getImage(),
-                current_frame.normal_texture->getImage()->getVkImageLayout(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                current_frame.depth_texture->getImage(),
+                current_frame.depth_texture->getImage()->getVkImageLayout(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
                 VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT);
 
 
-            current_frame.normal_texture->getImage()->copyToImage(previous_frame.normal_texture->getImage(),
-                                                                 VK_IMAGE_ASPECT_DEPTH_BIT,
+            current_frame.depth_texture->getImage()->copyToImage(previous_frame.depth_texture->getImage(),
+                                                                 VK_IMAGE_ASPECT_COLOR_BIT,
                                                                  renderer->getVkCommandBuffer());
 
             renderer->syncWithCpu();
@@ -375,27 +397,14 @@ bool SVGFBlitPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
         setDataDirty();
         device->waitIdle();
     }
-    if (propertyEditor.addCheckbox("Color Weights", &useColorWeights)) {
+
+
+    if (propertyEditor.addSliderFloat("z multiplier", &z_multiplier, 1, 200)) {
         reRender = true;
+        setDataDirty();
+        device->waitIdle();
     }
-    if (propertyEditor.addCheckbox("Position Weights", &usePositionWeights)) {
-        reRender = true;
-    }
-    if (propertyEditor.addCheckbox("Normal Weights", &useNormalWeights)) {
-        reRender = true;
-    }
-    if (propertyEditor.addSliderFloat("Phi Color", &phiColor, 0.0f, 10.0f)) {
-        reRender = true;
-    }
-    if (propertyEditor.addSliderFloat("Phi Position", &phiPosition, 0.0f, 10.0f)) {
-        reRender = true;
-    }
-    if (propertyEditor.addSliderFloat("Phi Normal", &phiNormal, 0.0f, 10.0f)) {
-        reRender = true;
-    }
-    if (propertyEditor.addCheckbox("Use Shared Memory", &useSharedMemory)) {
-        reRender = true;
-    }
+
 
     return reRender;
 }

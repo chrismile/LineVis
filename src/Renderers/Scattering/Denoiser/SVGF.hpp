@@ -109,7 +109,10 @@ private:
         sgl::vk::TexturePtr motion_texture;
         sgl::vk::TexturePtr normal_texture;
         sgl::vk::TexturePtr depth_texture;
+        // meshid?
     } current_frame;
+
+    float z_multiplier = 100;
 
     struct {
         // vom shader beschrieben
@@ -121,6 +124,7 @@ private:
         // in c++ beschrieben
         sgl::vk::TexturePtr normal_texture;
         sgl::vk::TexturePtr depth_texture;
+        // meshid?
     } previous_frame;
 
     sgl::vk::ImageViewPtr output_image;
@@ -136,7 +140,7 @@ private:
     float phiPositionScale = 1.0f;
     float phiNormalScale = 1.0f;
 
-    int maxNumIterations = 0;
+    int maxNumIterations = 5;
     sgl::vk::TexturePtr pingPongRenderTextures[2];
 
     bool useSharedMemory = true;

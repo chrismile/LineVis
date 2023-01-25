@@ -28,7 +28,8 @@
 setlocal
 pushd %~dp0
 
-set debug=false
+set VSLANG=1033
+set debug=true
 set build_dir=".build"
 set destination_dir="Shipping"
 
@@ -215,7 +216,7 @@ if not %optix_install_dir% == "" (
    set cmake_args=%cmake_args% -DOptiX_INSTALL_DIR=%optix_install_dir%
 )
 
-cmake %cmake_generator% %cmake_args% -S . -B %build_dir%
+cmake %cmake_generator% %cmake_args% -S . -B %build_dir% || exit /b 1
 
 echo ------------------------
 echo       compiling

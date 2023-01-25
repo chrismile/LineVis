@@ -41,6 +41,7 @@
 
 #include <Utils/StringUtils.hpp>
 #include <Utils/Timer.hpp>
+#include <Utils/Defer.hpp>
 #include <Utils/AppSettings.hpp>
 #include <Utils/Dialog.hpp>
 #include <Utils/File/Logfile.hpp>
@@ -862,6 +863,8 @@ void MainApp::updateColorSpaceMode() {
 void MainApp::render() {
     ZoneScoped;
 
+    hasMoved(); // NOTE(Felix): remove this later
+
     if (usePerformanceMeasurementMode) {
         performanceMeasurer->beginRenderFunction();
     }
@@ -1618,6 +1621,16 @@ void MainApp::openFileDialog() {
 }
 
 void MainApp::renderGuiMenuBar() {
+    // NOTE(Felix): initialiize with opening the rings dataset
+    static bool first_iteration = true;
+    defer { first_iteration = false; };
+
+    if (first_iteration) {
+        selectedDataSetIndex = 8; // rings
+        loadLineDataSet(getSelectedLineDataSetFilenames());
+    }
+    // end of initialization code here
+
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Open Dataset...", "CTRL+O")) {
