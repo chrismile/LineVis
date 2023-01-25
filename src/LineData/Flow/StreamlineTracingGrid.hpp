@@ -91,7 +91,7 @@ private:
     static bool _rayBoxIntersection(
             const glm::vec3& rayOrigin, const glm::vec3& rayDirection, const glm::vec3& lower, const glm::vec3& upper,
             float& tNear, float& tFar);
-    static bool rayBoxPlaneIntersection(
+    static bool _rayBoxPlaneIntersection(
             float rayOriginX, float rayDirectionX, float lowerX, float upperX, float& tNear, float& tFar);
     void _pushTrajectoryAttributes(Trajectory& trajectory) const;
     void _pushRibbonDirections(

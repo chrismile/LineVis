@@ -187,8 +187,14 @@ void AutomaticPerformanceMeasurer::writeCurrentModeData() {
         ppllFile.writeCell(std::to_string(timePPLLResolve));
         ppllFile.newRow();
 
-        frameTimesNS = ppllTimer->getFrameTimeList(currentState.name);
         timeMS = timePPLLClear + timeFCGather + timePPLLResolve;
+
+        if (!isCleanup) {
+            VkCommandBuffer commandBuffer = renderer->getDevice()->beginSingleTimeCommands();
+            timerVk->finishGPU(commandBuffer);
+            renderer->getDevice()->endSingleTimeCommands(commandBuffer);
+        }
+        frameTimesNS = timerVk->getFrameTimeList(currentState.name);
     }
 
     if (deferredRenderingTimer) {

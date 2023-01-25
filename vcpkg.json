@@ -21,6 +21,10 @@
             "platform": "!linux"
         },
         "sdl2-image",
+        {
+            "name": "glfw3",
+            "platform": "!linux"
+        },
         "tinyxml2",
         {
             "name": "libarchive",

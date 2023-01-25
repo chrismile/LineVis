@@ -302,12 +302,12 @@ for library in $ldd_output
 do
     if [[ $library == "$MSYSTEM_PREFIX"* ]] ;
     then
-		    cp "$library" "$destination_dir/bin"
+        cp "$library" "$destination_dir/bin"
     fi
     if [[ $library == libpython* ]] ;
     then
-	      tmp=${library#*lib}
-	      Python3_VERSION=${tmp%.dll}
+        tmp=${library#*lib}
+        Python3_VERSION=${tmp%.dll}
     fi
 done
 
@@ -318,7 +318,7 @@ for library in $ldd_output
 do
     if [[ $library == "$MSYSTEM_PREFIX"* ]] ;
     then
-		    cp "$library" "$destination_dir/bin"
+        cp "$library" "$destination_dir/bin"
     fi
 done
 

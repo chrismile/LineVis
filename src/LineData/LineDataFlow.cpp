@@ -290,7 +290,7 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                             ".*,.png",
                             sgl::AppSettings::get()->getDataDirectory().c_str(),
                             "", 1, nullptr,
-                            ImGuiFileDialogFlags_ConfirmOverwrite);
+                            ImGuiFileDialogFlags_None);
                 }
                 if (propertyEditor.addCombo(
                         "Texture Filtering", &textureFilteringModeIndex,
@@ -547,11 +547,13 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
         //useRibbons = false;
         glm::vec2 minMaxHelicity = minMaxAttributeValues.at(helicityAttributeIndex);
         maxHelicity = std::max(std::abs(minMaxHelicity.x), std::abs(minMaxHelicity.y));
+    } else {
+        useRotatingHelicityBands = false;
     }
 
 #ifdef USE_TBB
     numTotalTrajectoryPoints = tbb::parallel_reduce(
-            tbb::blocked_range<size_t>(0, trajectories.size()), 0,
+            tbb::blocked_range<size_t>(0, trajectories.size()), size_t(0),
             [&trajectories](tbb::blocked_range<size_t> const& r, size_t numTotalTrajectoryPoints) {
                 for (auto i = r.begin(); i != r.end(); i++) {
                     const Trajectory& trajectory = trajectories.at(i);
