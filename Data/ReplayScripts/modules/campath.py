@@ -41,7 +41,49 @@ def f_cubic_bezier(x, p0, p1, p2, p3):
 
 def camera_path_circle(
         angle_start, angle_end, radius_start, radius_end, total_time,
-        pitch=0.0, center=(0.0, 0.0, 0.0), acceleration=0.4):
+        pitch=0.0, center=(0.0, 0.0, 0.0), acceleration=0.4, acceleration_start=None, acceleration_end=None,
+        radius_functor=None):
+    # Bezier curve control points.
+    if acceleration_start is None:
+        acceleration_start = acceleration
+    if acceleration_end is None:
+        acceleration_end = acceleration
+    p0 = (0, 0)
+    p1 = (0.0 + acceleration_start, 0)
+    p2 = (1.0 - acceleration_end, 1)
+    p3 = (1, 1)
+
+    subdivisions = 256
+
+    def f(t):
+        return t * (3 + t * (-6 + t * 4))
+
+    g.set_duration(0.0)
+    for i in range(subdivisions + 1):
+        t = f_cubic_bezier(i / subdivisions, p0, p1, p2, p3)
+        time = t * total_time
+        angle = angle_start + t * (angle_end - angle_start)
+        if radius_functor is None:
+            radius = radius_start + t * (radius_end - radius_start)
+        else:
+            radius = radius_functor(t)
+
+        if pitch == 0.0:
+            camera_pos = (math.cos(angle) * radius + center[0], center[1], math.sin(angle) * radius + center[2])
+            yaw_pitch = (math.pi + angle, 0.0)
+        else:
+            camera_pos = (
+                math.cos(angle) * radius * math.cos(pitch) + center[0],
+                math.sin(pitch) * radius + center[1],
+                math.sin(angle) * radius * math.cos(pitch) + center[2])
+            yaw_pitch = (math.pi + angle, -pitch)
+
+        g.set_camera_position(camera_pos)
+        g.set_camera_yaw_pitch_rad(yaw_pitch)
+        g.set_duration(total_time / subdivisions)
+
+
+def camera_pitch_rotation_smooth(yaw, pitch_start, pitch_end, total_time, acceleration=0.4):
     # Bezier curve control points.
     p0 = (0, 0)
     p1 = (0.0 + acceleration, 0)
@@ -56,21 +98,8 @@ def camera_path_circle(
     g.set_duration(0.0)
     for i in range(subdivisions + 1):
         t = f_cubic_bezier(i / subdivisions, p0, p1, p2, p3)
-        time = t * total_time
-        angle = angle_start + t * (angle_end - angle_start)
-        radius = radius_start + t * (radius_end - radius_start)
-
-        if pitch == 0.0:
-            camera_pos = (math.cos(angle) * radius + center[0], center[1], math.sin(angle) * radius + center[2])
-            yaw_pitch = (math.pi + angle, 0.0)
-        else:
-            camera_pos = (
-                math.cos(angle) * radius * math.cos(pitch) + center[0],
-                math.sin(pitch) * radius + center[1],
-                math.sin(angle) * radius * math.cos(pitch) + center[2])
-            yaw_pitch = (math.pi + angle, -pitch)
-
-        g.set_camera_position(camera_pos)
+        pitch = pitch_start + t * (pitch_end - pitch_start)
+        yaw_pitch = (yaw, pitch)
         g.set_camera_yaw_pitch_rad(yaw_pitch)
         g.set_duration(total_time / subdivisions)
 

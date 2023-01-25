@@ -880,6 +880,9 @@ void MainApp::render() {
         if (videoWriter) {
             videoWriter->onSwapchainRecreated();
         }
+        if (!useDockSpaceMode && lineRenderer) {
+            lineRenderer->onResolutionChanged();
+        }
         scheduledRecreateSceneFramebuffer = false;
     }
 
@@ -915,7 +918,7 @@ void MainApp::render() {
 
     if (!useDockSpaceMode) {
         if (lineRenderer != nullptr) {
-            reRender = reRender || lineRenderer->needsReRender();
+            reRender |= lineRenderer->needsReRender();
             componentOtherThanRendererNeedsReRender |= lineRenderer->needsInternalReRender();
         }
         if (lineRenderer && componentOtherThanRendererNeedsReRender) {
@@ -1617,7 +1620,7 @@ void MainApp::openFileDialog() {
             ".bobj,.stl",
             fileDialogDirectory.c_str(),
             "", 1, nullptr,
-            ImGuiFileDialogFlags_ConfirmOverwrite);
+            ImGuiFileDialogFlags_None);
 }
 
 void MainApp::renderGuiMenuBar() {
@@ -1843,7 +1846,8 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
             ImGui::SameLine();
             float indentWidth = ImGui::GetContentRegionAvail().x;
             ImGui::Indent(indentWidth);
-            if (ImGui::Button("X")) {
+            std::string buttonName = "X###x_view" + std::to_string(i);
+            if (ImGui::Button(buttonName.c_str())) {
                 removeView = true;
             }
             ImGui::Unindent(indentWidth);

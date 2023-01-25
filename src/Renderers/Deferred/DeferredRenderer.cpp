@@ -199,6 +199,10 @@ void DeferredRenderer::reloadGatherShader() {
             }
         }
     }
+
+    // Adding resolve shader, as, e.g., the LineRenderer parent class assume coloring is done in the gather shader.
+    // TODO: This could be fixed in the future by differentiating between resolve passes with/without coloring/shading.
+    deferredResolvePass->setShaderDirty();
 }
 
 void DeferredRenderer::updateRenderingMode() {

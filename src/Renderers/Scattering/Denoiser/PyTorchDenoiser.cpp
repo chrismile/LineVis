@@ -643,7 +643,7 @@ bool PyTorchDenoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor& property
                 ".*,.pt,.pth",
                 fileDialogDirectory.c_str(),
                 "", 1, nullptr,
-                ImGuiFileDialogFlags_ConfirmOverwrite);
+                ImGuiFileDialogFlags_None);
     }
 
     PyTorchDevice pyTorchDeviceNew = pyTorchDevice;

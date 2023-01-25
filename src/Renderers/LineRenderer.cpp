@@ -105,6 +105,13 @@ bool LineRenderer::getIsTriangleRepresentationUsed() const {
     return (lineData && primitiveModeUsesTriMesh) || (useAmbientOcclusion && ambientOcclusionBaker);
 }
 
+bool LineRenderer::getIsTriangleRepresentationUsedByPrimitiveMode() const {
+    bool primitiveModeUsesTriMesh =
+            lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
+            || lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TUBE_RIBBONS_TRIANGLE_MESH;
+    return primitiveModeUsesTriMesh;
+}
+
 void LineRenderer::update(float dt) {
     static bool first_run = true;
     defer { first_run = false; };
@@ -320,7 +327,8 @@ void LineRenderer::setAmbientOcclusionBaker() {
             showRayQueriesUnsupportedWarning();
             return;
         }
-        if (lineData && lineData->getUseCappedTubes() && isRasterizer && !getIsTriangleRepresentationUsed()) {
+        if (lineData && lineData->getUseCappedTubes() && isRasterizer
+                && !getIsTriangleRepresentationUsedByPrimitiveMode()) {
             lineData->setUseCappedTubes(this, false);
         }
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(new VulkanRayTracedAmbientOcclusion(sceneData, renderer));
@@ -445,6 +453,20 @@ bool LineRenderer::setNewSettings(const SettingsMap& settings) {
             useDepthCues = true;
             updateDepthCueMode();
             shallReloadGatherShader = true;
+        }
+    }
+
+    std::string ambientOcclusionModeName;
+    if (settings.getValueOpt("ambient_occlusion_mode", ambientOcclusionModeName)) {
+        for (int i = 0; i < IM_ARRAYSIZE(AMBIENT_OCCLUSION_BAKER_TYPE_NAMES); i++) {
+            if (ambientOcclusionModeName == AMBIENT_OCCLUSION_BAKER_TYPE_NAMES[i]) {
+                if (ambientOcclusionBakerType == AmbientOcclusionBakerType(i)) {
+                    break;
+                }
+                ambientOcclusionBakerType = AmbientOcclusionBakerType(i);
+                setAmbientOcclusionBaker();
+                break;
+            }
         }
     }
 

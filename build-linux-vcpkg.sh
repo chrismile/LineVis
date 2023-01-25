@@ -194,11 +194,15 @@ if [[ ! -v VULKAN_SDK ]]; then
         found_vulkan=true
     fi
 
-    if ! $found_vulkan && lsb_release -a 2> /dev/null | grep -q 'Ubuntu'; then
-        distro_code_name=$(lsb_release -c | grep -oP "\:\s+\K\S+")
+    if ! $found_vulkan && (lsb_release -a 2> /dev/null | grep -q 'Ubuntu' || lsb_release -a 2> /dev/null | grep -q 'Mint'); then
+        if lsb_release -a 2> /dev/null | grep -q 'Ubuntu'; then
+            distro_code_name=$(lsb_release -cs)
+        else
+            distro_code_name=$(cat /etc/upstream-release/lsb-release | grep "DISTRIB_CODENAME=" | sed 's/^.*=//')
+        fi
         if ! compgen -G "/etc/apt/sources.list.d/lunarg-vulkan-*" > /dev/null \
-              && ! curl -s -I "https://packages.lunarg.com/vulkan/dists/{distro_code_name}/" | grep "2 404" > /dev/null; then
-            echo "Setting up Vulkan SDK for Ubuntu $(lsb_release -r | grep -oP "\:\s+\K\S+")..."
+              && ! curl -s -I "https://packages.lunarg.com/vulkan/dists/${distro_code_name}/" | grep "2 404" > /dev/null; then
+            echo "Setting up Vulkan SDK for $(lsb_release -ds)..."
             wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
             sudo curl --silent --show-error --fail \
             https://packages.lunarg.com/vulkan/lunarg-vulkan-${distro_code_name}.list \
@@ -241,7 +245,7 @@ fi
 
 if [ ! -d "./vcpkg" ]; then
     echo "------------------------"
-    echo "   fetching vcpkg       "
+    echo "    fetching vcpkg      "
     echo "------------------------"
     if [[ ! -v VULKAN_SDK ]]; then
         echo "The environment variable VULKAN_SDK is not set but is required in the installation process."

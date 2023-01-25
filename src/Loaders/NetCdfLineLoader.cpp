@@ -284,15 +284,20 @@ Trajectories convertLatLonToCartesian(
     for (size_t trajectoryIndex = 0; trajectoryIndex < trajectoryDim; trajectoryIndex++) {
         Trajectory trajectory;
         //trajectory.attributes.resize(1);
-        std::vector<glm::vec3> &cartesianCoords = trajectory.positions;
+        std::vector<glm::vec3>& cartesianCoords = trajectory.positions;
         //std::vector<float> &pressureAttr = trajectory.attributes.at(0);
         cartesianCoords.reserve(trajectoryDim);
         //pressureAttr.reserve(trajectoryDim);
+        bool hasValidDataBefore = false;
         for (size_t i = 0; i < timeDim; i++) {
             size_t index = i + trajectoryIndex * timeDim;
             float pressureAtIdx = pressure[index];
-            if (pressureAtIdx <= 0.0f) {
-                continue;
+            if (std::isnan(pressureAtIdx) || pressureAtIdx <= 0.0f) {
+                if (hasValidDataBefore) {
+                    break;
+                } else {
+                    continue;
+                }
             }
             float normalizedLogPressure = (std::log(pressureAtIdx) - logMaxPressure) / (logMinPressure - logMaxPressure);
             float x = lat[index];
@@ -302,6 +307,7 @@ Trajectories convertLatLonToCartesian(
             glm::vec3 cartesianCoord = glm::vec3(x, y, z);
 
             cartesianCoords.push_back(cartesianCoord);
+            hasValidDataBefore = true;
             //pressureAttr.push_back(pressureAtIdx);
         }
 
@@ -426,13 +432,19 @@ BinLinesData loadTrajectoriesFromNetCdf(const std::string& filename) {
             Trajectory& trajectory = trajectories.at(trajectoryIndex);
             std::vector<float> attributeValues;
             attributeValues.reserve(timeDim);
+            bool hasValidDataBefore = false;
             for (size_t i = 0; i < timeDim; i++) {
                 size_t index = i + trajectoryIndex * timeDim;
                 float pressureAtIdx = pressure[index];
-                if (pressureAtIdx <= 0.0f) {
-                    continue;
+                if (std::isnan(pressureAtIdx) || pressureAtIdx <= 0.0f) {
+                    if (hasValidDataBefore) {
+                        break;
+                    } else {
+                        continue;
+                    }
                 }
                 attributeValues.push_back(varData[index]);
+                hasValidDataBefore = true;
             }
             trajectory.attributes.push_back(attributeValues);
         }

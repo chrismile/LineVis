@@ -83,6 +83,8 @@ public:
     [[nodiscard]] virtual bool needsInternalReRender() { bool tmp = internalReRender; internalReRender = false; return tmp; }
     /// Returns whether the triangle representation is used by the renderer.
     [[nodiscard]] virtual bool getIsTriangleRepresentationUsed() const;
+    /// Returns whether the triangle representation is used by the primitve rendering mode.
+    [[nodiscard]] virtual bool getIsTriangleRepresentationUsedByPrimitiveMode() const;
     /// Returns whether live visualization mapping updates can be used or whether the data set is too large.
     [[nodiscard]] virtual bool getCanUseLiveUpdate(LineDataAccessType accessType) const;
     [[nodiscard]] inline bool getIsRasterizer() const { return isRasterizer; }

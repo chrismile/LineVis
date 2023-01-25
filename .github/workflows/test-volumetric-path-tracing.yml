@@ -18,7 +18,7 @@ jobs:
       sgl_REPO_DIR: ${{ github.workspace }}/sgl-repo
       sgl_DIR: ${{ github.workspace }}/sgl
       swiftshader_DIR: ${{ github.workspace }}/swiftshader
-      swiftshader_COMMIT_ID: 4db20a80409b207b3e134c93968468b7c3783eb6
+      swiftshader_COMMIT_ID: 647d3d24c935c2adb4e7bc5f1ecfe14ab12725d2
 
     steps:
     - uses: actions/checkout@v2
@@ -63,7 +63,16 @@ jobs:
         fi
 
     - name: Configure CMake (sgl)
-      run: cmake ${{env.sgl_REPO_DIR}} -B ${{env.sgl_REPO_DIR}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{env.sgl_DIR}}
+      shell: bash
+      run: |
+        if [ "${{env.PKG_CONFIG_PATH}}" != "" ]; then
+          VK_LAYER_PATH=""
+          source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
+          export PKG_CONFIG_PATH="${{env.PKG_CONFIG_PATH}}"
+        else
+          export VULKAN_SDK="/usr"
+        fi
+        cmake ${{env.sgl_REPO_DIR}} -B ${{env.sgl_REPO_DIR}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX=${{env.sgl_DIR}}
 
     - name: Build (sgl)
       run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --parallel 4
@@ -72,10 +81,26 @@ jobs:
       run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --target install
 
     - name: Configure CMake (LineVis)
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dsgl_DIR=${{env.sgl_DIR}}/lib/cmake/sgl -DUSE_GTEST=On
+      run: |
+        if [ "${{env.PKG_CONFIG_PATH}}" != "" ]; then
+          VK_LAYER_PATH=""
+          source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
+          export PKG_CONFIG_PATH="${{env.PKG_CONFIG_PATH}}"
+        else
+          export VULKAN_SDK="/usr"
+        fi
+        cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dsgl_DIR=${{env.sgl_DIR}}/lib/cmake/sgl -DUSE_GTEST=On
 
     - name: Build (LineVis)
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel 4
+      run: |
+        if [ "${{env.PKG_CONFIG_PATH}}" != "" ]; then
+          VK_LAYER_PATH=""
+          source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
+          export PKG_CONFIG_PATH="${{env.PKG_CONFIG_PATH}}"
+        else
+          export VULKAN_SDK="/usr"
+        fi
+        cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel 4
 
     - name: Cache SwiftShader binaries
       id: cache-swiftshader
@@ -98,6 +123,10 @@ jobs:
         echo "USER=$USER" >> $GITHUB_ENV
         #export LD_LIBRARY_PATH="${{env.swiftshader_DIR}}/build/Linux"
         export VK_ICD_FILENAMES="${{env.swiftshader_DIR}}/build/Linux/vk_swiftshader_icd.json"
+        if [ "${{env.PKG_CONFIG_PATH}}" != "" ]; then
+          VK_LAYER_PATH=""
+          source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
+        fi
         ${{github.workspace}}/build/LineVis_test
 
     - name: Archive logs and failure case images
