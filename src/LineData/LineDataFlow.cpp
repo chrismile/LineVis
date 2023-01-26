@@ -1448,7 +1448,7 @@ void LineDataFlow::getLinePassTubeRenderDataGeneral(
 
 LinePassTubeRenderData LineDataFlow::getLinePassTubeRenderData() {
     rebuildInternalRepresentationIfNecessary();
-    if (cachedRenderDataProgrammablePull.indexBuffer) {
+    if (cachedRenderDataGeometryShader.indexBuffer) {
         return cachedRenderDataGeometryShader;
     }
     removeOtherCachedDataTypes(RequestMode::GEOMETRY_SHADER);
