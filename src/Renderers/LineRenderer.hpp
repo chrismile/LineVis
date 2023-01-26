@@ -110,8 +110,12 @@ public:
     virtual void renderBase() { renderBase(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT); }
     /// Renders the object to the scene framebuffer.
     virtual void render()=0;
+    /// Renders the entries in the property editor (calls the two functions below).
+    void renderGuiPropertyEditorNodesParent(sgl::PropertyEditor& propertyEditor);
     /// Renders the entries in the property editor.
     virtual void renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
+    /// Renders the entries in the property editor.
+    virtual void renderGuiPropertyEditorNodesAdvanced(sgl::PropertyEditor& propertyEditor);
     /// Renders GUI overlays. The "dirty" and "reRender" flags might be set depending on the user's actions.
     virtual void renderGuiOverlay();
     /// For rendering secondary ImGui windows (e.g., for transfer function widgets).
