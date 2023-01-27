@@ -307,12 +307,6 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
         }
     }
 
-    if (propertyEditor.addCheckbox("Use Halos", &useHalos)) {
-        shallReloadGatherShader = true;
-    }
-
-    propertyEditor.addCheckbox("Render Color Legend", &shallRenderColorLegendWidgets);
-
     if (!simulationMeshOutlineTriangleIndices.empty()) {
         ImGui::EditMode editModeHullOpacity = propertyEditor.addSliderFloatEdit(
                 "Hull Opacity", &hullOpacity, 0.0f, 1.0f, "%.4f");
@@ -329,6 +323,23 @@ bool LineData::renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propert
             }
         }
     }
+
+    return shallReloadGatherShader;
+}
+
+bool LineData::renderGuiPropertyEditorNodesRendererAdvanced(
+        sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer) {
+    bool shallReloadGatherShader = false;
+
+    if (propertyEditor.addCheckbox("Use Halos", &useHalos)) {
+        shallReloadGatherShader = true;
+    }
+
+    if (propertyEditor.addCheckbox("Use Shading", &useShading)) {
+        shallReloadGatherShader = true;
+    }
+
+    propertyEditor.addCheckbox("Render Color Legend", &shallRenderColorLegendWidgets);
 
     return shallReloadGatherShader;
 }
@@ -1134,6 +1145,9 @@ void LineData::getVulkanShaderPreprocessorDefines(
     }
     if (useHalos) {
         preprocessorDefines.insert(std::make_pair("USE_HALOS", ""));
+    }
+    if (!useShading) {
+        preprocessorDefines.insert(std::make_pair("DISABLE_SHADING", ""));
     }
 }
 

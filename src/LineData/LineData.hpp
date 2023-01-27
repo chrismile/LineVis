@@ -217,6 +217,12 @@ public:
      */
     virtual bool renderGuiPropertyEditorNodesRenderer(sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer);
     /**
+     * For selecting options for the rendering technique (e.g., screen-oriented bands, tubes).
+     * @return true if the gather shader needs to be reloaded.
+     */
+    virtual bool renderGuiPropertyEditorNodesRendererAdvanced(
+            sgl::PropertyEditor& propertyEditor, LineRenderer* lineRenderer);
+    /**
      * For changing other line rendering settings.
      */
     virtual bool renderGuiRenderingSettingsPropertyEditor(sgl::PropertyEditor& propertyEditor);
@@ -367,6 +373,7 @@ protected:
     std::vector<std::string> supportedRenderingModes;
     bool useCappedTubes = true;
     bool useHalos = true;
+    bool useShading = true;
     std::string lineDataWindowName;
 
     // If optional band data is provided.

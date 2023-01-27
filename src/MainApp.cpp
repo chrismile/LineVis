@@ -1873,7 +1873,8 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
                     propertyEditor.addEndCombo();
                 }
 
-                if (propertyEditor.addCheckbox("Sync with Global Camera", &dataView->syncWithParentCamera)) {
+                if (dataViews.size() > 1
+                        && propertyEditor.addCheckbox("Sync with Global Camera", &dataView->syncWithParentCamera)) {
                     dataView->reRender = true;
                     if (dataView->lineRenderer) {
                         dataView->lineRenderer->notifyReRenderTriggeredExternally();
@@ -1881,7 +1882,7 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
                 }
 
                 if (dataView->lineRenderer) {
-                    dataView->lineRenderer->renderGuiPropertyEditorNodes(propertyEditor);
+                    dataView->lineRenderer->renderGuiPropertyEditorNodesParent(propertyEditor);
                 }
                 propertyEditor.endNode();
             }
@@ -1893,7 +1894,7 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
     } else {
         if (lineRenderer) {
             if (propertyEditor.beginNode(lineRenderer->getWindowName())) {
-                lineRenderer->renderGuiPropertyEditorNodes(propertyEditor);
+                lineRenderer->renderGuiPropertyEditorNodesParent(propertyEditor);
                 propertyEditor.endNode();
             }
         }

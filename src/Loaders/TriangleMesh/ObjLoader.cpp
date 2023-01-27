@@ -37,6 +37,45 @@
 #include "Curvature.hpp"
 #include "ObjLoader.hpp"
 
+/**
+ * Triangulates the face indices of the polygon in tempFaceIndices.
+ * This code connects all polygon vertices to their center point.
+ * Please note that this is fast, but may fail for some types of concave polygons!
+ * @param tempFaceIndices The face indices to triangulate.
+ * @param triangleIndices The global triangle index list.
+ * @param vertexPositions The global vertex position list.
+ * @param vertexNormals The global vertex normal list.
+ */
+void triangulatePathByCenter(
+        const std::vector<uint32_t>& tempFaceIndices, std::vector<uint32_t>& triangleIndices,
+        std::vector<glm::vec3>& vertexPositions, std::vector<glm::vec3>& vertexNormals) {
+    auto numPoints = int(tempFaceIndices.size());
+    auto invN = 1.0f / float(numPoints);
+    auto centerPosition = glm::vec3(0.0f);
+    auto centerNormal = glm::vec3(0.0f);
+    for (int i = 0; i < numPoints; i++) {
+        const glm::vec3& vertexPosition = vertexPositions.at(tempFaceIndices.at(i));
+        const glm::vec3& vertexNormal = vertexNormals.at(tempFaceIndices.at(i));
+        centerPosition += vertexPosition;
+        centerNormal += vertexNormal;
+    }
+    centerPosition *= invN;
+    centerNormal = glm::normalize(centerNormal);
+    auto centerPointIndex = uint32_t(vertexPositions.size());
+    vertexPositions.push_back(centerPosition);
+    vertexNormals.push_back(centerNormal);
+
+    for (int i = 0; i < numPoints; i++) {
+        triangleIndices.push_back(tempFaceIndices.at(i));
+        triangleIndices.push_back(tempFaceIndices.at((i + 1) % numPoints));
+        triangleIndices.push_back(centerPointIndex);
+        const glm::vec3& vertexPosition = vertexPositions.at(tempFaceIndices.at(i));
+        const glm::vec3& vertexNormal = vertexNormals.at(tempFaceIndices.at(i));
+        centerPosition += vertexPosition;
+        centerNormal += vertexNormal;
+    }
+}
+
 void loadObjTriangleMesh(
         const std::string &filename, std::vector<uint32_t>& triangleIndices,
         std::vector<glm::vec3>& vertexPositions, std::vector<glm::vec3>& vertexNormals,
@@ -45,6 +84,7 @@ void loadObjTriangleMesh(
         sgl::AABB3* oldAABB, const glm::mat4* vertexTransformationMatrixPtr) {
     std::vector<glm::vec3> objVertices;
     std::vector<glm::vec3> objNormals;
+    std::vector<uint32_t> tempFaceIndices;
 
     uint8_t* buffer = nullptr;
     size_t length = 0;
@@ -58,7 +98,7 @@ void loadObjTriangleMesh(
     std::string lineBuffer;
     std::string stringBuffer;
     std::vector<std::string> faceLineParts;
-    std::vector<uint32_t> objIndicesSplit;
+    std::vector<int32_t> objIndicesSplit;
     std::map<std::pair<uint32_t, uint32_t>, uint32_t> objIndicesMap;
 
     for (size_t charPtr = 0; charPtr < length; ) {
@@ -104,30 +144,60 @@ void loadObjTriangleMesh(
         } else if (command == 'f') {
             faceLineParts.clear();
             sgl::splitStringWhitespace(lineBuffer.c_str() + 2, faceLineParts);
-            if (faceLineParts.size() != 3 && faceLineParts.size() != 4) {
+            if (faceLineParts.size() < 3) {
                 sgl::Logfile::get()->writeError(
                         "Error in loadObjTriangleMesh: Invalid face statement in file \"" + filename + "\".");
-            }
-            for (size_t i = 0; i < faceLineParts.size(); i++) {
-                objIndicesSplit.clear();
-                sgl::splitStringTyped<uint32_t>(faceLineParts.at(i), '/', objIndicesSplit);
-                uint32_t vidx = objIndicesSplit.front() - 1;
-                uint32_t nidx = objIndicesSplit.back() - 1;
-                auto it = objIndicesMap.find({vidx, nidx});
-                if (it != objIndicesMap.end()) {
-                    triangleIndices.push_back(it->second);
-                } else {
-                    auto idx = uint32_t(vertexPositions.size());
-                    objIndicesMap.insert({ {vidx, nidx}, idx });
-                    triangleIndices.push_back(idx);
-                    vertexPositions.push_back(objVertices.at(vidx));
-                    vertexNormals.push_back(objNormals.at(nidx));
+            } else if (faceLineParts.size() < 5) {
+                for (size_t i = 0; i < faceLineParts.size(); i++) {
+                    objIndicesSplit.clear();
+                    sgl::splitStringTyped<int32_t>(faceLineParts.at(i), '/', objIndicesSplit);
+                    int32_t vidx = objIndicesSplit.front();
+                    int32_t nidx = objIndicesSplit.back();
+                    if (vidx > 0) {
+                        vidx -= 1;
+                    } else {
+                        vidx = int(objVertices.size()) + vidx;
+                    }
+                    if (nidx > 0) {
+                        nidx -= 1;
+                    } else {
+                        nidx = int(objNormals.size()) + nidx;
+                    }
+                    auto it = objIndicesMap.find({vidx, nidx});
+                    if (it != objIndicesMap.end()) {
+                        triangleIndices.push_back(it->second);
+                    } else {
+                        auto idx = uint32_t(vertexPositions.size());
+                        objIndicesMap.insert({ {vidx, nidx}, idx });
+                        triangleIndices.push_back(idx);
+                        vertexPositions.push_back(objVertices.at(vidx));
+                        vertexNormals.push_back(objNormals.at(nidx));
+                    }
                 }
-            }
-            if (faceLineParts.size() == 4) {
-                // Triangulate.
-                triangleIndices.push_back(triangleIndices.at(triangleIndices.size() - 4));
-                triangleIndices.push_back(triangleIndices.at(triangleIndices.size() - 3));
+                if (faceLineParts.size() == 4) {
+                    // Triangulate.
+                    triangleIndices.push_back(triangleIndices.at(triangleIndices.size() - 4));
+                    triangleIndices.push_back(triangleIndices.at(triangleIndices.size() - 3));
+                }
+            } else {
+                tempFaceIndices.clear();
+                for (size_t i = 0; i < faceLineParts.size(); i++) {
+                    objIndicesSplit.clear();
+                    sgl::splitStringTyped<uint32_t>(faceLineParts.at(i), '/', objIndicesSplit);
+                    uint32_t vidx = objIndicesSplit.front() - 1;
+                    uint32_t nidx = objIndicesSplit.back() - 1;
+                    auto it = objIndicesMap.find({vidx, nidx});
+                    if (it != objIndicesMap.end()) {
+                        tempFaceIndices.push_back(it->second);
+                    } else {
+                        auto idx = uint32_t(vertexPositions.size());
+                        objIndicesMap.insert({ {vidx, nidx}, idx });
+                        tempFaceIndices.push_back(idx);
+                        vertexPositions.push_back(objVertices.at(vidx));
+                        vertexNormals.push_back(objNormals.at(nidx));
+                    }
+                }
+                triangulatePathByCenter(tempFaceIndices, triangleIndices, vertexPositions, vertexNormals);
             }
         } else if (command == 'o' || command == 'g') {
             // Ignore objects and groups.
