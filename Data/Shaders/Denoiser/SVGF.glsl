@@ -3,6 +3,7 @@
 #version 450
 #extension GL_EXT_scalar_block_layout : require
 #extension GL_EXT_debug_printf : enable
+// #extension GL_NV_compute_shader_derivatives : enable
 
 layout(local_size_x = BLOCK_SIZE, local_size_y = BLOCK_SIZE) in;
 
@@ -10,25 +11,6 @@ layout(local_size_x = BLOCK_SIZE, local_size_y = BLOCK_SIZE) in;
 layout(push_constant) uniform PushConstants {
     int iteration;
     float z_multiplier;
-};
-
-layout(binding = 0) uniform UniformBuffer {
-    float phiColor;
-    float phiPosition;
-    float phiNormal;
-    float paddingFloat;
-    uint useColor;
-    uint usePosition;
-    uint useNormal;
-    uint paddingUint;
-};
-
-layout(binding = 1, scalar) uniform KernelBuffer {
-    float kernel[25];
-};
-
-layout(binding = 2, scalar) uniform OffsetBuffer {
-    vec2 offset[25];
 };
 
 // this frame
@@ -52,6 +34,7 @@ layout(binding = 7, rgba32f) uniform writeonly image2D outputImage;
 void main() {
     int stepWidth = 1 << iteration;
     ivec2 size = textureSize(color_texture, 0);
+    vec2 pixel_step = vec2(1.0) / vec2(size);
     vec2 step = vec2(float(stepWidth)) / vec2(size);
     ivec2 localIdx = ivec2(gl_LocalInvocationID.xy);
     ivec2 globalIdx = ivec2(gl_GlobalInvocationID.xy);
@@ -95,21 +78,21 @@ void main() {
         vec4  offset_color = texture(color_texture, offsetTexCoord);
         vec3  offset_normal = texture(normal_texture, offsetTexCoord).rgb;
         float offset_z   = texture(depth_texture, offsetTexCoord).x;
-        float offset_z_x = texture(depth_texture, offsetTexCoord+vec2(step.x, 0)).x;
-        float offset_z_y = texture(depth_texture, offsetTexCoord+vec2(0, step.y)).x;
 
         // sigmas
         float sigma_n = 128;
-        float sigma_z = 128;
+        float sigma_z = 1;
         float sigma_l = 4;
 
         float weight_n = 1;
         {
+            // NOTE(Felix): paper
             // weight_n = pow(max(0, dot(center_normal, offset_normal)), sigma_n);
 
-            // vec3 diff_normal = center_normal - offset_normal;
-            // float distNormal = dot(diff_normal, diff_normal);
-            // float weight_n   = min(exp(-distNormal / 0.1), 1.0);
+            // NOTE(Felix): empirical
+            vec3 diff_normal = center_normal - offset_normal;
+            float distNormal = dot(diff_normal, diff_normal);
+            float weight_n   = min(exp(-distNormal / 0.1), 1.0);
 
 
             // if (iteration == 4 && globalIdx == ivec2(1167, 243)) {
@@ -120,15 +103,30 @@ void main() {
 
         float weight_z = 1;
         {
-            // vec2 nabla_z = vec2(offset_z_x - offset_z, offset_z_y - offset_z);
 
             // weight_z = exp(-abs(offset_z - center_z)
             //                / // ----------------------
             //                (sigma_z* abs(dot(nabla_z, )) + 0.0001));
 
-            weight_z = exp(- abs(offset_z - center_z) * z_multiplier
-                           /
-                           (max(5e-3, 1e-8) * stepWidth * sqrt(dot(vec2(x, y), vec2(x, y)))));
+            // // NOTE(Felix): paper
+            // float h = 0.01;
+            // float offset_z_x =
+            //     (texture(depth_texture, fragTexCoord+vec2(pixel_step.x*h, 0)).x
+            //     -
+            //     texture(depth_texture, fragTexCoord+vec2(-pixel_step.x*h, 0)).x) / (2*h*pixel_step.x);
+
+            // float offset_z_y =
+            //     (texture(depth_texture, fragTexCoord+vec2(0, pixel_step.y*h)).x
+            //     -
+            //     texture(depth_texture, fragTexCoord+vec2(0, -pixel_step.y*h)).x) / (2*h*pixel_step.y);
+
+            // float f_width = abs(offset_z_x) + abs(offset_z_y);
+            // weight_z = exp(-abs(offset_z - center_z) /
+            //                (length(vec2(x, y)) * stepWidth));
+
+            // NOTE(Felix): empirical
+            weight_z = exp(-abs(offset_z - center_z) * 90 /
+                           (5e-3 * stepWidth * length(vec2(x, y))));
         }
 
         float weight_l = 1;

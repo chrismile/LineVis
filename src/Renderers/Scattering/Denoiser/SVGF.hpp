@@ -129,17 +129,6 @@ private:
 
     sgl::vk::ImageViewPtr output_image;
 
-    bool useColorWeights = true;
-    bool usePositionWeights = true;
-    bool useNormalWeights = true;
-    float phiColor = 5.0f;
-    float phiPosition = 0.1f;
-    float phiNormal = 0.1f;
-    // Use custom scales for different types of image generation processes.
-    float phiColorScale = 1.0f;
-    float phiPositionScale = 1.0f;
-    float phiNormalScale = 1.0f;
-
     int maxNumIterations = 5;
     sgl::vk::TexturePtr pingPongRenderTextures[2];
 
@@ -148,24 +137,6 @@ private:
     sgl::vk::ComputeDataPtr computeDataPingPong[3];
     sgl::vk::ComputeDataPtr computeDataPingPongFinal[3];
 
-    struct UniformData {
-        float phiColor;
-        float phiPosition;
-        float phiNormal;
-        float paddingFloat;
-        uint32_t useColor;
-        uint32_t usePosition;
-        uint32_t useNormal;
-        uint32_t paddingUint;
-    };
-    UniformData uniformData{};
-    sgl::vk::BufferPtr uniformBuffer;
-
-    float kernel[25]{};
-    sgl::vk::BufferPtr kernelBuffer;
-
-    glm::vec2 offset[25]{};
-    sgl::vk::BufferPtr offsetBuffer;
 };
 
 #endif //LINEVIS_SVGF_HPP

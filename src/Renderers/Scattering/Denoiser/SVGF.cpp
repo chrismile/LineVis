@@ -115,30 +115,7 @@ void SVGFDenoiser::resetFrameNumber() {
 
 SVGFBlitPass::SVGFBlitPass(sgl::vk::Renderer* renderer)
     : sgl::vk::ComputePass(renderer)
-{
-    uniformBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, sizeof(UniformData),
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY);
-
-    // Compute the Gaussian filter kernel weights.
-    for (int iy = 0; iy < 5; iy++) {
-        for (int ix = 0; ix < 5; ix++) {
-            int x = ix - 2;
-            int y = iy - 2;
-            kernel[ix + iy * 5] = std::exp(-float(x * x + y * y) / 2.0f);
-            offset[ix + iy * 5] = glm::vec2(x, y);
-        }
-    }
-    kernelBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, sizeof(float) * 25, kernel,
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY);
-    offsetBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, sizeof(glm::vec2) * 25, offset,
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-            VMA_MEMORY_USAGE_GPU_ONLY);
-}
+{}
 
 // Public interface.
 void SVGFBlitPass::setOutputImage(sgl::vk::ImageViewPtr& colorImage) {
@@ -218,13 +195,7 @@ void SVGFBlitPass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::Compu
 
     for (int i = 0; i < 3; i++) {
         computeDataPingPong[i] = std::make_shared<sgl::vk::ComputeData>(renderer, compute_pipeline);
-        computeDataPingPong[i]->setStaticBuffer(uniformBuffer, "UniformBuffer");
-        computeDataPingPong[i]->setStaticBuffer(kernelBuffer, "KernelBuffer");
-        computeDataPingPong[i]->setStaticBuffer(offsetBuffer, "OffsetBuffer");
         computeDataPingPongFinal[i] = std::make_shared<sgl::vk::ComputeData>(renderer, compute_pipeline);
-        computeDataPingPongFinal[i]->setStaticBuffer(uniformBuffer, "UniformBuffer");
-        computeDataPingPongFinal[i]->setStaticBuffer(kernelBuffer, "KernelBuffer");
-        computeDataPingPongFinal[i]->setStaticBuffer(offsetBuffer, "OffsetBuffer");
 
         if (i == 0) {
             computeDataPingPong[i]->setStaticTexture(current_frame.color_texture, "color_texture");
@@ -273,14 +244,6 @@ void SVGFBlitPass::_render() {
         return;
     }
 
-    uniformData.useColor = useColorWeights;
-    uniformData.usePosition = usePositionWeights;
-    uniformData.useNormal = useNormalWeights;
-    uniformData.phiColor = phiColor * phiColorScale;
-    uniformData.phiPosition = phiPosition * phiPositionScale;
-    uniformData.phiNormal = phiNormal * phiNormalScale;
-    uniformBuffer->updateData(
-            sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
 
     renderer->transitionImageLayout(current_frame.color_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     renderer->transitionImageLayout(current_frame.depth_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -399,7 +362,7 @@ bool SVGFBlitPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
     }
 
 
-    if (propertyEditor.addSliderFloat("z multiplier", &z_multiplier, 1, 200)) {
+    if (propertyEditor.addSliderFloat("z multiplier", &z_multiplier, 1, 1000)) {
         reRender = true;
         setDataDirty();
         device->waitIdle();
