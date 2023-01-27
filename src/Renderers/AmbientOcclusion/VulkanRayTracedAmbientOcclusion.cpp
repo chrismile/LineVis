@@ -359,6 +359,9 @@ void VulkanRayTracedAmbientOcclusionPass::checkRecreateFeatureMaps() {
 }
 
 void VulkanRayTracedAmbientOcclusionPass::setLineData(LineDataPtr& data, bool isNewData) {
+    if (this->lineData && lineData->getType() != data->getType()) {
+        setShaderDirty();
+    }
     lineData = data;
     topLevelAS = lineData->getRayTracingTubeTriangleTopLevelAS();
     tubeTriangleRenderData = lineData->getLinePassTubeTriangleMeshRenderData(false, true);

@@ -237,7 +237,10 @@ void main() {
         surfaceTangent = normalize(surfaceTangent);
         vec3 surfaceBitangent = cross(surfaceNormal, surfaceTangent);
 #else
-        if (dot(surfaceNormal, rayDirection) > 0) {
+        vec3 v0 = vertexData0.vertexPosition - vertexData1.vertexPosition;
+        vec3 v1 = vertexData0.vertexPosition - vertexData2.vertexPosition;
+        vec3 surfaceNormalFlat = normalize(cross(v0, v1));
+        if (dot(surfaceNormalFlat, rayDirection) > 0) {
             surfaceNormal = -surfaceNormal;
         }
         vec3 surfaceTangent;

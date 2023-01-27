@@ -1,39 +1,105 @@
 import math
-import numpy as np
+#import numpy as np
 import g
+
+
+def pow2(x):
+    return x * x
+
+
+def pow3(x):
+    return x * x * x
+
+
+#def f_cubic_bezier_numpy(x, p0, p1, p2, p3):
+#    """
+#    Returns the y value of a cubic Bezier curve for the given x coordinate.
+#    This function assumes that NumPy is installed (which is used for solving a cubic equation).
+#    :param x: The x coordinate of the Bezier curve.
+#    :param p0: Control point 0.
+#    :param p1: Control point 1.
+#    :param p2: Control point 2.
+#    :param p3: Control point 3.
+#    :return: The y coordinate of the Bezier curve at x.
+#    """
+#    b0 = p0[0] - x
+#    b1 = -3 * p0[0] + 3 * p1[0]
+#    b2 = 3 * p0[0] - 6 * p1[0] + 3 * p2[0]
+#    b3 = -p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]
+#    poly = np.polynomial.Polynomial((b0, b1, b2, b3), domain=[0,1], window=[0,1])
+#    roots = poly.roots()
+#    num_real = np.count_nonzero(np.isreal(roots))
+#
+#    if num_real == 1:
+#        indices = np.nonzero(np.isreal(roots))
+#        t = np.real(roots[indices])
+#    elif num_real == 3:
+#        t = roots[1]
+#    else:
+#        raise Exception('Error: Invalid number of non-zero values.')
+#
+#    y = pow3(1 - t) * p0[1] + 3 * pow2(1 - t) * t * p1[1] + 3 * (1 - t) * pow2(t) * p2[1] + pow3(t) * p3[1]
+#    return y
+
+
+def find_root(x, b0, b1, b2, b3):
+    """
+    Finds a root of the cubic polynomial with the passed coefficients.
+    :param x: The x coordinate of the Bezier curve.
+    :param b0: Cubic polynomial coefficient 0.
+    :param b1: Cubic polynomial coefficient 1.
+    :param b2: Cubic polynomial coefficient 2.
+    :param b3: Cubic polynomial coefficient 3.
+    :return: The t parameter of the Bezier curve at x.
+    """
+    # Use Newton's method to find the root of the polynomial: https://en.wikipedia.org/wiki/Newton%27s_method
+    epsilon = 1e-6
+    epsilon2 = 1e-7
+    t = x
+    for i in range(8):
+        x_new = b0 + b1 * t + b2 * pow2(t) + b3 * pow3(t)
+        if abs(x_new) < epsilon:
+            return t
+        xprime_new = b1 + 2 * b2 * t + 3.0 * b3 * pow2(t)
+        if abs(xprime_new) < epsilon2:
+            break
+        t = t - x_new / xprime_new
+
+    # If we found no root after 8 iterations, use the Bisection method: https://en.wikipedia.org/wiki/Bisection_method
+    t0 = 0.0
+    t1 = 1.0
+    t = x
+    while t0 < t1:
+        x_new = b0 + b1 * t + b2 * pow2(t) + b3 * pow3(t)
+        if abs(x_new) < epsilon:
+            return t
+        if x_new < 0.0:
+            t0 = t
+        else:
+            t1 = t
+        t = 0.5 * (t1 - t0) + t0
+
+    # Could not find any root of the polynomial.
+    return None
 
 def f_cubic_bezier(x, p0, p1, p2, p3):
     """
-    Returns the y value of a cubic bezier curve for the given x coordinate.
-    This function assumes that NumPy is installed (which is used for solving a cubic equation).
-    :param x: The x coordinate of the bezier curve.
+    Returns the y value of a cubic Bezier curve for the given x coordinate.
+    :param x: The x coordinate of the Bezier curve.
     :param p0: Control point 0.
     :param p1: Control point 1.
     :param p2: Control point 2.
     :param p3: Control point 3.
-    :return: The y coordinate of the bezier curve at x.
+    :return: The y coordinate of the Bezier curve at x.
     """
-    def pow2(x):
-        return x * x
-
-    def pow3(x):
-        return x * x * x
-
     b0 = p0[0] - x
     b1 = -3 * p0[0] + 3 * p1[0]
     b2 = 3 * p0[0] - 6 * p1[0] + 3 * p2[0]
     b3 = -p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]
-    poly = np.polynomial.Polynomial((b0, b1, b2, b3), domain=[0,1], window=[0,1])
-    roots = poly.roots()
-    num_real = np.count_nonzero(np.isreal(roots))
+    t = find_root(x, b0, b1, b2, b3)
 
-    if num_real == 1:
-        indices = np.nonzero(np.isreal(roots))
-        t = np.real(roots[indices])
-    elif num_real == 3:
-        t = roots[1]
-    else:
-        raise Exception('Error: Invalid number of non-zero values.')
+    if t is None:
+        raise Exception('Error: Could not find a root of the polynomial.')
 
     y = pow3(1 - t) * p0[1] + 3 * pow2(1 - t) * t * p1[1] + 3 * (1 - t) * pow2(t) * p2[1] + pow3(t) * p3[1]
     return y
