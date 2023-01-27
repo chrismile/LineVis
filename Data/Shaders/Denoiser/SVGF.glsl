@@ -142,6 +142,8 @@ void main() {
 
     }
 
+    if (iteration == 0)
+        imageStore(color_history_texture, globalIdx, sum / accumW);
 
     imageStore(outputImage, globalIdx, sum / accumW);
 }
