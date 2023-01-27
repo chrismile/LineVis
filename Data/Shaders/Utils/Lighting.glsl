@@ -128,6 +128,10 @@ vec4 blinnPhongShadingTube(
 #else
     float ambientOcclusionFactor = getAoFactor(screenSpacePosition);
 #endif
+#endif
+
+#ifndef DISABLE_SHADING
+#if defined(USE_AMBIENT_OCCLUSION) && defined(GEOMETRY_PASS_TUBE)
     //float ambientFactor = (1.0 - ambientOcclusionStrength) * 0.75;
     const float kA = 0.2 + (1.0 - ambientOcclusionFactor) * 0.5;
     const vec3 Ia = kA * ambientColor;
@@ -164,6 +168,9 @@ vec4 blinnPhongShadingTube(
     vec3 Is = kS * pow(clamp(abs(dot(n, h)), 0.0, 1.0), s) * lightColor;
 
     phongColor = Ia + Id + Is;
+#else //< DISABLE_SHADING
+    phongColor = diffuseColor;
+#endif
 
 #if defined(USE_AMBIENT_OCCLUSION) && defined(GEOMETRY_PASS_TUBE)
 #ifdef STATIC_AMBIENT_OCCLUSION_PREBAKING
@@ -214,6 +221,7 @@ vec4 blinnPhongShadingTriangleMesh(
 #endif
 #endif
 
+#ifndef DISABLE_SHADING
     const float kA = 0.1;
     const vec3 Ia = kA * ambientColor;
     const float kD = 0.9;
@@ -229,6 +237,9 @@ vec4 blinnPhongShadingTriangleMesh(
     vec3 Is = kS * pow(clamp(abs(dot(n, h)), 0.0, 1.0), s) * lightColor;
 
     phongColor = Ia + Id + Is;
+#else //< DISABLE_SHADING
+    phongColor = diffuseColor;
+#endif
 
 #if defined(USE_AMBIENT_OCCLUSION) && defined(GEOMETRY_PASS_TUBE)
     phongColor *= ambientOcclusionFactor;

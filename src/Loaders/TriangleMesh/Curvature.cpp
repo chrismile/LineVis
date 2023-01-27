@@ -82,7 +82,7 @@ void computeCurvature(
             const glm::vec3& positionNeighbor = vertexPositions.at(neighborVertexIdx);
             const glm::vec3 n = normalNeighbor - normalCenter;
             const glm::vec3 p = positionNeighbor - positionCenter;
-            const float l2 = glm::length(p) * glm::length(p);
+            const float l2 = std::max(glm::length(p) * glm::length(p), 1e-6f);
             ring1Curvatures.at(neighborIdx) = glm::dot(n, p) / l2;
         }
 

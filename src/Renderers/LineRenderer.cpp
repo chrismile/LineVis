@@ -519,6 +519,15 @@ void LineRenderer::renderGuiOverlay() {
     }
 }
 
+/// Renders the entries in the property editor.
+void LineRenderer::renderGuiPropertyEditorNodesParent(sgl::PropertyEditor& propertyEditor) {
+    renderGuiPropertyEditorNodes(propertyEditor);
+    if (propertyEditor.beginNode("Advanced Settings")) {
+        renderGuiPropertyEditorNodesAdvanced(propertyEditor);
+        propertyEditor.endNode();
+    }
+}
+
 void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool shallReloadGatherShader = false;
 
@@ -629,6 +638,20 @@ void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
             if (ambientOcclusionBaker->getIsStaticPrebaker()) {
                 ambientOcclusionBuffersDirty = true;
             }
+        }
+    }
+
+    if (shallReloadGatherShader) {
+        reloadGatherShaderExternal();
+    }
+}
+
+void LineRenderer::renderGuiPropertyEditorNodesAdvanced(sgl::PropertyEditor& propertyEditor) {
+    bool shallReloadGatherShader = false;
+
+    if (lineData) {
+        if (lineData->renderGuiPropertyEditorNodesRendererAdvanced(propertyEditor, this)) {
+            shallReloadGatherShader = true;
         }
     }
 
