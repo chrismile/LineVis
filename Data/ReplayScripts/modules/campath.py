@@ -1,5 +1,5 @@
 import math
-import numpy as np
+#import numpy as np
 import g
 
 
@@ -11,35 +11,35 @@ def pow3(x):
     return x * x * x
 
 
-def f_cubic_bezier_numpy(x, p0, p1, p2, p3):
-    """
-    Returns the y value of a cubic Bezier curve for the given x coordinate.
-    This function assumes that NumPy is installed (which is used for solving a cubic equation).
-    :param x: The x coordinate of the Bezier curve.
-    :param p0: Control point 0.
-    :param p1: Control point 1.
-    :param p2: Control point 2.
-    :param p3: Control point 3.
-    :return: The y coordinate of the Bezier curve at x.
-    """
-    b0 = p0[0] - x
-    b1 = -3 * p0[0] + 3 * p1[0]
-    b2 = 3 * p0[0] - 6 * p1[0] + 3 * p2[0]
-    b3 = -p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]
-    poly = np.polynomial.Polynomial((b0, b1, b2, b3), domain=[0,1], window=[0,1])
-    roots = poly.roots()
-    num_real = np.count_nonzero(np.isreal(roots))
-
-    if num_real == 1:
-        indices = np.nonzero(np.isreal(roots))
-        t = np.real(roots[indices])
-    elif num_real == 3:
-        t = roots[1]
-    else:
-        raise Exception('Error: Invalid number of non-zero values.')
-
-    y = pow3(1 - t) * p0[1] + 3 * pow2(1 - t) * t * p1[1] + 3 * (1 - t) * pow2(t) * p2[1] + pow3(t) * p3[1]
-    return y
+#def f_cubic_bezier_numpy(x, p0, p1, p2, p3):
+#    """
+#    Returns the y value of a cubic Bezier curve for the given x coordinate.
+#    This function assumes that NumPy is installed (which is used for solving a cubic equation).
+#    :param x: The x coordinate of the Bezier curve.
+#    :param p0: Control point 0.
+#    :param p1: Control point 1.
+#    :param p2: Control point 2.
+#    :param p3: Control point 3.
+#    :return: The y coordinate of the Bezier curve at x.
+#    """
+#    b0 = p0[0] - x
+#    b1 = -3 * p0[0] + 3 * p1[0]
+#    b2 = 3 * p0[0] - 6 * p1[0] + 3 * p2[0]
+#    b3 = -p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]
+#    poly = np.polynomial.Polynomial((b0, b1, b2, b3), domain=[0,1], window=[0,1])
+#    roots = poly.roots()
+#    num_real = np.count_nonzero(np.isreal(roots))
+#
+#    if num_real == 1:
+#        indices = np.nonzero(np.isreal(roots))
+#        t = np.real(roots[indices])
+#    elif num_real == 3:
+#        t = roots[1]
+#    else:
+#        raise Exception('Error: Invalid number of non-zero values.')
+#
+#    y = pow3(1 - t) * p0[1] + 3 * pow2(1 - t) * t * p1[1] + 3 * (1 - t) * pow2(t) * p2[1] + pow3(t) * p3[1]
+#    return y
 
 
 def find_root(x, b0, b1, b2, b3):

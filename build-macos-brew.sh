@@ -129,9 +129,6 @@ if command -v brew &> /dev/null && [ ! -d $build_dir_debug ] && [ ! -d $build_di
     if ! is_installed_brew "python@3.9"; then
         brew install python@3.9
     fi
-    if ! is_installed_brew "numpy"; then
-        brew install numpy
-    fi
     if ! is_installed_brew "eccodes"; then
         brew install eccodes
     fi
