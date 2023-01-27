@@ -151,6 +151,9 @@ void GBufferPass::setOutputImages(sgl::vk::ImageViewPtr& _positionImage, sgl::vk
 }
 
 void GBufferPass::setLineData(LineDataPtr& data, bool isNewData) {
+    if (this->lineData && lineData->getType() != data->getType()) {
+        setShaderDirty();
+    }
     lineData = data;
 }
 

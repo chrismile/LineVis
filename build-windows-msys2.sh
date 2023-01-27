@@ -85,7 +85,6 @@ if command -v pacman &> /dev/null && [ ! -d $build_dir_debug ] && [ ! -d $build_
             || ! is_installed_pacman "mingw-w64-x86_64-zeromq" \
             || ! is_installed_pacman "mingw-w64-x86_64-eigen3" \
             || ! is_installed_pacman "mingw-w64-x86_64-python" \
-            || ! is_installed_pacman "mingw-w64-x86_64-python-numpy" \
             || ! is_installed_pacman "mingw-w64-x86_64-openexr" \
             || ! is_installed_pacman "mingw-w64-x86_64-eccodes"; then
         echo "------------------------"
@@ -99,7 +98,7 @@ if command -v pacman &> /dev/null && [ ! -d $build_dir_debug ] && [ ! -d $build_
         mingw64/mingw-w64-x86_64-vulkan-validation-layers mingw64/mingw-w64-x86_64-shaderc \
         mingw64/mingw-w64-x86_64-opencl-headers mingw64/mingw-w64-x86_64-opencl-icd \
         mingw64/mingw-w64-x86_64-jsoncpp mingw64/mingw-w64-x86_64-netcdf mingw64/mingw-w64-x86_64-zeromq \
-        mingw64/mingw-w64-x86_64-eigen3 mingw64/mingw-w64-x86_64-python mingw64/mingw-w64-x86_64-python-numpy \
+        mingw64/mingw-w64-x86_64-eigen3 mingw64/mingw-w64-x86_64-python \
         mingw64/mingw-w64-x86_64-openexr mingw64/mingw-w64-x86_64-eccodes
     fi
 fi
@@ -308,17 +307,6 @@ do
     then
         tmp=${library#*lib}
         Python3_VERSION=${tmp%.dll}
-    fi
-done
-
-# Copy libopenblas (needed by numpy) and its dependencies to the destination directory.
-cp "$MSYSTEM_PREFIX/bin/libopenblas.dll" "$destination_dir/bin"
-ldd_output="$(ldd "$MSYSTEM_PREFIX/bin/libopenblas.dll")"
-for library in $ldd_output
-do
-    if [[ $library == "$MSYSTEM_PREFIX"* ]] ;
-    then
-        cp "$library" "$destination_dir/bin"
     fi
 done
 
