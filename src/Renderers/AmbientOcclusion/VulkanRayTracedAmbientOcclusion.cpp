@@ -293,6 +293,7 @@ void VulkanRayTracedAmbientOcclusionPass::recreateFeatureMaps() {
         positionMapTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
     }
 
+    albedoTexture = {};
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::ALBEDO)) {
         imageSettings.format = VK_FORMAT_R32G32B32A32_SFLOAT;
         imageSettings.usage =
@@ -305,6 +306,7 @@ void VulkanRayTracedAmbientOcclusionPass::recreateFeatureMaps() {
         device->endSingleTimeCommands(commandBuffer);
     }
 
+    flowMapTexture = {};
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
         imageSettings.format = VK_FORMAT_R32G32_SFLOAT;
         imageSettings.usage =
