@@ -1,4 +1,30 @@
--- Compute
+// --------------------------------------
+//           Reprojection
+// --------------------------------------
+-- Compute-Reproject
+#version 450
+#extension GL_EXT_scalar_block_layout : require
+layout(local_size_x = BLOCK_SIZE, local_size_y = BLOCK_SIZE) in;
+
+// this frame
+layout(binding = 1) uniform sampler2D motion_texture;
+layout(binding = 2) uniform sampler2D color_texture;
+layout(binding = 3) uniform sampler2D normal_texture;
+layout(binding = 4) uniform sampler2D depth_texture;
+
+// last frame
+layout(binding = 5, rgba32f) uniform image2D color_history_texture;
+layout(binding = 6, rgba32f) uniform image2D normals_history_texture;
+layout(binding = 7, rgba32f) uniform image2D depth_history_texture;
+
+// output
+layout(binding = 8, rgba32f) uniform writeonly image2D old_xy_valid_texture;
+
+
+// --------------------------------------
+//           À-Trous-Pass
+// --------------------------------------
+-- Compute-ATrous
 
 #version 450
 #extension GL_EXT_scalar_block_layout : require
@@ -18,15 +44,12 @@ layout(binding = 3) uniform sampler2D color_texture;
 layout(binding = 4) uniform sampler2D normal_texture;
 layout(binding = 5) uniform sampler2D depth_texture;
 layout(binding = 6) uniform sampler2D motion_texture;
-// TODO(Felix): meshid??
 
 // last frame
-layout(binding = 8)  uniform sampler2D color_history_texture;
-layout(binding = 9)  uniform sampler2D variance_history_texture;
-layout(binding = 10) uniform sampler2D depth_history_texture;
-// layout(binding = 11) uniform sampler2D normals_history_texture;
-// TODO(Felix): meshid??
-
+layout(binding = 8,  rgba32f) uniform image2D color_history_texture;
+layout(binding = 9,  rgba32f) uniform image2D variance_history_texture;
+layout(binding = 10, rgba32f) uniform image2D depth_history_texture;
+layout(binding = 11, rgba32f) uniform image2D normals_history_texture;
 
 // output
 layout(binding = 7, rgba32f) uniform writeonly image2D outputImage;

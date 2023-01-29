@@ -324,7 +324,6 @@ void VulkanRayTracedAmbientOcclusionPass::recreateFeatureMaps() {
         changedDenoiserSettings = true;
         createDenoiser();
     }
-
 }
 
 void VulkanRayTracedAmbientOcclusionPass::checkRecreateFeatureMaps() {

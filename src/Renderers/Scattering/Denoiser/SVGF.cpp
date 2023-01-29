@@ -62,23 +62,26 @@
 
 
 SVGFDenoiser::SVGFDenoiser(sgl::vk::Renderer* renderer) {
-    svgfBlitPass = std::make_shared<SVGFBlitPass>(renderer);
+    this->renderer = renderer;
+
+    svgf_atrous_pass = std::make_shared<SVGF_ATrous_Pass>(renderer, &textures);
+    svgf_reproj_pass = std::make_shared<SVGF_Repoj_Pass>(renderer, &textures);
 }
 
 bool SVGFDenoiser::getIsEnabled() const {
-    return svgfBlitPass->getMaxNumIterations() > 0;
+    return svgf_atrous_pass->getMaxNumIterations() > 0;
 }
 
 void SVGFDenoiser::setOutputImage(sgl::vk::ImageViewPtr& outputImage) {
-    svgfBlitPass->setOutputImage(outputImage);
+    textures.output_image = outputImage;
 }
 
-void SVGFDenoiser::setFeatureMap(FeatureMapType featureMapType, const sgl::vk::TexturePtr& featureTexture) {
+void SVGFDenoiser::setFeatureMap(FeatureMapType featureMapType, const sgl::vk::TexturePtr& feature_map) {
     switch (featureMapType) {
-        case FeatureMapType::COLOR:  svgfBlitPass->set_color_texture(featureTexture);  return;
-        case FeatureMapType::NORMAL: svgfBlitPass->set_normal_texture(featureTexture); return;
-        case FeatureMapType::DEPTH:  svgfBlitPass->set_depth_texture(featureTexture);  return;
-        case FeatureMapType::FLOW:   svgfBlitPass->set_motion_texture(featureTexture); return;
+        case FeatureMapType::COLOR:  textures.current_frame.color_texture  = feature_map; return;
+        case FeatureMapType::NORMAL: textures.current_frame.normal_texture = feature_map; return;
+        case FeatureMapType::DEPTH:  textures.current_frame.depth_texture  = feature_map; return;
+        case FeatureMapType::FLOW:   textures.current_frame.motion_texture = feature_map; return;
         default: return;
     }
 }
@@ -96,33 +99,15 @@ void SVGFDenoiser::setUseFeatureMap(FeatureMapType featureMapType, bool useFeatu
 }
 
 void SVGFDenoiser::denoise() {
-    svgfBlitPass->render();
-    // svgfBlitPass->set_previous_frame_data();
+    // svgf_reproj_pass->render();
+    svgf_atrous_pass->render();
+
 }
 
 
 void SVGFDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
-    svgfBlitPass->recreateSwapchain(width, height);
-}
+    auto device = renderer->getDevice();
 
-bool SVGFDenoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
-    return svgfBlitPass->renderGuiPropertyEditorNodes(propertyEditor);
-}
-
-void SVGFDenoiser::resetFrameNumber() {
-
-}
-
-SVGFBlitPass::SVGFBlitPass(sgl::vk::Renderer* renderer)
-    : sgl::vk::ComputePass(renderer)
-{}
-
-// Public interface.
-void SVGFBlitPass::setOutputImage(sgl::vk::ImageViewPtr& colorImage) {
-    output_image = colorImage;
-}
-
-void SVGFBlitPass::recreateSwapchain(uint32_t width, uint32_t height) {
     sgl::vk::ImageSettings imageSettings;
     imageSettings.width = width;
     imageSettings.height = height;
@@ -133,17 +118,17 @@ void SVGFBlitPass::recreateSwapchain(uint32_t width, uint32_t height) {
         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     for (int i = 0; i < 2; i++) {
-        pingPongRenderTextures[i] = std::make_shared<sgl::vk::Texture>(device, imageSettings);
+        textures.pingPongRenderTextures[i] = std::make_shared<sgl::vk::Texture>(device, imageSettings);
     }
 
     // recreate previous frame images
     {
         // color_history
-        previous_frame.color_history_texture = {};
-        previous_frame.color_history_texture =
+        textures.previous_frame.color_history_texture = {};
+        textures.previous_frame.color_history_texture =
             std::make_shared<sgl::vk::Texture>(
-                current_frame.color_texture->getImageView()->copy(true, false),
-                current_frame.color_texture->getImageSampler());
+                textures.current_frame.color_texture->getImageView()->copy(true, false),
+                textures.current_frame.color_texture->getImageSampler());
 
         // moments_histories
         {
@@ -156,104 +141,120 @@ void SVGFBlitPass::recreateSwapchain(uint32_t width, uint32_t height) {
                 VK_IMAGE_USAGE_STORAGE_BIT;
 
             for (int i = 0; i < 2; ++i) {
-                previous_frame.moments_history_texture[i] = {};
-                previous_frame.moments_history_texture[i] =
+                textures.previous_frame.moments_history_texture[i] = {};
+                textures.previous_frame.moments_history_texture[i] =
                     std::make_shared<sgl::vk::Texture>(device, imageSettings);
             }
         }
 
         // normal
-        sgl::vk::ImageSettings im_settings = current_frame.normal_texture->getImage()->getImageSettings();
+        sgl::vk::ImageSettings im_settings = textures.current_frame.normal_texture->getImage()->getImageSettings();
         im_settings.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-        previous_frame.normal_texture = {};
-        previous_frame.normal_texture = std::make_shared<sgl::vk::Texture>(device, im_settings);
+        textures.previous_frame.normal_texture = {};
+        textures.previous_frame.normal_texture = std::make_shared<sgl::vk::Texture>(device, im_settings);
 
         // depth
-        im_settings = current_frame.depth_texture->getImage()->getImageSettings();
+        im_settings = textures.current_frame.depth_texture->getImage()->getImageSettings();
         im_settings.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-        previous_frame.depth_texture = {};
-        previous_frame.depth_texture = std::make_shared<sgl::vk::Texture>(device, im_settings);
+        textures.previous_frame.depth_texture = {};
+        textures.previous_frame.depth_texture = std::make_shared<sgl::vk::Texture>(device, im_settings);
     }
 
+    svgf_atrous_pass->setDataDirty();
+    svgf_reproj_pass->setDataDirty();
 
-    dataDirty = true;
 }
 
-void SVGFBlitPass::loadShader() {
+bool SVGFDenoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    return svgf_atrous_pass->renderGuiPropertyEditorNodes(propertyEditor);
+}
+
+void SVGFDenoiser::resetFrameNumber() {}
+
+// ------------------------------
+//       À-Trous-Pass
+// ------------------------------
+
+SVGF_ATrous_Pass::SVGF_ATrous_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures)
+    : sgl::vk::ComputePass(renderer), textures(textures)
+{}
+
+
+void SVGF_ATrous_Pass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
 
     std::map<std::string, std::string> preprocessorDefines;
 
     preprocessorDefines.insert(std::make_pair("BLOCK_SIZE", std::to_string(computeBlockSize)));
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
-        { "SVGF.Compute" }, preprocessorDefines);
+        { "SVGF.Compute-ATrous" }, preprocessorDefines);
 }
 
-void SVGFBlitPass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& compute_pipeline) {
+void SVGF_ATrous_Pass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& compute_pipeline) {
 
     for (int i = 0; i < 3; i++) {
         computeDataPingPong[i] = std::make_shared<sgl::vk::ComputeData>(renderer, compute_pipeline);
         computeDataPingPongFinal[i] = std::make_shared<sgl::vk::ComputeData>(renderer, compute_pipeline);
 
         if (i == 0) {
-            computeDataPingPong[i]->setStaticTexture(current_frame.color_texture, "color_texture");
-            computeDataPingPongFinal[i]->setStaticTexture(current_frame.color_texture, "color_texture");
-            computeDataPingPong[i]->setStaticImageView(pingPongRenderTextures[(i + 1) % 2]->getImageView(), "outputImage");
-            computeDataPingPongFinal[i]->setStaticImageView(output_image, "outputImage");
+            computeDataPingPong[i]->setStaticTexture(textures->current_frame.color_texture, "color_texture");
+            computeDataPingPongFinal[i]->setStaticTexture(textures->current_frame.color_texture, "color_texture");
+            computeDataPingPong[i]->setStaticImageView(textures->pingPongRenderTextures[(i + 1) % 2]->getImageView(), "outputImage");
+            computeDataPingPongFinal[i]->setStaticImageView(textures->output_image, "outputImage");
         } else {
-            computeDataPingPong[i]->setStaticTexture(pingPongRenderTextures[i % 2], "color_texture");
-            computeDataPingPongFinal[i]->setStaticTexture(pingPongRenderTextures[i % 2], "color_texture");
-            computeDataPingPong[i]->setStaticImageView(pingPongRenderTextures[(i + 1) % 2]->getImageView(), "outputImage");
-            computeDataPingPongFinal[i]->setStaticImageView(output_image, "outputImage");
+            computeDataPingPong[i]->setStaticTexture(textures->pingPongRenderTextures[i % 2], "color_texture");
+            computeDataPingPongFinal[i]->setStaticTexture(textures->pingPongRenderTextures[i % 2], "color_texture");
+            computeDataPingPong[i]->setStaticImageView(textures->pingPongRenderTextures[(i + 1) % 2]->getImageView(), "outputImage");
+            computeDataPingPongFinal[i]->setStaticImageView(textures->output_image, "outputImage");
         }
 
-        computeDataPingPong[i]->setStaticTexture(current_frame.depth_texture, "depth_texture");
-        computeDataPingPongFinal[i]->setStaticTexture(current_frame.depth_texture, "depth_texture");
+        computeDataPingPong[i]->setStaticTexture(textures->current_frame.depth_texture, "depth_texture");
+        computeDataPingPongFinal[i]->setStaticTexture(textures->current_frame.depth_texture, "depth_texture");
 
-        computeDataPingPong[i]->setStaticTexture(current_frame.normal_texture, "normal_texture");
-        computeDataPingPongFinal[i]->setStaticTexture(current_frame.normal_texture, "normal_texture");
+        computeDataPingPong[i]->setStaticTexture(textures->current_frame.normal_texture, "normal_texture");
+        computeDataPingPongFinal[i]->setStaticTexture(textures->current_frame.normal_texture, "normal_texture");
 
-        computeDataPingPong[i]->setStaticTexture(current_frame.motion_texture, "motion_texture");
-        computeDataPingPongFinal[i]->setStaticTexture(current_frame.motion_texture, "motion_texture");
+        computeDataPingPong[i]->setStaticTexture(textures->current_frame.motion_texture, "motion_texture");
+        computeDataPingPongFinal[i]->setStaticTexture(textures->current_frame.motion_texture, "motion_texture");
 
         // prev frame
-        computeDataPingPong[i]->setStaticTexture(previous_frame.color_history_texture, "color_history_texture");
-        computeDataPingPongFinal[i]->setStaticTexture(previous_frame.color_history_texture, "color_history_texture");
+        computeDataPingPong[i]->setStaticTexture(textures->previous_frame.color_history_texture, "color_history_texture");
+        computeDataPingPongFinal[i]->setStaticTexture(textures->previous_frame.color_history_texture, "color_history_texture");
 
         // TODO(Felix): warum war moments_history_texture hier pingpong??
-        computeDataPingPong[i]->setStaticTexture(previous_frame.moments_history_texture[0], "variance_history_texture");
-        computeDataPingPongFinal[i]->setStaticTexture(previous_frame.moments_history_texture[0], "variance_history_texture");
+        computeDataPingPong[i]->setStaticTexture(textures->previous_frame.moments_history_texture[0], "variance_history_texture");
+        computeDataPingPongFinal[i]->setStaticTexture(textures->previous_frame.moments_history_texture[0], "variance_history_texture");
 
-        computeDataPingPong[i]->setStaticTexture(previous_frame.depth_texture, "depth_history_texture");
-        computeDataPingPongFinal[i]->setStaticTexture(previous_frame.depth_texture, "depth_history_texture");
+        computeDataPingPong[i]->setStaticTexture(textures->previous_frame.depth_texture, "depth_history_texture");
+        computeDataPingPongFinal[i]->setStaticTexture(textures->previous_frame.depth_texture, "depth_history_texture");
 
-        // computeDataPingPong[i]->setStaticTexture(previous_frame.normal_texture, "normals_history_texture");
-        // computeDataPingPongFinal[i]->setStaticTexture(previous_frame.normal_texture, "normals_history_texture");
+        computeDataPingPong[i]->setStaticTexture(textures->previous_frame.normal_texture, "normals_history_texture");
+        computeDataPingPongFinal[i]->setStaticTexture(textures->previous_frame.normal_texture, "normals_history_texture");
 
     }
 }
 
-void SVGFBlitPass::_render() {
+void SVGF_ATrous_Pass::_render() {
     if (maxNumIterations < 1) {
-        renderer->transitionImageLayout(current_frame.color_texture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-        renderer->transitionImageLayout(output_image->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        current_frame.color_texture->getImage()->blit(output_image->getImage(), renderer->getVkCommandBuffer());
-        renderer->syncWithCpu();
+        renderer->transitionImageLayout(textures->current_frame.color_texture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        renderer->transitionImageLayout(textures->output_image->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        textures->current_frame.color_texture->getImage()->blit(textures->output_image->getImage(), renderer->getVkCommandBuffer());
+        // renderer->syncWithCpu();
         return;
     }
 
 
-    renderer->transitionImageLayout(current_frame.color_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    renderer->transitionImageLayout(current_frame.depth_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    renderer->transitionImageLayout(current_frame.normal_texture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    renderer->transitionImageLayout(current_frame.motion_texture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    renderer->transitionImageLayout(textures->current_frame.color_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    renderer->transitionImageLayout(textures->current_frame.depth_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    renderer->transitionImageLayout(textures->current_frame.normal_texture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    renderer->transitionImageLayout(textures->current_frame.motion_texture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     // render_compute
     {
-        auto width = int(current_frame.color_texture->getImage()->getImageSettings().width);
-        auto height = int(current_frame.color_texture->getImage()->getImageSettings().height);
+        auto width = int(textures->current_frame.color_texture->getImage()->getImageSettings().width);
+        auto height = int(textures->current_frame.color_texture->getImage()->getImageSettings().height);
 
         for (int i = 0; i < maxNumIterations; i++) {
             int computeDataIdx;
@@ -300,59 +301,83 @@ void SVGFBlitPass::_render() {
                 VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                 VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT);
 
+            renderer->insertImageMemoryBarrier(
+                computeData->getImageView("color_history_texture")->getImage(),
+                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT);
+
+            renderer->insertImageMemoryBarrier(
+                computeData->getImageView("variance_history_texture")->getImage(),
+                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT);
+
+            renderer->insertImageMemoryBarrier(
+                computeData->getImageView("depth_history_texture")->getImage(),
+                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_READ_BIT);
+
+            renderer->insertImageMemoryBarrier(
+                computeData->getImageView("normals_history_texture")->getImage(),
+                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_READ_BIT);
+
             int numWorkgroupsX = sgl::iceil(width, computeBlockSize);
             int numWorkgroupsY = sgl::iceil(height, computeBlockSize);
             renderer->dispatch(computeData, numWorkgroupsX, numWorkgroupsY, 1);
 
-            renderer->syncWithCpu();
+            // renderer->syncWithCpu();
         }
 
         // update previous frame images
         {
             // normal texture
             renderer->insertImageMemoryBarrier(
-                previous_frame.normal_texture->getImage(),
+                textures->previous_frame.normal_texture->getImage(),
                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
                 VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
 
             renderer->insertImageMemoryBarrier(
-                current_frame.normal_texture->getImage(),
-                current_frame.normal_texture->getImage()->getVkImageLayout(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                textures->current_frame.normal_texture->getImage(),
+                textures->current_frame.normal_texture->getImage()->getVkImageLayout(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
                 VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT);
 
 
-            current_frame.normal_texture->getImage()->copyToImage(previous_frame.normal_texture->getImage(),
-                                                                 VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                 renderer->getVkCommandBuffer());
+            textures->current_frame.normal_texture->getImage()->copyToImage(textures->previous_frame.normal_texture->getImage(),
+                                                                            VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                            renderer->getVkCommandBuffer());
 
-            renderer->syncWithCpu();
+            // renderer->syncWithCpu();
 
             // depth texture
             renderer->insertImageMemoryBarrier(
-                previous_frame.depth_texture->getImage(),
+                textures->previous_frame.depth_texture->getImage(),
                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
                 VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
 
             renderer->insertImageMemoryBarrier(
-                current_frame.depth_texture->getImage(),
-                current_frame.depth_texture->getImage()->getVkImageLayout(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                textures->current_frame.depth_texture->getImage(),
+                textures->current_frame.depth_texture->getImage()->getVkImageLayout(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
                 VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT);
 
 
-            current_frame.depth_texture->getImage()->copyToImage(previous_frame.depth_texture->getImage(),
-                                                                 VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                 renderer->getVkCommandBuffer());
+            textures->current_frame.depth_texture->getImage()->copyToImage(textures->previous_frame.depth_texture->getImage(),
+                                                                           VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                           renderer->getVkCommandBuffer());
 
-            renderer->syncWithCpu();
+            // renderer->syncWithCpu();
         }
     }
 }
 
-bool SVGFBlitPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+bool SVGF_ATrous_Pass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool reRender = false;
 
     if (propertyEditor.addSliderInt("#Iterations", &maxNumIterations, 0, 5)) {
@@ -370,4 +395,29 @@ bool SVGFBlitPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
 
 
     return reRender;
+}
+
+
+// ------------------------------
+//       Reproj-Pass
+// ------------------------------
+
+SVGF_Repoj_Pass::SVGF_Repoj_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures)
+    : sgl::vk::ComputePass(renderer), textures(textures)
+{}
+
+
+void SVGF_Repoj_Pass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& compute_pipeline)
+{}
+
+void SVGF_Repoj_Pass::_render() {}
+
+void SVGF_Repoj_Pass::loadShader() {
+    sgl::vk::ShaderManager->invalidateShaderCache();
+
+    std::map<std::string, std::string> preprocessorDefines;
+
+    preprocessorDefines.insert(std::make_pair("BLOCK_SIZE", std::to_string(computeBlockSize)));
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+        { "SVGF.Compute-Reproject" }, preprocessorDefines);
 }

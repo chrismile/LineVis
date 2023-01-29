@@ -33,10 +33,44 @@
 
 #include "Denoiser.hpp"
 
-class SVGFBlitPass;
+class SVGF_ATrous_Pass;
+class SVGF_Repoj_Pass;
 
+struct Texture_Pack {
+    struct {
+        sgl::vk::TexturePtr color_texture;
+        sgl::vk::TexturePtr motion_texture;
+        sgl::vk::TexturePtr normal_texture;
+        sgl::vk::TexturePtr depth_texture;
+        // meshid?
+    } current_frame;
+
+
+    struct {
+        // vom shader beschrieben
+        sgl::vk::TexturePtr moments_history_texture[2];
+        uint32_t ping_pong_idx = 0;
+
+        sgl::vk::TexturePtr color_history_texture;
+
+        // in c++ beschrieben
+        sgl::vk::TexturePtr normal_texture;
+        sgl::vk::TexturePtr depth_texture;
+        // meshid?
+    } previous_frame;
+
+    sgl::vk::TexturePtr pingPongRenderTextures[2];
+
+    sgl::vk::ImageViewPtr output_image;
+};
 
 class SVGFDenoiser : public Denoiser {
+    Texture_Pack textures;
+    sgl::vk::Renderer* renderer;
+
+    std::shared_ptr<SVGF_ATrous_Pass> svgf_atrous_pass;
+    std::shared_ptr<SVGF_Repoj_Pass>  svgf_reproj_pass;
+
 public:
     explicit SVGFDenoiser(sgl::vk::Renderer* renderer);
     DenoiserType getDenoiserType() const override { return DenoiserType::SVGF; }
@@ -53,90 +87,56 @@ public:
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
-private:
-    std::shared_ptr<SVGFBlitPass> svgfBlitPass;
 };
 
-class SVGFBlitPass : public sgl::vk::ComputePass {
+class SVGF_ATrous_Pass : public sgl::vk::ComputePass {
     friend class SVGFDenoiser;
+
+    Texture_Pack* textures;
+
+    float z_multiplier = 100;
+    int maxNumIterations = 5;
+
+    const int computeBlockSize = 16;
+    sgl::vk::ComputeDataPtr computeDataPingPong[3];
+    sgl::vk::ComputeDataPtr computeDataPingPongFinal[3];
+
+    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
+    void _render() override;
+
 public:
-    explicit SVGFBlitPass(sgl::vk::Renderer* renderer);
-    void recreateSwapchain(uint32_t width, uint32_t height) override;
-
-    // Public interface.
-    void setOutputImage(sgl::vk::ImageViewPtr& colorImage);
-
-    inline void set_color_texture(const sgl::vk::TexturePtr& texture) {
-        current_frame.color_texture = texture;
-        setDataDirty();
-    }
-    inline void set_motion_texture(const sgl::vk::TexturePtr& texture) {
-        current_frame.motion_texture = texture;
-
-        setDataDirty();
-    }
-    inline void set_normal_texture(const sgl::vk::TexturePtr& texture) {
-        current_frame.normal_texture  = texture;
-        setDataDirty();
-    }
-    inline void set_depth_texture(const sgl::vk::TexturePtr& texture) {
-        current_frame.depth_texture  = texture;
-        setDataDirty();
-    }
-
+    explicit SVGF_ATrous_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures);
     [[nodiscard]] inline int getMaxNumIterations() const { return maxNumIterations; }
 
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
 
-    void set_previous_frame_data() {
-        // NOTE(Felix): color_texture and moments_history get updated by the
-        // shader
-        previous_frame.depth_texture = current_frame.depth_texture;
-        previous_frame.normal_texture = current_frame.normal_texture;
-    }
+protected:
+    void loadShader() override;
+
+};
+
+class SVGF_Repoj_Pass : public sgl::vk::ComputePass {
+    friend class SVGFDenoiser;
+
+    Texture_Pack* textures;
+
+    const int computeBlockSize = 16;
+    sgl::vk::ComputeDataPtr computeData;
+
+    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
+    void _render() override;
+
+public:
+    explicit SVGF_Repoj_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures);
+
+    /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
+    bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
 
 protected:
     void loadShader() override;
 
-
-private:
-    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
-    void _render() override;
-
-    struct {
-        sgl::vk::TexturePtr color_texture;
-        sgl::vk::TexturePtr motion_texture;
-        sgl::vk::TexturePtr normal_texture;
-        sgl::vk::TexturePtr depth_texture;
-        // meshid?
-    } current_frame;
-
-    float z_multiplier = 100;
-
-    struct {
-        // vom shader beschrieben
-        sgl::vk::TexturePtr moments_history_texture[2];
-        uint32_t ping_pong_idx = 0;
-
-        sgl::vk::TexturePtr color_history_texture;
-
-        // in c++ beschrieben
-        sgl::vk::TexturePtr normal_texture;
-        sgl::vk::TexturePtr depth_texture;
-        // meshid?
-    } previous_frame;
-
-    sgl::vk::ImageViewPtr output_image;
-
-    int maxNumIterations = 5;
-    sgl::vk::TexturePtr pingPongRenderTextures[2];
-
-    bool useSharedMemory = true;
-    const int computeBlockSize = 16;
-    sgl::vk::ComputeDataPtr computeDataPingPong[3];
-    sgl::vk::ComputeDataPtr computeDataPingPongFinal[3];
-
 };
+
 
 #endif //LINEVIS_SVGF_HPP

@@ -113,6 +113,7 @@ bool LineRenderer::getIsTriangleRepresentationUsedByPrimitiveMode() const {
 }
 
 void LineRenderer::update(float dt) {
+    // NOTE(Felix): initialization code
     static bool first_run = true;
     defer { first_run = false; };
     if (first_run) {

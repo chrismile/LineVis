@@ -1625,13 +1625,14 @@ void MainApp::openFileDialog() {
 
 void MainApp::renderGuiMenuBar() {
     // NOTE(Felix): initialiize with opening the rings dataset
-    static bool first_iteration = true;
-    defer { first_iteration = false; };
+    // static bool first_iteration = true;
+    // defer { first_iteration = false; };
 
-    if (first_iteration) {
-        selectedDataSetIndex = 8; // rings
-        loadLineDataSet(getSelectedLineDataSetFilenames());
-    }
+    // if (first_iteration) {
+    //     selectedDataSetIndex = 8; // rings
+    //     loadLineDataSet(getSelectedLineDataSetFilenames());
+    // }
+
     // end of initialization code here
 
     if (ImGui::BeginMainMenuBar()) {
