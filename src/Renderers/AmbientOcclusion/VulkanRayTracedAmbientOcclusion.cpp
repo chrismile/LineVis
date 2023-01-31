@@ -200,6 +200,7 @@ void VulkanRayTracedAmbientOcclusionPass::createDenoiser() {
         denoiser->setFileDialogInstance(fileDialogInstance);
     }
 
+    globalFrameNumber = 0;
     if (accumulationTexture) {
         checkRecreateFeatureMaps();
         setDenoiserFeatureMaps();
@@ -340,6 +341,21 @@ void VulkanRayTracedAmbientOcclusionPass::checkRecreateFeatureMaps() {
         }
     }
 
+    // Check if inputs should be accumulated.
+    if (denoiser) {
+        if (accumulateInputs != denoiser->getWantsAccumulatedInput()) {
+            accumulateInputs = denoiser->getWantsAccumulatedInput();
+            shallRecreateFeatureMaps = true;
+        }
+        useGlobalFrameNumber = denoiser->getWantsGlobalFrameNumber();
+    } else {
+        if (!accumulateInputs) {
+            accumulateInputs = true;
+            shallRecreateFeatureMaps = true;
+        }
+        useGlobalFrameNumber = false;
+    }
+
     if (shallRecreateFeatureMaps) {
         setShaderDirty();
         device->waitIdle();
@@ -369,6 +385,7 @@ void VulkanRayTracedAmbientOcclusionPass::setLineData(LineDataPtr& data, bool is
     lastFrameViewProjectionMatrix = sceneData->camera->getProjectionMatrix() * sceneData->camera->getViewMatrix();
 
     uniformData.frameNumber = 0;
+    globalFrameNumber = 0;
     setDataDirty();
 }
 
@@ -400,6 +417,9 @@ void VulkanRayTracedAmbientOcclusionPass::loadShader() {
     }
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
         preprocessorDefines.insert(std::make_pair("WRITE_FLOW_MAP", ""));
+    }
+    if (denoiser && !denoiser->getWantsAccumulatedInput()) {
+        preprocessorDefines.insert(std::make_pair("DISABLE_ACCUMULATION", ""));
     }
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
             { "VulkanRayTracedAmbientOcclusion.Compute" }, preprocessorDefines);
@@ -453,6 +473,12 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
         uniformData.numSamplesPerFrame = numAmbientOcclusionSamplesPerFrame;
         uniformData.useDistance = useDistance;
         uniformData.ambientOcclusionRadius = ambientOcclusionRadius;
+        if (useGlobalFrameNumber) {
+            uniformData.globalFrameNumber = globalFrameNumber;
+        } else {
+            uniformData.globalFrameNumber = uniformData.frameNumber;
+        }
+        globalFrameNumber++;
         //float radius = LineRenderer::getLineWidth();
         //if (lineData->getUseBandRendering()) {
         //    radius = std::max(LineRenderer::getLineWidth(), LineRenderer::getBandWidth());

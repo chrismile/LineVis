@@ -159,6 +159,9 @@ private:
     sgl::vk::TexturePtr flowMapTexture;
     sgl::vk::TexturePtr denoisedTexture;
     sgl::vk::TexturePtr resultTexture;
+    bool accumulateInputs = true;
+    bool useGlobalFrameNumber = false;
+    uint32_t globalFrameNumber = 0;
 
     bool changedDenoiserSettings = false;
 
@@ -191,7 +194,8 @@ private:
         // Should the distance of the AO hits be used?
         uint32_t useDistance{};
 
-        uint32_t padding0{};
+        // Either equivalent to frameNumber or a global frame ID not reset together with accumulation.
+        uint globalFrameNumber{};
 
         // What is the radius to take into account for ambient occlusion?
         float ambientOcclusionRadius{};
