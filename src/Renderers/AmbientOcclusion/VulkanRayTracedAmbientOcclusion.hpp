@@ -195,7 +195,7 @@ private:
         uint32_t useDistance{};
 
         // Either equivalent to frameNumber or a global frame ID not reset together with accumulation.
-        uint globalFrameNumber{};
+        uint32_t globalFrameNumber{};
 
         // What is the radius to take into account for ambient occlusion?
         float ambientOcclusionRadius{};
