@@ -34,11 +34,13 @@
 #include "Denoiser.hpp"
 
 class SVGF_ATrous_Pass;
-class SVGF_Repoj_Pass;
+class SVGF_Reproj_Pass;
 
 struct Texture_Pack {
     struct {
-        sgl::vk::TexturePtr color_texture;
+        sgl::vk::TexturePtr noisy_texture;
+        sgl::vk::TexturePtr temp_accum_texture;
+
         sgl::vk::TexturePtr motion_texture;
         sgl::vk::TexturePtr normal_texture;
         sgl::vk::TexturePtr depth_texture;
@@ -61,7 +63,7 @@ struct Texture_Pack {
 
     sgl::vk::TexturePtr pingPongRenderTextures[2];
 
-    sgl::vk::ImageViewPtr output_image;
+    sgl::vk::ImageViewPtr denoised_image;
 };
 
 class SVGFDenoiser : public Denoiser {
@@ -69,7 +71,7 @@ class SVGFDenoiser : public Denoiser {
     sgl::vk::Renderer* renderer;
 
     std::shared_ptr<SVGF_ATrous_Pass> svgf_atrous_pass;
-    std::shared_ptr<SVGF_Repoj_Pass>  svgf_reproj_pass;
+    std::shared_ptr<SVGF_Reproj_Pass>  svgf_reproj_pass;
 
 public:
     explicit SVGFDenoiser(sgl::vk::Renderer* renderer);
@@ -116,19 +118,24 @@ protected:
 
 };
 
-class SVGF_Repoj_Pass : public sgl::vk::ComputePass {
+class SVGF_Reproj_Pass : public sgl::vk::ComputePass {
     friend class SVGFDenoiser;
 
     Texture_Pack* textures;
 
     const int computeBlockSize = 16;
-    sgl::vk::ComputeDataPtr computeData;
+    sgl::vk::ComputeDataPtr compute_data;
+
+    struct {
+        float allowed_z_dist      = 0.03;
+        float allowed_normal_dist = 0.17;
+    } pc;
 
     void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
     void _render() override;
 
 public:
-    explicit SVGF_Repoj_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures);
+    explicit SVGF_Reproj_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures);
 
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);

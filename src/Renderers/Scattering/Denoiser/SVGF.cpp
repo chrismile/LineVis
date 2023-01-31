@@ -38,6 +38,7 @@
 
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
+#include <initializer_list>
 
 /*
   SVGF NEEDS
@@ -65,7 +66,7 @@ SVGFDenoiser::SVGFDenoiser(sgl::vk::Renderer* renderer) {
     this->renderer = renderer;
 
     svgf_atrous_pass = std::make_shared<SVGF_ATrous_Pass>(renderer, &textures);
-    svgf_reproj_pass = std::make_shared<SVGF_Repoj_Pass>(renderer, &textures);
+    svgf_reproj_pass = std::make_shared<SVGF_Reproj_Pass>(renderer, &textures);
 }
 
 bool SVGFDenoiser::getIsEnabled() const {
@@ -73,12 +74,12 @@ bool SVGFDenoiser::getIsEnabled() const {
 }
 
 void SVGFDenoiser::setOutputImage(sgl::vk::ImageViewPtr& outputImage) {
-    textures.output_image = outputImage;
+    textures.denoised_image = outputImage;
 }
 
 void SVGFDenoiser::setFeatureMap(FeatureMapType featureMapType, const sgl::vk::TexturePtr& feature_map) {
     switch (featureMapType) {
-        case FeatureMapType::COLOR:  textures.current_frame.color_texture  = feature_map; return;
+        case FeatureMapType::COLOR:  textures.current_frame.noisy_texture  = feature_map; return;
         case FeatureMapType::NORMAL: textures.current_frame.normal_texture = feature_map; return;
         case FeatureMapType::DEPTH:  textures.current_frame.depth_texture  = feature_map; return;
         case FeatureMapType::FLOW:   textures.current_frame.motion_texture = feature_map; return;
@@ -99,8 +100,51 @@ void SVGFDenoiser::setUseFeatureMap(FeatureMapType featureMapType, bool useFeatu
 }
 
 void SVGFDenoiser::denoise() {
-    // svgf_reproj_pass->render();
+    svgf_reproj_pass->render();
     svgf_atrous_pass->render();
+
+    // update previous frame images
+    {
+        // normal texture
+        renderer->insertImageMemoryBarrier(
+            textures.previous_frame.normal_texture->getImage(),
+            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
+
+        renderer->insertImageMemoryBarrier(
+            textures.current_frame.normal_texture->getImage(),
+            textures.current_frame.normal_texture->getImage()->getVkImageLayout(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+
+
+        textures.current_frame.normal_texture->getImage()->copyToImage(textures.previous_frame.normal_texture->getImage(),
+                                                                       VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                       renderer->getVkCommandBuffer());
+
+        // renderer->syncWithCpu();
+
+        // depth texture
+        renderer->insertImageMemoryBarrier(
+            textures.previous_frame.depth_texture->getImage(),
+            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
+
+        renderer->insertImageMemoryBarrier(
+            textures.current_frame.depth_texture->getImage(),
+            textures.current_frame.depth_texture->getImage()->getVkImageLayout(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+
+
+        textures.current_frame.depth_texture->getImage()->copyToImage(textures.previous_frame.depth_texture->getImage(),
+                                                                      VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                      renderer->getVkCommandBuffer());
+
+        // renderer->syncWithCpu();
+    }
 
 }
 
@@ -109,13 +153,34 @@ void SVGFDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
     auto device = renderer->getDevice();
 
     sgl::vk::ImageSettings imageSettings;
-    imageSettings.width = width;
+    imageSettings.width  = width;
     imageSettings.height = height;
     imageSettings.format = VK_FORMAT_R32G32B32A32_SFLOAT;
     imageSettings.usage =
         VK_IMAGE_USAGE_SAMPLED_BIT |
         VK_IMAGE_USAGE_STORAGE_BIT |
         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+    // temp_accum_image
+
+    {
+        sgl::vk::ImageSettings imageSettings;
+        imageSettings.width  = width;
+        imageSettings.height = height;
+        imageSettings.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        imageSettings.usage =
+            VK_IMAGE_USAGE_SAMPLED_BIT |
+            VK_IMAGE_USAGE_STORAGE_BIT |
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+            VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+            VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
+
+        textures.current_frame.temp_accum_texture = {};
+        textures.current_frame.temp_accum_texture =
+            std::make_shared<sgl::vk::Texture>(device, imageSettings);
+
+    }
 
     for (int i = 0; i < 2; i++) {
         textures.pingPongRenderTextures[i] = std::make_shared<sgl::vk::Texture>(device, imageSettings);
@@ -127,8 +192,8 @@ void SVGFDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
         textures.previous_frame.color_history_texture = {};
         textures.previous_frame.color_history_texture =
             std::make_shared<sgl::vk::Texture>(
-                textures.current_frame.color_texture->getImageView()->copy(true, false),
-                textures.current_frame.color_texture->getImageSampler());
+                textures.current_frame.noisy_texture->getImageView()->copy(true, false),
+                textures.current_frame.noisy_texture->getImageSampler());
 
         // moments_histories
         {
@@ -168,7 +233,9 @@ void SVGFDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
 }
 
 bool SVGFDenoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
-    return svgf_atrous_pass->renderGuiPropertyEditorNodes(propertyEditor);
+    return
+        svgf_reproj_pass->renderGuiPropertyEditorNodes(propertyEditor) ||
+        svgf_atrous_pass->renderGuiPropertyEditorNodes(propertyEditor);
 }
 
 void SVGFDenoiser::resetFrameNumber() {}
@@ -193,21 +260,20 @@ void SVGF_ATrous_Pass::loadShader() {
 }
 
 void SVGF_ATrous_Pass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& compute_pipeline) {
-
     for (int i = 0; i < 3; i++) {
         computeDataPingPong[i] = std::make_shared<sgl::vk::ComputeData>(renderer, compute_pipeline);
         computeDataPingPongFinal[i] = std::make_shared<sgl::vk::ComputeData>(renderer, compute_pipeline);
 
         if (i == 0) {
-            computeDataPingPong[i]->setStaticTexture(textures->current_frame.color_texture, "color_texture");
-            computeDataPingPongFinal[i]->setStaticTexture(textures->current_frame.color_texture, "color_texture");
+            computeDataPingPong[i]->setStaticTexture(textures->current_frame.temp_accum_texture, "color_texture");
+            computeDataPingPongFinal[i]->setStaticTexture(textures->current_frame.temp_accum_texture, "color_texture");
             computeDataPingPong[i]->setStaticImageView(textures->pingPongRenderTextures[(i + 1) % 2]->getImageView(), "outputImage");
-            computeDataPingPongFinal[i]->setStaticImageView(textures->output_image, "outputImage");
+            computeDataPingPongFinal[i]->setStaticImageView(textures->denoised_image, "outputImage");
         } else {
             computeDataPingPong[i]->setStaticTexture(textures->pingPongRenderTextures[i % 2], "color_texture");
             computeDataPingPongFinal[i]->setStaticTexture(textures->pingPongRenderTextures[i % 2], "color_texture");
             computeDataPingPong[i]->setStaticImageView(textures->pingPongRenderTextures[(i + 1) % 2]->getImageView(), "outputImage");
-            computeDataPingPongFinal[i]->setStaticImageView(textures->output_image, "outputImage");
+            computeDataPingPongFinal[i]->setStaticImageView(textures->denoised_image, "outputImage");
         }
 
         computeDataPingPong[i]->setStaticTexture(textures->current_frame.depth_texture, "depth_texture");
@@ -238,23 +304,23 @@ void SVGF_ATrous_Pass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::C
 
 void SVGF_ATrous_Pass::_render() {
     if (maxNumIterations < 1) {
-        renderer->transitionImageLayout(textures->current_frame.color_texture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-        renderer->transitionImageLayout(textures->output_image->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        textures->current_frame.color_texture->getImage()->blit(textures->output_image->getImage(), renderer->getVkCommandBuffer());
+        renderer->transitionImageLayout(textures->current_frame.temp_accum_texture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        renderer->transitionImageLayout(textures->denoised_image->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        textures->current_frame.temp_accum_texture->getImage()->blit(textures->denoised_image->getImage(), renderer->getVkCommandBuffer());
         // renderer->syncWithCpu();
         return;
     }
 
 
-    renderer->transitionImageLayout(textures->current_frame.color_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    renderer->transitionImageLayout(textures->current_frame.temp_accum_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     renderer->transitionImageLayout(textures->current_frame.depth_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     renderer->transitionImageLayout(textures->current_frame.normal_texture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     renderer->transitionImageLayout(textures->current_frame.motion_texture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     // render_compute
     {
-        auto width = int(textures->current_frame.color_texture->getImage()->getImageSettings().width);
-        auto height = int(textures->current_frame.color_texture->getImage()->getImageSettings().height);
+        auto width = int(textures->current_frame.temp_accum_texture->getImage()->getImageSettings().width);
+        auto height = int(textures->current_frame.temp_accum_texture->getImage()->getImageSettings().height);
 
         for (int i = 0; i < maxNumIterations; i++) {
             int computeDataIdx;
@@ -281,6 +347,7 @@ void SVGF_ATrous_Pass::_render() {
             renderer->pushConstants(
                 std::static_pointer_cast<sgl::vk::Pipeline>(computeData->getComputePipeline()),
                 VK_SHADER_STAGE_COMPUTE_BIT, 0, pc);
+
             renderer->transitionImageLayout(
                 computeData->getImageView("color_texture")->getImage(),
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -331,49 +398,6 @@ void SVGF_ATrous_Pass::_render() {
 
             // renderer->syncWithCpu();
         }
-
-        // update previous frame images
-        {
-            // normal texture
-            renderer->insertImageMemoryBarrier(
-                textures->previous_frame.normal_texture->getImage(),
-                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
-
-            renderer->insertImageMemoryBarrier(
-                textures->current_frame.normal_texture->getImage(),
-                textures->current_frame.normal_texture->getImage()->getVkImageLayout(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT);
-
-
-            textures->current_frame.normal_texture->getImage()->copyToImage(textures->previous_frame.normal_texture->getImage(),
-                                                                            VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                            renderer->getVkCommandBuffer());
-
-            // renderer->syncWithCpu();
-
-            // depth texture
-            renderer->insertImageMemoryBarrier(
-                textures->previous_frame.depth_texture->getImage(),
-                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
-
-            renderer->insertImageMemoryBarrier(
-                textures->current_frame.depth_texture->getImage(),
-                textures->current_frame.depth_texture->getImage()->getVkImageLayout(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT);
-
-
-            textures->current_frame.depth_texture->getImage()->copyToImage(textures->previous_frame.depth_texture->getImage(),
-                                                                           VK_IMAGE_ASPECT_COLOR_BIT,
-                                                                           renderer->getVkCommandBuffer());
-
-            // renderer->syncWithCpu();
-        }
     }
 }
 
@@ -402,17 +426,58 @@ bool SVGF_ATrous_Pass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
 //       Reproj-Pass
 // ------------------------------
 
-SVGF_Repoj_Pass::SVGF_Repoj_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures)
+SVGF_Reproj_Pass::SVGF_Reproj_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures)
     : sgl::vk::ComputePass(renderer), textures(textures)
 {}
 
 
-void SVGF_Repoj_Pass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& compute_pipeline)
-{}
+void SVGF_Reproj_Pass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& compute_pipeline) {
+    compute_data = std::make_shared<sgl::vk::ComputeData>(renderer, compute_pipeline);
 
-void SVGF_Repoj_Pass::_render() {}
+    compute_data->setStaticTexture(textures->current_frame.noisy_texture, "noisy_texture");
+    compute_data->setStaticTexture(textures->previous_frame.color_history_texture, "color_history");
+    compute_data->setStaticTexture(textures->current_frame.motion_texture, "motion_texture");
+    compute_data->setStaticTexture(textures->current_frame.normal_texture, "normal_texture");
+    compute_data->setStaticTexture(textures->current_frame.depth_texture, "depth_texture");
+    compute_data->setStaticTexture(textures->previous_frame.depth_texture, "depth_history_texture");
+    compute_data->setStaticTexture(textures->previous_frame.normal_texture, "normal_history_texture");
 
-void SVGF_Repoj_Pass::loadShader() {
+    compute_data->setStaticTexture(textures->current_frame.temp_accum_texture, "temp_accum_texture");
+}
+
+void SVGF_Reproj_Pass::_render() {
+    sgl::vk::TexturePtr to_read[] {
+        textures->current_frame.noisy_texture,
+        textures->previous_frame.color_history_texture,
+        textures->current_frame.motion_texture,
+        textures->current_frame.normal_texture,
+        textures->current_frame.depth_texture,
+        textures->previous_frame.depth_texture,
+        textures->previous_frame.normal_texture,
+    };
+    for (auto& tex : to_read) {
+            renderer->transitionImageLayout(tex->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
+
+    renderer->pushConstants(
+        std::static_pointer_cast<sgl::vk::Pipeline>(compute_data->getComputePipeline()),
+        VK_SHADER_STAGE_COMPUTE_BIT, 0, pc);
+
+    renderer->insertImageMemoryBarrier(
+                compute_data->getImageView("temp_accum_texture")->getImage(),
+                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT);
+
+
+    auto width = int(textures->current_frame.temp_accum_texture->getImage()->getImageSettings().width);
+    auto height = int(textures->current_frame.temp_accum_texture->getImage()->getImageSettings().height);
+    int numWorkgroupsX = sgl::iceil(width, computeBlockSize);
+    int numWorkgroupsY = sgl::iceil(height, computeBlockSize);
+    renderer->dispatch(compute_data, numWorkgroupsX, numWorkgroupsY, 1);
+}
+
+void SVGF_Reproj_Pass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
 
     std::map<std::string, std::string> preprocessorDefines;
@@ -420,4 +485,24 @@ void SVGF_Repoj_Pass::loadShader() {
     preprocessorDefines.insert(std::make_pair("BLOCK_SIZE", std::to_string(computeBlockSize)));
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
         { "SVGF.Compute-Reproject" }, preprocessorDefines);
+}
+
+
+bool SVGF_Reproj_Pass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    bool reRender = false;
+
+    if (propertyEditor.addSliderFloat("allowed_normal_dist", &pc.allowed_normal_dist, 0, 2)) {
+        reRender = true;
+        setDataDirty();
+        device->waitIdle();
+    }
+
+
+    if (propertyEditor.addSliderFloat("allowed_z_dist", &pc.allowed_z_dist, 0, 5)) {
+        reRender = true;
+        setDataDirty();
+        device->waitIdle();
+    }
+
+    return reRender;
 }
