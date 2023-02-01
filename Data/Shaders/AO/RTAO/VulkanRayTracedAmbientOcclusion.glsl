@@ -74,7 +74,8 @@ layout(binding = 7) uniform UniformsBuffer {
     // Should the distance of the AO hits be used?
     uint useDistance;
 
-    uint padding0;
+    // Either equivalent to frameNumber or a global frame ID not reset together with accumulation.
+    uint globalFrameNumber;
 
     // What is the radius to take into account for ambient occlusion?
     float ambientOcclusionRadius;
@@ -167,7 +168,7 @@ void main() {
     vec3 cameraPosition = (inverseViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
     vec3 rayOrigin = cameraPosition;
 
-    uint seed = tea(gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * outputImageSize.x, frameNumber);
+    uint seed = tea(gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * outputImageSize.x, globalFrameNumber);
 
     vec2 xi = vec2(rnd(seed), rnd(seed));
     vec2 fragNdc = 2.0 * ((vec2(gl_GlobalInvocationID.xy) + xi) / vec2(outputImageSize)) - 1.0;
@@ -262,7 +263,7 @@ void main() {
         for (int sampleIdx = 0; sampleIdx < numSamplesPerFrame; sampleIdx++) {
             uint seed = tea(
                     gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * outputImageSize.x,
-                    frameNumber * numSamplesPerFrame + sampleIdx);
+                    globalFrameNumber * numSamplesPerFrame + sampleIdx);
             vec2 xi = vec2(rnd(seed), rnd(seed));
 
             vec3 rayDirection = normalize(frame * sampleHemisphere(xi));
@@ -284,21 +285,25 @@ void main() {
     // 4. Write the AO factor to the output image.
     ivec2 writePos = ivec2(gl_GlobalInvocationID.xy);
     //writePos.y = outputImageSize.y - writePos.y - 1;
+#ifndef DISABLE_ACCUMULATION
     if (frameNumber != 0) {
         float aoFactorPrev = imageLoad(outputImage, writePos).x;
         aoFactor = mix(aoFactorPrev, aoFactor, 1.0 / float(frameNumber + 1));
     }
+#endif
     imageStore(outputImage, writePos, vec4(aoFactor, aoFactor, aoFactor, 1.0));
 
 #ifdef WRITE_NORMAL_MAP
     // Convert to camera space. Necessary according to:
     // https://raytracing-docs.nvidia.com/optix7/guide/index.html#ai_denoiser#structure-and-use-of-image-buffers
     vec3 camNormal = (inverseTransposedViewMatrix * vec4(surfaceNormal, 0.0)).xyz;
+#ifndef DISABLE_ACCUMULATION
     if (frameNumber != 0) {
         vec3 normalOld = imageLoad(normalMap, writePos).xyz;
         camNormal = mix(normalOld, camNormal, 1.0 / float(frameNumber + 1));
         camNormal = normalize(camNormal);
     }
+#endif
     imageStore(normalMap, writePos, vec4(camNormal, 0.0));
 #endif
 
@@ -308,18 +313,22 @@ void main() {
 
 #ifdef WRITE_DEPTH_MAP
     float depth = -positionViewSpace.z;
+#ifndef DISABLE_ACCUMULATION
     if (frameNumber != 0) {
         float depthOld = imageLoad(depthMap, writePos).x;
         depth = mix(depthOld, depth, 1.0 / float(frameNumber + 1));
     }
+#endif
     imageStore(depthMap, writePos, vec4(depth));
 #endif
 
 #ifdef WRITE_POSITION_MAP
+#ifndef DISABLE_ACCUMULATION
     if (frameNumber != 0) {
         vec3 positionViewSpaceOld = imageLoad(positionMap, writePos).xyz;
         positionViewSpace = mix(positionViewSpaceOld, positionViewSpace, 1.0 / float(frameNumber + 1));
     }
+#endif
     imageStore(positionMap, writePos, vec4(positionViewSpace, 1.0));
 #endif
 
@@ -331,10 +340,12 @@ void main() {
         vec2 pixelPositionLastFrame = (0.5 * lastFramePositionNdc.xy + vec2(0.5)) * vec2(outputImageSize);
         flowVector = vec2(writePos) - pixelPositionLastFrame;
     }
+#ifndef DISABLE_ACCUMULATION
     if (frameNumber != 0) {
         vec2 flowVectorOld = imageLoad(flowMap, writePos).xy;
         flowVector = mix(flowVectorOld, flowVector, 1.0 / float(frameNumber + 1));
     }
+#endif
     imageStore(flowMap, writePos, vec4(flowVector, 0.0, 0.0));
 #endif
 }
