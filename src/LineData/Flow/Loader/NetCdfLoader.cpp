@@ -194,17 +194,17 @@ void NetCdfLoader::load(
         myassert(nc_inq_vardimid(ncid, varIdU, dimensionIdsU) == NC_NOERR);
         myassert(nc_inq_vardimid(ncid, varIdV, dimensionIdsV) == NC_NOERR);
         myassert(nc_inq_vardimid(ncid, varIdW, dimensionIdsW) == NC_NOERR);
+        // Ignoring staggered grids for now by not querying i-th dimension using i-th variable.
+        myassert(nc_inq_dim(ncid, dimensionIdsU[0], dimNameTime, &ts) == NC_NOERR);
+        myassert(nc_inq_dim(ncid, dimensionIdsU[1], dimNameZ, &zs) == NC_NOERR);
+        myassert(nc_inq_dim(ncid, dimensionIdsW[2], dimNameY, &ys) == NC_NOERR);
+        myassert(nc_inq_dim(ncid, dimensionIdsW[3], dimNameX, &xs) == NC_NOERR);
         zCoords = new float[zs];
         yCoords = new float[ys];
         xCoords = new float[xs];
         uField = new float[zs * ys * xs];
         vField = new float[zs * ys * xs];
         wField = new float[zs * ys * xs];
-        // Ignoring staggered grids for now by not querying i-th dimension using i-th variable.
-        myassert(nc_inq_dim(ncid, dimensionIdsU[0], dimNameTime, &ts) == NC_NOERR);
-        myassert(nc_inq_dim(ncid, dimensionIdsU[1], dimNameZ, &zs) == NC_NOERR);
-        myassert(nc_inq_dim(ncid, dimensionIdsW[2], dimNameY, &ys) == NC_NOERR);
-        myassert(nc_inq_dim(ncid, dimensionIdsW[3], dimNameX, &xs) == NC_NOERR);
         std::string stringDimNameX = dimNameX;
         std::string stringDimNameY = dimNameY;
         //std::string stringDimNameZ = dimNameZ;
