@@ -115,6 +115,8 @@ public:
     virtual void setOutputImage(sgl::vk::ImageViewPtr& outputImage) = 0;
     virtual void setFeatureMap(FeatureMapType featureMapType, const sgl::vk::TexturePtr& featureTexture) = 0;
     [[nodiscard]] virtual bool getUseFeatureMap(FeatureMapType featureMapType) const = 0;
+    [[nodiscard]] virtual bool getWantsAccumulatedInput() const { return true; }
+    [[nodiscard]] virtual bool getWantsGlobalFrameNumber() const { return false; }
     virtual void setUseFeatureMap(FeatureMapType featureMapType, bool useNormals) = 0;
     virtual void setTemporalDenoisingEnabled(bool enabled) = 0;
     virtual void resetFrameNumber() = 0; // For temporal denoisers to indicate reset of temporal accumulation.
