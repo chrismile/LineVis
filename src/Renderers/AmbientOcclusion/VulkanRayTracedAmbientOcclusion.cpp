@@ -160,6 +160,11 @@ bool VulkanRayTracedAmbientOcclusion::renderGuiPropertyEditorNodes(sgl::Property
             optionChanged = true;
         }
 
+        if (propertyEditor.addCheckbox("Jittered Primary Rays", &rtaoRenderPass->useJitteredPrimaryRays)) {
+            rtaoRenderPass->setShaderDirty();
+            optionChanged = true;
+        }
+
         if (rtaoRenderPass->renderGuiPropertyEditorNodes(propertyEditor)) {
             optionChanged = true;
         }
@@ -420,6 +425,9 @@ void VulkanRayTracedAmbientOcclusionPass::loadShader() {
     }
     if (denoiser && !denoiser->getWantsAccumulatedInput()) {
         preprocessorDefines.insert(std::make_pair("DISABLE_ACCUMULATION", ""));
+    }
+    if (useJitteredPrimaryRays) {
+        preprocessorDefines.insert(std::make_pair("USE_JITTERED_RAYS", ""));
     }
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
             { "VulkanRayTracedAmbientOcclusion.Compute" }, preprocessorDefines);
