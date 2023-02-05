@@ -124,6 +124,9 @@ bool VulkanRayTracedAmbientOcclusion::setNewSettings(const SettingsMap& settings
     if (settings.getValueOpt("ambient_occlusion_distance_based", rtaoRenderPass->useDistance)) {
         optionChanged = true;
     }
+    if (settings.getValueOpt("use_jittered_primary_rays", rtaoRenderPass->useJitteredPrimaryRays)) {
+        optionChanged = true;
+    }
 
     if (rtaoRenderPass->setNewSettings(settings)) {
         optionChanged = true;
