@@ -1630,6 +1630,7 @@ void MainApp::renderGuiMenuBar() {
 
     if (first_iteration) {
         selectedDataSetIndex = 8; // rings
+        selectedDataSetIndex = 12; // test
         loadLineDataSet(getSelectedLineDataSetFilenames());
     }
 

@@ -336,14 +336,7 @@ void SVGF_ATrous_Pass::_render() {
                 computeData = computeDataPingPong[computeDataIdx];
             }
 
-            struct {
-                int i;
-                float z_multiplier;
-            } pc;
-
             pc.i = i;
-            pc.z_multiplier = z_multiplier;
-
             renderer->pushConstants(
                 std::static_pointer_cast<sgl::vk::Pipeline>(computeData->getComputePipeline()),
                 VK_SHADER_STAGE_COMPUTE_BIT, 0, pc);
@@ -402,23 +395,16 @@ void SVGF_ATrous_Pass::_render() {
 }
 
 bool SVGF_ATrous_Pass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
-    bool reRender = false;
-
-    if (propertyEditor.addSliderInt("#Iterations", &maxNumIterations, 0, 5)) {
-        reRender = true;
+    if (propertyEditor.addSliderInt("#Iterations", &maxNumIterations, 0, 5)      ||
+        propertyEditor.addSliderFloat("z multiplier", &pc.z_multiplier, 1, 1000) ||
+        propertyEditor.addSliderFloat("fwidth_h", &pc.fwidth_h, 0, 1, "%.5f"))
+    {
         setDataDirty();
         device->waitIdle();
+        return true;
     }
 
-
-    if (propertyEditor.addSliderFloat("z multiplier", &z_multiplier, 1, 1000)) {
-        reRender = true;
-        setDataDirty();
-        device->waitIdle();
-    }
-
-
-    return reRender;
+    return false;
 }
 
 
@@ -489,20 +475,13 @@ void SVGF_Reproj_Pass::loadShader() {
 
 
 bool SVGF_Reproj_Pass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
-    bool reRender = false;
-
-    if (propertyEditor.addSliderFloat("allowed_normal_dist", &pc.allowed_normal_dist, 0, 2)) {
-        reRender = true;
+    if (propertyEditor.addSliderFloat("allowed_normal_dist", &pc.allowed_normal_dist, 0, 2) ||
+        propertyEditor.addSliderFloat("allowed_z_dist", &pc.allowed_z_dist, 0, 5))
+    {
         setDataDirty();
         device->waitIdle();
+        return true;
     }
 
-
-    if (propertyEditor.addSliderFloat("allowed_z_dist", &pc.allowed_z_dist, 0, 5)) {
-        reRender = true;
-        setDataDirty();
-        device->waitIdle();
-    }
-
-    return reRender;
+    return false;
 }

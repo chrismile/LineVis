@@ -74,6 +74,10 @@ class SVGFDenoiser : public Denoiser {
     std::shared_ptr<SVGF_Reproj_Pass>  svgf_reproj_pass;
 
 public:
+
+    bool getWantsAccumulatedInput() const override  { return false; }
+    bool getWantsGlobalFrameNumber() const override  { return true; }
+
     explicit SVGFDenoiser(sgl::vk::Renderer* renderer);
     DenoiserType getDenoiserType() const override { return DenoiserType::SVGF; }
     [[nodiscard]] bool getIsEnabled() const override;
@@ -96,12 +100,19 @@ class SVGF_ATrous_Pass : public sgl::vk::ComputePass {
 
     Texture_Pack* textures;
 
-    float z_multiplier = 100;
     int maxNumIterations = 5;
 
     const int computeBlockSize = 16;
     sgl::vk::ComputeDataPtr computeDataPingPong[3];
     sgl::vk::ComputeDataPtr computeDataPingPongFinal[3];
+
+
+    struct {
+        int i;
+        float z_multiplier = 100;
+        float fwidth_h = 0.01;
+    } pc;
+
 
     void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
     void _render() override;
@@ -127,7 +138,7 @@ class SVGF_Reproj_Pass : public sgl::vk::ComputePass {
     sgl::vk::ComputeDataPtr compute_data;
 
     struct {
-        float allowed_z_dist      = 0.03;
+        float allowed_z_dist      = 0.002;
         float allowed_normal_dist = 0.17;
     } pc;
 

@@ -215,7 +215,7 @@ protected:
     void updateDepthCueGeometryData();
     void computeDepthRange();
     bool useDepthCues = true;
-    float depthCueStrength = 0.8f;
+    float depthCueStrength = 0.0f;
     float minDepth = 0.0f;
     float maxDepth = 1.0f;
     std::vector<std::vector<glm::vec3>> filteredLines;

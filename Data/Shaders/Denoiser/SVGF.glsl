@@ -49,8 +49,9 @@ void main() {
         color_last_frame = color;
     }
 
+    float alpha = .05;
 
-    imageStore(temp_accum_texture, globalIdx, .2*color + .8*color_last_frame);
+    imageStore(temp_accum_texture, globalIdx, alpha*color + (1-alpha)*color_last_frame);
 }
 
 // --------------------------------------
@@ -69,6 +70,8 @@ layout(local_size_x = BLOCK_SIZE, local_size_y = BLOCK_SIZE) in;
 layout(push_constant) uniform PushConstants {
     int iteration;
     float z_multiplier;
+    float fwidth_h;
+
 };
 
 // this frame
@@ -99,7 +102,7 @@ void main() {
     float center_z = texture(depth_texture, fragTexCoord).r;
 
 
-    float kernel_values[5] = {1.0/16.0, 1.0/4.0, 3.0/8.0, 1.0/4.0, 1.0/16.0};
+    float kernel_values[3] = {6.0/16.0, 4.0/16.0, 1.0/16.0};
 
     // memoryBarrierShared();
     // barrier();
@@ -108,26 +111,21 @@ void main() {
         return;
     }
 
-    vec4 sum = vec4(0.0);
-    float accumW = 0.0;
-
-    if (iteration == 4) {
-        // debugPrintfEXT("frame");
-    }
+    float accumW = kernel_values[0] * kernel_values[0];
+    vec4 sum = centerColor * accumW;
+    // float accumW = 0;
+    // vec4 sum = vec4(0);
 
     for (int i = 0; i < 25; i++) {
-        /*
-         * Computing the offset on-the-fly was faster on NVIDIA hardware due to lower amount of memory accesses and
-         * consequentially a higher throughput due to low computational complexity of the shader code.
-         */
-        //vec2 offsetTexCoord = fragTexCoord + offset[i] * step;
-        //float kernelValue = kernel[i];
         int x = i % 5 - 2;
         int y = i / 5 - 2;
 
-        float kernelValue = kernel_values[x+2] * kernel_values[y+2];
+        if (x == 0 && y == 0)
+            continue; // center pixel is already accumulated
 
-        vec2 offset = vec2(x, y);
+        float kernelValue = kernel_values[abs(x)] * kernel_values[abs(y)];
+
+        vec2  offset = vec2(x, y);
         vec2  offsetTexCoord = fragTexCoord + offset * step;
         vec4  offset_color = texture(color_texture, offsetTexCoord);
         vec3  offset_normal = texture(normal_texture, offsetTexCoord).rgb;
@@ -141,12 +139,12 @@ void main() {
         float weight_n = 1;
         {
             // NOTE(Felix): paper
-            // weight_n = pow(max(0, dot(center_normal, offset_normal)), sigma_n);
+            weight_n = pow(max(0, dot(center_normal, offset_normal)), sigma_n);
 
             // NOTE(Felix): empirical
-            vec3 diff_normal = center_normal - offset_normal;
-            float distNormal = dot(diff_normal, diff_normal);
-            float weight_n   = min(exp(-distNormal / 0.1), 1.0);
+            // vec3 diff_normal = center_normal - offset_normal;
+            // float distNormal = dot(diff_normal, diff_normal);
+            // float weight_n   = min(exp(-distNormal / 0.1), 1.0);
 
 
             // if (iteration == 4 && globalIdx == ivec2(1167, 243)) {
@@ -158,29 +156,33 @@ void main() {
         float weight_z = 1;
         {
 
-            // weight_z = exp(-abs(offset_z - center_z)
-            //                / // ----------------------
-            //                (sigma_z* abs(dot(nabla_z, )) + 0.0001));
-
             // // NOTE(Felix): paper
-            // float h = 0.01;
-            // float offset_z_x =
-            //     (texture(depth_texture, fragTexCoord+vec2(pixel_step.x*h, 0)).x
-            //     -
-            //     texture(depth_texture, fragTexCoord+vec2(-pixel_step.x*h, 0)).x) / (2*h*pixel_step.x);
+            float h = fwidth_h;
+            float offset_z_x =
+                (texture(depth_texture,   fragTexCoord+vec2(pixel_step.x*h, 0)).x
+                 - texture(depth_texture, fragTexCoord+vec2(0,              0)).x)
 
-            // float offset_z_y =
-            //     (texture(depth_texture, fragTexCoord+vec2(0, pixel_step.y*h)).x
-            //     -
-            //     texture(depth_texture, fragTexCoord+vec2(0, -pixel_step.y*h)).x) / (2*h*pixel_step.y);
+                / (h*pixel_step.x);
 
-            // float f_width = abs(offset_z_x) + abs(offset_z_y);
-            // weight_z = exp(-abs(offset_z - center_z) /
-            //                (length(vec2(x, y)) * stepWidth));
+            float offset_z_y =
+                (texture(depth_texture,   fragTexCoord+vec2(0, pixel_step.y*h)).x
+                 - texture(depth_texture, fragTexCoord+vec2(0,              0)).x)
 
-            // NOTE(Felix): empirical
-            weight_z = exp(-abs(offset_z - center_z) * 90 /
-                           (5e-3 * stepWidth * length(vec2(x, y))));
+                / (h*pixel_step.y);
+
+            vec2 nabla = vec2(offset_z_x, offset_z_y);
+            float f_width = abs(offset_z_x) + abs(offset_z_y);
+            // NOTE(Felix): paper
+            weight_z = exp(-abs(offset_z - center_z) * z_multiplier /
+                           max(1e-8, abs(dot(nabla, vec2(x, y)))));
+
+            // NOTE(Felix): falcor
+            // weight_z = exp(-abs(offset_z - center_z) * z_multiplier /
+            //                (max(f_width, 1e-8) * stepWidth * length(vec2(x,y))));
+
+            // // NOTE(Felix): empirical
+            // weight_z = exp(-abs(offset_z - center_z) * z_multiplier /
+                           // (5e-3 * stepWidth * length(vec2(x, y))));
         }
 
         float weight_l = 1;
@@ -189,7 +191,7 @@ void main() {
         }
 
 
-        float weight = min((weight_n * weight_z * weight_l), 0.00001); // NOTE(Felix): so we cant devide by 0
+        float weight = max((weight_n * weight_z * weight_l), 0.00001); // NOTE(Felix): so we cant devide by 0
 
         sum += offset_color * weight * kernelValue;
         accumW += weight * kernelValue;
