@@ -170,8 +170,12 @@ void main() {
 
     uint seed = tea(gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * outputImageSize.x, globalFrameNumber);
 
+#ifdef USE_JITTERED_RAYS
     vec2 xi = vec2(rnd(seed), rnd(seed));
     vec2 fragNdc = 2.0 * ((vec2(gl_GlobalInvocationID.xy) + xi) / vec2(outputImageSize)) - 1.0;
+#else
+    vec2 fragNdc = 2.0 * ((vec2(gl_GlobalInvocationID.xy) + vec2(0.5)) / vec2(outputImageSize)) - 1.0;
+#endif
 
     vec3 rayTarget = (inverseProjectionMatrix * vec4(fragNdc.xy, 1.0, 1.0)).xyz;
     vec3 rayDirection = (inverseViewMatrix * vec4(normalize(rayTarget.xyz), 0.0)).xyz;

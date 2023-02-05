@@ -148,6 +148,7 @@ private:
     uint32_t numAmbientOcclusionSamplesPerFrame = 4;
     float ambientOcclusionRadius = 0.1f;
     bool useDistance = true;
+    bool useJitteredPrimaryRays = true;
 
     uint32_t lastViewportWidth = 0, lastViewportHeight = 0;
 
