@@ -56,13 +56,13 @@ is_installed_pacman() {
 }
 
 if command -v pacman &> /dev/null && [ ! -d $build_dir_debug ] && [ ! -d $build_dir_release ]; then
-    if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null \
+    if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v rsync &> /dev/null \
             || ! command -v curl &> /dev/null || ! command -v wget &> /dev/null \
             || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null; then
         echo "------------------------"
         echo "installing build essentials"
         echo "------------------------"
-        pacman --noconfirm -S --needed make git curl wget mingw64/mingw-w64-x86_64-cmake \
+        pacman --noconfirm -S --needed make git rsync curl wget mingw64/mingw-w64-x86_64-cmake \
         mingw64/mingw-w64-x86_64-gcc mingw64/mingw-w64-x86_64-gdb
     fi
 
@@ -313,7 +313,8 @@ done
 # Copy python3 to the destination directory.
 if [ ! -d "$destination_dir/bin/python3" ]; then
     mkdir -p "$destination_dir/bin/python3/lib"
-    cp -r "$MSYSTEM_PREFIX/lib/$Python3_VERSION" "$destination_dir/bin/python3/lib"
+    #cp -r "$MSYSTEM_PREFIX/lib/$Python3_VERSION" "$destination_dir/bin/python3/lib"
+    rsync -qav "$MSYSTEM_PREFIX/lib/$Python3_VERSION" "$destination_dir/bin/python3/lib" --exclude site-packages --exclude dist-packages
 fi
 
 # Copy the docs to the destination directory.
