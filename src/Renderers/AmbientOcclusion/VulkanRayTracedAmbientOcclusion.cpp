@@ -124,6 +124,9 @@ bool VulkanRayTracedAmbientOcclusion::setNewSettings(const SettingsMap& settings
     if (settings.getValueOpt("ambient_occlusion_distance_based", rtaoRenderPass->useDistance)) {
         optionChanged = true;
     }
+    if (settings.getValueOpt("use_jittered_primary_rays", rtaoRenderPass->useJitteredPrimaryRays)) {
+        optionChanged = true;
+    }
 
     if (rtaoRenderPass->setNewSettings(settings)) {
         optionChanged = true;
@@ -157,6 +160,11 @@ bool VulkanRayTracedAmbientOcclusion::renderGuiPropertyEditorNodes(sgl::Property
             optionChanged = true;
         }
         if (propertyEditor.addCheckbox("Use Distance-based AO", &rtaoRenderPass->useDistance)) {
+            optionChanged = true;
+        }
+
+        if (propertyEditor.addCheckbox("Jittered Primary Rays", &rtaoRenderPass->useJitteredPrimaryRays)) {
+            rtaoRenderPass->setShaderDirty();
             optionChanged = true;
         }
 
@@ -420,6 +428,9 @@ void VulkanRayTracedAmbientOcclusionPass::loadShader() {
     }
     if (denoiser && !denoiser->getWantsAccumulatedInput()) {
         preprocessorDefines.insert(std::make_pair("DISABLE_ACCUMULATION", ""));
+    }
+    if (useJitteredPrimaryRays) {
+        preprocessorDefines.insert(std::make_pair("USE_JITTERED_RAYS", ""));
     }
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
             { "VulkanRayTracedAmbientOcclusion.Compute" }, preprocessorDefines);
