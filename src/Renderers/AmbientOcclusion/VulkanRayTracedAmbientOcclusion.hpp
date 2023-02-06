@@ -158,6 +158,8 @@ private:
     sgl::vk::TexturePtr positionMapTexture;
     sgl::vk::TexturePtr albedoTexture;
     sgl::vk::TexturePtr flowMapTexture;
+    sgl::vk::TexturePtr depthNablaTexture;
+    sgl::vk::TexturePtr depthFwidthTexture;
     sgl::vk::TexturePtr denoisedTexture;
     sgl::vk::TexturePtr resultTexture;
     bool accumulateInputs = true;
@@ -204,7 +206,7 @@ private:
         // A factor which should be used for offsetting secondary rays.
         float subdivisionCorrectionFactor{};
 
-        float padding1{}, padding2{};
+        float nearDistance{}, farDistance{};
     };
     UniformData uniformData{};
     sgl::vk::BufferPtr uniformBuffer;

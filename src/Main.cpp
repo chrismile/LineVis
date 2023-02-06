@@ -98,6 +98,7 @@ int main(int argc, char *argv[]) {
     }
     sgl::AppSettings::get()->getSettings().addKeyValue("window-resizable", true);
     sgl::AppSettings::get()->getSettings().addKeyValue("window-savePosition", true);
+    //sgl::AppSettings::get()->setVulkanDebugPrintfEnabled();
 
     ImVector<ImWchar> fontRanges;
     ImFontGlyphRangesBuilder builder;

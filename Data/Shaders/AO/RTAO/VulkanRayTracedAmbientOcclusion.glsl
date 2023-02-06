@@ -40,27 +40,9 @@
 
 layout(local_size_x = 16, local_size_y = 16) in;
 
-layout(binding = 1, rgba32f) uniform image2D outputImage;
+layout(binding = 1) uniform accelerationStructureEXT topLevelAS;
 
-#ifdef WRITE_NORMAL_MAP
-layout(binding = 2, rgba32f) uniform image2D normalMap;
-#endif
-
-#ifdef WRITE_DEPTH_MAP
-layout(binding = 3, r32f) uniform image2D depthMap;
-#endif
-
-#ifdef WRITE_POSITION_MAP
-layout(binding = 4, rgba32f) uniform image2D positionMap;
-#endif
-
-#ifdef WRITE_FLOW_MAP
-layout(binding = 5, rg32f) uniform image2D flowMap;
-#endif
-
-layout(binding = 6) uniform accelerationStructureEXT topLevelAS;
-
-layout(binding = 7) uniform UniformsBuffer {
+layout(binding = 2) uniform UniformsBuffer {
     mat4 viewMatrix;
     mat4 inverseViewMatrix;
     mat4 inverseProjectionMatrix;
@@ -83,7 +65,7 @@ layout(binding = 7) uniform UniformsBuffer {
     // A factor which should be used for offsetting secondary rays.
     float subdivisionCorrectionFactor;
 
-    float padding1, padding2;
+    float nearDistance, farDistance;
 };
 
 struct TubeTriangleVertexData {
@@ -93,16 +75,16 @@ struct TubeTriangleVertexData {
     float phi; ///< Angle.
 };
 
-layout(scalar, binding = 8) readonly buffer TubeIndexBuffer {
+layout(scalar, binding = 3) readonly buffer TubeIndexBuffer {
     uvec3 indexBuffer[];
 };
 
-layout(std430, binding = 9) readonly buffer TubeTriangleVertexDataBuffer {
+layout(std430, binding = 4) readonly buffer TubeTriangleVertexDataBuffer {
     TubeTriangleVertexData tubeTriangleVertexDataBuffer[];
 };
 
 #ifdef USE_INSTANCE_TRIANGLE_INDEX_OFFSET
-layout(std430, binding = 10) readonly buffer InstanceTriangleIndexOffsetBuffer {
+layout(std430, binding = 5) readonly buffer InstanceTriangleIndexOffsetBuffer {
     uint instanceTriangleIndexOffsets[];
 };
 #endif
@@ -117,9 +99,36 @@ struct LinePointData {
     uint lineStartIndex;
 };
 
-layout(std430, binding = 11) readonly buffer LinePointDataBuffer {
+layout(std430, binding = 6) readonly buffer LinePointDataBuffer {
     LinePointData linePoints[];
 };
+#endif
+
+
+layout(binding = 7, rgba32f) uniform image2D outputImage;
+
+#ifdef WRITE_NORMAL_MAP
+layout(binding = 8, rgba32f) uniform image2D normalMap;
+#endif
+
+#ifdef WRITE_DEPTH_MAP
+layout(binding = 9, r32f) uniform image2D depthMap;
+#endif
+
+#ifdef WRITE_POSITION_MAP
+layout(binding = 10, rgba32f) uniform image2D positionMap;
+#endif
+
+#ifdef WRITE_FLOW_MAP
+layout(binding = 11, rg32f) uniform image2D flowMap;
+#endif
+
+#ifdef WRITE_DEPTH_NABLA_MAP
+layout(binding = 12, rg32f) uniform image2D depthNablaMap;
+#endif
+
+#ifdef WRITE_DEPTH_FWIDTH_MAP
+layout(binding = 13, r32f) uniform image2D depthFwidthMap;
 #endif
 
 
@@ -189,7 +198,7 @@ void main() {
 #ifdef WRITE_FLOW_MAP
 #endif
 
-    vec3 surfaceNormal = vec3(0.0);
+    vec3 surfaceNormal = vec3(0.0, 0.0, 0.0);
     vec3 vertexPositionWorld = vec3(0.0);
     float aoFactor = 1.0;
     bool hasHitSurface =
@@ -297,15 +306,30 @@ void main() {
 #endif
     imageStore(outputImage, writePos, vec4(aoFactor, aoFactor, aoFactor, 1.0));
 
+#if defined(WRITE_NORMAL_MAP) || defined(WRITE_DEPTH_NABLA_MAP) || defined(WRITE_DEPTH_FWIDTH_MAP)
+#ifndef DISABLE_ACCUMULATION
+    vec3 camNormal = (inverseTransposedViewMatrix * vec4(surfaceNormal, 0.0)).xyz;
+#else
+    vec3 camNormal;
+    if (hasHitSurface) {
+        camNormal = (inverseTransposedViewMatrix * vec4(surfaceNormal, 0.0)).xyz;
+    } else {
+        camNormal = vec3(0.0, 0.0, 1.0);
+    }
+#endif
+#endif
+
 #ifdef WRITE_NORMAL_MAP
     // Convert to camera space. Necessary according to:
     // https://raytracing-docs.nvidia.com/optix7/guide/index.html#ai_denoiser#structure-and-use-of-image-buffers
-    vec3 camNormal = (inverseTransposedViewMatrix * vec4(surfaceNormal, 0.0)).xyz;
 #ifndef DISABLE_ACCUMULATION
     if (frameNumber != 0) {
         vec3 normalOld = imageLoad(normalMap, writePos).xyz;
         camNormal = mix(normalOld, camNormal, 1.0 / float(frameNumber + 1));
-        camNormal = normalize(camNormal);
+        float camNormalLength = length(camNormal);
+        if (camNormalLength > 1e-5f) {
+            camNormal /= camNormalLength;
+        }
     }
 #endif
     imageStore(normalMap, writePos, vec4(camNormal, 0.0));
@@ -316,17 +340,29 @@ void main() {
 #endif
 
 #ifdef WRITE_DEPTH_MAP
-    float depth = -positionViewSpace.z;
 #ifndef DISABLE_ACCUMULATION
+    float depth = -positionViewSpace.z;
     if (frameNumber != 0) {
         float depthOld = imageLoad(depthMap, writePos).x;
         depth = mix(depthOld, depth, 1.0 / float(frameNumber + 1));
+    }
+#else
+    float depth;
+    if (hasHitSurface) {
+        depth = -positionViewSpace.z;
+    } else {
+        depth = farDistance;
     }
 #endif
     imageStore(depthMap, writePos, vec4(depth));
 #endif
 
 #ifdef WRITE_POSITION_MAP
+#ifdef DISABLE_ACCUMULATION
+    if (!hasHitSurface) {
+        positionViewSpace.z = -farDistance;
+    }
+#endif
 #ifndef DISABLE_ACCUMULATION
     if (frameNumber != 0) {
         vec3 positionViewSpaceOld = imageLoad(positionMap, writePos).xyz;
@@ -341,7 +377,7 @@ void main() {
     if (hasHitSurface) {
         vec4 lastFramePositionNdc = lastFrameViewProjectionMatrix * vec4(vertexPositionWorld, 1.0);
         lastFramePositionNdc.xyz /= lastFramePositionNdc.w;
-        vec2 pixelPositionLastFrame = (0.5 * lastFramePositionNdc.xy + vec2(0.5)) * vec2(outputImageSize);
+        vec2 pixelPositionLastFrame = (0.5 * lastFramePositionNdc.xy + vec2(0.5)) * vec2(outputImageSize) - vec2(0.5);
         flowVector = vec2(writePos) - pixelPositionLastFrame;
     }
 #ifndef DISABLE_ACCUMULATION
@@ -351,5 +387,36 @@ void main() {
     }
 #endif
     imageStore(flowMap, writePos, vec4(flowVector, 0.0, 0.0));
+#endif
+
+#if defined(WRITE_DEPTH_NABLA_MAP) || defined(WRITE_DEPTH_FWIDTH_MAP)
+    //vec3 camNormal = (inverseTransposedViewMatrix * vec4(surfaceNormal, 0.0)).xyz;
+    vec2 nabla = vec2(0.0, 0.0);
+    if (hasHitSurface) {
+        float A = dot(camNormal, vec3(1.0, 0.0, 0.0));
+        float B = dot(camNormal, vec3(0.0, 1.0, 0.0));
+        nabla = vec2(A / sqrt(1.0 - A * A), B / sqrt(1.0 - B * B));
+    }
+#endif
+
+#ifdef WRITE_DEPTH_NABLA_MAP
+#ifndef DISABLE_ACCUMULATION
+    if (frameNumber != 0) {
+        vec2 nablaOld = imageLoad(depthNablaMap, writePos).xy;
+        nabla = mix(nablaOld, nabla, 1.0 / float(frameNumber + 1));
+    }
+#endif
+    imageStore(depthNablaMap, writePos, vec4(nabla, 0.0, 0.0));
+#endif
+
+#ifdef WRITE_DEPTH_FWIDTH_MAP
+    float fwidthValue = abs(nabla.x) + abs(nabla.y);
+#ifndef DISABLE_ACCUMULATION
+    if (frameNumber != 0) {
+        float fwidthValueOld = imageLoad(depthFwidthMap, writePos).x;
+        fwidthValue = mix(fwidthValueOld, fwidthValue, 1.0 / float(frameNumber + 1));
+    }
+#endif
+    imageStore(depthFwidthMap, writePos, vec4(fwidthValue));
 #endif
 }

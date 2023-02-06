@@ -42,13 +42,15 @@ class PropertyEditor;
 }
 
 // enum type, name, num channels, num channels padded
-#define FEATURE_MAPS                            \
-    FEATURE_MAP(COLOR,    "Color",     4, 4)    \
-    FEATURE_MAP(ALBEDO,   "Albedo",    4, 4)    \
-    FEATURE_MAP(NORMAL,   "Normal",    3, 4)    \
-    FEATURE_MAP(DEPTH,    "Depth",     1, 1)    \
-    FEATURE_MAP(POSITION, "Position",  3, 4)    \
-    FEATURE_MAP(FLOW,     "Flow",      2, 2)    \
+#define FEATURE_MAPS                                \
+    FEATURE_MAP(COLOR,        "Color",     4, 4)    \
+    FEATURE_MAP(ALBEDO,       "Albedo",    4, 4)    \
+    FEATURE_MAP(NORMAL,       "Normal",    3, 4)    \
+    FEATURE_MAP(DEPTH,        "Depth",     1, 1)    \
+    FEATURE_MAP(POSITION,     "Position",  3, 4)    \
+    FEATURE_MAP(FLOW,         "Flow",      2, 2)    \
+    FEATURE_MAP(DEPTH_NABLA,  "nabla(z)",  2, 2)    \
+    FEATURE_MAP(DEPTH_FWIDTH, "fwidth(z)", 1, 1)    \
 
 // denoiser type, name
 #define STD_DENOISERS                                           \
@@ -115,7 +117,7 @@ public:
     virtual void setOutputImage(sgl::vk::ImageViewPtr& outputImage) = 0;
     virtual void setFeatureMap(FeatureMapType featureMapType, const sgl::vk::TexturePtr& featureTexture) = 0;
     [[nodiscard]] virtual bool getUseFeatureMap(FeatureMapType featureMapType) const = 0;
-    [[nodiscard]] virtual bool getWantsAccumulatedInput() const { return true; }
+    [[nodiscard]] virtual bool getWantsAccumulatedInput() const { return false; }
     [[nodiscard]] virtual bool getWantsGlobalFrameNumber() const { return false; }
     virtual void setUseFeatureMap(FeatureMapType featureMapType, bool useNormals) = 0;
     virtual void setTemporalDenoisingEnabled(bool enabled) = 0;
