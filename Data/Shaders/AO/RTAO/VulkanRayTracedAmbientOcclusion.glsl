@@ -341,7 +341,7 @@ void main() {
     if (hasHitSurface) {
         vec4 lastFramePositionNdc = lastFrameViewProjectionMatrix * vec4(vertexPositionWorld, 1.0);
         lastFramePositionNdc.xyz /= lastFramePositionNdc.w;
-        vec2 pixelPositionLastFrame = (0.5 * lastFramePositionNdc.xy + vec2(0.5)) * vec2(outputImageSize);
+        vec2 pixelPositionLastFrame = (0.5 * lastFramePositionNdc.xy + vec2(0.5)) * vec2(outputImageSize) - vec2(0.5);
         flowVector = vec2(writePos) - pixelPositionLastFrame;
     }
 #ifndef DISABLE_ACCUMULATION
