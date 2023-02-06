@@ -65,7 +65,8 @@ void EAWDenoiser::setFeatureMap(FeatureMapType featureMapType, const sgl::vk::Te
 
 bool EAWDenoiser::getUseFeatureMap(FeatureMapType featureMapType) const {
     if (featureMapType == FeatureMapType::COLOR || featureMapType == FeatureMapType::NORMAL
-            || featureMapType == FeatureMapType::POSITION) {
+            || featureMapType == FeatureMapType::POSITION
+            || featureMapType == FeatureMapType::DEPTH_NABLA || featureMapType == FeatureMapType::DEPTH_FWIDTH) {
         return true;
     } else {
         return false;
