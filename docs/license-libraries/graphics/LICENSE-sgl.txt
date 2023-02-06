@@ -683,7 +683,7 @@ https://github.com/samhocevar/portable-file-dialogs
 
 ----------------------------------------------------------------------------
 
-License of NanoVG (contained in src/Graphics/Vulkan/libs/nanovg):
+License of NanoVG (contained in src/Graphics/Vector/nanovg):
 https://github.com/danilw/nanovg_vulkan
 
 Copyright (c) 2013-2022 Mikko Mononen memon@inside.org
