@@ -237,6 +237,12 @@ void VulkanRayTracedAmbientOcclusionPass::setDenoiserFeatureMaps() {
         if (denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
             denoiser->setFeatureMap(FeatureMapType::FLOW, flowMapTexture);
         }
+        if (denoiser->getUseFeatureMap(FeatureMapType::DEPTH_NABLA)) {
+            denoiser->setFeatureMap(FeatureMapType::DEPTH_NABLA, depthNablaTexture);
+        }
+        if (denoiser->getUseFeatureMap(FeatureMapType::DEPTH_FWIDTH)) {
+            denoiser->setFeatureMap(FeatureMapType::DEPTH_FWIDTH, depthFwidthTexture);
+        }
         denoiser->setOutputImage(denoisedTexture->getImageView());
     }
 }
@@ -325,6 +331,22 @@ void VulkanRayTracedAmbientOcclusionPass::recreateFeatureMaps() {
         flowMapTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
     }
 
+    depthNablaTexture = {};
+    if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::DEPTH_NABLA)) {
+        imageSettings.format = VK_FORMAT_R32G32_SFLOAT;
+        imageSettings.usage =
+                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        depthNablaTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
+    }
+
+    depthFwidthTexture = {};
+    if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::DEPTH_FWIDTH)) {
+        imageSettings.format = VK_FORMAT_R32_SFLOAT;
+        imageSettings.usage =
+                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        depthFwidthTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
+    }
+
     setDenoiserFeatureMaps();
 
     // NOTE(Felix): initialization code
@@ -343,6 +365,8 @@ void VulkanRayTracedAmbientOcclusionPass::checkRecreateFeatureMaps() {
     bool usePositionRenderer = positionMapTexture.get() != nullptr;
     bool useAlbedoRenderer = albedoTexture.get() != nullptr;
     bool useFlowRenderer = flowMapTexture.get() != nullptr;
+    bool useDepthNablaRenderer = depthNablaTexture.get() != nullptr;
+    bool useDepthFwidthRenderer = depthFwidthTexture.get() != nullptr;
 
     bool shallRecreateFeatureMaps = false;
     if (denoiser) {
@@ -350,11 +374,14 @@ void VulkanRayTracedAmbientOcclusionPass::checkRecreateFeatureMaps() {
                 || useDepthRenderer != denoiser->getUseFeatureMap(FeatureMapType::DEPTH)
                 || usePositionRenderer != denoiser->getUseFeatureMap(FeatureMapType::POSITION)
                 || useAlbedoRenderer != denoiser->getUseFeatureMap(FeatureMapType::ALBEDO)
-                || useFlowRenderer != denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
+                || useFlowRenderer != denoiser->getUseFeatureMap(FeatureMapType::FLOW)
+                || useDepthNablaRenderer != denoiser->getUseFeatureMap(FeatureMapType::DEPTH_NABLA)
+                || useDepthFwidthRenderer != denoiser->getUseFeatureMap(FeatureMapType::DEPTH_FWIDTH)) {
             shallRecreateFeatureMaps = true;
         }
     } else {
-        if (useNormalMapRenderer || useDepthRenderer || usePositionRenderer || useAlbedoRenderer || useFlowRenderer) {
+        if (useNormalMapRenderer || useDepthRenderer || usePositionRenderer || useAlbedoRenderer || useFlowRenderer
+                || useDepthNablaRenderer || useDepthFwidthRenderer) {
             shallRecreateFeatureMaps = true;
         }
     }
@@ -436,6 +463,12 @@ void VulkanRayTracedAmbientOcclusionPass::loadShader() {
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
         preprocessorDefines.insert(std::make_pair("WRITE_FLOW_MAP", ""));
     }
+    if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::DEPTH_NABLA)) {
+        preprocessorDefines.insert(std::make_pair("WRITE_DEPTH_NABLA_MAP", ""));
+    }
+    if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::DEPTH_FWIDTH)) {
+        preprocessorDefines.insert(std::make_pair("WRITE_DEPTH_FWIDTH_MAP", ""));
+    }
     if (denoiser && !denoiser->getWantsAccumulatedInput()) {
         preprocessorDefines.insert(std::make_pair("DISABLE_ACCUMULATION", ""));
     }
@@ -466,6 +499,12 @@ void VulkanRayTracedAmbientOcclusionPass::createComputeData(
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
         computeData->setStaticImageView(flowMapTexture->getImageView(), "flowMap");
     }
+    if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::DEPTH_NABLA)) {
+        computeData->setStaticImageView(depthNablaTexture->getImageView(), "depthNablaMap");
+    }
+    if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::DEPTH_FWIDTH)) {
+        computeData->setStaticImageView(depthFwidthTexture->getImageView(), "depthFwidthMap");
+    }
     computeData->setTopLevelAccelerationStructure(topLevelAS, "topLevelAS");
     computeData->setStaticBuffer(uniformBuffer, "UniformsBuffer");
 
@@ -492,6 +531,8 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
         uniformData.inverseProjectionMatrix = glm::inverse(sceneData->camera->getProjectionMatrix());
         uniformData.inverseTransposedViewMatrix = glm::transpose(uniformData.inverseViewMatrix);
         uniformData.lastFrameViewProjectionMatrix = lastFrameViewProjectionMatrix;
+        uniformData.nearDistance = sceneData->camera->getNearClipDistance();
+        uniformData.farDistance = sceneData->camera->getFarClipDistance();
         uniformData.numSamplesPerFrame = numAmbientOcclusionSamplesPerFrame;
         uniformData.useDistance = useDistance;
         uniformData.ambientOcclusionRadius = ambientOcclusionRadius;
@@ -528,6 +569,12 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
         }
         if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
             renderer->transitionImageLayout(flowMapTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);
+        }
+        if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::DEPTH_NABLA)) {
+            renderer->transitionImageLayout(depthNablaTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);
+        }
+        if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::DEPTH_FWIDTH)) {
+            renderer->transitionImageLayout(depthFwidthTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);
         }
         auto& imageSettings = accumulationTexture->getImage()->getImageSettings();
         int width = int(imageSettings.width);
