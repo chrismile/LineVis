@@ -395,9 +395,10 @@ void SVGF_ATrous_Pass::_render() {
 }
 
 bool SVGF_ATrous_Pass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
-    if (propertyEditor.addSliderInt("#Iterations", &maxNumIterations, 0, 5)      ||
-        propertyEditor.addSliderFloat("z multiplier", &pc.z_multiplier, 1, 1000) ||
-        propertyEditor.addSliderFloat("fwidth_h", &pc.fwidth_h, 0, 1, "%.5f"))
+    if (propertyEditor.addSliderInt("#Iterations", &maxNumIterations, 0, 5)      |
+        propertyEditor.addSliderFloat("z multiplier", &pc.z_multiplier, 1, 1000) |
+        propertyEditor.addSliderFloat("fwidth_h", &pc.fwidth_h, 0, 1, "%.5f")    |
+        propertyEditor.addSliderFloat("nabla_max", &pc.nabla_max, 0, 1, "%.5f"))
     {
         setDataDirty();
         device->waitIdle();

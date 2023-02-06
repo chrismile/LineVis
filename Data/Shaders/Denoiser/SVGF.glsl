@@ -33,7 +33,8 @@ void main() {
     vec2 fragTexCoord = (globalIdx + vec2(0.5, 0.5)) / vec2(size);
 
     vec4 color                   = texture(noisy_texture, fragTexCoord);
-    vec2 fragTexCoord_last_frame = fragTexCoord - (texture(motion_texture, fragTexCoord).xy / vec2(size));
+    // NOTE(Felix): +0.5 because motion texture stores -.5 on no motion
+    vec2 fragTexCoord_last_frame = fragTexCoord - ((texture(motion_texture, fragTexCoord).xy + vec2(0.5)) / vec2(size));
 
     float depth  = texture(depth_texture, fragTexCoord).x;
     vec3  normal = texture(normal_texture, fragTexCoord).xyz;
@@ -49,9 +50,14 @@ void main() {
         color_last_frame = color;
     }
 
-    float alpha = .05;
+    float alpha = .2;
 
-    imageStore(temp_accum_texture, globalIdx, alpha*color + (1-alpha)*color_last_frame);
+
+    // if (distance(normal, normal_last_frame) > 0.001)
+    // {
+        // imageStore(temp_accum_texture, globalIdx, vec4(0));
+    // } else
+        imageStore(temp_accum_texture, globalIdx, alpha*color + (1-alpha)*color_last_frame);
 }
 
 // --------------------------------------
@@ -64,6 +70,8 @@ void main() {
 #extension GL_EXT_debug_printf : enable
 // #extension GL_NV_compute_shader_derivatives : enable
 
+#include "svgf_common.glsl"
+
 layout(local_size_x = BLOCK_SIZE, local_size_y = BLOCK_SIZE) in;
 
 
@@ -71,7 +79,7 @@ layout(push_constant) uniform PushConstants {
     int iteration;
     float z_multiplier;
     float fwidth_h;
-
+    float nabla_max;
 };
 
 // this frame
@@ -102,7 +110,7 @@ void main() {
     float center_z = texture(depth_texture, fragTexCoord).r;
 
 
-    float kernel_values[3] = {6.0/16.0, 4.0/16.0, 1.0/16.0};
+    float kernel_values[3] = {1.0, 2.0 / 3.0, 1.0 / 6.0};
 
     // memoryBarrierShared();
     // barrier();
@@ -127,74 +135,22 @@ void main() {
 
         vec2  offset = vec2(x, y);
         vec2  offsetTexCoord = fragTexCoord + offset * step;
-        vec4  offset_color = texture(color_texture, offsetTexCoord);
+        vec4  offset_color  = texture(color_texture,  offsetTexCoord);
         vec3  offset_normal = texture(normal_texture, offsetTexCoord).rgb;
-        float offset_z   = texture(depth_texture, offsetTexCoord).x;
+        float offset_z      = texture(depth_texture,  offsetTexCoord).x;
 
-        // sigmas
-        float sigma_n = 128;
-        float sigma_z = 1;
-        float sigma_l = 4;
+        float w_n_e = weight_n(center_normal, offset_normal);
 
-        float weight_n = 1;
-        {
-            // NOTE(Felix): paper
-            weight_n = pow(max(0, dot(center_normal, offset_normal)), sigma_n);
-
-            // NOTE(Felix): empirical
-            // vec3 diff_normal = center_normal - offset_normal;
-            // float distNormal = dot(diff_normal, diff_normal);
-            // float weight_n   = min(exp(-distNormal / 0.1), 1.0);
+        float w_z_e = weight_z_exp(center_z, offset_z, x, y, stepWidth,
+                                   depth_texture, fragTexCoord,
+                                   pixel_step, fwidth_h, z_multiplier, nabla_max);
+        float w_l_e = weight_l_exp();
 
 
-            // if (iteration == 4 && globalIdx == ivec2(1167, 243)) {
-            //     // debugPrintfEXT("weight_n: %f", weight_n);
-            // }
+        float weight = (exp(w_n_e + w_z_e) * w_l_e); 
 
-        }
-
-        float weight_z = 1;
-        {
-
-            // // NOTE(Felix): paper
-            float h = fwidth_h;
-            float offset_z_x =
-                (texture(depth_texture,   fragTexCoord+vec2(pixel_step.x*h, 0)).x
-                 - texture(depth_texture, fragTexCoord+vec2(0,              0)).x)
-
-                / (h*pixel_step.x);
-
-            float offset_z_y =
-                (texture(depth_texture,   fragTexCoord+vec2(0, pixel_step.y*h)).x
-                 - texture(depth_texture, fragTexCoord+vec2(0,              0)).x)
-
-                / (h*pixel_step.y);
-
-            vec2 nabla = vec2(offset_z_x, offset_z_y);
-            float f_width = abs(offset_z_x) + abs(offset_z_y);
-            // NOTE(Felix): paper
-            weight_z = exp(-abs(offset_z - center_z) * z_multiplier /
-                           max(1e-8, abs(dot(nabla, vec2(x, y)))));
-
-            // NOTE(Felix): falcor
-            // weight_z = exp(-abs(offset_z - center_z) * z_multiplier /
-            //                (max(f_width, 1e-8) * stepWidth * length(vec2(x,y))));
-
-            // // NOTE(Felix): empirical
-            // weight_z = exp(-abs(offset_z - center_z) * z_multiplier /
-                           // (5e-3 * stepWidth * length(vec2(x, y))));
-        }
-
-        float weight_l = 1;
-        {
-
-        }
-
-
-        float weight = max((weight_n * weight_z * weight_l), 0.00001); // NOTE(Felix): so we cant devide by 0
-
-        sum += offset_color * weight * kernelValue;
-        accumW += weight * kernelValue;
+        sum += offset_color * (weight * kernelValue);
+        accumW += (weight * kernelValue);
 
     }
 
