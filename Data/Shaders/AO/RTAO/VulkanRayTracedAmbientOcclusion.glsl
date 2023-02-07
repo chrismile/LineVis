@@ -198,6 +198,9 @@ void main() {
 #ifdef WRITE_FLOW_MAP
 #endif
 
+#ifdef GENERAL_TRIANGLE_MESH
+    vec3 surfaceNormalFlat = vec3(0.0, 0.0, 0.0);
+#endif
     vec3 surfaceNormal = vec3(0.0, 0.0, 0.0);
     vec3 vertexPositionWorld = vec3(0.0);
     float aoFactor = 1.0;
@@ -253,9 +256,10 @@ void main() {
 #else
         vec3 v0 = vertexData0.vertexPosition - vertexData1.vertexPosition;
         vec3 v1 = vertexData0.vertexPosition - vertexData2.vertexPosition;
-        vec3 surfaceNormalFlat = normalize(cross(v0, v1));
+        surfaceNormalFlat = normalize(cross(v0, v1));
         if (dot(surfaceNormalFlat, rayDirection) > 0) {
             surfaceNormal = -surfaceNormal;
+            surfaceNormalFlat = -surfaceNormalFlat;
         }
         vec3 surfaceTangent;
         vec3 surfaceBitangent;
@@ -306,7 +310,7 @@ void main() {
 #endif
     imageStore(outputImage, writePos, vec4(aoFactor, aoFactor, aoFactor, 1.0));
 
-#if defined(WRITE_NORMAL_MAP) || defined(WRITE_DEPTH_NABLA_MAP) || defined(WRITE_DEPTH_FWIDTH_MAP)
+#if defined(WRITE_NORMAL_MAP) || (!defined(GENERAL_TRIANGLE_MESH) && (defined(WRITE_DEPTH_NABLA_MAP) || defined(WRITE_DEPTH_FWIDTH_MAP)))
 #ifndef DISABLE_ACCUMULATION
     vec3 camNormal = (inverseTransposedViewMatrix * vec4(surfaceNormal, 0.0)).xyz;
 #else
@@ -384,12 +388,22 @@ void main() {
 #endif
 
 #if defined(WRITE_DEPTH_NABLA_MAP) || defined(WRITE_DEPTH_FWIDTH_MAP)
+#ifdef GENERAL_TRIANGLE_MESH
+    vec3 camNormalFlat;
+    if (hasHitSurface) {
+        camNormalFlat = (inverseTransposedViewMatrix * vec4(surfaceNormalFlat, 0.0)).xyz;
+    } else {
+        camNormalFlat = vec3(0.0, 0.0, 1.0);
+    }
+#else
+    #define camNormalFlat camNormal
+#endif
     vec2 nabla = vec2(0.0, 0.0);
     if (hasHitSurface) {
-        // A = cos(camNormal, camX)
+        // A = cos(camNormalFlat, camX)
         // cot(acos(A)) = cos(acos(A)) / sin(acos(A)) = A / sin(acos(A)) = A / sqrt(1 - A^2)
-        float A = dot(camNormal, vec3(1.0, 0.0, 0.0));
-        float B = dot(camNormal, vec3(0.0, 1.0, 0.0));
+        float A = dot(camNormalFlat, vec3(1.0, 0.0, 0.0));
+        float B = dot(camNormalFlat, vec3(0.0, 1.0, 0.0));
         nabla = vec2(A / sqrt(1.0 - A * A), B / sqrt(1.0 - B * B));
     }
 #endif
