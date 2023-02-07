@@ -380,19 +380,14 @@ void main() {
         vec2 pixelPositionLastFrame = (0.5 * lastFramePositionNdc.xy + vec2(0.5)) * vec2(outputImageSize) - vec2(0.5);
         flowVector = vec2(writePos) - pixelPositionLastFrame;
     }
-#ifndef DISABLE_ACCUMULATION
-    if (frameNumber != 0) {
-        vec2 flowVectorOld = imageLoad(flowMap, writePos).xy;
-        flowVector = mix(flowVectorOld, flowVector, 1.0 / float(frameNumber + 1));
-    }
-#endif
     imageStore(flowMap, writePos, vec4(flowVector, 0.0, 0.0));
 #endif
 
 #if defined(WRITE_DEPTH_NABLA_MAP) || defined(WRITE_DEPTH_FWIDTH_MAP)
-    //vec3 camNormal = (inverseTransposedViewMatrix * vec4(surfaceNormal, 0.0)).xyz;
     vec2 nabla = vec2(0.0, 0.0);
     if (hasHitSurface) {
+        // A = cos(camNormal, camX)
+        // cot(acos(A)) = cos(acos(A)) / sin(acos(A)) = A / sin(acos(A)) = A / sqrt(1 - A^2)
         float A = dot(camNormal, vec3(1.0, 0.0, 0.0));
         float B = dot(camNormal, vec3(0.0, 1.0, 0.0));
         nabla = vec2(A / sqrt(1.0 - A * A), B / sqrt(1.0 - B * B));
