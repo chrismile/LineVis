@@ -44,6 +44,8 @@ struct Texture_Pack {
         sgl::vk::TexturePtr motion_texture;
         sgl::vk::TexturePtr normal_texture;
         sgl::vk::TexturePtr depth_texture;
+        sgl::vk::TexturePtr depth_fwidth_texture;
+        sgl::vk::TexturePtr depth_nabla_texture;
         // meshid?
     } current_frame;
 

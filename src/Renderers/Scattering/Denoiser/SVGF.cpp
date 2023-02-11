@@ -82,6 +82,8 @@ void SVGFDenoiser::setFeatureMap(FeatureMapType featureMapType, const sgl::vk::T
         case FeatureMapType::COLOR:  textures.current_frame.noisy_texture  = feature_map; return;
         case FeatureMapType::NORMAL: textures.current_frame.normal_texture = feature_map; return;
         case FeatureMapType::DEPTH:  textures.current_frame.depth_texture  = feature_map; return;
+        case FeatureMapType::DEPTH_FWIDTH:   textures.current_frame.depth_fwidth_texture = feature_map; return;
+        case FeatureMapType::DEPTH_NABLA:    textures.current_frame.depth_nabla_texture = feature_map; return;
         case FeatureMapType::FLOW:   textures.current_frame.motion_texture = feature_map; return;
         default: return;
     }
@@ -92,6 +94,8 @@ bool SVGFDenoiser::getUseFeatureMap(FeatureMapType featureMapType) const {
         featureMapType == FeatureMapType::COLOR  ||
         featureMapType == FeatureMapType::NORMAL ||
         featureMapType == FeatureMapType::FLOW   ||
+        featureMapType == FeatureMapType::DEPTH_FWIDTH   ||
+        featureMapType == FeatureMapType::DEPTH_NABLA   ||
         featureMapType == FeatureMapType::DEPTH;
 }
 
@@ -279,6 +283,13 @@ void SVGF_ATrous_Pass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::C
         computeDataPingPong[i]->setStaticTexture(textures->current_frame.depth_texture, "depth_texture");
         computeDataPingPongFinal[i]->setStaticTexture(textures->current_frame.depth_texture, "depth_texture");
 
+        computeDataPingPong[i]->setStaticTexture(textures->current_frame.depth_fwidth_texture, "depth_fwidth_texture");
+        computeDataPingPongFinal[i]->setStaticTexture(textures->current_frame.depth_fwidth_texture, "depth_fwidth_texture");
+
+        computeDataPingPong[i]->setStaticTexture(textures->current_frame.depth_nabla_texture, "depth_nabla_texture");
+        computeDataPingPongFinal[i]->setStaticTexture(textures->current_frame.depth_nabla_texture, "depth_nabla_texture");
+
+
         computeDataPingPong[i]->setStaticTexture(textures->current_frame.normal_texture, "normal_texture");
         computeDataPingPongFinal[i]->setStaticTexture(textures->current_frame.normal_texture, "normal_texture");
 
@@ -314,6 +325,10 @@ void SVGF_ATrous_Pass::_render() {
 
     renderer->transitionImageLayout(textures->current_frame.temp_accum_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     renderer->transitionImageLayout(textures->current_frame.depth_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    renderer->transitionImageLayout(textures->current_frame.depth_fwidth_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    renderer->transitionImageLayout(textures->current_frame.depth_nabla_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
     renderer->transitionImageLayout(textures->current_frame.normal_texture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     renderer->transitionImageLayout(textures->current_frame.motion_texture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -347,6 +362,15 @@ void SVGF_ATrous_Pass::_render() {
             renderer->transitionImageLayout(
                 computeData->getImageView("depth_texture")->getImage(),
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+            renderer->transitionImageLayout(
+                computeData->getImageView("depth_fwidth_texture")->getImage(),
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            renderer->transitionImageLayout(
+                computeData->getImageView("depth_nabla_texture")->getImage(),
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+
             renderer->transitionImageLayout(
                 computeData->getImageView("normal_texture")->getImage(),
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);

@@ -395,7 +395,7 @@ void main() {
     if (hasHitSurface) {
         float A = dot(camNormal, vec3(1.0, 0.0, 0.0));
         float B = dot(camNormal, vec3(0.0, 1.0, 0.0));
-        nabla = vec2(A / sqrt(1.0 - A * A), B / sqrt(1.0 - B * B));
+        nabla = vec2(A / sqrt(1.0001 - A * A), B / sqrt(1.0001 - B * B));
     }
 #endif
 
