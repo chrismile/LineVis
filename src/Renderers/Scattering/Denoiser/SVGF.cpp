@@ -147,6 +147,26 @@ void SVGFDenoiser::denoise() {
                                                                       VK_IMAGE_ASPECT_COLOR_BIT,
                                                                       renderer->getVkCommandBuffer());
 
+        // TODO(Felix): Mit christoph besprechen
+        // moments
+        renderer->insertImageMemoryBarrier(
+            textures.previous_frame.moments_history_texture->getImage(),
+            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_WRITE_BIT);
+
+        renderer->insertImageMemoryBarrier(
+            textures.current_frame.accum_moments_texture->getImage(),
+            textures.current_frame.accum_moments_texture->getImage()->getVkImageLayout(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_READ_BIT);
+
+
+        textures.current_frame.accum_moments_texture->getImage()->copyToImage(textures.previous_frame.moments_history_texture->getImage(),
+                                                                      VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                      renderer->getVkCommandBuffer());
+
+
         // renderer->syncWithCpu();
     }
 
@@ -184,6 +204,10 @@ void SVGFDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
         textures.current_frame.temp_accum_texture =
             std::make_shared<sgl::vk::Texture>(device, imageSettings);
 
+        textures.current_frame.accum_moments_texture = {};
+        textures.current_frame.accum_moments_texture =
+            std::make_shared<sgl::vk::Texture>(device, imageSettings);
+
     }
 
     for (int i = 0; i < 2; i++) {
@@ -204,16 +228,17 @@ void SVGFDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
             sgl::vk::ImageSettings imageSettings;
             imageSettings.width  = width;
             imageSettings.height = height;
-            imageSettings.format = VK_FORMAT_R32G32_SFLOAT;
+            imageSettings.format = VK_FORMAT_R32G32B32A32_SFLOAT;
             imageSettings.usage =
                 VK_IMAGE_USAGE_SAMPLED_BIT |
-                VK_IMAGE_USAGE_STORAGE_BIT;
+                VK_IMAGE_USAGE_STORAGE_BIT |
+                VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-            for (int i = 0; i < 2; ++i) {
-                textures.previous_frame.moments_history_texture[i] = {};
-                textures.previous_frame.moments_history_texture[i] =
-                    std::make_shared<sgl::vk::Texture>(device, imageSettings);
-            }
+
+            textures.previous_frame.moments_history_texture = {};
+            textures.previous_frame.moments_history_texture =
+                std::make_shared<sgl::vk::Texture>(device, imageSettings);
+
         }
 
         // normal
@@ -293,23 +318,8 @@ void SVGF_ATrous_Pass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::C
         computeDataPingPong[i]->setStaticTexture(textures->current_frame.normal_texture, "normal_texture");
         computeDataPingPongFinal[i]->setStaticTexture(textures->current_frame.normal_texture, "normal_texture");
 
-        computeDataPingPong[i]->setStaticTexture(textures->current_frame.motion_texture, "motion_texture");
-        computeDataPingPongFinal[i]->setStaticTexture(textures->current_frame.motion_texture, "motion_texture");
-
-        // prev frame
         computeDataPingPong[i]->setStaticTexture(textures->previous_frame.color_history_texture, "color_history_texture");
         computeDataPingPongFinal[i]->setStaticTexture(textures->previous_frame.color_history_texture, "color_history_texture");
-
-        // TODO(Felix): warum war moments_history_texture hier pingpong??
-        computeDataPingPong[i]->setStaticTexture(textures->previous_frame.moments_history_texture[0], "variance_history_texture");
-        computeDataPingPongFinal[i]->setStaticTexture(textures->previous_frame.moments_history_texture[0], "variance_history_texture");
-
-        computeDataPingPong[i]->setStaticTexture(textures->previous_frame.depth_texture, "depth_history_texture");
-        computeDataPingPongFinal[i]->setStaticTexture(textures->previous_frame.depth_texture, "depth_history_texture");
-
-        computeDataPingPong[i]->setStaticTexture(textures->previous_frame.normal_texture, "normals_history_texture");
-        computeDataPingPongFinal[i]->setStaticTexture(textures->previous_frame.normal_texture, "normals_history_texture");
-
     }
 }
 
@@ -330,7 +340,6 @@ void SVGF_ATrous_Pass::_render() {
     renderer->transitionImageLayout(textures->current_frame.depth_nabla_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     renderer->transitionImageLayout(textures->current_frame.normal_texture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    renderer->transitionImageLayout(textures->current_frame.motion_texture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     // render_compute
     {
@@ -374,10 +383,6 @@ void SVGF_ATrous_Pass::_render() {
             renderer->transitionImageLayout(
                 computeData->getImageView("normal_texture")->getImage(),
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-            renderer->transitionImageLayout(
-                computeData->getImageView("motion_texture")->getImage(),
-                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
 
             renderer->insertImageMemoryBarrier(
                 computeData->getImageView("outputImage")->getImage(),
@@ -389,25 +394,7 @@ void SVGF_ATrous_Pass::_render() {
                 computeData->getImageView("color_history_texture")->getImage(),
                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
                 VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT);
-
-            renderer->insertImageMemoryBarrier(
-                computeData->getImageView("variance_history_texture")->getImage(),
-                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
-                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT);
-
-            renderer->insertImageMemoryBarrier(
-                computeData->getImageView("depth_history_texture")->getImage(),
-                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
-                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_READ_BIT);
-
-            renderer->insertImageMemoryBarrier(
-                computeData->getImageView("normals_history_texture")->getImage(),
-                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
-                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_READ_BIT);
+                VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT);
 
             int numWorkgroupsX = sgl::iceil(width, computeBlockSize);
             int numWorkgroupsY = sgl::iceil(height, computeBlockSize);
@@ -452,8 +439,10 @@ void SVGF_Reproj_Pass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::C
     compute_data->setStaticTexture(textures->current_frame.depth_texture, "depth_texture");
     compute_data->setStaticTexture(textures->previous_frame.depth_texture, "depth_history_texture");
     compute_data->setStaticTexture(textures->previous_frame.normal_texture, "normal_history_texture");
+    compute_data->setStaticTexture(textures->previous_frame.moments_history_texture, "moments_history_texture");
 
     compute_data->setStaticTexture(textures->current_frame.temp_accum_texture, "temp_accum_texture");
+    compute_data->setStaticTexture(textures->current_frame.accum_moments_texture, "accum_moments_texture");
 }
 
 void SVGF_Reproj_Pass::_render() {
@@ -465,6 +454,7 @@ void SVGF_Reproj_Pass::_render() {
         textures->current_frame.depth_texture,
         textures->previous_frame.depth_texture,
         textures->previous_frame.normal_texture,
+        textures->previous_frame.moments_history_texture
     };
     for (auto& tex : to_read) {
             renderer->transitionImageLayout(tex->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -476,6 +466,12 @@ void SVGF_Reproj_Pass::_render() {
 
     renderer->insertImageMemoryBarrier(
                 compute_data->getImageView("temp_accum_texture")->getImage(),
+                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT);
+
+    renderer->insertImageMemoryBarrier(
+                compute_data->getImageView("accum_moments_texture")->getImage(),
                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
                 VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                 VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT);
@@ -500,7 +496,7 @@ void SVGF_Reproj_Pass::loadShader() {
 
 
 bool SVGF_Reproj_Pass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
-    if (propertyEditor.addSliderFloat("allowed_normal_dist", &pc.allowed_normal_dist, 0, 2) ||
+    if (propertyEditor.addSliderFloat("allowed_normal_dist", &pc.allowed_normal_dist, 0, 2) |
         propertyEditor.addSliderFloat("allowed_z_dist", &pc.allowed_z_dist, 0, 5))
     {
         setDataDirty();

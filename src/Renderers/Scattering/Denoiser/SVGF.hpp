@@ -40,6 +40,7 @@ struct Texture_Pack {
     struct {
         sgl::vk::TexturePtr noisy_texture;
         sgl::vk::TexturePtr temp_accum_texture;
+        sgl::vk::TexturePtr accum_moments_texture;
 
         sgl::vk::TexturePtr motion_texture;
         sgl::vk::TexturePtr normal_texture;
@@ -52,9 +53,7 @@ struct Texture_Pack {
 
     struct {
         // vom shader beschrieben
-        sgl::vk::TexturePtr moments_history_texture[2];
-        uint32_t ping_pong_idx = 0;
-
+        sgl::vk::TexturePtr moments_history_texture;
         sgl::vk::TexturePtr color_history_texture;
 
         // in c++ beschrieben
@@ -141,8 +140,8 @@ class SVGF_Reproj_Pass : public sgl::vk::ComputePass {
     sgl::vk::ComputeDataPtr compute_data;
 
     struct {
-        float allowed_z_dist      = 0.002;
-        float allowed_normal_dist = 0.17;
+        float allowed_z_dist      = 0.002f;
+        float allowed_normal_dist = 0.17f;
     } pc;
 
     void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;

@@ -41,8 +41,9 @@ float weight_z_exp(float center_z, float offset_z, int x, int y, int step_width,
 
 }
 
-float weight_l_exp() {
-    return 0;
+float weight_l_exp(vec4 center_color, vec4 offset_color, float filtered_variance) {
+    return -abs(center_color.x - offset_color.x) * 2 /
+        sqrt(max(0.0, 1e-10 + filtered_variance));
 }
 
 float weight_n(vec3 center_normal, vec3 offset_normal) {

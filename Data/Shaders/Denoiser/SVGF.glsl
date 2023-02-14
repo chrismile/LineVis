@@ -18,8 +18,11 @@ layout(binding = 5) uniform sampler2D depth_texture;
 layout(binding = 6) uniform sampler2D normal_history_texture;
 layout(binding = 7) uniform sampler2D depth_history_texture;
 
+layout(binding = 8) uniform sampler2D moments_history_texture;
+
 // layout(binding = 8) uniform sampler2D depth_fwidth_texture;
 
+layout(binding = 14, rgba32f) uniform writeonly image2D accum_moments_texture;
 layout(binding = 15, rgba32f) uniform writeonly image2D temp_accum_texture;
 
 layout(push_constant) uniform PushConstants {
@@ -48,7 +51,7 @@ bool is_reprj_valid(ivec2 coord, float z, float z_prev, vec3 normal, vec3 normal
     ivec2 im_size = textureSize(noisy_texture, 0);
 
     // check whether reprojected pixel is inside of the screen
-    if (coord.x < 0 || coord.y < 0 ||
+    if (coord.x < 1 || coord.y < 1 ||
         coord.x >= im_size.x || coord.y >= im_size.y )
     {
         return false;
@@ -60,7 +63,9 @@ bool is_reprj_valid(ivec2 coord, float z, float z_prev, vec3 normal, vec3 normal
     return true;
 }
 
-bool try_2x2_tap(vec2 pos_prev_minus_half, ivec2 i_pos_prev_minus_half, float depth, vec3 normal, out vec4 color_last_frame) {
+bool try_2x2_tap(vec2 pos_prev_minus_half, ivec2 i_pos_prev_minus_half, float depth, vec3 normal,
+                 out vec3 color_last_frame, out vec2 prev_moments)
+{
     const ivec2 _2x2_offsets[4] = {ivec2(0,0), ivec2(0,1), ivec2(1,0), ivec2(1,1) };
     bool valid_found = false;
     bool valids[4];
@@ -84,15 +89,18 @@ bool try_2x2_tap(vec2 pos_prev_minus_half, ivec2 i_pos_prev_minus_half, float de
               (1 - x) *      y,  x  *      y };
 
         vec3 color_bilinear = vec3(0);
+        vec2 moments_bilinear = vec2(0);
         float sum_w = 0;
 
         for (int i = 0; i < 4; ++i) {
-            ivec2 i_offset_pos = i_pos_prev_minus_half + _2x2_offsets[i];
-            vec3 offset_color = texelFetch(color_history, i_offset_pos, 0).xyz;
-
             if (valids[i]) {
-                color_bilinear += w[i] * offset_color;
-                sum_w          += w[i];
+                ivec2 i_offset_pos = i_pos_prev_minus_half + _2x2_offsets[i];
+                vec3 offset_color   = texelFetch(color_history, i_offset_pos, 0).xyz;
+                vec2 offset_moments = texelFetch(moments_history_texture, i_offset_pos, 0).xy;
+
+                moments_bilinear += w[i] * offset_moments;
+                color_bilinear   += w[i] * offset_color;
+                sum_w            += w[i];
             }
         }
 
@@ -101,18 +109,23 @@ bool try_2x2_tap(vec2 pos_prev_minus_half, ivec2 i_pos_prev_minus_half, float de
         //   problem.
         valid_found = (sum_w >= 0.001);
 
-        if (valid_found)
-            color_last_frame = vec4(color_bilinear / sum_w, 0);
+        if (valid_found) {
+            color_last_frame = color_bilinear   / sum_w;
+            prev_moments     = moments_bilinear / sum_w;
+        }
     }
 
     return valid_found;
 }
 
-bool try_3x3_bilat(ivec2 i_pos_prev_minus_half, float depth, vec3 normal, out vec4 color_last_frame) {
+bool try_3x3_bilat(ivec2 i_pos_prev_minus_half, float depth, vec3 normal,
+                   out vec3 color_last_frame, out vec2 prev_moments)
+{
     // 3x3
     // source: https://github.com/NVIDIAGameWorks/Falcor/blob/master/Source/RenderPasses/SVGFPass/SVGFReproject.ps.slang#L144
     float nValid = 0.0;
-    vec4 filtered_color = vec4(0);
+    vec3 filtered_color   = vec3(0);
+    vec2 filtered_moments = vec2(0);
     // this code performs a binary descision for each tap of the cross-bilateral filter
     int radius = 1;
     for (int yy = -radius; yy <= radius; yy++) {
@@ -122,40 +135,76 @@ bool try_3x3_bilat(ivec2 i_pos_prev_minus_half, float depth, vec3 normal, out ve
             float offset_depth  = texelFetch(depth_history_texture, i_offset_pos, 0).x;
 
             if (is_reprj_valid(i_offset_pos, depth, offset_depth, normal, offset_normal)) {
-                filtered_color += texelFetch(color_history, i_offset_pos, 0).rgba;
-                // prevMoments += gPrevMoments[p].xy;
+                filtered_color   += texelFetch(color_history, i_offset_pos, 0).rgb;
+                filtered_moments += texelFetch(moments_history_texture, i_offset_pos, 0).rg;
                 nValid += 1.0;
             }
         }
     }
     if (nValid > 0) {
         color_last_frame = filtered_color / nValid;
-        // prevMoments /= nValid;
+        prev_moments     = filtered_moments / nValid;
         return true;
     }
     return false;
 }
 
+bool load_moments_and_history_length(const ivec2 i_pos_prev, out vec2 prev_moments, out float history_length) {
+    ivec2 tex_size = textureSize(noisy_texture, 0);
+    if (i_pos_prev.x < 0 || i_pos_prev.y < 0 ||
+        i_pos_prev.x >= tex_size.x || i_pos_prev.y >= tex_size.y)
+        return false;
+
+    vec4 read = texelFetch(moments_history_texture, i_pos_prev, 0);
+    prev_moments   = read.xy;
+    history_length = read.z;
+
+    return true;
+}
+
 void main() {
     ivec2 i_pos = ivec2(gl_GlobalInvocationID.xy);
 
-    // vec2  pos_prev   = vec2(0.5,0.5) + i_pos - imageLoad(motion_texture, i_pos).xy;
-    // see paper why -0.5
-    vec2  pos_prev_minus_half   = vec2(0.001) + i_pos - texelFetch(motion_texture, i_pos, 0).xy;
-    ivec2 i_pos_prev_minus_half = ivec2(pos_prev_minus_half);
 
-    vec4  color  = texelFetch(noisy_texture,  i_pos, 0).rgba;
-    float depth  = texelFetch(depth_texture,  i_pos, 0).x;
-    vec3  normal = texelFetch(normal_texture, i_pos, 0).xyz;
+    vec2  prev_moments;
+    float history_length;
+    ivec2 i_pos_prev  = ivec2(vec2(0.5,0.5) + i_pos - texelFetch(motion_texture, i_pos, 0).xy);
+    bool  success = load_moments_and_history_length(i_pos_prev, prev_moments, history_length);
 
-    vec4 color_last_frame;
-    bool success = try_2x2_tap(pos_prev_minus_half, i_pos_prev_minus_half, depth, normal, color_last_frame);
-    if (!success) success = try_3x3_bilat(i_pos_prev_minus_half, depth, normal, color_last_frame);
-    if (!success) color_last_frame = texelFetch(noisy_texture, i_pos, 0);
+    vec3 color  = texelFetch(noisy_texture,  i_pos, 0).rgb;
 
-    float alpha = .2;
+    vec3 color_last_frame = texelFetch(color_history, i_pos, 0).rgb;
+    if (success) {
+        // see paper why -0.5
+        vec2  pos_prev_minus_half   = vec2(0.001) + i_pos - texelFetch(motion_texture, i_pos, 0).xy;
+        ivec2 i_pos_prev_minus_half = ivec2(pos_prev_minus_half);
 
-    imageStore(temp_accum_texture, i_pos, alpha*color + (1-alpha)*color_last_frame);
+        float depth  = texelFetch(depth_texture,  i_pos, 0).x;
+        vec3  normal = texelFetch(normal_texture, i_pos, 0).xyz;
+
+        success = try_2x2_tap(pos_prev_minus_half, i_pos_prev_minus_half, depth, normal,
+                              color_last_frame, prev_moments);
+        if (!success)
+            success = try_3x3_bilat(i_pos_prev_minus_half, depth, normal,
+                                    color_last_frame, prev_moments);
+    }
+
+
+    history_length = min(success ? history_length+1 : 1, 32);
+
+    float alpha_color   = success ? max(0.05, 1.0f/history_length) : 1.0f;
+    float alpha_moments = success ? max(0.2 , 1.0f/history_length) : 1.0f;
+
+    vec4 moments;
+    moments.r = color.r;
+    moments.g = moments.r * moments.r;
+    moments.b = history_length;
+
+    moments.rg = mix(prev_moments.rg, moments.rg, alpha_moments);
+    float variance = max(0.f, moments.g - moments.r * moments.r);
+
+    imageStore(accum_moments_texture, i_pos, moments);
+    imageStore(temp_accum_texture,    i_pos, vec4(mix(color_last_frame, color, alpha_color), variance));
 }
 
 // --------------------------------------
@@ -187,17 +236,31 @@ layout(binding = 5)  uniform sampler2D depth_texture;
 layout(binding = 12) uniform sampler2D depth_fwidth_texture;
 layout(binding = 13) uniform sampler2D depth_nabla_texture;
 
-
-layout(binding = 6) uniform sampler2D motion_texture;
-
-// last frame
-layout(binding = 8,  rgba32f) uniform image2D color_history_texture;
-layout(binding = 9,  rgba32f) uniform image2D variance_history_texture;
-layout(binding = 10, rgba32f) uniform image2D depth_history_texture;
-layout(binding = 11, rgba32f) uniform image2D normals_history_texture;
-
 // output
 layout(binding = 7, rgba32f) uniform writeonly image2D outputImage;
+layout(binding = 8, rgba32f) uniform writeonly image2D color_history_texture;
+
+float filter_variance(ivec2 i_pos) {
+    // 3x3 gaussian
+
+    float sum = 0.f;
+
+    float kernel[2][2] = {
+        { 1.0 / 4.0, 1.0 / 8.0  },
+        { 1.0 / 8.0, 1.0 / 16.0 }
+    };
+
+    int radius = 1;
+    for (int yy = -radius; yy <= radius; yy++) {
+        for (int xx = -radius; xx <= radius; xx++) {
+            ivec2 p = i_pos + ivec2(xx, yy);
+            float k = kernel[abs(xx)][abs(yy)];
+            sum += texelFetch(color_texture, p, 0).a * k;
+        }
+    }
+
+    return sum;
+}
 
 void main() {
     int stepWidth = 1 << iteration;
@@ -205,11 +268,15 @@ void main() {
     vec2 pixel_step = vec2(1.0) / vec2(size);
     vec2 step = vec2(float(stepWidth)) / vec2(size);
     ivec2 globalIdx = ivec2(gl_GlobalInvocationID.xy);
+
+    ivec2 i_pos = ivec2(gl_GlobalInvocationID.xy);
+
     vec2 fragTexCoord = (vec2(gl_GlobalInvocationID.xy) + vec2(0.5, 0.5)) / vec2(size);
 
-    vec4 centerColor = texture(color_texture, fragTexCoord);
-    vec3 center_normal = texture(normal_texture, fragTexCoord).rgb;
-    float center_z = texture(depth_texture, fragTexCoord).r;
+    vec4 center_color      = texelFetch(color_texture, i_pos, 0);
+    float filtered_variance = filter_variance(i_pos);
+    vec3 center_normal    = texelFetch(normal_texture, i_pos, 0).rgb;
+    float center_z        = texelFetch(depth_texture, i_pos, 0).r;
 
 
     float kernel_values[3] = {1.0, 2.0 / 3.0, 1.0 / 6.0};
@@ -219,7 +286,7 @@ void main() {
     }
 
     float accumW = kernel_values[0] * kernel_values[0];
-    vec4 sum = centerColor * accumW;
+    vec4 sum = center_color * accumW;
 
     for (int y = -2; y <= 2; ++y) {
         for (int x = -2; x <= 2; ++x) {
@@ -229,10 +296,11 @@ void main() {
             float kernelValue = kernel_values[abs(x)] * kernel_values[abs(y)];
 
             vec2  offset = vec2(x, y);
-            vec2  offsetTexCoord = fragTexCoord + offset * step;
-            vec4  offset_color  = texture(color_texture,  offsetTexCoord);
-            vec3  offset_normal = texture(normal_texture, offsetTexCoord).rgb;
-            float offset_z      = texture(depth_texture,  offsetTexCoord).x;
+            // vec2  offsetTexCoord = fragTexCoord + offset * step;
+            ivec2 i_pos_offset  = i_pos + ivec2(x, y) * stepWidth;
+            vec4  offset_color  = texelFetch(color_texture,  i_pos_offset, 0);
+            vec3  offset_normal = texelFetch(normal_texture, i_pos_offset, 0).rgb;
+            float offset_z      = texelFetch(depth_texture,  i_pos_offset, 0).x;
 
             float w_n = weight_n(center_normal, offset_normal);
 
@@ -245,14 +313,14 @@ void main() {
                 // /
                 // ((abs(dot(texture(depth_nabla_texture, fragTexCoord).xy,  normalize(vec2(x, y))))) + 0.001);
 
-            // float w_z_e =
-            // -abs(center_z - offset_z) * z_multiplier
-            // /
-            // ((abs(dot(texture(depth_nabla_texture, fragTexCoord).xy,  vec2(x, y) * stepWidth))) + 0.0001);
+            float w_z_e =
+            -abs(center_z - offset_z) * z_multiplier
+            /
+            ((abs(dot(texelFetch(depth_nabla_texture, i_pos, 0).xy,  vec2(x, y) * stepWidth))) + 0.0001);
 
-            float w_z_e = -abs(center_z - offset_z) * z_multiplier
-                /
-                ((abs(dot(texture(depth_fwidth_texture, fragTexCoord).xy,  vec2(x, y)))) + 0.0001);
+            // float w_z_e = -abs(center_z - offset_z) * z_multiplier
+            //     /
+            //     ((abs(dot(texture(depth_fwidth_texture, fragTexCoord).xy,  vec2(x, y)))) + 0.0001);
 
             // eaw
             // vec3 diffNormal = center_normal - offset_normal;
@@ -260,10 +328,11 @@ void main() {
             // float w_n = min(exp(-distNormal / 1), 1.0);
             // float w_z_e= -abs(center_z - offset_z) * z_multiplier;
 
-            float w_l_e = weight_l_exp();
+            float w_l_e = weight_l_exp(center_color, offset_color, filtered_variance);
+            // float w_l_e = 0;
 
 
-            float weight = (exp(w_l_e + w_z_e) * w_n);
+            float weight = exp(w_l_e + w_z_e) * w_n;
 
 
             sum += offset_color * (weight * kernelValue);
@@ -276,5 +345,4 @@ void main() {
         imageStore(color_history_texture, globalIdx, sum / accumW);
 
     imageStore(outputImage, globalIdx, sum / accumW);
-    // imageStore(outputImage, globalIdx, centerColor);
 }
