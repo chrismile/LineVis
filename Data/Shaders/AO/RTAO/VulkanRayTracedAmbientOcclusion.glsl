@@ -108,27 +108,35 @@ layout(std430, binding = 6) readonly buffer LinePointDataBuffer {
 layout(binding = 7, rgba32f) uniform image2D outputImage;
 
 #ifdef WRITE_NORMAL_MAP
-layout(binding = 8, rgba32f) uniform image2D normalMap;
+layout(binding = 8, rgba32f) uniform image2D normalViewSpaceMap;
+#endif
+
+#ifdef WRITE_NORMAL_WORLD_MAP
+layout(binding = 9, rgba32f) uniform image2D normalWorldSpaceMap;
 #endif
 
 #ifdef WRITE_DEPTH_MAP
-layout(binding = 9, r32f) uniform image2D depthMap;
+layout(binding = 10, r32f) uniform image2D depthMap;
 #endif
 
 #ifdef WRITE_POSITION_MAP
-layout(binding = 10, rgba32f) uniform image2D positionMap;
+layout(binding = 11, rgba32f) uniform image2D positionViewSpaceMap;
+#endif
+
+#ifdef WRITE_POSITION_WORLD_MAP
+layout(binding = 12, rgba32f) uniform image2D positionWorldSpaceMap;
 #endif
 
 #ifdef WRITE_FLOW_MAP
-layout(binding = 11, rg32f) uniform image2D flowMap;
+layout(binding = 13, rg32f) uniform image2D flowMap;
 #endif
 
 #ifdef WRITE_DEPTH_NABLA_MAP
-layout(binding = 12, rg32f) uniform image2D depthNablaMap;
+layout(binding = 14, rg32f) uniform image2D depthNablaMap;
 #endif
 
 #ifdef WRITE_DEPTH_FWIDTH_MAP
-layout(binding = 13, r32f) uniform image2D depthFwidthMap;
+layout(binding = 15, r32f) uniform image2D depthFwidthMap;
 #endif
 
 
@@ -328,7 +336,7 @@ void main() {
     // https://raytracing-docs.nvidia.com/optix7/guide/index.html#ai_denoiser#structure-and-use-of-image-buffers
 #ifndef DISABLE_ACCUMULATION
     if (frameNumber != 0) {
-        vec3 normalOld = imageLoad(normalMap, writePos).xyz;
+        vec3 normalOld = imageLoad(normalViewSpaceMap, writePos).xyz;
         camNormal = mix(normalOld, camNormal, 1.0 / float(frameNumber + 1));
         float camNormalLength = length(camNormal);
         if (camNormalLength > 1e-5f) {
@@ -336,7 +344,22 @@ void main() {
         }
     }
 #endif
-    imageStore(normalMap, writePos, vec4(camNormal, 0.0));
+    imageStore(normalViewSpaceMap, writePos, vec4(camNormal, 0.0));
+#endif
+
+#ifdef WRITE_NORMAL_WORLD_MAP
+    vec3 surfaceNormalWrite = surfaceNormal;
+#ifndef DISABLE_ACCUMULATION
+    if (frameNumber != 0) {
+        vec3 normalOld = imageLoad(normalWorldSpaceMap, writePos).xyz;
+        surfaceNormalWrite = mix(normalOld, surfaceNormalWrite, 1.0 / float(frameNumber + 1));
+        float camNormalLength = length(surfaceNormalWrite);
+        if (camNormalLength > 1e-5f) {
+            surfaceNormalWrite /= camNormalLength;
+        }
+    }
+#endif
+    imageStore(normalWorldSpaceMap, writePos, vec4(surfaceNormalWrite, 0.0));
 #endif
 
 #if defined(WRITE_DEPTH_MAP) || defined(WRITE_POSITION_MAP)
@@ -369,11 +392,22 @@ void main() {
 #endif
 #ifndef DISABLE_ACCUMULATION
     if (frameNumber != 0) {
-        vec3 positionViewSpaceOld = imageLoad(positionMap, writePos).xyz;
+        vec3 positionViewSpaceOld = imageLoad(positionViewSpaceMap, writePos).xyz;
         positionViewSpace = mix(positionViewSpaceOld, positionViewSpace, 1.0 / float(frameNumber + 1));
     }
 #endif
-    imageStore(positionMap, writePos, vec4(positionViewSpace, 1.0));
+    imageStore(positionViewSpaceMap, writePos, vec4(positionViewSpace, 1.0));
+#endif
+
+#ifdef WRITE_POSITION_WORLD_MAP
+#ifndef DISABLE_ACCUMULATION
+    vec3 vertexPositionWorldWrite = vertexPositionWorld;
+    if (frameNumber != 0) {
+        vec3 positionViewSpaceOld = imageLoad(positionWorldSpaceMap, writePos).xyz;
+        vertexPositionWorldWrite = mix(positionViewSpaceOld, vertexPositionWorldWrite, 1.0 / float(frameNumber + 1));
+    }
+#endif
+    imageStore(positionWorldSpaceMap, writePos, vec4(vertexPositionWorldWrite, 1.0));
 #endif
 
 #ifdef WRITE_FLOW_MAP

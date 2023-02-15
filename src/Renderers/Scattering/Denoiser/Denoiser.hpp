@@ -42,15 +42,17 @@ class PropertyEditor;
 }
 
 // enum type, name, num channels, num channels padded
-#define FEATURE_MAPS                                \
-    FEATURE_MAP(COLOR,        "Color",     4, 4)    \
-    FEATURE_MAP(ALBEDO,       "Albedo",    4, 4)    \
-    FEATURE_MAP(NORMAL,       "Normal",    3, 4)    \
-    FEATURE_MAP(DEPTH,        "Depth",     1, 1)    \
-    FEATURE_MAP(POSITION,     "Position",  3, 4)    \
-    FEATURE_MAP(FLOW,         "Flow",      2, 2)    \
-    FEATURE_MAP(DEPTH_NABLA,  "nabla(z)",  2, 2)    \
-    FEATURE_MAP(DEPTH_FWIDTH, "fwidth(z)", 1, 1)    \
+#define FEATURE_MAPS                                       \
+    FEATURE_MAP(COLOR,          "Color",            4, 4)    \
+    FEATURE_MAP(ALBEDO,         "Albedo",           4, 4)    \
+    FEATURE_MAP(NORMAL,         "Normal",           3, 4)    \
+    FEATURE_MAP(NORMAL_WORLD,   "Normal (World)",   3, 4)    \
+    FEATURE_MAP(DEPTH,          "Depth",            1, 1)    \
+    FEATURE_MAP(POSITION,       "Position",         3, 4)    \
+    FEATURE_MAP(POSITION_WORLD, "Position (World)", 3, 4)    \
+    FEATURE_MAP(FLOW,           "Flow",             2, 2)    \
+    FEATURE_MAP(DEPTH_NABLA,    "nabla(z)",         2, 2)    \
+    FEATURE_MAP(DEPTH_FWIDTH,   "fwidth(z)",        1, 1)    \
 
 // denoiser type, name
 #define STD_DENOISERS                                           \
