@@ -80,12 +80,12 @@ void SVGFDenoiser::setOutputImage(sgl::vk::ImageViewPtr& outputImage) {
 
 void SVGFDenoiser::setFeatureMap(FeatureMapType featureMapType, const sgl::vk::TexturePtr& feature_map) {
     switch (featureMapType) {
-        case FeatureMapType::COLOR:  textures.current_frame.noisy_texture  = feature_map; return;
-        case FeatureMapType::NORMAL: textures.current_frame.normal_texture = feature_map; return;
-        case FeatureMapType::DEPTH:  textures.current_frame.depth_texture  = feature_map; return;
-        case FeatureMapType::DEPTH_FWIDTH:   textures.current_frame.depth_fwidth_texture = feature_map; return;
-        case FeatureMapType::DEPTH_NABLA:    textures.current_frame.depth_nabla_texture = feature_map; return;
-        case FeatureMapType::FLOW:   textures.current_frame.motion_texture = feature_map; return;
+        case FeatureMapType::COLOR:        textures.current_frame.noisy_texture  = feature_map; return;
+        case FeatureMapType::NORMAL_WORLD: textures.current_frame.normal_texture = feature_map; return;
+        case FeatureMapType::DEPTH:        textures.current_frame.depth_texture  = feature_map; return;
+        case FeatureMapType::DEPTH_FWIDTH: textures.current_frame.depth_fwidth_texture = feature_map; return;
+        case FeatureMapType::DEPTH_NABLA:  textures.current_frame.depth_nabla_texture = feature_map; return;
+        case FeatureMapType::FLOW:         textures.current_frame.motion_texture = feature_map; return;
         default: return;
     }
 }
@@ -93,7 +93,7 @@ void SVGFDenoiser::setFeatureMap(FeatureMapType featureMapType, const sgl::vk::T
 bool SVGFDenoiser::getUseFeatureMap(FeatureMapType featureMapType) const {
     return
         featureMapType == FeatureMapType::COLOR        ||
-        featureMapType == FeatureMapType::NORMAL       ||
+        featureMapType == FeatureMapType::NORMAL_WORLD ||
         featureMapType == FeatureMapType::FLOW         ||
         featureMapType == FeatureMapType::DEPTH_FWIDTH ||
         featureMapType == FeatureMapType::DEPTH_NABLA  ||

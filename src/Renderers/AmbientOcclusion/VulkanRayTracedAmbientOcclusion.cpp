@@ -225,11 +225,17 @@ void VulkanRayTracedAmbientOcclusionPass::setDenoiserFeatureMaps() {
         if (denoiser->getUseFeatureMap(FeatureMapType::NORMAL)) {
             denoiser->setFeatureMap(FeatureMapType::NORMAL, normalMapTexture);
         }
+        if (denoiser->getUseFeatureMap(FeatureMapType::NORMAL_WORLD)) {
+            denoiser->setFeatureMap(FeatureMapType::NORMAL_WORLD, normalMapWorldTexture);
+        }
         if (denoiser->getUseFeatureMap(FeatureMapType::DEPTH)) {
             denoiser->setFeatureMap(FeatureMapType::DEPTH, depthMapTexture);
         }
         if (denoiser->getUseFeatureMap(FeatureMapType::POSITION)) {
             denoiser->setFeatureMap(FeatureMapType::POSITION, positionMapTexture);
+        }
+        if (denoiser->getUseFeatureMap(FeatureMapType::POSITION_WORLD)) {
+            denoiser->setFeatureMap(FeatureMapType::POSITION_WORLD, positionMapWorldTexture);
         }
         if (denoiser->getUseFeatureMap(FeatureMapType::ALBEDO)) {
             denoiser->setFeatureMap(FeatureMapType::ALBEDO, albedoTexture);
@@ -295,6 +301,13 @@ void VulkanRayTracedAmbientOcclusionPass::recreateFeatureMaps() {
         normalMapTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
     }
 
+    normalMapWorldTexture = {};
+    if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::NORMAL_WORLD)) {
+        imageSettings.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        normalMapWorldTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
+    }
+
     depthMapTexture = {};
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::DEPTH)) {
         imageSettings.format = VK_FORMAT_R32_SFLOAT;
@@ -307,6 +320,13 @@ void VulkanRayTracedAmbientOcclusionPass::recreateFeatureMaps() {
         imageSettings.format = VK_FORMAT_R32G32B32A32_SFLOAT;
         imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         positionMapTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
+    }
+
+    positionMapWorldTexture = {};
+    if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::POSITION_WORLD)) {
+        imageSettings.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        positionMapWorldTexture = std::make_shared<sgl::vk::Texture>(device, imageSettings, samplerSettings);
     }
 
     albedoTexture = {};
@@ -361,8 +381,10 @@ void VulkanRayTracedAmbientOcclusionPass::recreateFeatureMaps() {
 
 void VulkanRayTracedAmbientOcclusionPass::checkRecreateFeatureMaps() {
     bool useNormalMapRenderer = normalMapTexture.get() != nullptr;
+    bool useNormalMapWorldRenderer = normalMapWorldTexture.get() != nullptr;
     bool useDepthRenderer = depthMapTexture.get() != nullptr;
     bool usePositionRenderer = positionMapTexture.get() != nullptr;
+    bool usePositionWorldRenderer = positionMapWorldTexture.get() != nullptr;
     bool useAlbedoRenderer = albedoTexture.get() != nullptr;
     bool useFlowRenderer = flowMapTexture.get() != nullptr;
     bool useDepthNablaRenderer = depthNablaTexture.get() != nullptr;
@@ -371,8 +393,10 @@ void VulkanRayTracedAmbientOcclusionPass::checkRecreateFeatureMaps() {
     bool shallRecreateFeatureMaps = false;
     if (denoiser) {
         if (useNormalMapRenderer != denoiser->getUseFeatureMap(FeatureMapType::NORMAL)
+                || useNormalMapWorldRenderer != denoiser->getUseFeatureMap(FeatureMapType::NORMAL_WORLD)
                 || useDepthRenderer != denoiser->getUseFeatureMap(FeatureMapType::DEPTH)
                 || usePositionRenderer != denoiser->getUseFeatureMap(FeatureMapType::POSITION)
+                || usePositionWorldRenderer != denoiser->getUseFeatureMap(FeatureMapType::POSITION_WORLD)
                 || useAlbedoRenderer != denoiser->getUseFeatureMap(FeatureMapType::ALBEDO)
                 || useFlowRenderer != denoiser->getUseFeatureMap(FeatureMapType::FLOW)
                 || useDepthNablaRenderer != denoiser->getUseFeatureMap(FeatureMapType::DEPTH_NABLA)
@@ -380,8 +404,9 @@ void VulkanRayTracedAmbientOcclusionPass::checkRecreateFeatureMaps() {
             shallRecreateFeatureMaps = true;
         }
     } else {
-        if (useNormalMapRenderer || useDepthRenderer || usePositionRenderer || useAlbedoRenderer || useFlowRenderer
-                || useDepthNablaRenderer || useDepthFwidthRenderer) {
+        if (useNormalMapRenderer || useNormalMapWorldRenderer || useDepthRenderer
+                || usePositionRenderer || usePositionWorldRenderer || useAlbedoRenderer
+                || useFlowRenderer || useDepthNablaRenderer || useDepthFwidthRenderer) {
             shallRecreateFeatureMaps = true;
         }
     }
@@ -454,11 +479,17 @@ void VulkanRayTracedAmbientOcclusionPass::loadShader() {
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::NORMAL)) {
         preprocessorDefines.insert(std::make_pair("WRITE_NORMAL_MAP", ""));
     }
+    if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::NORMAL_WORLD)) {
+        preprocessorDefines.insert(std::make_pair("WRITE_NORMAL_WORLD_MAP", ""));
+    }
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::DEPTH)) {
         preprocessorDefines.insert(std::make_pair("WRITE_DEPTH_MAP", ""));
     }
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::POSITION)) {
         preprocessorDefines.insert(std::make_pair("WRITE_POSITION_MAP", ""));
+    }
+    if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::POSITION_WORLD)) {
+        preprocessorDefines.insert(std::make_pair("WRITE_POSITION_WORLD_MAP", ""));
     }
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
         preprocessorDefines.insert(std::make_pair("WRITE_FLOW_MAP", ""));
@@ -488,13 +519,19 @@ void VulkanRayTracedAmbientOcclusionPass::createComputeData(
     computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
     computeData->setStaticImageView(accumulationTexture->getImageView(), "outputImage");
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::NORMAL)) {
-        computeData->setStaticImageView(normalMapTexture->getImageView(), "normalMap");
+        computeData->setStaticImageView(normalMapTexture->getImageView(), "normalViewSpaceMap");
+    }
+    if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::NORMAL_WORLD)) {
+        computeData->setStaticImageView(normalMapTexture->getImageView(), "normalWorldSpaceMap");
     }
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::DEPTH)) {
         computeData->setStaticImageView(depthMapTexture->getImageView(), "depthMap");
     }
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::POSITION)) {
-        computeData->setStaticImageView(positionMapTexture->getImageView(), "positionMap");
+        computeData->setStaticImageView(positionMapTexture->getImageView(), "positionViewSpaceMap");
+    }
+    if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::POSITION_WORLD)) {
+        computeData->setStaticImageView(positionMapTexture->getImageView(), "positionWorldSpaceMap");
     }
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
         computeData->setStaticImageView(flowMapTexture->getImageView(), "flowMap");
@@ -561,11 +598,17 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
         if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::NORMAL)) {
             renderer->transitionImageLayout(normalMapTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);
         }
+        if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::NORMAL_WORLD)) {
+            renderer->transitionImageLayout(normalMapWorldTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);
+        }
         if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::DEPTH)) {
             renderer->transitionImageLayout(depthMapTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);
         }
         if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::POSITION)) {
             renderer->transitionImageLayout(positionMapTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);
+        }
+        if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::POSITION_WORLD)) {
+            renderer->transitionImageLayout(positionMapWorldTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);
         }
         if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
             renderer->transitionImageLayout(flowMapTexture->getImage(), VK_IMAGE_LAYOUT_GENERAL);

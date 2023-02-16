@@ -154,8 +154,10 @@ private:
 
     sgl::vk::TexturePtr accumulationTexture;
     sgl::vk::TexturePtr normalMapTexture;
+    sgl::vk::TexturePtr normalMapWorldTexture;
     sgl::vk::TexturePtr depthMapTexture;
     sgl::vk::TexturePtr positionMapTexture;
+    sgl::vk::TexturePtr positionMapWorldTexture;
     sgl::vk::TexturePtr albedoTexture;
     sgl::vk::TexturePtr flowMapTexture;
     sgl::vk::TexturePtr depthNablaTexture;
