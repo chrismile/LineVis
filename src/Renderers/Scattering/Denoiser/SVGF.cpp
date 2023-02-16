@@ -270,7 +270,7 @@ void SVGFDenoiser::resetFrameNumber() {}
 //       À-Trous-Pass
 // ------------------------------
 
-SVGF_ATrous_Pass::SVGF_ATrous_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures)
+SVGF_ATrous_Pass::SVGF_ATrous_Pass(sgl::vk::Renderer* renderer, SVGF_Texture_Pack* textures)
     : sgl::vk::ComputePass(renderer), textures(textures)
 {}
 
@@ -421,7 +421,7 @@ bool SVGF_ATrous_Pass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
 //       Reproj-Pass
 // ------------------------------
 
-SVGF_Reproj_Pass::SVGF_Reproj_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures)
+SVGF_Reproj_Pass::SVGF_Reproj_Pass(sgl::vk::Renderer* renderer, SVGF_Texture_Pack* textures)
     : sgl::vk::ComputePass(renderer), textures(textures)
 {}
 
@@ -512,7 +512,7 @@ bool SVGF_Reproj_Pass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
 //       Filter-Moments-Pass
 // ------------------------------
 
-SVGF_Filter_Moments_Pass::SVGF_Filter_Moments_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures)
+SVGF_Filter_Moments_Pass::SVGF_Filter_Moments_Pass(sgl::vk::Renderer* renderer, SVGF_Texture_Pack* textures)
     : sgl::vk::ComputePass(renderer), textures(textures)
 {}
 

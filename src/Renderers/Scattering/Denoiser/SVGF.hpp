@@ -37,7 +37,7 @@ class SVGF_Reproj_Pass;
 class SVGF_Filter_Moments_Pass;
 class SVGF_ATrous_Pass;
 
-struct Texture_Pack {
+struct SVGF_Texture_Pack {
     struct {
         sgl::vk::TexturePtr noisy_texture;
         sgl::vk::TexturePtr temp_accum_texture;
@@ -69,7 +69,7 @@ struct Texture_Pack {
 };
 
 class SVGFDenoiser : public Denoiser {
-    Texture_Pack textures;
+    SVGF_Texture_Pack textures;
     sgl::vk::Renderer* renderer;
 
     std::shared_ptr<SVGF_Reproj_Pass>         svgf_reproj_pass;
@@ -100,7 +100,7 @@ public:
 
 class SVGF_Reproj_Pass : public sgl::vk::ComputePass {
     friend class SVGFDenoiser;
-    Texture_Pack* textures;
+    SVGF_Texture_Pack* textures;
 
     const int computeBlockSize = 16;
     sgl::vk::ComputeDataPtr compute_data;
@@ -114,7 +114,7 @@ class SVGF_Reproj_Pass : public sgl::vk::ComputePass {
     void _render() override;
 
 public:
-    explicit SVGF_Reproj_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures);
+    explicit SVGF_Reproj_Pass(sgl::vk::Renderer* renderer, SVGF_Texture_Pack* textures);
 
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
@@ -126,7 +126,7 @@ protected:
 
 class SVGF_Filter_Moments_Pass : public sgl::vk::ComputePass {
     friend class SVGFDenoiser;
-    Texture_Pack* textures;
+    SVGF_Texture_Pack* textures;
 
     const int computeBlockSize = 16;
     sgl::vk::ComputeDataPtr compute_data;
@@ -135,7 +135,7 @@ class SVGF_Filter_Moments_Pass : public sgl::vk::ComputePass {
     void _render() override;
 
 public:
-    explicit SVGF_Filter_Moments_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures);
+    explicit SVGF_Filter_Moments_Pass(sgl::vk::Renderer* renderer, SVGF_Texture_Pack* textures);
 
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
@@ -148,7 +148,7 @@ protected:
 class SVGF_ATrous_Pass : public sgl::vk::ComputePass {
     friend class SVGFDenoiser;
 
-    Texture_Pack* textures;
+    SVGF_Texture_Pack* textures;
 
     int maxNumIterations = 5;
 
@@ -169,7 +169,7 @@ class SVGF_ATrous_Pass : public sgl::vk::ComputePass {
     void _render() override;
 
 public:
-    explicit SVGF_ATrous_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures);
+    explicit SVGF_ATrous_Pass(sgl::vk::Renderer* renderer, SVGF_Texture_Pack* textures);
     [[nodiscard]] inline int getMaxNumIterations() const { return maxNumIterations; }
 
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
