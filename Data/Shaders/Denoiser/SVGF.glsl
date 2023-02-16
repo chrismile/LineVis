@@ -185,7 +185,7 @@ void main() {
     if (i_pos.x >= size.x || i_pos.y >= size.y) {
         return;
     }
-
+ 
 
     vec2  prev_moments;
     float history_length;

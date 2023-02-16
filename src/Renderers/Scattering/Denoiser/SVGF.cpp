@@ -28,6 +28,7 @@
 
 #include <Math/Math.hpp>
 #include <Utils/File/Logfile.hpp>
+#include <Utils/Defer.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <Graphics/Vulkan/Render/Data.hpp>
@@ -234,6 +235,18 @@ void SVGFDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
             textures.previous_frame.moments_history_texture = {};
             textures.previous_frame.moments_history_texture =
                 std::make_shared<sgl::vk::Texture>(device, imageSettings);
+
+            {
+                auto cmd_buff = device->beginSingleTimeCommands();
+                defer { device->endSingleTimeCommands(cmd_buff); };
+                textures.previous_frame.moments_history_texture->getImage()->insertMemoryBarrier(cmd_buff,
+                                                                                                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                                                                 VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                                                                                 VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_WRITE_BIT);
+                textures.previous_frame.moments_history_texture->getImageView()->clearColor(glm::vec4(0),cmd_buff);
+            }
+
+
 
         }
 
