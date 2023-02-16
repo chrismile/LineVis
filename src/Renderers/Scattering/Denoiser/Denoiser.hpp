@@ -39,6 +39,8 @@ class FileDialog;
 typedef IGFD::FileDialog ImGuiFileDialog;
 namespace sgl {
 class PropertyEditor;
+class Camera;
+typedef std::shared_ptr<Camera> CameraPtr;
 }
 
 // enum type, name, num channels, num channels padded
@@ -137,6 +139,6 @@ enum class DenoisingMode {
 };
 
 std::shared_ptr<Denoiser> createDenoiserObject(
-        DenoiserType denoiserType, sgl::vk::Renderer* renderer, DenoisingMode mode);
+        DenoiserType denoiserType, sgl::vk::Renderer* renderer, sgl::CameraPtr* camera, DenoisingMode mode);
 
 #endif //LINEVIS_DENOISER_HPP

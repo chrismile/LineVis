@@ -203,7 +203,7 @@ VulkanRayTracedAmbientOcclusionPass::VulkanRayTracedAmbientOcclusionPass(
 }
 
 void VulkanRayTracedAmbientOcclusionPass::createDenoiser() {
-    denoiser = createDenoiserObject(denoiserType, renderer, DenoisingMode::AMBIENT_OCCLUSION);
+    denoiser = createDenoiserObject(denoiserType, renderer, &sceneData->camera, DenoisingMode::AMBIENT_OCCLUSION);
     if (denoiser) {
         denoiser->setFileDialogInstance(fileDialogInstance);
     }
