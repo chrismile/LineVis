@@ -50,7 +50,7 @@ jobs:
           fi
           brew install gcc
         elif [ "$RUNNER_OS" == "macOS" ]; then
-          brew install llvm libomp
+          brew install llvm libomp pkg-config
         else
           echo "$RUNNER_OS is not supported."
           exit 1
