@@ -125,8 +125,8 @@ bool EAWDenoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdit
 
 
 
-EAWBlitPass::EAWBlitPass(sgl::vk::Renderer* renderer)
-        : BlitRenderPass(renderer, {"EAWDenoise.Vertex", "EAWDenoise.Fragment"}) {
+EAWBlitPass::EAWBlitPass(sgl::vk::Renderer* renderer, int maxNumIterations)
+        : BlitRenderPass(renderer, {"EAWDenoise.Vertex", "EAWDenoise.Fragment"}), maxNumIterations(maxNumIterations) {
     uniformBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(UniformData),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
