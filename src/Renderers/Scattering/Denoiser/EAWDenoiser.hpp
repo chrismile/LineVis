@@ -75,7 +75,7 @@ private:
 class EAWBlitPass : public sgl::vk::BlitRenderPass {
     friend class EAWDenoiser;
 public:
-    explicit EAWBlitPass(sgl::vk::Renderer* renderer);
+    explicit EAWBlitPass(sgl::vk::Renderer* renderer, int maxNumIterations = 0);
     void recreateSwapchain(uint32_t width, uint32_t height) override;
 
     // Public interface.
@@ -83,6 +83,7 @@ public:
     inline void setColorTexture(const sgl::vk::TexturePtr& texture) { colorTexture = texture; setDataDirty(); }
     inline void setPositionTexture(const sgl::vk::TexturePtr& texture) { positionTexture = texture; setDataDirty(); }
     inline void setNormalTexture(const sgl::vk::TexturePtr& texture) { normalTexture = texture; setDataDirty(); }
+    inline void setMaxNumIterations(int num) { maxNumIterations = num; setDataDirty(); }
     [[nodiscard]] inline int getMaxNumIterations() const { return maxNumIterations; }
     [[nodiscard]] inline bool getUseComputeShader() const { return useSharedMemory; }
 
