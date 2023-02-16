@@ -400,8 +400,8 @@ void main() {
 #endif
 
 #ifdef WRITE_POSITION_WORLD_MAP
-#ifndef DISABLE_ACCUMULATION
     vec3 vertexPositionWorldWrite = vertexPositionWorld;
+#ifndef DISABLE_ACCUMULATION
     if (frameNumber != 0) {
         vec3 positionViewSpaceOld = imageLoad(positionWorldSpaceMap, writePos).xyz;
         vertexPositionWorldWrite = mix(positionViewSpaceOld, vertexPositionWorldWrite, 1.0 / float(frameNumber + 1));
