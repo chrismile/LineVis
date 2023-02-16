@@ -22,7 +22,7 @@ layout(binding = 7) uniform sampler2D depth_history_texture;
 
 layout(binding = 8) uniform sampler2D moments_history_texture;
 
-// layout(binding = 8) uniform sampler2D depth_fwidth_texture;
+layout(binding = 9) uniform sampler2D depth_fwidth_texture;
 
 layout(binding = 14, rgba32f) uniform writeonly image2D accum_moments_texture;
 layout(binding = 15, rgba32f) uniform writeonly image2D temp_accum_texture;
@@ -49,7 +49,7 @@ layout(push_constant) uniform PushConstants {
     // return true;
 // }
 
-bool is_reprj_valid(ivec2 coord, float z, float z_prev, vec3 normal, vec3 normal_prev) {
+bool is_reprj_valid(ivec2 coord, float z, float z_prev, float z_fwidth,  vec3 normal, vec3 normal_prev) {
     ivec2 im_size = textureSize(noisy_texture, 0);
 
     // check whether reprojected pixel is inside of the screen
@@ -59,13 +59,13 @@ bool is_reprj_valid(ivec2 coord, float z, float z_prev, vec3 normal, vec3 normal
         return false;
     }
 
-    if (abs(z_prev - z)               > allowed_z_dist)      return false;
-    if (distance(normal_prev, normal) > allowed_normal_dist) return false;
+    if (abs(z_prev - z) > allowed_z_dist)      return false;
+    if (distance(normal_prev, normal)   > allowed_normal_dist) return false;
 
     return true;
 }
 
-bool try_2x2_tap(vec2 pos_prev_minus_half, ivec2 i_pos_prev_minus_half, float depth, vec3 normal,
+bool try_2x2_tap(vec2 pos_prev_minus_half, ivec2 i_pos_prev_minus_half, float depth, float depth_fwitdh, vec3 normal,
                  out vec3 color_last_frame, out vec2 prev_moments)
 {
     const ivec2 _2x2_offsets[4] = {ivec2(0,0), ivec2(0,1), ivec2(1,0), ivec2(1,1) };
@@ -78,7 +78,7 @@ bool try_2x2_tap(vec2 pos_prev_minus_half, ivec2 i_pos_prev_minus_half, float de
         vec3  offset_normal = texelFetch(normal_history_texture, i_offset_pos, 0).xyz;
         float offset_depth  = texelFetch(depth_history_texture,  i_offset_pos, 0).x;
 
-        valids[i] = is_reprj_valid(i_offset_pos, depth, offset_depth, normal, offset_normal);
+        valids[i] = is_reprj_valid(i_offset_pos, depth, offset_depth, depth_fwitdh, normal, offset_normal);
         valid_found = valid_found || valids[i];
     }
 
@@ -120,7 +120,7 @@ bool try_2x2_tap(vec2 pos_prev_minus_half, ivec2 i_pos_prev_minus_half, float de
     return valid_found;
 }
 
-bool try_3x3_bilat(ivec2 i_pos_prev_minus_half, float depth, vec3 normal,
+bool try_3x3_bilat(ivec2 i_pos_prev_minus_half, float depth, float depth_fwidth, vec3 normal,
                    out vec3 color_last_frame, out vec2 prev_moments)
 {
     // 3x3
@@ -151,7 +151,7 @@ bool try_3x3_bilat(ivec2 i_pos_prev_minus_half, float depth, vec3 normal,
             vec3  offset_normal = texelFetch(normal_history_texture, i_offset_pos, 0).xyz;
             float offset_depth  = texelFetch(depth_history_texture,  i_offset_pos, 0).x;
 
-            if (is_reprj_valid(i_offset_pos, depth, offset_depth, normal, offset_normal)) {
+            if (is_reprj_valid(i_offset_pos, depth, offset_depth, depth_fwidth, normal, offset_normal)) {
                 filtered_color   += texelFetch(color_history,           i_offset_pos, 0).rgb;
                 filtered_moments += texelFetch(moments_history_texture, i_offset_pos, 0).rg;
                 nValid           += 1.0;
@@ -189,7 +189,7 @@ void main() {
 
     vec2  prev_moments;
     float history_length;
-    ivec2 i_pos_prev  = ivec2(vec2(0.5,0.5) + i_pos - texelFetch(motion_texture, i_pos, 0).xy);
+    ivec2 i_pos_prev  = ivec2(vec2(0.5) + i_pos - texelFetch(motion_texture, i_pos, 0).xy);
     bool  success = load_moments_and_history_length(i_pos_prev, prev_moments, history_length);
 
     vec3 color  = texelFetch(noisy_texture,  i_pos, 0).rgb;
@@ -197,16 +197,17 @@ void main() {
     vec3 color_last_frame = texelFetch(color_history, i_pos, 0).rgb;
     if (success) {
         // see paper why -0.5
-        vec2  pos_prev_minus_half   = vec2(0.001) + i_pos - texelFetch(motion_texture, i_pos, 0).xy;
+        vec2  pos_prev_minus_half   = vec2(0.0001) + i_pos - texelFetch(motion_texture, i_pos, 0).xy;
         ivec2 i_pos_prev_minus_half = ivec2(pos_prev_minus_half);
 
         float depth  = texelFetch(depth_texture,  i_pos, 0).x;
+        float depth_fwidth  = texelFetch(depth_fwidth_texture,  i_pos, 0).x;
         vec3  normal = texelFetch(normal_texture, i_pos, 0).xyz;
 
-        success = try_2x2_tap(pos_prev_minus_half, i_pos_prev_minus_half, depth, normal,
+        success = try_2x2_tap(pos_prev_minus_half, i_pos_prev_minus_half, depth, depth_fwidth, normal,
                               color_last_frame, prev_moments);
         if (!success)
-            success = try_3x3_bilat(i_pos_prev_minus_half, depth, normal,
+            success = try_3x3_bilat(i_pos_prev_minus_half, depth, depth_fwidth,  normal,
                                     color_last_frame, prev_moments);
     }
 
@@ -228,7 +229,12 @@ void main() {
 
     float variance = max(0.f, moments.g - moments.r * moments.r);
 
+
     imageStore(accum_moments_texture, i_pos, moments);
+    // if  (!success)
+        // imageStore(temp_accum_texture,    i_pos, vec4(vec3(0,0,0), variance));
+    // else
+
     imageStore(temp_accum_texture,    i_pos, vec4(mix(color_last_frame, color, alpha_color), variance));
 }
 

@@ -434,6 +434,7 @@ void SVGF_Reproj_Pass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::C
     compute_data->setStaticTexture(textures->current_frame.motion_texture, "motion_texture");
     compute_data->setStaticTexture(textures->current_frame.normal_texture, "normal_texture");
     compute_data->setStaticTexture(textures->current_frame.depth_texture, "depth_texture");
+    compute_data->setStaticTexture(textures->current_frame.depth_fwidth_texture, "depth_fwidth_texture");
     compute_data->setStaticTexture(textures->previous_frame.depth_texture, "depth_history_texture");
     compute_data->setStaticTexture(textures->previous_frame.normal_texture, "normal_history_texture");
     compute_data->setStaticTexture(textures->previous_frame.moments_history_texture, "moments_history_texture");
@@ -449,6 +450,7 @@ void SVGF_Reproj_Pass::_render() {
         textures->current_frame.motion_texture,
         textures->current_frame.normal_texture,
         textures->current_frame.depth_texture,
+        textures->current_frame.depth_fwidth_texture,
         textures->previous_frame.depth_texture,
         textures->previous_frame.normal_texture,
         textures->previous_frame.moments_history_texture
