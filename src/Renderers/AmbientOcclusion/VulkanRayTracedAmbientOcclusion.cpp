@@ -511,7 +511,7 @@ void VulkanRayTracedAmbientOcclusionPass::createComputeData(
         computeData->setStaticImageView(normalMapTexture->getImageView(), "normalViewSpaceMap");
     }
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::NORMAL_WORLD)) {
-        computeData->setStaticImageView(normalMapTexture->getImageView(), "normalWorldSpaceMap");
+        computeData->setStaticImageView(normalMapWorldTexture->getImageView(), "normalWorldSpaceMap");
     }
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::DEPTH)) {
         computeData->setStaticImageView(depthMapTexture->getImageView(), "depthMap");
@@ -520,7 +520,7 @@ void VulkanRayTracedAmbientOcclusionPass::createComputeData(
         computeData->setStaticImageView(positionMapTexture->getImageView(), "positionViewSpaceMap");
     }
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::POSITION_WORLD)) {
-        computeData->setStaticImageView(positionMapTexture->getImageView(), "positionWorldSpaceMap");
+        computeData->setStaticImageView(positionMapWorldTexture->getImageView(), "positionWorldSpaceMap");
     }
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::FLOW)) {
         computeData->setStaticImageView(flowMapTexture->getImageView(), "flowMap");
