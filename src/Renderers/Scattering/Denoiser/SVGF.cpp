@@ -65,8 +65,9 @@
 SVGFDenoiser::SVGFDenoiser(sgl::vk::Renderer* renderer) {
     this->renderer = renderer;
 
-    svgf_atrous_pass = std::make_shared<SVGF_ATrous_Pass>(renderer, &textures);
-    svgf_reproj_pass = std::make_shared<SVGF_Reproj_Pass>(renderer, &textures);
+    svgf_reproj_pass         = std::make_shared<SVGF_Reproj_Pass>(renderer, &textures);
+    svgf_filter_moments_pass = std::make_shared<SVGF_Filter_Moments_Pass>(renderer, &textures);
+    svgf_atrous_pass         = std::make_shared<SVGF_ATrous_Pass>(renderer, &textures);
 }
 
 bool SVGFDenoiser::getIsEnabled() const {
@@ -91,11 +92,11 @@ void SVGFDenoiser::setFeatureMap(FeatureMapType featureMapType, const sgl::vk::T
 
 bool SVGFDenoiser::getUseFeatureMap(FeatureMapType featureMapType) const {
     return
-        featureMapType == FeatureMapType::COLOR  ||
-        featureMapType == FeatureMapType::NORMAL ||
-        featureMapType == FeatureMapType::FLOW   ||
-        featureMapType == FeatureMapType::DEPTH_FWIDTH   ||
-        featureMapType == FeatureMapType::DEPTH_NABLA   ||
+        featureMapType == FeatureMapType::COLOR        ||
+        featureMapType == FeatureMapType::NORMAL       ||
+        featureMapType == FeatureMapType::FLOW         ||
+        featureMapType == FeatureMapType::DEPTH_FWIDTH ||
+        featureMapType == FeatureMapType::DEPTH_NABLA  ||
         featureMapType == FeatureMapType::DEPTH;
 }
 
@@ -105,6 +106,7 @@ void SVGFDenoiser::setUseFeatureMap(FeatureMapType featureMapType, bool useFeatu
 
 void SVGFDenoiser::denoise() {
     svgf_reproj_pass->render();
+    svgf_filter_moments_pass->render();
     svgf_atrous_pass->render();
 
     // update previous frame images
@@ -147,7 +149,6 @@ void SVGFDenoiser::denoise() {
                                                                       VK_IMAGE_ASPECT_COLOR_BIT,
                                                                       renderer->getVkCommandBuffer());
 
-        // TODO(Felix): Mit christoph besprechen
         // moments
         renderer->insertImageMemoryBarrier(
             textures.previous_frame.moments_history_texture->getImage(),
@@ -165,13 +166,8 @@ void SVGFDenoiser::denoise() {
         textures.current_frame.accum_moments_texture->getImage()->copyToImage(textures.previous_frame.moments_history_texture->getImage(),
                                                                       VK_IMAGE_ASPECT_COLOR_BIT,
                                                                       renderer->getVkCommandBuffer());
-
-
-        // renderer->syncWithCpu();
     }
-
 }
-
 
 void SVGFDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
     auto device = renderer->getDevice();
@@ -257,6 +253,7 @@ void SVGFDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
     }
 
     svgf_atrous_pass->setDataDirty();
+    svgf_filter_moments_pass->setDataDirty();
     svgf_reproj_pass->setDataDirty();
 
 }
@@ -474,7 +471,7 @@ void SVGF_Reproj_Pass::_render() {
                 compute_data->getImageView("accum_moments_texture")->getImage(),
                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
                 VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT);
+                VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT);
 
 
     auto width = int(textures->current_frame.temp_accum_texture->getImage()->getImageSettings().width);
@@ -504,5 +501,70 @@ bool SVGF_Reproj_Pass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
         return true;
     }
 
+    return false;
+}
+
+
+
+// ------------------------------
+//       Filter-Moments-Pass
+// ------------------------------
+
+SVGF_Filter_Moments_Pass::SVGF_Filter_Moments_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures)
+    : sgl::vk::ComputePass(renderer), textures(textures)
+{}
+
+
+void SVGF_Filter_Moments_Pass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& compute_pipeline) {
+    compute_data = std::make_shared<sgl::vk::ComputeData>(renderer, compute_pipeline);
+
+    compute_data->setStaticTexture(textures->current_frame.accum_moments_texture, "accum_moments_texture");
+    compute_data->setStaticTexture(textures->current_frame.normal_texture, "normal_texture");
+    compute_data->setStaticTexture(textures->current_frame.depth_texture, "depth_texture");
+    compute_data->setStaticTexture(textures->current_frame.depth_fwidth_texture, "depth_fwidth_texture");
+    compute_data->setStaticTexture(textures->current_frame.depth_nabla_texture, "depth_nabla_texture");
+
+    compute_data->setStaticTexture(textures->current_frame.temp_accum_texture, "temp_accum_texture");
+}
+
+void SVGF_Filter_Moments_Pass::_render() {
+    sgl::vk::TexturePtr to_read[] {
+        textures->current_frame.accum_moments_texture,
+        textures->current_frame.normal_texture,
+        textures->current_frame.depth_texture,
+        textures->current_frame.depth_nabla_texture,
+        textures->current_frame.depth_fwidth_texture,
+    };
+
+    for (auto& tex : to_read) {
+            renderer->transitionImageLayout(tex->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
+
+    renderer->insertImageMemoryBarrier(
+                compute_data->getImageView("temp_accum_texture")->getImage(),
+                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT);
+
+    auto width = int(textures->current_frame.temp_accum_texture->getImage()->getImageSettings().width);
+    auto height = int(textures->current_frame.temp_accum_texture->getImage()->getImageSettings().height);
+    int numWorkgroupsX = sgl::iceil(width, computeBlockSize);
+    int numWorkgroupsY = sgl::iceil(height, computeBlockSize);
+
+    renderer->dispatch(compute_data, numWorkgroupsX, numWorkgroupsY, 1);
+}
+
+void SVGF_Filter_Moments_Pass::loadShader() {
+    sgl::vk::ShaderManager->invalidateShaderCache();
+
+    std::map<std::string, std::string> preprocessorDefines;
+
+    preprocessorDefines.insert(std::make_pair("BLOCK_SIZE", std::to_string(computeBlockSize)));
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+        { "SVGF.Compute-Filter-Moments" }, preprocessorDefines);
+}
+
+
+bool SVGF_Filter_Moments_Pass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     return false;
 }

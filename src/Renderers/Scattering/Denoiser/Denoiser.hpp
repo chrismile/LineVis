@@ -53,10 +53,11 @@ class PropertyEditor;
     FEATURE_MAP(DEPTH_FWIDTH, "fwidth(z)", 1, 1)    \
 
 // denoiser type, name
-#define STD_DENOISERS                                           \
-    DENOISER(NONE, "None")                                      \
-    DENOISER(SVGF, "SVGF")                                      \
-    DENOISER(EAW,  "Edge-Avoiding À-Trous Wavelet Transform")   \
+#define STD_DENOISERS                                                   \
+    DENOISER(NONE,            "None")                                   \
+    DENOISER(SPATIAL_HASHING, "Spatial Hashing")                        \
+    DENOISER(SVGF,            "SVGF")                                   \
+    DENOISER(EAW,             "Edge-Avoiding À-Trous Wavelet Transform") \
 
 #ifdef SUPPORT_OPTIX
 #  define OPTIX_DENOISER_OPT \

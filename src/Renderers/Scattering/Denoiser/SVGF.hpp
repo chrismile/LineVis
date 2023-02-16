@@ -33,8 +33,9 @@
 
 #include "Denoiser.hpp"
 
-class SVGF_ATrous_Pass;
 class SVGF_Reproj_Pass;
+class SVGF_Filter_Moments_Pass;
+class SVGF_ATrous_Pass;
 
 struct Texture_Pack {
     struct {
@@ -71,8 +72,9 @@ class SVGFDenoiser : public Denoiser {
     Texture_Pack textures;
     sgl::vk::Renderer* renderer;
 
-    std::shared_ptr<SVGF_ATrous_Pass> svgf_atrous_pass;
-    std::shared_ptr<SVGF_Reproj_Pass>  svgf_reproj_pass;
+    std::shared_ptr<SVGF_Reproj_Pass>         svgf_reproj_pass;
+    std::shared_ptr<SVGF_Filter_Moments_Pass> svgf_filter_moments_pass;
+    std::shared_ptr<SVGF_ATrous_Pass>         svgf_atrous_pass;
 
 public:
 
@@ -93,6 +95,53 @@ public:
 
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
+
+};
+
+class SVGF_Reproj_Pass : public sgl::vk::ComputePass {
+    friend class SVGFDenoiser;
+    Texture_Pack* textures;
+
+    const int computeBlockSize = 16;
+    sgl::vk::ComputeDataPtr compute_data;
+
+    struct {
+        float allowed_z_dist      = 0.002f;
+        float allowed_normal_dist = 0.02f;
+    } pc;
+
+    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
+    void _render() override;
+
+public:
+    explicit SVGF_Reproj_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures);
+
+    /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
+    bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
+
+protected:
+    void loadShader() override;
+
+};
+
+class SVGF_Filter_Moments_Pass : public sgl::vk::ComputePass {
+    friend class SVGFDenoiser;
+    Texture_Pack* textures;
+
+    const int computeBlockSize = 16;
+    sgl::vk::ComputeDataPtr compute_data;
+
+    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
+    void _render() override;
+
+public:
+    explicit SVGF_Filter_Moments_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures);
+
+    /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
+    bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
+
+protected:
+    void loadShader() override;
 
 };
 
@@ -130,33 +179,5 @@ protected:
     void loadShader() override;
 
 };
-
-class SVGF_Reproj_Pass : public sgl::vk::ComputePass {
-    friend class SVGFDenoiser;
-
-    Texture_Pack* textures;
-
-    const int computeBlockSize = 16;
-    sgl::vk::ComputeDataPtr compute_data;
-
-    struct {
-        float allowed_z_dist      = 0.002f;
-        float allowed_normal_dist = 0.17f;
-    } pc;
-
-    void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
-    void _render() override;
-
-public:
-    explicit SVGF_Reproj_Pass(sgl::vk::Renderer* renderer, Texture_Pack* textures);
-
-    /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
-    bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
-
-protected:
-    void loadShader() override;
-
-};
-
 
 #endif //LINEVIS_SVGF_HPP
