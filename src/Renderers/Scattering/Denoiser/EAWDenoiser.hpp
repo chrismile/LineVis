@@ -83,6 +83,7 @@ public:
     inline void setPositionTexture(const sgl::vk::TexturePtr& texture) { positionTexture = texture; setDataDirty(); }
     inline void setNormalTexture(const sgl::vk::TexturePtr& texture) { normalTexture = texture; setDataDirty(); }
     [[nodiscard]] inline int getMaxNumIterations() const { return maxNumIterations; }
+    [[nodiscard]] inline bool getUseComputeShader() const { return useSharedMemory; }
 
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);
