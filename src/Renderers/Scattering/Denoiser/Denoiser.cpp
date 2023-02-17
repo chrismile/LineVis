@@ -27,6 +27,7 @@
  */
 
 #include <Utils/File/Logfile.hpp>
+#include <Graphics/Scene/Camera.hpp>
 #include "EAWDenoiser.hpp"
 #include "SVGF.hpp"
 #include "SpatialHashingDenoiser.hpp"
@@ -40,7 +41,7 @@
 #include "Denoiser.hpp"
 
 std::shared_ptr<Denoiser> createDenoiserObject(
-        DenoiserType denoiserType, sgl::vk::Renderer* renderer, DenoisingMode mode) {
+        DenoiserType denoiserType, sgl::vk::Renderer* renderer, sgl::CameraPtr* camera, DenoisingMode mode) {
     std::shared_ptr<Denoiser> denoiser;
     if (denoiserType == DenoiserType::NONE) {
         denoiser = {};

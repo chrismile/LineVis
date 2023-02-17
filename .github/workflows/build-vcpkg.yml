@@ -102,8 +102,7 @@ jobs:
           cd ~/VulkanSDK/$VULKAN_SDK_VERSION
           sudo ./install_vulkan.py || true
           sudo hdiutil unmount /Volumes/vulkansdk-macos-$VULKAN_SDK_VERSION
-          brew install llvm
-          brew install libomp
+          brew install llvm libomp pkg-config
         else
           echo "$RUNNER_OS is not supported."
           exit 1
