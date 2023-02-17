@@ -95,7 +95,7 @@ VolumetricPathTracingPass::~VolumetricPathTracingPass() {
 }
 
 void VolumetricPathTracingPass::createDenoiser() {
-    denoiser = createDenoiserObject(denoiserType, renderer, DenoisingMode::VOLUMETRIC_PATH_TRACING);
+    denoiser = createDenoiserObject(denoiserType, renderer, camera, DenoisingMode::VOLUMETRIC_PATH_TRACING);
     if (denoiser) {
         denoiser->setFileDialogInstance(fileDialogInstance);
     }
