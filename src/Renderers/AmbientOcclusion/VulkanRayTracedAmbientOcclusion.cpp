@@ -373,7 +373,7 @@ void VulkanRayTracedAmbientOcclusionPass::recreateFeatureMaps() {
     static bool first_iteration = true;
     defer { first_iteration = false; };
     if (first_iteration) {
-        denoiserType = DenoiserType::SVGF;
+        denoiserType = DenoiserType::SPATIAL_HASHING;
         changedDenoiserSettings = true;
         createDenoiser();
     }

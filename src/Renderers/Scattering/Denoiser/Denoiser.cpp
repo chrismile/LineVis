@@ -59,7 +59,7 @@ std::shared_ptr<Denoiser> createDenoiserObject(
     } else if (denoiserType == DenoiserType::SVGF) {
         denoiser = std::shared_ptr<Denoiser>(new SVGFDenoiser(renderer));
     } else if (denoiserType == DenoiserType::SPATIAL_HASHING) {
-        denoiser = std::shared_ptr<Denoiser>(new Spatial_Hashing_Denoiser(renderer));
+        denoiser = std::shared_ptr<Denoiser>(new Spatial_Hashing_Denoiser(renderer, camera));
     }
 #ifdef SUPPORT_PYTORCH_DENOISER
     else if (denoiserType == DenoiserType::PYTORCH_DENOISER) {

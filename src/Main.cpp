@@ -91,11 +91,11 @@ int main(int argc, char *argv[]) {
     sgl::AppSettings::get()->loadSettings(settingsFile.c_str());
     sgl::AppSettings::get()->getSettings().addKeyValue("window-multisamples", 0);
     sgl::AppSettings::get()->getSettings().addKeyValue("window-debugContext", true);
-    if (usePerfMode) {
+    // if (usePerfMode) {
         sgl::AppSettings::get()->getSettings().addKeyValue("window-vSync", false);
-    } else {
-        sgl::AppSettings::get()->getSettings().addKeyValue("window-vSync", true);
-    }
+    // } else {
+        // sgl::AppSettings::get()->getSettings().addKeyValue("window-vSync", true);
+    // }
     sgl::AppSettings::get()->getSettings().addKeyValue("window-resizable", true);
     sgl::AppSettings::get()->getSettings().addKeyValue("window-savePosition", true);
     sgl::AppSettings::get()->setVulkanDebugPrintfEnabled();
@@ -139,6 +139,8 @@ int main(int argc, char *argv[]) {
 #ifdef VK_EXT_mesh_shader
     optionalDeviceExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
 #endif
+
+    optionalDeviceExtensions.push_back(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
 
     sgl::vk::Instance* instance = sgl::AppSettings::get()->getVulkanInstance();
     sgl::vk::Device* device = new sgl::vk::Device;
