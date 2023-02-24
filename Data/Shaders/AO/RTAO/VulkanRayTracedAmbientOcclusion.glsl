@@ -186,9 +186,9 @@ void main() {
     vec3 rayOrigin = cameraPosition;
 
     uint seed = tea(gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * outputImageSize.x, globalFrameNumber);
+    vec2 xi = vec2(rnd(seed), rnd(seed));
 
 #ifdef USE_JITTERED_RAYS
-    vec2 xi = vec2(rnd(seed), rnd(seed));
     vec2 fragNdc = 2.0 * ((vec2(gl_GlobalInvocationID.xy) + xi) / vec2(outputImageSize)) - 1.0;
 #else
     vec2 fragNdc = 2.0 * ((vec2(gl_GlobalInvocationID.xy) + vec2(0.5)) / vec2(outputImageSize)) - 1.0;

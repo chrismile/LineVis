@@ -21,7 +21,15 @@ Spatial_Hashing_Denoiser::Spatial_Hashing_Denoiser(sgl::vk::Renderer* renderer, 
         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
         VMA_MEMORY_USAGE_GPU_ONLY);
 
-    const size_t hm_buffer_size = 4 * 4 * hm_cells;
+    struct HM_Cell {
+        float ao_value;
+        int contribution_counter;
+        int checksum;
+        int rc;
+        float s_wd;
+        glm::vec3 padding;
+    };
+    const size_t hm_buffer_size = sizeof(HM_Cell) * hm_cells;
 
     textures.vk_hash_map_buffer = std::make_shared<sgl::vk::Buffer>(
         device, hm_buffer_size,
@@ -41,8 +49,9 @@ Spatial_Hashing_Denoiser::Spatial_Hashing_Denoiser(sgl::vk::Renderer* renderer, 
     eaw_pass   = std::make_shared<EAWBlitPass>(renderer, 0);
 
     textures.uniform_buffer.s_nd    = 3.0f;      // NOTE(Felix): same as Christiane's
-    textures.uniform_buffer.s_p     = 1.868888f;
-
+    textures.uniform_buffer.s_p     = 8;
+    textures.uniform_buffer.show_grid = glm::vec4(1);
+    textures.uniform_buffer.s_min = pow(10.0f, s_min_exp);
 }
 
 
@@ -124,16 +133,17 @@ void Spatial_Hashing_Denoiser::recreateSwapchain(uint32_t width, uint32_t height
 }
 
 bool Spatial_Hashing_Denoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
-    static int s_min_exp = -10;
     bool redraw =  eaw_pass->renderGuiPropertyEditorNodes(propertyEditor) |
         propertyEditor.addSliderFloat("textures.uniform_buffer.s_p", &textures.uniform_buffer.s_p, 0.1f, 20.0f, "%.10f") |
-        propertyEditor.addSliderInt("s_min_exp", &s_min_exp, -20, -1);
+        propertyEditor.addSliderInt("s_min_exp", &s_min_exp, -20, -1) |
+        propertyEditor.addSliderFloat("s_nd", &textures.uniform_buffer.s_nd, 1, 10) |
+        propertyEditor.addSliderFloat("show grid", &textures.uniform_buffer.show_grid.x, 0, 1) ;
 
     if (redraw) {
         // auto device = renderer->getDevice();
         // auto cmd_buff = device->beginSingleTimeCommands();
         // defer { device->endSingleTimeCommands(cmd_buff); };
-        textures.uniform_buffer.s_min = pow(10, s_min_exp);
+        textures.uniform_buffer.s_min = pow(10.0f, s_min_exp);
         textures.vk_hash_map_buffer->fill(0, renderer->getVkCommandBuffer());
     }
 

@@ -162,6 +162,7 @@ class SVGF_ATrous_Pass : public sgl::vk::ComputePass {
         float z_multiplier = 100.0f;
         float fwidth_h = 1.0f;
         float nabla_max = 0.2f;
+        bool only_do_temp_accum = false;
     } pc;
 
 
@@ -170,7 +171,6 @@ class SVGF_ATrous_Pass : public sgl::vk::ComputePass {
 
 public:
     explicit SVGF_ATrous_Pass(sgl::vk::Renderer* renderer, SVGF_Texture_Pack* textures);
-    [[nodiscard]] inline int getMaxNumIterations() const { return maxNumIterations; }
 
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);

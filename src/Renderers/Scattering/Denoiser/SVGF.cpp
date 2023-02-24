@@ -72,7 +72,7 @@ SVGFDenoiser::SVGFDenoiser(sgl::vk::Renderer* renderer) {
 }
 
 bool SVGFDenoiser::getIsEnabled() const {
-    return svgf_atrous_pass->getMaxNumIterations() > 0;
+    return true;
 }
 
 void SVGFDenoiser::setOutputImage(sgl::vk::ImageViewPtr& outputImage) {
@@ -170,8 +170,19 @@ void SVGFDenoiser::denoise() {
     }
 }
 
+void clear_texture(VkCommandBuffer cmd_buff, sgl::vk::TexturePtr tex) {
+    tex->getImage()->insertMemoryBarrier(cmd_buff,
+                                         VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                         VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_WRITE_BIT);
+    tex->getImageView()->clearColor(glm::vec4(0), cmd_buff);
+}
+
 void SVGFDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
     auto device = renderer->getDevice();
+
+    auto cmd_buff = device->beginSingleTimeCommands();
+    defer { device->endSingleTimeCommands(cmd_buff); };
 
     sgl::vk::ImageSettings imageSettings;
     imageSettings.width  = width;
@@ -205,6 +216,10 @@ void SVGFDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
         textures.current_frame.accum_moments_texture =
             std::make_shared<sgl::vk::Texture>(device, imageSettings);
 
+
+        clear_texture(cmd_buff, textures.current_frame.temp_accum_texture);
+        clear_texture(cmd_buff, textures.current_frame.accum_moments_texture);
+
     }
 
     for (int i = 0; i < 2; i++) {
@@ -213,12 +228,15 @@ void SVGFDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
 
     // recreate previous frame images
     {
+        auto image_settings = textures.current_frame.noisy_texture->getImage()->getImageSettings();
+        image_settings.usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
         // color_history
         textures.previous_frame.color_history_texture = {};
         textures.previous_frame.color_history_texture =
-            std::make_shared<sgl::vk::Texture>(
-                textures.current_frame.noisy_texture->getImageView()->copy(true, false),
-                textures.current_frame.noisy_texture->getImageSampler());
+            std::make_shared<sgl::vk::Texture>(device, image_settings);
+
+        clear_texture(cmd_buff, textures.previous_frame.color_history_texture);
 
         // moments_histories
         {
@@ -236,16 +254,8 @@ void SVGFDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
             textures.previous_frame.moments_history_texture =
                 std::make_shared<sgl::vk::Texture>(device, imageSettings);
 
-            {
-                auto cmd_buff = device->beginSingleTimeCommands();
-                defer { device->endSingleTimeCommands(cmd_buff); };
-                textures.previous_frame.moments_history_texture->getImage()->insertMemoryBarrier(cmd_buff,
-                                                                                                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                                                                                 VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
-                                                                                                 VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_WRITE_BIT);
-                textures.previous_frame.moments_history_texture->getImageView()->clearColor(glm::vec4(0),cmd_buff);
-            }
 
+            clear_texture(cmd_buff, textures.previous_frame.moments_history_texture);
 
 
         }
@@ -256,6 +266,7 @@ void SVGFDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
 
         textures.previous_frame.normal_texture = {};
         textures.previous_frame.normal_texture = std::make_shared<sgl::vk::Texture>(device, im_settings);
+        clear_texture(cmd_buff, textures.previous_frame.normal_texture);
 
         // depth
         im_settings = textures.current_frame.depth_texture->getImage()->getImageSettings();
@@ -263,6 +274,7 @@ void SVGFDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
 
         textures.previous_frame.depth_texture = {};
         textures.previous_frame.depth_texture = std::make_shared<sgl::vk::Texture>(device, im_settings);
+        clear_texture(cmd_buff, textures.previous_frame.depth_texture);
     }
 
     svgf_atrous_pass->setDataDirty();
@@ -336,8 +348,14 @@ void SVGF_ATrous_Pass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::C
 void SVGF_ATrous_Pass::_render() {
     if (maxNumIterations < 1) {
         renderer->transitionImageLayout(textures->current_frame.temp_accum_texture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+
         renderer->transitionImageLayout(textures->denoised_image->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        renderer->transitionImageLayout(textures->previous_frame.color_history_texture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
         textures->current_frame.temp_accum_texture->getImage()->blit(textures->denoised_image->getImage(), renderer->getVkCommandBuffer());
+        textures->current_frame.temp_accum_texture->getImage()->blit(textures->previous_frame.color_history_texture->getImage(), renderer->getVkCommandBuffer());
+
+
         // renderer->syncWithCpu();
         return;
     }
@@ -417,6 +435,7 @@ void SVGF_ATrous_Pass::_render() {
 
 bool SVGF_ATrous_Pass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     if (propertyEditor.addSliderInt("#Iterations", &maxNumIterations, 0, 5)      |
+        propertyEditor.addCheckbox("only do temp acuum", &pc.only_do_temp_accum) |
         propertyEditor.addSliderFloat("z multiplier", &pc.z_multiplier, 1, 1000) |
         propertyEditor.addSliderFloat("fwidth_h", &pc.fwidth_h, 0, 1, "%.5f")    |
         propertyEditor.addSliderFloat("nabla_max", &pc.nabla_max, 0, 1, "%.5f"))

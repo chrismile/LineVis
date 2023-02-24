@@ -10,7 +10,8 @@ struct Spatial_Hashing_Uniform_Buffer {
     float      f;        // camera aperture
     float      s_nd;     // normal coarseness
     float      s_p;      // user-defined level of coarseness in pixel
-    float      s_min;      // user-defined level of coarseness in pixel
+    float      s_min;    // user-defined level of coarseness in pixel
+    glm::vec4  show_grid;
 };
 
 struct Spatial_Hashing_Texture_Pack {
@@ -39,6 +40,8 @@ class Spatial_Hashing_Denoiser : public Denoiser {
     std::shared_ptr<Spatial_Hashing_Write_Pass> write_pass;
     std::shared_ptr<Spatial_Hashing_Read_Pass>  read_pass;
     std::shared_ptr<EAWBlitPass>                eaw_pass;
+
+    int s_min_exp = -17;
 
 public:
     explicit Spatial_Hashing_Denoiser(sgl::vk::Renderer* renderer, sgl::CameraPtr* camera);

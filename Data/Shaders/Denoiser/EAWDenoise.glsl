@@ -238,7 +238,8 @@ void main() {
         }
         vec4 diffColor = centerColor - offsetColor;
         float distColor = dot(diffColor, diffColor);
-        float weightColor = min(exp(-1 / (phiColor * stepWidth)), 1.0);
+        // float weightColor = min(exp(-1 / (phiColor * stepWidth)), 1.0);
+        float weightColor = min(exp(-1 / (phiColor)), 1.0);
 
 #ifdef USE_POSITION_TEXTURE
         vec4 offsetPosition;

@@ -185,7 +185,7 @@ void main() {
     if (i_pos.x >= size.x || i_pos.y >= size.y) {
         return;
     }
- 
+
 
     vec2  prev_moments;
     float history_length;
@@ -214,7 +214,7 @@ void main() {
 
     history_length = min(success ? history_length+1 : 1, 32);
 
-    float alpha_color   = success ? max(0.05, 1.0f/history_length) : 1.0f;
+    float alpha_color   = success ? max(0.01, 1.0f/history_length) : 1.0f;
     float alpha_moments = success ? max(0.2 , 1.0f/history_length) : 1.0f;
 
     vec4 moments;
@@ -275,6 +275,7 @@ void main() {
     vec4  center_color   = imageLoad(temp_accum_texture, i_pos).rgba;
     float center_depth   = texelFetch(depth_texture, i_pos, 0).r;
     vec2  center_z_nabla = texelFetch(depth_nabla_texture, i_pos, 0).xy;
+    float center_z_fwidth = texelFetch(depth_fwidth_texture, i_pos, 0).x;
     vec3  center_normal  = texelFetch(normal_texture, i_pos, 0).rgb;
 
     // NOTE(Felix): source: https://github.com/NVIDIAGameWorks/Falcor/blob/master/Source/RenderPasses/SVGFPass/SVGFFilterMoments.ps.slang#L75
@@ -292,7 +293,7 @@ void main() {
                 float offset_depth   = texelFetch(depth_texture, offset_pos, 0).r;
                 vec3  offset_normal  = texelFetch(normal_texture, offset_pos, 0).xyz;
 
-                float weight = compute_weight(center_depth, offset_depth, ((abs(dot(center_z_nabla,  vec2(xx, yy)))) + 0.0001),
+                float weight = compute_weight(center_depth, offset_depth, ((abs(center_z_fwidth)) + 0.0001),
                                               center_normal, offset_normal,
                                               center_color.r, offset_color.r, 10);
 
@@ -337,6 +338,7 @@ layout(push_constant) uniform PushConstants {
     float z_multiplier;
     float fwidth_h;
     float nabla_max;
+    bool only_do_temp_accum;
 };
 
 // this frame
@@ -451,10 +453,14 @@ void main() {
         }
     }
 
-    // variance gets squared weight
-    vec4 result = sum / vec4(accumW,accumW,accumW, accumW*accumW);
-    if (iteration == 0)
-        imageStore(color_history_texture, i_pos, result);
+    // if (only_do_temp_accum)
+        // imageStore(outputImage, i_pos, center_color);
+    // else {
+        // variance gets squared weight
+        vec4 result = sum / vec4(accumW,accumW,accumW, accumW*accumW);
+        if (iteration == 0)
+            imageStore(color_history_texture, i_pos, result);
 
-    imageStore(outputImage, i_pos, result);
+        imageStore(outputImage, i_pos, result);
+    // }
 }
