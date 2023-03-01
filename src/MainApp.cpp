@@ -863,8 +863,6 @@ void MainApp::updateColorSpaceMode() {
 void MainApp::render() {
     ZoneScoped;
 
-    hasMoved(); // NOTE(Felix): remove this later
-
     if (usePerformanceMeasurementMode) {
         performanceMeasurer->beginRenderFunction();
     }

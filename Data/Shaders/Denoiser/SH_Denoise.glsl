@@ -184,7 +184,6 @@ float s_wd_calc(vec3 position, vec2 res) {
 
 #version 450
 #extension GL_EXT_scalar_block_layout : enable
-#extension GL_EXT_debug_printf : enable
 #extension GL_EXT_shader_atomic_float : require
 
 #import ".header"
@@ -283,7 +282,7 @@ void main() {
             // hm_cells[final_index].s_wd                 = s_wd_it;
         }
 
-        // if (hm_cells[final_index].contribution_counter < 100000) {
+        // if (hm_cells[final_index].contribution_counter < 10000) {
          // Change entry to insert newly calculated values
             atomicAdd(hm_cells[final_index].ao_value, occlusion);
             atomicAdd(hm_cells[final_index].contribution_counter, 1);
@@ -300,7 +299,6 @@ void main() {
 
 #version 450
 #extension GL_EXT_scalar_block_layout : enable
-#extension GL_EXT_debug_printf : enable
 
 layout(local_size_x = BLOCK_SIZE, local_size_y = BLOCK_SIZE) in;
 

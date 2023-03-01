@@ -556,7 +556,7 @@ void SVGF_Filter_Moments_Pass::createComputeData(sgl::vk::Renderer* renderer, sg
     compute_data->setStaticTexture(textures->current_frame.normal_texture, "normal_texture");
     compute_data->setStaticTexture(textures->current_frame.depth_texture, "depth_texture");
     compute_data->setStaticTexture(textures->current_frame.depth_fwidth_texture, "depth_fwidth_texture");
-    compute_data->setStaticTexture(textures->current_frame.depth_nabla_texture, "depth_nabla_texture");
+    // compute_data->setStaticTexture(textures->current_frame.depth_nabla_texture, "depth_nabla_texture");
 
     compute_data->setStaticTexture(textures->current_frame.temp_accum_texture, "temp_accum_texture");
 }
@@ -566,7 +566,7 @@ void SVGF_Filter_Moments_Pass::_render() {
         textures->current_frame.accum_moments_texture,
         textures->current_frame.normal_texture,
         textures->current_frame.depth_texture,
-        textures->current_frame.depth_nabla_texture,
+        // textures->current_frame.depth_nabla_texture,
         textures->current_frame.depth_fwidth_texture,
     };
 

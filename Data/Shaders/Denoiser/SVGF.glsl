@@ -4,7 +4,6 @@
 -- Compute-Reproject
 #version 450
 #extension GL_EXT_scalar_block_layout : require
-#extension GL_EXT_debug_printf : enable
 
 layout(local_size_x = BLOCK_SIZE, local_size_y = BLOCK_SIZE) in;
 
@@ -249,7 +248,7 @@ layout(binding = 2)  uniform sampler2D accum_moments_texture;
 layout(binding = 4)  uniform sampler2D normal_texture;
 layout(binding = 5)  uniform sampler2D depth_texture;
 layout(binding = 12) uniform sampler2D depth_fwidth_texture;
-layout(binding = 13) uniform sampler2D depth_nabla_texture;
+// layout(binding = 13) uniform sampler2D depth_nabla_texture;
 
 layout(binding = 3, rgba32f) uniform image2D temp_accum_texture;
 
@@ -274,7 +273,7 @@ void main() {
 
     vec4  center_color   = imageLoad(temp_accum_texture, i_pos).rgba;
     float center_depth   = texelFetch(depth_texture, i_pos, 0).r;
-    vec2  center_z_nabla = texelFetch(depth_nabla_texture, i_pos, 0).xy;
+    // vec2  center_z_nabla = texelFetch(depth_nabla_texture, i_pos, 0).xy;
     float center_z_fwidth = texelFetch(depth_fwidth_texture, i_pos, 0).x;
     vec3  center_normal  = texelFetch(normal_texture, i_pos, 0).rgb;
 
@@ -325,7 +324,6 @@ void main() {
 
 #version 450
 #extension GL_EXT_scalar_block_layout : require
-#extension GL_EXT_debug_printf : enable
 // #extension GL_NV_compute_shader_derivatives : enable
 
 #include "svgf_common.glsl"
@@ -383,6 +381,7 @@ void main() {
     vec3  center_normal     = texelFetch(normal_texture, i_pos, 0).rgb;
     float center_z          = texelFetch(depth_texture, i_pos, 0).r;
     vec2  center_z_nabla    = texelFetch(depth_nabla_texture, i_pos, 0).xy;
+    vec2  center_z_fwidth   = texelFetch(depth_fwidth_texture, i_pos, 0).xy;
 
     float phi_color = sqrt(max(0.0, 1e-10 + filtered_variance));
 
@@ -437,12 +436,16 @@ void main() {
             // vec3 diffNormal = center_normal - offset_normal;
             // float distNormal = dot(diffNormal, diffNormal);
             // float w_n = min(exp(-distNormal / 1), 1.0);
-            // float w_z_e= -abs(center_z - offset_z) * z_multiplier;
+            // float w_z_e= -abs(center_z - offset_z) * z_mule tiplier;
 
             // float w_l_e = weight_l_exp(center_color, offset_color, filtered_variance);
 
             // float weight = exp(w_l_e + w_z_e) * w_n * kernelValue;
-            float weight = compute_weight(center_z, offset_z, ((abs(dot(center_z_nabla,  vec2(x, y) * step_width))) + 0.0001),
+             // float weight = compute_weight(center_z, offset_z, ((abs(dot(center_z_nabla,  vec2(x, y) * step_width))) + 0.0001),
+            //                               center_normal, offset_normal,
+            //                               center_color.x, offset_color.x, phi_color) * kernelValue;
+
+            float weight = compute_weight(center_z, offset_z, ((abs(center_z_fwidth.x *  length(vec2(x, y)) * step_width)) + 0.0001),
                                           center_normal, offset_normal,
                                           center_color.x, offset_color.x, phi_color) * kernelValue;
 
