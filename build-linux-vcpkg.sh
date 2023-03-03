@@ -511,6 +511,7 @@ fi
 # Copy python3 to the destination directory.
 [ -d $destination_dir/bin/python3 ]     || mkdir $destination_dir/bin/python3
 [ -d $destination_dir/bin/python3/lib ] || mkdir $destination_dir/bin/python3/lib
+python_lib_dir="vcpkg_installed/$(ls --ignore=vcpkg vcpkg_installed)/lib/$Python3_VERSION"
 rsync -a "$python_lib_dir" $destination_dir/bin/python3/lib
 #rsync -a "$(eval echo "vcpkg_installed/$(ls --ignore=vcpkg vcpkg_installed)/lib/python*")" $destination_dir/python3/lib
 
