@@ -29,7 +29,10 @@
 #include <random>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
+#include <ImGui/imgui_custom.h>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 #include "LineData/LineData.hpp"
+#include "LineData/TriangleMesh/TriangleMeshData.hpp"
 #include "SSAO.hpp"
 
 SSAO::SSAO(SceneData* sceneData, sgl::vk::Renderer* renderer)
@@ -49,6 +52,9 @@ SSAO::SSAO(SceneData* sceneData, sgl::vk::Renderer* renderer)
 void SSAO::startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData) {
     if (lineData) {
         this->lineData = lineData;
+        if (isNewData) {
+            reRender = true;
+        }
         gbufferPass->setLineData(lineData, isNewData);
     }
 
@@ -139,6 +145,36 @@ void SSAO::onResolutionChanged() {
     blurPasses[1]->recreateSwapchain(width, height);
 }
 
+bool SSAO::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+    bool optionChanged = false;
+
+    if (propertyEditor.beginNode("SSAO")) {
+        SSAOPass::SettingsData &settingsData = ssaoPass->settingsData;
+
+        if (propertyEditor.addSliderFloat("Radius", &settingsData.radius, 0.0f, 0.1f)) {
+            optionChanged = true;
+        }
+        if (propertyEditor.addSliderFloat("Bias", &settingsData.bias, 0.0f, 0.01f)) {
+            optionChanged = true;
+        }
+        if (propertyEditor.addSliderIntEdit(
+                "Num Samples", &ssaoPass->numSamples, 1, 1024) == ImGui::EditMode::INPUT_FINISHED) {
+            ssaoPass->numSamples = std::max(ssaoPass->numSamples, 1);
+            rendererMain->getDevice()->waitIdle();
+            ssaoPass->createKernelBuffer();
+            optionChanged = true;
+        }
+
+        propertyEditor.endNode();
+    }
+
+    if (optionChanged) {
+        reRender = true;
+    }
+
+    return optionChanged;
+}
+
 
 
 GBufferPass::GBufferPass(SceneData* sceneData, sgl::vk::Renderer* renderer)
@@ -153,6 +189,9 @@ void GBufferPass::setOutputImages(sgl::vk::ImageViewPtr& _positionImage, sgl::vk
 void GBufferPass::setLineData(LineDataPtr& data, bool isNewData) {
     if (this->lineData && lineData->getType() != data->getType()) {
         setShaderDirty();
+    }
+    if (isNewData) {
+        setDataDirty();
     }
     lineData = data;
 }
@@ -188,6 +227,20 @@ void GBufferPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelin
     pipelineInfo.setVertexBufferBinding(0, sizeof(TubeTriangleVertexData));
     pipelineInfo.setInputAttributeDescription(0, 0, "vertexPosition");
     pipelineInfo.setInputAttributeDescription(0, 4 * sizeof(float), "vertexNormal");
+
+    bool useCulling;
+    if (lineData->getType() == DATA_SET_TYPE_TRIANGLE_MESH) {
+        useCulling = static_cast<TriangleMeshData*>(lineData.get())->getUseBackfaceCulling();
+    } else {
+        useCulling =
+                lineData->getLinePrimitiveMode() == LineData::LINE_PRIMITIVES_TUBE_TRIANGLE_MESH
+                && lineData->getUseCappedTubes();
+    }
+    if (useCulling) {
+        pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
+    } else {
+        pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_NONE);
+    }
 }
 
 void GBufferPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
@@ -219,13 +272,11 @@ void SSAOPass::initialize() {
             device, sizeof(SettingsData), &settingsData,
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-    size_t rotationVectorKernelLength = 4;
-    size_t rotationVectorKernelSize = rotationVectorKernelLength*rotationVectorKernelLength;
+    const size_t rotationVectorKernelLength = 4;
+    const size_t rotationVectorKernelSize = rotationVectorKernelLength*rotationVectorKernelLength;
     std::vector<glm::vec4> rotationVectors = generateRotationVectors(int(rotationVectorKernelSize));
-    sampleKernel = generateSSAOKernel(64); // TODO: Variable number.
-    sampleKernelBuffer = std::make_shared<sgl::vk::Buffer>(
-            device, sizeof(glm::vec4) * rotationVectors.size(), rotationVectors.data(),
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+    createKernelBuffer();
 
     sgl::vk::ImageSettings rvecImageSettings{};
     rvecImageSettings.width = uint32_t(rotationVectorKernelLength);
@@ -243,6 +294,14 @@ void SSAOPass::initialize() {
     rotationVectorTexture->getImage()->uploadData(
             sizeof(glm::vec4) * rotationVectorKernelLength * rotationVectorKernelLength,
             rotationVectors.data());
+}
+
+void SSAOPass::createKernelBuffer() {
+    sampleKernel = generateSSAOKernel(numSamples);
+    sampleKernelBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(glm::vec4) * sampleKernel.size(), sampleKernel.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    setShaderDirty();
 }
 
 std::vector<glm::vec4> SSAOPass::generateSSAOKernel(int numSamples) {
@@ -306,7 +365,9 @@ void SSAOPass::recreateSwapchain(uint32_t width, uint32_t height) {
 }
 
 void SSAOPass::loadShader() {
+    sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
+    preprocessorDefines.insert(std::make_pair("KERNEL_SIZE", std::to_string(numSamples)));
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
             { "GenerateSSAOTexture.Vertex", "GenerateSSAOTexture.Fragment" },
             preprocessorDefines);

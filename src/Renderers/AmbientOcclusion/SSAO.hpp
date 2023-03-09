@@ -68,6 +68,9 @@ public:
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
 
+    /// Returns whether the baking process was re-run.
+    bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
+
 private:
     std::shared_ptr<GBufferPass> gbufferPass;
     std::shared_ptr<SSAOPass> ssaoPass;
@@ -101,7 +104,6 @@ private:
     void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
 
     SceneData* sceneData;
-    bool reRender = true;
     LineDataPtr lineData;
 
     sgl::vk::ImageViewPtr positionImage;
@@ -109,6 +111,7 @@ private:
 };
 
 class SSAOPass : public sgl::vk::BlitRenderPass {
+    friend class SSAO;
 public:
     explicit SSAOPass(sgl::vk::Renderer* renderer);
     void initialize();
@@ -124,6 +127,8 @@ protected:
     void _render() override;
 
 private:
+    void createKernelBuffer();
+
     /**
      * Generate kernel sample positions inside a unit hemisphere.
      * Basic idea for kernel generation from https://learnopengl.com/Advanced-Lighting/SSAO.
@@ -141,9 +146,12 @@ private:
     sgl::vk::TexturePtr normalTexture;
     sgl::vk::ImageViewPtr aoImage;
 
+    const size_t rotationVectorKernelLength = 4;
+    int numSamples = 64;
+
     struct SettingsData {
         float radius = 0.05f;
-        float bias = 0.005f;
+        float bias = 0.001f;
     };
     SettingsData settingsData{};
     sgl::vk::BufferPtr settingsDataBuffer;

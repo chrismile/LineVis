@@ -43,8 +43,6 @@ void main() {
 
 #version 450 core
 
-#define KERNEL_SIZE 64
-
 // Values used are proposed by https://learnopengl.com/Advanced-Lighting/SSAO
 layout(binding = 0) uniform SamplesBuffer {
     vec4 samples[KERNEL_SIZE];
@@ -67,6 +65,9 @@ void main() {
     vec3 fragPosition = texture(positionTexture, fragTexCoord).xyz;
     float fragDepth = fragPosition.z;
     vec3 normal = normalize(texture(normalTexture, fragTexCoord).rgb);
+    if (dot(normal, fragPosition) > 0) {
+        normal = -normal;
+    }
 
     vec2 rotationVecTexScale = textureSize(positionTexture, 0) / textureSize(rotationVectorTexture, 0);
     vec2 rotationVecSamplePos = fragTexCoord * rotationVecTexScale.xy;
