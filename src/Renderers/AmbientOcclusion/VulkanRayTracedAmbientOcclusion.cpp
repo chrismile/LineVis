@@ -373,7 +373,7 @@ void VulkanRayTracedAmbientOcclusionPass::recreateFeatureMaps() {
     static bool first_iteration = true;
     defer { first_iteration = false; };
     if (first_iteration) {
-        denoiserType = DenoiserType::SPATIAL_HASHING;
+        denoiserType = DenoiserType::SVGF;
         changedDenoiserSettings = true;
         createDenoiser();
     }
@@ -671,16 +671,41 @@ bool VulkanRayTracedAmbientOcclusionPass::setNewSettings(const SettingsMap& sett
 #endif
     std::string denoiserName;
     if (settings.getValueOpt("ambient_occlusion_denoiser", denoiserName)) {
-        for (int i = 0; i < numDenoisersSupported; i++) {
-            if (denoiserName == DENOISER_NAMES[i]) {
-                if (denoiserType == DenoiserType(i)) {
+        // NOTE(Felix): I put this here so we can control denoiser specific
+        //   settigns here
+        if (denoiserName == "EAW") {
+            denoiserType = DenoiserType::EAW;
+            createDenoiser();
+            auto eaw = (EAWDenoiser*)denoiser.get();
+
+            reRender = true;
+            changedDenoiserSettings = true;
+
+            float phi_pos    = 0.3f;
+            float phi_color  = 0.49f;
+            float phi_normal = 0.1f;
+            int   num_iters = 3;
+            settings.getValueOpt("eaw_color_phi", phi_color);
+            settings.getValueOpt("eaw_pos_phi", phi_pos);
+            settings.getValueOpt("eaw_normal_phi", phi_normal);
+            settings.getValueOpt("eaw_num_iters", num_iters);
+            eaw->setPhiColor(phi_color);
+            eaw->setPhiPosition(phi_pos);
+            eaw->setPhiNormal(phi_normal);
+            eaw->setNumIterations(num_iters);
+
+        } else {
+            for (int i = 0; i < numDenoisersSupported; i++) {
+                if (denoiserName == DENOISER_NAMES[i]) {
+                    if (denoiserType == DenoiserType(i)) {
+                        break;
+                    }
+                    denoiserType = DenoiserType(i);
+                    createDenoiser();
+                    reRender = true;
+                    changedDenoiserSettings = true;
                     break;
                 }
-                denoiserType = DenoiserType(i);
-                createDenoiser();
-                reRender = true;
-                changedDenoiserSettings = true;
-                break;
             }
         }
     }

@@ -27,6 +27,9 @@ struct Spatial_Hashing_Texture_Pack {
     sgl::vk::ImageViewPtr denoised_image;
 };
 
+static struct {
+    glm::uint use_atomics = 1;
+} sh_denoiser_pc;
 
 class Spatial_Hashing_Write_Pass;
 class Spatial_Hashing_Read_Pass;

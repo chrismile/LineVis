@@ -171,7 +171,7 @@ vec4 hash_to_color(uint hash){
 float s_wd_calc(vec3 position, vec2 res) {
     float dis = distance(position, cam_pos.xyz * SPACE_STRETCH);
     // float s_w = dis * tan(s_p * f * max(1/res.x, (res.x / (res.y*res.y))));
-    float s_w = dis * tan(s_p * f * 1/res.x);
+    float s_w = dis * tan(s_p * 1/res.y);
     float log_step = floor(log2(s_w / s_min));
     return pow(2, log_step) * s_min;
 }
@@ -198,6 +198,11 @@ layout(scalar, binding = 1) buffer hash_map_buffer {
 layout(binding = 2) uniform sampler2D noisy_texture;
 layout(binding = 3) uniform sampler2D normal_texture;
 layout(binding = 4) uniform sampler2D position_texture;
+
+layout(push_constant) uniform PushConstants {
+    uint use_atomics;
+};
+
 
 void main() {
     ivec2 i_pos = ivec2(gl_GlobalInvocationID.xy);
@@ -270,23 +275,28 @@ void main() {
         }
 
         if(clear_slot_before_use) {
-            atomicExchange(hm_cells[final_index].ao_value, 0);
-            atomicExchange(hm_cells[final_index].contribution_counter , 0);
-            atomicExchange(hm_cells[final_index].rc                   , 0);
-            atomicExchange(hm_cells[final_index].checksum             , checksum);
-            atomicExchange(hm_cells[final_index].s_wd                 , s_wd_it);
-            // hm_cells[final_index].ao_value             = 0;
-            // hm_cells[final_index].contribution_counter = 0;
-            // hm_cells[final_index].rc                   = 0;
-            // hm_cells[final_index].checksum             = checksum;
-            // hm_cells[final_index].s_wd                 = s_wd_it;
+            if (use_atomics != 0) {
+                atomicExchange(hm_cells[final_index].ao_value, 0);
+                atomicExchange(hm_cells[final_index].contribution_counter , 0);
+                atomicExchange(hm_cells[final_index].rc                   , 0);
+                atomicExchange(hm_cells[final_index].checksum             , checksum);
+                atomicExchange(hm_cells[final_index].s_wd                 , s_wd_it);
+            } else {
+                hm_cells[final_index].ao_value             = 0;
+                hm_cells[final_index].contribution_counter = 0;
+                hm_cells[final_index].rc                   = 0;
+                hm_cells[final_index].checksum             = checksum;
+                hm_cells[final_index].s_wd                 = s_wd_it;
+            }
         }
 
-        // if (hm_cells[final_index].contribution_counter < 10000) {
-         // Change entry to insert newly calculated values
+        if (use_atomics != 0) {
             atomicAdd(hm_cells[final_index].ao_value, occlusion);
             atomicAdd(hm_cells[final_index].contribution_counter, 1);
-        // }
+        } else {
+            hm_cells[final_index].ao_value += occlusion;
+            hm_cells[final_index].contribution_counter += 1;
+        }
 
 
     }
@@ -379,12 +389,12 @@ void main() {
         final_ao = ao / current_samples;
 
 
-    imageStore(temp_accum_texture, i_pos, vec4(final_ao));
+    // imageStore(temp_accum_texture, i_pos, vec4(final_ao));
 
     // imageStore(temp_accum_texture, i_pos, mix(vec4(min(1, final_ao), ao, current_samples, s_wd),
-    // imageStore(temp_accum_texture, i_pos, mix(vec4(final_ao, ao, current_samples, s_wd),
-                                              // vec4(hash_to_color(H7D(position, normal, s_wd, s_nd)).xy, vec4(hash_to_color(H7D_checksum(position, normal, s_wd, s_nd))).xy),
-                                              // show_grid_cells.x));
+    imageStore(temp_accum_texture, i_pos, mix(vec4(final_ao, ao, current_samples, s_wd),
+                                              vec4(hash_to_color(H7D(position, normal, s_wd, s_nd)).xy, vec4(hash_to_color(H7D_checksum(position, normal, s_wd, s_nd))).xy),
+                                              show_grid_cells.x));
         // imageStore(temp_accum_texture, i_pos, vec4(remap(vec3(-0.25), position.zzz, vec3(0.25), vec3(0) , vec3(1)), 0));
         // imageStore(temp_accum_texture, i_pos, vec4(remap(vec3(-1), normal.zzz, vec3(1), vec3(0) , vec3(1)), 0));
     // }

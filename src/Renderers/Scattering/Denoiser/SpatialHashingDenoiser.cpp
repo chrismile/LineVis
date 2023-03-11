@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include "Graphics/Vulkan/Utils/Device.hpp"
 #include "Graphics/Vulkan/Render/Renderer.hpp"
+#include <Graphics/Vulkan/Render/Data.hpp>
+#include <Graphics/Vulkan/Render/ComputePipeline.hpp>
 #include <ImGui/Widgets/PropertyEditor.hpp>
 #include "SpatialHashingDenoiser.hpp"
 
@@ -46,12 +48,12 @@ Spatial_Hashing_Denoiser::Spatial_Hashing_Denoiser(sgl::vk::Renderer* renderer, 
 
     write_pass = std::make_shared<Spatial_Hashing_Write_Pass>(renderer, &textures);
     read_pass  = std::make_shared<Spatial_Hashing_Read_Pass>(renderer, &textures);
-    eaw_pass   = std::make_shared<EAWBlitPass>(renderer, 0);
+    eaw_pass   = std::make_shared<EAWBlitPass>(renderer, 3);
 
     textures.uniform_buffer.s_nd    = 3.0f;      // NOTE(Felix): same as Christiane's
     textures.uniform_buffer.s_p     = 8;
-    textures.uniform_buffer.show_grid = glm::vec4(1);
-    textures.uniform_buffer.s_min = pow(10.0f, s_min_exp);
+    textures.uniform_buffer.show_grid = glm::vec4(0);
+    textures.uniform_buffer.s_min = powf(10.0f, (float)s_min_exp);
 }
 
 
@@ -134,6 +136,7 @@ void Spatial_Hashing_Denoiser::recreateSwapchain(uint32_t width, uint32_t height
 
 bool Spatial_Hashing_Denoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool redraw =  eaw_pass->renderGuiPropertyEditorNodes(propertyEditor) |
+        propertyEditor.addCheckbox("use atomics", (bool*)&sh_denoiser_pc.use_atomics) |
         propertyEditor.addSliderFloat("textures.uniform_buffer.s_p", &textures.uniform_buffer.s_p, 0.1f, 20.0f, "%.10f") |
         propertyEditor.addSliderInt("s_min_exp", &s_min_exp, -20, -1) |
         propertyEditor.addSliderFloat("s_nd", &textures.uniform_buffer.s_nd, 1, 10) |
@@ -143,7 +146,11 @@ bool Spatial_Hashing_Denoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor&
         // auto device = renderer->getDevice();
         // auto cmd_buff = device->beginSingleTimeCommands();
         // defer { device->endSingleTimeCommands(cmd_buff); };
-        textures.uniform_buffer.s_min = pow(10.0f, s_min_exp);
+        read_pass->setDataDirty();
+        write_pass->setDataDirty();
+        eaw_pass->setDataDirty();
+
+        textures.uniform_buffer.s_min = powf(10.0f, (float)s_min_exp);
         textures.vk_hash_map_buffer->fill(0, renderer->getVkCommandBuffer());
     }
 
@@ -177,6 +184,10 @@ void Spatial_Hashing_Write_Pass::_render() {
     for (auto& tex : to_read) {
         renderer->transitionImageLayout(tex->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
+
+    renderer->pushConstants(
+        std::static_pointer_cast<sgl::vk::Pipeline>(compute_data->getComputePipeline()),
+        VK_SHADER_STAGE_COMPUTE_BIT, 0, sh_denoiser_pc);
 
 
     auto width = int(textures->noisy_texture->getImage()->getImageSettings().width);

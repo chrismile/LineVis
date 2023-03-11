@@ -277,12 +277,12 @@ void EAWBlitPass::_render() {
         return;
     }
 
-    uniformData.useColor = useColorWeights;
+    uniformData.useColor    = useColorWeights;
     uniformData.usePosition = usePositionWeights;
-    uniformData.useNormal = useNormalWeights;
-    uniformData.phiColor = phiColor * phiColorScale;
+    uniformData.useNormal   = useNormalWeights;
+    uniformData.phiColor    = phiColor    * phiColorScale;
     uniformData.phiPosition = phiPosition * phiPositionScale;
-    uniformData.phiNormal = phiNormal * phiNormalScale;
+    uniformData.phiNormal   = phiNormal   * phiNormalScale;
     uniformBuffer->updateData(
             sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
 
@@ -296,11 +296,11 @@ void EAWBlitPass::_render() {
                 normalTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
-    if (useSharedMemory) {
+    // if (useSharedMemory) {
         _renderCompute();
-    } else {
-        _renderRaster();
-    }
+    // } else {
+        // _renderRaster();
+    // }
 }
 
 void EAWBlitPass::_renderRaster() {
@@ -403,13 +403,13 @@ bool EAWBlitPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdit
     if (propertyEditor.addCheckbox("Normal Weights", &useNormalWeights)) {
         reRender = true;
     }
-    if (propertyEditor.addSliderFloat("Phi Color", &phiColor, 0.0f, 10.0f)) {
+    if (propertyEditor.addSliderFloat("Phi Color", &phiColor, 0.0f, 1.0f)) {
         reRender = true;
     }
-    if (propertyEditor.addSliderFloat("Phi Position", &phiPosition, 0.0f, 10.0f)) {
+    if (propertyEditor.addSliderFloat("Phi Position", &phiPosition, 0.0f, 1.0f)) {
         reRender = true;
     }
-    if (propertyEditor.addSliderFloat("Phi Normal", &phiNormal, 0.0f, 10.0f)) {
+    if (propertyEditor.addSliderFloat("Phi Normal", &phiNormal, 0.0f, 1.0f)) {
         reRender = true;
     }
     if (propertyEditor.addCheckbox("Use Shared Memory", &useSharedMemory)) {

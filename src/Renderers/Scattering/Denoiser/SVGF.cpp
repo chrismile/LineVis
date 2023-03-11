@@ -528,7 +528,9 @@ void SVGF_Reproj_Pass::loadShader() {
 
 bool SVGF_Reproj_Pass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     if (propertyEditor.addSliderFloat("allowed_normal_dist", &pc.allowed_normal_dist, 0, 2) |
-        propertyEditor.addSliderFloat("allowed_z_dist", &pc.allowed_z_dist, 0, 5))
+        propertyEditor.addSliderFloat("allowed_z_dist", &pc.allowed_z_dist, 0, 5) |
+        propertyEditor.addSliderFloat2("reproj offset", &pc.reproj_offset.x, -2, 2)
+       )
     {
         setDataDirty();
         device->waitIdle();

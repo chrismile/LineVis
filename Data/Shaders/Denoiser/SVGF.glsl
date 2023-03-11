@@ -29,6 +29,7 @@ layout(binding = 15, rgba32f) uniform writeonly image2D temp_accum_texture;
 layout(push_constant) uniform PushConstants {
     float allowed_z_dist;
     float allowed_normal_dist;
+    vec2  reproj_offset;
 };
 
 // source: https://github.com/NVIDIAGameWorks/Falcor/blob/master/Source/RenderPasses/SVGFPass/SVGFReproject.ps.slang#L62
@@ -196,12 +197,12 @@ void main() {
     vec3 color_last_frame = texelFetch(color_history, i_pos, 0).rgb;
     if (success) {
         // see paper why -0.5
-        vec2  pos_prev_minus_half   = vec2(0.0001) + i_pos - texelFetch(motion_texture, i_pos, 0).xy;
+        vec2  pos_prev_minus_half   = vec2(0.01) + i_pos - texelFetch(motion_texture, i_pos, 0).xy;
         ivec2 i_pos_prev_minus_half = ivec2(pos_prev_minus_half);
 
-        float depth  = texelFetch(depth_texture,  i_pos, 0).x;
+        float depth         = texelFetch(depth_texture,  i_pos, 0).x;
         float depth_fwidth  = texelFetch(depth_fwidth_texture,  i_pos, 0).x;
-        vec3  normal = texelFetch(normal_texture, i_pos, 0).xyz;
+        vec3  normal        = texelFetch(normal_texture, i_pos, 0).xyz;
 
         success = try_2x2_tap(pos_prev_minus_half, i_pos_prev_minus_half, depth, depth_fwidth, normal,
                               color_last_frame, prev_moments);

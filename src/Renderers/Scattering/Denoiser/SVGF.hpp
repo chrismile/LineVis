@@ -108,6 +108,7 @@ class SVGF_Reproj_Pass : public sgl::vk::ComputePass {
     struct {
         float allowed_z_dist      = 0.002f;
         float allowed_normal_dist = 0.02f;
+        glm::vec2 reproj_offset = {0,0};
     } pc;
 
     void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
