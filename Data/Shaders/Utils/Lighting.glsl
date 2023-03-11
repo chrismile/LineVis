@@ -201,7 +201,7 @@ vec4 blinnPhongShadingTriangleMesh(
         in vec4 baseColor,
 #if defined(VULKAN_RAY_TRACER) || defined(VOXEL_RAY_CASTING) || defined(DEFERRED_SHADING)
         in vec3 fragmentPositionWorld,
-#ifdef USE_DEPTH_CUES
+#if defined(USE_DEPTH_CUES) || (defined(USE_AMBIENT_OCCLUSION) && !defined(STATIC_AMBIENT_OCCLUSION_PREBAKING))
         in vec3 screenSpacePosition,
 #endif
 #endif
