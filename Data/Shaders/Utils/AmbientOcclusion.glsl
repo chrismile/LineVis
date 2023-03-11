@@ -92,7 +92,7 @@ float getAoFactor(vec3 screenSpacePosition) {
     float aoFactor = texture(ambientOcclusionTexture, ndcPosition.xy * 0.5 + 0.5).x;
     aoFactor = pow(aoFactor, ambientOcclusionGamma);
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
-    return max(0.0, 1.0 - ambientOcclusionStrength * 4.0 + ambientOcclusionStrength * aoFactor * 4.0);
+    return max(0.0, 1.0 - ambientOcclusionStrength * 1.5 + ambientOcclusionStrength * aoFactor * 1.5);
 #else
     return max(0.0, 1.0 - ambientOcclusionStrength + ambientOcclusionStrength * aoFactor);
 #endif

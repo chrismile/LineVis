@@ -112,6 +112,8 @@ public:
 
     sgl::MultiVarTransferFunctionWindow& getMultiVarTransferFunctionWindow();
 
+    [[nodiscard]] inline bool getUseBackfaceCulling() const { return useBackfaceCulling; }
+
 protected:
     void recomputeHistogram() override;
 
