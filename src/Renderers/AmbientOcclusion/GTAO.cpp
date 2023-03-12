@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2022, Christoph Neuhauser
+ * Copyright (c) 2022, Christoph Neuhauser, Felix Brendel
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,12 +33,12 @@
 #include <ImGui/Widgets/PropertyEditor.hpp>
 #include "LineData/LineData.hpp"
 #include "LineData/TriangleMesh/TriangleMeshData.hpp"
-#include "SSAO.hpp"
+#include "GTAO.hpp"
 
-SSAO::SSAO(SceneData* sceneData, sgl::vk::Renderer* renderer)
+GTAO::GTAO(SceneData* sceneData, sgl::vk::Renderer* renderer)
         : AmbientOcclusionBaker(renderer), sceneData(sceneData) {
-    gbufferPass = std::make_shared<GBufferPass>(sceneData, rendererMain);
-    ssaoPass = std::make_shared<SSAOPass>(rendererMain);
+    gbufferPass = std::make_shared<GTAO_GBufferPass>(sceneData, rendererMain);
+    gtaoPass = std::make_shared<GTAOPass>(sceneData, rendererMain);
     std::vector<std::string> blurPassShaderIds = { "GaussianBlur.Vertex", "GaussianBlur.Fragment" };
     for (int i = 0; i < 2; i++) {
         blurPasses[i] = std::make_shared<sgl::vk::BlitRenderPass>(rendererMain, blurPassShaderIds);
@@ -49,7 +49,7 @@ SSAO::SSAO(SceneData* sceneData, sgl::vk::Renderer* renderer)
     onResolutionChanged();
 }
 
-void SSAO::startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData) {
+void GTAO::startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData) {
     if (lineData) {
         this->lineData = lineData;
         if (isNewData) {
@@ -62,23 +62,42 @@ void SSAO::startAmbientOcclusionBaking(LineDataPtr& lineData, bool isNewData) {
     hasComputationFinished = false;
 }
 
-void SSAO::updateIterative(VkPipelineStageFlags pipelineStageFlags) {
+void GTAO::updateIterative(VkPipelineStageFlags pipelineStageFlags) {
     gbufferPass->render();
-    ssaoPass->render();
 
-    int32_t blurDir0 = 0;
-    blurPasses[0]->buildIfNecessary();
-    rendererMain->pushConstants(
-            blurPasses[0]->getGraphicsPipeline(), VK_SHADER_STAGE_FRAGMENT_BIT,
-            0, blurDir0);
-    blurPasses[0]->render();
+    gtaoPass->buildIfNecessary();
 
-    int32_t blurDir1 = 1;
-    blurPasses[1]->buildIfNecessary();
+
+
+    gtao_pc.clipInfo = glm::vec4{
+        sceneData->camera->getNearClipDistance(),
+        sceneData->camera->getFarClipDistance(),
+        0.5f * (*sceneData->viewportHeight / (2.0f * tanf(sceneData->camera->getFOVy() * 0.5f))),
+        0
+    };
+
+
+    gtao_pc.projInfo =  {};
+    gtao_pc.eyePos   =  sceneData->camera->getPosition();
+
     rendererMain->pushConstants(
-            blurPasses[1]->getGraphicsPipeline(), VK_SHADER_STAGE_FRAGMENT_BIT,
-            0, blurDir1);
-    blurPasses[1]->render();
+            gtaoPass->getGraphicsPipeline(), VK_SHADER_STAGE_FRAGMENT_BIT,
+            0, gtao_pc);
+    gtaoPass->render();
+
+    // int32_t blurDir0 = 0;
+    // blurPasses[0]->buildIfNecessary();
+    // rendererMain->pushConstants(
+    //         blurPasses[0]->getGraphicsPipeline(), VK_SHADER_STAGE_FRAGMENT_BIT,
+    //         0, blurDir0);
+    // blurPasses[0]->render();
+
+    // int32_t blurDir1 = 1;
+    // blurPasses[1]->buildIfNecessary();
+    // rendererMain->pushConstants(
+    //         blurPasses[1]->getGraphicsPipeline(), VK_SHADER_STAGE_FRAGMENT_BIT,
+    //         0, blurDir1);
+    // blurPasses[1]->render();
 
     //rendererMain->insertImageMemoryBarrier(
     //        aoTexture->getImage(),
@@ -90,27 +109,27 @@ void SSAO::updateIterative(VkPipelineStageFlags pipelineStageFlags) {
     hasComputationFinished = true;
 }
 
-sgl::vk::TexturePtr SSAO::getAmbientOcclusionFrameTexture() {
+sgl::vk::TexturePtr GTAO::getAmbientOcclusionFrameTexture() {
     return aoTexture;
 }
 
-bool SSAO::getHasTextureResolutionChanged() {
+bool GTAO::getHasTextureResolutionChanged() {
     bool tmp = hasTextureResolutionChanged;
     hasTextureResolutionChanged = false;
     return tmp;
 }
 
-bool SSAO::needsReRender() {
+bool GTAO::needsReRender() {
     bool tmp = reRender;
     reRender = false;
     return tmp;
 }
 
-void SSAO::onHasMoved() {
+void GTAO::onHasMoved() {
     reRender = true;
 }
 
-void SSAO::onResolutionChanged() {
+void GTAO::onResolutionChanged() {
     sgl::vk::Device* device = rendererMain->getDevice();
     uint32_t width = *sceneData->viewportWidth;
     uint32_t height = *sceneData->viewportHeight;
@@ -134,9 +153,9 @@ void SSAO::onResolutionChanged() {
 
     gbufferPass->setOutputImages(positionTexture->getImageView(), normalTexture->getImageView());
     gbufferPass->recreateSwapchain(width, height);
-    ssaoPass->setInputTextures(positionTexture, normalTexture);
-    ssaoPass->setOutputImage(aoTexture->getImageView());
-    ssaoPass->recreateSwapchain(width, height);
+    gtaoPass->setInputTextures(positionTexture, normalTexture);
+    gtaoPass->setOutputImage(aoTexture->getImageView());
+    gtaoPass->recreateSwapchain(width, height);
     blurPasses[0]->setInputTexture(aoTexture);
     blurPasses[0]->setOutputImage(blurPassTmpTexture->getImageView());
     blurPasses[0]->recreateSwapchain(width, height);
@@ -145,23 +164,17 @@ void SSAO::onResolutionChanged() {
     blurPasses[1]->recreateSwapchain(width, height);
 }
 
-bool SSAO::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
+bool GTAO::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool optionChanged = false;
 
-    if (propertyEditor.beginNode("SSAO")) {
-        SSAOPass::SettingsData &settingsData = ssaoPass->settingsData;
+    if (propertyEditor.beginNode("GTAO")) {
+        GTAOPass::SettingsData &settingsData = gtaoPass->settingsData;
 
-        if (propertyEditor.addSliderFloat("Radius", &settingsData.radius, 0.0f, 0.1f)) {
-            optionChanged = true;
-        }
-        if (propertyEditor.addSliderFloat("Bias", &settingsData.bias, 0.0f, 0.01f)) {
-            optionChanged = true;
-        }
-        if (propertyEditor.addSliderIntEdit(
-                "Num Samples", &ssaoPass->numSamples, 1, 1024) == ImGui::EditMode::INPUT_FINISHED) {
-            ssaoPass->numSamples = std::max(ssaoPass->numSamples, 1);
-            rendererMain->getDevice()->waitIdle();
-            ssaoPass->createKernelBuffer();
+        if (propertyEditor.addSliderFloat("Radius", &gtao_pc.radius, 0.0f, 0.1f) |
+            (propertyEditor.addSliderIntEdit(
+                "Num directions", (int*)&gtao_pc.num_directions, 1, 1024) == ImGui::EditMode::INPUT_FINISHED)
+           )
+        {
             optionChanged = true;
         }
 
@@ -169,6 +182,10 @@ bool SSAO::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     }
 
     if (optionChanged) {
+        gtaoPass->numSamples = std::max(gtaoPass->numSamples, 1);
+        rendererMain->getDevice()->waitIdle();
+        gtaoPass->createKernelBuffer();
+        optionChanged = true;
         reRender = true;
     }
 
@@ -177,16 +194,16 @@ bool SSAO::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
 
 
 
-GBufferPass::GBufferPass(SceneData* sceneData, sgl::vk::Renderer* renderer)
+GTAO_GBufferPass::GTAO_GBufferPass(SceneData* sceneData, sgl::vk::Renderer* renderer)
         : sgl::vk::RasterPass(renderer), sceneData(sceneData) {
 }
 
-void GBufferPass::setOutputImages(sgl::vk::ImageViewPtr& _positionImage, sgl::vk::ImageViewPtr& _normalImage) {
+void GTAO_GBufferPass::setOutputImages(sgl::vk::ImageViewPtr& _positionImage, sgl::vk::ImageViewPtr& _normalImage) {
     positionImage = _positionImage;
     normalImage = _normalImage;
 }
 
-void GBufferPass::setLineData(LineDataPtr& data, bool isNewData) {
+void GTAO_GBufferPass::setLineData(LineDataPtr& data, bool isNewData) {
     if (this->lineData && lineData->getType() != data->getType()) {
         setShaderDirty();
     }
@@ -196,7 +213,7 @@ void GBufferPass::setLineData(LineDataPtr& data, bool isNewData) {
     lineData = data;
 }
 
-void GBufferPass::recreateSwapchain(uint32_t width, uint32_t height) {
+void GTAO_GBufferPass::recreateSwapchain(uint32_t width, uint32_t height) {
     framebuffer = std::make_shared<sgl::vk::Framebuffer>(device, width, height);
 
     sgl::vk::AttachmentState attachmentState;
@@ -207,27 +224,24 @@ void GBufferPass::recreateSwapchain(uint32_t width, uint32_t height) {
     framebuffer->setColorAttachment(positionImage, 0, attachmentState, glm::vec4(0.0f));
     framebuffer->setColorAttachment(normalImage, 1, attachmentState, glm::vec4(0.0f));
 
-    // VkImageUsageFlags usage = (*sceneData->sceneDepthTexture)->getImage()->getImageSettings().usage;
-    // usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-
-
     sgl::vk::AttachmentState depthAttachmentState;
     depthAttachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachmentState.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachmentState.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     depthAttachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     framebuffer->setDepthStencilAttachment(
             (*sceneData->sceneDepthTexture)->getImageView(), depthAttachmentState, 1.0f);
 
+
     framebufferDirty = true;
     dataDirty = true;
 }
 
-void GBufferPass::loadShader() {
-    shaderStages = sgl::vk::ShaderManager->getShaderStages({"GBufferPass.Vertex", "GBufferPass.Fragment"});
+void GTAO_GBufferPass::loadShader() {
+    shaderStages = sgl::vk::ShaderManager->getShaderStages({"GTAO_GBufferPass.Vertex", "GTAO_GBufferPass.Fragment"});
 }
 
-void GBufferPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
+void GTAO_GBufferPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
     pipelineInfo.setVertexBufferBinding(0, sizeof(TubeTriangleVertexData));
     pipelineInfo.setInputAttributeDescription(0, 0, "vertexPosition");
     pipelineInfo.setInputAttributeDescription(0, 4 * sizeof(float), "vertexNormal");
@@ -247,7 +261,7 @@ void GBufferPass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelin
     }
 }
 
-void GBufferPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
+void GTAO_GBufferPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
     TubeTriangleRenderData renderData = lineData->getLinePassTubeTriangleMeshRenderData(
             true, false);
     rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
@@ -257,21 +271,24 @@ void GBufferPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::Graphic
 
 
 
-SSAOPass::SSAOPass(sgl::vk::Renderer* renderer) : sgl::vk::BlitRenderPass(renderer) {
+GTAOPass::GTAOPass(SceneData* sceneData, sgl::vk::Renderer* renderer)
+    : sceneData(sceneData),
+      sgl::vk::BlitRenderPass(renderer)
+{
     this->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
     initialize();
 }
 
-void SSAOPass::setInputTextures(sgl::vk::TexturePtr& _positionTexture, sgl::vk::TexturePtr& _normalTexture) {
+void GTAOPass::setInputTextures(sgl::vk::TexturePtr& _positionTexture, sgl::vk::TexturePtr& _normalTexture) {
     positionTexture = _positionTexture;
     normalTexture = _normalTexture;
 }
 
-void SSAOPass::setOutputImage(sgl::vk::ImageViewPtr& _aoImage) {
+void GTAOPass::setOutputImage(sgl::vk::ImageViewPtr& _aoImage) {
     aoImage = _aoImage;
 }
 
-void SSAOPass::initialize() {
+void GTAOPass::initialize() {
     settingsDataBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(SettingsData), &settingsData,
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -300,7 +317,7 @@ void SSAOPass::initialize() {
             rotationVectors.data());
 }
 
-void SSAOPass::createKernelBuffer() {
+void GTAOPass::createKernelBuffer() {
     sampleKernel = generateSSAOKernel(numSamples);
     sampleKernelBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(glm::vec4) * sampleKernel.size(), sampleKernel.data(),
@@ -308,7 +325,7 @@ void SSAOPass::createKernelBuffer() {
     setShaderDirty();
 }
 
-std::vector<glm::vec4> SSAOPass::generateSSAOKernel(int numSamples) {
+std::vector<glm::vec4> GTAOPass::generateSSAOKernel(int numSamples) {
     std::vector<glm::vec4> kernel;
     kernel.reserve(numSamples);
 
@@ -335,7 +352,7 @@ std::vector<glm::vec4> SSAOPass::generateSSAOKernel(int numSamples) {
     return kernel;
 }
 
-std::vector<glm::vec4> SSAOPass::generateRotationVectors(int numVectors) {
+std::vector<glm::vec4> GTAOPass::generateRotationVectors(int numVectors) {
     std::vector<glm::vec4> rotationVectors;
     rotationVectors.reserve(numVectors);
 
@@ -354,7 +371,7 @@ std::vector<glm::vec4> SSAOPass::generateRotationVectors(int numVectors) {
     return rotationVectors;
 }
 
-void SSAOPass::recreateSwapchain(uint32_t width, uint32_t height) {
+void GTAOPass::recreateSwapchain(uint32_t width, uint32_t height) {
     framebuffer = std::make_shared<sgl::vk::Framebuffer>(device, width, height);
 
     sgl::vk::AttachmentState attachmentState;
@@ -364,31 +381,40 @@ void SSAOPass::recreateSwapchain(uint32_t width, uint32_t height) {
     attachmentState.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     framebuffer->setColorAttachment(aoImage, 0, attachmentState, glm::vec4(0.0f));
 
+    // auto imageSettings = (*sceneData->sceneDepthTexture)->getImage()->getImageSettings();
+    // imageSettings.usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+
+    // depthImage = std::make_shared<sgl::vk::Texture>(std::make_shared<sgl::vk::ImageView>(
+                                                        // std::make_shared<sgl::vk::Image>(
+                                                            // device, imageSettings),
+                                                        // VK_IMAGE_ASPECT_DEPTH_BIT));
+
     framebufferDirty = true;
     dataDirty = true;
 }
 
-void SSAOPass::loadShader() {
+void GTAOPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
     preprocessorDefines.insert(std::make_pair("KERNEL_SIZE", std::to_string(numSamples)));
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
-            { "GenerateSSAOTexture.Vertex", "GenerateSSAOTexture.Fragment" },
+            { "GenerateGTAOTexture.Vertex", "GenerateGTAOTexture.Fragment" },
             preprocessorDefines);
 }
 
-void SSAOPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
+void GTAOPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
     rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
     rasterData->setIndexBuffer(indexBuffer);
     rasterData->setVertexBuffer(vertexBuffer, 0);
-    rasterData->setStaticBuffer(sampleKernelBuffer, "SamplesBuffer");
-    rasterData->setStaticBuffer(settingsDataBuffer, "SettingsBuffer");
+    // rasterData->setStaticBuffer(sampleKernelBuffer, "SamplesBuffer");
+    // rasterData->setStaticBuffer(settingsDataBuffer, "SettingsBuffer");
     rasterData->setStaticTexture(positionTexture, "positionTexture");
-    rasterData->setStaticTexture(normalTexture, "normalTexture");
-    rasterData->setStaticTexture(rotationVectorTexture, "rotationVectorTexture");
+    rasterData->setStaticTexture(*(sceneData->sceneDepthTexture),      "depthTexture");
+    rasterData->setStaticTexture(normalTexture,   "normalTexture");
+    // rasterData->setStaticTexture(rotationVectorTexture, "rotationVectorTexture");
 }
 
-void SSAOPass::_render() {
+void GTAOPass::_render() {
     settingsDataBuffer->updateData(
             sizeof(SettingsData), &settingsData, renderer->getVkCommandBuffer());
     renderer->insertBufferMemoryBarrier(

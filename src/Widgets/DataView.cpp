@@ -115,8 +115,9 @@ void DataView::resize(int newWidth, int newHeight) {
             clearColor.getFloatColorRGBA(), renderer->getVkCommandBuffer());
 
     // Create scene depth texture.
-    imageSettings.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    imageSettings.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     imageSettings.format = sceneDepthTextureVkFormat;
+        
     sceneDepthTextureVk = std::make_shared<sgl::vk::Texture>(
             device, imageSettings, sgl::vk::ImageSamplerSettings(),
             VK_IMAGE_ASPECT_DEPTH_BIT);

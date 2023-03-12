@@ -39,6 +39,7 @@
 #include "Renderers/AmbientOcclusion/VulkanAmbientOcclusionBaker.hpp"
 #include "Renderers/AmbientOcclusion/VulkanRayTracedAmbientOcclusion.hpp"
 #include "Renderers/AmbientOcclusion/SSAO.hpp"
+#include "Renderers/AmbientOcclusion/GTAO.hpp"
 #include "Renderers/RayTracing/VulkanRayTracer.hpp"
 #include "DepthCues.hpp"
 #include "HullRasterPass.hpp"
@@ -335,6 +336,8 @@ void LineRenderer::setAmbientOcclusionBaker() {
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(new VulkanRayTracedAmbientOcclusion(sceneData, renderer));
     } else if (ambientOcclusionBakerType == AmbientOcclusionBakerType::SSAO) {
         ambientOcclusionBaker = AmbientOcclusionBakerPtr(new SSAO(sceneData, renderer));
+    } else if (ambientOcclusionBakerType == AmbientOcclusionBakerType::GTAO) {
+        ambientOcclusionBaker = AmbientOcclusionBakerPtr(new GTAO(sceneData, renderer));
     }
     ambientOcclusionBaker->setFileDialogInstance(fileDialogInstance);
 

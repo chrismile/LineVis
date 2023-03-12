@@ -75,11 +75,23 @@ const char* const BAKING_MODE_NAMES[] = {
         "Immediate", "Iterative", "Multi-Threaded"
 };
 
+#define AMBIENT_OCCLUSION_TYPES                         \
+    AO_TYPE("RTAO (Prebaker)",     RTAO_PREBAKER, 0)    \
+    AO_TYPE("RTAO (Screen Space)", RTAO,          1)    \
+    AO_TYPE("SSAO",                SSAO,          2)    \
+    AO_TYPE("GTAO (reference)",    GTAO,          3)
+
 enum class AmbientOcclusionBakerType {
-    NONE = -1, RTAO_PREBAKER = 0, RTAO = 1, SSAO = 2
+    NONE = -1,
+
+  #define AO_TYPE(_, name, value) name = value,
+    AMBIENT_OCCLUSION_TYPES
+  #undef AO_TYPE
 };
 const char* const AMBIENT_OCCLUSION_BAKER_TYPE_NAMES[] = {
-        "RTAO (Prebaker)", "RTAO (Screen Space)", "SSAO"
+  #define AO_TYPE(str, _1, _2) str,
+    AMBIENT_OCCLUSION_TYPES
+  #undef AO_TYPE
 };
 
 class AmbientOcclusionBaker {
