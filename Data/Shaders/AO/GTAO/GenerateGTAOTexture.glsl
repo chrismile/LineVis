@@ -130,14 +130,16 @@ void main()
     vec3 dir, ws;
 
     // calculation uses left handed system
-    vnorm.z = -vnorm.z;
+    // vnorm.z = -vnorm.z;
     vnorm.y = -vnorm.y;
 
     vec2 offset;
     vec2 horizons = vec2(-1.0, -1.0);
 
     float ss_radius = (radius * clipInfo.z) / vpos.z;
-    ss_radius = max(num_steps, ss_radius);
+    // ss_radius = max(num_steps, ss_radius);
+    float actual_num_steps = min(num_steps, ss_radius);
+
 
     float stepsize  = ss_radius / num_steps;
     float phi       = 0.0;
@@ -153,16 +155,17 @@ void main()
         horizons = vec2(-1.0);
 
         // calculate horizon angles
-        for (int j = 0; j < num_steps; ++j) {
+        for (int j = 0; j < actual_num_steps; ++j) {
             offset = round(dir.xy * currstep);
 
             // h1
             s = GetViewPosition(gl_FragCoord.xy + offset);
             ws = s.xyz - vpos.xyz;
 
-            dist2 = dot(ws, ws);
-            invdist = inversesqrt(dist2);
-            cosh = invdist * dot(ws, vdir);
+            // dist2 = dot(ws, ws);
+            // invdist = inversesqrt(dist2);
+            // cosh = invdist * dot(ws, vdir);
+            cosh = -dot(normalize(ws), vnorm);
 
             horizons.x = max(horizons.x, cosh);
 
@@ -170,9 +173,10 @@ void main()
             s = GetViewPosition(gl_FragCoord.xy - offset);
             ws = s.xyz - vpos.xyz;
 
-            dist2 = dot(ws, ws);
-            invdist = inversesqrt(dist2);
-            cosh = invdist * dot(ws, vdir);
+            // dist2 = dot(ws, ws);
+            // invdist = inversesqrt(dist2);
+            // cosh = invdist * dot(ws, vdir);
+            cosh = -dot(normalize(ws), vnorm);
 
             horizons.y = max(horizons.y, cosh);
 
@@ -191,9 +195,11 @@ void main()
         float invnnx    = 1.0 / (nnx + 1e-6);           // to avoid division with zero
         float cosxi         = dot(nx, tangent) * invnnx;    // xi = gamma + HALF_PI
         float gamma         = acos(cosxi) - HALF_PI;
-        float cosgamma  = dot(nx, vdir) * invnnx;
-        float singamma2     = -2.0 * cosxi;                     // cos(x + HALF_PI) = -sin(x)
-        // float singamma2     = 2.0*sin(gamma);                     // cos(x + HALF_PI) = -sin(x)
+        // float gamma         = acos(dot(vnorm,  vec3(0,0,-1)));
+        // float cosgamma  = dot(nx, vdir) * invnnx;
+        // float singamma2     = -2.0 * cosxi;                     // cos(x + HALF_PI) = -sin(x)
+        float cosgamma      = cos(gamma);                     // cos(x + HALF_PI) = -sin(x)
+        float singamma2     = 2.0*sin(gamma);                     // cos(x + HALF_PI) = -sin(x)
 
         // clamp to normal hemisphere
         horizons.x = gamma + max(-horizons.x - gamma, -HALF_PI);

@@ -172,7 +172,9 @@ bool GTAO::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
 
         if (propertyEditor.addSliderFloat("Radius", &gtao_pc.radius, 0.0f, 0.1f) |
             (propertyEditor.addSliderIntEdit(
-                "Num directions", (int*)&gtao_pc.num_directions, 1, 1024) == ImGui::EditMode::INPUT_FINISHED)
+                "Num directions", (int*)&gtao_pc.num_directions, 1, 100) == ImGui::EditMode::INPUT_FINISHED)
+            | (propertyEditor.addSliderIntEdit(
+                "Num steps", (int*)&gtao_pc.num_steps, 1, 100) == ImGui::EditMode::INPUT_FINISHED)
            )
         {
             optionChanged = true;
