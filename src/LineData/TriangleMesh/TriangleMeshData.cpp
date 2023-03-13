@@ -115,6 +115,11 @@ bool TriangleMeshData::loadFromFile(
         for (size_t varIdx = 0; varIdx < colorLegendWidgets.size(); varIdx++) {
             std::vector<float>& vertexAttributes = vertexAttributesList.at(varIdx);
             auto [minAttr, maxAttr] = sgl::reduceFloatArrayMinMax(vertexAttributes);
+            if (attributeNames.at(varIdx) == "Curvature") {
+                float maxAbs = std::max(std::abs(minAttr), std::abs(maxAttr));
+                minAttr = -maxAbs;
+                maxAttr = maxAbs;
+            }
             minMaxAttributeValues.emplace_back(minAttr, maxAttr);
             colorLegendWidgets[varIdx].setAttributeMinValue(minAttr);
             colorLegendWidgets[varIdx].setAttributeMaxValue(maxAttr);
