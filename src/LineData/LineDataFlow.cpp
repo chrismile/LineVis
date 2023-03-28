@@ -516,20 +516,25 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
     }
 
     minMaxAttributeValues.clear();
-    for (size_t i = 0; i < colorLegendWidgets.size(); i++) {
+    for (size_t varIdx = 0; varIdx < colorLegendWidgets.size(); varIdx++) {
         float minAttr = std::numeric_limits<float>::max();
         float maxAttr = std::numeric_limits<float>::lowest();
         for (const Trajectory& trajectory : this->trajectories) {
-            for (float val : trajectory.attributes.at(i)) {
+            for (float val : trajectory.attributes.at(varIdx)) {
                 minAttr = std::min(minAttr, val);
                 maxAttr = std::max(maxAttr, val);
             }
         }
+        if (attributeNames.at(varIdx) == "Helicity") {
+            float maxAbs = std::max(std::abs(minAttr), std::abs(maxAttr));
+            minAttr = -maxAbs;
+            maxAttr = maxAbs;
+        }
         minMaxAttributeValues.emplace_back(minAttr, maxAttr);
-        colorLegendWidgets[i].setAttributeMinValue(minAttr);
-        colorLegendWidgets[i].setAttributeMaxValue(maxAttr);
-        colorLegendWidgets[i].setAttributeDisplayName(
-                std::string() + attributeNames.at(i));
+        colorLegendWidgets[varIdx].setAttributeMinValue(minAttr);
+        colorLegendWidgets[varIdx].setAttributeMaxValue(maxAttr);
+        colorLegendWidgets[varIdx].setAttributeDisplayName(
+                std::string() + attributeNames.at(varIdx));
     }
     //normalizeTrajectoriesVertexAttributes(this->trajectories);
 
