@@ -741,6 +741,10 @@ bool VulkanRayTracedAmbientOcclusionPass::setNewSettings(const SettingsMap& sett
         }
     }
 
+    if (useDenoiser && denoiser) {
+        optionChanged |= denoiser->getWantsFrameNumberReset();
+    }
+
     return optionChanged;
 }
 
@@ -770,6 +774,7 @@ bool VulkanRayTracedAmbientOcclusionPass::renderGuiPropertyEditorNodes(sgl::Prop
             }
             propertyEditor.endNode();
         }
+        optionChanged |= denoiser->getWantsFrameNumberReset();
     }
 
     return optionChanged;
