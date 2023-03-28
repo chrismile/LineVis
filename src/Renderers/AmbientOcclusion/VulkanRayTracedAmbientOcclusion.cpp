@@ -701,7 +701,6 @@ bool VulkanRayTracedAmbientOcclusionPass::setNewSettings(const SettingsMap& sett
             auto shd = (Spatial_Hashing_Denoiser*)denoiser.get();
             auto eaw_settings = shd->eaw_pass->get_settings();
 
-            eaw_settings.useColorWeights = false;
             eaw_settings.phiPosition     = 0.3f;
             eaw_settings.phiNormal       = 0.1f;
             eaw_settings.maxNumIterations = 3;
@@ -709,7 +708,7 @@ bool VulkanRayTracedAmbientOcclusionPass::setNewSettings(const SettingsMap& sett
             // NOTE(Felix): SH does not make use of color weights since it is
             //   meant to blur the color diff, not respect it
             eaw_settings.useColorWeights = false;
-            eaw_settings.phiPositionScale = 1;
+            eaw_settings.phiPositionScale = 0.000001;
             eaw_settings.phiNormalScale   = 1;
 
             shd->textures.uniform_buffer.s_nd = 3.0f;
@@ -723,6 +722,7 @@ bool VulkanRayTracedAmbientOcclusionPass::setNewSettings(const SettingsMap& sett
 
             reRender = true;
             changedDenoiserSettings = true;
+            shd->setWantsFrameNumberReset();
 
             shd->eaw_pass->set_settings(eaw_settings);
         } else {

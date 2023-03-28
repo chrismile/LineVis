@@ -50,6 +50,11 @@ Spatial_Hashing_Denoiser::Spatial_Hashing_Denoiser(sgl::vk::Renderer* renderer, 
     read_pass  = std::make_shared<Spatial_Hashing_Read_Pass>(renderer, &textures);
     eaw_pass   = std::make_shared<EAWBlitPass>(renderer, 3);
 
+    auto eaw_settings = eaw_pass->get_settings();
+    eaw_settings.useColorWeights = false;
+    eaw_settings.phiPositionScale = 0.000001;
+    eaw_pass->set_settings(eaw_settings);
+
     textures.uniform_buffer.s_nd    = 3.0f;      // NOTE(Felix): same as Christiane's
     textures.uniform_buffer.s_p     = 8;
     textures.uniform_buffer.show_grid = glm::vec4(0);
@@ -150,9 +155,11 @@ bool Spatial_Hashing_Denoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor&
         write_pass->setDataDirty();
         eaw_pass->setDataDirty();
         resetFrameNumber();
-        
+
         textures.uniform_buffer.s_min = powf(10.0f, (float)s_min_exp);
         textures.vk_hash_map_buffer->fill(0, renderer->getVkCommandBuffer());
+
+        setWantsFrameNumberReset();
     }
 
     return redraw;

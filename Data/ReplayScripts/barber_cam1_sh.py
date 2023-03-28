@@ -6,7 +6,6 @@ import time
 
 def test_sh(s_p, s_nd, pos_phi, normal_phi, iters, spp):
     g.set_duration(0)
-    g.set_duration(0)
     g.set_rendering_algorithm_settings({
         'ambient_occlusion_denoiser': 'SH',
         'eaw_pos_phi':    pos_phi,
@@ -16,12 +15,13 @@ def test_sh(s_p, s_nd, pos_phi, normal_phi, iters, spp):
         'sh_s_p':         s_p,
     })
 
-    g.set_duration(1)
+    g.set_duration(5)
     g.set_duration(0)
-    g.save_screenshot("SH-s_p{:0.3f}-snd{:0.3f}-pp{:0.3f}-np{:0.3f}-iters{}-{}spp".format(s_p, s_nd, pos_phi, normal_phi, iters, spp))
+    g.set_duration(1)
+    g.save_screenshot("SH-sp{:0.3f}-snd{:0.3f}-pp{:0.3f}-np{:0.3f}-iters{}-{}spp".format(s_p, s_nd, pos_phi, normal_phi, iters, spp))
 
-def test_svgf(iters):
-    
+# def test_svgf(iters):
+
 
 def replay():
     start_look_at = (0.0, 0.0, 0.0)
@@ -48,13 +48,19 @@ def replay():
         'ambient_occlusion_strength': 1,
         'ambient_occlusion_gamma': 1.5,
         'ambient_occlusion_radius': 0.06,
-        'ambient_occlusion_iterations': 1,
+        'ambient_occlusion_iterations': 4096,
         'ambient_occlusion_samples_per_frame': 10,
     })
     g.set_duration(0)
 
-    # test pp between 0.01 and 0.2
-    # for pp in range(10, 15, 5):
-    # for cp in range(0, 1005, 5):
-    for iter in range(1, 6):
-        test_sh(7, 0.3, 0.16, 0.06, iter, spp)
+    s_nd = 3
+    s_p  = 5
+    norpal_phi  = 0.06
+    # test pp between
+    # 0.0
+    # 3.0
+    # // we have 0.000001 weight
+    for pp in range(0, 1005, 5):
+        pp_s = (pp / 1000)
+        for iter in range(1, 6):
+            test_sh(s_p, s_nd, pp_s, norpal_phi, iter, spp)

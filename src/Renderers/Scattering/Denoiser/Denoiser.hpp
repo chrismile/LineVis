@@ -135,8 +135,8 @@ public:
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
     virtual bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) { return false; }
 
-protected:
     void setWantsFrameNumberReset() { wantsFrameNumberReset = true; }
+protected:
 
 private:
     bool wantsFrameNumberReset = false;
