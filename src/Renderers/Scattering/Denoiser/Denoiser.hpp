@@ -126,12 +126,19 @@ public:
     virtual void setUseFeatureMap(FeatureMapType featureMapType, bool useNormals) = 0;
     virtual void setTemporalDenoisingEnabled(bool enabled) = 0;
     virtual void resetFrameNumber() = 0; // For temporal denoisers to indicate reset of temporal accumulation.
+    bool getWantsFrameNumberReset() { bool tmp = wantsFrameNumberReset; wantsFrameNumberReset = false; return tmp; }
     virtual void denoise() = 0;
     virtual void recreateSwapchain(uint32_t width, uint32_t height) {}
     virtual void setFileDialogInstance(ImGuiFileDialog* _fileDialogInstance) {}
 
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
     virtual bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) { return false; }
+
+protected:
+    void setWantsFrameNumberReset() { wantsFrameNumberReset = true; }
+
+private:
+    bool wantsFrameNumberReset = false;
 };
 
 enum class DenoisingMode {
