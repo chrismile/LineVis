@@ -29,7 +29,7 @@ setlocal
 pushd %~dp0
 
 set VSLANG=1033
-set debug=true
+set debug=false
 set build_dir=".build"
 set destination_dir="Shipping"
 

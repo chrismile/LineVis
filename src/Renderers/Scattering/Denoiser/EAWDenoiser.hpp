@@ -73,17 +73,36 @@ private:
 
 class EAWBlitPass : public sgl::vk::BlitRenderPass {
     friend class EAWDenoiser;
+    struct EAW_Settings {
+        bool useColorWeights = true;
+        bool usePositionWeights = true;
+        bool useNormalWeights = true;
+        float phiColor = 5.0f;
+        float phiPosition = 0.1f;
+        float phiNormal = 0.1f;
+        // Use custom scales for different types of image generation processes.
+        float phiColorScale = 1.0f;
+        float phiPositionScale = 1.0f;
+        float phiNormalScale = 1.0f;
+
+        int maxNumIterations = 0;
+    } settings;
+
 public:
     explicit EAWBlitPass(sgl::vk::Renderer* renderer, int maxNumIterations = 0);
     void recreateSwapchain(uint32_t width, uint32_t height) override;
+
+    EAW_Settings get_settings()          {return settings;};
+    void set_settings(EAW_Settings& set) {settings = set; };
+
 
     // Public interface.
     void setOutputImage(sgl::vk::ImageViewPtr& colorImage) override;
     inline void setColorTexture(const sgl::vk::TexturePtr& texture) { colorTexture = texture; setDataDirty(); }
     inline void setPositionTexture(const sgl::vk::TexturePtr& texture) { positionTexture = texture; setDataDirty(); }
     inline void setNormalTexture(const sgl::vk::TexturePtr& texture) { normalTexture = texture; setDataDirty(); }
-    inline void setMaxNumIterations(int num) { maxNumIterations = num; setDataDirty(); }
-    [[nodiscard]] inline int getMaxNumIterations() const { return maxNumIterations; }
+    inline void setMaxNumIterations(int num) { settings.maxNumIterations = num; setDataDirty(); }
+    [[nodiscard]] inline int getMaxNumIterations() const { return settings.maxNumIterations; }
     [[nodiscard]] inline bool getUseComputeShader() const { return useSharedMemory; }
 
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
@@ -98,22 +117,10 @@ private:
     void _renderRaster();
     void _renderCompute();
 
-    bool useColorWeights = true;
-    bool usePositionWeights = true;
-    bool useNormalWeights = true;
-    float phiColor = 5.0f;
-    float phiPosition = 0.1f;
-    float phiNormal = 0.1f;
-    // Use custom scales for different types of image generation processes.
-    float phiColorScale = 1.0f;
-    float phiPositionScale = 1.0f;
-    float phiNormalScale = 1.0f;
-
     sgl::vk::TexturePtr colorTexture;
     sgl::vk::TexturePtr positionTexture;
     sgl::vk::TexturePtr normalTexture;
 
-    int maxNumIterations = 0;
     sgl::vk::TexturePtr pingPongRenderTextures[2];
     sgl::vk::FramebufferPtr framebuffersPingPong[3];
     sgl::vk::RasterDataPtr rasterDataPingPong[3];

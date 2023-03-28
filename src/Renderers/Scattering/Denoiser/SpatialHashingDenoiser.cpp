@@ -149,7 +149,8 @@ bool Spatial_Hashing_Denoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor&
         read_pass->setDataDirty();
         write_pass->setDataDirty();
         eaw_pass->setDataDirty();
-
+        resetFrameNumber();
+        
         textures.uniform_buffer.s_min = powf(10.0f, (float)s_min_exp);
         textures.vk_hash_map_buffer->fill(0, renderer->getVkCommandBuffer());
     }

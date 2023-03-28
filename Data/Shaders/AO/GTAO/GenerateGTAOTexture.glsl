@@ -53,13 +53,6 @@ layout(binding = 2) uniform sampler2D normalTexture;
 layout(binding = 3) uniform sampler2D depthTexture;
 
 
-/*
-uint num_directions  32
-#define NUM_STEPS       16
-#define RADIUS          0.01         // in world space
-
- */
-
 layout(push_constant) uniform PushConstants  {
     vec4 projInfo;
     /*  projInfo = {
@@ -79,140 +72,58 @@ layout(push_constant) uniform PushConstants  {
     vec3 eyePos;
     float _padding;
 
-    uint  num_directions;
-    uint  num_steps;
-    float radius;
+    uint  sliceCount;
+    uint  directionSampleCount;
+    float scaling;
 };
 
 layout(location = 0) out float output_ao;
 
-vec4 GetViewPosition(vec2 i_pos) {
-    // vec2 basesize = vec2(textureSize(depthTexture, 0));
-    // vec2 coord = (i_pos / basesize);
-
-    // float d = texture(depthTexture, coord).r;
-    // vec4 ret = vec4(0.0, 0.0, 0.0, d);
-
-    // ret.z = clipInfo.x + d * (clipInfo.y - clipInfo.x);
-    // ret.xy = (i_pos * projInfo.xy + projInfo.zw) * ret.z;
-
-    // return ret;
-
-    vec2 basesize = vec2(textureSize(positionTexture, 0));
-    vec2 coord = (i_pos / basesize);
-
-    vec4 pos = texture(positionTexture, coord).xyzw;
-    pos.z = -pos.z;
+vec3 GetViewPosition(vec2 uv) {
+    vec3 pos = texelFetch(positionTexture, ivec2(round(uv * vec2(textureSize(positionTexture, 0)))), 0).xyz;
     if (pos.z == 0)
-        pos.z = clipInfo.y;
-
-
+        pos.z = -1000;
     return pos;
-
-    // vec4 p = vec4(texture(positionTexture, uv).xyz - eyePos, 1);
-    // p.z = -p.z;
-    // return p;
 }
 
 void main()
 {
-    ivec2 loc   = ivec2(gl_FragCoord.xy);
-    vec4  vpos  = GetViewPosition(gl_FragCoord.xy);
-    vec3  vnorm = texelFetch(normalTexture, loc, 0).rgb;
+    vec2  cTexCoord = (vec2(gl_FragCoord.xy)+0.001) / vec2(textureSize(positionTexture, 0));
+    vec3  normalV   = texture(normalTexture, cTexCoord, 0).rgb;
 
-    if (vnorm == vec3(0)) {
-        output_ao = 1;
-        return;
-    }
+    vec3  cPosV     = GetViewPosition(cTexCoord);
+    vec3  viewV     = normalize(-cPosV);
+    float visibility = 0;
 
-    vec4 s;
-    vec3 vdir   = normalize(-vpos.xyz);
-    vec3 dir, ws;
+    for (int slice = 0; slice < sliceCount; ++slice) {
+        float phi = (PI/sliceCount) * slice;
+        vec2 omega = vec2(cos(phi), sin(phi));
 
-    // calculation uses left handed system
-    // vnorm.z = -vnorm.z;
-    vnorm.y = -vnorm.y;
+        vec3 directionV = vec3(omega, 0);
+        vec3 orthoDirectionV = directionV - dot(directionV, viewV) * viewV;
+        vec3 axisV = cross(directionV, viewV);
+        vec3 projNormalV = normalV - axisV * dot(normalV, axisV);
 
-    vec2 offset;
-    vec2 horizons = vec2(-1.0, -1.0);
+        float sgnN = sign(dot(orthoDirectionV, projNormalV));
+        float cosN = clamp(dot(projNormalV, viewV)/length(projNormalV), 0, 1);
+        float n = sgnN * acos(cosN);
 
-    float ss_radius = (radius * clipInfo.z) / vpos.z;
-    // ss_radius = max(num_steps, ss_radius);
-    float actual_num_steps = min(num_steps, ss_radius);
+        for (int side = 0; side <= 1; ++side) {
+            float cHorizonCos = -1;
 
+            for (int smpl = 0; smpl < directionSampleCount; ++smpl) {
+                float s = (1.0f*smpl) / directionSampleCount;
+                vec2 sTexCoord = cTexCoord + (-1+ 2*side) * s * scaling/abs(cPosV.z) *  vec2(omega.x, -omega.y);
+                vec3 sPosV = GetViewPosition(sTexCoord);
+                vec3 sHorizonV = normalize(sPosV - cPosV);
+                cHorizonCos = max(cHorizonCos, dot(sHorizonV, viewV));
+            }
 
-    float stepsize  = ss_radius / num_steps;
-    float phi       = 0.0;
-    float ao        = 0.0;
-    float currstep  = 1.0;
-    float dist2, invdist, falloff, cosh;
+            float h_side = n + clamp((-1 + 2*side)*acos(cHorizonCos) - n, -HALF_PI, HALF_PI);
+            visibility = visibility + length(projNormalV) * (cosN + 2*h_side * sin(n) - cos(2*h_side - n)) / 4;
 
-    for (int k = 0; k < num_directions; ++k) {
-        phi = float(k) * (PI / num_directions);
-        currstep = 1.0;
-
-        dir = vec3(cos(phi), sin(phi), 0.0);
-        horizons = vec2(-1.0);
-
-        // calculate horizon angles
-        for (int j = 0; j < actual_num_steps; ++j) {
-            offset = round(dir.xy * currstep);
-
-            // h1
-            s = GetViewPosition(gl_FragCoord.xy + offset);
-            ws = s.xyz - vpos.xyz;
-
-            // dist2 = dot(ws, ws);
-            // invdist = inversesqrt(dist2);
-            // cosh = invdist * dot(ws, vdir);
-            cosh = -dot(normalize(ws), vnorm);
-
-            horizons.x = max(horizons.x, cosh);
-
-            // h2
-            s = GetViewPosition(gl_FragCoord.xy - offset);
-            ws = s.xyz - vpos.xyz;
-
-            // dist2 = dot(ws, ws);
-            // invdist = inversesqrt(dist2);
-            // cosh = invdist * dot(ws, vdir);
-            cosh = -dot(normalize(ws), vnorm);
-
-            horizons.y = max(horizons.y, cosh);
-
-            // increment
-            currstep += stepsize;
         }
-
-        horizons = acos(horizons);
-
-        // calculate gamma
-        vec3 bitangent  = normalize(cross(dir, vdir));
-        vec3 tangent    = cross(vdir, bitangent);
-        vec3 nx             = vnorm - bitangent * dot(vnorm, bitangent);
-
-        float nnx       = length(nx);
-        float invnnx    = 1.0 / (nnx + 1e-6);           // to avoid division with zero
-        float cosxi         = dot(nx, tangent) * invnnx;    // xi = gamma + HALF_PI
-        float gamma         = acos(cosxi) - HALF_PI;
-        // float gamma         = acos(dot(vnorm,  vec3(0,0,-1)));
-        // float cosgamma  = dot(nx, vdir) * invnnx;
-        // float singamma2     = -2.0 * cosxi;                     // cos(x + HALF_PI) = -sin(x)
-        float cosgamma      = cos(gamma);                     // cos(x + HALF_PI) = -sin(x)
-        float singamma2     = 2.0*sin(gamma);                     // cos(x + HALF_PI) = -sin(x)
-
-        // clamp to normal hemisphere
-        horizons.x = gamma + max(-horizons.x - gamma, -HALF_PI);
-        horizons.y = gamma + min(horizons.y - gamma, HALF_PI);
-
-        // Riemann integral is additive
-        ao += nnx * 0.25 * (
-            (horizons.x * singamma2 + cosgamma - cos(2.0 * horizons.x - gamma)) +
-            (horizons.y * singamma2 + cosgamma - cos(2.0 * horizons.y - gamma)));
     }
 
-    // PDF = 1 / pi and must normalize with pi because of Lambert
-    ao = ao / float(num_directions);
-
-    output_ao = ao;
+    output_ao = visibility / sliceCount;
 }

@@ -35,18 +35,20 @@ class Spatial_Hashing_Write_Pass;
 class Spatial_Hashing_Read_Pass;
 
 class Spatial_Hashing_Denoiser : public Denoiser {
+public:
     Spatial_Hashing_Texture_Pack textures;
     sgl::vk::Renderer* renderer;
     sgl::CameraPtr* camera;
     glm::ivec2      resolution;
 
-    std::shared_ptr<Spatial_Hashing_Write_Pass> write_pass;
-    std::shared_ptr<Spatial_Hashing_Read_Pass>  read_pass;
-    std::shared_ptr<EAWBlitPass>                eaw_pass;
 
     int s_min_exp = -17;
 
 public:
+    std::shared_ptr<Spatial_Hashing_Write_Pass> write_pass;
+    std::shared_ptr<Spatial_Hashing_Read_Pass>  read_pass;
+    std::shared_ptr<EAWBlitPass>                eaw_pass;
+
     explicit Spatial_Hashing_Denoiser(sgl::vk::Renderer* renderer, sgl::CameraPtr* camera);
 
     bool getWantsAccumulatedInput() const override  { return false; }

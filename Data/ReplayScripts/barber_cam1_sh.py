@@ -4,20 +4,24 @@ from modules.campath import camera_path_circle, jitter_camera, camera_pitch_rota
 import g
 import time
 
-def test_eaw(color_phi, pos_phi, normal_phi, iters, spp):
+def test_sh(s_p, s_nd, pos_phi, normal_phi, iters, spp):
     g.set_duration(0)
     g.set_duration(0)
     g.set_rendering_algorithm_settings({
-        'ambient_occlusion_denoiser': 'EAW',
-        'eaw_color_phi':  color_phi,
+        'ambient_occlusion_denoiser': 'SH',
         'eaw_pos_phi':    pos_phi,
         'eaw_normal_phi': normal_phi,
         'eaw_num_iters':  iters,
+        'sh_s_nd':        s_nd,
+        'sh_s_p':         s_p,
     })
 
     g.set_duration(1)
     g.set_duration(0)
-    g.save_screenshot("EAW-pp{:0.3f}-cp{:0.3f}-np{:0.3f}-iters{}-{}spp".format(pos_phi, color_phi, normal_phi, iters, spp))
+    g.save_screenshot("SH-s_p{:0.3f}-snd{:0.3f}-pp{:0.3f}-np{:0.3f}-iters{}-{}spp".format(s_p, s_nd, pos_phi, normal_phi, iters, spp))
+
+def test_svgf(iters):
+    
 
 def replay():
     start_look_at = (0.0, 0.0, 0.0)
@@ -51,14 +55,6 @@ def replay():
 
     # test pp between 0.01 and 0.2
     # for pp in range(10, 15, 5):
-    for pos_phi in [
-            #0.05,
-            #0.10,
-            # 0.16,
-            0.20,
-            0.25,
-            0.30]:
-
-        for cp in range(0, 1005, 5):
-            for iter in range(1, 6):
-                test_eaw(cp/1000, pos_phi, 0.06, iter, spp)
+    # for cp in range(0, 1005, 5):
+    for iter in range(1, 6):
+        test_sh(7, 0.3, 0.16, 0.06, iter, spp)

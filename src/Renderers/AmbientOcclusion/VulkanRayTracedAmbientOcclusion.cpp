@@ -39,6 +39,7 @@
 #include "LineData/LineData.hpp"
 
 #include "Renderers/Scattering/Denoiser/EAWDenoiser.hpp"
+#include "Renderers/Scattering/Denoiser/SpatialHashingDenoiser.hpp"
 #ifdef SUPPORT_OPTIX
 #include "Renderers/Scattering/Denoiser/OptixVptDenoiser.hpp"
 #endif
@@ -694,6 +695,36 @@ bool VulkanRayTracedAmbientOcclusionPass::setNewSettings(const SettingsMap& sett
             eaw->setPhiNormal(phi_normal);
             eaw->setNumIterations(num_iters);
 
+        } if (denoiserName == "SH") {
+            denoiserType = DenoiserType::SPATIAL_HASHING;
+            createDenoiser();
+            auto shd = (Spatial_Hashing_Denoiser*)denoiser.get();
+            auto eaw_settings = shd->eaw_pass->get_settings();
+
+            eaw_settings.useColorWeights = false;
+            eaw_settings.phiPosition     = 0.3f;
+            eaw_settings.phiNormal       = 0.1f;
+            eaw_settings.maxNumIterations = 3;
+
+            // NOTE(Felix): SH does not make use of color weights since it is
+            //   meant to blur the color diff, not respect it
+            eaw_settings.useColorWeights = false;
+            eaw_settings.phiPositionScale = 1;
+            eaw_settings.phiNormalScale   = 1;
+
+            shd->textures.uniform_buffer.s_nd = 3.0f;
+            shd->textures.uniform_buffer.s_p  = 8;
+
+            settings.getValueOpt("eaw_pos_phi",    eaw_settings.phiPosition);
+            settings.getValueOpt("eaw_normal_phi", eaw_settings.phiNormal);
+            settings.getValueOpt("eaw_num_iters",  eaw_settings.maxNumIterations);
+            settings.getValueOpt("sh_s_nd",    shd->textures.uniform_buffer.s_nd);
+            settings.getValueOpt("sh_s_p",     shd->textures.uniform_buffer.s_p);
+
+            reRender = true;
+            changedDenoiserSettings = true;
+
+            shd->eaw_pass->set_settings(eaw_settings);
         } else {
             for (int i = 0; i < numDenoisersSupported; i++) {
                 if (denoiserName == DENOISER_NAMES[i]) {

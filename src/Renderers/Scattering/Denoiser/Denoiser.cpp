@@ -46,15 +46,16 @@ std::shared_ptr<Denoiser> createDenoiserObject(
     if (denoiserType == DenoiserType::NONE) {
         denoiser = {};
     } else if (denoiserType == DenoiserType::EAW) {
-        denoiser = std::shared_ptr<Denoiser>(new EAWDenoiser(renderer));
+        auto eaw = new EAWDenoiser(renderer);
+        denoiser = std::shared_ptr<Denoiser>(eaw);
         if (mode == DenoisingMode::AMBIENT_OCCLUSION) {
-            static_cast<EAWDenoiser*>(denoiser.get())->setNumIterations(3);
-            static_cast<EAWDenoiser*>(denoiser.get())->setPhiColor(0.49f);
-            static_cast<EAWDenoiser*>(denoiser.get())->setPhiPosition(0.3f);
-            static_cast<EAWDenoiser*>(denoiser.get())->setPhiNormal(0.1f);
-            static_cast<EAWDenoiser*>(denoiser.get())->setWeightScaleColor(1.0f);
-            static_cast<EAWDenoiser*>(denoiser.get())->setWeightScalePosition(0.0001f);
-            static_cast<EAWDenoiser*>(denoiser.get())->setWeightScaleNormal(1.0f);
+            eaw->setNumIterations(3);
+            eaw->setPhiColor(0.49f);
+            eaw->setPhiPosition(0.3f);
+            eaw->setPhiNormal(0.1f);
+            eaw->setWeightScaleColor(1.0f);
+            eaw->setWeightScalePosition(0.0001f);
+            eaw->setWeightScaleNormal(1.0f);
         }
     } else if (denoiserType == DenoiserType::SVGF) {
         denoiser = std::shared_ptr<Denoiser>(new SVGFDenoiser(renderer));

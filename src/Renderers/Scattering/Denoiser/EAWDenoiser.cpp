@@ -74,41 +74,41 @@ bool EAWDenoiser::getUseFeatureMap(FeatureMapType featureMapType) const {
 
 void EAWDenoiser::setUseFeatureMap(FeatureMapType featureMapType, bool useFeature) {
     if (featureMapType == FeatureMapType::COLOR) {
-        eawBlitPass->useColorWeights = useFeature;
+        eawBlitPass->settings.useColorWeights = useFeature;
     } else if (featureMapType == FeatureMapType::NORMAL) {
-        eawBlitPass->useNormalWeights = useFeature;
+        eawBlitPass->settings.useNormalWeights = useFeature;
     } else if (featureMapType == FeatureMapType::POSITION) {
-        eawBlitPass->usePositionWeights = useFeature;
+        eawBlitPass->settings.usePositionWeights = useFeature;
     }
 }
 
 void EAWDenoiser::setNumIterations(int its) {
-    eawBlitPass->maxNumIterations = its;
+    eawBlitPass->settings.maxNumIterations = its;
     eawBlitPass->setDataDirty();
 }
 
 void EAWDenoiser::setPhiColor(float phi) {
-    eawBlitPass->phiColor = phi;
+    eawBlitPass->settings.phiColor = phi;
 }
 
 void EAWDenoiser::setPhiPosition(float phi) {
-    eawBlitPass->phiPosition = phi;
+    eawBlitPass->settings.phiPosition = phi;
 }
 
 void EAWDenoiser::setPhiNormal(float phi) {
-    eawBlitPass->phiNormal = phi;
+    eawBlitPass->settings.phiNormal = phi;
 }
 
 void EAWDenoiser::setWeightScaleColor(float scale) {
-    eawBlitPass->phiColorScale = scale;
+    eawBlitPass->settings.phiColorScale = scale;
 }
 
 void EAWDenoiser::setWeightScalePosition(float scale) {
-    eawBlitPass->phiPositionScale = scale;
+    eawBlitPass->settings.phiPositionScale = scale;
 }
 
 void EAWDenoiser::setWeightScaleNormal(float scale) {
-    eawBlitPass->phiNormalScale = scale;
+    eawBlitPass->settings.phiNormalScale = scale;
 }
 
 void EAWDenoiser::denoise() {
@@ -126,7 +126,9 @@ bool EAWDenoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdit
 
 
 EAWBlitPass::EAWBlitPass(sgl::vk::Renderer* renderer, int maxNumIterations)
-        : BlitRenderPass(renderer, {"EAWDenoise.Vertex", "EAWDenoise.Fragment"}), maxNumIterations(maxNumIterations) {
+        : BlitRenderPass(renderer, {"EAWDenoise.Vertex", "EAWDenoise.Fragment"}) {
+    settings.maxNumIterations = maxNumIterations;
+
     uniformBuffer = std::make_shared<sgl::vk::Buffer>(
             device, sizeof(UniformData),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -267,7 +269,7 @@ void EAWBlitPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::Graphic
 }
 
 void EAWBlitPass::_render() {
-    if (maxNumIterations < 1) {
+    if (settings.maxNumIterations < 1) {
         renderer->transitionImageLayout(
                 colorTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         renderer->transitionImageLayout(
@@ -277,21 +279,21 @@ void EAWBlitPass::_render() {
         return;
     }
 
-    uniformData.useColor    = useColorWeights;
-    uniformData.usePosition = usePositionWeights;
-    uniformData.useNormal   = useNormalWeights;
-    uniformData.phiColor    = phiColor    * phiColorScale;
-    uniformData.phiPosition = phiPosition * phiPositionScale;
-    uniformData.phiNormal   = phiNormal   * phiNormalScale;
+    uniformData.useColor    = settings.useColorWeights;
+    uniformData.usePosition = settings.usePositionWeights;
+    uniformData.useNormal   = settings.useNormalWeights;
+    uniformData.phiColor    = settings.phiColor    * settings.phiColorScale;
+    uniformData.phiPosition = settings.phiPosition * settings.phiPositionScale;
+    uniformData.phiNormal   = settings.phiNormal   * settings.phiNormalScale;
     uniformBuffer->updateData(
             sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());
 
     renderer->transitionImageLayout(colorTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    if (usePositionWeights && positionTexture) {
+    if (settings.usePositionWeights && positionTexture) {
         renderer->transitionImageLayout(
                 positionTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
-    if (useNormalWeights && normalTexture) {
+    if (settings.useNormalWeights && normalTexture) {
         renderer->transitionImageLayout(
                 normalTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
@@ -305,7 +307,7 @@ void EAWBlitPass::_render() {
 
 void EAWBlitPass::_renderRaster() {
     int32_t stepWidth = 1;
-    for (int i = 0; i < maxNumIterations; i++) {
+    for (int i = 0; i < settings.maxNumIterations; i++) {
         int rasterDataIdx;
         int framebufferIdx;
         if (i == 0) {
@@ -313,7 +315,7 @@ void EAWBlitPass::_renderRaster() {
         } else {
             rasterDataIdx = 2 - (i % 2);
         }
-        if (i < maxNumIterations - 1) {
+        if (i < settings.maxNumIterations - 1) {
             framebufferIdx = i % 2;
         } else {
             framebufferIdx = 2;
@@ -344,7 +346,7 @@ void EAWBlitPass::_renderCompute() {
     auto height = int(colorTexture->getImage()->getImageSettings().height);
 
     int32_t stepWidth = 1;
-    for (int i = 0; i < maxNumIterations; i++) {
+    for (int i = 0; i < settings.maxNumIterations; i++) {
         int computeDataIdx;
         sgl::vk::ComputeDataPtr computeData;
         if (i == 0) {
@@ -352,7 +354,7 @@ void EAWBlitPass::_renderCompute() {
         } else {
             computeDataIdx = 2 - (i % 2);
         }
-        if (i == maxNumIterations - 1) {
+        if (i == settings.maxNumIterations - 1) {
             computeData = computeDataPingPongFinal[computeDataIdx];
         } else {
             computeData = computeDataPingPong[computeDataIdx];
@@ -390,26 +392,26 @@ void EAWBlitPass::_renderCompute() {
 bool EAWBlitPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool reRender = false;
 
-    if (propertyEditor.addSliderInt("#Iterations", &maxNumIterations, 0, 5)) {
+    if (propertyEditor.addSliderInt("#Iterations", &settings.maxNumIterations, 0, 5)) {
         reRender = true;
         setDataDirty();
     }
-    if (propertyEditor.addCheckbox("Color Weights", &useColorWeights)) {
+    if (propertyEditor.addCheckbox("Color Weights", &settings.useColorWeights)) {
         reRender = true;
     }
-    if (propertyEditor.addCheckbox("Position Weights", &usePositionWeights)) {
+    if (propertyEditor.addCheckbox("Position Weights", &settings.usePositionWeights)) {
         reRender = true;
     }
-    if (propertyEditor.addCheckbox("Normal Weights", &useNormalWeights)) {
+    if (propertyEditor.addCheckbox("Normal Weights", &settings.useNormalWeights)) {
         reRender = true;
     }
-    if (propertyEditor.addSliderFloat("Phi Color", &phiColor, 0.0f, 1.0f)) {
+    if (propertyEditor.addSliderFloat("Phi Color", &settings.phiColor, 0.0f, 1.0f)) {
         reRender = true;
     }
-    if (propertyEditor.addSliderFloat("Phi Position", &phiPosition, 0.0f, 1.0f)) {
+    if (propertyEditor.addSliderFloat("Phi Position", &settings.phiPosition, 0.0f, 1.0f, "%.9f")) {
         reRender = true;
     }
-    if (propertyEditor.addSliderFloat("Phi Normal", &phiNormal, 0.0f, 1.0f)) {
+    if (propertyEditor.addSliderFloat("Phi Normal", &settings.phiNormal, 0.0f, 1.0f)) {
         reRender = true;
     }
     if (propertyEditor.addCheckbox("Use Shared Memory", &useSharedMemory)) {
