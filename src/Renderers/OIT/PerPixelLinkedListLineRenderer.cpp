@@ -48,7 +48,8 @@ PerPixelLinkedListLineRenderer::PerPixelLinkedListLineRenderer(
             device, sizeof(UniformData),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
-    maxStorageBufferSize = std::min(device->getMaxMemoryAllocationSize(), size_t(device->getMaxStorageBufferRange()));
+    maxStorageBufferSize = std::min(
+            size_t(device->getMaxMemoryAllocationSize()), size_t(device->getMaxStorageBufferRange()));
 
 
     resolveRasterPass = std::shared_ptr<ResolvePass>(new ResolvePass(

@@ -74,7 +74,8 @@ void OpacityOptimizationRenderer::initialize() {
     }
 
     sgl::vk::Device* device = (*sceneData->renderer)->getDevice();
-    maxStorageBufferSize = std::min(device->getMaxMemoryAllocationSize(), size_t(device->getMaxStorageBufferRange()));
+    maxStorageBufferSize = std::min(
+            size_t(device->getMaxMemoryAllocationSize()), size_t(device->getMaxStorageBufferRange()));
 
     ppllUniformDataBufferOpacities = std::make_shared<sgl::vk::Buffer>(
             renderer->getDevice(), sizeof(PpllUniformData),

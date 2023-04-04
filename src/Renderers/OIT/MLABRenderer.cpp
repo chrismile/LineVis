@@ -51,7 +51,8 @@ void MLABRenderer::initialize() {
     LineRenderer::initialize();
 
     sgl::vk::Device* device = renderer->getDevice();
-    maxStorageBufferSize = std::min(device->getMaxMemoryAllocationSize(), size_t(device->getMaxStorageBufferRange()));
+    maxStorageBufferSize = std::min(
+            size_t(device->getMaxMemoryAllocationSize()), size_t(device->getMaxStorageBufferRange()));
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
     int paddedWidth = width, paddedHeight = height;
