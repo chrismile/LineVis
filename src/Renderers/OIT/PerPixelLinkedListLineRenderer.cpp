@@ -48,7 +48,8 @@ PerPixelLinkedListLineRenderer::PerPixelLinkedListLineRenderer(
             device, sizeof(UniformData),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
             VMA_MEMORY_USAGE_GPU_ONLY);
-    maxStorageBufferRange = device->getLimits().maxStorageBufferRange;
+    maxStorageBufferSize = std::min(device->getMaxMemoryAllocationSize(), size_t(device->getMaxStorageBufferRange()));
+
 
     resolveRasterPass = std::shared_ptr<ResolvePass>(new ResolvePass(
             this, {"LinkedListResolve.Vertex", "LinkedListResolve.Fragment"}));
@@ -196,12 +197,12 @@ void PerPixelLinkedListLineRenderer::reallocateFragmentBuffer() {
 
     fragmentBufferSize = size_t(expectedAvgDepthComplexity) * size_t(paddedWidth) * size_t(paddedHeight);
     size_t fragmentBufferSizeBytes = 12ull * fragmentBufferSize;
-    if (fragmentBufferSizeBytes > maxStorageBufferRange) {
+    if (fragmentBufferSizeBytes > maxStorageBufferSize) {
         sgl::Logfile::get()->writeError(
-                std::string() + "Fragment buffer size was larger than maxStorageBufferRange ("
-                + std::to_string(maxStorageBufferRange) + "). Clamping to maxStorageBufferRange.",
+                std::string() + "Fragment buffer size was larger than maximum allocation size ("
+                + std::to_string(maxStorageBufferSize) + "). Clamping to maximum allocation size.",
                 false);
-        fragmentBufferSize = maxStorageBufferRange / 12ull;
+        fragmentBufferSize = maxStorageBufferSize / 12ull;
         fragmentBufferSizeBytes = fragmentBufferSize * 12ull;
     } else {
         sgl::Logfile::get()->writeInfo(

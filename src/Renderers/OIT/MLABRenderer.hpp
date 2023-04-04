@@ -121,7 +121,7 @@ protected:
     int windowWidth = 0, windowHeight = 0;
     int paddedWindowWidth = 0, paddedWindowHeight = 0;
     bool clearBitSet = true;
-    uint32_t maxStorageBufferRange = 0;
+    size_t maxStorageBufferSize = 0;
 
     // Data for performance measurements.
     int frameCounter = 0;

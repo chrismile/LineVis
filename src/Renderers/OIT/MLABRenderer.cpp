@@ -51,17 +51,17 @@ void MLABRenderer::initialize() {
     LineRenderer::initialize();
 
     sgl::vk::Device* device = renderer->getDevice();
-    maxStorageBufferRange = device->getLimits().maxStorageBufferRange;
+    maxStorageBufferSize = std::min(device->getMaxMemoryAllocationSize(), size_t(device->getMaxStorageBufferRange()));
     int width = int(*sceneData->viewportWidth);
     int height = int(*sceneData->viewportHeight);
     int paddedWidth = width, paddedHeight = height;
     getScreenSizeWithTiling(paddedWidth, paddedHeight);
     size_t fragmentBufferSizeBytes =
             (sizeof(uint32_t) + sizeof(float)) * size_t(numLayers) * size_t(paddedWidth) * size_t(paddedHeight);
-    if (fragmentBufferSizeBytes > maxStorageBufferRange) {
+    if (fragmentBufferSizeBytes > maxStorageBufferSize) {
         numLayers = std::max(
-                1, int(maxStorageBufferRange /
-                        ((sizeof(uint32_t) + sizeof(float)) * size_t(paddedWidth) * size_t(paddedHeight))));
+                1, int(maxStorageBufferSize /
+                       ((sizeof(uint32_t) + sizeof(float)) * size_t(paddedWidth) * size_t(paddedHeight))));
     }
 
     uniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
@@ -221,12 +221,12 @@ void MLABRenderer::reallocateFragmentBuffer() {
 
     size_t fragmentBufferSizeBytes =
             (sizeof(uint32_t) + sizeof(float)) * size_t(numLayers) * size_t(paddedWidth) * size_t(paddedHeight);
-    if (fragmentBufferSizeBytes > maxStorageBufferRange) {
+    if (fragmentBufferSizeBytes > maxStorageBufferSize) {
         sgl::Logfile::get()->writeError(
-                std::string() + "Fragment buffer size was larger than maxStorageBufferRange ("
-                + std::to_string(maxStorageBufferRange) + "). Clamping to maxStorageBufferRange.",
+                std::string() + "Fragment buffer size was larger than maximum allocation size ("
+                + std::to_string(maxStorageBufferSize) + "). Clamping to maximum allocation size.",
                 false);
-        fragmentBufferSizeBytes = maxStorageBufferRange / 8ull - 8ull;
+        fragmentBufferSizeBytes = maxStorageBufferSize / 8ull - 8ull;
     } else {
         sgl::Logfile::get()->writeInfo(
                 std::string() + "Fragment buffer size GiB: "

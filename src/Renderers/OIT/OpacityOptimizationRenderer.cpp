@@ -73,7 +73,8 @@ void OpacityOptimizationRenderer::initialize() {
         sampleModeNames.push_back(std::to_string(i));
     }
 
-    maxStorageBufferRange = (*sceneData->renderer)->getDevice()->getLimits().maxStorageBufferRange;
+    sgl::vk::Device* device = (*sceneData->renderer)->getDevice();
+    maxStorageBufferSize = std::min(device->getMaxMemoryAllocationSize(), size_t(device->getMaxStorageBufferRange()));
 
     ppllUniformDataBufferOpacities = std::make_shared<sgl::vk::Buffer>(
             renderer->getDevice(), sizeof(PpllUniformData),
@@ -548,12 +549,12 @@ void OpacityOptimizationRenderer::reallocateFragmentBuffer() {
     fragmentBufferSizeOpacity =
             size_t(expectedAvgDepthComplexity) * size_t(viewportWidthOpacity) * size_t(viewportHeightOpacity);
     size_t fragmentBufferSizeOpacityBytes = 12ull * fragmentBufferSizeOpacity;
-    if (fragmentBufferSizeOpacityBytes > maxStorageBufferRange) {
+    if (fragmentBufferSizeOpacityBytes > maxStorageBufferSize) {
         sgl::Logfile::get()->writeError(
-                std::string() + "Fragment buffer size was larger than maxStorageBufferRange ("
-                + std::to_string(maxStorageBufferRange) + "). Clamping to maxStorageBufferRange.",
+                std::string() + "Fragment buffer size was larger than maximum allocation size ("
+                + std::to_string(maxStorageBufferSize) + "). Clamping to maximum allocation size.",
                 false);
-        fragmentBufferSizeOpacity = maxStorageBufferRange / 12ull;
+        fragmentBufferSizeOpacity = maxStorageBufferSize / 12ull;
         fragmentBufferSizeOpacityBytes = fragmentBufferSizeOpacity * 12ull;
     }
 
@@ -566,12 +567,12 @@ void OpacityOptimizationRenderer::reallocateFragmentBuffer() {
     fragmentBufferSizeFinal =
             size_t(expectedAvgDepthComplexity) * size_t(viewportWidthFinal) * size_t(viewportHeightFinal);
     size_t fragmentBufferSizeFinalBytes = 12ull * fragmentBufferSizeFinal;
-    if (fragmentBufferSizeFinalBytes > maxStorageBufferRange) {
+    if (fragmentBufferSizeFinalBytes > maxStorageBufferSize) {
         sgl::Logfile::get()->writeError(
-                std::string() + "Fragment buffer size was larger than maxStorageBufferRange ("
-                + std::to_string(maxStorageBufferRange) + "). Clamping to maxStorageBufferRange.",
+                std::string() + "Fragment buffer size was larger than maximum allocation size ("
+                + std::to_string(maxStorageBufferSize) + "). Clamping to maximum allocation size.",
                 false);
-        fragmentBufferSizeFinal = maxStorageBufferRange / 12ull;
+        fragmentBufferSizeFinal = maxStorageBufferSize / 12ull;
         fragmentBufferSizeFinalBytes = fragmentBufferSizeFinal * 12ull;
     }
 

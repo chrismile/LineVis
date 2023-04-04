@@ -121,7 +121,7 @@ protected:
 
     // Window data.
     int paddedWindowWidth = 0, paddedWindowHeight = 0;
-    uint32_t maxStorageBufferRange = 0;
+    size_t maxStorageBufferSize = 0;
 
     // Data for performance measurements.
     int frameCounter = 0;
