@@ -555,11 +555,53 @@ void OptixVptDenoiser::runOptixDenoiser() {
 #endif
 }
 
+bool OptixVptDenoiser::setNewSettings(const SettingsMap& settings) {
+    bool reRender = false;
+
+    std::string modelTypeName;
+    if (settings.getValueOpt("optix_denoiser_model_type", modelTypeName)) {
+        for (int i = 0; i < numDenoisersSupported; i++) {
+            if (modelTypeName == DENOISER_NAMES[i]) {
+                if (denoiserModelKindIndex == i) {
+                    break;
+                }
+                denoiserModelKindIndex = i;
+                reRender = true;
+                if (denoiserModelKindIndex == 0) {
+                    denoiserModelKind = OPTIX_DENOISER_MODEL_KIND_LDR;
+                } else if (denoiserModelKindIndex == 1) {
+                    denoiserModelKind = OPTIX_DENOISER_MODEL_KIND_HDR;
+                } else if (denoiserModelKindIndex == 2) {
+                    denoiserModelKind = OPTIX_DENOISER_MODEL_KIND_TEMPORAL;
+                }
+                recreateDenoiserNextFrame = true;
+                break;
+            }
+        }
+    }
+
+    if (settings.getValueOpt("optix_denoiser_use_albedo", useAlbedo)) {
+        reRender = true;
+        recreateDenoiserNextFrame = true;
+    }
+
+    if (settings.getValueOpt("optix_denoiser_use_normal_map", useNormalMap)) {
+        reRender = true;
+        recreateDenoiserNextFrame = true;
+    }
+
+    if (reRender) {
+        resetFrameNumber();
+    }
+
+    return reRender;
+}
+
 bool OptixVptDenoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool reRender = false;
 
     if (propertyEditor.addCombo(
-            "Feature Map", (int*)&denoiserModelKindIndex,
+            "Model Type", (int*)&denoiserModelKindIndex,
             OPTIX_DENOISER_MODEL_KIND_NAME, numDenoisersSupported)) {
         reRender = true;
         if (denoiserModelKindIndex == 0) {

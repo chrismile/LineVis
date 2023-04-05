@@ -119,6 +119,10 @@ void EAWDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
     eawBlitPass->recreateSwapchain(width, height);
 }
 
+bool EAWDenoiser::setNewSettings(const SettingsMap& settings) {
+    return eawBlitPass->setNewSettings(settings);
+}
+
 bool EAWDenoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     return eawBlitPass->renderGuiPropertyEditorNodes(propertyEditor);
 }
@@ -385,6 +389,38 @@ void EAWBlitPass::_renderCompute() {
         renderer->dispatch(computeData, numWorkgroupsX, numWorkgroupsY, 1);
         stepWidth *= 2;
     }
+}
+
+bool EAWBlitPass::setNewSettings(const SettingsMap& settings) {
+    bool reRender = false;
+
+    if (settings.getValueOpt("eaw_denoiser_iterations", maxNumIterations)) {
+        reRender = true;
+        setDataDirty();
+    }
+    if (settings.getValueOpt("eaw_denoiser_color_weights", useColorWeights)) {
+        reRender = true;
+    }
+    if (settings.getValueOpt("eaw_denoiser_position_weights", usePositionWeights)) {
+        reRender = true;
+    }
+    if (settings.getValueOpt("eaw_denoiser_normal_weights", useNormalWeights)) {
+        reRender = true;
+    }
+    if (settings.getValueOpt("eaw_denoiser_phi_color", phiColor)) {
+        reRender = true;
+    }
+    if (settings.getValueOpt("eaw_denoiser_phi_position", phiPosition)) {
+        reRender = true;
+    }
+    if (settings.getValueOpt("eaw_denoiser_phi_normal", phiNormal)) {
+        reRender = true;
+    }
+    if (settings.getValueOpt("eaw_denoiser_use_shared_memory", useSharedMemory)) {
+        reRender = true;
+    }
+
+    return reRender;
 }
 
 bool EAWBlitPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {

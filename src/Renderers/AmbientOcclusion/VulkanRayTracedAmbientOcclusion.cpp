@@ -675,6 +675,12 @@ bool VulkanRayTracedAmbientOcclusionPass::setNewSettings(const SettingsMap& sett
     }
 
     if (useDenoiser && denoiser) {
+        bool denoiserReRender = denoiser->setNewSettings(settings);
+        reRender = denoiserReRender || reRender;
+        changedDenoiserSettings = denoiserReRender || changedDenoiserSettings;
+        if (denoiserReRender) {
+            checkRecreateFeatureMaps();
+        }
         optionChanged |= denoiser->getWantsFrameNumberReset();
     }
 

@@ -33,6 +33,8 @@
 
 #include <Graphics/Vulkan/Image/Image.hpp>
 
+#include "Utils/InternalState.hpp"
+
 namespace IGFD {
 class FileDialog;
 }
@@ -130,6 +132,8 @@ public:
     virtual void denoise() = 0;
     virtual void recreateSwapchain(uint32_t width, uint32_t height) {}
     virtual void setFileDialogInstance(ImGuiFileDialog* _fileDialogInstance) {}
+
+    virtual bool setNewSettings(const SettingsMap& settings) { return false; }
 
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
     virtual bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) { return false; }
