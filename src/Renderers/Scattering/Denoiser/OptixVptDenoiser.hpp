@@ -56,6 +56,10 @@ public:
     void setOutputImage(sgl::vk::ImageViewPtr& outputImage) override;
     void setFeatureMap(FeatureMapType featureMapType, const sgl::vk::TexturePtr& featureTexture) override;
     [[nodiscard]] bool getUseFeatureMap(FeatureMapType featureMapType) const override;
+    [[nodiscard]] bool getWantsAccumulatedInput() const override {
+       // return denoiserModelKind != OPTIX_DENOISER_MODEL_KIND_TEMPORAL;
+        return false;
+    };
     void setUseFeatureMap(FeatureMapType featureMapType, bool useFeature) override;
     void setTemporalDenoisingEnabled(bool enabled); //< Call if renderer doesn't support temporal denoising.
     void resetFrameNumber() override;

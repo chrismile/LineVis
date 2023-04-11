@@ -52,7 +52,7 @@ Spatial_Hashing_Denoiser::Spatial_Hashing_Denoiser(sgl::vk::Renderer* renderer, 
 
     auto eaw_settings = eaw_pass->get_settings();
     eaw_settings.useColorWeights = false;
-    eaw_settings.phiPositionScale = 0.000001;
+    eaw_settings.phiPositionScale = 0.000001f;
     eaw_pass->set_settings(eaw_settings);
 
     textures.uniform_buffer.s_nd    = 3.0f;      // NOTE(Felix): same as Christiane's

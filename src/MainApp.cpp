@@ -1272,7 +1272,7 @@ void MainApp::renderGui() {
                             std::string screenshotFilename =
                                     saveDirectoryScreenshots + saveFilenameScreenshots
                                     // NOTE(Felix): I disabled it
-                                    // + "_" + sgl::toString(screenshotNumber)
+                                    + "_" + sgl::toString(screenshotNumber)
                                 ;
                             if (dataViews.size() > 1) {
                                 screenshotFilename += "_view" + sgl::toString(i);

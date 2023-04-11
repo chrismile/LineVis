@@ -39,6 +39,7 @@
 #include "LineData/LineData.hpp"
 
 #include "Renderers/Scattering/Denoiser/EAWDenoiser.hpp"
+#include "Renderers/Scattering/Denoiser/SVGF.hpp"
 #include "Renderers/Scattering/Denoiser/SpatialHashingDenoiser.hpp"
 #ifdef SUPPORT_OPTIX
 #include "Renderers/Scattering/Denoiser/OptixVptDenoiser.hpp"
@@ -153,7 +154,8 @@ bool VulkanRayTracedAmbientOcclusion::renderGuiPropertyEditorNodes(sgl::Property
         if (propertyEditor.addSliderIntEdit(
                 "#Samples/Frame",
                 reinterpret_cast<int*>(&rtaoRenderPass->numAmbientOcclusionSamplesPerFrame),
-                1, 4096) == ImGui::EditMode::INPUT_FINISHED) {
+                1, 30) == ImGui::EditMode::INPUT_FINISHED) {
+                // 1, 4096) == ImGui::EditMode::INPUT_FINISHED) {
             optionChanged = true;
         }
         if (propertyEditor.addSliderFloatEdit(
@@ -695,7 +697,7 @@ bool VulkanRayTracedAmbientOcclusionPass::setNewSettings(const SettingsMap& sett
             eaw->setPhiNormal(phi_normal);
             eaw->setNumIterations(num_iters);
 
-        } if (denoiserName == "SH") {
+        } else if (denoiserName == "SH") {
             denoiserType = DenoiserType::SPATIAL_HASHING;
             createDenoiser();
             auto shd = (Spatial_Hashing_Denoiser*)denoiser.get();
@@ -708,7 +710,7 @@ bool VulkanRayTracedAmbientOcclusionPass::setNewSettings(const SettingsMap& sett
             // NOTE(Felix): SH does not make use of color weights since it is
             //   meant to blur the color diff, not respect it
             eaw_settings.useColorWeights = false;
-            eaw_settings.phiPositionScale = 0.000001;
+            eaw_settings.phiPositionScale = 0.000001f;
             eaw_settings.phiNormalScale   = 1;
 
             shd->textures.uniform_buffer.s_nd = 3.0f;
@@ -725,6 +727,34 @@ bool VulkanRayTracedAmbientOcclusionPass::setNewSettings(const SettingsMap& sett
             shd->setWantsFrameNumberReset();
 
             shd->eaw_pass->set_settings(eaw_settings);
+        } else if (denoiserName == "SVGF") {
+            if  (denoiserType != DenoiserType::SVGF) {
+                denoiserType = DenoiserType::SVGF;
+                createDenoiser();
+            }
+            auto svgf = (SVGFDenoiser*)denoiser.get();
+
+            settings.getValueOpt("svgf_iters", svgf->svgf_atrous_pass->maxNumIterations);
+            device->waitIdle();
+            reRender = true;
+            changedDenoiserSettings = true;
+            svgf->setWantsFrameNumberReset();
+
+        } else if (denoiserName == "OptiX") {
+            if  (denoiserType != DenoiserType::OPTIX) {
+                denoiserType = DenoiserType::OPTIX;
+                createDenoiser();
+            }
+            auto optix = (OptixVptDenoiser*)denoiser.get();
+            // optix->setUseFeatureMap(FeatureMapType::NORMAL, true);
+            // optix->setUseFeatureMap(FeatureMapType::ALBEDO, true);
+            // optix->setUseFeatureMap(FeatureMapType::COLOR, true);
+            // optix->setUseFeatureMap(FeatureMapType::FLOW, false);
+
+            device->waitIdle();
+            reRender = true;
+            changedDenoiserSettings = true;
+            optix->setWantsFrameNumberReset();
         } else {
             for (int i = 0; i < numDenoisersSupported; i++) {
                 if (denoiserName == DENOISER_NAMES[i]) {

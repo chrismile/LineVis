@@ -44,6 +44,9 @@ class EAWBlitPass;
  */
 class EAWDenoiser : public Denoiser {
 public:
+    bool getWantsAccumulatedInput() const override  { return false; }
+    bool getWantsGlobalFrameNumber() const override  { return true; }
+    
     explicit EAWDenoiser(sgl::vk::Renderer* renderer);
     DenoiserType getDenoiserType() const override { return DenoiserType::EAW; }
     [[nodiscard]] bool getIsEnabled() const override;

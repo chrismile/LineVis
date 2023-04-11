@@ -126,7 +126,8 @@ void main() {
         accumW += weight * kernelValue;
     }
 
-    fragColor = sum / accumW;
+    // fragColor = sum / accumW;
+    fragColor = vec4(0);
 }
 
 
@@ -163,13 +164,13 @@ layout(binding = 0) uniform UniformBuffer {
     uint paddingUint;
 };
 
-layout(binding = 1, scalar) uniform KernelBuffer {
-    float kernel[25];
-};
+// layout(binding = 1, scalar) uniform KernelBuffer {
+    // float kernel[25];
+// };
 
-layout(binding = 2, scalar) uniform OffsetBuffer {
-    vec2 offset[25];
-};
+// layout(binding = 2, scalar) uniform OffsetBuffer {
+    // vec2 offset[25];
+// };
 
 layout(binding = 3) uniform sampler2D colorTexture;
 #ifdef USE_POSITION_TEXTURE
@@ -181,9 +182,9 @@ layout(binding = 5) uniform sampler2D normalTexture;
 
 layout(binding = 6, rgba32f) uniform writeonly image2D outputImage;
 
-shared vec4 sharedMemColors[BLOCK_SIZE * BLOCK_SIZE];
-shared vec4 sharedMemPositions[BLOCK_SIZE * BLOCK_SIZE];
-shared vec4 sharedMemNormals[BLOCK_SIZE * BLOCK_SIZE];
+// shared vec4 sharedMemColors[BLOCK_SIZE * BLOCK_SIZE];
+// shared vec4 sharedMemPositions[BLOCK_SIZE * BLOCK_SIZE];
+// shared vec4 sharedMemNormals[BLOCK_SIZE * BLOCK_SIZE];
 
 void main() {
     ivec2 size = textureSize(colorTexture, 0);
@@ -193,17 +194,17 @@ void main() {
     vec2 fragTexCoord = (vec2(gl_GlobalInvocationID.xy) + vec2(0.5, 0.5)) / vec2(size);
 
     vec4 centerColor = texture(colorTexture, fragTexCoord);
-    sharedMemColors[localIdx.x + BLOCK_SIZE * localIdx.y] = centerColor;
+    // sharedMemColors[localIdx.x + BLOCK_SIZE * localIdx.y] = centerColor;
 #ifdef USE_POSITION_TEXTURE
     vec4 centerPosition = texture(positionTexture, fragTexCoord);
-    sharedMemPositions[localIdx.x + BLOCK_SIZE * localIdx.y] = centerPosition;
+    // sharedMemPositions[localIdx.x + BLOCK_SIZE * localIdx.y] = centerPosition;
 #endif
 #ifdef USE_NORMAL_TEXTURE
     vec4 centerNormal = texture(normalTexture, fragTexCoord);
-    sharedMemNormals[localIdx.x + BLOCK_SIZE * localIdx.y] = centerNormal;
+    // sharedMemNormals[localIdx.x + BLOCK_SIZE * localIdx.y] = centerNormal;
 #endif
-    memoryBarrierShared();
-    barrier();
+    // memoryBarrierShared();
+    // barrier();
 
     if (globalIdx.x >= size.x || globalIdx.y >= size.y) {
         return;
@@ -225,17 +226,17 @@ void main() {
         vec2 offset = vec2(x, y);
         vec2 offsetTexCoord = fragTexCoord + offset * step;
         ivec2 localReadIdx = ivec2(localIdx.x + x * stepWidth, localIdx.y + y * stepWidth);
-        int sharedMemIdx = localReadIdx.x + BLOCK_SIZE * localReadIdx.y;
-        bool isInSharedMemory =
-                localReadIdx.x >= 0 && localReadIdx.y >= 0
-                && localReadIdx.x < BLOCK_SIZE && localReadIdx.y < BLOCK_SIZE;
+        // int sharedMemIdx = localReadIdx.x + BLOCK_SIZE * localReadIdx.y;
+        // bool isInSharedMemory =
+                // localReadIdx.x >= 0 && localReadIdx.y >= 0
+                // && localReadIdx.x < BLOCK_SIZE && localReadIdx.y < BLOCK_SIZE;
 
         vec4 offsetColor;
-        if (isInSharedMemory) {
-            offsetColor = sharedMemColors[sharedMemIdx];
-        } else {
+        // if (isInSharedMemory) {
+            // offsetColor = sharedMemColors[sharedMemIdx];
+        // } else {
             offsetColor = texture(colorTexture, offsetTexCoord);
-        }
+        // }
         vec4 diffColor = centerColor - offsetColor;
         float distColor = dot(diffColor, diffColor);
 
@@ -247,11 +248,11 @@ void main() {
 
 #ifdef USE_POSITION_TEXTURE
         vec4 offsetPosition;
-        if (isInSharedMemory) {
-            offsetPosition = sharedMemPositions[sharedMemIdx];
-        } else {
+        // if (isInSharedMemory) {
+            // offsetPosition = sharedMemPositions[sharedMemIdx];
+        // } else {
             offsetPosition = texture(positionTexture, offsetTexCoord);
-        }
+        // }
         vec4 diffPosition = centerPosition - offsetPosition;
         float distPosition = dot(diffPosition, diffPosition);
         float weightPosition = min(exp(-distPosition / phiPosition), 1.0);
@@ -259,11 +260,11 @@ void main() {
 
 #ifdef USE_NORMAL_TEXTURE
         vec4 offsetNormal;
-        if (isInSharedMemory) {
-            offsetNormal = sharedMemNormals[sharedMemIdx];
-        } else {
+        // if (isInSharedMemory) {
+            // offsetNormal = sharedMemNormals[sharedMemIdx];
+        // } else {
             offsetNormal = texture(normalTexture, offsetTexCoord);
-        }
+        // }
         vec4 diffNormal = centerNormal - offsetNormal;
         float distNormal = dot(diffNormal, diffNormal);
         float weightNormal = min(exp(-distNormal / phiNormal), 1.0);
@@ -283,6 +284,7 @@ void main() {
             weight *= weightNormal;
         }
 #endif
+        
         sum += offsetColor * weight * kernelValue;
         accumW += weight * kernelValue;
     }

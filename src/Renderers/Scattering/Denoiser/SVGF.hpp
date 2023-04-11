@@ -72,11 +72,11 @@ class SVGFDenoiser : public Denoiser {
     SVGF_Texture_Pack textures;
     sgl::vk::Renderer* renderer;
 
+public:
     std::shared_ptr<SVGF_Reproj_Pass>         svgf_reproj_pass;
     std::shared_ptr<SVGF_Filter_Moments_Pass> svgf_filter_moments_pass;
     std::shared_ptr<SVGF_ATrous_Pass>         svgf_atrous_pass;
 
-public:
 
     bool getWantsAccumulatedInput() const override  { return false; }
     bool getWantsGlobalFrameNumber() const override  { return true; }
@@ -150,8 +150,9 @@ class SVGF_ATrous_Pass : public sgl::vk::ComputePass {
     friend class SVGFDenoiser;
 
     SVGF_Texture_Pack* textures;
-
+public:
     int maxNumIterations = 5;
+private:
 
     const int computeBlockSize = 16;
     sgl::vk::ComputeDataPtr computeDataPingPong[3];

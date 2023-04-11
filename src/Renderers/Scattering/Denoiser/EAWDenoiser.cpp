@@ -231,12 +231,12 @@ void EAWBlitPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::Graphic
     for (int i = 0; i < 3; i++) {
         computeDataPingPong[i] = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
         computeDataPingPong[i]->setStaticBuffer(uniformBuffer, "UniformBuffer");
-        computeDataPingPong[i]->setStaticBuffer(kernelBuffer, "KernelBuffer");
-        computeDataPingPong[i]->setStaticBuffer(offsetBuffer, "OffsetBuffer");
+        // computeDataPingPong[i]->setStaticBuffer(kernelBuffer, "KernelBuffer");
+        // computeDataPingPong[i]->setStaticBuffer(offsetBuffer, "OffsetBuffer");
         computeDataPingPongFinal[i] = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
         computeDataPingPongFinal[i]->setStaticBuffer(uniformBuffer, "UniformBuffer");
-        computeDataPingPongFinal[i]->setStaticBuffer(kernelBuffer, "KernelBuffer");
-        computeDataPingPongFinal[i]->setStaticBuffer(offsetBuffer, "OffsetBuffer");
+        // computeDataPingPongFinal[i]->setStaticBuffer(kernelBuffer, "KernelBuffer");
+        // computeDataPingPongFinal[i]->setStaticBuffer(offsetBuffer, "OffsetBuffer");
 
         if (i == 0) {
             computeDataPingPong[i]->setStaticTexture(

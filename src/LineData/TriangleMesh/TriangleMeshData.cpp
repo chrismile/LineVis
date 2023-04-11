@@ -56,6 +56,9 @@ bool TriangleMeshData::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
 }
 
 void TriangleMeshData::recomputeHistogram() {
+    if (vertexAttributesList.size() == 0)
+        return;
+
     const std::vector<float>& attributeList = vertexAttributesList.at(selectedAttributeIndex);
     glm::vec2 minMaxAttributes;
     if (selectedAttributeIndex < int(minMaxAttributeValues.size())) {
@@ -219,13 +222,16 @@ TubeTriangleRenderData TriangleMeshData::getLinePassTubeTriangleMeshRenderDataPa
 
     std::vector<uint32_t> triangleIndexData = triangleIndices;
     std::vector<TubeTriangleVertexData> vertexDataList;
-    std::vector<float>& vertexAttributes = vertexAttributesList.at(selectedAttributeIndex);
+    bool has_attr = vertexAttributesList.size() != 0;
+    std::vector<float> vertexAttributes;
+    if (has_attr)
+        vertexAttributes = vertexAttributesList.at(selectedAttributeIndex);
     vertexDataList.resize(vertexNormals.size());
     for (size_t vertexIdx = 0; vertexIdx < vertexPositions.size(); vertexIdx++) {
         TubeTriangleVertexData& vertexData = vertexDataList.at(vertexIdx);
         vertexData.vertexPosition = vertexPositions.at(vertexIdx);
         vertexData.vertexNormal = vertexNormals.at(vertexIdx);
-        vertexData.phi = vertexAttributes.at(vertexIdx);
+        vertexData.phi = has_attr ? vertexAttributes.at(vertexIdx) : 0.5;
         vertexData.vertexLinePointIndex = 0;
     }
 
