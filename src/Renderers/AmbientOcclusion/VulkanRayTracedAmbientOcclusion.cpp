@@ -31,6 +31,12 @@
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <Graphics/Vulkan/Render/CommandBuffer.hpp>
 #include <Graphics/Vulkan/Render/RayTracingPipeline.hpp>
+
+#define TTimer
+#ifdef TTimer
+#include <Graphics/Vulkan/Utils/Timer.hpp>
+#endif
+
 #include <ImGui/Widgets/PropertyEditor.hpp>
 #include <memory>
 #include <utility>
@@ -372,14 +378,6 @@ void VulkanRayTracedAmbientOcclusionPass::recreateFeatureMaps() {
 
     setDenoiserFeatureMaps();
 
-    // NOTE(Felix): initialization code
-    static bool first_iteration = true;
-    defer { first_iteration = false; };
-    if (first_iteration) {
-        denoiserType = DenoiserType::SVGF;
-        changedDenoiserSettings = true;
-        createDenoiser();
-    }
 }
 
 void VulkanRayTracedAmbientOcclusionPass::checkRecreateFeatureMaps() {
@@ -634,8 +632,24 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
     lastFrameViewProjectionMatrix = sceneData->camera->getProjectionMatrix() * sceneData->camera->getViewMatrix();
     changedDenoiserSettings = false;
 
+    #ifdef TTimer
+    std::string eventName;
+    #endif
+
     if (useDenoiser && denoiser && denoiser->getIsEnabled()) {
+        timer = std::make_shared<sgl::vk::Timer>(renderer);
+        eventName = std::string() + "Denoising " + denoiser->getDenoiserName();
+        timer->startGPU(eventName);
+
         denoiser->denoise();
+
+        timer->endGPU(eventName);
+        renderer->syncWithCpu();
+        timer->finishGPU(renderer->getVkCommandBuffer());
+        timer->printTimeMS(eventName);
+
+
+        // denoiser->denoise();
         renderer->transitionImageLayout(
                 denoisedTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         renderer->transitionImageLayout(
@@ -653,6 +667,13 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
          accumulationTexture->getImage()->blit(
                  resultTextureVk->getImage(), renderer->getVkCommandBuffer());*/
     }
+
+    #ifdef TTimer
+    // if (useDenoiser && denoiser && denoiser->getIsEnabled() && int(globalFrameNumber)-start_frame == 63) {
+        // timer->finishGPU();
+        // timer->printTimeMS(eventName);
+    // }
+    #endif
 
     /*renderer->transitionImageLayout(
             resultTextureVk->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);*/
@@ -792,6 +813,8 @@ bool VulkanRayTracedAmbientOcclusionPass::renderGuiPropertyEditorNodes(sgl::Prop
         reRender = true;
         changedDenoiserSettings = true;
         createDenoiser();
+        optionChanged = true;
+
     }
 
     if (useDenoiser && denoiser) {

@@ -28,7 +28,7 @@
 
 #ifndef LINEVIS_VULKANRAYTRACEDAMBIENTOCCLUSION_HPP
 #define LINEVIS_VULKANRAYTRACEDAMBIENTOCCLUSION_HPP
-
+#define TTimer
 #include <Graphics/Scene/Camera.hpp>
 #include <Graphics/Vulkan/Render/Passes/BlitRenderPass.hpp>
 #include "Renderers/SceneData.hpp"
@@ -46,6 +46,8 @@ class Buffer;
 typedef std::shared_ptr<Buffer> BufferPtr;
 class Semaphore;
 typedef std::shared_ptr<Semaphore> SemaphorePtr;
+class Timer;
+typedef std::shared_ptr<Timer> TimerPtr;
 
 }
 
@@ -212,6 +214,9 @@ private:
     };
     UniformData uniformData{};
     sgl::vk::BufferPtr uniformBuffer;
+    #ifdef TTimer
+    sgl::vk::TimerPtr timer;
+    #endif
 };
 
 #endif //LINEVIS_VULKANRAYTRACEDAMBIENTOCCLUSION_HPP

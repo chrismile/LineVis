@@ -204,13 +204,13 @@ void main() {
             vec4  offset_color  = texelFetch(colorTexture,    i_pos_offset, 0);
             vec4  offset_pos    = texelFetch(positionTexture, i_pos_offset, 0);
             vec4  offset_normal = texelFetch(normalTexture,   i_pos_offset, 0);
-            
+
             float kernelValue = kernel_values[abs(x)] * kernel_values[abs(y)];
 
             // color
-            vec4  diffColor        = centerColor - offset_color;
-            float distColor        = dot(diffColor, diffColor);
-            float color_weight_exp = distColor*stepWidth / (phiColor);
+            // vec4  diffColor        = centerColor - offset_color;
+            // float distColor        = dot(diffColor, diffColor);
+            // float color_weight_exp = distColor*stepWidth / (phiColor);
 
             // pos
             vec4  diffPosition   = centerPosition - offset_pos;
@@ -222,7 +222,11 @@ void main() {
             float distNormal        = dot(diffNormal, diffNormal);
             float normal_weight_exp = distNormal / phiNormal;
 
-            float weight = exp(0.0 - color_weight_exp - pos_weight_exp - normal_weight_exp);
+            float weight = exp(0.0
+                               // -color_weight_exp
+                               -pos_weight_exp
+                               -normal_weight_exp
+                              );
 
             sum += offset_color * weight * kernelValue;
             accumW += weight * kernelValue;

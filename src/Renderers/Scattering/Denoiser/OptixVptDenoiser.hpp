@@ -57,8 +57,7 @@ public:
     void setFeatureMap(FeatureMapType featureMapType, const sgl::vk::TexturePtr& featureTexture) override;
     [[nodiscard]] bool getUseFeatureMap(FeatureMapType featureMapType) const override;
     [[nodiscard]] bool getWantsAccumulatedInput() const override {
-       // return denoiserModelKind != OPTIX_DENOISER_MODEL_KIND_TEMPORAL;
-        return false;
+        return true;
     };
     void setUseFeatureMap(FeatureMapType featureMapType, bool useFeature) override;
     void setTemporalDenoisingEnabled(bool enabled); //< Call if renderer doesn't support temporal denoising.
@@ -89,8 +88,9 @@ private:
     const char* const OPTIX_DENOISER_MODEL_KIND_NAME[3] = {
             "LDR", "HDR", "Temporal"
     };
-    OptixDenoiserModelKind denoiserModelKind = OPTIX_DENOISER_MODEL_KIND_HDR;
-    int denoiserModelKindIndex = int(denoiserModelKind) - int(OPTIX_DENOISER_MODEL_KIND_LDR);
+    OptixDenoiserModelKind denoiserModelKind = OPTIX_DENOISER_MODEL_KIND_TEMPORAL;
+    // int denoiserModelKindIndex = int(denoiserModelKind) - int(OPTIX_DENOISER_MODEL_KIND_LDR);
+    int denoiserModelKindIndex = 2;
     int numDenoisersSupported = (int)(sizeof(OPTIX_DENOISER_MODEL_KIND_NAME) / sizeof(*OPTIX_DENOISER_MODEL_KIND_NAME));
     bool useNormalMap = false;
     bool useAlbedo = false;

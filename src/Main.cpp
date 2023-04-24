@@ -91,11 +91,11 @@ int main(int argc, char *argv[]) {
     sgl::AppSettings::get()->loadSettings(settingsFile.c_str());
     sgl::AppSettings::get()->getSettings().addKeyValue("window-multisamples", 0);
     sgl::AppSettings::get()->getSettings().addKeyValue("window-debugContext", true);
-    // if (usePerfMode) {
+    if (usePerfMode) {
         sgl::AppSettings::get()->getSettings().addKeyValue("window-vSync", false);
-    // } else {
-        // sgl::AppSettings::get()->getSettings().addKeyValue("window-vSync", true);
-    // }
+    } else {
+        sgl::AppSettings::get()->getSettings().addKeyValue("window-vSync", true);
+    }
     sgl::AppSettings::get()->getSettings().addKeyValue("window-resizable", true);
     sgl::AppSettings::get()->getSettings().addKeyValue("window-savePosition", true);
     // sgl::AppSettings::get()->setVulkanDebugPrintfEnabled();

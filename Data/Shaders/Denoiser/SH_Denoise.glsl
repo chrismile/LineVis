@@ -1,7 +1,6 @@
 -- header
 
 // NOTE(Felix): These are set in cpp
-// NOTE(Felix): These are set in cpp
 // #define HASH_MAP_SIZE 10'000'000
 #define LINEAR_SEARCH_LENGTH 10
 #define SPACE_STRETCH 1
@@ -11,8 +10,8 @@ struct HM_Cell {
     uint contribution_counter;  // Number of contributions to this cell
     uint checksum;              // Checksum for determining hash-collisions
     uint rc;                    // Replacement counter
-    float s_wd;
-    vec3 padding;
+    // float s_wd;
+    // vec3 padding;
 };
 
 layout(scalar, binding = 0) uniform uniform_data_buffer {
@@ -280,13 +279,13 @@ void main() {
                 atomicExchange(hm_cells[final_index].contribution_counter , 0);
                 atomicExchange(hm_cells[final_index].rc                   , 0);
                 atomicExchange(hm_cells[final_index].checksum             , checksum);
-                atomicExchange(hm_cells[final_index].s_wd                 , s_wd_it);
+                // atomicExchange(hm_cells[final_index].s_wd                 , s_wd_it);
             } else {
                 hm_cells[final_index].ao_value             = 0;
                 hm_cells[final_index].contribution_counter = 0;
                 hm_cells[final_index].rc                   = 0;
                 hm_cells[final_index].checksum             = checksum;
-                hm_cells[final_index].s_wd                 = s_wd_it;
+                // hm_cells[final_index].s_wd                 = s_wd_it;
             }
         }
 

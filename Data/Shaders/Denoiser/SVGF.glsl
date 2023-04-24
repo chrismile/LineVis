@@ -315,6 +315,7 @@ void main() {
     variance *= 4.0 / history_length;
 
     imageStore(temp_accum_texture, i_pos, vec4(sum_color, variance));
+    // imageStore(temp_accum_texture, i_pos, vec4(center_color.xyz, variance));
 }
 
 

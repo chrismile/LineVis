@@ -1270,10 +1270,7 @@ void MainApp::renderGui() {
                         if (!uiOnScreenshot && screenshot) {
                             printNow = true;
                             std::string screenshotFilename =
-                                    saveDirectoryScreenshots + saveFilenameScreenshots
-                                    // NOTE(Felix): I disabled it
-                                    + "_" + sgl::toString(screenshotNumber)
-                                ;
+                                    saveDirectoryScreenshots + saveFilenameScreenshots + "_" + sgl::toString(screenshotNumber);
                             if (dataViews.size() > 1) {
                                 screenshotFilename += "_view" + sgl::toString(i);
                             }
@@ -1624,18 +1621,6 @@ void MainApp::openFileDialog() {
 }
 
 void MainApp::renderGuiMenuBar() {
-    // NOTE(Felix): initialiize with opening the rings dataset
-    static bool first_iteration = true;
-    defer { first_iteration = false; };
-
-    if (first_iteration) {
-        selectedDataSetIndex = 8; // rings
-        selectedDataSetIndex = 12; // test
-        loadLineDataSet(getSelectedLineDataSetFilenames());
-    }
-
-    // end of initialization code here
-
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Open Dataset...", "CTRL+O")) {

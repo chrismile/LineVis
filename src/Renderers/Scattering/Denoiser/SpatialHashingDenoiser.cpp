@@ -28,11 +28,14 @@ Spatial_Hashing_Denoiser::Spatial_Hashing_Denoiser(sgl::vk::Renderer* renderer, 
         int contribution_counter;
         int checksum;
         int rc;
-        float s_wd;
-        glm::vec3 padding;
+        // float s_wd;
+        // glm::vec3 padding;
     };
     const size_t hm_buffer_size = sizeof(HM_Cell) * hm_cells;
 
+    printf("Spatial Hashmap Buffer size: %f MB\n\n", hm_buffer_size/1024.0f/1024.0f);
+    fflush(stdout);
+    
     textures.vk_hash_map_buffer = std::make_shared<sgl::vk::Buffer>(
         device, hm_buffer_size,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
