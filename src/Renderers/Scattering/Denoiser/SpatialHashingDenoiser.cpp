@@ -2,7 +2,7 @@
 
 #include <Utils/Defer.hpp>
 #include <Graphics/Scene/Camera.hpp>
-#include <corecrt_math.h>
+//#include <corecrt_math.h>
 #include <stdio.h>
 #include "Graphics/Vulkan/Utils/Device.hpp"
 #include "Graphics/Vulkan/Render/Renderer.hpp"

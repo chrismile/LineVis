@@ -26,7 +26,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdint.h>
+#include <cstdint>
 #include <unordered_map>
 
 #include <Utils/StringUtils.hpp>
@@ -38,12 +38,12 @@
 #include "Curvature.hpp"
 #include "ObjLoader.hpp"
 
-#define FTB_CORE_IMPL
-#define FTB_MESH_IMPL
-#define FTB_MATH_IMPL
-#define FTB_NO_INIT_PRINTER
-#include "../../../third_party/ftb/core.hpp"
-#include "../../../third_party/ftb/mesh.hpp"
+//#define FTB_CORE_IMPL
+//#define FTB_MESH_IMPL
+//#define FTB_MATH_IMPL
+//#define FTB_NO_INIT_PRINTER
+//#include "../../../third_party/ftb/core.hpp"
+//#include "../../../third_party/ftb/mesh.hpp"
 
 
 /**

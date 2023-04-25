@@ -168,8 +168,6 @@ bool GTAO::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     bool optionChanged = false;
 
     if (propertyEditor.beginNode("GTAO")) {
-        GTAOPass::SettingsData &settingsData = gtaoPass->settingsData;
-
         if (propertyEditor.addSliderFloat("Radius", &gtao_pc.radius, 0.0f, 0.1f) |
             (propertyEditor.addSliderIntEdit(
                 "Num directions", (int*)&gtao_pc.num_directions, 1, 100) == ImGui::EditMode::INPUT_FINISHED)
@@ -274,8 +272,7 @@ void GTAO_GBufferPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::Gr
 
 
 GTAOPass::GTAOPass(SceneData* sceneData, sgl::vk::Renderer* renderer)
-    : sceneData(sceneData),
-      sgl::vk::BlitRenderPass(renderer)
+    : sgl::vk::BlitRenderPass(renderer), sceneData(sceneData)
 {
     this->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_DONT_CARE);
     initialize();
