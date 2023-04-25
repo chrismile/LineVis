@@ -90,11 +90,11 @@ jobs:
           VULKAN_SDK_VERSION=$(echo $vulkansdk_filename | sed -r 's/^.*vulkansdk-macos-(.*)\.dmg.*$/\1/')
           curl -O https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.dmg
           sudo hdiutil attach vulkan-sdk.dmg
-          sudo /Volumes/vulkansdk-macos-$VULKAN_SDK_VERSION/InstallVulkan.app/Contents/MacOS/InstallVulkan \
+          sudo /Volumes/VulkanSDK/InstallVulkan.app/Contents/MacOS/InstallVulkan \
           --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
           cd ~/VulkanSDK/$VULKAN_SDK_VERSION
           sudo ./install_vulkan.py || true
-          sudo hdiutil unmount /Volumes/vulkansdk-macos-$VULKAN_SDK_VERSION
+          sudo hdiutil unmount /Volumes/VulkanSDK
           # Fix pkgconfig file.
           shaderc_pkgconfig_file="$HOME/VulkanSDK/$(ls $HOME/VulkanSDK)/macOS/lib/pkgconfig/shaderc.pc"
           prefix_path="$HOME/VulkanSDK/$(ls $HOME/VulkanSDK)/macOS"

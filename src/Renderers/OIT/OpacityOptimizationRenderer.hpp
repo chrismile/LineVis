@@ -223,7 +223,7 @@ protected:
     int viewportWidthFinal = 0, viewportHeightFinal = 0;
     int paddedViewportWidthFinal = 0, paddedViewportHeightFinal = 0;
     bool isOpacitiesStep = true;
-    uint32_t maxStorageBufferRange = 0;
+    size_t maxStorageBufferSize = 0;
 
     // Data for performance measurements.
     int frameCounter = 0;

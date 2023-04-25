@@ -67,6 +67,8 @@ public:
     void setWeightScalePosition(float scale);
     void setWeightScaleNormal(float scale);
 
+    bool setNewSettings(const SettingsMap& settings) override;
+
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) override;
 
@@ -107,6 +109,8 @@ public:
     inline void setMaxNumIterations(int num) { settings.maxNumIterations = num; setDataDirty(); }
     [[nodiscard]] inline int getMaxNumIterations() const { return settings.maxNumIterations; }
     [[nodiscard]] inline bool getUseComputeShader() const { return useSharedMemory; }
+
+    bool setNewSettings(const SettingsMap& settings);
 
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
     bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor);

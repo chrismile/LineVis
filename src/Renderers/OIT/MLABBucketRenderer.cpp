@@ -105,9 +105,9 @@ void MLABBucketRenderer::reallocateFragmentBuffer() {
     if (fragmentBufferSizeBytes >= (1ull << 32ull)) {
         sgl::Logfile::get()->writeError(
                 std::string() + "Fragment buffer size was larger than maxStorageBufferRange ("
-                + std::to_string(maxStorageBufferRange) + "). Clamping to maxStorageBufferRange.",
+                + std::to_string(maxStorageBufferSize) + "). Clamping to maxStorageBufferRange.",
                 false);
-        fragmentBufferSizeBytes = maxStorageBufferRange / 8ull - 8ull;
+        fragmentBufferSizeBytes = maxStorageBufferSize / 8ull - 8ull;
     } else {
         sgl::Logfile::get()->writeInfo(
                 std::string() + "Fragment buffer size GiB: "
