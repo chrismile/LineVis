@@ -225,7 +225,7 @@ void OptixVptDenoiser::setUseFeatureMap(FeatureMapType featureMapType, bool useF
     } else if (featureMapType == FeatureMapType::NORMAL) {
         useNormalMap = useFeature;
     } else if (featureMapType == FeatureMapType::FLOW) {
-        denoiserModelKind = useFeature ? OPTIX_DENOISER_MODEL_KIND_HDR : OPTIX_DENOISER_MODEL_KIND_TEMPORAL;
+        denoiserModelKind = useFeature ? OPTIX_DENOISER_MODEL_KIND_LDR : OPTIX_DENOISER_MODEL_KIND_TEMPORAL;
         denoiserModelKindIndex = useFeature ? 0 : 2;
     }
 }

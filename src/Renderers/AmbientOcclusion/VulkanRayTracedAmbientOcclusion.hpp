@@ -46,6 +46,8 @@ class Buffer;
 typedef std::shared_ptr<Buffer> BufferPtr;
 class Semaphore;
 typedef std::shared_ptr<Semaphore> SemaphorePtr;
+class Timer;
+typedef std::shared_ptr<Timer> TimerPtr;
 
 }
 

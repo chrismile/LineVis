@@ -59,10 +59,11 @@ typedef std::shared_ptr<Camera> CameraPtr;
     FEATURE_MAP(DEPTH_FWIDTH,   "fwidth(z)",        1, 1)    \
 
 // denoiser type, name
-#define STD_DENOISERS                                           \
-    DENOISER(NONE, "None")                                      \
-    DENOISER(SVGF, "SVGF")                                      \
-    DENOISER(EAW,  "Edge-Avoiding À-Trous Wavelet Transform")   \
+#define STD_DENOISERS                                                   \
+    DENOISER(NONE,            "None")                                   \
+    DENOISER(SPATIAL_HASHING, "Spatial Hashing")                        \
+    DENOISER(SVGF,            "SVGF")                                   \
+    DENOISER(EAW,             "Edge-Avoiding À-Trous Wavelet Transform") \
 
 #ifdef SUPPORT_OPTIX
 #  define OPTIX_DENOISER_OPT \
@@ -117,8 +118,8 @@ const uint32_t FEATURE_MAP_NUM_CHANNELS_PADDED[] = {
 class Denoiser {
 public:
     virtual ~Denoiser() = default;
-    virtual DenoiserType getDenoiserType() = 0;
-    [[nodiscard]] virtual const char* getDenoiserName() const = 0;
+    virtual DenoiserType getDenoiserType() const = 0;
+    [[nodiscard]] const char* getDenoiserName() const { return DENOISER_NAMES[(int)getDenoiserType()]; }
     [[nodiscard]] virtual bool getIsEnabled() const { return true; }
     virtual void setOutputImage(sgl::vk::ImageViewPtr& outputImage) = 0;
     virtual void setFeatureMap(FeatureMapType featureMapType, const sgl::vk::TexturePtr& featureTexture) = 0;
@@ -138,8 +139,8 @@ public:
     /// Renders the GUI. Returns whether re-rendering has become necessary due to the user's actions.
     virtual bool renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) { return false; }
 
-protected:
     void setWantsFrameNumberReset() { wantsFrameNumberReset = true; }
+protected:
 
 private:
     bool wantsFrameNumberReset = false;

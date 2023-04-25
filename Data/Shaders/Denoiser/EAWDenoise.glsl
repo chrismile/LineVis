@@ -182,104 +182,110 @@ layout(binding = 5) uniform sampler2D normalTexture;
 layout(binding = 6, rgba32f) uniform writeonly image2D outputImage;
 
 shared vec4 sharedMemColors[BLOCK_SIZE * BLOCK_SIZE];
+#ifdef USE_POSITION_TEXTURE
 shared vec4 sharedMemPositions[BLOCK_SIZE * BLOCK_SIZE];
+#endif
+#ifdef USE_NORMAL_TEXTURE
 shared vec4 sharedMemNormals[BLOCK_SIZE * BLOCK_SIZE];
+#endif
 
 void main() {
     ivec2 size = textureSize(colorTexture, 0);
-    vec2 step = vec2(float(stepWidth)) / vec2(size);
     ivec2 localIdx = ivec2(gl_LocalInvocationID.xy);
     ivec2 globalIdx = ivec2(gl_GlobalInvocationID.xy);
-    vec2 fragTexCoord = (vec2(gl_GlobalInvocationID.xy) + vec2(0.5, 0.5)) / vec2(size);
 
-    vec4 centerColor = texture(colorTexture, fragTexCoord);
+    if (globalIdx.x >= size.x || globalIdx.y >= size.y) {
+        return;
+    }
+    
+    vec4 centerColor = texelFetch(colorTexture, globalIdx, 0);
     sharedMemColors[localIdx.x + BLOCK_SIZE * localIdx.y] = centerColor;
 #ifdef USE_POSITION_TEXTURE
-    vec4 centerPosition = texture(positionTexture, fragTexCoord);
+    vec4 centerPosition = texelFetch(positionTexture, globalIdx, 0);
     sharedMemPositions[localIdx.x + BLOCK_SIZE * localIdx.y] = centerPosition;
 #endif
 #ifdef USE_NORMAL_TEXTURE
-    vec4 centerNormal = texture(normalTexture, fragTexCoord);
+    vec4 centerNormal = texelFetch(normalTexture, globalIdx, 0);
     sharedMemNormals[localIdx.x + BLOCK_SIZE * localIdx.y] = centerNormal;
 #endif
     memoryBarrierShared();
     barrier();
 
-    if (globalIdx.x >= size.x || globalIdx.y >= size.y) {
-        return;
-    }
+    const float kernel_values[3] = {1.0, 2.0 / 3.0, 1.0 / 6.0};
 
-    vec4 sum = vec4(0.0);
-    float accumW = 0.0;
+    float accumW = kernel_values[0] * kernel_values[0];
+    vec4  sum    = centerColor * accumW;
 
-    for (int i = 0; i < 25; i++) {
-        /*
-         * Computing the offset on-the-fly was faster on NVIDIA hardware due to lower amount of memory accesses and
-         * consequentially a higher throughput due to low computational complexity of the shader code.
-         */
-        //vec2 offsetTexCoord = fragTexCoord + offset[i] * step;
-        //float kernelValue = kernel[i];
-        int x = i % 5 - 2;
-        int y = i / 5 - 2;
-        float kernelValue = exp(-float(x * x + y * y) / 2.0);
-        vec2 offset = vec2(x, y);
-        vec2 offsetTexCoord = fragTexCoord + offset * step;
-        ivec2 localReadIdx = ivec2(localIdx.x + x * stepWidth, localIdx.y + y * stepWidth);
-        int sharedMemIdx = localReadIdx.x + BLOCK_SIZE * localReadIdx.y;
-        bool isInSharedMemory =
-                localReadIdx.x >= 0 && localReadIdx.y >= 0
-                && localReadIdx.x < BLOCK_SIZE && localReadIdx.y < BLOCK_SIZE;
+    for (int y = -2; y <= 2; ++y) {
+        for (int x = -2; x <= 2; ++x) {
+            vec2  offset = vec2(x, y);
+            ivec2 globalIdxOffset = globalIdx + ivec2(x, y) * stepWidth;
+            const bool inside =
+                globalIdxOffset.x >= 0     && globalIdxOffset.y >= 0 &&
+                globalIdxOffset.x < size.x && globalIdxOffset.y < size.y;
 
-        vec4 offsetColor;
-        if (isInSharedMemory) {
-            offsetColor = sharedMemColors[sharedMemIdx];
-        } else {
-            offsetColor = texture(colorTexture, offsetTexCoord);
-        }
-        vec4 diffColor = centerColor - offsetColor;
-        float distColor = dot(diffColor, diffColor);
-        float weightColor = min(exp(-1 / phiColor), 1.0);
+            if (!inside || (x == 0 && y == 0))
+                continue; // center pixel is already accumulated
+
+            ivec2 localReadIdx = ivec2(localIdx.x + x * stepWidth, localIdx.y + y * stepWidth);
+            int sharedMemIdx = localReadIdx.x + BLOCK_SIZE * localReadIdx.y;
+            bool isInSharedMemory =
+                    localReadIdx.x >= 0 && localReadIdx.y >= 0
+                    && localReadIdx.x < BLOCK_SIZE && localReadIdx.y < BLOCK_SIZE;
+            
+            float kernelValue = kernel_values[abs(x)] * kernel_values[abs(y)];
+
+            vec4 offsetColor;
+            if (isInSharedMemory) {
+                offsetColor = sharedMemColors[sharedMemIdx];
+            } else {
+                offsetColor = texelFetch(colorTexture, globalIdxOffset, 0);
+            }
+#ifdef USE_COLOR_TEXTURE
+            vec4  diffColor        = centerColor - offsetColor;
+            float distColor        = dot(diffColor, diffColor);
+            float color_weight_exp = distColor*stepWidth / (phiColor);
+#endif
 
 #ifdef USE_POSITION_TEXTURE
-        vec4 offsetPosition;
-        if (isInSharedMemory) {
-            offsetPosition = sharedMemPositions[sharedMemIdx];
-        } else {
-            offsetPosition = texture(positionTexture, offsetTexCoord);
-        }
-        vec4 diffPosition = centerPosition - offsetPosition;
-        float distPosition = dot(diffPosition, diffPosition);
-        float weightPosition = min(exp(-distPosition / phiPosition), 1.0);
+            vec4 offsetPosition;
+            if (isInSharedMemory) {
+                offsetPosition = sharedMemPositions[sharedMemIdx];
+            } else {
+                offsetPosition = texelFetch(positionTexture, globalIdxOffset, 0);
+            }
+            vec4  diffPosition   = centerPosition - offsetPosition;
+            float distPosition   = dot(diffPosition, diffPosition);
+            float pos_weight_exp = distPosition / phiPosition;
 #endif
 
 #ifdef USE_NORMAL_TEXTURE
-        vec4 offsetNormal;
-        if (isInSharedMemory) {
-            offsetNormal = sharedMemNormals[sharedMemIdx];
-        } else {
-            offsetNormal = texture(normalTexture, offsetTexCoord);
-        }
-        vec4 diffNormal = centerNormal - offsetNormal;
-        float distNormal = dot(diffNormal, diffNormal);
-        float weightNormal = min(exp(-distNormal / phiNormal), 1.0);
+            vec4 offsetNormal;
+            if (isInSharedMemory) {
+                offsetNormal = sharedMemNormals[sharedMemIdx];
+            } else {
+                offsetNormal = texelFetch(normalTexture, globalIdxOffset, 0);
+            }
+            vec4  diffNormal        = centerNormal - offsetNormal;
+            float distNormal        = dot(diffNormal, diffNormal);
+            float normal_weight_exp = distNormal / phiNormal;
 #endif
 
-        float weight = 1.0;
-        if (useColor > 0) {
-            weight *= weightColor;
-        }
+            float weight = exp(0.0
+#ifdef USE_COLOR_TEXTURE
+                               -color_weight_exp
+#endif
 #ifdef USE_POSITION_TEXTURE
-        if (usePosition > 0) {
-            weight *= weightPosition;
-        }
+                               -pos_weight_exp
 #endif
 #ifdef USE_NORMAL_TEXTURE
-        if (useNormal > 0) {
-            weight *= weightNormal;
-        }
+                               -normal_weight_exp
 #endif
-        sum += offsetColor * weight * kernelValue;
-        accumW += weight * kernelValue;
+            );
+
+            sum += offsetColor * weight * kernelValue;
+            accumW += weight * kernelValue;
+        }
     }
 
     imageStore(outputImage, globalIdx, sum / accumW);

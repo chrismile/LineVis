@@ -30,6 +30,8 @@
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <Graphics/Vulkan/Render/CommandBuffer.hpp>
 #include <Graphics/Vulkan/Render/RayTracingPipeline.hpp>
+#include <Graphics/Vulkan/Utils/Timer.hpp>
+
 #include <ImGui/Widgets/PropertyEditor.hpp>
 #include <memory>
 #include <utility>
@@ -38,6 +40,8 @@
 #include "LineData/LineData.hpp"
 
 #include "Renderers/Scattering/Denoiser/EAWDenoiser.hpp"
+#include "Renderers/Scattering/Denoiser/SVGF.hpp"
+#include "Renderers/Scattering/Denoiser/SpatialHashingDenoiser.hpp"
 #ifdef SUPPORT_OPTIX
 #include "Renderers/Scattering/Denoiser/OptixVptDenoiser.hpp"
 #endif
@@ -621,7 +625,17 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
     changedDenoiserSettings = false;
 
     if (useDenoiser && denoiser && denoiser->getIsEnabled()) {
+        //timer = std::make_shared<sgl::vk::Timer>(renderer);
+        //eventName = std::string() + "Denoising " + denoiser->getDenoiserName();
+        //timer->startGPU(eventName);
+
         denoiser->denoise();
+
+        //timer->endGPU(eventName);
+        //renderer->syncWithCpu();
+        //timer->finishGPU(renderer->getVkCommandBuffer());
+        //timer->printTimeMS(eventName);
+
         renderer->transitionImageLayout(
                 denoisedTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         renderer->transitionImageLayout(
@@ -701,6 +715,7 @@ bool VulkanRayTracedAmbientOcclusionPass::renderGuiPropertyEditorNodes(sgl::Prop
         reRender = true;
         changedDenoiserSettings = true;
         createDenoiser();
+        optionChanged = true;
     }
 
     if (useDenoiser && denoiser) {

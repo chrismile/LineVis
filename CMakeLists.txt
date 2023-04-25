@@ -74,6 +74,8 @@ if (USE_GTEST)
             ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Scattering/PathTracer/OpenExrLoader.cpp
             ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Scattering/Denoiser/Denoiser.cpp
             ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Scattering/Denoiser/EAWDenoiser.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Scattering/Denoiser/SVGF.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Scattering/Denoiser/SpatialHashingDenoiser.cpp
     )
 endif()
 

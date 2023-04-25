@@ -29,6 +29,9 @@
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Scene/Camera.hpp>
 #include "EAWDenoiser.hpp"
+#include "SVGF.hpp"
+#include "SpatialHashingDenoiser.hpp"
+
 #ifdef SUPPORT_PYTORCH_DENOISER
 #include "PyTorchDenoiser.hpp"
 #endif
@@ -43,16 +46,21 @@ std::shared_ptr<Denoiser> createDenoiserObject(
     if (denoiserType == DenoiserType::NONE) {
         denoiser = {};
     } else if (denoiserType == DenoiserType::EAW) {
-        denoiser = std::shared_ptr<Denoiser>(new EAWDenoiser(renderer));
+        auto eaw = new EAWDenoiser(renderer);
+        denoiser = std::shared_ptr<Denoiser>(eaw);
         if (mode == DenoisingMode::AMBIENT_OCCLUSION) {
-            static_cast<EAWDenoiser*>(denoiser.get())->setNumIterations(4);
-            static_cast<EAWDenoiser*>(denoiser.get())->setPhiColor(5.0f);
-            static_cast<EAWDenoiser*>(denoiser.get())->setPhiPosition(1.0f);
-            static_cast<EAWDenoiser*>(denoiser.get())->setPhiNormal(1.0f);
-            static_cast<EAWDenoiser*>(denoiser.get())->setWeightScaleColor(1.0f);
-            static_cast<EAWDenoiser*>(denoiser.get())->setWeightScalePosition(0.0001f);
-            static_cast<EAWDenoiser*>(denoiser.get())->setWeightScaleNormal(1.0f);
+            eaw->setNumIterations(3);
+            eaw->setPhiColor(0.49f);
+            eaw->setPhiPosition(0.3f);
+            eaw->setPhiNormal(0.1f);
+            eaw->setWeightScaleColor(1.0f);
+            eaw->setWeightScalePosition(0.0001f);
+            eaw->setWeightScaleNormal(1.0f);
         }
+    } else if (denoiserType == DenoiserType::SVGF) {
+        denoiser = std::shared_ptr<Denoiser>(new SVGFDenoiser(renderer));
+    } else if (denoiserType == DenoiserType::SPATIAL_HASHING) {
+        denoiser = std::shared_ptr<Denoiser>(new Spatial_Hashing_Denoiser(renderer, camera));
     }
 #ifdef SUPPORT_PYTORCH_DENOISER
     else if (denoiserType == DenoiserType::PYTORCH_DENOISER) {
