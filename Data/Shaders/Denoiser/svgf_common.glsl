@@ -1,56 +1,30 @@
-// float weight_z_exp(float center_z, float offset_z, int x, int y, int step_width,
-//                sampler2D depth_texture, vec2 text_coord,
-//                vec2 pixel_step, float fwidth_h, float z_multiplier, float nabla_max)
-// {
-//     float h = fwidth_h;
-//     float offset_z_x =
-//         (texture(depth_texture,   text_coord+vec2(pixel_step.x*h, 0)).x
-//          - texture(depth_texture, text_coord+vec2(0,              0)).x)
-
-//         / (h*pixel_step.x);
-
-//     float offset_z_y =
-//         (texture(depth_texture,   text_coord+vec2(0, pixel_step.y*h)).x
-//          - texture(depth_texture, text_coord+vec2(0,              0)).x)
-
-//         / (h*pixel_step.y);
-
-//     vec2 nabla = vec2(offset_z_x, offset_z_y);
-//     float f_width = abs(offset_z_x) + abs(offset_z_y);
-
-//     // if (length(nabla) > nabla_max) {
-//         // return -abs(offset_z - center_z) * z_multiplier;
-//     // } else {
-//         // NOTE(Felix): paper
-//         return -abs(offset_z - center_z) * z_multiplier /
-//             max(1e-8, abs(dot(nabla, vec2(x, y))) * step_width);
-
-//     // }
-
-//     // NOTE(Felix): falcor
-//     // return
-//     //     -(abs(offset_z - center_z) * z_multiplier)
-//     //     /
-//     //     (max(f_width, 1e-8) * step_width * length(vec2(x,y)));
-
-//     // NOTE(Felix): empirical
-//     // return
-//         // -abs(offset_z - center_z) * z_multiplier
-//         // /
-//         // (5e-3 * step_width * length(vec2(x, y)));
-
-// }
-
-// float weight_l_exp(vec4 center_color, vec4 offset_color, float filtered_variance) {
-//     return -abs(center_color.x - offset_color.x) * 2 /
-//         sqrt(max(0.0, 1e-10 + filtered_variance));
-// }
-
-// float weight_n(vec3 center_normal, vec3 offset_normal) {
-
-//     return ;
-// }
-
+/*
+ * BSD 2-Clause License
+ *
+ * Copyright (c) 2022-2023, Felix Brendel
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *
+ * * Redistributions of source code must retain the above copyright notice, this
+ *   list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright notice,
+ *   this list of conditions and the following disclaimer in the documentation
+ *   and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 float compute_weight(float center_depth, float offset_depth, float phi_depth,
                      vec3  center_normal, vec3 offset_normal,

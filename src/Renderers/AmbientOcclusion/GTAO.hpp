@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2023, Christoph Neuhauser, Felix Brendel
+ * Copyright (c) 2022-2023, Felix Brendel, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
