@@ -161,10 +161,6 @@ private:
 
     struct {
         int i;
-        float z_multiplier = 100.0f;
-        float fwidth_h = 1.0f;
-        float nabla_max = 0.2f;
-        bool only_do_temp_accum = false;
     } pc;
 
 

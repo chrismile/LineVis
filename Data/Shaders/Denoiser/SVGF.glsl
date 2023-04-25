@@ -335,10 +335,6 @@ layout(local_size_x = BLOCK_SIZE, local_size_y = BLOCK_SIZE) in;
 
 layout(push_constant) uniform PushConstants {
     int iteration;
-    float z_multiplier;
-    float fwidth_h;
-    float nabla_max;
-    bool only_do_temp_accum;
 };
 
 // this frame
@@ -346,7 +342,7 @@ layout(binding = 3)  uniform sampler2D color_texture;
 layout(binding = 4)  uniform sampler2D normal_texture;
 layout(binding = 5)  uniform sampler2D depth_texture;
 layout(binding = 12) uniform sampler2D depth_fwidth_texture;
-layout(binding = 13) uniform sampler2D depth_nabla_texture;
+//layout(binding = 13) uniform sampler2D depth_nabla_texture;
 
 // output
 layout(binding = 7, rgba32f) uniform writeonly image2D outputImage;
@@ -382,7 +378,7 @@ void main() {
     float filtered_variance = filter_variance(i_pos);
     vec3  center_normal     = texelFetch(normal_texture, i_pos, 0).rgb;
     float center_z          = texelFetch(depth_texture, i_pos, 0).r;
-    vec2  center_z_nabla    = texelFetch(depth_nabla_texture, i_pos, 0).xy;
+    //vec2  center_z_nabla    = texelFetch(depth_nabla_texture, i_pos, 0).xy;
     vec2  center_z_fwidth   = texelFetch(depth_fwidth_texture, i_pos, 0).xy;
 
     float phi_color = sqrt(max(0.0, 1e-10 + filtered_variance));

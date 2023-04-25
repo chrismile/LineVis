@@ -85,7 +85,7 @@ void SVGFDenoiser::setFeatureMap(FeatureMapType featureMapType, const sgl::vk::T
         case FeatureMapType::NORMAL_WORLD: textures.current_frame.normal_texture = feature_map; return;
         case FeatureMapType::DEPTH:        textures.current_frame.depth_texture  = feature_map; return;
         case FeatureMapType::DEPTH_FWIDTH: textures.current_frame.depth_fwidth_texture = feature_map; return;
-        case FeatureMapType::DEPTH_NABLA:  textures.current_frame.depth_nabla_texture = feature_map; return;
+        //case FeatureMapType::DEPTH_NABLA:  textures.current_frame.depth_nabla_texture = feature_map; return;
         case FeatureMapType::FLOW:         textures.current_frame.motion_texture = feature_map; return;
         default: return;
     }
@@ -97,7 +97,7 @@ bool SVGFDenoiser::getUseFeatureMap(FeatureMapType featureMapType) const {
         featureMapType == FeatureMapType::NORMAL_WORLD ||
         featureMapType == FeatureMapType::FLOW         ||
         featureMapType == FeatureMapType::DEPTH_FWIDTH ||
-        featureMapType == FeatureMapType::DEPTH_NABLA  ||
+        //featureMapType == FeatureMapType::DEPTH_NABLA  ||
         featureMapType == FeatureMapType::DEPTH;
 }
 
@@ -333,8 +333,8 @@ void SVGF_ATrous_Pass::createComputeData(sgl::vk::Renderer* renderer, sgl::vk::C
         computeDataPingPong[i]->setStaticTexture(textures->current_frame.depth_fwidth_texture, "depth_fwidth_texture");
         computeDataPingPongFinal[i]->setStaticTexture(textures->current_frame.depth_fwidth_texture, "depth_fwidth_texture");
 
-        computeDataPingPong[i]->setStaticTexture(textures->current_frame.depth_nabla_texture, "depth_nabla_texture");
-        computeDataPingPongFinal[i]->setStaticTexture(textures->current_frame.depth_nabla_texture, "depth_nabla_texture");
+        //computeDataPingPong[i]->setStaticTexture(textures->current_frame.depth_nabla_texture, "depth_nabla_texture");
+        //computeDataPingPongFinal[i]->setStaticTexture(textures->current_frame.depth_nabla_texture, "depth_nabla_texture");
 
 
         computeDataPingPong[i]->setStaticTexture(textures->current_frame.normal_texture, "normal_texture");
@@ -364,8 +364,8 @@ void SVGF_ATrous_Pass::_render() {
     renderer->transitionImageLayout(textures->current_frame.temp_accum_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     renderer->transitionImageLayout(textures->current_frame.depth_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-    renderer->transitionImageLayout(textures->current_frame.depth_fwidth_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    renderer->transitionImageLayout(textures->current_frame.depth_nabla_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    //renderer->transitionImageLayout(textures->current_frame.depth_fwidth_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    //renderer->transitionImageLayout(textures->current_frame.depth_nabla_texture->getImage(),  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     renderer->transitionImageLayout(textures->current_frame.normal_texture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -403,9 +403,9 @@ void SVGF_ATrous_Pass::_render() {
             renderer->transitionImageLayout(
                 computeData->getImageView("depth_fwidth_texture")->getImage(),
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-            renderer->transitionImageLayout(
-                computeData->getImageView("depth_nabla_texture")->getImage(),
-                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            //renderer->transitionImageLayout(
+            //    computeData->getImageView("depth_nabla_texture")->getImage(),
+            //    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 
             renderer->transitionImageLayout(
@@ -434,12 +434,7 @@ void SVGF_ATrous_Pass::_render() {
 }
 
 bool SVGF_ATrous_Pass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
-    if (propertyEditor.addSliderInt("#Iterations", &maxNumIterations, 0, 5)      |
-        propertyEditor.addCheckbox("only do temp acuum", &pc.only_do_temp_accum) |
-        propertyEditor.addSliderFloat("z multiplier", &pc.z_multiplier, 1, 1000) |
-        propertyEditor.addSliderFloat("fwidth_h", &pc.fwidth_h, 0, 1, "%.5f")    |
-        propertyEditor.addSliderFloat("nabla_max", &pc.nabla_max, 0, 1, "%.5f"))
-    {
+    if (propertyEditor.addSliderInt("#Iterations", &maxNumIterations, 0, 5)) {
         setDataDirty();
         device->waitIdle();
         return true;
@@ -527,15 +522,15 @@ void SVGF_Reproj_Pass::loadShader() {
 
 
 bool SVGF_Reproj_Pass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
-    if (propertyEditor.addSliderFloat("allowed_normal_dist", &pc.allowed_normal_dist, 0, 2) |
-        propertyEditor.addSliderFloat("allowed_z_dist", &pc.allowed_z_dist, 0, 5) |
-        propertyEditor.addSliderFloat2("reproj offset", &pc.reproj_offset.x, -2, 2)
-       )
-    {
-        setDataDirty();
-        device->waitIdle();
-        return true;
-    }
+    //if (propertyEditor.addSliderFloat("allowed_normal_dist", &pc.allowed_normal_dist, 0, 2) |
+    //    propertyEditor.addSliderFloat("allowed_z_dist", &pc.allowed_z_dist, 0, 5) |
+    //    propertyEditor.addSliderFloat2("reproj offset", &pc.reproj_offset.x, -2, 2)
+    //   )
+    //{
+    //    setDataDirty();
+    //    device->waitIdle();
+    //    return true;
+    //}
 
     return false;
 }
