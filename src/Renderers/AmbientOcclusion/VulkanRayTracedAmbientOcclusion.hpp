@@ -28,7 +28,7 @@
 
 #ifndef LINEVIS_VULKANRAYTRACEDAMBIENTOCCLUSION_HPP
 #define LINEVIS_VULKANRAYTRACEDAMBIENTOCCLUSION_HPP
-#define TTimer
+
 #include <Graphics/Scene/Camera.hpp>
 #include <Graphics/Vulkan/Render/Passes/BlitRenderPass.hpp>
 #include "Renderers/SceneData.hpp"
@@ -150,7 +150,7 @@ private:
     uint32_t numAmbientOcclusionSamplesPerFrame = 4;
     float ambientOcclusionRadius = 0.1f;
     bool useDistance = true;
-    bool useJitteredPrimaryRays = false;
+    bool useJitteredPrimaryRays = true;
 
     uint32_t lastViewportWidth = 0, lastViewportHeight = 0;
 
@@ -214,9 +214,6 @@ private:
     };
     UniformData uniformData{};
     sgl::vk::BufferPtr uniformBuffer;
-    #ifdef TTimer
-    sgl::vk::TimerPtr timer;
-    #endif
 };
 
 #endif //LINEVIS_VULKANRAYTRACEDAMBIENTOCCLUSION_HPP

@@ -27,7 +27,6 @@
  */
 
 #include <Utils/Dialog.hpp>
-#include <Utils/Defer.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
@@ -113,7 +112,8 @@ bool LineRenderer::getIsTriangleRepresentationUsedByPrimitiveMode() const {
     return primitiveModeUsesTriMesh;
 }
 
-void LineRenderer::update(float dt) {}
+void LineRenderer::update(float dt) {
+}
 
 void LineRenderer::onResolutionChanged() {
     if (ambientOcclusionBaker) {

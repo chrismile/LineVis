@@ -126,8 +126,7 @@ void main() {
         accumW += weight * kernelValue;
     }
 
-    // fragColor = sum / accumW;
-    fragColor = vec4(0);
+    fragColor = sum / accumW;
 }
 
 

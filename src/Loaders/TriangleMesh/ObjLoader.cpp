@@ -26,7 +26,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <cstdint>
 #include <unordered_map>
 
 #include <Utils/StringUtils.hpp>
@@ -37,14 +36,6 @@
 #include "../TrajectoryFile.hpp"
 #include "Curvature.hpp"
 #include "ObjLoader.hpp"
-
-//#define FTB_CORE_IMPL
-//#define FTB_MESH_IMPL
-//#define FTB_MATH_IMPL
-//#define FTB_NO_INIT_PRINTER
-//#include "../../../third_party/ftb/core.hpp"
-//#include "../../../third_party/ftb/mesh.hpp"
-
 
 /**
  * Triangulates the face indices of the polygon in tempFaceIndices.
@@ -91,25 +82,7 @@ void loadObjTriangleMesh(
         std::vector<std::vector<float>>& vertexAttributesList, std::vector<std::string>& vertexAttributeNames,
         bool shallNormalizeVertexPositions, bool shallNormalizeAttributes,
         sgl::AABB3* oldAABB, const glm::mat4* vertexTransformationMatrixPtr) {
-
-    // Mesh_Data md = load_obj(filename.c_str());
-
-    // vertexPositions.resize(md.vertices.count);
-    // vertexNormals.resize(md.vertices.count);
-    // triangleIndices.resize(md.faces.count*3);
-    // uint32_t v_idx=0;
-    // for (auto& v : md.vertices) {
-    //     glm::vec3 pos = {v.position.x, v.position.y, v.position.z};
-    //     glm::vec3 nor = {v.normal.x, v.normal.y, v.normal.z};
-    //     vertexPositions[v_idx] = pos;
-    //     vertexNormals[v_idx] = nor;
-    //     v_idx++;
-    // }
-
-    // memcpy(triangleIndices.data(), md.faces.data, sizeof(md.faces.data[0])*md.faces.count);
-
-
-        std::vector<glm::vec3> objVertices;
+    std::vector<glm::vec3> objVertices;
     std::vector<glm::vec3> objNormals;
     std::vector<uint32_t> tempFaceIndices;
 

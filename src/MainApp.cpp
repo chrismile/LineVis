@@ -41,7 +41,6 @@
 
 #include <Utils/StringUtils.hpp>
 #include <Utils/Timer.hpp>
-#include <Utils/Defer.hpp>
 #include <Utils/AppSettings.hpp>
 #include <Utils/Dialog.hpp>
 #include <Utils/File/Logfile.hpp>
@@ -1270,7 +1269,8 @@ void MainApp::renderGui() {
                         if (!uiOnScreenshot && screenshot) {
                             printNow = true;
                             std::string screenshotFilename =
-                                    saveDirectoryScreenshots + saveFilenameScreenshots + "_" + sgl::toString(screenshotNumber);
+                                    saveDirectoryScreenshots + saveFilenameScreenshots
+                                    + "_" + sgl::toString(screenshotNumber);
                             if (dataViews.size() > 1) {
                                 screenshotFilename += "_view" + sgl::toString(i);
                             }

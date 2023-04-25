@@ -207,10 +207,6 @@ void GBufferPass::recreateSwapchain(uint32_t width, uint32_t height) {
     framebuffer->setColorAttachment(positionImage, 0, attachmentState, glm::vec4(0.0f));
     framebuffer->setColorAttachment(normalImage, 1, attachmentState, glm::vec4(0.0f));
 
-    // VkImageUsageFlags usage = (*sceneData->sceneDepthTexture)->getImage()->getImageSettings().usage;
-    // usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-
-
     sgl::vk::AttachmentState depthAttachmentState;
     depthAttachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachmentState.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;

@@ -373,7 +373,7 @@ protected:
     std::vector<std::string> supportedRenderingModes;
     bool useCappedTubes = true;
     bool useHalos = true;
-    bool useShading = false;
+    bool useShading = true;
     std::string lineDataWindowName;
 
     // If optional band data is provided.

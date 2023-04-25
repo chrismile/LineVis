@@ -27,15 +27,10 @@
  */
 
 #include <Utils/AppSettings.hpp>
-#include <Utils/Defer.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <Graphics/Vulkan/Render/CommandBuffer.hpp>
 #include <Graphics/Vulkan/Render/RayTracingPipeline.hpp>
-
-#define TTimer
-#ifdef TTimer
 #include <Graphics/Vulkan/Utils/Timer.hpp>
-#endif
 
 #include <ImGui/Widgets/PropertyEditor.hpp>
 #include <memory>
@@ -160,8 +155,7 @@ bool VulkanRayTracedAmbientOcclusion::renderGuiPropertyEditorNodes(sgl::Property
         if (propertyEditor.addSliderIntEdit(
                 "#Samples/Frame",
                 reinterpret_cast<int*>(&rtaoRenderPass->numAmbientOcclusionSamplesPerFrame),
-                1, 30) == ImGui::EditMode::INPUT_FINISHED) {
-                // 1, 4096) == ImGui::EditMode::INPUT_FINISHED) {
+                1, 4096) == ImGui::EditMode::INPUT_FINISHED) {
             optionChanged = true;
         }
         if (propertyEditor.addSliderFloatEdit(
@@ -377,7 +371,6 @@ void VulkanRayTracedAmbientOcclusionPass::recreateFeatureMaps() {
     }
 
     setDenoiserFeatureMaps();
-
 }
 
 void VulkanRayTracedAmbientOcclusionPass::checkRecreateFeatureMaps() {
@@ -516,7 +509,6 @@ void VulkanRayTracedAmbientOcclusionPass::setComputePipelineInfo(sgl::vk::Comput
 
 void VulkanRayTracedAmbientOcclusionPass::createComputeData(
         sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) {
-
     computeData = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
     computeData->setStaticImageView(accumulationTexture->getImageView(), "outputImage");
     if (denoiser && denoiser->getUseFeatureMap(FeatureMapType::NORMAL)) {
@@ -632,10 +624,6 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
     lastFrameViewProjectionMatrix = sceneData->camera->getProjectionMatrix() * sceneData->camera->getViewMatrix();
     changedDenoiserSettings = false;
 
-    #ifdef TTimer
-    std::string eventName;
-    #endif
-
     if (useDenoiser && denoiser && denoiser->getIsEnabled()) {
         //timer = std::make_shared<sgl::vk::Timer>(renderer);
         //eventName = std::string() + "Denoising " + denoiser->getDenoiserName();
@@ -648,8 +636,6 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
         //timer->finishGPU(renderer->getVkCommandBuffer());
         //timer->printTimeMS(eventName);
 
-
-        // denoiser->denoise();
         renderer->transitionImageLayout(
                 denoisedTexture->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         renderer->transitionImageLayout(
@@ -730,7 +716,6 @@ bool VulkanRayTracedAmbientOcclusionPass::renderGuiPropertyEditorNodes(sgl::Prop
         changedDenoiserSettings = true;
         createDenoiser();
         optionChanged = true;
-
     }
 
     if (useDenoiser && denoiser) {

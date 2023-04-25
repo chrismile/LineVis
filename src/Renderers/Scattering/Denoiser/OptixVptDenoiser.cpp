@@ -144,15 +144,7 @@ OptixVptDenoiser::OptixVptDenoiser(sgl::vk::Renderer* renderer) : renderer(rende
 
     normalBlitPass = std::make_shared<VectorBlitPass>(renderer);
 
-
     createDenoiser();
-
-    // useAlbedo = false;
-    // useNormalMap = false;
-    // denoiserModelKind = OPTIX_DENOISER_MODEL_KIND_LDR;
-    // recreateDenoiserNextFrame = true;
-    // resetFrameNumber();
-
 }
 
 void OptixVptDenoiser::createDenoiser() {
@@ -297,7 +289,6 @@ void OptixVptDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
                 VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT
                 | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY,
                 true, true);
-        albedoImageBufferVk->fill(0, renderer->getCommandBuffer()->getVkCommandBuffer());
         albedoImageBufferCu = std::make_shared<sgl::vk::BufferCudaDriverApiExternalMemoryVk>(albedoImageBufferVk);
 
         albedoImageOptix = {};
