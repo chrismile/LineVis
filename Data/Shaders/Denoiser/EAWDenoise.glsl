@@ -197,7 +197,7 @@ void main() {
     if (globalIdx.x >= size.x || globalIdx.y >= size.y) {
         return;
     }
-    
+
     vec4 centerColor = texelFetch(colorTexture, globalIdx, 0);
     sharedMemColors[localIdx.x + BLOCK_SIZE * localIdx.y] = centerColor;
 #ifdef USE_POSITION_TEXTURE
@@ -232,7 +232,7 @@ void main() {
             bool isInSharedMemory =
                     localReadIdx.x >= 0 && localReadIdx.y >= 0
                     && localReadIdx.x < BLOCK_SIZE && localReadIdx.y < BLOCK_SIZE;
-            
+
             float kernelValue = kernel_values[abs(x)] * kernel_values[abs(y)];
 
             vec4 offsetColor;

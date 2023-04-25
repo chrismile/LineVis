@@ -33,6 +33,13 @@
 #include "Denoiser.hpp"
 #include "EAWDenoiser.hpp"
 
+enum class SpatialHashingAtomicsMode {
+    FLOAT_ATOMIC_ADD, UINT_QUANTIZED_ATOMIC_ADD, UINT_SPINNING_ATOMIC_ADD, NO_ATOMICS
+};
+const char* const SPATIAL_HASHING_ATOMICS_MODE_NAMES[] = {
+        "Float Atomic Add", "Uint Quantized Atomic Add", "Uint Spinning Atomic Add", "No Atomics"
+};
+
 struct Spatial_Hashing_Uniform_Buffer {
     glm::vec4  cam_pos;
     float      f;        // camera aperture
@@ -55,33 +62,26 @@ struct Spatial_Hashing_Texture_Pack {
     sgl::vk::ImageViewPtr denoised_image;
 };
 
-static struct {
-    glm::uint use_atomics = 1;
-} sh_denoiser_pc;
-
 class Spatial_Hashing_Write_Pass;
 class Spatial_Hashing_Read_Pass;
 
 class Spatial_Hashing_Denoiser : public Denoiser {
-public:
     Spatial_Hashing_Texture_Pack textures;
     sgl::vk::Renderer* renderer;
     sgl::CameraPtr* camera;
-    glm::ivec2      resolution;
-
-
+    glm::ivec2 resolution;
     int s_min_exp = -17;
+    SpatialHashingAtomicsMode spatialHashingAtomicsMode = SpatialHashingAtomicsMode::FLOAT_ATOMIC_ADD;
 
 public:
     std::shared_ptr<Spatial_Hashing_Write_Pass> write_pass;
-    std::shared_ptr<Spatial_Hashing_Read_Pass>  read_pass;
-    std::shared_ptr<EAWBlitPass>                eaw_pass;
+    std::shared_ptr<Spatial_Hashing_Read_Pass> read_pass;
+    std::shared_ptr<EAWBlitPass> eaw_pass;
 
     explicit Spatial_Hashing_Denoiser(sgl::vk::Renderer* renderer, sgl::CameraPtr* camera);
 
-    bool getWantsAccumulatedInput() const override  { return false; }
-    bool getWantsGlobalFrameNumber() const override  { return true; }
-
+    bool getWantsAccumulatedInput() const override { return false; }
+    bool getWantsGlobalFrameNumber() const override { return true; }
 
     DenoiserType getDenoiserType() const override { return DenoiserType::SPATIAL_HASHING; }
     [[nodiscard]] bool getIsEnabled() const override;
@@ -100,6 +100,7 @@ class Spatial_Hashing_Write_Pass : public sgl::vk::ComputePass {
     friend class SVGFDenoiser;
     Spatial_Hashing_Texture_Pack* textures;
     const int computeBlockSize = 16;
+    SpatialHashingAtomicsMode spatialHashingAtomicsMode = SpatialHashingAtomicsMode::FLOAT_ATOMIC_ADD;
     sgl::vk::ComputeDataPtr compute_data;
 
     void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
@@ -107,6 +108,12 @@ class Spatial_Hashing_Write_Pass : public sgl::vk::ComputePass {
 
 public:
     explicit Spatial_Hashing_Write_Pass(sgl::vk::Renderer* renderer, Spatial_Hashing_Texture_Pack* textures);
+    inline void setAtomicsMode(SpatialHashingAtomicsMode atomicsMode) {
+        if (spatialHashingAtomicsMode != atomicsMode) {
+            spatialHashingAtomicsMode = atomicsMode;
+            setShaderDirty();
+        }
+    }
 
 protected:
     void loadShader() override;
@@ -116,6 +123,7 @@ class Spatial_Hashing_Read_Pass : public sgl::vk::ComputePass {
     friend class SVGFDenoiser;
     Spatial_Hashing_Texture_Pack* textures;
     const int computeBlockSize = 16;
+    SpatialHashingAtomicsMode spatialHashingAtomicsMode = SpatialHashingAtomicsMode::FLOAT_ATOMIC_ADD;
     sgl::vk::ComputeDataPtr compute_data;
 
     void createComputeData(sgl::vk::Renderer* renderer, sgl::vk::ComputePipelinePtr& computePipeline) override;
@@ -123,6 +131,12 @@ class Spatial_Hashing_Read_Pass : public sgl::vk::ComputePass {
 
 public:
     explicit Spatial_Hashing_Read_Pass(sgl::vk::Renderer* renderer, Spatial_Hashing_Texture_Pack* textures);
+    inline void setAtomicsMode(SpatialHashingAtomicsMode atomicsMode) {
+        if (spatialHashingAtomicsMode != atomicsMode) {
+            spatialHashingAtomicsMode = atomicsMode;
+            setShaderDirty();
+        }
+    }
 
 protected:
     void loadShader() override;

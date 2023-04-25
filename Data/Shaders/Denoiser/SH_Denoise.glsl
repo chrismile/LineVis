@@ -34,7 +34,7 @@
 #define SPACE_STRETCH 1
 
 struct HM_Cell {
-#if defined(SUPPORT_BUFFER_FLOAT_ATOMIC_ADD) || defined(FORCE_FLOAT)
+#if defined(SUPPORT_BUFFER_FLOAT_ATOMIC_ADD) || defined(NO_ATOMICS) || (!defined(USE_QUANTIZED_AO_VALUES) && defined(READ_PASS))
     float ao_value;             // Accumulated AO value
 #else
     uint ao_value;             // Accumulated AO value
@@ -138,9 +138,7 @@ uint H7D(vec3 position, vec3 normal, float s_wd, float s_nd){
          + wang_hash(floatBitsToUint(s_nd + normal_d.z)
          + wang_hash(floatBitsToUint(s_nd + normal_d.y)
          + wang_hash(floatBitsToUint(s_nd + normal_d.x)
-         + H4D(position, s_wd)
-                    )))
-                    ;
+         + H4D(position, s_wd))));
 }
 
 //
@@ -230,13 +228,12 @@ layout(binding = 2) uniform sampler2D noisy_texture;
 layout(binding = 3) uniform sampler2D normal_texture;
 layout(binding = 4) uniform sampler2D position_texture;
 
-layout(push_constant) uniform PushConstants {
-    uint use_atomics;
-};
-
+#ifndef NO_ATOMICS
 void atomicAddAoValue(uint final_index, float value) {
 #ifdef SUPPORT_BUFFER_FLOAT_ATOMIC_ADD
     atomicAdd(hm_cells[final_index].ao_value, value);
+#elif defined(USE_QUANTIZED_AO_VALUES)
+    atomicAdd(hm_cells[final_index].ao_value, uint(round(value * 100.0)));
 #else
     uint oldValue = hm_cells[final_index].ao_value;
     uint expectedValue, newValue;
@@ -247,6 +244,7 @@ void atomicAddAoValue(uint final_index, float value) {
     } while (oldValue != expectedValue);
 #endif
 }
+#endif
 
 void main() {
     ivec2 i_pos = ivec2(gl_GlobalInvocationID.xy);
@@ -326,18 +324,13 @@ void main() {
             // hm_cells[final_index].s_wd                 = s_wd_it;
         }
 
-        if (use_atomics != 0) {
-            atomicAddAoValue(final_index, occlusion);
-            //atomicAdd(hm_cells[final_index].ao_value, occlusion);
-            atomicAdd(hm_cells[final_index].contribution_counter, 1);
-        } else {
-#ifdef SUPPORT_BUFFER_FLOAT_ATOMIC_ADD
-            hm_cells[final_index].ao_value += occlusion;
+#ifndef NO_ATOMICS
+        atomicAddAoValue(final_index, occlusion);
+        atomicAdd(hm_cells[final_index].contribution_counter, 1);
 #else
-            hm_cells[final_index].ao_value = floatBitsToUint(uintBitsToFloat(hm_cells[final_index].ao_value) + occlusion);
+        hm_cells[final_index].ao_value += occlusion;
+        hm_cells[final_index].contribution_counter += 1;
 #endif
-            hm_cells[final_index].contribution_counter += 1;
-        }
     }
 }
 
@@ -351,7 +344,7 @@ void main() {
 
 layout(local_size_x = BLOCK_SIZE, local_size_y = BLOCK_SIZE) in;
 
-#define FORCE_FLOAT
+#define READ_PASS
 #import ".header"
 
 layout(scalar, binding = 1) readonly buffer hash_map_buffer {
@@ -411,8 +404,12 @@ void main() {
                 //   read_cell_i.contribution_counter are equal since each
                 //   sample can have a max ao of 1
                 // if (read_cell_i.ao_value - 0.01 <= read_cell_i.contribution_counter) {
-                    current_samples += read_cell_i.contribution_counter;
-                    ao += read_cell_i.ao_value;
+                current_samples += read_cell_i.contribution_counter;
+#if defined(USE_QUANTIZED_AO_VALUES)
+                ao += float(read_cell_i.ao_value) / 100.0;
+#else
+                ao += read_cell_i.ao_value;
+#endif
                 // }
                 break;
             }

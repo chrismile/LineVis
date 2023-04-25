@@ -90,6 +90,14 @@ Spatial_Hashing_Denoiser::Spatial_Hashing_Denoiser(sgl::vk::Renderer* renderer, 
     textures.uniform_buffer.s_p     = 8;
     textures.uniform_buffer.show_grid = glm::vec4(0);
     textures.uniform_buffer.s_min = powf(10.0f, (float)s_min_exp);
+
+    if (renderer->getDevice()->getPhysicalDeviceShaderAtomicFloatFeatures().shaderBufferFloat32AtomicAdd) {
+        spatialHashingAtomicsMode = SpatialHashingAtomicsMode::FLOAT_ATOMIC_ADD;
+    } else {
+        spatialHashingAtomicsMode = SpatialHashingAtomicsMode::UINT_QUANTIZED_ATOMIC_ADD;
+    }
+    read_pass->setAtomicsMode(spatialHashingAtomicsMode);
+    write_pass->setAtomicsMode(spatialHashingAtomicsMode);
 }
 
 
@@ -171,12 +179,22 @@ void Spatial_Hashing_Denoiser::recreateSwapchain(uint32_t width, uint32_t height
 }
 
 bool Spatial_Hashing_Denoiser::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
-    bool redraw =  eaw_pass->renderGuiPropertyEditorNodes(propertyEditor) |
-        propertyEditor.addCheckbox("use atomics", (bool*)&sh_denoiser_pc.use_atomics) |
-        propertyEditor.addSliderFloat("textures.uniform_buffer.s_p", &textures.uniform_buffer.s_p, 0.1f, 20.0f, "%.10f") |
-        propertyEditor.addSliderInt("s_min_exp", &s_min_exp, -20, -1) |
-        propertyEditor.addSliderFloat("s_nd", &textures.uniform_buffer.s_nd, 1, 10) |
-        propertyEditor.addSliderFloat("show grid", &textures.uniform_buffer.show_grid.x, 0, 1) ;
+    bool redraw = false;
+    redraw |= eaw_pass->renderGuiPropertyEditorNodes(propertyEditor);
+    redraw |= propertyEditor.addSliderFloat("textures.uniform_buffer.s_p", &textures.uniform_buffer.s_p, 0.1f, 20.0f, "%.10f");
+    redraw |= propertyEditor.addSliderInt("s_min_exp", &s_min_exp, -20, -1);
+    redraw |=propertyEditor.addSliderFloat("s_nd", &textures.uniform_buffer.s_nd, 1, 10);
+    redraw |= propertyEditor.addSliderFloat("Show Grid", &textures.uniform_buffer.show_grid.x, 0, 1);
+
+    int offset =
+            renderer->getDevice()->getPhysicalDeviceShaderAtomicFloatFeatures().shaderBufferFloat32AtomicAdd ? 0 : 1;
+    if (propertyEditor.addCombo(
+            "Atomics Mode", (int*)&spatialHashingAtomicsMode,
+            SPATIAL_HASHING_ATOMICS_MODE_NAMES + offset, IM_ARRAYSIZE(SPATIAL_HASHING_ATOMICS_MODE_NAMES) - offset)) {
+        redraw = true;
+        read_pass->setAtomicsMode(spatialHashingAtomicsMode);
+        write_pass->setAtomicsMode(spatialHashingAtomicsMode);
+    }
 
     if (redraw) {
         // auto device = renderer->getDevice();
@@ -224,11 +242,6 @@ void Spatial_Hashing_Write_Pass::_render() {
         renderer->transitionImageLayout(tex->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
-    renderer->pushConstants(
-        std::static_pointer_cast<sgl::vk::Pipeline>(compute_data->getComputePipeline()),
-        VK_SHADER_STAGE_COMPUTE_BIT, 0, sh_denoiser_pc);
-
-
     auto width = int(textures->noisy_texture->getImage()->getImageSettings().width);
     auto height = int(textures->noisy_texture->getImage()->getImageSettings().height);
     int numWorkgroupsX = sgl::iceil(width, computeBlockSize);
@@ -240,14 +253,17 @@ void Spatial_Hashing_Write_Pass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
 
-    preprocessorDefines.insert(
-        std::make_pair("BLOCK_SIZE", std::to_string(computeBlockSize)));
-    preprocessorDefines.insert(
-        std::make_pair("HASH_MAP_SIZE", std::to_string(hm_cells)));
-    //if (renderer->getDevice()->getAtomic)
+    preprocessorDefines.insert(std::make_pair("BLOCK_SIZE", std::to_string(computeBlockSize)));
+    preprocessorDefines.insert(std::make_pair("HASH_MAP_SIZE", std::to_string(hm_cells)));
+    if (spatialHashingAtomicsMode == SpatialHashingAtomicsMode::FLOAT_ATOMIC_ADD) {
+        preprocessorDefines.insert(std::make_pair("SUPPORT_BUFFER_FLOAT_ATOMIC_ADD", ""));
+    } else if (spatialHashingAtomicsMode == SpatialHashingAtomicsMode::UINT_QUANTIZED_ATOMIC_ADD) {
+        preprocessorDefines.insert(std::make_pair("USE_QUANTIZED_AO_VALUES", ""));
+    } else if (spatialHashingAtomicsMode == SpatialHashingAtomicsMode::NO_ATOMICS) {
+        preprocessorDefines.insert(std::make_pair("NO_ATOMICS", ""));
+    }
 
-    shaderStages = sgl::vk::ShaderManager->getShaderStages(
-        { "SH_Denoise.Compute-Write" }, preprocessorDefines);
+    shaderStages = sgl::vk::ShaderManager->getShaderStages({ "SH_Denoise.Compute-Write" }, preprocessorDefines);
 }
 
 // -------------------------------
@@ -297,6 +313,13 @@ void Spatial_Hashing_Read_Pass::loadShader() {
         std::make_pair("BLOCK_SIZE", std::to_string(computeBlockSize)));
     preprocessorDefines.insert(
         std::make_pair("HASH_MAP_SIZE", std::to_string(hm_cells)));
+    if (spatialHashingAtomicsMode == SpatialHashingAtomicsMode::FLOAT_ATOMIC_ADD) {
+        preprocessorDefines.insert(std::make_pair("SUPPORT_BUFFER_FLOAT_ATOMIC_ADD", ""));
+    } else if (spatialHashingAtomicsMode == SpatialHashingAtomicsMode::UINT_QUANTIZED_ATOMIC_ADD) {
+        preprocessorDefines.insert(std::make_pair("USE_QUANTIZED_AO_VALUES", ""));
+    } else if (spatialHashingAtomicsMode == SpatialHashingAtomicsMode::NO_ATOMICS) {
+        preprocessorDefines.insert(std::make_pair("NO_ATOMICS", ""));
+    }
 
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
         { "SH_Denoise.Compute-Read" }, preprocessorDefines);
