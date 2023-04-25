@@ -164,28 +164,59 @@ layout(binding = 0) uniform UniformBuffer {
     uint paddingUint;
 };
 
+layout(binding = 1, scalar) uniform KernelBuffer {
+    float kernel[25];
+};
+
+layout(binding = 2, scalar) uniform OffsetBuffer {
+    vec2 offset[25];
+};
 
 layout(binding = 3) uniform sampler2D colorTexture;
+#ifdef USE_POSITION_TEXTURE
 layout(binding = 4) uniform sampler2D positionTexture;
+#endif
+#ifdef USE_NORMAL_TEXTURE
 layout(binding = 5) uniform sampler2D normalTexture;
+#endif
 
 layout(binding = 6, rgba32f) uniform writeonly image2D outputImage;
 
+#ifdef USE_COLOR_TEXTURE
+shared vec4 sharedMemColors[BLOCK_SIZE * BLOCK_SIZE];
+#endif
+#ifdef USE_POSITION_TEXTURE
+shared vec4 sharedMemPositions[BLOCK_SIZE * BLOCK_SIZE];
+#endif
+#ifdef USE_NORMAL_TEXTURE
+shared vec4 sharedMemNormals[BLOCK_SIZE * BLOCK_SIZE];
+#endif
+
 void main() {
-
     ivec2 size = textureSize(colorTexture, 0);
-    ivec2 i_pos = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 localIdx = ivec2(gl_LocalInvocationID.xy);
+    ivec2 globalIdx = ivec2(gl_GlobalInvocationID.xy);
 
-
-    if (i_pos.x >= size.x || i_pos.y >= size.y) {
+    if (globalIdx.x >= size.x || globalIdx.y >= size.y) {
         return;
     }
+    
+    vec4 centerColor = texelFetch(colorTexture, globalIdx, 0);
+#ifdef USE_COLOR_TEXTURE
+    sharedMemColors[localIdx.x + BLOCK_SIZE * localIdx.y] = centerColor;
+#endif
+#ifdef USE_POSITION_TEXTURE
+    vec4 centerPosition = texelFetch(positionTexture, globalIdx, 0);
+    sharedMemPositions[localIdx.x + BLOCK_SIZE * localIdx.y] = centerPosition;
+#endif
+#ifdef USE_NORMAL_TEXTURE
+    vec4 centerNormal = texelFetch(normalTexture, globalIdx, 0);
+    sharedMemNormals[localIdx.x + BLOCK_SIZE * localIdx.y] = centerNormal;
+#endif
+    memoryBarrierShared();
+    barrier();
 
-    vec4 centerColor    = texelFetch(colorTexture, i_pos, 0);
-    vec4 centerPosition = texelFetch(positionTexture, i_pos, 0);
-    vec4 centerNormal   = texelFetch(normalTexture, i_pos, 0);
-
-    float kernel_values[3] = {1.0, 2.0 / 3.0, 1.0 / 6.0};
+    const float kernel_values[3] = {1.0, 2.0 / 3.0, 1.0 / 6.0};
 
     float accumW = kernel_values[0] * kernel_values[0];
     vec4  sum    = centerColor * accumW;
@@ -193,45 +224,74 @@ void main() {
     for (int y = -2; y <= 2; ++y) {
         for (int x = -2; x <= 2; ++x) {
             vec2  offset = vec2(x, y);
-            ivec2 i_pos_offset = i_pos + ivec2(x, y) * stepWidth;
+            ivec2 globalIdxOffset = globalIdx + ivec2(x, y) * stepWidth;
             const bool inside =
-                i_pos_offset.x >= 0     && i_pos_offset.y >= 0 &&
-                i_pos_offset.x < size.x && i_pos_offset.y < size.y;
+                globalIdxOffset.x >= 0     && globalIdxOffset.y >= 0 &&
+                globalIdxOffset.x < size.x && globalIdxOffset.y < size.y;
 
             if (!inside || (x == 0 && y == 0))
                 continue; // center pixel is already accumulated
 
-            vec4  offset_color  = texelFetch(colorTexture,    i_pos_offset, 0);
-            vec4  offset_pos    = texelFetch(positionTexture, i_pos_offset, 0);
-            vec4  offset_normal = texelFetch(normalTexture,   i_pos_offset, 0);
-
+            ivec2 localReadIdx = ivec2(localIdx.x + x * stepWidth, localIdx.y + y * stepWidth);
+            int sharedMemIdx = localReadIdx.x + BLOCK_SIZE * localReadIdx.y;
+            bool isInSharedMemory =
+                    localReadIdx.x >= 0 && localReadIdx.y >= 0
+                    && localReadIdx.x < BLOCK_SIZE && localReadIdx.y < BLOCK_SIZE;
+            
             float kernelValue = kernel_values[abs(x)] * kernel_values[abs(y)];
 
-            // color
-            // vec4  diffColor        = centerColor - offset_color;
-            // float distColor        = dot(diffColor, diffColor);
-            // float color_weight_exp = distColor*stepWidth / (phiColor);
+#ifdef USE_COLOR_TEXTURE
+            vec4 offsetColor;
+            if (isInSharedMemory) {
+                offsetColor = sharedMemColors[sharedMemIdx];
+            } else {
+                offsetColor = texelFetch(colorTexture, globalIdxOffset, 0);
+            }
+            vec4  diffColor        = centerColor - offsetColor;
+            float distColor        = dot(diffColor, diffColor);
+            float color_weight_exp = distColor*stepWidth / (phiColor);
+#endif
 
-            // pos
-            vec4  diffPosition   = centerPosition - offset_pos;
+#ifdef USE_POSITION_TEXTURE
+            vec4 offsetPosition;
+            if (isInSharedMemory) {
+                offsetPosition = sharedMemPositions[sharedMemIdx];
+            } else {
+                offsetPosition = texelFetch(positionTexture, globalIdxOffset, 0);
+            }
+            vec4  diffPosition   = centerPosition - offsetPosition;
             float distPosition   = dot(diffPosition, diffPosition);
             float pos_weight_exp = distPosition / phiPosition;
+#endif
 
-            // normal
-            vec4  diffNormal        = centerNormal - offset_normal;
+#ifdef USE_NORMAL_TEXTURE
+            vec4 offsetNormal;
+            if (isInSharedMemory) {
+                offsetNormal = sharedMemNormals[sharedMemIdx];
+            } else {
+                offsetNormal = texelFetch(normalTexture, globalIdxOffset, 0);
+            }
+            vec4  diffNormal        = centerNormal - offsetNormal;
             float distNormal        = dot(diffNormal, diffNormal);
             float normal_weight_exp = distNormal / phiNormal;
+#endif
 
             float weight = exp(0.0
-                               // -color_weight_exp
+#ifdef USE_COLOR_TEXTURE
+                               -color_weight_exp
+#endif
+#ifdef USE_NORMAL_TEXTURE
                                -pos_weight_exp
+#endif
+#ifdef USE_NORMAL_TEXTURE
                                -normal_weight_exp
-                              );
+#endif
+            );
 
-            sum += offset_color * weight * kernelValue;
+            sum += offsetColor * weight * kernelValue;
             accumW += weight * kernelValue;
         }
     }
 
-    imageStore(outputImage, i_pos, sum / accumW);
+    imageStore(outputImage, globalIdx, sum / accumW);
 }

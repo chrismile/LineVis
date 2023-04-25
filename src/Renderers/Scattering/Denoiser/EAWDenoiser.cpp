@@ -196,10 +196,13 @@ void EAWBlitPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
 
     std::map<std::string, std::string> preprocessorDefines;
-    if (positionTexture) {
+    if (colorTexture && settings.useColorWeights) {
+        preprocessorDefines.insert(std::make_pair("USE_COLOR_TEXTURE", ""));
+    }
+    if (positionTexture && settings.usePositionWeights) {
         preprocessorDefines.insert(std::make_pair("USE_POSITION_TEXTURE", ""));
     }
-    if (normalTexture) {
+    if (normalTexture && settings.useNormalWeights) {
         preprocessorDefines.insert(std::make_pair("USE_NORMAL_TEXTURE", ""));
     }
     shaderStages = sgl::vk::ShaderManager->getShaderStages(shaderIds, preprocessorDefines);
@@ -215,8 +218,8 @@ void EAWBlitPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::Graphic
         rasterDataPingPong[i]->setIndexBuffer(indexBuffer);
         rasterDataPingPong[i]->setVertexBuffer(vertexBuffer, 0);
         rasterDataPingPong[i]->setStaticBuffer(uniformBuffer, "UniformBuffer");
-        rasterDataPingPong[i]->setStaticBuffer(kernelBuffer, "KernelBuffer");
-        rasterDataPingPong[i]->setStaticBuffer(offsetBuffer, "OffsetBuffer");
+        rasterDataPingPong[i]->setStaticBufferOptional(kernelBuffer, "KernelBuffer");
+        rasterDataPingPong[i]->setStaticBufferOptional(offsetBuffer, "OffsetBuffer");
         if (i == 0) {
             rasterDataPingPong[i]->setStaticTexture(colorTexture, "colorTexture");
         } else if (i == 1 || i == 2) {
@@ -235,12 +238,12 @@ void EAWBlitPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::Graphic
     for (int i = 0; i < 3; i++) {
         computeDataPingPong[i] = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
         computeDataPingPong[i]->setStaticBuffer(uniformBuffer, "UniformBuffer");
-        // computeDataPingPong[i]->setStaticBuffer(kernelBuffer, "KernelBuffer");
-        // computeDataPingPong[i]->setStaticBuffer(offsetBuffer, "OffsetBuffer");
+        computeDataPingPong[i]->setStaticBufferOptional(kernelBuffer, "KernelBuffer");
+        computeDataPingPong[i]->setStaticBufferOptional(offsetBuffer, "OffsetBuffer");
         computeDataPingPongFinal[i] = std::make_shared<sgl::vk::ComputeData>(renderer, computePipeline);
         computeDataPingPongFinal[i]->setStaticBuffer(uniformBuffer, "UniformBuffer");
-        // computeDataPingPongFinal[i]->setStaticBuffer(kernelBuffer, "KernelBuffer");
-        // computeDataPingPongFinal[i]->setStaticBuffer(offsetBuffer, "OffsetBuffer");
+        computeDataPingPongFinal[i]->setStaticBufferOptional(kernelBuffer, "KernelBuffer");
+        computeDataPingPongFinal[i]->setStaticBufferOptional(offsetBuffer, "OffsetBuffer");
 
         if (i == 0) {
             computeDataPingPong[i]->setStaticTexture(
@@ -302,11 +305,11 @@ void EAWBlitPass::_render() {
                 normalTexture->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     }
 
-    // if (useSharedMemory) {
+    if (useSharedMemory) {
         _renderCompute();
-    // } else {
-        // _renderRaster();
-    // }
+    } else {
+        _renderRaster();
+    }
 }
 
 void EAWBlitPass::_renderRaster() {
@@ -396,26 +399,29 @@ void EAWBlitPass::_renderCompute() {
 bool EAWBlitPass::setNewSettings(const SettingsMap& settings) {
     bool reRender = false;
 
-    if (settings.getValueOpt("eaw_denoiser_iterations", maxNumIterations)) {
+    if (settings.getValueOpt("eaw_denoiser_iterations", this->settings.maxNumIterations)) {
         reRender = true;
         setDataDirty();
     }
-    if (settings.getValueOpt("eaw_denoiser_color_weights", useColorWeights)) {
+    if (settings.getValueOpt("eaw_denoiser_color_weights", this->settings.useColorWeights)) {
+        reRender = true;
+        setShaderDirty();
+    }
+    if (settings.getValueOpt("eaw_denoiser_position_weights", this->settings.usePositionWeights)) {
+        reRender = true;
+        setShaderDirty();
+    }
+    if (settings.getValueOpt("eaw_denoiser_normal_weights", this->settings.useNormalWeights)) {
+        reRender = true;
+        setShaderDirty();
+    }
+    if (settings.getValueOpt("eaw_denoiser_phi_color", this->settings.phiColor)) {
         reRender = true;
     }
-    if (settings.getValueOpt("eaw_denoiser_position_weights", usePositionWeights)) {
+    if (settings.getValueOpt("eaw_denoiser_phi_position", this->settings.phiPosition)) {
         reRender = true;
     }
-    if (settings.getValueOpt("eaw_denoiser_normal_weights", useNormalWeights)) {
-        reRender = true;
-    }
-    if (settings.getValueOpt("eaw_denoiser_phi_color", phiColor)) {
-        reRender = true;
-    }
-    if (settings.getValueOpt("eaw_denoiser_phi_position", phiPosition)) {
-        reRender = true;
-    }
-    if (settings.getValueOpt("eaw_denoiser_phi_normal", phiNormal)) {
+    if (settings.getValueOpt("eaw_denoiser_phi_normal", this->settings.phiNormal)) {
         reRender = true;
     }
     if (settings.getValueOpt("eaw_denoiser_use_shared_memory", useSharedMemory)) {
@@ -434,12 +440,15 @@ bool EAWBlitPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdit
     }
     if (propertyEditor.addCheckbox("Color Weights", &settings.useColorWeights)) {
         reRender = true;
+        setShaderDirty();
     }
     if (propertyEditor.addCheckbox("Position Weights", &settings.usePositionWeights)) {
         reRender = true;
+        setShaderDirty();
     }
     if (propertyEditor.addCheckbox("Normal Weights", &settings.useNormalWeights)) {
         reRender = true;
+        setShaderDirty();
     }
     if (propertyEditor.addSliderFloat("Phi Color", &settings.phiColor, 0.0f, 1.0f)) {
         reRender = true;
