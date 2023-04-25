@@ -216,6 +216,7 @@ void Spatial_Hashing_Write_Pass::loadShader() {
         std::make_pair("BLOCK_SIZE", std::to_string(computeBlockSize)));
     preprocessorDefines.insert(
         std::make_pair("HASH_MAP_SIZE", std::to_string(hm_cells)));
+    //if (renderer->getDevice()->getAtomic)
 
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
         { "SH_Denoise.Compute-Write" }, preprocessorDefines);

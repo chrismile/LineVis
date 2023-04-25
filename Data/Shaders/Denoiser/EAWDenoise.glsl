@@ -182,9 +182,7 @@ layout(binding = 5) uniform sampler2D normalTexture;
 
 layout(binding = 6, rgba32f) uniform writeonly image2D outputImage;
 
-#ifdef USE_COLOR_TEXTURE
 shared vec4 sharedMemColors[BLOCK_SIZE * BLOCK_SIZE];
-#endif
 #ifdef USE_POSITION_TEXTURE
 shared vec4 sharedMemPositions[BLOCK_SIZE * BLOCK_SIZE];
 #endif
@@ -202,9 +200,7 @@ void main() {
     }
     
     vec4 centerColor = texelFetch(colorTexture, globalIdx, 0);
-#ifdef USE_COLOR_TEXTURE
     sharedMemColors[localIdx.x + BLOCK_SIZE * localIdx.y] = centerColor;
-#endif
 #ifdef USE_POSITION_TEXTURE
     vec4 centerPosition = texelFetch(positionTexture, globalIdx, 0);
     sharedMemPositions[localIdx.x + BLOCK_SIZE * localIdx.y] = centerPosition;
@@ -240,13 +236,13 @@ void main() {
             
             float kernelValue = kernel_values[abs(x)] * kernel_values[abs(y)];
 
-#ifdef USE_COLOR_TEXTURE
             vec4 offsetColor;
             if (isInSharedMemory) {
                 offsetColor = sharedMemColors[sharedMemIdx];
             } else {
                 offsetColor = texelFetch(colorTexture, globalIdxOffset, 0);
             }
+#ifdef USE_COLOR_TEXTURE
             vec4  diffColor        = centerColor - offsetColor;
             float distColor        = dot(diffColor, diffColor);
             float color_weight_exp = distColor*stepWidth / (phiColor);
@@ -280,7 +276,7 @@ void main() {
 #ifdef USE_COLOR_TEXTURE
                                -color_weight_exp
 #endif
-#ifdef USE_NORMAL_TEXTURE
+#ifdef USE_POSITION_TEXTURE
                                -pos_weight_exp
 #endif
 #ifdef USE_NORMAL_TEXTURE

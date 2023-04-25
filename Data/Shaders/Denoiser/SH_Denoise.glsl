@@ -6,7 +6,11 @@
 #define SPACE_STRETCH 1
 
 struct HM_Cell {
+#if defined(SUPPORT_BUFFER_FLOAT_ATOMIC_ADD) || defined(FORCE_FLOAT)
     float ao_value;             // Accumulated AO value
+#else
+    uint ao_value;             // Accumulated AO value
+#endif
     uint contribution_counter;  // Number of contributions to this cell
     uint checksum;              // Checksum for determining hash-collisions
     uint rc;                    // Replacement counter
@@ -202,6 +206,19 @@ layout(push_constant) uniform PushConstants {
     uint use_atomics;
 };
 
+void atomicAddAoValue(uint final_index, float value) {
+#ifdef SUPPORT_BUFFER_FLOAT_ATOMIC_ADD
+    atomicAdd(hm_cells[final_index].ao_value, value);
+#else
+    uint oldValue = hm_cells[final_index].ao_value;
+    uint expectedValue, newValue;
+    do {
+        expectedValue = oldValue;
+        newValue = floatBitsToUint(uintBitsToFloat(oldValue) + value);
+        oldValue = atomicCompSwap(hm_cells[final_index].ao_value, expectedValue, newValue);
+    } while (oldValue != expectedValue);
+#endif
+}
 
 void main() {
     ivec2 i_pos = ivec2(gl_GlobalInvocationID.xy);
@@ -256,7 +273,7 @@ void main() {
             }
         }
 
-        if(!slot_found) {
+        if (!slot_found) {
             // No space to insert value found => replace oldest entry
             uint final_offset = 0;
             uint oldest_entry = rc_collection[0];
@@ -273,31 +290,26 @@ void main() {
             clear_slot_before_use = true;
         }
 
-        if(clear_slot_before_use) {
-            if (use_atomics != 0) {
-                atomicExchange(hm_cells[final_index].ao_value, 0);
-                atomicExchange(hm_cells[final_index].contribution_counter , 0);
-                atomicExchange(hm_cells[final_index].rc                   , 0);
-                atomicExchange(hm_cells[final_index].checksum             , checksum);
-                // atomicExchange(hm_cells[final_index].s_wd                 , s_wd_it);
-            } else {
-                hm_cells[final_index].ao_value             = 0;
-                hm_cells[final_index].contribution_counter = 0;
-                hm_cells[final_index].rc                   = 0;
-                hm_cells[final_index].checksum             = checksum;
-                // hm_cells[final_index].s_wd                 = s_wd_it;
-            }
+        if (clear_slot_before_use) {
+            hm_cells[final_index].ao_value             = 0;
+            hm_cells[final_index].contribution_counter = 0;
+            hm_cells[final_index].rc                   = 0;
+            hm_cells[final_index].checksum             = checksum;
+            // hm_cells[final_index].s_wd                 = s_wd_it;
         }
 
         if (use_atomics != 0) {
-            atomicAdd(hm_cells[final_index].ao_value, occlusion);
+            atomicAddAoValue(final_index, occlusion);
+            //atomicAdd(hm_cells[final_index].ao_value, occlusion);
             atomicAdd(hm_cells[final_index].contribution_counter, 1);
         } else {
+#ifdef SUPPORT_BUFFER_FLOAT_ATOMIC_ADD
             hm_cells[final_index].ao_value += occlusion;
+#else
+            hm_cells[final_index].ao_value = floatBitsToUint(uintBitsToFloat(hm_cells[final_index].ao_value) + occlusion);
+#endif
             hm_cells[final_index].contribution_counter += 1;
         }
-
-
     }
 }
 
@@ -311,6 +323,7 @@ void main() {
 
 layout(local_size_x = BLOCK_SIZE, local_size_y = BLOCK_SIZE) in;
 
+#define FORCE_FLOAT
 #import ".header"
 
 layout(scalar, binding = 1) readonly buffer hash_map_buffer {

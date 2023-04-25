@@ -637,16 +637,16 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
     #endif
 
     if (useDenoiser && denoiser && denoiser->getIsEnabled()) {
-        timer = std::make_shared<sgl::vk::Timer>(renderer);
-        eventName = std::string() + "Denoising " + denoiser->getDenoiserName();
-        timer->startGPU(eventName);
+        //timer = std::make_shared<sgl::vk::Timer>(renderer);
+        //eventName = std::string() + "Denoising " + denoiser->getDenoiserName();
+        //timer->startGPU(eventName);
 
         denoiser->denoise();
 
-        timer->endGPU(eventName);
-        renderer->syncWithCpu();
-        timer->finishGPU(renderer->getVkCommandBuffer());
-        timer->printTimeMS(eventName);
+        //timer->endGPU(eventName);
+        //renderer->syncWithCpu();
+        //timer->finishGPU(renderer->getVkCommandBuffer());
+        //timer->printTimeMS(eventName);
 
 
         // denoiser->denoise();
@@ -668,13 +668,6 @@ void VulkanRayTracedAmbientOcclusionPass::_render() {
                  resultTextureVk->getImage(), renderer->getVkCommandBuffer());*/
     }
 
-    #ifdef TTimer
-    // if (useDenoiser && denoiser && denoiser->getIsEnabled() && int(globalFrameNumber)-start_frame == 63) {
-        // timer->finishGPU();
-        // timer->printTimeMS(eventName);
-    // }
-    #endif
-
     /*renderer->transitionImageLayout(
             resultTextureVk->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);*/
     /*renderer->insertImageMemoryBarrier(
@@ -695,99 +688,16 @@ bool VulkanRayTracedAmbientOcclusionPass::setNewSettings(const SettingsMap& sett
 #endif
     std::string denoiserName;
     if (settings.getValueOpt("ambient_occlusion_denoiser", denoiserName)) {
-        // NOTE(Felix): I put this here so we can control denoiser specific
-        //   settigns here
-        if (denoiserName == "EAW") {
-            denoiserType = DenoiserType::EAW;
-            createDenoiser();
-            auto eaw = (EAWDenoiser*)denoiser.get();
-
-            reRender = true;
-            changedDenoiserSettings = true;
-
-            float phi_pos    = 0.3f;
-            float phi_color  = 0.49f;
-            float phi_normal = 0.1f;
-            int   num_iters = 3;
-            settings.getValueOpt("eaw_color_phi", phi_color);
-            settings.getValueOpt("eaw_pos_phi", phi_pos);
-            settings.getValueOpt("eaw_normal_phi", phi_normal);
-            settings.getValueOpt("eaw_num_iters", num_iters);
-            eaw->setPhiColor(phi_color);
-            eaw->setPhiPosition(phi_pos);
-            eaw->setPhiNormal(phi_normal);
-            eaw->setNumIterations(num_iters);
-
-        } else if (denoiserName == "SH") {
-            denoiserType = DenoiserType::SPATIAL_HASHING;
-            createDenoiser();
-            auto shd = (Spatial_Hashing_Denoiser*)denoiser.get();
-            auto eaw_settings = shd->eaw_pass->get_settings();
-
-            eaw_settings.phiPosition     = 0.3f;
-            eaw_settings.phiNormal       = 0.1f;
-            eaw_settings.maxNumIterations = 3;
-
-            // NOTE(Felix): SH does not make use of color weights since it is
-            //   meant to blur the color diff, not respect it
-            eaw_settings.useColorWeights = false;
-            eaw_settings.phiPositionScale = 0.000001f;
-            eaw_settings.phiNormalScale   = 1;
-
-            shd->textures.uniform_buffer.s_nd = 3.0f;
-            shd->textures.uniform_buffer.s_p  = 8;
-
-            settings.getValueOpt("eaw_pos_phi",    eaw_settings.phiPosition);
-            settings.getValueOpt("eaw_normal_phi", eaw_settings.phiNormal);
-            settings.getValueOpt("eaw_num_iters",  eaw_settings.maxNumIterations);
-            settings.getValueOpt("sh_s_nd",    shd->textures.uniform_buffer.s_nd);
-            settings.getValueOpt("sh_s_p",     shd->textures.uniform_buffer.s_p);
-
-            reRender = true;
-            changedDenoiserSettings = true;
-            shd->setWantsFrameNumberReset();
-
-            shd->eaw_pass->set_settings(eaw_settings);
-        } else if (denoiserName == "SVGF") {
-            if  (denoiserType != DenoiserType::SVGF) {
-                denoiserType = DenoiserType::SVGF;
-                createDenoiser();
-            }
-            auto svgf = (SVGFDenoiser*)denoiser.get();
-
-            settings.getValueOpt("svgf_iters", svgf->svgf_atrous_pass->maxNumIterations);
-            device->waitIdle();
-            reRender = true;
-            changedDenoiserSettings = true;
-            svgf->setWantsFrameNumberReset();
-
-        } else if (denoiserName == "OptiX") {
-            if  (denoiserType != DenoiserType::OPTIX) {
-                denoiserType = DenoiserType::OPTIX;
-                createDenoiser();
-            }
-            auto optix = (OptixVptDenoiser*)denoiser.get();
-            // optix->setUseFeatureMap(FeatureMapType::NORMAL, true);
-            // optix->setUseFeatureMap(FeatureMapType::ALBEDO, true);
-            // optix->setUseFeatureMap(FeatureMapType::COLOR, true);
-            // optix->setUseFeatureMap(FeatureMapType::FLOW, false);
-
-            device->waitIdle();
-            reRender = true;
-            changedDenoiserSettings = true;
-            optix->setWantsFrameNumberReset();
-        } else {
-            for (int i = 0; i < numDenoisersSupported; i++) {
-                if (denoiserName == DENOISER_NAMES[i]) {
-                    if (denoiserType == DenoiserType(i)) {
-                        break;
-                    }
-                    denoiserType = DenoiserType(i);
-                    createDenoiser();
-                    reRender = true;
-                    changedDenoiserSettings = true;
+        for (int i = 0; i < numDenoisersSupported; i++) {
+            if (denoiserName == DENOISER_NAMES[i]) {
+                if (denoiserType == DenoiserType(i)) {
                     break;
                 }
+                denoiserType = DenoiserType(i);
+                createDenoiser();
+                reRender = true;
+                changedDenoiserSettings = true;
+                break;
             }
         }
     }

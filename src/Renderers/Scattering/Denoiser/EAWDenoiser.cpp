@@ -225,10 +225,10 @@ void EAWBlitPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::Graphic
         } else if (i == 1 || i == 2) {
             rasterDataPingPong[i]->setStaticTexture(pingPongRenderTextures[i % 2], "colorTexture");
         }
-        if (positionTexture) {
+        if (positionTexture && settings.usePositionWeights) {
             rasterDataPingPong[i]->setStaticTexture(positionTexture, "positionTexture");
         }
-        if (normalTexture) {
+        if (normalTexture && settings.useNormalWeights) {
             rasterDataPingPong[i]->setStaticTexture(normalTexture, "normalTexture");
         }
     }
@@ -264,11 +264,11 @@ void EAWBlitPass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::Graphic
             computeDataPingPongFinal[i]->setStaticImageView(
                     outputImageViews.front(), "outputImage");
         }
-        if (positionTexture) {
+        if (positionTexture && settings.usePositionWeights) {
             computeDataPingPong[i]->setStaticTexture(positionTexture, "positionTexture");
             computeDataPingPongFinal[i]->setStaticTexture(positionTexture, "positionTexture");
         }
-        if (normalTexture) {
+        if (normalTexture && settings.useNormalWeights) {
             computeDataPingPong[i]->setStaticTexture(normalTexture, "normalTexture");
             computeDataPingPongFinal[i]->setStaticTexture(normalTexture, "normalTexture");
         }
@@ -333,12 +333,12 @@ void EAWBlitPass::_renderRaster() {
         renderer->transitionImageLayout(
                 rasterDataPingPong[rasterDataIdx]->getImageView("colorTexture")->getImage(),
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        if (positionTexture) {
+        if (positionTexture && settings.usePositionWeights) {
             renderer->transitionImageLayout(
                     rasterDataPingPong[rasterDataIdx]->getImageView("positionTexture")->getImage(),
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
-        if (normalTexture) {
+        if (normalTexture && settings.useNormalWeights) {
             renderer->transitionImageLayout(
                     rasterDataPingPong[rasterDataIdx]->getImageView("normalTexture")->getImage(),
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -373,12 +373,12 @@ void EAWBlitPass::_renderCompute() {
         renderer->transitionImageLayout(
                 computeData->getImageView("colorTexture")->getImage(),
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        if (positionTexture) {
+        if (positionTexture && settings.usePositionWeights) {
             renderer->transitionImageLayout(
                     computeData->getImageView("positionTexture")->getImage(),
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
-        if (normalTexture) {
+        if (normalTexture && settings.useNormalWeights) {
             renderer->transitionImageLayout(
                     computeData->getImageView("normalTexture")->getImage(),
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
