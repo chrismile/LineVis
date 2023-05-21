@@ -30,6 +30,7 @@
 #define CLOUDRENDERING_OPENEXRLOADER_HPP
 
 #include <string>
+#include <cstdint>
 
 struct OpenExrImageInfo {
     uint32_t width = 0;
