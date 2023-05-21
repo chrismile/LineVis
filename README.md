@@ -228,6 +228,10 @@ Below, a list of rendering modes supported in LineVis can be found.
   Techniques for 3D Line Sets with Transparency," in IEEE Transactions on Visualization and Computer Graphics, 2020.
   doi: 10.1109/TVCG.2020.2975795 URL: http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9007507&isnumber=4359476
 
+- Atomic Loop 64-bit Order-Independent Transparency (AL64).
+  For more details see: Christoph Kubisch, "Order Independent Transparency In OpenGL 4.x," GTC, 2014.
+  https://on-demand.gputechconf.com/gtc/2014/presentations/S4385-order-independent-transparency-opengl.pdf
+
 - Transparent line rendering with Weighted Blended Order-Independent Transparency (WBOIT)
   For more details see: Morgan McGuire and Louis Bavoil. 2013. Weighted Blended Order-Independent Transparency.
   Journal of Computer Graphics Techniques (JCGT), vol. 2, no. 2, 122-141, 201

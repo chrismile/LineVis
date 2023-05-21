@@ -83,6 +83,7 @@
 #include "Renderers/OIT/MLABBucketRenderer.hpp"
 #include "Renderers/OIT/WBOITRenderer.hpp"
 #include "Renderers/OIT/DepthPeelingRenderer.hpp"
+#include "Renderers/OIT/AtomicLoop64Renderer.hpp"
 #include "Renderers/VRC/VoxelRayCastingRenderer.hpp"
 
 #include "Renderers/RayTracing/VulkanRayTracer.hpp"
@@ -758,6 +759,15 @@ void MainApp::setRenderer(
         }
     } else if (newRenderingMode == RENDERING_MODE_DEPTH_PEELING) {
         newLineRenderer = new DepthPeelingRenderer(&sceneDataRef, transferFunctionWindow);
+    } else if (newRenderingMode == RENDERING_MODE_ATOMIC_LOOP_64) {
+        if (sgl::AppSettings::get()->getPrimaryDevice()->getPhysicalDeviceShaderAtomicInt64Features().shaderBufferInt64Atomics) {
+            newLineRenderer = new AtomicLoop64Renderer(&sceneDataRef, transferFunctionWindow);
+        } else {
+            std::string warningText =
+                    std::string() + "The selected renderer \"" + RENDERING_MODE_NAMES[newRenderingMode] + "\" is not "
+                    + "supported on this hardware due to missing 64-bit integer atomics support.";
+            onUnsupportedRendererSelected(warningText, sceneDataRef, newRenderingMode, newLineRenderer);
+        }
     } else if (newRenderingMode == RENDERING_MODE_VULKAN_RAY_TRACER) {
         if (sgl::AppSettings::get()->getPrimaryDevice()->getRayTracingPipelineSupported()) {
             newLineRenderer = new VulkanRayTracer(&sceneDataRef, transferFunctionWindow);

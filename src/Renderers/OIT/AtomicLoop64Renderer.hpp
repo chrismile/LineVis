@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2020, Christoph Neuhauser
+ * Copyright (c) 2023, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,36 +26,28 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINEVIS_MLABRENDERER_HPP
-#define LINEVIS_MLABRENDERER_HPP
+#ifndef LINEVIS_AtomicLoop64Renderer_HPP
+#define LINEVIS_AtomicLoop64Renderer_HPP
 
-#include <Graphics/Vulkan/Utils/Timer.hpp>
-
-#include "SyncMode.hpp"
 #include "Renderers/ResolvePass.hpp"
 #include "Renderers/LineRenderer.hpp"
 
 /**
- * Renders all lines with transparency values determined by the transfer function set by the user.
- * For this, the order-independent transparency (OIT) technique Multi-Layer Alpha Blending (MLAB) is used.
- * For more details see: Marco Salvi and Karthik Vaidyanathan. 2014. Multi-layer Alpha Blending. In Proceedings of the
- * 18th Meeting of the ACM SIGGRAPH Symposium on Interactive 3D Graphics and Games (San Francisco, California)
- * (I3D ’14). ACM, New York, NY, USA, 151–158. https://doi.org/10.1145/2556700.2556705
+ * Uses the "Atomic Loop 64-bit" idea from:
+ * "Order Independent Transparency In OpenGL 4.x", Christoph Kubisch (2014).
+ * https://on-demand.gputechconf.com/gtc/2014/presentations/S4385-order-independent-transparency-opengl.pdf
  *
- * For a comparison of different OIT algorithms see:
- * M. Kern, C. Neuhauser, T. Maack, M. Han, W. Usher and R. Westermann, "A Comparison of Rendering Techniques for 3D
- * Line Sets with Transparency," in IEEE Transactions on Visualization and Computer Graphics, 2020.
- * doi: 10.1109/TVCG.2020.2975795
- * URL: http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9007507&isnumber=4359476
+ * There is also an implementation available by NVIDIA, see:
+ * https://github.com/nvpro-samples/vk_order_independent_transparency/tree/master
  */
-class MLABRenderer : public LineRenderer {
+class AtomicLoop64Renderer : public LineRenderer {
 public:
-    MLABRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
-    MLABRenderer(
+    AtomicLoop64Renderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow);
+    AtomicLoop64Renderer(
             const std::string& windowName, SceneData* sceneData, sgl::TransferFunctionWindow &transferFunctionWindow);
     void initialize() override;
-    ~MLABRenderer() override = default;
-    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_MLAB; }
+    ~AtomicLoop64Renderer() override = default;
+    [[nodiscard]] RenderingMode getRenderingMode() const override { return RENDERING_MODE_ATOMIC_LOOP_64; }
 
     /**
      * Re-generates the visualization mapping.
@@ -86,7 +78,6 @@ public:
     void setNewState(const InternalState& newState) override;
 
 protected:
-    void updateSyncMode();
     void updateLayerMode();
     virtual void reallocateFragmentBuffer();
     void setUniformData();
@@ -99,20 +90,14 @@ protected:
 
     // Render passes.
     std::shared_ptr<ResolvePass> resolveRasterPass;
-    std::shared_ptr<ResolvePass> clearRasterPass;
 
     // Stored fragment data.
     sgl::vk::BufferPtr fragmentBuffer;
-    sgl::vk::BufferPtr spinlockViewportBuffer; ///< if (syncMode == SYNC_SPINLOCK)
 
     // Uniform data buffer shared by all shaders.
     struct UniformData {
         // Size of the viewport in x direction (in pixels).
         int viewportW{};
-
-        // Range of logarithmic depth, used by child class MLABBucketRenderer.
-        float logDepthMin{};
-        float logDepthMax{};
     };
     UniformData uniformData = {};
     sgl::vk::BufferPtr uniformDataBuffer;
@@ -123,16 +108,9 @@ protected:
     bool clearBitSet = true;
     size_t maxStorageBufferSize = 0;
 
-    // Data for performance measurements.
-    int frameCounter = 0;
-    std::string currentStateName;
-    bool timerDataIsWritten = true;
-    sgl::vk::TimerPtr timer;
-
-    // MLAB settings.
+    // Algorithm data.
     int numLayers = 8;
-    SyncMode syncMode = SYNC_FRAGMENT_SHADER_INTERLOCK; ///< Initialized depending on system capabilities.
-    bool useOrderedFragmentShaderInterlock = true;
 };
 
-#endif //LINEVIS_MLABRENDERER_HPP
+
+#endif //LINEVIS_AtomicLoop64Renderer_HPP
