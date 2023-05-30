@@ -182,9 +182,9 @@ MainApp::MainApp()
         LineData::setLinePrimitiveMode(LineData::LINE_PRIMITIVES_QUADS_PROGRAMMABLE_PULL);
     }
 
-#ifdef USE_PYTHON
     sgl::ColorLegendWidget::setFontScaleStandard(1.0f);
 
+#ifdef USE_PYTHON
     replayWidget.setLoadLineDataCallback([this](const std::string& datasetName) {
         int i;
         int oldSelectedDataSetIndex = selectedDataSetIndex;
