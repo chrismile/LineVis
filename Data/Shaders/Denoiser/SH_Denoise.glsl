@@ -213,7 +213,6 @@ float s_wd_calc(vec3 position, vec2 res) {
 
 #version 450
 #extension GL_EXT_scalar_block_layout : enable
-#extension GL_EXT_shader_atomic_float : require
 
 #import ".header"
 

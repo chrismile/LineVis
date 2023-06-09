@@ -256,6 +256,7 @@ void Spatial_Hashing_Write_Pass::loadShader() {
     preprocessorDefines.insert(std::make_pair("BLOCK_SIZE", std::to_string(computeBlockSize)));
     preprocessorDefines.insert(std::make_pair("HASH_MAP_SIZE", std::to_string(hm_cells)));
     if (spatialHashingAtomicsMode == SpatialHashingAtomicsMode::FLOAT_ATOMIC_ADD) {
+        preprocessorDefines.insert(std::make_pair("__extensions", "GL_EXT_shader_atomic_float"));
         preprocessorDefines.insert(std::make_pair("SUPPORT_BUFFER_FLOAT_ATOMIC_ADD", ""));
     } else if (spatialHashingAtomicsMode == SpatialHashingAtomicsMode::UINT_QUANTIZED_ATOMIC_ADD) {
         preprocessorDefines.insert(std::make_pair("USE_QUANTIZED_AO_VALUES", ""));
