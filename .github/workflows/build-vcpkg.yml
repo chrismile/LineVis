@@ -91,7 +91,10 @@ jobs:
           # Also install the dependencies for building GLEW here.
           sudo apt install libxmu-dev libxi-dev libgl-dev libglu1-mesa-dev
         elif [ "$RUNNER_OS" == "Windows" ]; then
-          choco install vulkan-sdk
+          # Chocolatey is broken as of 2023-07-07
+          #choco install vulkan-sdk
+          curl -O https://sdk.lunarg.com/sdk/download/1.3.250.1/windows/VulkanSDK-1.3.250.1-Installer.exe
+          ./VulkanSDK-1.3.250.1-Installer.exe --accept-licenses --default-answer --confirm-command install
         elif [ "$RUNNER_OS" == "macOS" ]; then
           vulkansdk_filename=$(curl -sIkL https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.dmg | sed -r '/filename=/!d;s/.*filename=(.*)$/\1/')
           VULKAN_SDK_VERSION=$(echo $vulkansdk_filename | sed -r 's/^.*vulkansdk-macos-(.*)\.dmg.*$/\1/')

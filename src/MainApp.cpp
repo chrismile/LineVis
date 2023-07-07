@@ -1145,33 +1145,40 @@ void MainApp::renderGui() {
             isFirstFrame = false;
         }
 
-        ImGuiID dockSpaceId = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
-        ImGuiDockNode* centralNode = ImGui::DockBuilderGetNode(dockSpaceId);
         static bool isProgramStartup = true;
-        if (isProgramStartup && centralNode->IsEmpty()) {
-            ImGuiID dockLeftId, dockMainId;
-            ImGui::DockBuilderSplitNode(
-                    dockSpaceId, ImGuiDir_Left, 0.29f, &dockLeftId, &dockMainId);
-            ImGui::DockBuilderDockWindow("Opaque Renderer (1)###data_view_0", dockMainId);
+        ImGuiID dockSpaceId = ImGui::DockSpaceOverViewport(ImGui::GetMainViewport());
+        if (isProgramStartup) {
+            ImGuiDockNode* centralNode = ImGui::DockBuilderGetNode(dockSpaceId);
+            if (centralNode->IsEmpty()) {
+                auto* window = sgl::AppSettings::get()->getMainWindow();
+                //const ImVec2 dockSpaceSize = ImGui::GetMainViewport()->Size;//ImGui::GetContentRegionAvail();
+                const ImVec2 dockSpaceSize(float(window->getWidth()), float(window->getHeight()));
+                ImGui::DockBuilderSetNodeSize(dockSpaceId, dockSpaceSize);
 
-            ImGuiID dockLeftUpId, dockLeftDownId;
-            ImGui::DockBuilderSplitNode(
-                    dockLeftId, ImGuiDir_Up, 0.45f, &dockLeftUpId, &dockLeftDownId);
-            ImGui::DockBuilderDockWindow("Property Editor", dockLeftUpId);
+                ImGuiID dockLeftId, dockMainId;
+                ImGui::DockBuilderSplitNode(
+                        dockSpaceId, ImGuiDir_Left, 0.29f, &dockLeftId, &dockMainId);
+                ImGui::DockBuilderDockWindow("Opaque Renderer (1)###data_view_0", dockMainId);
 
-            ImGuiID dockLeftDownUpId, dockLeftDownDownId;
-            ImGui::DockBuilderSplitNode(
-                    dockLeftDownId, ImGuiDir_Up, 0.28f,
-                    &dockLeftDownUpId, &dockLeftDownDownId);
-            ImGui::DockBuilderDockWindow("Transfer Function", dockLeftDownDownId);
-            ImGui::DockBuilderDockWindow("Multi-Var Transfer Function", dockLeftDownDownId);
-            ImGui::DockBuilderDockWindow("Camera Checkpoints", dockLeftDownUpId);
-            ImGui::DockBuilderDockWindow("Replay Widget", dockLeftDownUpId);
+                ImGuiID dockLeftUpId, dockLeftDownId;
+                ImGui::DockBuilderSplitNode(
+                        dockLeftId, ImGuiDir_Up, 0.45f, &dockLeftUpId, &dockLeftDownId);
+                ImGui::DockBuilderDockWindow("Property Editor", dockLeftUpId);
 
-            ImGui::DockBuilderFinish(dockLeftId);
-            ImGui::DockBuilderFinish(dockSpaceId);
+                ImGuiID dockLeftDownUpId, dockLeftDownDownId;
+                ImGui::DockBuilderSplitNode(
+                        dockLeftDownId, ImGuiDir_Up, 0.28f,
+                        &dockLeftDownUpId, &dockLeftDownDownId);
+                ImGui::DockBuilderDockWindow("Transfer Function", dockLeftDownDownId);
+                ImGui::DockBuilderDockWindow("Multi-Var Transfer Function", dockLeftDownDownId);
+                ImGui::DockBuilderDockWindow("Camera Checkpoints", dockLeftDownUpId);
+                ImGui::DockBuilderDockWindow("Replay Widget", dockLeftDownUpId);
+
+                ImGui::DockBuilderFinish(dockLeftId);
+                ImGui::DockBuilderFinish(dockSpaceId);
+            }
+            isProgramStartup = false;
         }
-        isProgramStartup = false;
 
         renderGuiMenuBar();
 
