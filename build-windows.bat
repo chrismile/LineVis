@@ -53,6 +53,14 @@ if not defined VCINSTALLDIR (
     set cmake_generator=
 )
 
+IF "%VULKAN_SDK%"=="" (
+  for /D %%F in (C:\VulkanSDK\*) do (
+    set VULKAN_SDK=%%F
+    goto vulkan_finished
+  )
+)
+:vulkan_finished
+
 if not exist .\submodules\IsosurfaceCpp\src (
    echo ------------------------
    echo initializing submodules
