@@ -265,7 +265,7 @@ if [[ ! -v VULKAN_SDK ]]; then
     if ! $found_vulkan; then
         curl --silent --show-error --fail -O https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.gz
         mkdir -p VulkanSDK
-        tar -xzf vulkan-sdk.tar.gz -C VulkanSDK
+        tar -xf vulkan-sdk.tar.gz -C VulkanSDK
         VK_LAYER_PATH=""
         source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
 

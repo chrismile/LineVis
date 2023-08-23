@@ -63,16 +63,18 @@ jobs:
       run: |
         distro_code_name="$(lsb_release -c | grep -oP "\:\s+\K\S+")"
         os_arch="$(uname -m)"
-        if ! curl -s -I "https://packages.lunarg.com/vulkan/dists/{distro_code_name}/" | grep "2 404" > /dev/null; then
+        if ! curl -s -I "https://packages.lunarg.com/vulkan/dists/${distro_code_name}/" | grep "2 404" > /dev/null; then
+          echo "Installing Vulkan SDK from a PPA..."
           wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
           sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-${distro_code_name}.list \
           https://packages.lunarg.com/vulkan/lunarg-vulkan-${distro_code_name}.list
           sudo apt update
           sudo apt install vulkan-sdk shaderc
         else
+          echo "Unpacking Vulkan SDK from an archive file..."
           curl --silent --show-error --fail -O https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.gz
           mkdir -p VulkanSDK
-          tar -xzf vulkan-sdk.tar.gz -C VulkanSDK
+          tar -xf vulkan-sdk.tar.gz -C VulkanSDK
           # Fix pkgconfig file.
           shaderc_pkgconfig_file="VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig/shaderc.pc"
           prefix_path=$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch")
