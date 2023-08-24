@@ -190,7 +190,10 @@ if [[ ! -v VULKAN_SDK ]]; then
     if [ -d "VulkanSDK" ]; then
         VK_LAYER_PATH=""
         source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
-        export PKG_CONFIG_PATH="$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig")"
+        pkgconfig_dir="$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig")"
+        if [ -d "$pkgconfig_dir" ]; then
+            export PKG_CONFIG_PATH="$pkgconfig_dir"
+        fi
         found_vulkan=true
     fi
 
@@ -229,10 +232,12 @@ if [[ ! -v VULKAN_SDK ]]; then
 
         # Fix pkgconfig file.
         shaderc_pkgconfig_file="VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig/shaderc.pc"
-        prefix_path=$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch")
-        sed -i '3s;.*;prefix=\"'$prefix_path'\";' "$shaderc_pkgconfig_file"
-        sed -i '5s;.*;libdir=${prefix}/lib;' "$shaderc_pkgconfig_file"
-        export PKG_CONFIG_PATH="$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig")"
+        if [ -f "$shaderc_pkgconfig_file" ]; then
+            prefix_path=$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch")
+            sed -i '3s;.*;prefix=\"'$prefix_path'\";' "$shaderc_pkgconfig_file"
+            sed -i '5s;.*;libdir=${prefix}/lib;' "$shaderc_pkgconfig_file"
+            export PKG_CONFIG_PATH="$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig")"
+        fi
         found_vulkan=true
     fi
 

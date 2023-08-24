@@ -85,10 +85,12 @@ jobs:
             tar -xf vulkan-sdk.tar.gz -C VulkanSDK
             # Fix pkgconfig file.
             shaderc_pkgconfig_file="VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig/shaderc.pc"
-            prefix_path=$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch")
-            sed -i '3s;.*;prefix=\"'$prefix_path'\";' "$shaderc_pkgconfig_file"
-            sed -i '5s;.*;libdir=${prefix}/lib;' "$shaderc_pkgconfig_file"
-            echo "PKG_CONFIG_PATH=\"$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig")\"" >> $GITHUB_ENV
+            if [ -f $shaderc_pkgconfig_file ]; then
+              prefix_path=$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch")
+              sed -i '3s;.*;prefix=\"'$prefix_path'\";' "$shaderc_pkgconfig_file"
+              sed -i '5s;.*;libdir=${prefix}/lib;' "$shaderc_pkgconfig_file"
+              echo "PKG_CONFIG_PATH=\"$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig")\"" >> $GITHUB_ENV
+            fi
           fi
           # Also install the dependencies for building GLEW here.
           sudo apt install libxmu-dev libxi-dev libgl-dev libglu1-mesa-dev

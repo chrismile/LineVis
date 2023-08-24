@@ -80,12 +80,14 @@ jobs:
             source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
             # Fix pkgconfig file.
             shaderc_pkgconfig_file="VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig/shaderc.pc"
-            prefix_path=$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch")
-            #sed -i '3s;.*;prefix=\"'$prefix_path'\";' "$shaderc_pkgconfig_file"
-            #sed -i '5s;.*;libdir=${prefix}/lib;' "$shaderc_pkgconfig_file"
-            sed -i '' 's;^prefix=.*;prefix=\"'$prefix_path'\";' "$shaderc_pkgconfig_file"
-            sed -i '' 's;^libdir=.*;libdir=${prefix}/lib;' "$shaderc_pkgconfig_file"
-            export PKG_CONFIG_PATH="$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig")"
+            if [ -f $shaderc_pkgconfig_file ]; then
+              prefix_path=$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch")
+              #sed -i '3s;.*;prefix=\"'$prefix_path'\";' "$shaderc_pkgconfig_file"
+              #sed -i '5s;.*;libdir=${prefix}/lib;' "$shaderc_pkgconfig_file"
+              sed -i '' 's;^prefix=.*;prefix=\"'$prefix_path'\";' "$shaderc_pkgconfig_file"
+              sed -i '' 's;^libdir=.*;libdir=${prefix}/lib;' "$shaderc_pkgconfig_file"
+              export PKG_CONFIG_PATH="$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig")"
+            fi
           fi
         elif [ "$RUNNER_OS" == "macOS" ]; then
           vulkansdk_filename=$(curl -sIkL https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.dmg | sed -r '/filename=/!d;s/.*filename=(.*)$/\1/')
