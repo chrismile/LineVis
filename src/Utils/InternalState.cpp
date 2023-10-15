@@ -29,7 +29,6 @@
 #include "LineData/LineData.hpp"
 #include "Renderers/OIT/SyncMode.hpp"
 #include "Renderers/Deferred/DeferredModes.hpp"
-#include "Renderers/Deferred/Tree/PersistentThreadHelper.hpp"
 #include "InternalState.hpp"
 
 void getTestModesOpaque(std::vector<InternalState>& states, InternalState state) {

@@ -35,6 +35,7 @@
 #include <Graphics/Window.hpp>
 #include <Graphics/Vulkan/Utils/Swapchain.hpp>
 #include <Graphics/Vulkan/Utils/Timer.hpp>
+#include <Graphics/Vulkan/Utils/DeviceThreadInfo.hpp>
 #include <Graphics/Vulkan/Buffers/Framebuffer.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #include <ImGui/ImGuiWrapper.hpp>
@@ -57,7 +58,6 @@
 #include "VisibilityBufferPrefixSumScanPass.hpp"
 #include "MeshletDrawCountPass.hpp"
 #include "MeshletTaskMeskPass.hpp"
-#include "Tree/PersistentThreadHelper.hpp"
 #include "Tree/NodesBVHClearQueuePass.hpp"
 #include "Tree/NodesBVHDrawCountPass.hpp"
 #include "Tree/ConvertMeshletCommandsBVHPass.hpp"
@@ -498,9 +498,9 @@ void DeferredRenderer::updateTaskMeshShaderMode() {
 
 void DeferredRenderer::initializeOptimalNumWorkgroups() {
     if (optimalNumWorkgroups == 0 || optimalWorkgroupSize == 0) {
-        DevicePersistentThreadInfo threadInfo = getDevicePersistentThreadInfo(renderer->getDevice());
-        optimalNumWorkgroups = threadInfo.optimalNumWorkgroups;
-        optimalWorkgroupSize = threadInfo.optimalWorkgroupSize;
+        sgl::DeviceThreadInfo threadInfo = sgl::getDeviceThreadInfo(renderer->getDevice());
+        optimalNumWorkgroups = threadInfo.optimalNumWorkgroupsPT;
+        optimalWorkgroupSize = threadInfo.optimalWorkgroupSizePT;
         numWorkgroupsBvh = optimalNumWorkgroups;
         workgroupSizeBvh = optimalWorkgroupSize;
         maxNumWorkgroups = sgl::nextPowerOfTwo(2 * int(optimalNumWorkgroups));

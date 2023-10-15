@@ -28,9 +28,9 @@
 
 #include <Math/Math.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
+
 #include "LineData/LineData.hpp"
 #include "LineData/TrianglePayload/NodesBVHTreePayload.hpp"
-#include "PersistentThreadHelper.hpp"
 #include "NodesBVHDrawCountPass.hpp"
 
 NodesBVHDrawCountPass::NodesBVHDrawCountPass(sgl::vk::Renderer* renderer) : ComputePass(renderer) {}
