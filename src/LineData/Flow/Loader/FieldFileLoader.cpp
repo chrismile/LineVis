@@ -33,7 +33,7 @@
 #include <Utils/File/FileLoader.hpp>
 #include "../StreamlineTracingDefines.hpp"
 #include "../StreamlineTracingGrid.hpp"
-#include "half/half.h"
+#include "half/half.hpp"
 #include "GridLoader.hpp"
 #include "FieldFileLoader.hpp"
 
@@ -145,14 +145,14 @@ void FieldFileLoader::load(
             }
         }
     } else /* if (fileHeader.fieldType == 1) */ {
-        auto* dataFieldHalf = reinterpret_cast<FLOAT16*>(dataField);
+        auto* dataFieldHalf = reinterpret_cast<HalfFloat*>(dataField);
         if (numBytesData == gridNumCellsTotal * sizeof(uint16_t) * 3) {
             for (int z = 0; z < zs; z++) {
                 for (int y = 0; y < ys; y++) {
                     for (int x = 0; x < xs; x++) {
-                        velocityField[IDXV(x, y, z, 0)] = FLOAT16::ToFloat32(dataFieldHalf[IDXV(x, y, z, 0)]);
-                        velocityField[IDXV(x, y, z, 1)] = FLOAT16::ToFloat32(dataFieldHalf[IDXV(x, y, z, 1)]);
-                        velocityField[IDXV(x, y, z, 2)] = FLOAT16::ToFloat32(dataFieldHalf[IDXV(x, y, z, 2)]);
+                        velocityField[IDXV(x, y, z, 0)] = float(dataFieldHalf[IDXV(x, y, z, 0)]);
+                        velocityField[IDXV(x, y, z, 1)] = float(dataFieldHalf[IDXV(x, y, z, 1)]);
+                        velocityField[IDXV(x, y, z, 2)] = float(dataFieldHalf[IDXV(x, y, z, 2)]);
                     }
                 }
             }
@@ -161,10 +161,10 @@ void FieldFileLoader::load(
             for (int z = 0; z < zs; z++) {
                 for (int y = 0; y < ys; y++) {
                     for (int x = 0; x < xs; x++) {
-                        velocityField[IDXV(x, y, z, 0)] = FLOAT16::ToFloat32(dataFieldHalf[IDXV4(x, y, z, 0)]);
-                        velocityField[IDXV(x, y, z, 1)] = FLOAT16::ToFloat32(dataFieldHalf[IDXV4(x, y, z, 1)]);
-                        velocityField[IDXV(x, y, z, 2)] = FLOAT16::ToFloat32(dataFieldHalf[IDXV4(x, y, z, 2)]);
-                        scalarAttributeField[IDXS(x, y, z)] = FLOAT16::ToFloat32(dataFieldHalf[IDXV4(x, y, z, 3)]);
+                        velocityField[IDXV(x, y, z, 0)] = float(dataFieldHalf[IDXV4(x, y, z, 0)]);
+                        velocityField[IDXV(x, y, z, 1)] = float(dataFieldHalf[IDXV4(x, y, z, 1)]);
+                        velocityField[IDXV(x, y, z, 2)] = float(dataFieldHalf[IDXV4(x, y, z, 2)]);
+                        scalarAttributeField[IDXS(x, y, z)] = float(dataFieldHalf[IDXV4(x, y, z, 3)]);
                     }
                 }
             }
