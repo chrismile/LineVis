@@ -108,13 +108,13 @@ public:
 	inline HalfFloat(const double);
 
 	inline HalfFloat(int other);
-	inline HalfFloat(uint32_t other);
-	inline HalfFloat(int64_t other);
-	inline HalfFloat(uint64_t other);
-#ifndef WIN32
-	inline HalfFloat(long long unsigned int other);
-	inline HalfFloat(long long int other);
-#endif
+//	inline HalfFloat(uint32_t other);
+//	inline HalfFloat(int64_t other);
+//	inline HalfFloat(uint64_t other);
+//#ifndef WIN32
+//	inline HalfFloat(long long unsigned int other);
+//	inline HalfFloat(long long int other);
+//#endif
 
 	/** Conversion operator to convert from half to float
 	 */
