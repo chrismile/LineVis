@@ -735,7 +735,8 @@ void StreamlineTracingRequester::traceLines(
                     request.dataSourceFilename, request.gridDataSetMetaData,
                     cachedGrid);
         } else if (boost::ends_with(request.dataSourceFilename, ".vti")
-                || boost::ends_with(request.dataSourceFilename, ".vts")) {
+                || boost::ends_with(request.dataSourceFilename, ".vts")
+                || boost::ends_with(request.dataSourceFilename, ".vtr")) {
             VtkXmlLoader::load(
                     request.dataSourceFilename, request.gridDataSetMetaData,
                     cachedGrid);

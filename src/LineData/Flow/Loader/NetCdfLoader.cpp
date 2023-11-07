@@ -176,10 +176,22 @@ void NetCdfLoader::load(
         vField = new float[zs * ys * xs];
         wField = new float[zs * ys * xs];
         int varid;
-        myassert(nc_inq_varid(ncid, dimNameZ, &varid) == NC_NOERR);
-        loadFloatArray1D(ncid, dimNameZ, zs, zCoords);
-        loadFloatArray1D(ncid, dimNameY, ys, yCoords);
-        loadFloatArray1D(ncid, dimNameX, xs, xCoords);
+        int retval = nc_inq_varid(ncid, dimNameZ, &varid);
+        if (retval != NC_ENOTVAR) {
+            loadFloatArray1D(ncid, dimNameZ, zs, zCoords);
+            loadFloatArray1D(ncid, dimNameY, ys, yCoords);
+            loadFloatArray1D(ncid, dimNameX, xs, xCoords);
+        } else {
+            for (size_t i = 0; i < zs; i++) {
+                zCoords[i] = float(i);
+            }
+            for (size_t i = 0; i < ys; i++) {
+                yCoords[i] = float(i);
+            }
+            for (size_t i = 0; i < xs; i++) {
+                xCoords[i] = float(i);
+            }
+        }
         loadFloatArray3D(ncid, varIdU, zs, ys, xs, uField);
         loadFloatArray3D(ncid, varIdV, zs, ys, xs, vField);
         loadFloatArray3D(ncid, varIdW, zs, ys, xs, wField);
@@ -214,11 +226,28 @@ void NetCdfLoader::load(
         }
         if (!getVariableExists(ncid, dimNameZ) && getVariableExists(ncid, "vcoord")) {
             loadFloatArray1D(ncid, "vcoord", zs, zCoords);
+            loadFloatArray1D(ncid, dimNameY, ys, yCoords);
+            loadFloatArray1D(ncid, dimNameX, xs, xCoords);
         } else {
-            loadFloatArray1D(ncid, dimNameZ, zs, zCoords);
+            int varid;
+            int retval = nc_inq_varid(ncid, dimNameZ, &varid);
+            if (retval != NC_ENOTVAR) {
+                loadFloatArray1D(ncid, dimNameZ, zs, zCoords);
+                loadFloatArray1D(ncid, dimNameY, ys, yCoords);
+                loadFloatArray1D(ncid, dimNameX, xs, xCoords);
+            } else {
+                for (size_t i = 0; i < zs; i++) {
+                    zCoords[i] = float(i);
+                }
+                for (size_t i = 0; i < ys; i++) {
+                    yCoords[i] = float(i);
+                }
+                for (size_t i = 0; i < xs; i++) {
+                    xCoords[i] = float(i);
+                }
+                isLatLonData = false;
+            }
         }
-        loadFloatArray1D(ncid, dimNameY, ys, yCoords);
-        loadFloatArray1D(ncid, dimNameX, xs, xCoords);
         loadFloatArray3D(ncid, varIdU, timeIdx, zs, ys, xs, uField);
         loadFloatArray3D(ncid, varIdV, timeIdx, zs, ys, xs, vField);
         loadFloatArray3D(ncid, varIdW, timeIdx, zs, ys, xs, wField);

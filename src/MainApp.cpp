@@ -1093,6 +1093,7 @@ void MainApp::renderGui() {
             if (boost::ends_with(filenameLower, ".vtk")
                     || boost::ends_with(filenameLower, ".vti")
                     || boost::ends_with(filenameLower, ".vts")
+                    || boost::ends_with(filenameLower, ".vtr")
                     || (isNcFile && isNcVolumeFile)
                     || boost::ends_with(filenameLower, ".am")
                     || boost::ends_with(filenameLower, ".bin")
@@ -1630,7 +1631,7 @@ void MainApp::openFileDialog() {
     IGFD_OpenModal(
             fileDialogInstance,
             "ChooseDataSetFile", "Choose a File",
-            ".*,.obj,.dat,.binlines,.nc,.vtk,.vti,.vts,.bin,.stress,.carti,.am,.field,.grib,.grb,.raw,.xyz,.nvdb,"
+            ".*,.obj,.dat,.binlines,.nc,.vtk,.vti,.vts,.vtr,.bin,.stress,.carti,.am,.field,.grib,.grb,.raw,.xyz,.nvdb,"
             ".bobj,.stl",
             fileDialogDirectory.c_str(),
             "", 1, nullptr,
