@@ -29,7 +29,7 @@
 #include <iostream>
 
 #ifdef USE_ZEROMQ
-#include <zmq.hpp>
+#include <zmq.h>
 #endif
 
 #include <Utils/File/Logfile.hpp>
