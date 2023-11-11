@@ -29,10 +29,10 @@ There are two ways to build the program on Linux systems.
 - Using the system package manager to install the dependencies (tested: apt on Ubuntu, pacman on Arch Linux).
 - Using [vcpkg](https://github.com/microsoft/vcpkg) to install the dependencies.
 
-In the project root directory, two scripts `build-linux.sh` and `build-linux-vcpkg.sh` can be found. The former uses the
-system package manager to install all dependencies, while the latter uses vcpkg. The build scripts will also launch the
-program after successfully building it. If you wish to build the program manually, instructions can be found in the
-directory `docs/compilation`.
+The script `build.sh` in the project root directory can be used to build the project. If no arguments are passed, the
+dependencies are installed using the system package manager. When calling the script as `./build.sh --vcpkg`, vcpkg is
+used instead. The build scripts will also launch the program after successfully building it. If you wish to build the
+program manually, instructions can be found in the directory `docs/compilation`.
 
 Below, more information concerning different Linux distributions tested can be found.
 
@@ -67,7 +67,7 @@ There are two ways to build the program on Windows.
   [Microsoft Visual Studio](https://visualstudio.microsoft.com/vs/).
 - Using [MSYS2](https://www.msys2.org/) to install the dependencies and compile the program using MinGW.
 
-In the project folder, a script called `build-windows.bat` can be found automating this build process using vcpkg and
+In the project folder, a script called `build-msvc.bat` can be found automating this build process using vcpkg and
 Visual Studio. It is recommended to run the script using the `Developer PowerShell for VS 2022` (or VS 2019 depending on
 your Visual Studio version). The build script will also launch the program after successfully building it.
 Building the program is regularly tested on Windows 10 and 11 with Microsoft Visual Studio 2019 and 2022.
@@ -75,8 +75,8 @@ Building the program is regularly tested on Windows 10 and 11 with Microsoft Vis
 Please note that the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home#windows) needs to be installed beforehand if using
 Microsoft Visual Studio for compilation.
 
-A script `build-windows-msys2.bat` is also available to build the program using MSYS2/MinGW alternatively to using
-Microsoft Visual Studio.
+The script `build.sh` in the project root directory can also be used to alternatively build the program using
+MSYS2/MinGW on Windows. For this, it should be run from a MSYS2 shell.
 
 If you wish to build the program manually using Visual Studio and vcpkg, or using MSYS2, instructions can be found in
 the directory `docs/compilation`.
@@ -89,7 +89,8 @@ There are two ways to build the program on macOS.
 - Using [vcpkg](https://github.com/microsoft/vcpkg) to install the dependencies and compile the program using
   LLVM/Clang.
 
-In the project root directory, two scripts `build-macos-vcpkg.sh` and `build-macos-brew.sh` can be found.
+The script `build.sh` in the project root directory can be used to build the program either using Homebrew when
+supplying no additional arguments, or using vcpkg when calling the script as `./build.sh --vcpkg`.
 As macOS does not natively support Vulkan, MoltenVK, a Vulkan wrapper based on Apple's Metal API, is utilized.
 Installing it via the scripts requires admin rights. MoltenVK can also be installed manually from
 [the website](https://vulkan.lunarg.com/sdk/home#mac).
@@ -103,7 +104,7 @@ Notes:
   CI pipeline build script on an x86_64 macOS virtual machine provided by GitHub Actions. So please note that it is not
   guaranteed that the program will continue working correctly on macOS indefinitely due to the lack of regular testing.
 - To enable high DPI support, the program needs to be run from an app bundle. This happens automatically when the script
-  `build-macos-brew.sh` has finished building the program. Please note that the app bundle only contains the Info.plist
+  `build.sh` has finished building the program. Please note that the app bundle only contains the Info.plist
   file necessary for high DPI support and is currently not yet redistributable. If you want to help with improving the
   macOS app bundle support for this project by contributing development time, please feel free to contact me.
 

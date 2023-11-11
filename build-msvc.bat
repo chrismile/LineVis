@@ -29,12 +29,29 @@ setlocal
 pushd %~dp0
 
 set VSLANG=1033
+set run_program=true
 set debug=false
 set build_dir=".build"
 set destination_dir="Shipping"
-
+set vcpkg_triplet="x64-windows"
 :: Leave empty to let cmake try to find the correct paths
 set optix_install_dir=""
+
+:loop
+IF NOT "%1"=="" (
+    IF "%1"=="--do-not-run" (
+        SET run_program=false
+    )
+    IF "%1"=="--debug" (
+        SET debug=true
+    )
+    IF "%1"=="--vcpkg-triplet" (
+        SET vcpkg_triplet=%2
+        SHIFT
+    )
+    SHIFT
+    GOTO :loop
+)
 
 where cmake >NUL 2>&1 || echo cmake was not found but is required to build the program && exit /b 1
 
@@ -69,6 +86,16 @@ if not exist .\submodules\IsosurfaceCpp\src (
    git submodule update || exit /b 1
 )
 
+set third_party_dir=%~dp0/third_party
+set cmake_args=-DCMAKE_TOOLCHAIN_FILE="third_party/vcpkg/scripts/buildsystems/vcpkg.cmake" ^
+               -DVCPKG_TARGET_TRIPLET=%vcpkg_triplet% ^
+               -DCMAKE_CXX_FLAGS="/MP" ^
+-DPYTHONHOME="./python3" ^
+               -Dsgl_DIR="third_party/sgl/install/lib/cmake/sgl/"
+
+set cmake_args_general=-DCMAKE_TOOLCHAIN_FILE="%third_party_dir%/vcpkg/scripts/buildsystems/vcpkg.cmake" ^
+               -DVCPKG_TARGET_TRIPLET=%vcpkg_triplet%
+
 if not exist .\third_party\ mkdir .\third_party\
 pushd third_party
 
@@ -78,7 +105,7 @@ if not exist .\vcpkg (
    echo ------------------------
    git clone --depth 1 https://github.com/Microsoft/vcpkg.git || exit /b 1
    call vcpkg\bootstrap-vcpkg.bat -disableMetrics             || exit /b 1
-   vcpkg\vcpkg install --triplet=x64-windows                  || exit /b 1
+   vcpkg\vcpkg install --triplet=%vcpkg_triplet%              || exit /b 1
 )
 
 if not exist .\sgl (
@@ -95,21 +122,19 @@ if not exist .\sgl\install (
    mkdir sgl\.build 2> NUL
    pushd sgl\.build
 
-   cmake .. %cmake_generator% ^
-            -DCMAKE_TOOLCHAIN_FILE=../../vcpkg/scripts/buildsystems/vcpkg.cmake ^
-            -DCMAKE_INSTALL_PREFIX=../install -DCMAKE_CXX_FLAGS="/MP" || exit /b 1
-   cmake --build . --config Debug   -- /m            || exit /b 1
-   cmake --build . --config Debug   --target install || exit /b 1
-   cmake --build . --config Release -- /m            || exit /b 1
-   cmake --build . --config Release --target install || exit /b 1
+   cmake .. %cmake_generator% %cmake_args_general% ^
+            -DCMAKE_INSTALL_PREFIX="%third_party_dir%/sgl/install" -DCMAKE_CXX_FLAGS="/MP" || exit /b 1
+   if x%vcpkg_triplet:release=%==x%vcpkg_triplet% (
+      cmake --build . --config Debug   -- /m            || exit /b 1
+      cmake --build . --config Debug   --target install || exit /b 1
+   )
+   if x%vcpkg_triplet:debug=%==x%vcpkg_triplet% (
+      cmake --build . --config Release -- /m            || exit /b 1
+      cmake --build . --config Release --target install || exit /b 1
+   )
 
    popd
 )
-
-set cmake_args=-DCMAKE_TOOLCHAIN_FILE="third_party/vcpkg/scripts/buildsystems/vcpkg.cmake" ^
-               -DPYTHONHOME="./python3"                                                    ^
-               -DCMAKE_CXX_FLAGS="/MP"                                                     ^
-               -Dsgl_DIR="third_party/sgl/install/lib/cmake/sgl/"
 
 set embree_version=3.13.3
 if not exist ".\embree-%embree_version%.x64.vc14.windows" (
@@ -224,7 +249,7 @@ if not %optix_install_dir% == "" (
    set cmake_args=%cmake_args% -DOptiX_INSTALL_DIR=%optix_install_dir%
 )
 
-cmake %cmake_generator% %cmake_args% -S . -B %build_dir% || exit /b 1
+cmake %cmake_generator% %cmake_args% -S . -B %build_dir%
 
 echo ------------------------
 echo       compiling
@@ -236,14 +261,13 @@ echo    copying new files
 echo ------------------------
 robocopy .build\vcpkg_installed\x64-windows\tools\python3 ^
          %destination_dir%\python3 /e >NUL
-
+robocopy third_party\ospray-%ospray_version%.x86_64.windows\bin %destination_dir% *.dll >NUL
 if %debug% == true (
    if not exist %destination_dir%\*.pdb (
       del %destination_dir%\*.dll
    )
    robocopy %build_dir%\Debug\  %destination_dir%  >NUL
    robocopy third_party\sgl\.build\Debug %destination_dir% *.dll *.pdb >NUL
-   robocopy third_party\ospray-%ospray_version%.x86_64.windows\bin %destination_dir% *.dll >NUL
 ) else (
    if exist %destination_dir%\*.pdb (
       del %destination_dir%\*.dll
@@ -251,11 +275,15 @@ if %debug% == true (
    )
    robocopy %build_dir%\Release\ %destination_dir% >NUL
    robocopy third_party\sgl\.build\Release %destination_dir% *.dll >NUL
-   robocopy third_party\ospray-%ospray_version%.x86_64.windows\bin %destination_dir% *.dll >NUL
 )
 
 echo.
 echo All done!
 
 pushd %destination_dir%
-LineVis.exe
+
+if %run_program% == true (
+   LineVis.exe
+) else (
+   echo Build finished.
+)
