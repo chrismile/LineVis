@@ -1096,6 +1096,15 @@ else
     fi
 fi
 
+# 2023-11-11: It seems like for LineVis, vcpkg_installed is in the root directory, but for HexVolumeRenderer
+# it is in the build folder.
+if [ $use_vcpkg = false ]; then
+    if [ -d "vcpkg_installed" ]; then
+        vcpkg_installed_dir="vcpkg_installed"
+    elif [ -d "$build_dir/vcpkg_installed" ]; then
+        vcpkg_installed_dir="$build_dir/vcpkg_installed"
+    fi
+fi
 # Copy python3 to the destination directory.
 if $use_msys; then
     if [ ! -d "$destination_dir/bin/python3" ]; then
@@ -1106,8 +1115,8 @@ if $use_msys; then
 elif [ $use_macos = true ] && [ $use_vcpkg = true ]; then
     [ -d $destination_dir/python3 ]     || mkdir $destination_dir/python3
     [ -d $destination_dir/python3/lib ] || mkdir $destination_dir/python3/lib
-    rsync -a "vcpkg_installed/$(ls vcpkg_installed | grep -Ewv 'vcpkg')/lib/$Python3_VERSION" $destination_dir/python3/lib
-    #rsync -a "$(eval echo "vcpkg_installed/$(ls vcpkg_installed | grep -Ewv 'vcpkg')/lib/python*")" $destination_dir/python3/lib
+    rsync -a "vcpkg_installed/$(ls $vcpkg_installed_dir | grep -Ewv 'vcpkg')/lib/$Python3_VERSION" $destination_dir/python3/lib
+    #rsync -a "$(eval echo "vcpkg_installed/$(ls $vcpkg_installed_dir | grep -Ewv 'vcpkg')/lib/python*")" $destination_dir/python3/lib
 elif [ $use_macos = true ] && [ $use_vcpkg = false ]; then
     python_version=${Python3_VERSION#python}
     python_subdir="$brew_prefix/Cellar/python@${Python3_VERSION#python}"
@@ -1121,9 +1130,9 @@ elif [ $use_macos = true ] && [ $use_vcpkg = false ]; then
 elif [ $use_vcpkg = true ]; then
     [ -d $destination_dir/bin/python3 ]     || mkdir $destination_dir/bin/python3
     [ -d $destination_dir/bin/python3/lib ] || mkdir $destination_dir/bin/python3/lib
-    python_lib_dir="vcpkg_installed/$(ls --ignore=vcpkg vcpkg_installed)/lib/$Python3_VERSION"
+    python_lib_dir="$vcpkg_installed_dir/$(ls --ignore=vcpkg $vcpkg_installed_dir)/lib/$Python3_VERSION"
     rsync -a "$python_lib_dir" $destination_dir/bin/python3/lib
-    #rsync -a "$(eval echo "vcpkg_installed/$(ls --ignore=vcpkg vcpkg_installed)/lib/python*")" $destination_dir/python3/lib
+    #rsync -a "$(eval echo "$vcpkg_installed_dir/$(ls --ignore=vcpkg $vcpkg_installed_dir)/lib/python*")" $destination_dir/python3/lib
 fi
 
 # Copy the docs to the destination directory.
