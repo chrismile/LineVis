@@ -320,7 +320,7 @@ inline HalfFloat& HalfFloat::operator= (const double p_Reference)
 inline bool HalfFloat::operator== (HalfFloat other) const
 {
 	// +0 and -0 are considered to be equal
-	if (!(bits << 1u) && !(other.bits << 1u))return true;
+	if ((bits & 0x7fffu) == 0u && (other.bits & 0x7fffu) == 0u) return true;
 
 	return bits == other.bits && !this->IsNaN();
 }
@@ -328,7 +328,7 @@ inline bool HalfFloat::operator== (HalfFloat other) const
 inline bool HalfFloat::operator!= (HalfFloat other) const
 {
 	// +0 and -0 are considered to be equal
-	if (!(bits << 1u) && !(other.bits << 1u))return false;
+	if ((bits & 0x7fffu) == 0u && (other.bits & 0x7fffu) == 0u) return false;
 
 	return bits != other.bits || this->IsNaN();
 }
@@ -504,7 +504,7 @@ inline HalfFloat operator+ (HalfFloat one, HalfFloat two)
 		if (0 == two.IEEE.Exp)m2 = two.IEEE.Frac;
 		else m2 = (int)two.IEEE.Frac | ( 1 << HalfFloat::BITS_MANTISSA );
 
-		if (expDiff < ((sizeof(long)<<3)-(HalfFloat::BITS_MANTISSA+1)))
+		if (expDiff < (int(sizeof(long)<<3)-(HalfFloat::BITS_MANTISSA+1)))
 		{
 			m1 <<= expDiff;
 			temp = two.IEEE.Exp;
