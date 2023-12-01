@@ -183,6 +183,7 @@ private:
     DenoiserType denoiserType = DenoiserType::NONE;
     bool useDenoiser = true;
     std::shared_ptr<Denoiser> denoiser;
+    std::vector<bool> featureMapUsedArray;
     glm::mat4 lastFrameViewProjectionMatrix;
 
     // Uniform buffer object storing the camera settings.

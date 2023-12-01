@@ -11,6 +11,12 @@
             "platform": "windows"
         },
         {
+            "name": "dbus",
+            "default-features": false,
+            "features": [],
+            "platform": "linux"
+        },
+        {
             "name": "sdl2",
             "features": [ "vulkan", "x11", "wayland" ],
             "platform": "linux"

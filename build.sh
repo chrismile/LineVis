@@ -381,12 +381,14 @@ elif command -v yum &> /dev/null; then
     if $use_vcpkg; then
         if ! is_installed_rpm "perl" || ! is_installed_rpm "libstdc++-devel" || ! is_installed_rpm "libstdc++-static" \
                 || ! is_installed_rpm "glew-devel" || ! is_installed_rpm "libXext-devel" \
-                || ! is_installed_rpm "vulkan-devel" || ! is_installed_rpm "libshaderc-devel"; then
+                || ! is_installed_rpm "vulkan-headers" || ! is_installed_rpm "vulkan-loader" \
+                || ! is_installed_rpm "vulkan-tools" || ! is_installed_rpm "vulkan-validation-layers" \
+                || ! is_installed_rpm "libshaderc-devel"; then
             echo "------------------------"
             echo "installing dependencies "
             echo "------------------------"
-            sudo yum install -y perl libstdc++-devel libstdc++-static glew-devel libXext-devel vulkan-devel \
-            libshaderc-devel
+            sudo yum install -y perl libstdc++-devel libstdc++-static glew-devel libXext-devel vulkan-headers \
+            vulkan-loader vulkan-tools vulkan-validation-layers libshaderc-devel
         fi
     else
         if ! is_installed_rpm "boost-devel" || ! is_installed_rpm "glm-devel" || ! is_installed_rpm "libarchive-devel" \
@@ -395,7 +397,7 @@ elif command -v yum &> /dev/null; then
                 || ! is_installed_rpm "glew-devel" || ! is_installed_rpm "vulkan-headers" \
                 || ! is_installed_rpm "libshaderc-devel" || ! is_installed_rpm "opencl-headers" \
                 || ! is_installed_rpm "ocl-icd" || ! is_installed_rpm "jsoncpp-devel" \
-                || ! is_installed_rpm "libeigen3-devel" || ! is_installed_rpm "python3-devel" \
+                || ! is_installed_rpm "eigen3-devel" || ! is_installed_rpm "python3-devel" \
                 || ! is_installed_rpm "zeromq-devel" || ! is_installed_rpm "cppzmq-devel" \
                 || ! is_installed_rpm "netcdf-devel" || ! is_installed_rpm "openexr-devel" \
                 || ! is_installed_rpm "eccodes-devel"; then
@@ -404,7 +406,7 @@ elif command -v yum &> /dev/null; then
             echo "------------------------"
             sudo yum install -y boost-devel glm-devel libarchive-devel tinyxml2-devel libpng-devel SDL2-devel \
             SDL2_image-devel glew-devel vulkan-headers libshaderc-devel opencl-headers ocl-icd jsoncpp-devel \
-            libeigen3-devel python3-devel zeromq-devel cppzmq-devel netcdf-devel openexr-devel eccodes-devel
+            eigen3-devel python3-devel zeromq-devel cppzmq-devel netcdf-devel openexr-devel eccodes-devel
         fi
     fi
 else

@@ -252,7 +252,13 @@ void VulkanRayTracedAmbientOcclusionPass::setDenoiserFeatureMaps() {
         if (denoiser->getUseFeatureMap(FeatureMapType::DEPTH_FWIDTH)) {
             denoiser->setFeatureMap(FeatureMapType::DEPTH_FWIDTH, depthFwidthTexture);
         }
+
         denoiser->setOutputImage(denoisedTexture->getImageView());
+
+        featureMapUsedArray.resize(IM_ARRAYSIZE(FEATURE_MAP_NAMES));
+        for (int i = 0; i < IM_ARRAYSIZE(FEATURE_MAP_NAMES); i++) {
+            featureMapUsedArray.at(i) = denoiser->getUseFeatureMap(FeatureMapType(i));
+        }
     }
 }
 
