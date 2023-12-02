@@ -157,6 +157,9 @@ void OptixVptDenoiser::createDenoiser() {
     OptixDenoiserOptions options;
     options.guideAlbedo = useAlbedo && albedoImageVulkan ? 1 : 0;
     options.guideNormal = useNormalMap && normalImageVulkan ? 1 : 0;
+#if OPTIX_VERSION >= 80000
+    options.denoiseAlpha = denoiseAlpha ? OPTIX_DENOISER_ALPHA_MODE_COPY : OPTIX_DENOISER_ALPHA_MODE_DENOISE;
+#endif
     OptixResult result = optixDenoiserCreate(
             context, denoiserModelKind, &options, &denoiser);
     checkOptixResult(result, "Error in optixDenoiserCreate: ");
@@ -491,10 +494,11 @@ void OptixVptDenoiser::runOptixDenoiser() {
 #endif
 
     OptixDenoiserParams params{};
-#if OPTIX_VERSION >= 70500
-    params.denoiseAlpha = denoiseAlpha ? OPTIX_DENOISER_ALPHA_MODE_COPY : OPTIX_DENOISER_ALPHA_MODE_ALPHA_AS_AOV;
-#else
+#if OPTIX_VERSION < 70500
     params.denoiseAlpha = denoiseAlpha;
+#elif OPTIX_VERSION < 80000
+    // OPTIX_DENOISER_ALPHA_MODE_ALPHA_AS_AOV or OPTIX_DENOISER_ALPHA_MODE_FULL_DENOISE_PASS?
+    params.denoiseAlpha = denoiseAlpha ? OPTIX_DENOISER_ALPHA_MODE_COPY : OPTIX_DENOISER_ALPHA_MODE_ALPHA_AS_AOV;
 #endif
     params.blendFactor = 0.0f;
 
