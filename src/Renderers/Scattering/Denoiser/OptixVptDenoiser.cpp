@@ -461,6 +461,7 @@ void OptixVptDenoiser::denoise() {
 #endif
     commandBufferPreDenoise->pushSignalSemaphore(renderFinishedSemaphore);
     renderer->endCommandBuffer();
+    renderer->submitToQueue();
 
     runOptixDenoiser();
 
