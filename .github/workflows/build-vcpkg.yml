@@ -92,8 +92,9 @@ jobs:
               echo "PKG_CONFIG_PATH=\"$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig")\"" >> $GITHUB_ENV
             fi
           fi
-          # Also install the dependencies for building GLEW here.
-          sudo apt install libxmu-dev libxi-dev libgl-dev libglu1-mesa-dev
+          # Also install the dependencies for building ports like GLEW here.
+          sudo apt install -y libgl-dev libxmu-dev libxi-dev libx11-dev libxft-dev libxext-dev \
+          libwayland-dev libxkbcommon-dev libegl1-mesa-dev libibus-1.0-dev autoconf-archive
         elif [ "$RUNNER_OS" == "Windows" ]; then
           # Chocolatey is broken as of 2023-07-07
           #choco install vulkan-sdk
@@ -118,7 +119,7 @@ jobs:
           #rm /usr/local/bin/pydoc3 || true
           #rm /usr/local/bin/python3 || true
           #rm /usr/local/bin/python3-config || true
-          brew install --force --overwrite llvm libomp pkg-config
+          brew install --force --overwrite llvm libomp pkg-config autoconf automake autoconf-archive
         else
           echo "$RUNNER_OS is not supported."
           exit 1

@@ -225,6 +225,15 @@ elif $use_macos && command -v brew &> /dev/null && [ ! -d $build_dir_debug ] && 
     if ! is_installed_brew "libomp"; then
         brew install libomp
     fi
+    if ! is_installed_brew "autoconf"; then
+        brew install autoconf
+    fi
+    if ! is_installed_brew "automake"; then
+        brew install automake
+    fi
+    if ! is_installed_brew "autoconf-archive"; then
+        brew install autoconf-archive
+    fi
 
     # Homebrew MoltenVK does not contain script for setting environment variables, unfortunately.
     #if ! is_installed_brew "molten-vk"; then
@@ -300,12 +309,13 @@ elif command -v apt &> /dev/null; then
         if ! is_installed_apt "libgl-dev" || ! is_installed_apt "libxmu-dev" || ! is_installed_apt "libxi-dev" \
                 || ! is_installed_apt "libx11-dev" || ! is_installed_apt "libxft-dev" \
                 || ! is_installed_apt "libxext-dev" || ! is_installed_apt "libwayland-dev" \
-                || ! is_installed_apt "libxkbcommon-dev" || ! is_installed_apt "libegl1-mesa-dev"; then
+                || ! is_installed_apt "libxkbcommon-dev" || ! is_installed_apt "libegl1-mesa-dev" \
+                || ! is_installed_apt "libibus-1.0-dev" || ! is_installed_apt "autoconf-archive"; then
             echo "------------------------"
             echo "installing dependencies "
             echo "------------------------"
             sudo apt install -y libgl-dev libxmu-dev libxi-dev libx11-dev libxft-dev libxext-dev libwayland-dev \
-            libxkbcommon-dev libegl1-mesa-dev
+            libxkbcommon-dev libegl1-mesa-dev libibus-1.0-dev autoconf-archive
         fi
     else
         if ! is_installed_apt "libboost-filesystem-dev" || ! is_installed_apt "libglm-dev" \
