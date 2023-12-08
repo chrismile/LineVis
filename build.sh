@@ -1110,7 +1110,7 @@ fi
 
 # 2023-11-11: It seems like for LineVis, vcpkg_installed is in the root directory, but for HexVolumeRenderer
 # it is in the build folder.
-if [ $use_vcpkg = false ]; then
+if [ $use_vcpkg = true ]; then
     if [ -d "vcpkg_installed" ]; then
         vcpkg_installed_dir="vcpkg_installed"
     elif [ -d "$build_dir/vcpkg_installed" ]; then
