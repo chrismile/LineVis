@@ -221,25 +221,10 @@ void DepthComplexityRenderer::render() {
     }
 }
 
-// Converts e.g. 123456789 to "123,456,789"
-std::string numberToCommaString(int64_t number, bool attachLeadingZeroes = false) {
-    if (number < 0) {
-        return std::string() + "-" + numberToCommaString(-number, attachLeadingZeroes);
-    } else if (number < 1000) {
-        return sgl::toString(number);
-    } else {
-        std::string numberString = sgl::toString(number % 1000);
-        while (attachLeadingZeroes && numberString.size() < 3) {
-            numberString = "0" + numberString;
-        }
-        return std::string() + numberToCommaString(number / 1000, true) + "," + numberString;
-    }
-}
-
 void DepthComplexityRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEditor) {
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 
-    std::string totalNumFragmentsString = numberToCommaString(int64_t(totalNumFragments));
+    std::string totalNumFragmentsString = sgl::numberToCommaString(int64_t(totalNumFragments));
     propertyEditor.addText("#Fragments", totalNumFragmentsString);
     propertyEditor.addText(
             "Average Used",
