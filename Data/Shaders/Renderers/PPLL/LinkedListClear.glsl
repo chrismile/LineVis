@@ -48,4 +48,8 @@ void main() {
     int y = int(gl_FragCoord.y);
     uint pixelIndex = addrGen(uvec2(x,y));
     startOffset[pixelIndex] = -1;
+
+#ifdef SHOW_DEPTH_COMPLEXITY
+    depthComplexityCounterBuffer[addrGenLinear(uvec2(x, y))] = 0;
+ #endif
 }

@@ -35,8 +35,11 @@ class LineRenderer;
 
 class ResolvePass : public sgl::vk::BlitRenderPass {
 public:
-    ResolvePass(LineRenderer* lineRenderer);
+    explicit ResolvePass(LineRenderer* lineRenderer);
     ResolvePass(LineRenderer* lineRenderer, std::vector<std::string> customShaderIds);
+
+    // For per-pixel linked list renderers.
+    void clearFragmentBuffer();
 
 protected:
     void loadShader() override;

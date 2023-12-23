@@ -41,7 +41,7 @@ void gatherFragment(vec4 color) {
 
     int x = int(gl_FragCoord.x);
     int y = int(gl_FragCoord.y);
-    uint pixelIndex = addrGen(uvec2(x,y));
+    uint pixelIndex = addrGen(uvec2(x, y));
 
     LinkedListFragmentNode frag;
     frag.color = packUnorm4x8(color);
@@ -53,8 +53,22 @@ void gatherFragment(vec4 color) {
     if (insertIndex < linkedListSize) {
         // Insert the fragment into the linked list
         frag.next = atomicExchange(startOffset[pixelIndex], insertIndex);
+#if defined(FRAGMENT_BUFFER_REFERENCE_ARRAY)
+        FragmentBufferEntry fbe = FragmentBufferEntry(
+        fagmentBuffers[insertIndex / NUM_FRAGS_PER_BUFFER] + 12u * uint64_t(insertIndex % NUM_FRAGS_PER_BUFFER));
+        fbe.color = frag.color;
+        fbe.depth = frag.depth;
+        fbe.next = frag.next;
+#elif defined(FRAGMENT_BUFFER_ARRAY)
+        fragmentBuffers[nonuniformEXT(insertIndex / NUM_FRAGS_PER_BUFFER)].fragmentBuffer[insertIndex % NUM_FRAGS_PER_BUFFER] = frag;
+#else
         fragmentBuffer[insertIndex] = frag;
+#endif
     }
+
+#ifdef SHOW_DEPTH_COMPLEXITY
+    atomicAdd(depthComplexityCounterBuffer[addrGenLinear(uvec2(x, y))], 1u);
+#endif
 }
 
 void gatherFragmentCustomDepth(vec4 color, float depth) {
@@ -68,7 +82,7 @@ void gatherFragmentCustomDepth(vec4 color, float depth) {
 
     int x = int(gl_FragCoord.x);
     int y = int(gl_FragCoord.y);
-    uint pixelIndex = addrGen(uvec2(x,y));
+    uint pixelIndex = addrGen(uvec2(x, y));
 
     LinkedListFragmentNode frag;
     frag.color = packUnorm4x8(color);
@@ -80,6 +94,20 @@ void gatherFragmentCustomDepth(vec4 color, float depth) {
     if (insertIndex < linkedListSize) {
         // Insert the fragment into the linked list
         frag.next = atomicExchange(startOffset[pixelIndex], insertIndex);
+#if defined(FRAGMENT_BUFFER_REFERENCE_ARRAY)
+        FragmentBufferEntry fbe = FragmentBufferEntry(
+                fagmentBuffers[insertIndex / NUM_FRAGS_PER_BUFFER] + 12u * uint64_t(insertIndex % NUM_FRAGS_PER_BUFFER));
+        fbe.color = frag.color;
+        fbe.depth = frag.depth;
+        fbe.next = frag.next;
+#elif defined(FRAGMENT_BUFFER_ARRAY)
+        fragmentBuffers[nonuniformEXT(insertIndex / NUM_FRAGS_PER_BUFFER)].fragmentBuffer[insertIndex % NUM_FRAGS_PER_BUFFER] = frag;
+#else
         fragmentBuffer[insertIndex] = frag;
+#endif
     }
+
+#ifdef SHOW_DEPTH_COMPLEXITY
+    atomicAdd(depthComplexityCounterBuffer[addrGenLinear(uvec2(x, y))], 1u);
+#endif
 }

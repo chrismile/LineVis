@@ -74,6 +74,13 @@ void HullRasterPass::recreateSwapchain(uint32_t width, uint32_t height) {
     dataDirty = true;
 }
 
+void HullRasterPass::clearFragmentBuffer() {
+    if (rasterData) {
+        rasterData->setStaticBufferOptional({}, "FragmentBuffer");
+        rasterData->setStaticBufferArrayOptional({}, "FragmentBuffer");
+    }
+}
+
 void HullRasterPass::loadShader() {
     std::map<std::string, std::string> preprocessorDefines;
     lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);

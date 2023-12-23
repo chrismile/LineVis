@@ -47,12 +47,32 @@ layout(binding = 0) uniform UniformDataBuffer {
     uint linkedListSize;
     // Size of the viewport in x direction (in pixels).
     int viewportW;
+    int viewportLinearW;
+    int paddingUniform;
 };
 
 // Fragment-and-link buffer (linked list). Stores "nodesPerPixel" number of fragments.
+#if defined(FRAGMENT_BUFFER_REFERENCE_ARRAY)
+layout (buffer_reference, std430, buffer_reference_align = 4) buffer FragmentBufferEntry {
+    // RGBA color of the node
+    uint color;
+    // Depth value of the fragment (in view space)
+    float depth;
+    // The index of the next node in "nodes" array
+    uint next;
+};
+layout (std430, binding = 1) buffer FragmentBuffer {
+    uint64_t fagmentBuffers[NUM_FRAGMENT_BUFFERS];
+};
+#elif defined(FRAGMENT_BUFFER_ARRAY)
+layout(std430, binding = 1) buffer FragmentBuffer {
+    LinkedListFragmentNode fragmentBuffer[];
+} fragmentBuffers[NUM_FRAGMENT_BUFFERS];
+#else
 layout(std430, binding = 1) buffer FragmentBuffer {
     LinkedListFragmentNode fragmentBuffer[];
 };
+#endif
 
 // Start-offset buffer (mapping pixels to first pixel in the buffer) of size viewportSize.x * viewportSize.y.
 layout(std430, binding = 2) coherent buffer StartOffsetBuffer {
@@ -65,3 +85,14 @@ layout(std430, binding = 3) buffer FragCounterBuffer {
 };
 
 #include "TiledAddress.glsl"
+
+#ifdef SHOW_DEPTH_COMPLEXITY
+// Stores the number of fragments using atomic operations.
+layout(binding = 4) coherent buffer DepthComplexityCounterBuffer {
+    uint depthComplexityCounterBuffer[];
+};
+
+uint addrGenLinear(uvec2 addr2D) {
+    return addr2D.x + viewportLinearW * addr2D.y;
+}
+#endif

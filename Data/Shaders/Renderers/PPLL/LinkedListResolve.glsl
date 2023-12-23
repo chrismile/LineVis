@@ -78,7 +78,17 @@ void main() {
             break;
         }
 
+#if defined(FRAGMENT_BUFFER_REFERENCE_ARRAY)
+        FragmentBufferEntry fbe = FragmentBufferEntry(
+                fagmentBuffers[fragOffset / NUM_FRAGS_PER_BUFFER] + 12u * uint64_t(fragOffset % NUM_FRAGS_PER_BUFFER));
+        fragment.color = fbe.color;
+        fragment.depth = fbe.depth;
+        fragment.next = fbe.next;
+#elif defined(FRAGMENT_BUFFER_ARRAY)
+        fragment = fragmentBuffers[nonuniformEXT(fragOffset / NUM_FRAGS_PER_BUFFER)].fragmentBuffer[fragOffset % NUM_FRAGS_PER_BUFFER];
+#else
         fragment = fragmentBuffer[fragOffset];
+#endif
         fragOffset = fragment.next;
 
         colorList[i] = fragment.color;

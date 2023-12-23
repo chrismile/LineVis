@@ -67,6 +67,13 @@ void LineRasterPass::recreateSwapchain(uint32_t width, uint32_t height) {
     dataDirty = true;
 }
 
+void LineRasterPass::clearFragmentBuffer() {
+    if (rasterData) {
+        rasterData->setStaticBufferOptional({}, "FragmentBuffer");
+        rasterData->setStaticBufferArrayOptional({}, "FragmentBuffer");
+    }
+}
+
 void LineRasterPass::loadShader() {
     std::map<std::string, std::string> preprocessorDefines;
     lineData->getVulkanShaderPreprocessorDefines(preprocessorDefines);

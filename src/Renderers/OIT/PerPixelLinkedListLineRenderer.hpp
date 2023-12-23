@@ -35,6 +35,13 @@
 #include "Renderers/LineRenderer.hpp"
 #include "Renderers/ResolvePass.hpp"
 
+enum class FragmentBufferMode {
+    BUFFER, BUFFER_ARRAY, BUFFER_REFERENCE_ARRAY
+};
+const char* const FRAGMENT_BUFFER_MODE_NAMES[3] = {
+        "Buffer", "Buffer Array", "Buffer Reference Array"
+};
+
 const int MESH_MODE_DEPTH_COMPLEXITIES_PPLL[2][2] = {
         {20, 100}, // avg and max depth complexity medium
         //{80, 256}, // avg and max depth complexity medium
@@ -87,6 +94,12 @@ public:
     /// For changing performance measurement modes.
     void setNewState(const InternalState& newState) override;
 
+    /// Called when the camera has moved.
+    void onHasMoved() override;
+
+    // Returns if the data needs to be re-rendered, but the visualization mapping is valid.
+    bool needsReRender() override;
+
 protected:
     void updateLargeMeshMode();
     void reallocateFragmentBuffer();
@@ -104,8 +117,15 @@ protected:
     std::shared_ptr<ResolvePass> clearRasterPass;
 
     // Per-pixel linked list data.
+    FragmentBufferMode fragmentBufferMode = FragmentBufferMode::BUFFER;
+    size_t maxStorageBufferSize = 0;
+    size_t maxDeviceMemoryBudget = 0;
     size_t fragmentBufferSize = 0;
-    sgl::vk::BufferPtr fragmentBuffer;
+    size_t numFragmentBuffers = 1;
+    size_t cachedNumFragmentBuffers = 1;
+    sgl::vk::BufferPtr fragmentBuffer; //< if fragmentBufferMode == FragmentBufferMode::BUFFER
+    std::vector<sgl::vk::BufferPtr> fragmentBuffers; //< if fragmentBufferMode != FragmentBufferMode::BUFFER
+    sgl::vk::BufferPtr fragmentBufferReferenceBuffer; //< if fragmentBufferMode == FragmentBufferMode::BUFFER_REFERENCE_ARRAY
     sgl::vk::BufferPtr startOffsetBuffer;
     sgl::vk::BufferPtr fragmentCounterBuffer;
 
@@ -115,13 +135,16 @@ protected:
         uint32_t linkedListSize;
         // Size of the viewport in x direction (in pixels).
         int viewportW;
+        // Size of the viewport in x direction (in pixels) without padding.
+        int viewportLinearW;
+        int paddingUniform = 0;
     };
     UniformData uniformData = {};
     sgl::vk::BufferPtr uniformDataBuffer;
 
     // Window data.
+    int windowWidth = 0, windowHeight = 0;
     int paddedWindowWidth = 0, paddedWindowHeight = 0;
-    size_t maxStorageBufferSize = 0;
 
     // Data for performance measurements.
     int frameCounter = 0;
@@ -136,6 +159,20 @@ protected:
     LargeMeshMode largeMeshMode = MESH_SIZE_MEDIUM;
     int expectedAvgDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES_PPLL[0][0];
     int expectedMaxDepthComplexity = MESH_MODE_DEPTH_COMPLEXITIES_PPLL[0][1];
+
+    // Depth complexity information mode.
+    bool showDepthComplexity = true;
+    void computeStatistics(bool isReRender);
+    void createDepthComplexityBuffers();
+    sgl::vk::BufferPtr depthComplexityCounterBuffer;
+    std::vector<sgl::vk::BufferPtr> stagingBuffers;
+    bool firstFrame = true;
+    bool statisticsUpToDate = false;
+    float counterPrintFrags = 0.0f;
+    uint64_t totalNumFragments = 0;
+    uint64_t usedLocations = 1;
+    uint64_t maxComplexity = 0;
+    uint64_t bufferSize = 1;
 };
 
 #endif //LINEDENSITYCONTROL_PERPIXELLINKEDLISTLINERENDERER_HPP

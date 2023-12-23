@@ -63,6 +63,9 @@ public:
     void updateFramebuffer();
     void recreateSwapchain(uint32_t width, uint32_t height) override;
 
+    // For per-pixel linked list renderers.
+    void clearFragmentBuffer();
+
 protected:
     void loadShader() override;
     void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;

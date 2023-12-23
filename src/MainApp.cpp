@@ -760,7 +760,8 @@ void MainApp::setRenderer(
     } else if (newRenderingMode == RENDERING_MODE_DEPTH_PEELING) {
         newLineRenderer = new DepthPeelingRenderer(&sceneDataRef, transferFunctionWindow);
     } else if (newRenderingMode == RENDERING_MODE_ATOMIC_LOOP_64) {
-        if (sgl::AppSettings::get()->getPrimaryDevice()->getPhysicalDeviceShaderAtomicInt64Features().shaderBufferInt64Atomics) {
+        if (sgl::AppSettings::get()->getPrimaryDevice()->getPhysicalDeviceShaderAtomicInt64Features().shaderBufferInt64Atomics
+                || sgl::AppSettings::get()->getPrimaryDevice()->getPhysicalDeviceVulkan12Features().shaderBufferInt64Atomics) {
             newLineRenderer = new AtomicLoop64Renderer(&sceneDataRef, transferFunctionWindow);
         } else {
             std::string warningText =

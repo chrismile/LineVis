@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
     optionalDeviceExtensions.push_back(VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
     optionalDeviceExtensions.push_back(VK_KHR_SHADER_FLOAT16_INT8_EXTENSION_NAME);
     optionalDeviceExtensions.push_back(VK_KHR_8BIT_STORAGE_EXTENSION_NAME);
-    optionalDeviceExtensions.push_back(VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME);
+    //optionalDeviceExtensions.push_back(VK_KHR_SHADER_ATOMIC_INT64_EXTENSION_NAME);
     optionalDeviceExtensions.push_back(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME);
     optionalDeviceExtensions.push_back(VK_NV_MESH_SHADER_EXTENSION_NAME);
 #ifdef VK_EXT_mesh_shader
@@ -149,12 +149,21 @@ int main(int argc, char *argv[]) {
     requestedDeviceFeatures.optionalPhysicalDeviceFeatures.sampleRateShading = VK_TRUE; // For OpaqueLineRenderer.
     requestedDeviceFeatures.optionalPhysicalDeviceFeatures.independentBlend = VK_TRUE; // For WBOITRenderer.
     requestedDeviceFeatures.optionalPhysicalDeviceFeatures.samplerAnisotropy = VK_TRUE; // For LineDataFlow textures.
-    requestedDeviceFeatures.optionalPhysicalDeviceFeatures.multiDrawIndirect = true; // For DeferredRenderer.
-    requestedDeviceFeatures.optionalPhysicalDeviceFeatures.shaderInt64 = true; // For AtomicLoop64Renderer.
-    requestedDeviceFeatures.optionalEnableShaderDrawParametersFeatures = true; // For DeferredRenderer.
-    //requestedDeviceFeatures.optionalVulkan12Features.shaderBufferInt64Atomics = true; // For AtomicLoop64Renderer.
+    requestedDeviceFeatures.optionalPhysicalDeviceFeatures.multiDrawIndirect = VK_TRUE; // For DeferredRenderer.
+    requestedDeviceFeatures.optionalPhysicalDeviceFeatures.shaderInt64 = VK_TRUE; // For AtomicLoop64Renderer.
+    requestedDeviceFeatures.optionalEnableShaderDrawParametersFeatures = VK_TRUE; // For DeferredRenderer.
+    requestedDeviceFeatures.optionalVulkan12Features.drawIndirectCount = VK_TRUE; // For DeferredRenderer.
+    requestedDeviceFeatures.optionalVulkan12Features.shaderBufferInt64Atomics = VK_TRUE; // For AtomicLoop64Renderer.
     // For PerPixelLinkedListRenderer, OpacityOptimizationRenderer, DepthComplexityRenderer, ...
     requestedDeviceFeatures.requestedPhysicalDeviceFeatures.fragmentStoresAndAtomics = VK_TRUE;
+    // For > 4GiB modes in per-pixel linked list renderer.
+    requestedDeviceFeatures.optionalPhysicalDeviceFeatures.shaderStorageBufferArrayDynamicIndexing = VK_TRUE;
+    requestedDeviceFeatures.optionalPhysicalDeviceFeatures.shaderSampledImageArrayDynamicIndexing = VK_TRUE;
+    //requestedDeviceFeatures.optionalPhysicalDeviceFeatures.shaderInt64 = VK_TRUE;
+    requestedDeviceFeatures.optionalVulkan12Features.descriptorIndexing = VK_TRUE;
+    requestedDeviceFeatures.optionalVulkan12Features.descriptorBindingVariableDescriptorCount = VK_TRUE;
+    requestedDeviceFeatures.optionalVulkan12Features.runtimeDescriptorArray = VK_TRUE;
+    requestedDeviceFeatures.optionalVulkan12Features.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
     device->createDeviceSwapchain(
             instance, window,
             {

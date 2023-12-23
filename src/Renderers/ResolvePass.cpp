@@ -43,6 +43,13 @@ ResolvePass::ResolvePass(LineRenderer* lineRenderer, std::vector<std::string> cu
     this->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
 }
 
+void ResolvePass::clearFragmentBuffer() {
+    if (rasterData) {
+        rasterData->setStaticBufferOptional({}, "FragmentBuffer");
+        rasterData->setStaticBufferArrayOptional({}, "FragmentBuffer");
+    }
+}
+
 void ResolvePass::loadShader() {
     std::map<std::string, std::string> preprocessorDefines;
     lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
