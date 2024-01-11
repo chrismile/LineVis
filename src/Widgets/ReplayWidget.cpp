@@ -36,10 +36,10 @@
 
 #include <Utils/AppSettings.hpp>
 #include <Utils/File/Logfile.hpp>
-#include <ImGui/Widgets/TransferFunctionWindow.hpp>
-#include <ImGui/Widgets/CheckpointWindow.hpp>
 
 #define IMGUI_DEFINE_MATH_OPERATORS
+#include <ImGui/Widgets/TransferFunctionWindow.hpp>
+#include <ImGui/Widgets/CheckpointWindow.hpp>
 #include <ImGui/imgui.h>
 #include <ImGui/imgui_internal.h>
 #include <ImGui/imgui_custom.h>

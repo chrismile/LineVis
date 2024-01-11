@@ -689,9 +689,9 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
             sgl::ImGuiWrapper::get()->getScaleDependentSize(1000, 580),
             ImVec2(FLT_MAX, FLT_MAX))) {
         if (IGFD_IsOk(fileDialogInstance)) {
-            std::string filePathName = IGFD_GetFilePathName(fileDialogInstance);
-            std::string filePath = IGFD_GetCurrentPath(fileDialogInstance);
-            std::string filter = IGFD_GetCurrentFilter(fileDialogInstance);
+            std::string filePathName = IGFD_GetFilePathNameString(fileDialogInstance);
+            std::string filePath = IGFD_GetCurrentPathString(fileDialogInstance);
+            std::string filter = IGFD_GetCurrentFilterString(fileDialogInstance);
             std::string userDatas;
             if (IGFD_GetUserDatas(fileDialogInstance)) {
                 userDatas = std::string((const char*)IGFD_GetUserDatas(fileDialogInstance));
@@ -699,17 +699,13 @@ bool VolumetricPathTracingPass::renderGuiPropertyEditorNodes(sgl::PropertyEditor
             auto selection = IGFD_GetSelection(fileDialogInstance);
 
             // Is this line data set or a volume data file for the scattering line tracer?
-            const char* currentPath = IGFD_GetCurrentPath(fileDialogInstance);
+            std::string currentPath = IGFD_GetCurrentPathString(fileDialogInstance);
             std::string filename = currentPath;
             if (!filename.empty() && filename.back() != '/' && filename.back() != '\\') {
                 filename += "/";
             }
             filename += selection.table[0].fileName;
             IGFD_Selection_DestroyContent(&selection);
-            if (currentPath) {
-                free((void*)currentPath);
-                currentPath = nullptr;
-            }
 
             environmentMapFilenameGui = filename;
             loadEnvironmentMapImage();
