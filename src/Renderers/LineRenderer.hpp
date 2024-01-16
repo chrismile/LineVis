@@ -184,6 +184,7 @@ public:
 protected:
     // Reload the gather shader.
     virtual void reloadGatherShader();
+    virtual void setGatherShaderDataDirty();
     void updateNewLineData(LineDataPtr& lineData, bool isNewData);
     bool showRendererWindow = true;
     // Rendering helpers for sub-classes.

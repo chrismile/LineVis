@@ -121,6 +121,7 @@ void PerPixelLinkedListLineRenderer::updateLargeMeshMode() {
             reallocateFragmentBuffer();
         }
         reloadResolveShader();
+        setGatherShaderDataDirty();
     }
 }
 

@@ -709,6 +709,17 @@ void LineRenderer::reloadGatherShader() {
     }
 }
 
+void LineRenderer::setGatherShaderDataDirty() {
+    if (isRasterizer) {
+        if (lineRasterPass) {
+            lineRasterPass->setDataDirty();
+        }
+        if (hullRasterPass) {
+            hullRasterPass->setDataDirty();
+        }
+    }
+}
+
 void LineRenderer::renderHull() {
     if (lineData && lineData->hasSimulationMeshOutline() && lineData->getShallRenderSimulationMeshBoundary()) {
         hullRasterPass->render();
