@@ -436,8 +436,8 @@ void main() {
     if (hasHitSurface) {
         // A = cos(camNormalFlat, camX)
         // cot(acos(A)) = cos(acos(A)) / sin(acos(A)) = A / sin(acos(A)) = A / sqrt(1 - A^2)
-        float A = dot(camNormalFlat, vec3(1.0, 0.0, 0.0));
-        float B = dot(camNormalFlat, vec3(0.0, 1.0, 0.0));
+        const float A = camNormalFlat.x; // dot(camNormalFlat, vec3(1.0, 0.0, 0.0))
+        const float B = camNormalFlat.y; // dot(camNormalFlat, vec3(0.0, 1.0, 0.0))
         nabla = vec2(A / sqrt(1.0 - A * A), B / sqrt(1.0 - B * B));
     }
 #endif
