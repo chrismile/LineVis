@@ -362,13 +362,13 @@ elif command -v pacman &> /dev/null; then
                 || ! is_installed_pacman "vulkan-devel" || ! is_installed_pacman "shaderc" \
                 || ! is_installed_pacman "opencl-headers" || ! is_installed_pacman "ocl-icd" \
                 || ! is_installed_pacman "jsoncpp" || ! is_installed_pacman "eigen" || ! is_installed_pacman "python3" \
-                || ! is_installed_pacman "zeromq" || ! is_installed_pacman "netcdf" || ! is_installed_pacman "openexr" \
-                || ! is_installed_pacman "ospray"; then
+                || ! is_installed_pacman "zeromq" || ! is_installed_pacman "cppzmq" || ! is_installed_pacman "netcdf" \
+                || ! is_installed_pacman "openexr" || ! is_installed_pacman "ospray"; then
             echo "------------------------"
             echo "installing dependencies "
             echo "------------------------"
             sudo pacman -S boost glm libarchive tinyxml2 libpng sdl2 sdl2_image glew vulkan-devel shaderc opencl-headers \
-            ocl-icd jsoncpp eigen python3 zeromq netcdf openexr ospray
+            ocl-icd jsoncpp eigen python3 zeromq cppzmq netcdf openexr ospray
         fi
         if ! command -v yay &> /dev/null && ! is_installed_yay "eccodes"; then
             echo "------------------------"
