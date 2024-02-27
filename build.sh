@@ -477,7 +477,7 @@ elif $use_conda && ! $use_macos; then
             || ! list_contains "$conda_pkg_list" "libxdamage-devel-cos7-aarch64" \
             || ! list_contains "$conda_pkg_list" "libxxf86vm-devel-cos7-aarch64" \
             || ! list_contains "$conda_pkg_list" "libxext-devel-cos7-aarch64" \
-            || ! list_contains "$conda_pkg_list" "xorg-libxfixes xorg-libxau" \
+            || ! list_contains "$conda_pkg_list" "xorg-libxfixes" || ! list_contains "$conda_pkg_list" "xorg-libxau" \
             || ! list_contains "$conda_pkg_list" "patchelf" || ! list_contains "$conda_pkg_list" "libvulkan-headers" \
             || ! list_contains "$conda_pkg_list" "shaderc" || ! list_contains "$conda_pkg_list" "jsoncpp" \
             || ! list_contains "$conda_pkg_list" "eigen" || ! list_contains "$conda_pkg_list" "zeromq" \
