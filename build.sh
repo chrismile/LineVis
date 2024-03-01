@@ -609,6 +609,11 @@ if [ $search_for_vulkan_sdk = true ]; then
             curl --silent --show-error --fail -O https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.gz
             mkdir -p VulkanSDK
             tar -xf vulkan-sdk.tar.gz -C VulkanSDK
+            if [ "$os_arch" != "x86_64" ]; then
+                pushd VulkanSDK >/dev/null
+                ./vulkansdk -j $(nproc)
+                popd >/dev/null
+            fi
             VK_LAYER_PATH=""
             source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
 
