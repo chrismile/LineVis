@@ -450,6 +450,7 @@ elif $use_conda && ! $use_macos; then
         chmod +x Miniconda3-latest-Linux-x86_64.sh
         bash ./Miniconda3-latest-Linux-x86_64.sh
         . "$HOME/miniconda3/etc/profile.d/conda.sh" shell.bash hook
+        rm ./Miniconda3-latest-Linux-x86_64.sh
     fi
 
     if ! conda env list | grep ".*${conda_env_name}.*" >/dev/null 2>&1; then
