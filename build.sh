@@ -441,7 +441,10 @@ elif $use_conda && ! $use_macos; then
         . "$HOME/miniconda3/etc/profile.d/conda.sh" shell.bash hook
     elif [ -f "/opt/anaconda3/etc/profile.d/conda.sh" ]; then
         . "/opt/anaconda3/etc/profile.d/conda.sh" shell.bash hook
+    elif [ ! -z "${CONDA_PREFIX+x}" ]; then
+        . "$CONDA_PREFIX/etc/profile.d/conda.sh" shell.bash hook
     fi
+
     if ! command -v conda &> /dev/null; then
         echo "------------------------"
         echo "  installing Miniconda  "
@@ -568,11 +571,13 @@ if [ $search_for_vulkan_sdk = true ]; then
     echo "------------------------"
 
     found_vulkan=false
+    use_local_vulkan_sdk=false
 
     if [ $use_macos = false ]; then
         if [ -d "VulkanSDK" ]; then
             VK_LAYER_PATH=""
             source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
+            use_local_vulkan_sdk=true
             pkgconfig_dir="$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig")"
             if [ -d "$pkgconfig_dir" ]; then
                 export PKG_CONFIG_PATH="$pkgconfig_dir"
@@ -617,6 +622,7 @@ if [ $search_for_vulkan_sdk = true ]; then
             fi
             VK_LAYER_PATH=""
             source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
+            use_local_vulkan_sdk=true
 
             # Fix pkgconfig file.
             shaderc_pkgconfig_file="VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig/shaderc.pc"
@@ -659,6 +665,18 @@ if [ $search_for_vulkan_sdk = true ]; then
         echo "The environment variable VULKAN_SDK is not set but is required in the installation process."
         echo "Please refer to https://vulkan.lunarg.com/sdk/home#${os_name} for instructions on how to install the Vulkan SDK."
         exit 1
+    fi
+
+    # On RHEL 8.6, I got the following errors when using the libvulkan.so provided by the SDK:
+    # dlopen failed: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /home/u12458/Correrender/third_party/VulkanSDK/1.3.275.0/x86_64/lib/libvulkan.so)
+    # Thus, we should remove it from the path if necessary.
+    if $use_local_vulkan_sdk; then
+        pushd VulkanSDK/$(ls VulkanSDK)/$os_arch/lib >/dev/null
+        if ldd -r libvulkan.so | grep "undefined symbol"; then
+            echo "Removing Vulkan SDK libvulkan.so from path..."
+            export LD_LIBRARY_PATH=$(echo ${LD_LIBRARY_PATH} | awk -v RS=: -v ORS=: '/VulkanSDK/ {next} {print}' | sed 's/:*$//') && echo $OUTPATH
+        fi
+        popd >/dev/null
     fi
 fi
 
