@@ -28,12 +28,12 @@
 
 #include <boost/algorithm/string/case_conv.hpp>
 
+#include <Math/half/half.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/FileUtils.hpp>
 #include <Utils/File/FileLoader.hpp>
 #include "../StreamlineTracingDefines.hpp"
 #include "../StreamlineTracingGrid.hpp"
-#include "half/half.hpp"
 #include "GridLoader.hpp"
 #include "FieldFileLoader.hpp"
 
