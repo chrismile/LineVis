@@ -453,11 +453,19 @@ elif $use_conda && ! $use_macos; then
         echo "------------------------"
         echo "  installing Miniconda  "
         echo "------------------------"
-        wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
-        chmod +x Miniconda3-latest-Linux-x86_64.sh
-        bash ./Miniconda3-latest-Linux-x86_64.sh
-        . "$HOME/miniconda3/etc/profile.d/conda.sh" shell.bash hook
-        rm ./Miniconda3-latest-Linux-x86_64.sh
+        if [ "$os_arch" = "x86_64" ]; then
+            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+            chmod +x Miniconda3-latest-Linux-x86_64.sh
+            bash ./Miniconda3-latest-Linux-x86_64.sh
+            . "$HOME/miniconda3/etc/profile.d/conda.sh" shell.bash hook
+            rm ./Miniconda3-latest-Linux-x86_64.sh
+        else
+            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh
+            chmod +x Miniconda3-latest-Linux-aarch64.sh
+            bash ./Miniconda3-latest-Linux-aarch64.sh
+            . "$HOME/miniconda3/etc/profile.d/conda.sh" shell.bash hook
+            rm ./Miniconda3-latest-Linux-aarch64.sh
+        fi
     fi
 
     if ! conda env list | grep ".*${conda_env_name}.*" >/dev/null 2>&1; then
@@ -479,6 +487,7 @@ elif $use_conda && ! $use_macos; then
             || ! list_contains "$conda_pkg_list" "cmake" || ! list_contains "$conda_pkg_list" "pkg-config" \
             || ! list_contains "$conda_pkg_list" "gdb" || ! list_contains "$conda_pkg_list" "git" \
             || ! list_contains "$conda_pkg_list" "mesa-libgl-devel-cos7-x86_64" \
+            || ! list_contains "$conda_pkg_list" "libglvnd-glx-cos7-x86_64" \
             || ! list_contains "$conda_pkg_list" "mesa-dri-drivers-cos7-aarch64" \
             || ! list_contains "$conda_pkg_list" "libxau-devel-cos7-aarch64" \
             || ! list_contains "$conda_pkg_list" "libselinux-devel-cos7-aarch64" \
@@ -486,19 +495,20 @@ elif $use_conda && ! $use_macos; then
             || ! list_contains "$conda_pkg_list" "libxxf86vm-devel-cos7-aarch64" \
             || ! list_contains "$conda_pkg_list" "libxext-devel-cos7-aarch64" \
             || ! list_contains "$conda_pkg_list" "xorg-libxfixes" || ! list_contains "$conda_pkg_list" "xorg-libxau" \
-            || ! list_contains "$conda_pkg_list" "patchelf" || ! list_contains "$conda_pkg_list" "libvulkan-headers" \
-            || ! list_contains "$conda_pkg_list" "shaderc" || ! list_contains "$conda_pkg_list" "jsoncpp" \
-            || ! list_contains "$conda_pkg_list" "eigen" || ! list_contains "$conda_pkg_list" "zeromq" \
-            || ! list_contains "$conda_pkg_list" "cppzmq" || ! list_contains "$conda_pkg_list" "netcdf4" \
-            || ! list_contains "$conda_pkg_list" "openexr" || ! list_contains "$conda_pkg_list" "eccodes"; then
+            || ! list_contains "$conda_pkg_list" "xorg-libxrandr" || ! list_contains "$conda_pkg_list" "patchelf" \
+            || ! list_contains "$conda_pkg_list" "libvulkan-headers" || ! list_contains "$conda_pkg_list" "shaderc" \
+            || ! list_contains "$conda_pkg_list" "jsoncpp" || ! list_contains "$conda_pkg_list" "eigen" \
+            || ! list_contains "$conda_pkg_list" "zeromq" || ! list_contains "$conda_pkg_list" "cppzmq" \
+            || ! list_contains "$conda_pkg_list" "netcdf4" || ! list_contains "$conda_pkg_list" "openexr" \
+            || ! list_contains "$conda_pkg_list" "eccodes"; then
         echo "------------------------"
         echo "installing dependencies "
         echo "------------------------"
         conda install -y -c conda-forge boost glm libarchive tinyxml2 libpng sdl2 sdl2 glew cxx-compiler make cmake \
-        pkg-config gdb git mesa-libgl-devel-cos7-x86_64 mesa-dri-drivers-cos7-aarch64 libxau-devel-cos7-aarch64 \
-        libselinux-devel-cos7-aarch64 libxdamage-devel-cos7-aarch64 libxxf86vm-devel-cos7-aarch64 \
-        libxext-devel-cos7-aarch64 xorg-libxfixes xorg-libxau patchelf libvulkan-headers shaderc jsoncpp eigen zeromq \
-        cppzmq netcdf4 openexr eccodes
+        pkg-config gdb git mesa-libgl-devel-cos7-x86_64 libglvnd-glx-cos7-x86_64 mesa-dri-drivers-cos7-aarch64 \
+        libxau-devel-cos7-aarch64 libselinux-devel-cos7-aarch64 libxdamage-devel-cos7-aarch64 \
+        libxxf86vm-devel-cos7-aarch64 libxext-devel-cos7-aarch64 xorg-libxfixes xorg-libxau xorg-libxrandr patchelf \
+        libvulkan-headers shaderc jsoncpp eigen zeromq cppzmq netcdf4 openexr eccodes
     fi
 else
     echo "Warning: Unsupported system package manager detected." >&2
@@ -620,7 +630,7 @@ if [ $search_for_vulkan_sdk = true ]; then
             mkdir -p VulkanSDK
             tar -xf vulkan-sdk.tar.gz -C VulkanSDK
             if [ "$os_arch" != "x86_64" ]; then
-                pushd VulkanSDK >/dev/null
+                pushd "VulkanSDK/$(ls VulkanSDK)" >/dev/null
                 ./vulkansdk -j $(nproc)
                 popd >/dev/null
             fi
