@@ -48,7 +48,7 @@ glm::vec2 stringToVec2(const std::string& s) {
     std::vector<float> components;
     std::string buffer;
     for (char c : s) {
-        if (c == '|') {
+        if (c == '|' || c == ' ') {
             components.push_back(sgl::fromString<float>(buffer));
             buffer.clear();
         } else {
@@ -69,7 +69,7 @@ glm::vec3 stringToVec3(const std::string& s) {
     std::vector<float> components;
     std::string buffer;
     for (char c : s) {
-        if (c == '|') {
+        if (c == '|' || c == ' ') {
             components.push_back(sgl::fromString<float>(buffer));
             buffer.clear();
         } else {
@@ -90,7 +90,7 @@ glm::vec4 stringToVec4(const std::string& s) {
     std::vector<float> components;
     std::string buffer;
     for (char c : s) {
-        if (c == '|') {
+        if (c == '|' || c == ' ') {
             components.push_back(sgl::fromString<float>(buffer));
             buffer.clear();
         } else {
@@ -113,7 +113,7 @@ glm::quat stringToQuat(const std::string& s) {
     std::vector<float> components;
     std::string buffer;
     for (char c : s) {
-        if (c == '|') {
+        if (c == '|' || c == ' ') {
             components.push_back(sgl::fromString<float>(buffer));
             buffer.clear();
         } else {
