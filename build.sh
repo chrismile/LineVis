@@ -631,7 +631,7 @@ if [ $search_for_vulkan_sdk = true ]; then
             tar -xf vulkan-sdk.tar.gz -C VulkanSDK
             if [ "$os_arch" != "x86_64" ]; then
                 pushd "VulkanSDK/$(ls VulkanSDK)" >/dev/null
-                ./vulkansdk -j $(nproc)
+                ./vulkansdk -j $(nproc) vulkan-loader glslang shaderc
                 popd >/dev/null
             fi
             VK_LAYER_PATH=""
