@@ -60,6 +60,7 @@ int main(int argc, char *argv[]) {
     sgl::AppSettings::get()->initializeDataDirectory();
 
     std::string iconPath = sgl::AppSettings::get()->getDataDirectory() + "Fonts/icon_256.png";
+    sgl::AppSettings::get()->setApplicationDescription("A visualization tool for rendering dense sets of 3D lines");
     sgl::AppSettings::get()->loadApplicationIconFromFile(iconPath);
 
     // Parse the arguments.

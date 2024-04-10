@@ -64,6 +64,8 @@ jobs:
         submodules: true
 
     - uses: lukka/get-cmake@latest
+      with:
+        cmakeVersion: 3.29.0
 
     - name: Install Vulkan SDK
       shell: bash
@@ -93,7 +95,7 @@ jobs:
             fi
           fi
           # Also install the dependencies for building ports like GLEW here.
-          sudo apt install -y libgl-dev libxmu-dev libxi-dev libx11-dev libxft-dev libxext-dev \
+          sudo apt install -y libgl-dev libxmu-dev libxi-dev libx11-dev libxft-dev libxext-dev libxrandr-dev \
           libwayland-dev libxkbcommon-dev libegl1-mesa-dev libibus-1.0-dev autoconf-archive
         elif [ "$RUNNER_OS" == "Windows" ]; then
           # Chocolatey is broken as of 2023-07-07
@@ -128,7 +130,8 @@ jobs:
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v10
       with:
-        vcpkgGitCommitId: '2a6371b01420d8820d158b4707e79931feba27aa'
+        vcpkgGitURL: 'https://github.com/chrismile/vcpkg.git'
+        vcpkgGitCommitId: '00e25d7ae041fea1075e79f017693cfce26088d1'
         doNotCacheOnWorkflowFailure: true
 
     - name: Create custom vcpkg triplet
