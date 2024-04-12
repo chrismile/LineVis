@@ -103,7 +103,7 @@ if not exist .\vcpkg (
    echo ------------------------
    echo    fetching vcpkg
    echo ------------------------
-   git clone --depth 1 -b rpath-lzma-workaround https://github.com/chrismile/vcpkg.git || exit /b 1
+   git clone --depth 1 -b fix-libarchive-rpath https://github.com/chrismile/vcpkg.git || exit /b 1
    call vcpkg\bootstrap-vcpkg.bat -disableMetrics || exit /b 1
    vcpkg\vcpkg install --triplet=%vcpkg_triplet% || exit /b 1
 )
