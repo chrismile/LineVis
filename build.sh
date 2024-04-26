@@ -477,6 +477,7 @@ elif $use_conda && ! $use_macos; then
         echo "creating conda environment"
         echo "------------------------"
         conda create -n "${conda_env_name}" -y
+        conda init bash
         conda activate "${conda_env_name}"
     elif [ "${var+CONDA_DEFAULT_ENV}" != "${conda_env_name}" ]; then
         conda activate "${conda_env_name}"
