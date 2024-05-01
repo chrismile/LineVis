@@ -630,6 +630,7 @@ if [ $search_for_vulkan_sdk = true ]; then
                 sudo apt install -y vulkan-sdk shaderc glslang-dev
             elif dpkg --compare-versions "$distro_release" "ge" "24.04"; then
                 if ! is_installed_apt "libvulkan-dev" && ! is_installed_apt "libshaderc-dev" && ! is_installed_apt "glslang-dev"; then
+                    # Optional: vulkan-validationlayers
                     sudo apt install -y libvulkan-dev libshaderc-dev glslang-dev
                 fi
             fi
