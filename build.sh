@@ -54,6 +54,7 @@ use_vcpkg=false
 use_conda=false
 conda_env_name="linevis"
 link_dynamic=false
+use_custom_vcpkg_triplet=false
 custom_glslang=false
 if [ $use_msys = false ] && command -v pacman &> /dev/null; then
     is_embree_installed=true
@@ -83,6 +84,10 @@ do
         link_dynamic=false
     elif [ ${!i} = "--link-dynamic" ]; then
         link_dynamic=true
+    elif [ ${!i} = "--vcpkg-triplet" ]; then
+        ((i++))
+        vcpkg_triplet=${!i}
+        use_custom_vcpkg_triplet=true
     elif [ ${!i} = "--custom-glslang" ]; then
         custom_glslang=true
     fi
@@ -111,7 +116,9 @@ fi
 
 params_link=()
 params_vcpkg=()
-if [ $use_vcpkg = true ] && [ $use_macos = false ] && [ $link_dynamic = true ]; then
+if [ $use_custom_vcpkg_triplet = true ]; then
+    params_link+=(-DVCPKG_TARGET_TRIPLET=$vcpkg_triplet)
+elif [ $use_vcpkg = true ] && [ $use_macos = false ] && [ $link_dynamic = true ]; then
     params_link+=(-DVCPKG_TARGET_TRIPLET=x64-linux-dynamic)
 fi
 if [ $use_vcpkg = true ] && [ $use_macos = false ]; then
@@ -607,8 +614,10 @@ if [ $search_for_vulkan_sdk = true ]; then
         if ! $found_vulkan && (lsb_release -a 2> /dev/null | grep -q 'Ubuntu' || lsb_release -a 2> /dev/null | grep -q 'Mint') && ! $use_conda; then
             if lsb_release -a 2> /dev/null | grep -q 'Ubuntu'; then
                 distro_code_name=$(lsb_release -cs)
+                distro_release=$(lsb_release -rs)
             else
                 distro_code_name=$(cat /etc/upstream-release/lsb-release | grep "DISTRIB_CODENAME=" | sed 's/^.*=//')
+                distro_release=$(cat /etc/upstream-release/lsb-release | grep "DISTRIB_RELEASE=" | sed 's/^.*=//')
             fi
             if ! compgen -G "/etc/apt/sources.list.d/lunarg-vulkan-*" > /dev/null \
                   && ! curl -s -I "https://packages.lunarg.com/vulkan/dists/${distro_code_name}/" | grep "2 404" > /dev/null; then
@@ -619,6 +628,10 @@ if [ $search_for_vulkan_sdk = true ]; then
                 --output /etc/apt/sources.list.d/lunarg-vulkan-${distro_code_name}.list
                 sudo apt update
                 sudo apt install -y vulkan-sdk shaderc glslang-dev
+            elif dpkg --compare-versions "$distro_release" "ge" "24.04"; then
+                if ! is_installed_apt "libvulkan-dev" && ! is_installed_apt "libshaderc-dev" && ! is_installed_apt "glslang-dev"; then
+                    sudo apt install -y libvulkan-dev libshaderc-dev glslang-dev
+                fi
             fi
         fi
 

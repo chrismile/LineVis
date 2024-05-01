@@ -45,9 +45,12 @@ jobs:
         elif [ "$RUNNER_OS" == "Windows" ]; then
           echo "VCPKG_COPY_TRIPLET=x64-windows" >> $GITHUB_ENV
           echo "VCPKG_DEFAULT_TRIPLET=x64-windows-${{matrix.linking}}-release-only" >> $GITHUB_ENV
-        elif [ "$RUNNER_OS" == "macOS" ]; then
+        elif [ "$RUNNER_OS" == "macOS" ] && [ "$(uname -m)" = "x86_64" ]; then
           echo "VCPKG_COPY_TRIPLET=x64-osx" >> $GITHUB_ENV
           echo "VCPKG_DEFAULT_TRIPLET=x64-osx-${{matrix.linking}}-release-only" >> $GITHUB_ENV
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          echo "VCPKG_COPY_TRIPLET=arm64-osx" >> $GITHUB_ENV
+          echo "VCPKG_DEFAULT_TRIPLET=arm64-osx-${{matrix.linking}}-release-only" >> $GITHUB_ENV
         else
           echo "$RUNNER_OS is not supported."
           exit 1
