@@ -116,8 +116,20 @@ fi
 
 params_link=()
 params_vcpkg=()
+build_sgl_release_only=false
 if [ $use_custom_vcpkg_triplet = true ]; then
     params_link+=(-DVCPKG_TARGET_TRIPLET=$vcpkg_triplet)
+    if [ -f "$projectpath/third_party/vcpkg/triplets/$vcpkg_triplet.cmake" ]; then
+        triplet_file_path="$projectpath/third_party/vcpkg/triplets/$vcpkg_triplet.cmake"
+    elif [ -f "$projectpath/third_party/vcpkg/triplets/community/$vcpkg_triplet.cmake" ]; then
+        triplet_file_path="$projectpath/third_party/vcpkg/triplets/community/$vcpkg_triplet.cmake"
+    else
+        echo "Custom vcpkg triplet set, but file not found."
+        exit 1
+    fi
+    if grep -q "VCPKG_BUILD_TYPE release" "$triplet_file_path"; then
+        build_sgl_release_only=true
+    fi
 elif [ $use_vcpkg = true ] && [ $use_macos = false ] && [ $link_dynamic = true ]; then
     params_link+=(-DVCPKG_TARGET_TRIPLET=x64-linux-dynamic)
 fi
@@ -790,20 +802,24 @@ if [ ! -d "./sgl/install" ]; then
     echo "------------------------"
 
     pushd "./sgl" >/dev/null
-    mkdir -p $build_dir_debug
+    if ! $build_sgl_release_only; then
+        mkdir -p $build_dir_debug
+    fi
     mkdir -p $build_dir_release
 
-    pushd "$build_dir_debug" >/dev/null
-    cmake .. \
-         -DCMAKE_BUILD_TYPE=Debug \
-         -DCMAKE_INSTALL_PREFIX="../install" \
-         ${params_gen[@]+"${params_gen[@]}"} ${params_link[@]+"${params_link[@]}"} \
-         ${params_vcpkg[@]+"${params_vcpkg[@]}"} ${params_sgl[@]+"${params_sgl[@]}"}
-    if [ $use_vcpkg = false ] && [ $use_macos = false ]; then
-        make -j $(nproc)
-        make install
+    if ! $build_sgl_release_only; then
+        pushd "$build_dir_debug" >/dev/null
+        cmake .. \
+             -DCMAKE_BUILD_TYPE=Debug \
+             -DCMAKE_INSTALL_PREFIX="../install" \
+             ${params_gen[@]+"${params_gen[@]}"} ${params_link[@]+"${params_link[@]}"} \
+             ${params_vcpkg[@]+"${params_vcpkg[@]}"} ${params_sgl[@]+"${params_sgl[@]}"}
+        if [ $use_vcpkg = false ] && [ $use_macos = false ]; then
+            make -j $(nproc)
+            make install
+        fi
+        popd >/dev/null
     fi
-    popd >/dev/null
 
     pushd $build_dir_release >/dev/null
     cmake .. \
@@ -818,16 +834,20 @@ if [ ! -d "./sgl/install" ]; then
     popd >/dev/null
 
     if [ $use_macos = true ]; then
-        cmake --build $build_dir_debug --parallel $(sysctl -n hw.ncpu)
-        cmake --build $build_dir_debug --target install
+        if ! $build_sgl_release_only; then
+            cmake --build $build_dir_debug --parallel $(sysctl -n hw.ncpu)
+            cmake --build $build_dir_debug --target install
+        fi
 
         cmake --build $build_dir_release --parallel $(sysctl -n hw.ncpu)
         cmake --build $build_dir_release --target install
     elif [ $use_vcpkg = true ]; then
-        cmake --build $build_dir_debug --parallel $(nproc)
-        cmake --build $build_dir_debug --target install
-        if [ $link_dynamic = true ]; then
-            cp $build_dir_debug/libsgld.so install/lib/libsgld.so
+        if ! $build_sgl_release_only; then
+            cmake --build $build_dir_debug --parallel $(nproc)
+            cmake --build $build_dir_debug --target install
+            if [ $link_dynamic = true ]; then
+                cp $build_dir_debug/libsgld.so install/lib/libsgld.so
+            fi
         fi
 
         cmake --build $build_dir_release --parallel $(nproc)
@@ -1246,6 +1266,15 @@ if [ $use_vcpkg = true ]; then
     elif [ -d "$build_dir/vcpkg_installed" ]; then
         vcpkg_installed_dir="$build_dir/vcpkg_installed"
     fi
+    if [ $use_macos = true ]; then
+        vcpkg_installed_dir_triplet="vcpkg_installed/$(ls $vcpkg_installed_dir | grep -Ewv 'vcpkg')"
+    else
+        if [ $use_custom_vcpkg_triplet = true ]; then
+            vcpkg_installed_dir_triplet="$vcpkg_installed_dir/$vcpkg_triplet"
+        else
+            vcpkg_installed_dir_triplet="$vcpkg_installed_dir/$(ls --ignore=vcpkg $vcpkg_installed_dir)"
+        fi
+    fi
 fi
 # Copy python3 to the destination directory.
 if $use_msys; then
@@ -1257,8 +1286,8 @@ if $use_msys; then
 elif [ $use_macos = true ] && [ $use_vcpkg = true ]; then
     [ -d $destination_dir/python3 ]     || mkdir $destination_dir/python3
     [ -d $destination_dir/python3/lib ] || mkdir $destination_dir/python3/lib
-    rsync -a "vcpkg_installed/$(ls $vcpkg_installed_dir | grep -Ewv 'vcpkg')/lib/$Python3_VERSION" $destination_dir/python3/lib
-    #rsync -a "$(eval echo "vcpkg_installed/$(ls $vcpkg_installed_dir | grep -Ewv 'vcpkg')/lib/python*")" $destination_dir/python3/lib
+    rsync -a "$vcpkg_installed_dir_triplet/lib/$Python3_VERSION" $destination_dir/python3/lib
+    #rsync -a "$(eval echo "$vcpkg_installed_dir_triplet/lib/python*")" $destination_dir/python3/lib
 elif [ $use_macos = true ] && [ $use_vcpkg = false ]; then
     python_version=${Python3_VERSION#python}
     python_subdir="$brew_prefix/Cellar/python@${Python3_VERSION#python}"
@@ -1272,9 +1301,9 @@ elif [ $use_macos = true ] && [ $use_vcpkg = false ]; then
 elif [ $use_vcpkg = true ]; then
     [ -d $destination_dir/bin/python3 ]     || mkdir $destination_dir/bin/python3
     [ -d $destination_dir/bin/python3/lib ] || mkdir $destination_dir/bin/python3/lib
-    python_lib_dir="$vcpkg_installed_dir/$(ls --ignore=vcpkg $vcpkg_installed_dir)/lib/$Python3_VERSION"
+    python_lib_dir="$vcpkg_installed_dir_triplet/lib/$Python3_VERSION"
     rsync -a "$python_lib_dir" $destination_dir/bin/python3/lib
-    #rsync -a "$(eval echo "$vcpkg_installed_dir/$(ls --ignore=vcpkg $vcpkg_installed_dir)/lib/python*")" $destination_dir/python3/lib
+    #rsync -a "$(eval echo "$vcpkg_installed_dir_triplet/lib/python*")" $destination_dir/python3/lib
 fi
 
 # Copy the docs to the destination directory.
