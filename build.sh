@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # BSD 2-Clause License
 #
@@ -244,6 +244,10 @@ if $use_msys && command -v pacman &> /dev/null && [ ! -d $build_dir_debug ] && [
     fi
 elif $use_msys && command -v pacman &> /dev/null; then
     :
+elif [ ! -z "${BUILD_USE_NIX+x}" ]; then
+    echo "------------------------"
+    echo "   building using Nix"
+    echo "------------------------"
 elif $use_macos && command -v brew &> /dev/null && [ ! -d $build_dir_debug ] && [ ! -d $build_dir_release ]; then
     if ! is_installed_brew "git"; then
         brew install git

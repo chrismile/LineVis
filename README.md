@@ -25,9 +25,11 @@ vol. 24, no. 2, pp. 1127-1140, 1 Feb. 2018, doi: 10.1109/TVCG.2017.2655523.
 
 ### Linux
 
-There are two ways to build the program on Linux systems.
-- Using the system package manager to install the dependencies (tested: apt on Ubuntu, pacman on Arch Linux).
-- Using [vcpkg](https://github.com/microsoft/vcpkg) to install the dependencies.
+There are four ways to build the program on Linux systems.
+- Using the system package manager to install all dependencies (tested: apt on Ubuntu, pacman on Arch Linux, dnf/yum on Fedora).
+- Using [vcpkg](https://github.com/microsoft/vcpkg) to install all dependencies (by using the flag `./build.sh --vcpkg`).
+- Using [conda](https://docs.conda.io/en/latest/) to install all dependencies (by using the flag `./build.sh --conda`).
+- Using [Nix](https://nixos.org/) to install all dependencies (by invoking `./build.sh` after calling `nix-shell`).
 
 The script `build.sh` in the project root directory can be used to build the project. If no arguments are passed, the
 dependencies are installed using the system package manager. When calling the script as `./build.sh --vcpkg`, vcpkg is
