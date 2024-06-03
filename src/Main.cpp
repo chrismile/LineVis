@@ -67,6 +67,7 @@ int main(int argc, char *argv[]) {
     bool usePerfMode = false;
     bool useCustomShaderCompilerBackend = false;
     sgl::vk::ShaderCompilerBackend shaderCompilerBackend = sgl::vk::ShaderCompilerBackend::SHADERC;
+    bool useDownloadSwapchain = false;
     for (int i = 1; i < argc; i++) {
         std::string command = argv[i];
         if (command == "--perf") {
@@ -83,6 +84,8 @@ int main(int argc, char *argv[]) {
                 shaderCompilerBackend = sgl::vk::ShaderCompilerBackend::SHADERC;
             } else if (backendName == "glslang") {
                 shaderCompilerBackend = sgl::vk::ShaderCompilerBackend::GLSLANG;
+            } else if (command == "--dlswap") {
+                useDownloadSwapchain = true;
             }
         }
     }
@@ -99,6 +102,9 @@ int main(int argc, char *argv[]) {
     }
     sgl::AppSettings::get()->getSettings().addKeyValue("window-resizable", true);
     sgl::AppSettings::get()->getSettings().addKeyValue("window-savePosition", true);
+#ifdef __linux__
+    sgl::AppSettings::get()->getSettings().addKeyValue("window-useDownloadSwapchain", useDownloadSwapchain);
+#endif
     //sgl::AppSettings::get()->setVulkanDebugPrintfEnabled();
 
     ImVector<ImWchar> fontRanges;

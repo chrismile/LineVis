@@ -56,6 +56,7 @@ conda_env_name="linevis"
 link_dynamic=false
 use_custom_vcpkg_triplet=false
 custom_glslang=false
+use_download_swapchain=false
 if [ $use_msys = false ] && command -v pacman &> /dev/null; then
     is_embree_installed=true
     is_ospray_installed=true
@@ -90,6 +91,9 @@ do
         use_custom_vcpkg_triplet=true
     elif [ ${!i} = "--custom-glslang" ]; then
         custom_glslang=true
+    elif [ ${!i} = "--dlswap" ]; then
+        use_download_swapchain=true
+        build_with_vkvg_support=true
     fi
 done
 
