@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-20.04, windows-2019, windows-2022, macos-latest ]
+        os: [ ubuntu-22.04, windows-2019, windows-2022, macos-latest ]
         linking: [ dynamic, static ]
         exclude:
           # dynamic linking fails for SDL2_image and python3 compilation on macOS as of 2022-08-30.
@@ -133,8 +133,8 @@ jobs:
     - name: Setup vcpkg
       uses: lukka/run-vcpkg@v10
       with:
-        vcpkgGitURL: 'https://github.com/chrismile/vcpkg.git'
-        vcpkgGitCommitId: '00e25d7ae041fea1075e79f017693cfce26088d1'
+        vcpkgGitURL: 'https://github.com/microsoft/vcpkg.git'
+        vcpkgGitCommitId: 'a4275b7eee79fb24ec2e135481ef5fce8b41c339'
         doNotCacheOnWorkflowFailure: true
 
     - name: Create custom vcpkg triplet

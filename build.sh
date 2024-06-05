@@ -768,7 +768,7 @@ if [ $use_vcpkg = true ] && [ ! -d "./vcpkg" ]; then
         echo "The environment variable VULKAN_SDK is not set but is required in the installation process."
         exit 1
     fi
-    git clone --depth 1 -b fix-libarchive-rpath https://github.com/chrismile/vcpkg.git
+    git clone --depth 1 https://github.com/microsoft/vcpkg.git
     vcpkg/bootstrap-vcpkg.sh -disableMetrics
     vcpkg/vcpkg install
 fi
@@ -785,12 +785,16 @@ if [ ! -d "./sgl" ]; then
 fi
 
 if [ -f "./sgl/$build_dir/CMakeCache.txt" ]; then
+    remove_build_cache_sgl=false
     if grep -q vcpkg_installed "./sgl/$build_dir/CMakeCache.txt"; then
         cache_uses_vcpkg=true
     else
         cache_uses_vcpkg=false
     fi
     if ([ $use_vcpkg = true ] && [ $cache_uses_vcpkg = false ]) || ([ $use_vcpkg = false ] && [ $cache_uses_vcpkg = true ]); then
+        remove_build_cache_sgl=true
+    fi
+    if [ $remove_build_cache_sgl = true ]; then
         echo "Removing old sgl build cache..."
         if [ -d "./sgl/$build_dir_debug" ]; then
             rm -rf "./sgl/$build_dir_debug"
@@ -982,12 +986,16 @@ else
 fi
 
 if [ -f "./$build_dir/CMakeCache.txt" ]; then
+    remove_build_cache=false
     if grep -q vcpkg_installed "./$build_dir/CMakeCache.txt"; then
         cache_uses_vcpkg=true
     else
         cache_uses_vcpkg=false
     fi
     if ([ $use_vcpkg = true ] && [ $cache_uses_vcpkg = false ]) || ([ $use_vcpkg = false ] && [ $cache_uses_vcpkg = true ]); then
+        remove_build_cache=true
+    fi
+    if [ remove_build_cache = true ]; then
         echo "Removing old application build cache..."
         if [ -d "./$build_dir_debug" ]; then
             rm -rf "./$build_dir_debug"
