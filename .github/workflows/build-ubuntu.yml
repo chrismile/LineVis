@@ -61,7 +61,8 @@ jobs:
     - name: Install Vulkan SDK
       shell: bash
       run: |
-        distro_code_name="$(lsb_release -c | grep -oP "\:\s+\K\S+")"
+        distro_code_name=$(lsb_release -cs)
+        distro_release=$(lsb_release -rs)
         os_arch="$(uname -m)"
         if ! curl -s -I "https://packages.lunarg.com/vulkan/dists/${distro_code_name}/" | grep "2 404" > /dev/null; then
           echo "Installing Vulkan SDK from a PPA..."
@@ -69,7 +70,9 @@ jobs:
           sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-${distro_code_name}.list \
           https://packages.lunarg.com/vulkan/lunarg-vulkan-${distro_code_name}.list
           sudo apt update
-          sudo apt install vulkan-sdk shaderc
+          sudo apt install -y vulkan-sdk shaderc glslang-dev
+        elif dpkg --compare-versions "$distro_release" "ge" "24.04"; then
+          sudo apt install -y libvulkan-dev libshaderc-dev glslang-dev
         else
           echo "Unpacking Vulkan SDK from an archive file..."
           curl --silent --show-error --fail -O https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.gz
