@@ -1002,132 +1002,7 @@ void MainApp::renderGui() {
             }
             IGFD_Selection_DestroyContent(&selection);
 
-            fileDialogDirectory = sgl::FileUtils::get()->getPathToFile(filename);
-
-            std::string filenameLower = boost::to_lower_copy(filename);
-            bool isObjFile = boost::ends_with(filenameLower, ".obj");
-            bool isDatFile = boost::ends_with(filenameLower, ".dat");
-            bool isNcFile = boost::ends_with(filenameLower, ".nc");
-
-            /*
-             * The program supports loading flow lines or triangle meshes from .dat files.
-             */
-            bool isObjTriangleMeshFile = false;
-            if (isObjFile) {
-                if (sgl::FileUtils::get()->exists(filename) && !sgl::FileUtils::get()->isDirectory(filename)) {
-                    std::ifstream objFile(filename);
-                    std::string lineString;
-                    std::getline(objFile, lineString);
-                    if (lineString.find("# Blender") != std::string::npos) {
-                        isObjTriangleMeshFile = true;
-                    }
-                    while (std::getline(objFile, lineString)) {
-                        if (sgl::startsWith(lineString, "f ")) {
-                            isObjTriangleMeshFile = true;
-                            break;
-                        }
-                        if (sgl::startsWith(lineString, "l ")) {
-                            isObjTriangleMeshFile = false;
-                            break;
-                        }
-                    }
-                    objFile.close();
-                }
-            }
-
-            /*
-             * The program supports two types of .dat file:
-             * - .dat files containing a volume description.
-             * - .dat files containing PSLs (DATA_SET_TYPE_STRESS_LINES).
-             * We try to use a good heuristic for determining the right type.
-             */
-            bool isDatVolumeFile = false;
-            if (isDatFile) {
-                if (sgl::FileUtils::get()->exists(filename)) {
-                    // If the .dat file is > 100KiB, there is no way it can be a volume descriptor file.
-                    size_t fileSize = sgl::FileUtils::get()->getFileSizeInBytes(filename);
-                    if (fileSize < 100 * 1024) {
-                        // Loading the < 100kiB file should be cheap. Load it and check the type.
-                        uint8_t* bufferDat = nullptr;
-                        size_t lengthDat = 0;
-                        bool loadedDat = sgl::loadFileFromSource(
-                                filename, bufferDat, lengthDat, false);
-                        if (!loadedDat) {
-                            sgl::Logfile::get()->throwError(
-                                    "Error in MainApp::renderGui: Couldn't open file \"" + filename + "\".");
-                        }
-                        char* fileBuffer = reinterpret_cast<char*>(bufferDat);
-                        for (size_t charPtr = 0; charPtr < lengthDat; charPtr++) {
-                            char currentChar = fileBuffer[charPtr];
-                            if (currentChar == '\n' || currentChar == '\r') {
-                                break;
-                            }
-                            // ':' is the key-value delimiter in .dat volume descriptor files.
-                            if (currentChar == ':') {
-                                isDatVolumeFile = true;
-                                break;
-                            }
-                        }
-                        delete[] bufferDat;
-                    }
-                }
-            }
-
-            /*
-             * The program supports two types of .dat file:
-             * - .dat files containing a volume description.
-             * - .dat files containing PSLs (DATA_SET_TYPE_STRESS_LINES).
-             * We try to use a good heuristic for determining the right type.
-             */
-            bool isNcVolumeFile = false;
-            if (isNcFile) {
-                isNcVolumeFile = !getNetCdfFileStoresTrajectories(filename);
-            }
-
-            if (boost::ends_with(filenameLower, ".vtk")
-                    || boost::ends_with(filenameLower, ".vti")
-                    || boost::ends_with(filenameLower, ".vts")
-                    || boost::ends_with(filenameLower, ".vtr")
-                    || (isNcFile && isNcVolumeFile)
-                    || boost::ends_with(filenameLower, ".am")
-                    || boost::ends_with(filenameLower, ".bin")
-                    || boost::ends_with(filenameLower, ".field")
-#ifdef USE_ECCODES
-                    || boost::ends_with(filenameLower, ".grib")
-                    || boost::ends_with(filenameLower, ".grb")
-#endif
-                    || (isDatFile && isDatVolumeFile)
-                    || boost::ends_with(filenameLower, ".raw")) {
-                selectedDataSetIndex = 1;
-                streamlineTracingRequester->setDatasetFilename(filename);
-                streamlineTracingRequester->setShowWindow(true);
-            } else if (boost::ends_with(filenameLower, ".stress")
-                    || boost::ends_with(filenameLower, ".carti")) {
-                selectedDataSetIndex = 2;
-                stressLineTracingRequester->setDatasetFilename(filename);
-                stressLineTracingRequester->setShowWindow(true);
-            } else if (boost::ends_with(filenameLower, ".xyz")
-                    || boost::ends_with(filenameLower, ".nvdb")) {
-                selectedDataSetIndex = 3;
-                scatteringLineTracingRequester->setDatasetFilename(filename);
-                scatteringLineTracingRequester->setShowWindow(true);
-            } else {
-                selectedDataSetIndex = 0;
-                if ((isObjFile && !isObjTriangleMeshFile)
-                        || boost::ends_with(filenameLower, ".binlines") || isNcFile) {
-                    dataSetType = DATA_SET_TYPE_FLOW_LINES;
-                } else if (isDatFile) {
-                    dataSetType = DATA_SET_TYPE_STRESS_LINES;
-                } else if ((isObjFile && isObjTriangleMeshFile)
-                        || boost::ends_with(filenameLower, ".bobj")
-                        || boost::ends_with(filenameLower, ".stl")) {
-                    dataSetType = DATA_SET_TYPE_TRIANGLE_MESH;
-                } else {
-                    sgl::Logfile::get()->writeError("The selected file name has an unknown extension.");
-                }
-                customDataSetFileName = filename;
-                loadLineDataSet(getSelectedLineDataSetFilenames());
-            }
+            loadDataFromFile(filename);
         }
         IGFD_CloseDialog(fileDialogInstance);
     }
@@ -2181,6 +2056,140 @@ void MainApp::onCameraReset() {
         }
     }
 }
+
+void MainApp::loadDataFromFile(const std::string& filename) {
+    fileDialogDirectory = sgl::FileUtils::get()->getPathToFile(filename);
+
+    std::string filenameLower = boost::to_lower_copy(filename);
+    bool isObjFile = boost::ends_with(filenameLower, ".obj");
+    bool isDatFile = boost::ends_with(filenameLower, ".dat");
+    bool isNcFile = boost::ends_with(filenameLower, ".nc");
+
+    /*
+     * The program supports loading flow lines or triangle meshes from .dat files.
+     */
+    bool isObjTriangleMeshFile = false;
+    if (isObjFile) {
+        if (sgl::FileUtils::get()->exists(filename) && !sgl::FileUtils::get()->isDirectory(filename)) {
+            std::ifstream objFile(filename);
+            std::string lineString;
+            std::getline(objFile, lineString);
+            if (lineString.find("# Blender") != std::string::npos) {
+                isObjTriangleMeshFile = true;
+            }
+            while (std::getline(objFile, lineString)) {
+                if (sgl::startsWith(lineString, "f ")) {
+                    isObjTriangleMeshFile = true;
+                    break;
+                }
+                if (sgl::startsWith(lineString, "l ")) {
+                    isObjTriangleMeshFile = false;
+                    break;
+                }
+            }
+            objFile.close();
+        }
+    }
+
+    /*
+     * The program supports two types of .dat file:
+     * - .dat files containing a volume description.
+     * - .dat files containing PSLs (DATA_SET_TYPE_STRESS_LINES).
+     * We try to use a good heuristic for determining the right type.
+     */
+    bool isDatVolumeFile = false;
+    if (isDatFile) {
+        if (sgl::FileUtils::get()->exists(filename)) {
+            // If the .dat file is > 100KiB, there is no way it can be a volume descriptor file.
+            size_t fileSize = sgl::FileUtils::get()->getFileSizeInBytes(filename);
+            if (fileSize < 100 * 1024) {
+                // Loading the < 100kiB file should be cheap. Load it and check the type.
+                uint8_t* bufferDat = nullptr;
+                size_t lengthDat = 0;
+                bool loadedDat = sgl::loadFileFromSource(
+                        filename, bufferDat, lengthDat, false);
+                if (!loadedDat) {
+                    sgl::Logfile::get()->throwError(
+                            "Error in MainApp::loadDataFromFile: Couldn't open file \"" + filename + "\".");
+                }
+                char* fileBuffer = reinterpret_cast<char*>(bufferDat);
+                for (size_t charPtr = 0; charPtr < lengthDat; charPtr++) {
+                    char currentChar = fileBuffer[charPtr];
+                    if (currentChar == '\n' || currentChar == '\r') {
+                        break;
+                    }
+                    // ':' is the key-value delimiter in .dat volume descriptor files.
+                    if (currentChar == ':') {
+                        isDatVolumeFile = true;
+                        break;
+                    }
+                }
+                delete[] bufferDat;
+            }
+        }
+    }
+
+    /*
+     * The program supports two types of .dat file:
+     * - .dat files containing a volume description.
+     * - .dat files containing PSLs (DATA_SET_TYPE_STRESS_LINES).
+     * We try to use a good heuristic for determining the right type.
+     */
+    bool isNcVolumeFile = false;
+    if (isNcFile) {
+        isNcVolumeFile = !getNetCdfFileStoresTrajectories(filename);
+    }
+
+    if (boost::ends_with(filenameLower, ".vtk")
+            || boost::ends_with(filenameLower, ".vti")
+            || boost::ends_with(filenameLower, ".vts")
+            || boost::ends_with(filenameLower, ".vtr")
+            || (isNcFile && isNcVolumeFile)
+            || boost::ends_with(filenameLower, ".am")
+            || boost::ends_with(filenameLower, ".bin")
+            || boost::ends_with(filenameLower, ".field")
+#ifdef USE_ECCODES
+            || boost::ends_with(filenameLower, ".grib")
+            || boost::ends_with(filenameLower, ".grb")
+#endif
+            || (isDatFile && isDatVolumeFile)
+            || boost::ends_with(filenameLower, ".raw")) {
+        selectedDataSetIndex = 1;
+        streamlineTracingRequester->setDatasetFilename(filename);
+        streamlineTracingRequester->setShowWindow(true);
+    } else if (boost::ends_with(filenameLower, ".stress")
+               || boost::ends_with(filenameLower, ".carti")) {
+        selectedDataSetIndex = 2;
+        stressLineTracingRequester->setDatasetFilename(filename);
+        stressLineTracingRequester->setShowWindow(true);
+    } else if (boost::ends_with(filenameLower, ".xyz")
+               || boost::ends_with(filenameLower, ".nvdb")) {
+        selectedDataSetIndex = 3;
+        scatteringLineTracingRequester->setDatasetFilename(filename);
+        scatteringLineTracingRequester->setShowWindow(true);
+    } else {
+        selectedDataSetIndex = 0;
+        if ((isObjFile && !isObjTriangleMeshFile)
+            || boost::ends_with(filenameLower, ".binlines") || isNcFile) {
+            dataSetType = DATA_SET_TYPE_FLOW_LINES;
+        } else if (isDatFile) {
+            dataSetType = DATA_SET_TYPE_STRESS_LINES;
+        } else if ((isObjFile && isObjTriangleMeshFile)
+                   || boost::ends_with(filenameLower, ".bobj")
+                   || boost::ends_with(filenameLower, ".stl")) {
+            dataSetType = DATA_SET_TYPE_TRIANGLE_MESH;
+        } else {
+            sgl::Logfile::get()->writeError("The selected file name has an unknown extension.");
+        }
+        customDataSetFileName = filename;
+        loadLineDataSet(getSelectedLineDataSetFilenames());
+    }
+}
+
+void MainApp::onFileDropped(const std::string& droppedFileName) {
+    loadDataFromFile(droppedFileName);
+}
+
 
 
 // --- Visualization pipeline ---
