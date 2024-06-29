@@ -48,6 +48,7 @@ os_arch="$(uname -m)"
 run_program=true
 debug=false
 glibcxx_debug=false
+clean=false
 build_dir_debug=".build_debug"
 build_dir_release=".build_release"
 use_vcpkg=false
@@ -74,6 +75,8 @@ do
         debug=true
     elif [ ${!i} = "--glibcxx-debug" ]; then
         glibcxx_debug=true
+    elif [ ${!i} = "--clean" ] || [ ${!i} = "clean" ]; then
+        clean=true
     elif [ ${!i} = "--vcpkg" ] || [ ${!i} = "--use-vcpkg" ]; then
         use_vcpkg=true
     elif [ ${!i} = "--conda" ] || [ ${!i} = "--use-conda" ]; then
@@ -96,6 +99,14 @@ do
         build_with_vkvg_support=true
     fi
 done
+
+if [ $clean = true ]; then
+    echo "------------------------"
+    echo " cleaning up old files  "
+    echo "------------------------"
+    rm -rf third_party/sgl/ third_party/vcpkg/ .build_release/ .build_debug/ Shipping/
+    git submodule update --init --recursive
+fi
 
 if [ $debug = true ]; then
     cmake_config="Debug"

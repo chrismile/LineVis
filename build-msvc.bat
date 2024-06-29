@@ -32,6 +32,7 @@ set VSLANG=1033
 set run_program=true
 set debug=false
 set devel=false
+set clean=false
 set build_dir=".build"
 set destination_dir="Shipping"
 set vcpkg_triplet="x64-windows"
@@ -49,12 +50,26 @@ IF NOT "%1"=="" (
     IF "%1"=="--devel" (
         SET devel=true
     )
+    IF "%1"=="--clean" (
+        SET clean=true
+    )
     IF "%1"=="--vcpkg-triplet" (
         SET vcpkg_triplet=%2
         SHIFT
     )
     SHIFT
     GOTO :loop
+)
+
+:: Build other configuration and copy sgl DLLs to the build directory.
+if %clean% == true (
+    echo ------------------------
+    echo  cleaning up old files
+    echo ------------------------
+    rd /s /q ".third_party\sgl"
+    rd /s /q ".third_party\vcpkg"
+    rd /s /q ".build"
+    rd /s /q "Shipping"
 )
 
 where cmake >NUL 2>&1 || echo cmake was not found but is required to build the program && exit /b 1
