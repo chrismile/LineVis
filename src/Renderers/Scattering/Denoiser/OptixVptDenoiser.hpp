@@ -90,7 +90,7 @@ private:
     const char* const OPTIX_DENOISER_MODEL_KIND_NAME[3] = {
             "LDR", "HDR", "Temporal"
     };
-    OptixDenoiserModelKind denoiserModelKind = OPTIX_DENOISER_MODEL_KIND_TEMPORAL;
+    OptixDenoiserModelKind denoiserModelKind;
     // int denoiserModelKindIndex = int(denoiserModelKind) - int(OPTIX_DENOISER_MODEL_KIND_LDR);
     int denoiserModelKindIndex = 2;
     int numDenoisersSupported = (int)(sizeof(OPTIX_DENOISER_MODEL_KIND_NAME) / sizeof(*OPTIX_DENOISER_MODEL_KIND_NAME));

@@ -1097,7 +1097,6 @@ void MainApp::renderGui() {
                         focusedWindowIndex = i;
                     }
                     sgl::ImGuiWrapper::get()->setWindowViewport(i, ImGui::GetWindowViewport());
-                    sgl::ImGuiWrapper::get()->setWindowViewport(i, ImGui::GetWindowViewport());
                     sgl::ImGuiWrapper::get()->setWindowPosAndSize(i, ImGui::GetWindowPos(), ImGui::GetWindowSize());
 
                     ImVec2 sizeContent = ImGui::GetContentRegionAvail();
@@ -1599,9 +1598,11 @@ void MainApp::renderGuiMenuBar() {
             if (ImGui::MenuItem("Checkpoint Window", nullptr, checkpointWindow.getShowWindow())) {
                 checkpointWindow.setShowWindow(!checkpointWindow.getShowWindow());
             }
+#ifdef USE_PYTHON
             if (ImGui::MenuItem("Replay Widget", nullptr, replayWidget.getShowWindow())) {
                 replayWidget.setShowWindow(!replayWidget.getShowWindow());
             }
+#endif
             ImGui::EndMenu();
         }
 

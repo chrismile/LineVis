@@ -142,6 +142,13 @@ OptixVptDenoiser::OptixVptDenoiser(sgl::vk::Renderer* renderer) : renderer(rende
     CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuStreamCreate(&stream, CU_STREAM_DEFAULT);
     sgl::vk::checkCUresult(cuResult, "Error in cuStreamCreate: ");
 
+#if defined(_WIN32) && OPTIX_VERSION < 70500
+    // Crashes on Windows with segfault for temporal denoiser with older OptiX versions.
+    denoiserModelKind = OPTIX_DENOISER_MODEL_KIND_HDR;
+#else
+    denoiserModelKind = OPTIX_DENOISER_MODEL_KIND_TEMPORAL;
+#endif
+
     normalBlitPass = std::make_shared<VectorBlitPass>(renderer);
 
     createDenoiser();
