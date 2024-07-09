@@ -702,9 +702,7 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
                     replayState.cameraFovySet = true;
                     replayState.cameraPosition = checkpoint.position;
                     replayState.cameraLookAtLocation = checkpoint.lookAtLocation;
-                    replayState.cameraOrientation =
-                            glm::angleAxis(-checkpoint.pitch, glm::vec3(1, 0, 0))
-                            * glm::angleAxis(checkpoint.yaw + sgl::PI / 2.0f, glm::vec3(0, 1, 0));
+                    replayState.cameraOrientation = checkpoint.orientation;
                     replayState.cameraFovy = checkpoint.fovy;
                 }
             }
