@@ -27,8 +27,6 @@
  */
 
 #include <unordered_set>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string/case_conv.hpp>
 
 #ifdef USE_TBB
 #include <tbb/parallel_reduce.h>
@@ -536,7 +534,7 @@ void LineDataFlow::setTrajectoryData(const Trajectories& trajectories) {
 
     helicityAttributeIndex = -1;
     for (size_t attrIdx = 0; attrIdx < attributeNames.size(); attrIdx++) {
-        std::string attributeNameLower = boost::to_lower_copy(attributeNames.at(attrIdx));
+        std::string attributeNameLower = sgl::toLowerCopy(attributeNames.at(attrIdx));
         if (attributeNameLower.find("helicity") != std::string::npos) {
             helicityAttributeIndex = int(attrIdx);
             break;

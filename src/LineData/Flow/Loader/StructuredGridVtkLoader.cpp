@@ -26,8 +26,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <boost/algorithm/string/case_conv.hpp>
-
 #ifdef USE_TBB
 #include <tbb/parallel_for.h>
 #include <tbb/blocked_range.h>
@@ -630,14 +628,14 @@ void StructuredGridVtkLoader::load(
     for (auto& it : vectorFields) {
         // Convert first letter to upper case.
         std::string vectorDisplayName;
-        vectorDisplayName = boost::to_upper_copy(it.first.substr(0, 1)) + it.first.substr(1);
+        vectorDisplayName = sgl::toUpperCopy(it.first.substr(0, 1)) + it.first.substr(1);
         grid->addVectorField(it.second, vectorDisplayName);
     }
 
     for (auto& it : scalarFields) {
         // Convert first letter to upper case.
         std::string scalarDisplayName;
-        scalarDisplayName = boost::to_upper_copy(it.first.substr(0, 1)) + it.first.substr(1);
+        scalarDisplayName = sgl::toUpperCopy(it.first.substr(0, 1)) + it.first.substr(1);
         std::string::size_type magnitudePos = scalarDisplayName.find("Magnitude");
         if (scalarDisplayName.find(" Magnitude") == std::string::npos
                 && magnitudePos != std::string::npos && magnitudePos > 0) {

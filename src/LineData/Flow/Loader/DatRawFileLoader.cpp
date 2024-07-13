@@ -26,10 +26,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <boost/algorithm/string/case_conv.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/trim.hpp>
-
 #include <Utils/Convert.hpp>
 #include <Utils/StringUtils.hpp>
 #include <Utils/File/Logfile.hpp>
@@ -53,17 +49,17 @@ void DatRawFileLoader::load(
     std::string datFilePath;
     std::string rawFilePath;
 
-    if (boost::ends_with(dataSourceFilename, ".dat")) {
+    if (sgl::endsWith(dataSourceFilename, ".dat")) {
         datFilePath = dataSourceFilename;
     }
-    if (boost::ends_with(dataSourceFilename, ".raw")) {
+    if (sgl::endsWith(dataSourceFilename, ".raw")) {
         rawFilePath = dataSourceFilename;
 
         // We need to find the corresponding .dat file.
         std::string rawFileDirectory = sgl::FileUtils::get()->getPathToFile(rawFilePath);
         std::vector<std::string> filesInDir = sgl::FileUtils::get()->getFilesInDirectoryVector(rawFileDirectory);
         for (const std::string& filePath : filesInDir) {
-            if (boost::ends_with(filePath, ".dat")) {
+            if (sgl::endsWith(filePath, ".dat")) {
                 datFilePath = filePath;
                 break;
             }
@@ -116,9 +112,9 @@ void DatRawFileLoader::load(
 
         std::string datKey = splitLineString.at(0);
         std::string datValue = splitLineString.at(1);
-        boost::trim(datKey);
-        boost::to_lower(datKey);
-        boost::trim(datValue);
+        sgl::stringTrimCopy(datKey);
+        sgl::toLower(datKey);
+        sgl::stringTrimCopy(datValue);
         datDict.insert(std::make_pair(datKey, datValue));
     }
 
@@ -165,7 +161,7 @@ void DatRawFileLoader::load(
         sgl::Logfile::get()->throwError(
                 "Error in DatRawFileLoader::load: Entry 'Format' missing in \"" + datFilePath + "\".");
     }
-    std::string formatString = boost::to_lower_copy(itFormat->second);
+    std::string formatString = sgl::toLowerCopy(itFormat->second);
     int numComponents = 0;
     if (formatString == "float3") {
         numComponents = 3;

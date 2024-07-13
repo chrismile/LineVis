@@ -30,8 +30,6 @@
 
 #include <iostream>
 #include <cstdio>
-#include <boost/algorithm/string/case_conv.hpp>
-#include <boost/algorithm/string/predicate.hpp>
 
 #ifdef USE_TBB
 #include <tbb/parallel_for.h>
@@ -39,6 +37,7 @@
 #include <tbb/blocked_range.h>
 #endif
 
+#include <Utils/StringUtils.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Math/Geometry/AABB3.hpp>
 #include <Utils/Events/Stream/Stream.hpp>
@@ -635,12 +634,12 @@ BinLinesData loadFlowTrajectoriesFromFile(
     BinLinesData binLinesData;
     binLinesData.attributeNames = attributeNames;
 
-    std::string lowerCaseFilename = boost::to_lower_copy(filename);
-    if (boost::ends_with(lowerCaseFilename, ".obj")) {
+    std::string lowerCaseFilename = sgl::toLowerCopy(filename);
+    if (sgl::endsWith(lowerCaseFilename, ".obj")) {
         binLinesData.trajectories = loadTrajectoriesFromObj(filename, attributeNames);
-    } else if (boost::ends_with(lowerCaseFilename, ".nc")) {
+    } else if (sgl::endsWith(lowerCaseFilename, ".nc")) {
         binLinesData = loadTrajectoriesFromNetCdf(filename);
-    } else if (boost::ends_with(lowerCaseFilename, ".binlines")) {
+    } else if (sgl::endsWith(lowerCaseFilename, ".binlines")) {
         binLinesData = loadTrajectoriesFromBinLines(filename);
     } else {
         sgl::Logfile::get()->writeError("ERROR in loadFlowTrajectoriesFromFile: Unknown file extension.");
@@ -669,8 +668,8 @@ void loadStressTrajectoriesFromFile(
         std::vector<glm::vec3>& simulationMeshOutlineVertexPositions,
         bool normalizeVertexPositions, bool normalizeAttributes,
         sgl::AABB3* oldAABB, const glm::mat4* vertexTransformationMatrixPtr) {
-    std::string lowerCaseFilename = boost::to_lower_copy(filenamesTrajectories.front());
-    if (boost::ends_with(lowerCaseFilename, ".dat")) {
+    std::string lowerCaseFilename = sgl::toLowerCopy(filenamesTrajectories.front());
+    if (sgl::endsWith(lowerCaseFilename, ".dat")) {
         if (version == 1) {
             loadStressTrajectoriesFromDat_v1(
                     filenamesTrajectories, filenamesHierarchy, loadedPsIndices, trajectoriesPs,

@@ -28,9 +28,6 @@
 
 #include "HexahedralMeshLoader.hpp"
 
-#include <boost/algorithm/string/split.hpp>
-#include <boost/algorithm/string.hpp>
-
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/FileLoader.hpp>
 #include <Utils/Convert.hpp>
@@ -99,7 +96,7 @@ bool readFileLineByLine(
         }
         lineNumber++;
 
-        /*boost::trim_if(lineBuffer, boost::is_any_of("\t "));
+        /*sgl::stringTrimCopy_if(lineBuffer, boost::is_any_of("\t "));
         boost::algorithm::split(
                 lineWords, lineBuffer, boost::is_any_of("\t "), boost::token_compress_on);*/
         splitStringByWhitespaceChars(lineBuffer, lineWords);

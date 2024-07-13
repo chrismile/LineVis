@@ -28,10 +28,10 @@
 
 #include <iostream>
 
-#include <boost/algorithm/string/predicate.hpp>
 #include <json/json.h>
 
 #include <Utils/File/Logfile.hpp>
+#include <Utils/File/FileUtils.hpp>
 #include <Utils/AppSettings.hpp>
 #include <Utils/Regex/TransformString.hpp>
 
@@ -87,13 +87,7 @@ void processDataSetNodeChildren(Json::Value& childList, DataSetInformation* data
         if (filenames.isArray()) {
             for (const auto& filename : filenames) {
                 std::string pathString = filename.asString();
-#ifdef _WIN32
-                bool isAbsolutePath =
-                    (pathString.size() > 1 && pathString.at(1) == ':')
-                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
-#else
-                bool isAbsolutePath = boost::starts_with(pathString, "/");
-#endif
+                bool isAbsolutePath = sgl::FileUtils::get()->getIsPathAbsolute(pathString);
                 if (isAbsolutePath) {
                     dataSetInformation->filenames.push_back(pathString);
                 } else {
@@ -102,13 +96,7 @@ void processDataSetNodeChildren(Json::Value& childList, DataSetInformation* data
             }
         } else {
             std::string pathString = filenames.asString();
-#ifdef _WIN32
-            bool isAbsolutePath =
-                    (pathString.size() > 1 && pathString.at(1) == ':')
-                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
-#else
-            bool isAbsolutePath = boost::starts_with(pathString, "/");
-#endif
+            bool isAbsolutePath = sgl::FileUtils::get()->getIsPathAbsolute(pathString);
             if (isAbsolutePath) {
                 dataSetInformation->filenames.push_back(pathString);
             } else {

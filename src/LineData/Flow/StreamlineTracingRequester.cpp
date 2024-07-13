@@ -28,8 +28,6 @@
 
 #include <algorithm>
 
-#include <boost/filesystem.hpp>
-#include <boost/algorithm/string/case_conv.hpp>
 #include <tracy/Tracy.hpp>
 
 #include <Utils/AppSettings.hpp>
@@ -417,8 +415,8 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
     if (settings.getValueOpt("flow_primitives", flowPrimitivesName)) {
         int i;
         for (i = 0; i < IM_ARRAYSIZE(FLOW_PRIMITIVE_NAMES); i++) {
-            if (boost::to_lower_copy(flowPrimitivesName)
-                    == boost::to_lower_copy(std::string(FLOW_PRIMITIVE_NAMES[i]))) {
+            if (sgl::toLowerCopy(flowPrimitivesName)
+                    == sgl::toLowerCopy(std::string(FLOW_PRIMITIVE_NAMES[i]))) {
                 guiTracingSettings.flowPrimitives = FlowPrimitives(i);
                 changed = true;
                 break;
@@ -435,8 +433,8 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
     if (settings.getValueOpt("seeding_strategy", seedingStrategyName)) {
         int i;
         for (i = 0; i < IM_ARRAYSIZE(STREAMLINE_SEEDING_STRATEGY_NAMES); i++) {
-            if (boost::to_lower_copy(seedingStrategyName)
-                    == boost::to_lower_copy(std::string(STREAMLINE_SEEDING_STRATEGY_NAMES[i]))) {
+            if (sgl::toLowerCopy(seedingStrategyName)
+                    == sgl::toLowerCopy(std::string(STREAMLINE_SEEDING_STRATEGY_NAMES[i]))) {
                 guiTracingSettings.streamlineSeedingStrategy = StreamlineSeedingStrategy(i);
                 changed = true;
                 break;
@@ -453,8 +451,8 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
     if (settings.getValueOpt("integration_method", integrationMethodName)) {
         int i;
         for (i = 0; i < IM_ARRAYSIZE(STREAMLINE_INTEGRATION_METHOD_NAMES); i++) {
-            if (boost::to_lower_copy(integrationMethodName)
-                    == boost::to_lower_copy(std::string(STREAMLINE_INTEGRATION_METHOD_NAMES[i]))) {
+            if (sgl::toLowerCopy(integrationMethodName)
+                    == sgl::toLowerCopy(std::string(STREAMLINE_INTEGRATION_METHOD_NAMES[i]))) {
                 guiTracingSettings.integrationMethod = StreamlineIntegrationMethod(i);
                 changed = true;
                 break;
@@ -471,8 +469,8 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
     if (settings.getValueOpt("integration_direction", integrationDirectionName)) {
         int i;
         for (i = 0; i < IM_ARRAYSIZE(STREAMLINE_INTEGRATION_DIRECTION_NAMES); i++) {
-                if (boost::to_lower_copy(integrationDirectionName)
-                == boost::to_lower_copy(std::string(STREAMLINE_INTEGRATION_DIRECTION_NAMES[i]))) {
+                if (sgl::toLowerCopy(integrationDirectionName)
+                == sgl::toLowerCopy(std::string(STREAMLINE_INTEGRATION_DIRECTION_NAMES[i]))) {
                 guiTracingSettings.integrationDirection = StreamlineIntegrationDirection(i);
                 changed = true;
                 break;
@@ -490,8 +488,8 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
         std::lock_guard<std::mutex> lock(cachedGridMetadataMutex);
         int i;
         for (i = 0; i < int(cachedGridVectorFieldNames.size()); i++) {
-            if (boost::to_lower_copy(vectorFieldName)
-                    == boost::to_lower_copy(std::string(STREAMLINE_INTEGRATION_DIRECTION_NAMES[i]))) {
+            if (sgl::toLowerCopy(vectorFieldName)
+                    == sgl::toLowerCopy(std::string(STREAMLINE_INTEGRATION_DIRECTION_NAMES[i]))) {
                 guiTracingSettings.vectorFieldIndex = i;
                 changed = true;
                 break;
@@ -508,8 +506,8 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
     if (settings.getValueOpt("termination_check_type", terminationCheckTypeName)) {
         int i;
         for (i = 0; i < IM_ARRAYSIZE(TERMINATION_CHECK_TYPE_NAMES); i++) {
-            if (boost::to_lower_copy(terminationCheckTypeName)
-                == boost::to_lower_copy(std::string(TERMINATION_CHECK_TYPE_NAMES[i]))) {
+            if (sgl::toLowerCopy(terminationCheckTypeName)
+                == sgl::toLowerCopy(std::string(TERMINATION_CHECK_TYPE_NAMES[i]))) {
                 guiTracingSettings.terminationCheckType = TerminationCheckType(i);
                 changed = true;
                 break;
@@ -526,8 +524,8 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
     if (settings.getValueOpt("loop_check_mode", loopCheckModeName)) {
         int i;
         for (i = 0; i < IM_ARRAYSIZE(LOOP_CHECK_MODE_NAMES); i++) {
-            if (boost::to_lower_copy(loopCheckModeName)
-                == boost::to_lower_copy(std::string(LOOP_CHECK_MODE_NAMES[i]))) {
+            if (sgl::toLowerCopy(loopCheckModeName)
+                == sgl::toLowerCopy(std::string(LOOP_CHECK_MODE_NAMES[i]))) {
                 guiTracingSettings.loopCheckMode = LoopCheckMode(i);
                 changed = true;
                 break;
@@ -568,10 +566,8 @@ void StreamlineTracingRequester::setLineTracerSettings(const SettingsMap& settin
 void StreamlineTracingRequester::setDatasetFilename(const std::string& newDatasetFilename) {
     bool isDataSetInList = false;
     for (int i = 0; i < int(gridDataSetFilenames.size()); i++) {
-        auto newDataSetPath = boost::filesystem::absolute(newDatasetFilename);
-        auto currentDataSetPath = boost::filesystem::absolute(
-                lineDataSetsDirectory + gridDataSetFilenames.at(i));
-        if (boost::filesystem::equivalent(newDataSetPath, currentDataSetPath)) {
+        if (sgl::FileUtils::get()->getPathAbsoluteEquivalent(
+                newDatasetFilename, lineDataSetsDirectory + gridDataSetFilenames.at(i))) {
             selectedGridDataSetIndex = i + 2;
             const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 2);
             bool isAbsolutePath = sgl::FileUtils::get()->getIsPathAbsolute(pathString);
@@ -609,7 +605,7 @@ void StreamlineTracingRequester::requestNewData() {
         request.dataSourceFilename = "ABC_" + abcFlowGenerator.getSettingsString();
         request.abcFlowGenerator = abcFlowGenerator;
     } else {
-        request.dataSourceFilename = boost::filesystem::absolute(gridDataSetFilename).generic_string();
+        request.dataSourceFilename = sgl::FileUtils::get()->getPathAbsoluteGeneric(gridDataSetFilename);
     }
     if (selectedGridDataSetIndex >= 2) {
         request.gridDataSetMetaData = gridDataSetsMetaData.at(selectedGridDataSetIndex - 2);
@@ -730,41 +726,41 @@ void StreamlineTracingRequester::traceLines(
         }
         if (request.isAbcDataSet) {
             request.abcFlowGenerator.load(request.gridDataSetMetaData, cachedGrid);
-        } else if (boost::ends_with(request.dataSourceFilename, ".vtk")) {
+        } else if (sgl::endsWith(request.dataSourceFilename, ".vtk")) {
             StructuredGridVtkLoader::load(
                     request.dataSourceFilename, request.gridDataSetMetaData,
                     cachedGrid);
-        } else if (boost::ends_with(request.dataSourceFilename, ".vti")
-                || boost::ends_with(request.dataSourceFilename, ".vts")
-                || boost::ends_with(request.dataSourceFilename, ".vtr")) {
+        } else if (sgl::endsWith(request.dataSourceFilename, ".vti")
+                || sgl::endsWith(request.dataSourceFilename, ".vts")
+                || sgl::endsWith(request.dataSourceFilename, ".vtr")) {
             VtkXmlLoader::load(
                     request.dataSourceFilename, request.gridDataSetMetaData,
                     cachedGrid);
-        } else if (boost::ends_with(request.dataSourceFilename, ".nc")) {
+        } else if (sgl::endsWith(request.dataSourceFilename, ".nc")) {
             NetCdfLoader::load(
                     request.dataSourceFilename, request.gridDataSetMetaData,
                     cachedGrid);
-        } else if (boost::ends_with(request.dataSourceFilename, ".am")) {
+        } else if (sgl::endsWith(request.dataSourceFilename, ".am")) {
             AmiraMeshLoader::load(
                     request.dataSourceFilename, request.gridDataSetMetaData,
                     cachedGrid);
-        } else if (boost::ends_with(request.dataSourceFilename, ".bin")) {
+        } else if (sgl::endsWith(request.dataSourceFilename, ".bin")) {
             RbcBinFileLoader::load(
                     request.dataSourceFilename, request.gridDataSetMetaData,
                     cachedGrid);
-        } else if (boost::ends_with(request.dataSourceFilename, ".field")) {
+        } else if (sgl::endsWith(request.dataSourceFilename, ".field")) {
             FieldFileLoader::load(
                     request.dataSourceFilename, request.gridDataSetMetaData,
                     cachedGrid);
-        } else if (boost::ends_with(request.dataSourceFilename, ".dat")
-                || boost::ends_with(request.dataSourceFilename, ".raw")) {
+        } else if (sgl::endsWith(request.dataSourceFilename, ".dat")
+                || sgl::endsWith(request.dataSourceFilename, ".raw")) {
             DatRawFileLoader::load(
                     request.dataSourceFilename, request.gridDataSetMetaData,
                     cachedGrid);
         }
 #ifdef USE_ECCODES
-        else if (boost::ends_with(request.dataSourceFilename, ".grib")
-                || boost::ends_with(request.dataSourceFilename, ".grb")) {
+        else if (sgl::endsWith(request.dataSourceFilename, ".grib")
+                || sgl::endsWith(request.dataSourceFilename, ".grb")) {
             GribLoader::load(
                     request.dataSourceFilename, request.gridDataSetMetaData,
                     cachedGrid);

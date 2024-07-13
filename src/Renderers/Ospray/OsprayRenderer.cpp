@@ -26,8 +26,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <boost/algorithm/string/case_conv.hpp>
-
 #include <ospray/ospray.h>
 
 #include <Utils/File/Logfile.hpp>
@@ -148,7 +146,7 @@ OsprayRenderer::~OsprayRenderer() {
 void OsprayRenderer::setNewState(const InternalState& newState) {
     std::string geometryModeName;
     if (newState.rendererSettings.getValueOpt("geometryMode", geometryModeName)) {
-        boost::algorithm::to_lower(geometryModeName);
+        sgl::toLower(geometryModeName);
         if (geometryModeName == "triangle_mesh") {
             geometryMode = GeometryMode::TRIANGLE_MESH;
         } else if (geometryModeName == "curves") {

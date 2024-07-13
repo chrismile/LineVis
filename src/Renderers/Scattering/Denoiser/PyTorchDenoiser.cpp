@@ -27,7 +27,6 @@
  */
 
 #include <memory>
-#include <boost/algorithm/string/case_conv.hpp>
 
 #include <json/json.h>
 #include <torch/script.h>
@@ -525,10 +524,10 @@ bool PyTorchDenoiser::loadModelFromFile(const std::string& modelPath) {
             wrapper = {};
             return false;
         }
-        std::string inputFeatureMapName = boost::to_lower_copy(inputFeatureMapNode.asString());
+        std::string inputFeatureMapName = sgl::toLowerCopy(inputFeatureMapNode.asString());
         int i;
         for (i = 0; i < IM_ARRAYSIZE(FEATURE_MAP_NAMES); i++) {
-            if (boost::to_lower_copy(std::string() + FEATURE_MAP_NAMES[i]) == inputFeatureMapName) {
+            if (sgl::toLowerCopy(std::string() + FEATURE_MAP_NAMES[i]) == inputFeatureMapName) {
                 inputFeatureMapsUsed.push_back(FeatureMapType(i));
                 break;
             }
@@ -676,7 +675,7 @@ bool FeatureCombinePass::getUseFeatureMap(FeatureMapType featureMapType) {
 
 std::string FeatureCombinePass::getFeatureMapImageName(FeatureMapType featureMapType) {
     std::string baseName = FEATURE_MAP_NAMES[int(featureMapType)];
-    return boost::to_lower_copy(baseName) + "Map";
+    return sgl::toLowerCopy(baseName) + "Map";
 }
 
 void FeatureCombinePass::setUsedInputFeatureMaps(
@@ -728,7 +727,7 @@ void FeatureCombinePass::loadShader() {
         auto it = inputFeatureMapsIndexMap.find(featureMapType);
         if (it != inputFeatureMapsIndexMap.end()) {
             std::string baseName = FEATURE_MAP_NAMES[i];
-            preprocessorDefines.insert(std::make_pair("USE_" + boost::to_upper_copy(baseName), ""));
+            preprocessorDefines.insert(std::make_pair("USE_" + sgl::toUpperCopy(baseName), ""));
         }
     }
     shaderStages = sgl::vk::ShaderManager->getShaderStages(

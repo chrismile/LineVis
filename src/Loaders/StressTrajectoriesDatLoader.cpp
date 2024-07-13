@@ -29,9 +29,7 @@
 #include <cstdio>
 #include <iostream>
 
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/case_conv.hpp>
-
+#include <Utils/StringUtils.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/LineReader.hpp>
 #include <Utils/Mesh/TriangleNormals.hpp>
@@ -132,12 +130,12 @@ void loadStressTrajectoriesFromDat_v1(
                 numLines = sgl::fromString<uint32_t>(linesInfo.at(0));
             } else if (linesInfo.size() == 2) {
                 numLines = sgl::fromString<uint32_t>(linesInfo.at(1));
-                boost::algorithm::to_lower(linesInfo.at(0));
-                if (boost::ends_with(linesInfo.at(0), "major")) {
+                sgl::toLower(linesInfo.at(0));
+                if (sgl::endsWith(linesInfo.at(0), "major")) {
                     loadedPsIndices.push_back(0);
-                } else if (boost::ends_with(linesInfo.at(0), "medium")) {
+                } else if (sgl::endsWith(linesInfo.at(0), "medium")) {
                     loadedPsIndices.push_back(1);
-                } else if (boost::ends_with(linesInfo.at(0), "minor")) {
+                } else if (sgl::endsWith(linesInfo.at(0), "minor")) {
                     loadedPsIndices.push_back(2);
                 } else {
                     sgl::Logfile::get()->writeError(
@@ -264,12 +262,12 @@ void loadStressTrajectoriesFromDat_v2(
             if (linesInfo.size() == 1) {
                 numLines = sgl::fromString<uint32_t>(linesInfo.at(0));
             } else if (linesInfo.size() == 2) {
-                boost::algorithm::to_lower(linesInfo.at(0));
-                if (boost::ends_with(linesInfo.at(0), "major")) {
+                sgl::toLower(linesInfo.at(0));
+                if (sgl::endsWith(linesInfo.at(0), "major")) {
                     loadedPsIndices.push_back(0);
-                } else if (boost::ends_with(linesInfo.at(0), "medium")) {
+                } else if (sgl::endsWith(linesInfo.at(0), "medium")) {
                     loadedPsIndices.push_back(1);
-                } else if (boost::ends_with(linesInfo.at(0), "minor")) {
+                } else if (sgl::endsWith(linesInfo.at(0), "minor")) {
                     loadedPsIndices.push_back(2);
                 } else {
                     sgl::Logfile::get()->writeError(
@@ -453,12 +451,12 @@ void loadStressTrajectoriesFromDat_v3(
                 if (numLines == 0) {
                     continue;
                 }
-                boost::algorithm::to_lower(linesInfo.at(0));
-                if (boost::ends_with(linesInfo.at(0), "major")) {
+                sgl::toLower(linesInfo.at(0));
+                if (sgl::endsWith(linesInfo.at(0), "major")) {
                     loadedPsIndices.push_back(0);
-                } else if (boost::ends_with(linesInfo.at(0), "medium")) {
+                } else if (sgl::endsWith(linesInfo.at(0), "medium")) {
                     loadedPsIndices.push_back(1);
-                } else if (boost::ends_with(linesInfo.at(0), "minor")) {
+                } else if (sgl::endsWith(linesInfo.at(0), "minor")) {
                     loadedPsIndices.push_back(2);
                 } else {
                     sgl::Logfile::get()->writeError(

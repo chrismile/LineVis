@@ -26,10 +26,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <boost/algorithm/string/case_conv.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/trim.hpp>
-
 #ifdef USE_TBB
 #include <tbb/parallel_for.h>
 #include <tbb/blocked_range.h>
@@ -95,7 +91,7 @@ bool CloudData::loadFromFile(const std::string& filename) {
     }
 
     gridFilename = filename;
-    gridName = boost::to_lower_copy(sgl::FileUtils::get()->removeExtension(
+    gridName = sgl::toLowerCopy(sgl::FileUtils::get()->removeExtension(
             sgl::FileUtils::get()->getPureFilename(gridFilename)));
 
     if (densityField) {
@@ -197,17 +193,17 @@ bool CloudData::loadFromDatRawFile(const std::string& filename) {
     std::string datFilePath;
     std::string rawFilePath;
 
-    if (boost::ends_with(filename, ".dat")) {
+    if (sgl::endsWith(filename, ".dat")) {
         datFilePath = filename;
     }
-    if (boost::ends_with(filename, ".raw")) {
+    if (sgl::endsWith(filename, ".raw")) {
         rawFilePath = filename;
 
         // We need to find the corresponding .dat file.
         std::string rawFileDirectory = sgl::FileUtils::get()->getPathToFile(rawFilePath);
         std::vector<std::string> filesInDir = sgl::FileUtils::get()->getFilesInDirectoryVector(rawFileDirectory);
         for (const std::string& filePath : filesInDir) {
-            if (boost::ends_with(filePath, ".dat")) {
+            if (sgl::endsWith(filePath, ".dat")) {
                 datFilePath = filePath;
                 break;
             }
@@ -260,9 +256,9 @@ bool CloudData::loadFromDatRawFile(const std::string& filename) {
 
         std::string datKey = splitLineString.at(0);
         std::string datValue = splitLineString.at(1);
-        boost::trim(datKey);
-        boost::to_lower(datKey);
-        boost::trim(datValue);
+        sgl::stringTrimCopy(datKey);
+        sgl::toLower(datKey);
+        sgl::stringTrimCopy(datValue);
         datDict.insert(std::make_pair(datKey, datValue));
     }
     delete[] bufferDat;
@@ -310,7 +306,7 @@ bool CloudData::loadFromDatRawFile(const std::string& filename) {
         sgl::Logfile::get()->throwError(
                 "Error in DatRawFileLoader::load: Entry 'Format' missing in \"" + datFilePath + "\".");
     }
-    std::string formatString = boost::to_lower_copy(itFormat->second);
+    std::string formatString = sgl::toLowerCopy(itFormat->second);
     size_t bytesPerEntry = 0;
     if (formatString == "float") {
         bytesPerEntry = 4;

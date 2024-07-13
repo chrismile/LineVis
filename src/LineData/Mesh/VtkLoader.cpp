@@ -30,11 +30,11 @@
 #include <string>
 #include <vector>
 
-#include <boost/algorithm/string.hpp>
 #include <glm/vec3.hpp>
 
-#include <Utils/File/Logfile.hpp>
 #include <Utils/Convert.hpp>
+#include <Utils/StringUtils.hpp>
+#include <Utils/File/Logfile.hpp>
 
 #include "VtkLoader.hpp"
 
@@ -157,7 +157,7 @@ bool VtkLoader::loadHexahedralMeshFromFile(
 
                 // The version header must the first non-empty line!
         if (!foundVersionHeader) {
-            if (boost::starts_with(lineString, "# vtk DataFile Version")) {
+            if (sgl::startsWith(lineString, "# vtk DataFile Version")) {
                 foundVersionHeader = true;
                 return true;
             } else {

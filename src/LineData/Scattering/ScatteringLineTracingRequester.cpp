@@ -29,7 +29,6 @@
 #include <algorithm>
 #include <cstdint>
 
-#include <boost/filesystem.hpp>
 #include <tracy/Tracy.hpp>
 
 #include <Utils/AppSettings.hpp>
@@ -139,14 +138,7 @@ void ScatteringLineTracingRequester::renderGui() {
                 int(gridDataSetNames.size()))) {
             if (selectedGridDataSetIndex >= 1) {
                 const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
-#ifdef _WIN32
-                bool isAbsolutePath =
-                    (pathString.size() > 1 && pathString.at(1) == ':')
-                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
-#else
-                bool isAbsolutePath =
-                        boost::starts_with(pathString, "/");
-#endif
+                bool isAbsolutePath = sgl::FileUtils::get()->getIsPathAbsolute(pathString);
                 if (isAbsolutePath) {
                     gridDataSetFilename = pathString;
                 } else {
@@ -209,14 +201,7 @@ void ScatteringLineTracingRequester::setLineTracerSettings(const SettingsMap& se
             if (datasetName == gridDataSetNames.at(i)) {
                 selectedGridDataSetIndex = i + 1;
                 const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
-#ifdef _WIN32
-                bool isAbsolutePath =
-                    (pathString.size() > 1 && pathString.at(1) == ':')
-                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
-#else
-                bool isAbsolutePath =
-                        boost::starts_with(pathString, "/");
-#endif
+                bool isAbsolutePath = sgl::FileUtils::get()->getIsPathAbsolute(pathString);
                 if (isAbsolutePath) {
                     gridDataSetFilename = pathString;
                 } else {
@@ -247,19 +232,11 @@ void ScatteringLineTracingRequester::setLineTracerSettings(const SettingsMap& se
 void ScatteringLineTracingRequester::setDatasetFilename(const std::string& newDatasetFilename) {
     bool isDataSetInList = false;
     for (int i = 0; i < int(gridDataSetFilenames.size()); i++) {
-        auto newDataSetPath = boost::filesystem::absolute(newDatasetFilename);
-        auto currentDataSetPath = boost::filesystem::absolute(lineDataSetsDirectory + gridDataSetFilenames.at(i));
-        if (boost::filesystem::equivalent(newDataSetPath, currentDataSetPath)) {
+        if (sgl::FileUtils::get()->getPathAbsoluteEquivalent(
+                newDatasetFilename, lineDataSetsDirectory + gridDataSetFilenames.at(i))) {
             selectedGridDataSetIndex = i + 1;
             const std::string pathString = gridDataSetFilenames.at(selectedGridDataSetIndex - 1);
-#ifdef _WIN32
-            bool isAbsolutePath =
-                    (pathString.size() > 1 && pathString.at(1) == ':')
-                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
-#else
-            bool isAbsolutePath =
-                    boost::starts_with(pathString, "/");
-#endif
+            bool isAbsolutePath = sgl::FileUtils::get()->getIsPathAbsolute(pathString);
             if (isAbsolutePath) {
                 gridDataSetFilename = pathString;
             } else {
@@ -284,7 +261,7 @@ void ScatteringLineTracingRequester::requestNewData() {
     }
 
     ScatteringTracingSettings request = guiTracingSettings;
-    request.dataset_filename = boost::filesystem::absolute(gridDataSetFilename).generic_string();
+    request.dataset_filename = sgl::FileUtils::get()->getPathAbsoluteGeneric(gridDataSetFilename);
 
     queueRequestStruct(request);
     if (!supportsMultiThreadedLoading) {

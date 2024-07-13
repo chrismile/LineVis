@@ -28,10 +28,6 @@
 
 #include <iostream>
 
-#include <boost/filesystem.hpp>
-#include <boost/algorithm/string/case_conv.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-
 #include <Utils/AppSettings.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Utils/File/FileUtils.hpp>
@@ -118,14 +114,7 @@ void StressLineTracingRequester::renderGui() {
                 "Data Set", &selectedMeshIndex, meshNames.data(), int(meshNames.size()))) {
             if (selectedMeshIndex >= 1) {
                 const std::string pathString = meshFilenames.at(selectedMeshIndex - 1);
-#ifdef _WIN32
-                bool isAbsolutePath =
-                        (pathString.size() > 1 && pathString.at(1) == ':')
-                        || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
-#else
-                bool isAbsolutePath =
-                        boost::starts_with(pathString, "/");
-#endif
+                bool isAbsolutePath = sgl::FileUtils::get()->getIsPathAbsolute(pathString);
                 if (isAbsolutePath) {
                     meshFilename = pathString;
                 } else {
@@ -185,14 +174,7 @@ void StressLineTracingRequester::setLineTracerSettings(const SettingsMap& settin
             if (datasetName == meshNames.at(i)) {
                 selectedMeshIndex = i + 1;
                 const std::string pathString = meshFilenames.at(selectedMeshIndex - 1);
-#ifdef _WIN32
-                bool isAbsolutePath =
-                        (pathString.size() > 1 && pathString.at(1) == ':')
-                        || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
-#else
-                bool isAbsolutePath =
-                        boost::starts_with(pathString, "/");
-#endif
+                bool isAbsolutePath = sgl::FileUtils::get()->getIsPathAbsolute(pathString);
                 if (isAbsolutePath) {
                     meshFilename = pathString;
                 } else {
@@ -250,19 +232,11 @@ void StressLineTracingRequester::setLineTracerSettings(const SettingsMap& settin
 void StressLineTracingRequester::setDatasetFilename(const std::string& newDatasetFilename) {
     bool isDataSetInList = false;
     for (int i = 0; i < int(meshFilenames.size()); i++) {
-        auto newDataSetPath = boost::filesystem::absolute(newDatasetFilename);
-        auto currentDataSetPath = boost::filesystem::absolute(lineDataSetsDirectory + meshFilenames.at(i));
-        if (boost::filesystem::equivalent(newDataSetPath, currentDataSetPath)) {
+        if (sgl::FileUtils::get()->getPathAbsoluteEquivalent(
+                newDatasetFilename, lineDataSetsDirectory + meshFilenames.at(i))) {
             selectedMeshIndex = i + 1;
             const std::string pathString = meshFilenames.at(selectedMeshIndex - 1);
-#ifdef _WIN32
-            bool isAbsolutePath =
-                    (pathString.size() > 1 && pathString.at(1) == ':')
-                    || boost::starts_with(pathString, "/") || boost::starts_with(pathString, "\\");
-#else
-            bool isAbsolutePath =
-                    boost::starts_with(pathString, "/");
-#endif
+            bool isAbsolutePath = sgl::FileUtils::get()->getIsPathAbsolute(pathString);
             if (isAbsolutePath) {
                 meshFilename = pathString;
             } else {
@@ -287,7 +261,7 @@ void StressLineTracingRequester::requestNewData() {
     }
 
     Json::Value request;
-    request["fileName"] = boost::filesystem::absolute(meshFilename).generic_string();
+    request["fileName"] = sgl::FileUtils::get()->getPathAbsoluteGeneric(meshFilename);
     if (lineDensCtrl > 0 && useCustomLineDensity) {
         request["lineDensCtrl"] = lineDensCtrl;
     } else {

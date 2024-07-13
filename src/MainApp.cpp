@@ -30,8 +30,6 @@
 #include <algorithm>
 #include <csignal>
 
-#include <boost/algorithm/string.hpp>
-
 #ifdef USE_ZEROMQ
 #include <zmq.h>
 #endif
@@ -351,7 +349,7 @@ MainApp::MainApp()
     cameraPath.setApplicationCallback([this](
             const std::string& modelFilename, glm::vec3& centerOffset, float& startAngle, float& pulseFactor,
             float& standardZoom) {
-        if (boost::starts_with(
+        if (sgl::startsWith(
                 modelFilename,
                 sgl::AppSettings::get()->getDataDirectory()
                 + "LineDataSets/stress/PSLs-Vis2021/psl/Vis2021_femur3D")) {
@@ -359,25 +357,25 @@ MainApp::MainApp()
             standardZoom = 2.9f;
             centerOffset.y = 0.001f;
             this->camera->setFOVy(36.0f / 180.0f * sgl::PI);
-        } else if (boost::starts_with(
+        } else if (sgl::startsWith(
                 modelFilename,
                 sgl::AppSettings::get()->getDataDirectory()
                 + "LineDataSets/stress/PSLs-Vis2021")) {
             pulseFactor = 0.0f;
             standardZoom = 2.0f;
-        } else if (boost::starts_with(
+        } else if (sgl::startsWith(
                 modelFilename,
                 sgl::AppSettings::get()->getDataDirectory()
                 + "LineDataSets/stress/PSLs-TVCG01/psl/arched_bridge3D_PSLs")) {
             pulseFactor = 0.0f;
             standardZoom = 1.9f;
-        } else if (boost::starts_with(
+        } else if (sgl::startsWith(
                 modelFilename,
                 sgl::AppSettings::get()->getDataDirectory()
                 + "LineDataSets/stress/PSLs-TVCG01/psl/arched_bridge3D_PSLs")) {
             pulseFactor = 0.0f;
             standardZoom = 1.9f;
-        } else if (boost::starts_with(
+        } else if (sgl::startsWith(
                 modelFilename, sgl::AppSettings::get()->getDataDirectory() + "LineDataSets/clouds")) {
             pulseFactor = 0.0f;
             standardZoom = 2.9f;
@@ -622,9 +620,9 @@ void MainApp::setNewState(const InternalState &newState) {
     // 3. Load the correct data set file.
     if (newState.dataSetDescriptor != lastState.dataSetDescriptor) {
         selectedDataSetIndex = 0;
-        std::string nameLower = boost::algorithm::to_lower_copy(newState.dataSetDescriptor.name);
+        std::string nameLower = sgl::toLowerCopy(newState.dataSetDescriptor.name);
         for (size_t i = 0; i < dataSetInformationList.size(); i++) {
-            if (boost::algorithm::to_lower_copy(dataSetInformationList.at(i)->name) == nameLower) {
+            if (sgl::toLowerCopy(dataSetInformationList.at(i)->name) == nameLower) {
                 selectedDataSetIndex = int(i) + NUM_MANUAL_LOADERS;
                 break;
             }
@@ -2061,10 +2059,10 @@ void MainApp::onCameraReset() {
 void MainApp::loadDataFromFile(const std::string& filename) {
     fileDialogDirectory = sgl::FileUtils::get()->getPathToFile(filename);
 
-    std::string filenameLower = boost::to_lower_copy(filename);
-    bool isObjFile = boost::ends_with(filenameLower, ".obj");
-    bool isDatFile = boost::ends_with(filenameLower, ".dat");
-    bool isNcFile = boost::ends_with(filenameLower, ".nc");
+    std::string filenameLower = sgl::toLowerCopy(filename);
+    bool isObjFile = sgl::endsWith(filenameLower, ".obj");
+    bool isDatFile = sgl::endsWith(filenameLower, ".dat");
+    bool isNcFile = sgl::endsWith(filenameLower, ".nc");
 
     /*
      * The program supports loading flow lines or triangle meshes from .dat files.
@@ -2141,43 +2139,43 @@ void MainApp::loadDataFromFile(const std::string& filename) {
         isNcVolumeFile = !getNetCdfFileStoresTrajectories(filename);
     }
 
-    if (boost::ends_with(filenameLower, ".vtk")
-            || boost::ends_with(filenameLower, ".vti")
-            || boost::ends_with(filenameLower, ".vts")
-            || boost::ends_with(filenameLower, ".vtr")
+    if (sgl::endsWith(filenameLower, ".vtk")
+            || sgl::endsWith(filenameLower, ".vti")
+            || sgl::endsWith(filenameLower, ".vts")
+            || sgl::endsWith(filenameLower, ".vtr")
             || (isNcFile && isNcVolumeFile)
-            || boost::ends_with(filenameLower, ".am")
-            || boost::ends_with(filenameLower, ".bin")
-            || boost::ends_with(filenameLower, ".field")
+            || sgl::endsWith(filenameLower, ".am")
+            || sgl::endsWith(filenameLower, ".bin")
+            || sgl::endsWith(filenameLower, ".field")
 #ifdef USE_ECCODES
-            || boost::ends_with(filenameLower, ".grib")
-            || boost::ends_with(filenameLower, ".grb")
+            || sgl::endsWith(filenameLower, ".grib")
+            || sgl::endsWith(filenameLower, ".grb")
 #endif
             || (isDatFile && isDatVolumeFile)
-            || boost::ends_with(filenameLower, ".raw")) {
+            || sgl::endsWith(filenameLower, ".raw")) {
         selectedDataSetIndex = 1;
         streamlineTracingRequester->setDatasetFilename(filename);
         streamlineTracingRequester->setShowWindow(true);
-    } else if (boost::ends_with(filenameLower, ".stress")
-               || boost::ends_with(filenameLower, ".carti")) {
+    } else if (sgl::endsWith(filenameLower, ".stress")
+               || sgl::endsWith(filenameLower, ".carti")) {
         selectedDataSetIndex = 2;
         stressLineTracingRequester->setDatasetFilename(filename);
         stressLineTracingRequester->setShowWindow(true);
-    } else if (boost::ends_with(filenameLower, ".xyz")
-               || boost::ends_with(filenameLower, ".nvdb")) {
+    } else if (sgl::endsWith(filenameLower, ".xyz")
+               || sgl::endsWith(filenameLower, ".nvdb")) {
         selectedDataSetIndex = 3;
         scatteringLineTracingRequester->setDatasetFilename(filename);
         scatteringLineTracingRequester->setShowWindow(true);
     } else {
         selectedDataSetIndex = 0;
         if ((isObjFile && !isObjTriangleMeshFile)
-            || boost::ends_with(filenameLower, ".binlines") || isNcFile) {
+            || sgl::endsWith(filenameLower, ".binlines") || isNcFile) {
             dataSetType = DATA_SET_TYPE_FLOW_LINES;
         } else if (isDatFile) {
             dataSetType = DATA_SET_TYPE_STRESS_LINES;
         } else if ((isObjFile && isObjTriangleMeshFile)
-                   || boost::ends_with(filenameLower, ".bobj")
-                   || boost::ends_with(filenameLower, ".stl")) {
+                   || sgl::endsWith(filenameLower, ".bobj")
+                   || sgl::endsWith(filenameLower, ".stl")) {
             dataSetType = DATA_SET_TYPE_TRIANGLE_MESH;
         } else {
             sgl::Logfile::get()->writeError("The selected file name has an unknown extension.");
