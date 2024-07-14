@@ -11,6 +11,7 @@ pkgs.mkShell {
     pkg-config
     patchelf
     boost
+    icu
     glm
     libarchive
     tinyxml-2
