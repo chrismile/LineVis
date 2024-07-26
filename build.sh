@@ -66,6 +66,13 @@ else
     is_ospray_installed=false
 fi
 
+# Check if a conda environment is already active.
+if $use_conda; then
+    if [ ! -z "${CONDA_DEFAULT_ENV+x}" ]; then
+        conda_env_name="$CONDA_DEFAULT_ENV"
+    fi
+fi
+
 # Process command line arguments.
 for ((i=1;i<=$#;i++));
 do
