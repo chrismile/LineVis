@@ -111,7 +111,7 @@ jobs:
 
     - name: Cache SwiftShader binaries
       id: cache-swiftshader
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: ${{env.swiftshader_DIR}}
         key: ${{runner.os}}-swiftshader-${{env.BUILD_TYPE}}-${{env.swiftshader_COMMIT_ID}}
