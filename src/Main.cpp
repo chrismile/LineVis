@@ -121,8 +121,8 @@ int main(int argc, char *argv[]) {
     sgl::Window* window = sgl::AppSettings::get()->createWindow();
 
     std::vector<const char*> optionalDeviceExtensions;
-#ifdef SUPPORT_CUDA_INTEROP
-    optionalDeviceExtensions = sgl::vk::Device::getCudaInteropDeviceExtensions();
+#if defined(SUPPORT_CUDA_INTEROP) || defined(SUPPORT_OPEN_IMAGE_DENOISE)
+    optionalDeviceExtensions = sgl::vk::Device::getVulkanInteropDeviceExtensions();
 #endif
     std::vector<const char*> raytracingDeviceExtensions = {
             VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
