@@ -72,7 +72,7 @@ typedef std::shared_ptr<Camera> CameraPtr;
 #  define OPTIX_DENOISER_OPT
 #endif
 
-#ifdef SUPPORT_OPTIX
+#ifdef SUPPORT_OPEN_IMAGE_DENOISE
 #  define OPEN_IMAGE_DENOISE_DENOISER_OPT \
     DENOISER(OPEN_IMAGE_DENOISE, "OpenImageDenoise")
 #else
