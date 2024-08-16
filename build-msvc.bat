@@ -244,6 +244,17 @@ if %use_eccodes% == true if not exist ".\eccodes-%eccodes_version%" (
 )
 set cmake_args=%cmake_args% -Deccodes_DIR="third_party/eccodes-%eccodes_version%/lib/cmake/eccodes-%eccodes_version%"
 
+set oidn_version=2.3.0
+if not exist ".\oidn-%oidn_version%.x64.windows" (
+    echo ------------------------
+    echo downloading OpenImageDenoise
+    echo ------------------------
+    curl.exe -L "https://github.com/OpenImageDenoise/oidn/releases/download/v%oidn_version%/oidn-%oidn_version%.x64.windows.zip" --output oidn-%oidn_version%.x64.windows.zip
+    tar -xvzf "oidn-%oidn_version%.x64.windows.zip"
+    del "oidn-%oidn_version%.x64.windows.zip"
+)
+set cmake_args=%cmake_args% -DOpenImageDenoise_DIR="third_party/oidn-%oidn_version%.x64.windows/lib/cmake/OpenImageDenoise-%oidn_version%"
+
 popd
 
 if %debug% == true (

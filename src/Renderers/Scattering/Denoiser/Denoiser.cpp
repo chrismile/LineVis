@@ -38,6 +38,9 @@
 #ifdef SUPPORT_OPTIX
 #include "OptixVptDenoiser.hpp"
 #endif
+#ifdef SUPPORT_OPEN_IMAGE_DENOISE
+#include "OpenImageDenoiseDenoiser.hpp"
+#endif
 #include "Denoiser.hpp"
 
 std::shared_ptr<Denoiser> createDenoiserObject(
@@ -73,6 +76,11 @@ std::shared_ptr<Denoiser> createDenoiserObject(
         if (mode == DenoisingMode::VOLUMETRIC_PATH_TRACING) {
             denoiser->setTemporalDenoisingEnabled(false);
         }
+    }
+#endif
+#ifdef SUPPORT_OPEN_IMAGE_DENOISE
+    else if (denoiserType == DenoiserType::OPEN_IMAGE_DENOISE) {
+        denoiser = std::shared_ptr<Denoiser>(new OpenImageDenoiseDenoiser(renderer, false));
     }
 #endif
     else {

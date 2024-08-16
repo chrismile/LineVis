@@ -88,6 +88,9 @@
 #ifdef SUPPORT_OPTIX
 #include "Renderers/Scattering/Denoiser/OptixVptDenoiser.hpp"
 #endif
+#if defined(SUPPORT_CUDA_INTEROP) && defined(SUPPORT_OPEN_IMAGE_DENOISE)
+#include "Renderers/Scattering/Denoiser/OpenImageDenoiseDenoiser.hpp"
+#endif
 
 #ifdef USE_OSPRAY
 #include "Renderers/Ospray/OsprayRenderer.hpp"
@@ -163,6 +166,11 @@ MainApp::MainApp()
 #ifdef SUPPORT_OPTIX
     if (cudaInteropInitialized) {
         optixInitialized = OptixVptDenoiser::initGlobal(cuContext, cuDevice);
+    }
+#endif
+#if defined(SUPPORT_CUDA_INTEROP) && defined(SUPPORT_OPEN_IMAGE_DENOISE)
+    if (cudaInteropInitialized) {
+        OpenImageDenoiseDenoiser::initGlobalCuda(cuContext, cuDevice);
     }
 #endif
 #ifdef SUPPORT_OPENCL_INTEROP

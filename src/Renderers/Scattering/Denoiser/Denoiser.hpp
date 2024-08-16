@@ -72,6 +72,13 @@ typedef std::shared_ptr<Camera> CameraPtr;
 #  define OPTIX_DENOISER_OPT
 #endif
 
+#ifdef SUPPORT_OPTIX
+#  define OPEN_IMAGE_DENOISE_DENOISER_OPT \
+    DENOISER(OPEN_IMAGE_DENOISE, "OpenImageDenoise")
+#else
+#  define OPEN_IMAGE_DENOISE_DENOISER_OPT
+#endif
+
 #ifdef SUPPORT_PYTORCH_DENOISER
 #  define PYTORCH_DENOISER_OPT \
     DENOISER(PYTORCH_DENOISER, "PyTorch Denoiser Module")
@@ -79,7 +86,7 @@ typedef std::shared_ptr<Camera> CameraPtr;
 #  define PYTORCH_DENOISER_OPT
 #endif
 
-#define DENOISERS STD_DENOISERS OPTIX_DENOISER_OPT PYTORCH_DENOISER_OPT
+#define DENOISERS STD_DENOISERS OPTIX_DENOISER_OPT OPEN_IMAGE_DENOISE_DENOISER_OPT PYTORCH_DENOISER_OPT
 
 enum class DenoiserType {
 #define DENOISER(type, name) type,
