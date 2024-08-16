@@ -66,10 +66,11 @@ if %clean% == true (
     echo ------------------------
     echo  cleaning up old files
     echo ------------------------
-    rd /s /q ".third_party\sgl"
-    rd /s /q ".third_party\vcpkg"
+    rd /s /q "third_party\sgl"
+    rd /s /q "third_party\vcpkg"
     rd /s /q ".build"
     rd /s /q "Shipping"
+    git submodule update --init --recursive
 )
 
 where cmake >NUL 2>&1 || echo cmake was not found but is required to build the program && exit /b 1
