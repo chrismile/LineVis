@@ -106,14 +106,16 @@ if not exist .\submodules\IsosurfaceCpp\src (
    git submodule update || exit /b 1
 )
 
+IF "%toolchain_file%"=="" SET toolchain_file="vcpkg/scripts/buildsystems/vcpkg.cmake"
+
 set third_party_dir=%~dp0/third_party
-set cmake_args=-DCMAKE_TOOLCHAIN_FILE="third_party/vcpkg/scripts/buildsystems/vcpkg.cmake" ^
+set cmake_args=-DCMAKE_TOOLCHAIN_FILE="third_party/%toolchain_file%" ^
                -DVCPKG_TARGET_TRIPLET=%vcpkg_triplet% ^
                -DCMAKE_CXX_FLAGS="/MP" ^
 -DPYTHONHOME="./python3" ^
                -Dsgl_DIR="third_party/sgl/install/lib/cmake/sgl/"
 
-set cmake_args_general=-DCMAKE_TOOLCHAIN_FILE="%third_party_dir%/vcpkg/scripts/buildsystems/vcpkg.cmake" ^
+set cmake_args_general=-DCMAKE_TOOLCHAIN_FILE="%third_party_dir%/%toolchain_file%" ^
                -DVCPKG_TARGET_TRIPLET=%vcpkg_triplet%
 
 if not exist .\third_party\ mkdir .\third_party\
@@ -299,7 +301,7 @@ if %debug% == true (
    if not exist %destination_dir%\*.pdb (
       del %destination_dir%\*.dll
    )
-   robocopy %build_dir%\Debug\  %destination_dir%  >NUL
+   robocopy %build_dir%\Debug\ %destination_dir% >NUL
    robocopy third_party\sgl\.build\Debug %destination_dir% *.dll *.pdb >NUL
 ) else (
    if exist %destination_dir%\*.pdb (
