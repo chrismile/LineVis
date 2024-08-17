@@ -68,7 +68,7 @@ if %clean% == true (
     echo ------------------------
     rd /s /q "third_party\sgl"
     rd /s /q "third_party\vcpkg"
-    rd /s /q ".build"
+    for /d %%G in (".build*") do rd /s /q "%%~G"
     rd /s /q "Shipping"
     git submodule update --init --recursive
 )
@@ -88,6 +88,14 @@ if defined VCINSTALLDIR (
 )
 if not defined VCINSTALLDIR (
     set cmake_generator=
+)
+
+if %debug% == true (
+    set cmake_config="Debug"
+    set cmake_config_opposite="Release"
+) else (
+    set cmake_config="Release"
+    set cmake_config_opposite="Debug"
 )
 
 if not exist .\submodules\IsosurfaceCpp\src (
@@ -126,43 +134,49 @@ set cmake_args_general=%cmake_args_general% -DCMAKE_TOOLCHAIN_FILE="%third_party
 
 if %use_vcpkg% == true (
     set cmake_args=%cmake_args% -DVCPKG_TARGET_TRIPLET=%vcpkg_triplet% -DCMAKE_CXX_FLAGS="/MP"
+    set cmake_args_sgl=-DCMAKE_CXX_FLAGS="/MP"
     set cmake_args_general=%cmake_args_general% -DVCPKG_TARGET_TRIPLET=%vcpkg_triplet%
     if not exist .\vcpkg (
-       echo ------------------------
-       echo    fetching vcpkg
-       echo ------------------------
-       git clone --depth 1 -b fix-libarchive-rpath https://github.com/chrismile/vcpkg.git || exit /b 1
-       call vcpkg\bootstrap-vcpkg.bat -disableMetrics || exit /b 1
-       vcpkg\vcpkg install --triplet=%vcpkg_triplet% || exit /b 1
+        echo ------------------------
+        echo    fetching vcpkg
+        echo ------------------------
+        git clone --depth 1 -b fix-libarchive-rpath https://github.com/chrismile/vcpkg.git || exit /b 1
+        call vcpkg\bootstrap-vcpkg.bat -disableMetrics || exit /b 1
+        vcpkg\vcpkg install --triplet=%vcpkg_triplet% || exit /b 1
     )
 )
 
 if not exist .\sgl (
-   echo ------------------------
-   echo      fetching sgl
-   echo ------------------------
-   git clone --depth 1 https://github.com/chrismile/sgl.git   || exit /b 1
+    echo ------------------------
+    echo      fetching sgl
+    echo ------------------------
+    git clone --depth 1 https://github.com/chrismile/sgl.git   || exit /b 1
 )
 
 if not exist .\sgl\install (
-   echo ------------------------
-   echo      building sgl
-   echo ------------------------
-   mkdir sgl\.build 2> NUL
-   pushd sgl\.build
+    echo ------------------------
+    echo      building sgl
+    echo ------------------------
+    mkdir sgl\%build_dir% 2> NUL
+    pushd sgl\%build_dir%
 
-   cmake .. %cmake_generator% %cmake_args_general% ^
-            -DCMAKE_INSTALL_PREFIX="%third_party_dir%/sgl/install" -DCMAKE_CXX_FLAGS="/MP" || exit /b 1
-   if x%vcpkg_triplet:release=%==x%vcpkg_triplet% (
-      cmake --build . --config Debug   -- /m            || exit /b 1
-      cmake --build . --config Debug   --target install || exit /b 1
-   )
-   if x%vcpkg_triplet:debug=%==x%vcpkg_triplet% (
-      cmake --build . --config Release -- /m            || exit /b 1
-      cmake --build . --config Release --target install || exit /b 1
-   )
+    cmake .. %cmake_generator% %cmake_args_sgl% %cmake_args_general% ^
+            -DCMAKE_INSTALL_PREFIX="%third_party_dir%/sgl/install" || exit /b 1
+    if %use_vcpkg% == true (
+        if x%vcpkg_triplet:release=%==x%vcpkg_triplet% (
+           cmake --build . --config Debug   -- /m            || exit /b 1
+           cmake --build . --config Debug   --target install || exit /b 1
+        )
+        if x%vcpkg_triplet:debug=%==x%vcpkg_triplet% (
+           cmake --build . --config Release -- /m            || exit /b 1
+           cmake --build . --config Release --target install || exit /b 1
+        )
+    ) else (
+        cmake --build . --config %cmake_config%                  || exit /b 1
+        cmake --build . --config %cmake_config% --target install || exit /b 1
+    )
 
-   popd
+    popd
 )
 
 set embree_version=3.13.3
@@ -267,19 +281,13 @@ set cmake_args=%cmake_args% -DOpenImageDenoise_DIR="third_party/oidn-%oidn_versi
 popd
 
 if %debug% == true (
-   echo ------------------------
-   echo   building in debug
-   echo ------------------------
-
-   set cmake_config="Debug"
-   set cmake_config_opposite="Release"
+    echo ------------------------
+    echo   building in debug
+    echo ------------------------
 ) else (
-   echo ------------------------
-   echo   building in release
-   echo ------------------------
-
-   set cmake_config="Release"
-   set cmake_config_opposite="Debug"
+    echo ------------------------
+    echo   building in release
+    echo ------------------------
 )
 
 echo ------------------------
@@ -296,7 +304,11 @@ cmake %cmake_generator% %cmake_args% -S . -B %build_dir%
 echo ------------------------
 echo       compiling
 echo ------------------------
-cmake --build %build_dir% --config %cmake_config% -- /m || exit /b 1
+if %use_vcpkg% == true (
+    cmake --build %build_dir% --config %cmake_config% -- /m || exit /b 1
+) else (
+    cmake --build %build_dir% --config %cmake_config%       || exit /b 1
+)
 
 echo ------------------------
 echo    copying new files
@@ -305,18 +317,18 @@ robocopy .build\vcpkg_installed\x64-windows\tools\python3 ^
          %destination_dir%\python3 /e >NUL
 robocopy third_party\ospray-%ospray_version%.x86_64.windows\bin %destination_dir% *.dll >NUL
 if %debug% == true (
-   if not exist %destination_dir%\*.pdb (
-      del %destination_dir%\*.dll
-   )
-   robocopy %build_dir%\Debug\ %destination_dir% >NUL
-   robocopy third_party\sgl\.build\Debug %destination_dir% *.dll *.pdb >NUL
+    if not exist %destination_dir%\*.pdb (
+        del %destination_dir%\*.dll
+    )
+    robocopy %build_dir%\Debug\ %destination_dir% >NUL
+    robocopy third_party\sgl\%build_dir%\Debug %destination_dir% *.dll *.pdb >NUL
 ) else (
-   if exist %destination_dir%\*.pdb (
-      del %destination_dir%\*.dll
-      del %destination_dir%\*.pdb
-   )
-   robocopy %build_dir%\Release\ %destination_dir% >NUL
-   robocopy third_party\sgl\.build\Release %destination_dir% *.dll >NUL
+    if exist %destination_dir%\*.pdb (
+        del %destination_dir%\*.dll
+        del %destination_dir%\*.pdb
+    )
+    robocopy %build_dir%\Release\ %destination_dir% >NUL
+    robocopy third_party\sgl\%build_dir%\Release %destination_dir% *.dll >NUL
 )
 
 :: Build other configuration and copy sgl DLLs to the build directory.
@@ -324,9 +336,13 @@ if %devel% == true (
     echo ------------------------
     echo   setting up dev files
     echo ------------------------
-    cmake --build %build_dir% --config %cmake_config_opposite% -- /m || exit /b 1
-    robocopy third_party\sgl\.build\Debug %build_dir%\Debug\ *.dll *.pdb >NUL
-    robocopy third_party\sgl\.build\Release %build_dir%\Release\ *.dll >NUL
+    if %use_vcpkg% == true (
+        cmake --build %build_dir% --config %cmake_config_opposite% -- /m || exit /b 1
+    ) else (
+        cmake --build %build_dir% --config %cmake_config_opposite%       || exit /b 1
+    )
+    robocopy third_party\sgl\%build_dir%\Debug %build_dir%\Debug\ *.dll *.pdb >NUL
+    robocopy third_party\sgl\%build_dir%\Release %build_dir%\Release\ *.dll >NUL
 )
 
 echo.
@@ -335,7 +351,7 @@ echo All done!
 pushd %destination_dir%
 
 if %run_program% == true (
-   LineVis.exe
+    LineVis.exe
 ) else (
-   echo Build finished.
+    echo Build finished.
 )
