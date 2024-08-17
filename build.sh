@@ -1005,10 +1005,10 @@ if $use_open_image_denoise; then
         oidn_folder_name="oidn-${oidn_version}.x64.windows"
         oidn_archive_name="${oidn_folder_name}.zip"
     elif $use_macos; then
-        oidn_folder_name="oidn-${oidn_version}.${os_arch}.linux"
+        oidn_folder_name="oidn-${oidn_version}.${os_arch}.macos"
         oidn_archive_name="${oidn_folder_name}.tar.gz"
     else
-        oidn_folder_name="oidn-${oidn_version}.${os_arch}.macos"
+        oidn_folder_name="oidn-${oidn_version}.${os_arch}.linux"
         oidn_archive_name="${oidn_folder_name}.tar.gz"
     fi
     if [ ! -d "./${oidn_folder_name}" ]; then
@@ -1018,7 +1018,7 @@ if $use_open_image_denoise; then
         wget "https://github.com/OpenImageDenoise/oidn/releases/download/v${oidn_version}/${oidn_archive_name}"
         if $use_msys; then
             unzip "${oidn_archive_name}"
-        elif $use_macos; then
+        else
             tar -xvzf "${oidn_archive_name}"
         fi
         rm "${oidn_archive_name}"
