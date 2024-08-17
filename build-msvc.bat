@@ -90,14 +90,6 @@ if not defined VCINSTALLDIR (
     set cmake_generator=
 )
 
-IF "%VULKAN_SDK%"=="" (
-  for /D %%F in (C:\VulkanSDK\*) do (
-    set VULKAN_SDK=%%F
-    goto vulkan_finished
-  )
-)
-:vulkan_finished
-
 if not exist .\submodules\IsosurfaceCpp\src (
    echo ------------------------
    echo initializing submodules
@@ -106,28 +98,43 @@ if not exist .\submodules\IsosurfaceCpp\src (
    git submodule update || exit /b 1
 )
 
+if not exist .\third_party\ mkdir .\third_party\
+set proj_dir=%~dp0
+set third_party_dir=%proj_dir%third_party
+pushd third_party
+
+IF "%VULKAN_SDK%"=="" (
+  for /D %%F in (C:\VulkanSDK\*) do (
+    set VULKAN_SDK=%%F
+    goto vulkan_finished
+  )
+)
+:vulkan_finished
+
+IF "%toolchain_file%"=="" (
+    SET use_vcpkg=true
+) ELSE (
+    SET use_vcpkg=false
+)
 IF "%toolchain_file%"=="" SET toolchain_file="vcpkg/scripts/buildsystems/vcpkg.cmake"
 
-set third_party_dir=%~dp0/third_party
-set cmake_args=-DCMAKE_TOOLCHAIN_FILE="third_party/%toolchain_file%" ^
-               -DVCPKG_TARGET_TRIPLET=%vcpkg_triplet% ^
-               -DCMAKE_CXX_FLAGS="/MP" ^
+set cmake_args=%cmake_args% -DCMAKE_TOOLCHAIN_FILE="third_party/%toolchain_file%" ^
 -DPYTHONHOME="./python3" ^
                -Dsgl_DIR="third_party/sgl/install/lib/cmake/sgl/"
 
-set cmake_args_general=-DCMAKE_TOOLCHAIN_FILE="%third_party_dir%/%toolchain_file%" ^
-               -DVCPKG_TARGET_TRIPLET=%vcpkg_triplet%
+set cmake_args_general=%cmake_args_general% -DCMAKE_TOOLCHAIN_FILE="%third_party_dir%/%toolchain_file%"
 
-if not exist .\third_party\ mkdir .\third_party\
-pushd third_party
-
-if not exist .\vcpkg (
-   echo ------------------------
-   echo    fetching vcpkg
-   echo ------------------------
-   git clone --depth 1 -b fix-libarchive-rpath https://github.com/chrismile/vcpkg.git || exit /b 1
-   call vcpkg\bootstrap-vcpkg.bat -disableMetrics || exit /b 1
-   vcpkg\vcpkg install --triplet=%vcpkg_triplet% || exit /b 1
+if %use_vcpkg% == true (
+    set cmake_args=%cmake_args% -DVCPKG_TARGET_TRIPLET=%vcpkg_triplet% -DCMAKE_CXX_FLAGS="/MP"
+    set cmake_args_general=%cmake_args_general% -DVCPKG_TARGET_TRIPLET=%vcpkg_triplet%
+    if not exist .\vcpkg (
+       echo ------------------------
+       echo    fetching vcpkg
+       echo ------------------------
+       git clone --depth 1 -b fix-libarchive-rpath https://github.com/chrismile/vcpkg.git || exit /b 1
+       call vcpkg\bootstrap-vcpkg.bat -disableMetrics || exit /b 1
+       vcpkg\vcpkg install --triplet=%vcpkg_triplet% || exit /b 1
+    )
 )
 
 if not exist .\sgl (
