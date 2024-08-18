@@ -38,6 +38,8 @@ set destination_dir="Shipping"
 set vcpkg_triplet="x64-windows"
 :: Leave empty to let cmake try to find the correct paths
 set optix_install_dir=""
+:: Optionally, the program can be built with Direct3D 12 support for some renderers.
+set use_d3d=false
 
 :loop
 IF NOT "%1"=="" (
@@ -56,6 +58,9 @@ IF NOT "%1"=="" (
     IF "%1"=="--vcpkg-triplet" (
         SET vcpkg_triplet=%2
         SHIFT
+    )
+    IF "%1"=="--d3d" (
+        SET use_d3d=true
     )
     SHIFT
     GOTO :loop
@@ -118,6 +123,9 @@ IF "%VULKAN_SDK%"=="" (
   )
 )
 :vulkan_finished
+if %use_d3d% == true (
+    set cmake_args_sgl=%cmake_args_sgl% -DSUPPORT_D3D12=ON -DVCPKG_MANIFEST_FEATURES=d3d12
+)
 
 IF "%toolchain_file%"=="" (
     SET use_vcpkg=true

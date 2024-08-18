@@ -66,6 +66,8 @@ else
     is_embree_installed=false
     is_ospray_installed=false
 fi
+# Optionally, the program can be built on Windows with MSYS2 with Direct3D 12 support for some renderers.
+use_d3d=false
 
 # Check if a conda environment is already active.
 if $use_conda; then
@@ -105,6 +107,8 @@ do
     elif [ ${!i} = "--dlswap" ]; then
         use_download_swapchain=true
         build_with_vkvg_support=true
+    elif [ ${!i} = "--d3d" ]; then
+        use_d3d=true
     fi
 done
 
@@ -784,6 +788,36 @@ fi
 
 if [ $use_msys = false ] && [ -z "${VULKAN_SDK+1}" ]; then
     vulkan_sdk_env_set=true
+fi
+if [ $use_d3d = true ] && [ $use_msys = true ]; then
+    # As of 2024-08-18, MSYS2 does not have a package for the DirectX Shader Compiler yet.
+    # For progress, see issue at: https://github.com/msys2/MINGW-packages/issues/20670
+    # As a fix, we will use the pre-compiled binaries for now.
+    dxc_dir_name="dxc_2024_07_31"
+    wget "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.8.2407/${dxc_dir_name}.zip"
+    unzip "${dxc_dir_name}"
+    rm "${dxc_dir_name}.zip"
+    mkdir dxc
+    mkdir dxc/tools
+    mkdir dxc/bin
+    mkdir dxc/lib
+    mkdir dxc/include
+    mkdir dxc/share
+    pushd dxc/share >/dev/null
+    wget "https://raw.githubusercontent.com/chrismile/CMakeSnippets/main/directx-dxc-config.cmake"
+    popd >/dev/null
+    os_arch="$(uname -m)"
+    os_arch_win=${os_arch}
+    if [ "$os_arch" = "x86_64" ]; then
+        os_arch_win="x64"
+    fi
+    rsync -av "${dxc_dir_name}/bin/${os_arch_win}/*.dll" dxc/bin
+    find "${dxc_dir_name}/bin/${os_arch_win}" -name "*.dll" -exec cp {} dxc/bin/ \;
+    find "${dxc_dir_name}/bin/${os_arch_win}" -name "*.exe" -exec cp {} dxc/tools/ \;
+    find "${dxc_dir_name}/lib/${os_arch_win}" -name "*.lib" -exec cp {} dxc/lib/ \;
+    find "${dxc_dir_name}/inc" -name "*.h" -exec cp {} dxc/include/ \;
+
+    params_sgl+=(-DSUPPORT_D3D12=ON -Ddirectx-dxc_DIR="${projectpath}/third_party/dxc/share")
 fi
 
 if [ $use_vcpkg = true ] && [ ! -d "./vcpkg" ]; then
