@@ -1,0 +1,1 @@
+These licenses apply to the Direct3D 12 dependencies if the application is built with the "--d3d" flag.

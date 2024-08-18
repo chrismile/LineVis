@@ -37,6 +37,11 @@
 #include "Renderers/Ospray/OsprayRenderer.hpp"
 #endif
 
+#ifdef SUPPORT_D3D12
+#include <Graphics/D3D12/DXGIFactory.hpp>
+#include <Graphics/D3D12/Device.hpp>
+#endif
+
 #include <Utils/File/FileUtils.hpp>
 #include <Utils/File/Logfile.hpp>
 #include <Utils/AppSettings.hpp>
@@ -177,6 +182,21 @@ int main(int argc, char *argv[]) {
                     VK_EXT_SCALAR_BLOCK_LAYOUT_EXTENSION_NAME
             },
             optionalDeviceExtensions, requestedDeviceFeatures);
+#ifdef SUPPORT_D3D12
+    // Direct3D 12 test code. This will be extended in the future.
+    sgl::d3d12::DXGIFactoryPtr dxgiFactory = std::make_shared<sgl::d3d12::DXGIFactory>(true);
+    dxgiFactory->enumerateDevices();
+    /*
+     * We use D3D12 for testing Rasterizer Ordered Views (ROVs) performance. According to:
+     * https://learn.microsoft.com/en-us/windows/win32/direct3d12/hardware-feature-levels
+     * ... ROVs were added in feature level 11_1, and became non-optional in 12_1.
+     * Thus, we will just require minimum level 11_1 for now.
+     */
+    sgl::d3d12::DevicePtr d3d12Device = dxgiFactory->createMatchingDevice(device, D3D_FEATURE_LEVEL_11_1);
+    if (d3d12Device) {
+        sgl::Logfile::get()->writeInfo("D3D12 device supports ROVs: " + std::to_string(d3d12Device->getSupportsROVs()));
+    }
+#endif
     sgl::vk::Swapchain* swapchain = new sgl::vk::Swapchain(device);
     swapchain->create(window);
     sgl::AppSettings::get()->setPrimaryDevice(device);
