@@ -811,7 +811,6 @@ if [ $use_d3d = true ] && [ $use_msys = true ]; then
     if [ "$os_arch" = "x86_64" ]; then
         os_arch_win="x64"
     fi
-    rsync -av "${dxc_dir_name}/bin/${os_arch_win}/*.dll" dxc/bin
     find "${dxc_dir_name}/bin/${os_arch_win}" -name "*.dll" -exec cp {} dxc/bin/ \;
     find "${dxc_dir_name}/bin/${os_arch_win}" -name "*.exe" -exec cp {} dxc/tools/ \;
     find "${dxc_dir_name}/lib/${os_arch_win}" -name "*.lib" -exec cp {} dxc/lib/ \;
@@ -1223,6 +1222,19 @@ if $use_msys; then
 
     # Copy all dependencies of the application to the destination directory.
     ldd_output="$(ntldd -R $build_dir/LineVis.exe)"
+    if $use_open_image_denoise; then
+        # Copy OpenImageDenoise device libraries.
+        for oidn_lib_file in "${projectpath}/third_party/${oidn_folder_name}/bin/OpenImageDenoise_device_"*; do
+            ldd_output="$ldd_output ${oidn_lib_file}"
+        done
+        # Copy other dependencies.
+        for oidn_lib_file in "${projectpath}/third_party/${oidn_folder_name}/bin/"*.dll; do
+            oidn_lib_file_basename="$(basename ${oidn_lib_file})"
+            if [[ ${oidn_lib_file_basename} != "OpenImageDenoise"* ]]; then
+                ldd_output="$ldd_output ${oidn_lib_file}"
+            fi
+        done
+    fi
     for library_abs in $ldd_output
     do
         if [[ $library == "not found"* ]] || [[ $library == "ext-ms-win"* ]] || [[ $library == "=>"* ]] \
