@@ -793,28 +793,34 @@ if [ $use_d3d = true ] && [ $use_msys = true ]; then
     # As of 2024-08-18, MSYS2 does not have a package for the DirectX Shader Compiler yet.
     # For progress, see issue at: https://github.com/msys2/MINGW-packages/issues/20670
     # As a fix, we will use the pre-compiled binaries for now.
-    dxc_dir_name="dxc_2024_07_31"
-    wget "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.8.2407/${dxc_dir_name}.zip"
-    unzip "${dxc_dir_name}.zip" -d "${dxc_dir_name}"
-    rm "${dxc_dir_name}.zip"
-    mkdir dxc
-    mkdir dxc/tools
-    mkdir dxc/bin
-    mkdir dxc/lib
-    mkdir dxc/include
-    mkdir dxc/share
-    pushd dxc/share >/dev/null
-    wget "https://raw.githubusercontent.com/chrismile/CMakeSnippets/main/directx-dxc-config.cmake"
-    popd >/dev/null
-    os_arch="$(uname -m)"
-    os_arch_win=${os_arch}
-    if [ "$os_arch" = "x86_64" ]; then
-        os_arch_win="x64"
+    if [ ! -d "./dxc" ]; then
+        echo "------------------------"
+        echo "downloading DX Shader Compiler"
+        echo "------------------------"
+        dxc_version="v1.8.2407"
+        dxc_dir_name="dxc_2024_07_31"
+        wget "https://github.com/microsoft/DirectXShaderCompiler/releases/download/${dxc_version}/${dxc_dir_name}.zip"
+        unzip "${dxc_dir_name}.zip" -d "${dxc_dir_name}"
+        rm "${dxc_dir_name}.zip"
+        mkdir dxc
+        mkdir dxc/tools
+        mkdir dxc/bin
+        mkdir dxc/lib
+        mkdir dxc/include
+        mkdir dxc/share
+        pushd dxc/share >/dev/null
+        wget "https://raw.githubusercontent.com/chrismile/CMakeSnippets/main/directx-dxc-config.cmake"
+        popd >/dev/null
+        os_arch="$(uname -m)"
+        os_arch_win=${os_arch}
+        if [ "$os_arch" = "x86_64" ]; then
+            os_arch_win="x64"
+        fi
+        find "${dxc_dir_name}/bin/${os_arch_win}" -name "*.dll" -exec cp {} dxc/bin/ \;
+        find "${dxc_dir_name}/bin/${os_arch_win}" -name "*.exe" -exec cp {} dxc/tools/ \;
+        find "${dxc_dir_name}/lib/${os_arch_win}" -name "*.lib" -exec cp {} dxc/lib/ \;
+        find "${dxc_dir_name}/inc" -name "*.h" -exec cp {} dxc/include/ \;
     fi
-    find "${dxc_dir_name}/bin/${os_arch_win}" -name "*.dll" -exec cp {} dxc/bin/ \;
-    find "${dxc_dir_name}/bin/${os_arch_win}" -name "*.exe" -exec cp {} dxc/tools/ \;
-    find "${dxc_dir_name}/lib/${os_arch_win}" -name "*.lib" -exec cp {} dxc/lib/ \;
-    find "${dxc_dir_name}/inc" -name "*.h" -exec cp {} dxc/include/ \;
 
     params_sgl+=(-DSUPPORT_D3D12=ON -Ddirectx-dxc_DIR="${projectpath}/third_party/dxc/share")
 fi
@@ -1237,8 +1243,9 @@ if $use_msys; then
     fi
     for library_abs in $ldd_output
     do
-        if [[ $library == "not found"* ]] || [[ $library == "ext-ms-win"* ]] || [[ $library == "=>"* ]] \
-                || [[ $library == "(0x"* ]] || [[ $library == "C:\\WINDOWS"* ]]; then
+        if [[ $library_abs == "not found"* ]] || [[ $library_abs == "ext-ms-win"* ]] || [[ $library_abs == "=>" ]] \
+                || [[ $library_abs == "(0x"* ]] || [[ $library_abs == "C:\\WINDOWS"* ]] \
+                || [[ $library_abs == "not" ]] || [[ $library_abs == "found"* ]]; then
             continue
         fi
         library="$(cygpath "$library_abs")"
