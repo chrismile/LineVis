@@ -795,7 +795,7 @@ if [ $use_d3d = true ] && [ $use_msys = true ]; then
     # As a fix, we will use the pre-compiled binaries for now.
     dxc_dir_name="dxc_2024_07_31"
     wget "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.8.2407/${dxc_dir_name}.zip"
-    unzip "${dxc_dir_name}"
+    unzip "${dxc_dir_name}.zip" -d "${dxc_dir_name}"
     rm "${dxc_dir_name}.zip"
     mkdir dxc
     mkdir dxc/tools
