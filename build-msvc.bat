@@ -33,8 +33,8 @@ set run_program=true
 set debug=false
 set devel=false
 set clean=false
-set build_dir=".build"
-set destination_dir="Shipping"
+set build_dir=.build
+set destination_dir=Shipping
 set vcpkg_triplet="x64-windows"
 :: Leave empty to let cmake try to find the correct paths
 set optix_install_dir=""
