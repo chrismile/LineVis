@@ -51,9 +51,9 @@ vec3 convertDepthBufferValueToViewSpacePosition(vec2 ndcPositionXY, float depth)
     return posViewSpace;
 }
 
-#endif
+#endif // USE_INVERSE_PROJECTION_MATRIX
 
-#else
+#else // DEPTH_HELPER_USE_PROJECTION_MATRIX
 
 #ifdef REVERSE_DEPTH
 // Near plane is at 1, far plane at 0.
@@ -67,7 +67,7 @@ float convertLinearDepthToDepthBufferValue(float z_eye) {
     float z_ndc = (zNear * zFar / diff - z_eye * zNear / diff) / z_eye;
     return z_ndc;
 }
-#else
+#else // !REVERSE_DEPTH
 // Near plane is at 0, far plane at 1.
 float convertDepthBufferValueToLinearDepth(float z_ndc) {
     float z_eye = zNear * zFar / (zFar + z_ndc * (zNear - zFar));
@@ -79,11 +79,11 @@ float convertLinearDepthToDepthBufferValue(float z_eye) {
     float z_ndc = (zNear * zFar / diff - z_eye * zFar / diff) / z_eye;
     return z_ndc;
 }
-#endif
+#endif // REVERSE_DEPTH
 
-#endif
+#endif // DEPTH_HELPER_USE_PROJECTION_MATRIX
 
-#else
+#else // !VULKAN
 
 /**
  * See: http://www.songho.ca/opengl/gl_projectionmatrix.html
@@ -127,9 +127,9 @@ vec3 convertDepthBufferValueToViewSpacePosition(vec2 ndcPositionXY, float depth)
     return posViewSpace;
 }
 
-#endif
+#endif // USE_INVERSE_PROJECTION_MATRIX
 
-#else
+#else // !DEPTH_HELPER_USE_PROJECTION_MATRIX
 
 float convertDepthBufferValueToLinearDepth(float depth) {
     // The depth buffer stores values in [0,1], but OpenGL uses [-1,1] for NDC.
@@ -146,8 +146,8 @@ float convertLinearDepthToDepthBufferValue(float z_eye) {
     return depth;
 }
 
-#endif
+#endif // DEPTH_HELPER_USE_PROJECTION_MATRIX
 
-#endif
+#endif // VULKAN
 
 #endif // DEPTH_HELPER_GLSL
