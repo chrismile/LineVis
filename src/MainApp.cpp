@@ -100,13 +100,21 @@
 #include "MainApp.hpp"
 
 void vulkanErrorCallback() {
+#ifdef SGL_INPUT_API_V2
+    sgl::AppSettings::get()->captureMouse(false);
+#else
     SDL_CaptureMouse(SDL_FALSE);
+#endif
     std::cerr << "Application callback" << std::endl;
 }
 
 #ifdef __linux__
 void signalHandler(int signum) {
+#ifdef SGL_INPUT_API_V2
+    sgl::AppSettings::get()->captureMouse(false);
+#else
     SDL_CaptureMouse(SDL_FALSE);
+#endif
     std::cerr << "Interrupt signal (" << signum << ") received." << std::endl;
     exit(signum);
 }
@@ -978,9 +986,15 @@ void MainApp::renderGui() {
     focusedWindowIndex = -1;
     mouseHoverWindowIndex = -1;
 
+#ifdef SGL_INPUT_API_V2
+    if (sgl::Keyboard->keyPressed(ImGuiKey_O) && sgl::Keyboard->getModifier(ImGuiKey_ModCtrl)) {
+        openFileDialog();
+    }
+#else
     if (sgl::Keyboard->keyPressed(SDLK_o) && (sgl::Keyboard->getModifier() & (KMOD_LCTRL | KMOD_RCTRL)) != 0) {
         openFileDialog();
     }
+#endif
 
     if (IGFD_DisplayDialog(
             fileDialogInstance,
@@ -1018,7 +1032,6 @@ void MainApp::renderGui() {
             if (dataViews.front()->renderingMode == RENDERING_MODE_NONE) {
                 initializeFirstDataView();
             }
-            isFirstFrame = false;
         }
 
         static bool isProgramStartup = true;
@@ -1098,6 +1111,11 @@ void MainApp::renderGui() {
 
                     return "#NewTab";
                 });
+                // SetNextWindowFocus doesn't really seem to work... Needs more investigation.
+                //if (isFirstFrame && i == 0) {
+                //    ImGui::SetNextWindowFocus();
+                //    focusedWindowIndex = i;
+                //}
                 if (ImGui::Begin(windowName.c_str(), &isViewOpen)) {
                     if (ImGui::IsWindowFocused()) {
                         focusedWindowIndex = i;
@@ -1210,6 +1228,9 @@ void MainApp::renderGui() {
                     i--;
                 }
             }
+        }
+        if (isFirstFrame) {
+            isFirstFrame = false;
         }
         if (!uiOnScreenshot && screenshot) {
             screenshot = false;
@@ -1970,9 +1991,15 @@ void MainApp::update(float dt) {
             moveCameraKeyboard(dt);
         }
 
+#ifdef SGL_INPUT_API_V2
+        if (sgl::Keyboard->isKeyDown(ImGuiKey_U)) {
+            transferFunctionWindow.setShowWindow(showSettingsWindow);
+        }
+#else
         if (sgl::Keyboard->isKeyDown(SDLK_u)) {
             transferFunctionWindow.setShowWindow(showSettingsWindow);
         }
+#endif
     }
 
     if (!io.WantCaptureMouse || mouseHoverWindowIndex != -1) {
