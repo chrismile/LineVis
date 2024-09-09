@@ -836,7 +836,6 @@ if [ $use_vcpkg = true ] && [ ! -d "./vcpkg" ]; then
     fi
     git clone --depth 1 https://github.com/microsoft/vcpkg.git
     vcpkg/bootstrap-vcpkg.sh -disableMetrics
-    vcpkg/vcpkg install
 fi
 
 if [ $use_vcpkg = true ] && [ $use_macos = false ] && [ $link_dynamic = false ]; then
