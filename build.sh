@@ -723,18 +723,16 @@ if [ $search_for_vulkan_sdk = true ]; then
             source "$HOME/VulkanSDK/$(ls $HOME/VulkanSDK)/setup-env.sh"
             found_vulkan=true
         else
-            vulkansdk_filename=$(curl -sIkL https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.dmg | sed -r '/filename=/!d;s/.*filename=(.*)$/\1/')
-            VULKAN_SDK_VERSION=$(echo $vulkansdk_filename | sed -r 's/^.*vulkansdk-macos-(.*)\.dmg.*$/\1/')
-            curl -O https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.dmg
-            sudo hdiutil attach vulkan-sdk.dmg
-            # The directory was changed from '/Volumes/VulkanSDK' to, e.g., 'vulkansdk-macos-1.3.261.0'.
-            vulkan_dir=$(find /Volumes -maxdepth 1 -name '[Vv]ulkan*' -not -path "/Volumes/VMware*" || true)
+            vulkansdk_filename=$(curl -sIkL https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.zip | sed -r '/filename=/!d;s/.*filename=(.*)$/\1/')
+            VULKAN_SDK_VERSION=$(echo $vulkansdk_filename | sed -r 's/^.*vulkansdk-macos-(.*)\.zip.*$/\1/')
+            curl -O https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.zip
+            unzip vulkan-sdk.zip -d vulkan-sdk/
+            vulkan_dir="$(pwd)/vulkan-sdk"
             sudo "${vulkan_dir}/InstallVulkan.app/Contents/MacOS/InstallVulkan" \
             --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
             pushd ~/VulkanSDK/$VULKAN_SDK_VERSION
             sudo python3 ./install_vulkan.py || true
             popd
-            sudo hdiutil unmount "${vulkan_dir}"
             source "$HOME/VulkanSDK/$(ls $HOME/VulkanSDK)/setup-env.sh"
             found_vulkan=true
         fi

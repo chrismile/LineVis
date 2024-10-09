@@ -109,17 +109,15 @@ jobs:
           curl -O https://sdk.lunarg.com/sdk/download/1.3.250.1/windows/VulkanSDK-1.3.250.1-Installer.exe
           ./VulkanSDK-1.3.250.1-Installer.exe --accept-licenses --default-answer --confirm-command install
         elif [ "$RUNNER_OS" == "macOS" ]; then
-          vulkansdk_filename=$(curl -sIkL https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.dmg | sed -r '/filename=/!d;s/.*filename=(.*)$/\1/')
-          VULKAN_SDK_VERSION=$(echo $vulkansdk_filename | sed -r 's/^.*vulkansdk-macos-(.*)\.dmg.*$/\1/')
-          curl -O https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.dmg
-          sudo hdiutil attach vulkan-sdk.dmg
-          # The directory was changed from '/Volumes/VulkanSDK' to, e.g., 'vulkansdk-macos-1.3.261.0'.
-          vulkan_dir=$(find /Volumes -maxdepth 1 -name '[Vv]ulkan*' -not -path "/Volumes/VMware*" || true)
+          vulkansdk_filename=$(curl -sIkL https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.zip | sed -r '/filename=/!d;s/.*filename=(.*)$/\1/')
+          VULKAN_SDK_VERSION=$(echo $vulkansdk_filename | sed -r 's/^.*vulkansdk-macos-(.*)\.zip.*$/\1/')
+          curl -O https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.zip
+          unzip vulkan-sdk.zip -d vulkan-sdk/
+          vulkan_dir="$(pwd)/vulkan-sdk"
           sudo "${vulkan_dir}/InstallVulkan.app/Contents/MacOS/InstallVulkan" \
           --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
           cd ~/VulkanSDK/$VULKAN_SDK_VERSION
           sudo ./install_vulkan.py || true
-          sudo hdiutil unmount "${vulkan_dir}"
           export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
           brew update
           #rm /usr/local/bin/2to3 || true
@@ -137,7 +135,7 @@ jobs:
       uses: lukka/run-vcpkg@v10
       with:
         vcpkgGitURL: 'https://github.com/microsoft/vcpkg.git'
-        vcpkgGitCommitId: '1de2026f28ead93ff1773e6e680387643e914ea1'
+        vcpkgGitCommitId: '797ae22b76f0e78c3aeb03d625722a0cbfe9f52e'
         doNotCacheOnWorkflowFailure: true
 
     - name: Create custom vcpkg triplet
