@@ -53,6 +53,29 @@
 
 #include "MainApp.hpp"
 
+std::string componentTypeToString(VkComponentTypeKHR componentType) {
+    if (componentType == VK_COMPONENT_TYPE_FLOAT16_KHR) return "float16";
+    if (componentType == VK_COMPONENT_TYPE_FLOAT32_KHR) return "float32";
+    if (componentType == VK_COMPONENT_TYPE_FLOAT64_KHR) return "float64";
+    if (componentType == VK_COMPONENT_TYPE_SINT8_KHR) return "int8";
+    if (componentType == VK_COMPONENT_TYPE_SINT16_KHR) return "int16";
+    if (componentType == VK_COMPONENT_TYPE_SINT32_KHR) return "int32";
+    if (componentType == VK_COMPONENT_TYPE_SINT64_KHR) return "int64";
+    if (componentType == VK_COMPONENT_TYPE_UINT8_KHR) return "uint8";
+    if (componentType == VK_COMPONENT_TYPE_UINT16_KHR) return "uint16";
+    if (componentType == VK_COMPONENT_TYPE_UINT32_KHR) return "uint32";
+    if (componentType == VK_COMPONENT_TYPE_UINT64_KHR) return "uint64";
+    return "unknown";
+}
+
+std::string scopeToString(VkScopeKHR scope) {
+    if (scope == VK_SCOPE_DEVICE_KHR) return "device";
+    if (scope == VK_SCOPE_WORKGROUP_KHR) return "workgroup";
+    if (scope == VK_SCOPE_SUBGROUP_KHR) return "subgroup";
+    if (scope == VK_SCOPE_QUEUE_FAMILY_KHR) return "queue_family";
+    return "unknown";
+}
+
 int main(int argc, char *argv[]) {
     // Initialize the filesystem utilities.
     sgl::FileUtils::get()->initialize("LineVis", argc, argv);
@@ -153,6 +176,9 @@ int main(int argc, char *argv[]) {
 #ifdef VK_EXT_mesh_shader
     optionalDeviceExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
 #endif
+#ifdef VK_NV_cooperative_matrix2
+    optionalDeviceExtensions.push_back(VK_NV_COOPERATIVE_MATRIX_2_EXTENSION_NAME);
+#endif
 
     sgl::vk::Instance* instance = sgl::AppSettings::get()->getVulkanInstance();
     auto* device = new sgl::vk::Device;
@@ -205,6 +231,37 @@ int main(int argc, char *argv[]) {
     if (useCustomShaderCompilerBackend) {
         sgl::vk::ShaderManager->setShaderCompilerBackend(shaderCompilerBackend);
     }
+
+#ifdef VK_NV_cooperative_matrix2
+    const auto& coopMatFeatures2 = device->getCooperativeMatrix2FeaturesNV();
+    const auto& coopMatProperties2 = device->getCooperativeMatrix2PropertiesNV();
+    const auto& coopMatFormats2 = device->getSupportedCooperativeMatrixFlexibleDimensionsPropertiesNV();
+    std::cout << "cooperativeMatrixWorkgroupScope: " << coopMatFeatures2.cooperativeMatrixWorkgroupScope << std::endl;
+    std::cout << "cooperativeMatrixFlexibleDimensions: " << coopMatFeatures2.cooperativeMatrixFlexibleDimensions << std::endl;
+    std::cout << "cooperativeMatrixReductions: " << coopMatFeatures2.cooperativeMatrixReductions << std::endl;
+    std::cout << "cooperativeMatrixConversions: " << coopMatFeatures2.cooperativeMatrixConversions << std::endl;
+    std::cout << "cooperativeMatrixPerElementOperations: " << coopMatFeatures2.cooperativeMatrixPerElementOperations << std::endl;
+    std::cout << "cooperativeMatrixTensorAddressing: " << coopMatFeatures2.cooperativeMatrixTensorAddressing << std::endl;
+    std::cout << "cooperativeMatrixBlockLoads: " << coopMatFeatures2.cooperativeMatrixBlockLoads << std::endl;
+    std::cout << std::endl;
+    std::cout << "cooperativeMatrixWorkgroupScopeMaxWorkgroupSize: " << coopMatProperties2.cooperativeMatrixWorkgroupScopeMaxWorkgroupSize << std::endl;
+    std::cout << "cooperativeMatrixFlexibleDimensionsMaxDimension: " << coopMatProperties2.cooperativeMatrixFlexibleDimensionsMaxDimension << std::endl;
+    std::cout << "cooperativeMatrixWorkgroupScopeReservedSharedMemory: " << coopMatProperties2.cooperativeMatrixWorkgroupScopeReservedSharedMemory << std::endl;
+    std::cout << std::endl;
+    for (const auto& coopMatFormat2 : coopMatFormats2) {
+        std::cout << "MGranularity: " << coopMatFormat2.MGranularity << std::endl;
+        std::cout << "NGranularity: " << coopMatFormat2.NGranularity << std::endl;
+        std::cout << "KGranularity: " << coopMatFormat2.KGranularity << std::endl;
+        std::cout << "AType: " << componentTypeToString(coopMatFormat2.AType) << std::endl;
+        std::cout << "BType: " << componentTypeToString(coopMatFormat2.BType) << std::endl;
+        std::cout << "CType: " << componentTypeToString(coopMatFormat2.CType) << std::endl;
+        std::cout << "ResultType: " << componentTypeToString(coopMatFormat2.ResultType) << std::endl;
+        std::cout << "saturatingAccumulation: " << coopMatFormat2.saturatingAccumulation << std::endl;
+        std::cout << "scope: " << scopeToString(coopMatFormat2.scope) << std::endl;
+        std::cout << "workgroupInvocations: " << coopMatFormat2.workgroupInvocations << std::endl;
+        std::cout << std::endl;
+    }
+#endif
 
 #ifdef USE_PYTHON
     sgl::pythonInit(argc, argv);

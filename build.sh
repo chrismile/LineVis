@@ -616,6 +616,7 @@ if [ $use_msys = true ]; then
     params_sgl+=(-G "MSYS Makefiles")
     params+=(-G "MSYS Makefiles")
 fi
+params_sgl+=(-DUSE_SGL_VULKAN_HEADERS=ON)
 
 if [ $use_vcpkg = false ] && [ $use_macos = true ]; then
     params_gen+=(-DCMAKE_FIND_USE_CMAKE_SYSTEM_PATH=False)
