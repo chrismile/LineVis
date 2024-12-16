@@ -21,7 +21,7 @@ Approaching Bone-Like Porous Structures," in IEEE Transactions on Visualization 
 vol. 24, no. 2, pp. 1127-1140, 1 Feb. 2018, doi: 10.1109/TVCG.2017.2655523.
 
 
-## Building and running the programm
+## Building and running the program
 
 ### Linux
 
@@ -45,9 +45,9 @@ Arch Linux and its derivative Manjaro are fully supported using both build modes
 The Vulkan SDK, which is a dependency of this program that cannot be installed using vcpkg, will be automatically
 installed using the package manager `pacman` when using the scripts.
 
-#### Ubuntu 18.04, 20.04 & 22.04
+#### Ubuntu
 
-Ubuntu 20.04 and 22.04 are fully supported.
+Ubuntu >= 20.04 is fully supported.
 
 The Vulkan SDK, which is a dependency of this program that cannot be installed using the default package sources or
 vcpkg, will be automatically installed using the official Vulkan SDK PPA.
