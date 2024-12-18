@@ -66,7 +66,7 @@ IF NOT "%1"=="" (
     GOTO :loop
 )
 
-:: Build other configuration and copy sgl DLLs to the build directory.
+:: Clean the build artifacts if requested by the user.
 if %clean% == true (
     echo ------------------------
     echo  cleaning up old files
@@ -75,19 +75,19 @@ if %clean% == true (
     for /d %%G in (".build*") do rd /s /q "%%~G"
     rd /s /q "Shipping"
 
+    git submodule update --init --recursive
+
 :: https://stackoverflow.com/questions/5626879/how-to-find-if-a-file-contains-a-given-string-using-windows-command-line
     find /c "sgl" .gitmodules >NUL
-    if %errorlevel% equ 1 goto notfound
+    if %errorlevel% equ 1 goto sglnotfound
     rd /s /q "third_party\sgl\install"
     for /d %%G in ("third_party\sgl\.build*") do rd /s /q "%%~G"
-    goto done
-    :notfound
-    rd /s /q "third_party\sgl"
-    goto done
-    :done
-
-    git submodule update --init --recursive
 )
+goto cleandone
+:sglnotfound
+rd /s /q "third_party\sgl"
+goto cleandone
+:cleandone
 
 where cmake >NUL 2>&1 || echo cmake was not found but is required to build the program && exit /b 1
 
