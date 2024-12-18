@@ -71,10 +71,21 @@ if %clean% == true (
     echo ------------------------
     echo  cleaning up old files
     echo ------------------------
-    rd /s /q "third_party\sgl"
     rd /s /q "third_party\vcpkg"
     for /d %%G in (".build*") do rd /s /q "%%~G"
     rd /s /q "Shipping"
+
+:: https://stackoverflow.com/questions/5626879/how-to-find-if-a-file-contains-a-given-string-using-windows-command-line
+    find /c "sgl" .gitmodules >NUL
+    if %errorlevel% equ 1 goto notfound
+    rd /s /q "third_party\sgl\install"
+    for /d %%G in ("third_party\sgl\.build*") do rd /s /q "%%~G"
+    goto done
+    :notfound
+    rd /s /q "third_party\sgl"
+    goto done
+    :done
+
     git submodule update --init --recursive
 )
 

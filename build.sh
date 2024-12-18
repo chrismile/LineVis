@@ -116,7 +116,12 @@ if [ $clean = true ]; then
     echo "------------------------"
     echo " cleaning up old files  "
     echo "------------------------"
-    rm -rf third_party/sgl/ third_party/vcpkg/ .build_release/ .build_debug/ Shipping/
+    rm -rf third_party/vcpkg/ .build_release/ .build_debug/ Shipping/
+    if grep -wq "sgl" .gitmodules; then
+        rm -rf third_party/sgl/install/ third_party/sgl/.build_release/ third_party/sgl/.build_debug/
+    else
+        rm -rf third_party/sgl/
+    fi
     git submodule update --init --recursive
 fi
 
