@@ -1043,7 +1043,7 @@ fi
 #fi
 
 if $use_open_image_denoise; then
-    oidn_version="2.3.0"
+    oidn_version="2.3.1"
     if $use_msys; then
         oidn_folder_name="oidn-${oidn_version}.x64.windows"
         oidn_archive_name="${oidn_folder_name}.zip"
