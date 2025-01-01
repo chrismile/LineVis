@@ -558,7 +558,9 @@ MainApp::~MainApp() {
 }
 
 void MainApp::setNewState(const InternalState &newState) {
+#ifdef TRACY_PROFILE_TRACING
     ZoneScoped;
+#endif
 
     rendererVk->getDevice()->waitIdle();
 
@@ -848,7 +850,9 @@ void MainApp::onUnsupportedRendererSelected(
 }
 
 void MainApp::resolutionChanged(sgl::EventPtr event) {
+#ifdef TRACY_PROFILE_TRACING
     ZoneScoped;
+#endif
 
     SciVisApp::resolutionChanged(event);
     if (!useDockSpaceMode) {
@@ -882,7 +886,9 @@ void MainApp::updateColorSpaceMode() {
 }
 
 void MainApp::render() {
+#ifdef TRACY_PROFILE_TRACING
     ZoneScoped;
+#endif
 
     if (usePerformanceMeasurementMode) {
         performanceMeasurer->beginRenderFunction();
@@ -981,7 +987,9 @@ void MainApp::render() {
 }
 
 void MainApp::renderGui() {
+#ifdef TRACY_PROFILE_TRACING
     ZoneScoped;
+#endif
 
     focusedWindowIndex = -1;
     mouseHoverWindowIndex = -1;
@@ -1806,7 +1814,9 @@ void MainApp::renderGuiPropertyEditorCustomNodes() {
 }
 
 void MainApp::update(float dt) {
+#ifdef TRACY_PROFILE_TRACING
     ZoneScoped;
+#endif
 
     sgl::SciVisApp::update(dt);
 
@@ -2427,7 +2437,9 @@ void MainApp::reloadDataSet() {
 }
 
 void MainApp::prepareVisualizationPipeline() {
+#ifdef TRACY_PROFILE_TRACING
     ZoneScoped;
+#endif
 
     if (useDockSpaceMode) {
         if (lineData && !dataViews.empty()) {

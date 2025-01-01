@@ -537,7 +537,9 @@ void LineDensityFieldSmoothingPass::_render() {
 
 sgl::vk::ImageViewPtr LineDensityFieldSmoothingPass::smoothScalarField(
         const sgl::vk::TexturePtr& densityFieldTexture, int padding) {
+#ifdef TRACY_PROFILE_TRACING
     ZoneScoped;
+#endif
 
     VkCommandBuffer commandBuffer = renderer->getDevice()->beginSingleTimeCommands(
             0xFFFFFFFF, false);
@@ -571,7 +573,9 @@ sgl::vk::ImageViewPtr LineDensityFieldSmoothingPass::smoothScalarField(
 }
 
 float* LineDensityFieldSmoothingPass::smoothScalarFieldCpu(sgl::vk::TexturePtr& densityFieldTexture, int padding) {
+#ifdef TRACY_PROFILE_TRACING
     ZoneScoped;
+#endif
 
     sgl::vk::ImageViewPtr smoothedImageView = smoothScalarField(densityFieldTexture, padding);
     const auto& imageSettings = densityFieldTexture->getImage()->getImageSettings();
