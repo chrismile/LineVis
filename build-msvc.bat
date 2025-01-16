@@ -99,10 +99,20 @@ if defined VCINSTALLDIR (
 if defined VCINSTALLDIR (
     set "x=%VCINSTALLDIR_ESC:Microsoft Visual Studio\\=" & set "VsPathEnd=%"
 )
-if defined VCINSTALLDIR (
-    set cmake_generator=-G "Visual Studio %VisualStudioVersion:~0,2% %VsPathEnd:~0,4%"
+if not defined VsPathEnd (
+    if %VisualStudioVersion:~0,2% == 14 (
+        set VsPathEnd=2015
+    ) else if %VisualStudioVersion:~0,2% == 15 (
+        set VsPathEnd=2017
+    ) else if %VisualStudioVersion:~0,2% == 16 (
+        set VsPathEnd=2019
+    ) else if %VisualStudioVersion:~0,2% == 17 (
+        set VsPathEnd=2022
+    )
 )
-if not defined VCINSTALLDIR (
+if defined VsPathEnd (
+    set cmake_generator=-G "Visual Studio %VisualStudioVersion:~0,2% %VsPathEnd:~0,4%"
+) else (
     set cmake_generator=
 )
 
