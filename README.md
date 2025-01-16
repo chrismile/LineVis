@@ -73,6 +73,7 @@ In the project folder, a script called `build-msvc.bat` can be found automating 
 Visual Studio. It is recommended to run the script using the `Developer PowerShell for VS 2022` (or VS 2019 depending on
 your Visual Studio version). The build script will also launch the program after successfully building it.
 Building the program is regularly tested on Windows 10 and 11 with Microsoft Visual Studio 2019 and 2022.
+The flag `--devel` can be used to generate a working Visual Studio `.sln` project in the `.build` folder.
 
 Please note that the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home#windows) needs to be installed beforehand if using
 Microsoft Visual Studio for compilation.
