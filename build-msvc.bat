@@ -99,15 +99,20 @@ if defined VCINSTALLDIR (
 if defined VCINSTALLDIR (
     set "x=%VCINSTALLDIR_ESC:Microsoft Visual Studio\\=" & set "VsPathEnd=%"
 )
-if not defined VsPathEnd (
-    if defined VisualStudioVersion (
-        if %VisualStudioVersion:~0,2% == 14 (
+if defined VisualStudioVersion (
+    set "VsVersionNumber=%VisualStudioVersion:~0,2%"
+) else (
+    set VsVersionNumber=0
+)
+if defined VisualStudioVersion (
+    if not defined VsPathEnd (
+        if %VsVersionNumber% == 14 (
             set VsPathEnd=2015
-        ) else if %VisualStudioVersion:~0,2% == 15 (
+        ) else if %VsVersionNumber% == 15 (
             set VsPathEnd=2017
-        ) else if %VisualStudioVersion:~0,2% == 16 (
+        ) else if %VsVersionNumber% == 16 (
             set VsPathEnd=2019
-        ) else if %VisualStudioVersion:~0,2% == 17 (
+        ) else if %VsVersionNumber% == 17 (
             set VsPathEnd=2022
         )
     )
