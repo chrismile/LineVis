@@ -66,7 +66,7 @@ https://github.com/aiekick/ImGuiFileDialog
 
 MIT License
 
-Copyright (c) 2018-2023 Stephane Cuillerdier (aka Aiekick)
+Copyright (c) 2019-2024 Stephane Cuillerdier (aka aiekick)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -781,7 +781,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ----------------------------------------------------------------------------
 
-The following license applies to src/Graphics/WebGPU/libs/{sdl2,glfw3}webgpu.{h,c}.
+The following license applies to src/Graphics/WebGPU/libs/{sdl2,sdl3,glfw3}webgpu.{h,c}.
 
 MIT License
 Copyright (c) 2022-2024 Elie Michel
@@ -847,3 +847,31 @@ This software uses code from:
   Modifications made by Matias N. Goldberg to adapt it as a compute shader
 * ETC2 P very loosely based on [etc2_encoder](https://github.com/titilambert/packaging-efl/blob/master/src/static_libs/rg_etc/etc2_encoder.c),
   Copyright (C) 2014 Jean-Philippe ANDRE, 2-clause BSD license. Considerable rewrite by Matias N. Goldberg to enhance its quality.SOFTWARE.
+
+
+----------------------------------------------------------------------------
+
+The following license applies to code in src/Graphics/Vulkan/libs/level-zero/*
+obtained from the oneAPI Level Zero repository (https://github.com/oneapi-src/level-zero).
+
+MIT License
+
+Copyright (C) 2019-2021 Intel Corporation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
