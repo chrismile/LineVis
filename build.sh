@@ -735,8 +735,14 @@ if [ $search_for_vulkan_sdk = true ]; then
             curl -O https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.zip
             unzip vulkan-sdk.zip -d vulkan-sdk/
             vulkan_dir="$(pwd)/vulkan-sdk"
-            sudo "${vulkan_dir}/InstallVulkan.app/Contents/MacOS/InstallVulkan" \
-            --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
+            if [ -d "${vulkan_dir}/InstallVulkan-${VULKAN_SDK_VERSION}.app" ]; then
+                # For some reason, this convention was introduced in version 1.4.304.1...
+                sudo "${vulkan_dir}/InstallVulkan-${VULKAN_SDK_VERSION}.app/Contents/MacOS/InstallVulkan-${VULKAN_SDK_VERSION}" \
+                --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
+            else
+                sudo "${vulkan_dir}/InstallVulkan.app/Contents/MacOS/InstallVulkan" \
+                --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
+            fi
             pushd ~/VulkanSDK/$VULKAN_SDK_VERSION
             sudo python3 ./install_vulkan.py || true
             popd

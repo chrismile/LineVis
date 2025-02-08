@@ -114,8 +114,14 @@ jobs:
           curl -O https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.zip
           unzip vulkan-sdk.zip -d vulkan-sdk/
           vulkan_dir="$(pwd)/vulkan-sdk"
-          sudo "${vulkan_dir}/InstallVulkan.app/Contents/MacOS/InstallVulkan" \
-          --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
+          if [ -d "${vulkan_dir}/InstallVulkan-${VULKAN_SDK_VERSION}.app" ]; then
+              # For some reason, this convention was introduced in version 1.4.304.1...
+              sudo "${vulkan_dir}/InstallVulkan-${VULKAN_SDK_VERSION}.app/Contents/MacOS/InstallVulkan-${VULKAN_SDK_VERSION}" \
+              --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
+          else
+              sudo "${vulkan_dir}/InstallVulkan.app/Contents/MacOS/InstallVulkan" \
+              --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
+          fi
           cd ~/VulkanSDK/$VULKAN_SDK_VERSION
           sudo ./install_vulkan.py || true
           export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
@@ -135,7 +141,7 @@ jobs:
       uses: lukka/run-vcpkg@v10
       with:
         vcpkgGitURL: 'https://github.com/microsoft/vcpkg.git'
-        vcpkgGitCommitId: '797ae22b76f0e78c3aeb03d625722a0cbfe9f52e'
+        vcpkgGitCommitId: '74ec888e385d189b42d6b398d0bbaa6f1b1d3b0e'
         doNotCacheOnWorkflowFailure: true
 
     - name: Create custom vcpkg triplet
