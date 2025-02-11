@@ -271,7 +271,7 @@ bool LineDataFlow::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
 
             if (useRotatingHelicityBands && useTwistLineTexture) {
                 propertyEditor.addInputAction("Twist Line Texture", &twistLineTextureFilenameGui);
-                if (propertyEditor.addButton("", "Load")) {
+                if (propertyEditor.addButton("##load-twist-line-texture-label", "Load")) {
                     loadTwistLineTexture();
                     shallReloadGatherShader = true;
                     reRender = true;
