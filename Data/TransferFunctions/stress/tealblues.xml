@@ -1,0 +1,12 @@
+<!-- https://vega.github.io/vega/docs/schemes/ -->
+<TransferFunction colorspace="sRGB" interpolation_colorspace="Linear RGB">
+    <OpacityPoints>
+        <OpacityPoint position="0" opacity="1"/>
+        <OpacityPoint position="1" opacity="1"/>
+    </OpacityPoints>
+    <ColorPoints>
+        <ColorPoint position="0.0" r="188" g="228" b="216"/>
+        <ColorPoint position="0.5" r="69" g="162" b="185"/>
+        <ColorPoint position="1.0" r="44" g="89" b="133"/>
+    </ColorPoints>
+</TransferFunction>

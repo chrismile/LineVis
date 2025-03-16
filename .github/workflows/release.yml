@@ -1,0 +1,157 @@
+# BSD 2-Clause License
+#
+# Copyright (c) 2020-2025, Christoph Neuhauser
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this
+#    list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+name: Handle Release
+
+#on:
+#  release:
+#    types: [created]
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+permissions:
+    contents: write
+
+jobs:
+  generate:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux targets.
+          - os: ubuntu-22.04
+            target_name: x86_64-linux
+            linking: static
+            shell: bash
+          # Windows targets.
+          - os: windows-2022
+            target_name: x86_64-windows-gnu
+            linking: dynamic
+            shell: 'msys2 {0}'
+
+    name: "Create release-artifacts target ${{ matrix.target_name }}"
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/third_party/vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/third_party/vcpkg/bincache
+      artifact_name: ${{ github.event.repository.name }}-${{ github.event.release.tag_name }}-${{ matrix.target_name }}
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - uses: msys2/setup-msys2@v2
+        if: matrix.target_name == 'x86_64-windows-gnu'
+        with:
+          update: true
+
+      - uses: lukka/get-cmake@latest
+        if: runner.os == 'Linux'
+        with:
+          cmakeVersion: 3.31.6
+
+      - name: Setup vcpkg
+        if: runner.os == 'Linux'
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitURL: 'https://github.com/microsoft/vcpkg.git'
+          vcpkgGitCommitId: '782ccc18d8b819cdef6794a6c03eb3d9f7cd04aa'
+          vcpkgDirectory: ${{env.VCPKG_ROOT}}
+          doNotCacheOnWorkflowFailure: true
+
+      - name: Set up vcpkg environment variables
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            echo "VCPKG_COPY_TRIPLET=x64-linux" >> $GITHUB_ENV
+            echo "VCPKG_DEFAULT_TRIPLET=x64-linux-${{matrix.linking}}-release-only" >> $GITHUB_ENV
+          elif [ "$RUNNER_OS" == "Windows" ]; then
+            echo "VCPKG_COPY_TRIPLET=x64-windows" >> $GITHUB_ENV
+            echo "VCPKG_DEFAULT_TRIPLET=x64-windows-${{matrix.linking}}-release-only" >> $GITHUB_ENV
+          elif [ "$RUNNER_OS" == "macOS" ] && [ "$(uname -m)" = "x86_64" ]; then
+            echo "VCPKG_COPY_TRIPLET=x64-osx" >> $GITHUB_ENV
+            echo "VCPKG_DEFAULT_TRIPLET=x64-osx-${{matrix.linking}}-release-only" >> $GITHUB_ENV
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            echo "VCPKG_COPY_TRIPLET=arm64-osx" >> $GITHUB_ENV
+            echo "VCPKG_DEFAULT_TRIPLET=arm64-osx-${{matrix.linking}}-release-only" >> $GITHUB_ENV
+          else
+            echo "$RUNNER_OS is not supported."
+          exit 1
+          fi
+
+      - name: Create custom vcpkg triplet
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          cp "${{env.VCPKG_ROOT}}/triplets/${{env.VCPKG_COPY_TRIPLET}}.cmake" "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"
+          echo "set(VCPKG_BUILD_TYPE release)" >> "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"
+          sed -i -e 's/.*VCPKG_LIBRARY_LINKAGE.*/set(VCPKG_LIBRARY_LINKAGE ${{matrix.linking}})/g' "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"
+          if [ "$RUNNER_OS" == "Linux" ] && [ "${{matrix.linking}}" == "dynamic" ]; then
+           echo "set(VCPKG_FIXUP_ELF_RPATH ON)" >> "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"
+          fi
+
+      - name: Build target
+        run: |
+          BUILD_ARGS=()
+          if [ "$RUNNER_OS" == "Linux" ]; then
+              BUILD_ARGS+=(--link-static)
+              BUILD_ARGS+=(--vcpkg)
+              BUILD_ARGS+=(--vcpkg-triplet ${{env.VCPKG_DEFAULT_TRIPLET}})
+          fi
+          ./build.sh --do-not-run ${BUILD_ARGS[@]+"${BUILD_ARGS[@]}"}
+
+      - name: Copy files
+        run: |
+          proj_name=${{ github.event.repository.name }}
+          cp -r Data Shipping/Data
+          mkdir Shipping/Data/LineDataSets
+          mv Shipping ${{ env.artifact_name }}
+
+      ##- name: Create archive (Unix)
+      ##  shell: bash
+      ##  run: |
+      ##    zip -r ${{ env.artifact_name }}.zip ${{ env.artifact_name }}
+      #- uses: vimtor/action-zip@v1.2
+      #  with:
+      #    files: ${{ env.artifact_name }}/
+      #    dest: ${{ env.artifact_name }}.zip
+      #
+      ## Needs "Read and write permission" under "Workflow permissions" on https://github.com/chrismile/tetgen/settings/actions.
+      #- name: Create release
+      #  uses: softprops/action-gh-release@v2
+      #  #if: startsWith(github.ref, 'refs/tags/')
+      #  with:
+      #    files: ${{ env.artifact_name }}.zip
