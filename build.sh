@@ -391,14 +391,16 @@ elif command -v apt &> /dev/null && ! $use_conda; then
                 || ! is_installed_apt "libx11-dev" || ! is_installed_apt "libxft-dev" \
                 || ! is_installed_apt "libxext-dev" || ! is_installed_apt "libxrandr-dev" \
                 || ! is_installed_apt "libwayland-dev" || ! is_installed_apt "libxkbcommon-dev" \
-                || ! is_installed_apt "libegl1-mesa-dev" || ! is_installed_apt "libibus-1.0-dev" \
-                || ! is_installed_apt "autoconf" || ! is_installed_apt "automake" \
-                || ! is_installed_apt "autoconf-archive"; then
+                || ! is_installed_apt "libxxf86vm-dev" || ! is_installed_apt "libegl1-mesa-dev" \
+                || ! is_installed_apt "libglu1-mesa-dev" || ! is_installed_apt "mesa-common-dev" \
+                || ! is_installed_apt "libibus-1.0-dev" || ! is_installed_apt "autoconf" \
+                || ! is_installed_apt "automake" || ! is_installed_apt "autoconf-archive"; then
             echo "------------------------"
             echo "installing dependencies "
             echo "------------------------"
             sudo apt install -y libgl-dev libxmu-dev libxi-dev libx11-dev libxft-dev libxext-dev libxrandr-dev \
-            libwayland-dev libxkbcommon-dev libegl1-mesa-dev libibus-1.0-dev autoconf automake autoconf-archive
+            libwayland-dev libxkbcommon-dev libxxf86vm-dev libegl1-mesa-dev libglu1-mesa-dev mesa-common-dev \
+            libibus-1.0-dev autoconf automake autoconf-archive
         fi
     else
         if ! is_installed_apt "libboost-filesystem-dev" || ! is_installed_apt "libicu-dev" \
@@ -431,13 +433,14 @@ elif command -v pacman &> /dev/null && ! $use_conda; then
 
     # Dependencies of sgl and the application.
     if $use_vcpkg; then
-        if ! is_installed_pacman "libgl" || ! is_installed_pacman "vulkan-devel" || ! is_installed_pacman "shaderc" \
-                || ! is_installed_pacman "openssl" || ! is_installed_pacman "autoconf" \
-                || ! is_installed_pacman "automake" || ! is_installed_pacman "autoconf-archive"; then
+        if ! is_installed_pacman "libgl" || ! is_installed_pacman "glu" || ! is_installed_pacman "vulkan-devel" \
+                || ! is_installed_pacman "shaderc" || ! is_installed_pacman "openssl" \
+                || ! is_installed_pacman "autoconf" || ! is_installed_pacman "automake" \
+                || ! is_installed_pacman "autoconf-archive"; then
             echo "------------------------"
             echo "installing dependencies "
             echo "------------------------"
-            sudo pacman -S libgl vulkan-devel shaderc openssl autoconf automake autoconf-archive
+            sudo pacman -S libgl glu vulkan-devel shaderc openssl autoconf automake autoconf-archive
         fi
     else
         if ! is_installed_pacman "boost" || ! is_installed_pacman "icu" || ! is_installed_pacman "glm" \
@@ -476,15 +479,17 @@ elif command -v yum &> /dev/null && ! $use_conda; then
     if $use_vcpkg; then
         if ! is_installed_rpm "perl" || ! is_installed_rpm "libstdc++-devel" || ! is_installed_rpm "libstdc++-static" \
                 || ! is_installed_rpm "autoconf" || ! is_installed_rpm "automake" \
-                || ! is_installed_rpm "autoconf-archive" || ! is_installed_rpm "glew-devel" \
-                || ! is_installed_rpm "libXext-devel" || ! is_installed_rpm "vulkan-headers" \
-                || ! is_installed_rpm "vulkan-loader" || ! is_installed_rpm "vulkan-tools" \
-                || ! is_installed_rpm "vulkan-validation-layers" || ! is_installed_rpm "libshaderc-devel"; then
+                || ! is_installed_rpm "autoconf-archive" || ! is_installed_rpm "mesa-libGLU-devel" \
+                || ! is_installed_rpm "glew-devel" || ! is_installed_rpm "libXext-devel" \
+                || ! is_installed_rpm "vulkan-headers" || ! is_installed_rpm "vulkan-loader" \
+                || ! is_installed_rpm "vulkan-tools" || ! is_installed_rpm "vulkan-validation-layers" \
+                || ! is_installed_rpm "libshaderc-devel"; then
             echo "------------------------"
             echo "installing dependencies "
             echo "------------------------"
-            sudo yum install -y perl libstdc++-devel libstdc++-static autoconf automake autoconf-archive glew-devel \
-            libXext-devel vulkan-headers vulkan-loader vulkan-tools vulkan-validation-layers libshaderc-devel
+            sudo yum install -y perl libstdc++-devel libstdc++-static autoconf automake autoconf-archive \
+            mesa-libGLU-devel glew-devel libXext-devel vulkan-headers vulkan-loader vulkan-tools \
+            vulkan-validation-layers libshaderc-devel
         fi
     else
         if ! is_installed_rpm "boost-devel" || ! is_installed_rpm "libicu-devel" || ! is_installed_rpm "glm-devel" \
