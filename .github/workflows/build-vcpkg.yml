@@ -34,6 +34,8 @@ jobs:
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg/bincache
       sgl_REPO_DIR: ${{ github.workspace }}/sgl-repo
       sgl_DIR: ${{ github.workspace }}/sgl
+      # Temporary solution for https://github.com/microsoft/vcpkg/issues/44429.
+      X_VCPKG_ASSET_SOURCES: "x-azurl,https://assetcache.open-vcpkg.org/assetcache,,read"
 
     steps:
     - name: Set up vcpkg environment variables

@@ -66,6 +66,8 @@ jobs:
       VCPKG_ROOT: ${{ github.workspace }}/third_party/vcpkg
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/third_party/vcpkg/bincache
       artifact_name: ${{ github.event.repository.name }}-${{ github.event.release.tag_name }}-${{ matrix.target_name }}
+      # Temporary solution for https://github.com/microsoft/vcpkg/issues/44429.
+      X_VCPKG_ASSET_SOURCES: "x-azurl,https://assetcache.open-vcpkg.org/assetcache,,read"
 
     steps:
       - uses: actions/checkout@v2
