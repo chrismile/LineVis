@@ -26,14 +26,14 @@
 
 name: Handle Release
 
-#on:
-#  release:
-#    types: [created]
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  release:
+    types: [created]
+#on:
+#  push:
+#    branches: [ master ]
+#  pull_request:
+#    branches: [ master ]
 
 permissions:
     contents: write
@@ -142,18 +142,18 @@ jobs:
           mkdir Shipping/Data/LineDataSets
           mv Shipping ${{ env.artifact_name }}
 
-      ##- name: Create archive (Unix)
-      ##  shell: bash
-      ##  run: |
-      ##    zip -r ${{ env.artifact_name }}.zip ${{ env.artifact_name }}
-      #- uses: vimtor/action-zip@v1.2
-      #  with:
-      #    files: ${{ env.artifact_name }}/
-      #    dest: ${{ env.artifact_name }}.zip
-      #
-      ## Needs "Read and write permission" under "Workflow permissions" on https://github.com/chrismile/tetgen/settings/actions.
-      #- name: Create release
-      #  uses: softprops/action-gh-release@v2
-      #  #if: startsWith(github.ref, 'refs/tags/')
-      #  with:
-      #    files: ${{ env.artifact_name }}.zip
+      #- name: Create archive (Unix)
+      #  shell: bash
+      #  run: |
+      #    zip -r ${{ env.artifact_name }}.zip ${{ env.artifact_name }}
+      - uses: vimtor/action-zip@v1.2
+        with:
+          files: ${{ env.artifact_name }}/
+          dest: ${{ env.artifact_name }}.zip
+
+      # Needs "Read and write permission" under "Workflow permissions" on https://github.com/chrismile/tetgen/settings/actions.
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        #if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{ env.artifact_name }}.zip
