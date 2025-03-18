@@ -66,8 +66,6 @@ jobs:
       VCPKG_ROOT: ${{ github.workspace }}/third_party/vcpkg
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/third_party/vcpkg/bincache
       artifact_name: ${{ github.event.repository.name }}-${{ github.event.release.tag_name }}-${{ matrix.target_name }}
-      # Temporary solution for https://github.com/microsoft/vcpkg/issues/44429.
-      X_VCPKG_ASSET_SOURCES: "x-azurl,https://assetcache.open-vcpkg.org/assetcache,,read"
 
     steps:
       - uses: actions/checkout@v2
@@ -142,14 +140,19 @@ jobs:
           mkdir Shipping/Data/LineDataSets
           mv Shipping ${{ env.artifact_name }}
 
-      #- name: Create archive (Unix)
-      #  shell: bash
-      #  run: |
-      #    zip -r ${{ env.artifact_name }}.zip ${{ env.artifact_name }}
+      # vimtor removes the '+x' flag (https://github.com/vimtor/action-zip/issues/21) on Linux/macOS.
       - uses: vimtor/action-zip@v1.2
+        if: runner.os == 'Windows'
         with:
           files: ${{ env.artifact_name }}/
           dest: ${{ env.artifact_name }}.zip
+      - name: Create archive (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          pushd ${{ env.artifact_name }} >/dev/null
+          zip -r ../${{ env.artifact_name }}.zip .
+          popd >/dev/null
 
       # Needs "Read and write permission" under "Workflow permissions" on https://github.com/chrismile/tetgen/settings/actions.
       - name: Create release
