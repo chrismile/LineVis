@@ -14,15 +14,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-22.04, windows-2019, windows-2022, macos-latest ]
+        os: [ ubuntu-22.04, windows-2022, macos-latest ]
         linking: [ dynamic, static ]
         exclude:
           # dynamic linking fails for SDL2_image and python3 compilation on macOS as of 2022-08-30.
           - os: macos-latest
             linking: dynamic
           # Windows always worked without a problem with both dynamic and static linking, no need to test.
-          - os: windows-2019
-            linking: static
           - os: windows-2022
             linking: static
 
@@ -68,7 +66,7 @@ jobs:
 
     - uses: lukka/get-cmake@latest
       with:
-        cmakeVersion: 3.31.6
+        cmakeVersion: 4.0.0
 
     - name: Install Vulkan SDK
       shell: bash
@@ -131,7 +129,7 @@ jobs:
           #rm /usr/local/bin/pydoc3 || true
           #rm /usr/local/bin/python3 || true
           #rm /usr/local/bin/python3-config || true
-          brew install --force --overwrite llvm libomp pkg-config autoconf automake autoconf-archive
+          brew install --force --overwrite llvm libomp pkg-config make autoconf automake autoconf-archive
         else
           echo "$RUNNER_OS is not supported."
           exit 1
@@ -141,8 +139,7 @@ jobs:
       uses: lukka/run-vcpkg@v10
       with:
         vcpkgGitURL: 'https://github.com/microsoft/vcpkg.git'
-        vcpkgGitCommitId: '782ccc18d8b819cdef6794a6c03eb3d9f7cd04aa'
-        doNotCacheOnWorkflowFailure: true
+        vcpkgGitCommitId: '9b75e789ece3f942159b8500584e35aafe3979ff'
 
     - name: Create custom vcpkg triplet
       shell: bash
