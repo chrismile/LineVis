@@ -168,8 +168,11 @@ bool CloudData::loadFromXyzFile(const std::string& filename) {
     delete[] densityFieldTransposed;
 
     size_t totalSize = gridSizeX * gridSizeY * gridSizeZ;
-    auto [minVal, maxVal] = sgl::reduceFloatArrayMinMax(
+    // LLVM raises error "capturing a structured binding is not yet supported in OpenMP" when using bindings directly.
+    auto [minValBinding, maxValBinding] = sgl::reduceFloatArrayMinMax(
             densityField, totalSize, std::make_pair(0.0f, std::numeric_limits<float>::lowest()));
+    const float minVal = minValBinding;
+    const float maxVal = maxValBinding;
 
 #ifdef USE_TBB
     tbb::parallel_for(tbb::blocked_range<size_t>(0, totalSize), [&](auto const& r) {
@@ -383,8 +386,11 @@ bool CloudData::loadFromDatRawFile(const std::string& filename) {
 #endif
     }
 
-    auto [minVal, maxVal] = sgl::reduceFloatArrayMinMax(
+    // LLVM raises error "capturing a structured binding is not yet supported in OpenMP" when using bindings directly.
+    auto [minValBinding, maxValBinding] = sgl::reduceFloatArrayMinMax(
             densityField, totalSize, std::make_pair(0.0f, std::numeric_limits<float>::lowest()));
+    const float minVal = minValBinding;
+    const float maxVal = maxValBinding;
 
 #ifdef USE_TBB
     tbb::parallel_for(tbb::blocked_range<size_t>(0, totalSize), [&](auto const& r) {

@@ -651,6 +651,8 @@ if [ $use_vcpkg = false ] && [ $use_macos = true ]; then
     params_gen+=(-DCMAKE_PREFIX_PATH="${brew_prefix}")
     params_gen+=(-DCMAKE_C_COMPILER="${brew_prefix}/opt/llvm/bin/clang")
     params_gen+=(-DCMAKE_CXX_COMPILER="${brew_prefix}/opt/llvm/bin/clang++")
+    params_gen+=(-DCMAKE_LINKER="$(brew --prefix)/opt/llvm/bin/llvm-ld")
+    params_gen+=(-DCMAKE_AR="$(brew --prefix)/opt/llvm/bin/llvm-ar")
     params_sgl+=(-DCMAKE_INSTALL_PREFIX="../install")
     params_sgl+=(-DZLIB_ROOT="${brew_prefix}/opt/zlib")
     params+=(-DZLIB_ROOT="${brew_prefix}/opt/zlib")
@@ -786,6 +788,11 @@ if [ $search_for_vulkan_sdk = true ]; then
                 --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
             fi
             pushd ~/VulkanSDK/$VULKAN_SDK_VERSION
+            if [ $use_vcpkg = false ]; then
+                if ! command -v python &> /dev/null; then
+                    ln -s "$(brew --prefix)/bin/python"{3,}
+                fi
+            fi
             sudo python3 ./install_vulkan.py || true
             popd
             source "$HOME/VulkanSDK/$(ls $HOME/VulkanSDK)/setup-env.sh"

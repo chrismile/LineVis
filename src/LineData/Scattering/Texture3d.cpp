@@ -105,8 +105,11 @@ Texture3D load_xyz_file(std::string file_name) {
 
     // Normalization
     {
-        auto [min_val, max_val] = sgl::reduceFloatArrayMinMax(
+        // LLVM raises error "capturing a structured binding is not yet supported in OpenMP" when using bindings directly.
+        auto [min_val_binding, max_val_binding] = sgl::reduceFloatArrayMinMax(
                 grid.data, num_floats, std::make_pair(0.0f, std::numeric_limits<float>::lowest()));
+        const float min_val = min_val_binding;
+        const float max_val = max_val_binding;
 
 #ifdef USE_TBB
         tbb::parallel_for(tbb::blocked_range<size_t>(0, num_floats), [&](auto const& r) {

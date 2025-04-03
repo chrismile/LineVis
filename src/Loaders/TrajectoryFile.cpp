@@ -253,7 +253,10 @@ void normalizeVertexAttributes(std::vector<std::vector<float>>& vertexAttributes
 
     for (size_t attributeIdx = 0; attributeIdx < numAttributes; attributeIdx++) {
         std::vector<float>& vertexAttributes = vertexAttributesList.at(attributeIdx);
-        auto [minVal, maxVal] = sgl::reduceFloatArrayMinMax(vertexAttributes);
+        // LLVM raises error "capturing a structured binding is not yet supported in OpenMP" when using bindings directly.
+        auto [minValBinding, maxValBinding] = sgl::reduceFloatArrayMinMax(vertexAttributes);
+        const float minVal = minValBinding;
+        const float maxVal = maxValBinding;
 
 #ifdef USE_TBB
         tbb::parallel_for(tbb::blocked_range<size_t>(0, vertexAttributes.size()), [&](auto const& r) {

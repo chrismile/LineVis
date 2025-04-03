@@ -87,7 +87,6 @@ private:
     StressLineTracingRequesterSocket worker;
 
     bool showWindow = true;
-    bool showAdvancedSettings = false;
     std::string lineDataSetsDirectory;
 
     // UI settings.

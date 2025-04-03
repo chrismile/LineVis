@@ -156,7 +156,7 @@ void LineDataScattering::recomputeHistogram() {
 void LineDataScattering::setLineRenderers(const std::vector<LineRenderer*>& lineRenderers) {
     LineData::setLineRenderers(lineRenderers);
     lineRenderersUseVolumeRenderer = std::all_of(
-            lineRenderers.cbegin(), lineRenderers.cend(), [this](LineRenderer* lineRenderer){
+            lineRenderers.cbegin(), lineRenderers.cend(), [](LineRenderer* lineRenderer){
                 return lineRenderer && (lineRenderer->getRenderingMode() == RENDERING_MODE_LINE_DENSITY_MAP_RENDERER
                         || lineRenderer->getRenderingMode() == RENDERING_MODE_VOLUMETRIC_PATH_TRACER);
             });
