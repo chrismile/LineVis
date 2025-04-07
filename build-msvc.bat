@@ -303,7 +303,7 @@ if %use_eccodes% == true if not exist ".\eccodes-%eccodes_version%" (
 )
 set cmake_args=%cmake_args% -Deccodes_DIR="third_party/eccodes-%eccodes_version%/lib/cmake/eccodes-%eccodes_version%"
 
-set oidn_version=2.3.2
+set oidn_version=2.3.3
 if not exist ".\oidn-%oidn_version%.x64.windows" (
     echo ------------------------
     echo downloading OpenImageDenoise
