@@ -868,7 +868,9 @@ void MainApp::resolutionChanged(sgl::EventPtr event) {
 void MainApp::updateColorSpaceMode() {
     SciVisApp::updateColorSpaceMode();
     transferFunctionWindow.setUseLinearRGB(useLinearRGB);
-    lineData->setUseLinearRGB(useLinearRGB);
+    if (lineData) {
+        lineData->setUseLinearRGB(useLinearRGB);
+    }
     if (useDockSpaceMode) {
         for (DataViewPtr& dataView : dataViews) {
             dataView->useLinearRGB = useLinearRGB;
