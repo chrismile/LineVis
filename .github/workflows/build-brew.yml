@@ -102,7 +102,11 @@ jobs:
           curl -O https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.zip
           unzip vulkan-sdk.zip -d vulkan-sdk/
           vulkan_dir="$(pwd)/vulkan-sdk"
-          if [ -d "${vulkan_dir}/InstallVulkan-${VULKAN_SDK_VERSION}.app" ]; then
+          if [ -d "${vulkan_dir}/vulkansdk-macOS-${VULKAN_SDK_VERSION}.app" ]; then
+              # For some reason, this convention was introduced in version 1.4.313.0...
+              sudo "${vulkan_dir}/vulkansdk-macOS-${VULKAN_SDK_VERSION}.app/Contents/MacOS/vulkansdk-macOS-${VULKAN_SDK_VERSION}" \
+              --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
+          elif [ -d "${vulkan_dir}/InstallVulkan-${VULKAN_SDK_VERSION}.app" ]; then
               # For some reason, this convention was introduced in version 1.4.304.1...
               sudo "${vulkan_dir}/InstallVulkan-${VULKAN_SDK_VERSION}.app/Contents/MacOS/InstallVulkan-${VULKAN_SDK_VERSION}" \
               --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
