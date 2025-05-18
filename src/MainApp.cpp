@@ -451,8 +451,8 @@ MainApp::MainApp()
         int desktopHeight = 0;
         int refreshRate = 60;
         sgl::AppSettings::get()->getDesktopDisplayMode(desktopWidth, desktopHeight, refreshRate);
-        if (desktopWidth == 3840 && desktopHeight == 2160) {
-            sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
+        sgl::Window *window = sgl::AppSettings::get()->getMainWindow();
+        if (desktopWidth == 3840 && desktopHeight == 2160 && !window->getWindowSettings().isMaximized) {
             window->setWindowSize(2186, 1358);
         }
     }
