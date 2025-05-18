@@ -181,6 +181,7 @@ int main(int argc, char *argv[]) {
     requestedDeviceFeatures.optionalVulkan12Features.descriptorBindingVariableDescriptorCount = VK_TRUE;
     requestedDeviceFeatures.optionalVulkan12Features.runtimeDescriptorArray = VK_TRUE;
     requestedDeviceFeatures.optionalVulkan12Features.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
+    device->setUseAppDeviceSelector();
     device->createDeviceSwapchain(
             instance, window,
             {

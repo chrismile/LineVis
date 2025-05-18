@@ -51,6 +51,10 @@
 #include "Widgets/ReplayWidget.hpp"
 #endif
 
+namespace sgl {
+class DeviceSelectorVulkan;
+}
+
 namespace sgl { namespace dialog {
 class MsgBoxHandle;
 typedef std::shared_ptr<MsgBoxHandle> MsgBoxHandlePtr;
@@ -96,6 +100,9 @@ private:
     /// Callback when a file has been dropped on the program.
     void onFileDropped(const std::string& droppedFileName) override;
     void loadDataFromFile(const std::string& filename);
+
+    // Vulkan device selector.
+    sgl::DeviceSelectorVulkan* deviceSelector = nullptr;
 
     void scheduleRecreateSceneFramebuffer();
     bool scheduledRecreateSceneFramebuffer = false;
