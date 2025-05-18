@@ -48,6 +48,7 @@
 #include <Math/Geometry/MatrixUtil.hpp>
 #include <Graphics/Window.hpp>
 #include <Graphics/Vulkan/Utils/Instance.hpp>
+#include <Graphics/Vulkan/Utils/DeviceSelectionVulkan.hpp>
 #include <Graphics/Vulkan/Render/Renderer.hpp>
 #ifdef SUPPORT_OPENCL_INTEROP
 #include <Graphics/Vulkan/Utils/InteropOpenCL.hpp>
