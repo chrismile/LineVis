@@ -38,6 +38,8 @@ set destination_dir=Shipping
 set vcpkg_triplet="x64-windows"
 :: Leave empty to let cmake try to find the correct paths
 set optix_install_dir=""
+set use_ospray2=false
+set use_ospray3=true
 :: Optionally, the program can be built with Direct3D 12 support for some renderers.
 set use_d3d=false
 
@@ -61,6 +63,14 @@ IF NOT "%1"=="" (
     )
     IF "%1"=="--d3d" (
         SET use_d3d=true
+    )
+    IF "%1"=="--ospray2" (
+        SET use_ospray2=true
+        SET use_ospray3=false
+    )
+    IF "%1"=="--ospray3" (
+        SET use_ospray2=false
+        SET use_ospray3=true
     )
     SHIFT
     GOTO :loop
@@ -215,17 +225,30 @@ if not exist .\sgl\install (
     popd
 )
 
-set embree_version=3.13.3
+if %use_ospray2% == true (
+    set embree_version=3.13.3
+    set ospray_version=2.9.0
+) else (
+    set embree_version=4.3.3
+    set ospray_version=3.2.0
+)
+
 if not exist ".\embree-%embree_version%.x64.vc14.windows" (
     echo ------------------------
     echo    downloading Embree
     echo ------------------------
     curl.exe -L "https://github.com/embree/embree/releases/download/v%embree_version%/embree-%embree_version%.x64.vc14.windows.zip" --output embree-%embree_version%.x64.vc14.windows.zip
-    tar -xvzf "embree-%embree_version%.x64.vc14.windows.zip"
+    if %use_ospray2% == true (
+        tar -xvzf "embree-%embree_version%.x64.vc14.windows.zip"
+    else (
+        mkdir "embree-%embree_version%.x64.vc14.windows"
+        pushd "embree-%embree_version%.x64.vc14.windows"
+        tar -xvzf "embree-%embree_version%.x64.vc14.windows.zip"
+        popd
+    )
 )
 set cmake_args=%cmake_args% -Dembree_DIR="third_party/embree-%embree_version%.x64.vc14.windows/lib/cmake/embree-%embree_version%"
 
-set ospray_version=3.2.0
 if not exist ".\ospray-%ospray_version%.x86_64.windows" (
     echo ------------------------
     echo   downloading OSPRay

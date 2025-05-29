@@ -66,6 +66,10 @@ else
     is_embree_installed=false
     is_ospray_installed=false
 fi
+use_ospray3=false
+if [ $use_macos = false ] && [ $use_msys = false ]; then
+    use_ospray2=true
+fi
 # Optionally, the program can be built on Windows with MSYS2 with Direct3D 12 support for some renderers.
 use_d3d=false
 
@@ -109,6 +113,12 @@ do
         build_with_vkvg_support=true
     elif [ ${!i} = "--d3d" ]; then
         use_d3d=true
+    elif [ ${!i} = "--ospray2" ]; then
+        use_ospray2=true
+        use_ospray3=false
+    elif [ ${!i} = "--ospray3" ]; then
+        use_ospray2=false
+        use_ospray3=true
     fi
 done
 
@@ -1076,21 +1086,30 @@ if $use_msys; then
     Python3_VERSION="$(find "$MSYSTEM_PREFIX/lib/" -maxdepth 1 -type d -name 'python*' -printf "%f" -quit)"
     params+=(-DPython3_FIND_REGISTRY=NEVER -DPYTHONHOME="./python3" -DPYTHONPATH="./python3/lib/$Python3_VERSION")
 fi
-embree_version="3.13.3"
-ospray_version="3.2.0"
+if $use_ospray2; then
+    embree_version="3.13.3"
+    ospray_version="2.9.0"
+else
+    embree_version="4.3.3"
+    ospray_version="3.2.0"
+fi
 
-if [ $use_macos = false ] && [ $use_msys = false ]; then
+if ($use_ospray2 || $use_ospray3) && [ $use_macos = false ]; then
     if ! $is_embree_installed && [ $os_arch = "x86_64" ]; then
         if [ ! -d "./embree-${embree_version}.x86_64.linux" ]; then
             echo "------------------------"
             echo "   downloading Embree   "
             echo "------------------------"
             wget "https://github.com/embree/embree/releases/download/v${embree_version}/embree-${embree_version}.x86_64.linux.tar.gz"
-            tar -xvzf "embree-${embree_version}.x86_64.linux.tar.gz"
+            if $use_ospray2; then
+                tar -xvzf "embree-${embree_version}.x86_64.linux.tar.gz"
+            else
+                mkdir "embree-${embree_version}.x86_64.linux"
+                tar -xvzf "embree-${embree_version}.x86_64.linux.tar.gz" -C "embree-${embree_version}.x86_64.linux"
+            fi
         fi
         params+=(-Dembree_DIR="${projectpath}/third_party/embree-${embree_version}.x86_64.linux/lib/cmake/embree-${embree_version}")
     fi
-
     if ! $is_ospray_installed && [ $os_arch = "x86_64" ]; then
         if [ ! -d "./ospray-${ospray_version}.x86_64.linux" ]; then
             echo "------------------------"
@@ -1101,7 +1120,9 @@ if [ $use_macos = false ] && [ $use_msys = false ]; then
         fi
         params+=(-Dospray_DIR="${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/cmake/ospray-${ospray_version}")
     fi
-elif [ $use_macos = true ]; then
+fi
+
+if ($use_ospray2 || $use_ospray3) && [ $use_macos = true ]; then
     if [ ! -d "./ospray/ospray/lib/cmake" ]; then
         # Make sure we have no leftovers from a failed build attempt.
         if [ -d "./ospray-repo" ]; then
@@ -1121,6 +1142,11 @@ elif [ $use_macos = true ]; then
 
         # Build OSPRay and its dependencies.
         git clone https://github.com/ospray/ospray.git ospray-repo
+        if $use_ospray2; then
+            pushd "./ospray-build" >/dev/null
+            git checkout v2.12.0
+            popd >/dev/null
+        fi
         mkdir ospray-build
         pushd "./ospray-build" >/dev/null
         cmake ../ospray-repo/scripts/superbuild -DCMAKE_INSTALL_PREFIX="$projectpath/third_party/ospray" \
@@ -1507,15 +1533,27 @@ else
     ldd_output="$(ldd $build_dir/LineVis)"
 
     if ! $is_ospray_installed && [ $os_arch = "x86_64" ]; then
-        libembree3_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libembree3.so")"
-        libospray_module_cpu_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libospray_module_cpu.so")"
-        libopenvkl_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libopenvkl.so")"
-        libopenvkl_module_cpu_device_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libopenvkl_module_cpu_device.so")"
-        libopenvkl_module_cpu_device_4_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libopenvkl_module_cpu_device_4.so")"
-        libopenvkl_module_cpu_device_8_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libopenvkl_module_cpu_device_8.so")"
-        libopenvkl_module_cpu_device_16_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libopenvkl_module_cpu_device_16.so")"
-        ldd_output="$ldd_output $libembree3_so $libospray_module_cpu_so $libopenvkl_so $libopenvkl_module_cpu_device_so"
-        ldd_output="$ldd_output $libopenvkl_module_cpu_device_4_so $libopenvkl_module_cpu_device_8_so $libopenvkl_module_cpu_device_16_so"
+        if $use_ospray2; then
+            libembree3_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libembree3.so")"
+            libospray_module_cpu_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libospray_module_cpu.so")"
+            libopenvkl_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libopenvkl.so")"
+            libopenvkl_module_cpu_device_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libopenvkl_module_cpu_device.so")"
+            libopenvkl_module_cpu_device_4_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libopenvkl_module_cpu_device_4.so")"
+            libopenvkl_module_cpu_device_8_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libopenvkl_module_cpu_device_8.so")"
+            libopenvkl_module_cpu_device_16_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libopenvkl_module_cpu_device_16.so")"
+            ldd_output="$ldd_output $libembree3_so $libospray_module_cpu_so $libopenvkl_so $libopenvkl_module_cpu_device_so"
+            ldd_output="$ldd_output $libopenvkl_module_cpu_device_4_so $libopenvkl_module_cpu_device_8_so $libopenvkl_module_cpu_device_16_so"
+        else
+            libembree4_so="${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libembree4.so.4"
+            libospray_module_cpu_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libospray_module_cpu.so.3")"
+            libopenvkl_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libopenvkl.so.2")"
+            libopenvkl_module_cpu_device_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libopenvkl_module_cpu_device.so.2")"
+            libopenvkl_module_cpu_device_4_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libopenvkl_module_cpu_device_4.so.2")"
+            libopenvkl_module_cpu_device_8_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libopenvkl_module_cpu_device_8.so.2")"
+            libopenvkl_module_cpu_device_16_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libopenvkl_module_cpu_device_16.so.2")"
+            ldd_output="$ldd_output $libembree4_so $libospray_module_cpu_so $libopenvkl_so $libopenvkl_module_cpu_device_so"
+            ldd_output="$ldd_output $libopenvkl_module_cpu_device_4_so $libopenvkl_module_cpu_device_8_so $libopenvkl_module_cpu_device_16_so"
+        fi
     fi
     if $use_open_image_denoise; then
         # Copy OpenImageDenoise device libraries.
@@ -1569,18 +1607,33 @@ else
     done
     patchelf --set-rpath '$ORIGIN' "$destination_dir/bin/LineVis"
     if ! $is_ospray_installed; then
-        ln -sf "./$(basename "$libembree3_so")" "$destination_dir/bin/libembree3.so"
-        ln -sf "./$(basename "$libospray_module_cpu_so")" "$destination_dir/bin/libospray_module_cpu.so"
-        ln -sf "./$(basename "$libopenvkl_so")" "$destination_dir/bin/libopenvkl.so"
-        ln -sf "./$(basename "$libopenvkl_so")" "$destination_dir/bin/libopenvkl.so.1"
-        ln -sf "./$(basename "$libopenvkl_module_cpu_device_so")" "$destination_dir/bin/libopenvkl_module_cpu_device.so"
-        ln -sf "./$(basename "$libopenvkl_module_cpu_device_so")" "$destination_dir/bin/libopenvkl_module_cpu_device.so.1"
-        ln -sf "./$(basename "$libopenvkl_module_cpu_device_4_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_4.so"
-        ln -sf "./$(basename "$libopenvkl_module_cpu_device_4_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_4.so.1"
-        ln -sf "./$(basename "$libopenvkl_module_cpu_device_8_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_8.so"
-        ln -sf "./$(basename "$libopenvkl_module_cpu_device_8_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_8.so.1"
-        ln -sf "./$(basename "$libopenvkl_module_cpu_device_16_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_16.so"
-        ln -sf "./$(basename "$libopenvkl_module_cpu_device_16_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_16.so.1"
+        if $use_ospray2; then
+            ln -sf "./$(basename "$libembree3_so")" "$destination_dir/bin/libembree3.so"
+            ln -sf "./$(basename "$libospray_module_cpu_so")" "$destination_dir/bin/libospray_module_cpu.so"
+            ln -sf "./$(basename "$libopenvkl_so")" "$destination_dir/bin/libopenvkl.so"
+            ln -sf "./$(basename "$libopenvkl_so")" "$destination_dir/bin/libopenvkl.so.1"
+            ln -sf "./$(basename "$libopenvkl_module_cpu_device_so")" "$destination_dir/bin/libopenvkl_module_cpu_device.so"
+            ln -sf "./$(basename "$libopenvkl_module_cpu_device_so")" "$destination_dir/bin/libopenvkl_module_cpu_device.so.1"
+            ln -sf "./$(basename "$libopenvkl_module_cpu_device_4_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_4.so"
+            ln -sf "./$(basename "$libopenvkl_module_cpu_device_4_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_4.so.1"
+            ln -sf "./$(basename "$libopenvkl_module_cpu_device_8_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_8.so"
+            ln -sf "./$(basename "$libopenvkl_module_cpu_device_8_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_8.so.1"
+            ln -sf "./$(basename "$libopenvkl_module_cpu_device_16_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_16.so"
+            ln -sf "./$(basename "$libopenvkl_module_cpu_device_16_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_16.so.1"
+        else
+            ln -sf "./$(basename "$libembree4_so")" "$destination_dir/bin/libembree4.so"
+            ln -sf "./$(basename "$libospray_module_cpu_so")" "$destination_dir/bin/libospray_module_cpu.so"
+            ln -sf "./$(basename "$libopenvkl_so")" "$destination_dir/bin/libopenvkl.so"
+            ln -sf "./$(basename "$libopenvkl_so")" "$destination_dir/bin/libopenvkl.so.1"
+            ln -sf "./$(basename "$libopenvkl_module_cpu_device_so")" "$destination_dir/bin/libopenvkl_module_cpu_device.so"
+            ln -sf "./$(basename "$libopenvkl_module_cpu_device_so")" "$destination_dir/bin/libopenvkl_module_cpu_device.so.1"
+            ln -sf "./$(basename "$libopenvkl_module_cpu_device_4_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_4.so"
+            ln -sf "./$(basename "$libopenvkl_module_cpu_device_4_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_4.so.1"
+            ln -sf "./$(basename "$libopenvkl_module_cpu_device_8_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_8.so"
+            ln -sf "./$(basename "$libopenvkl_module_cpu_device_8_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_8.so.1"
+            ln -sf "./$(basename "$libopenvkl_module_cpu_device_16_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_16.so"
+            ln -sf "./$(basename "$libopenvkl_module_cpu_device_16_so")" "$destination_dir/bin/libopenvkl_module_cpu_device_16.so.1"
+        fi
     fi
 fi
 
