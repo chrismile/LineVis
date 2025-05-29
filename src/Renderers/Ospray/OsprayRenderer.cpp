@@ -27,6 +27,7 @@
  */
 
 #include <ospray/ospray.h>
+#include <ospray/version.h>
 
 #include <Utils/File/Logfile.hpp>
 #include <Graphics/Vulkan/Utils/Swapchain.hpp>
@@ -79,7 +80,11 @@ OsprayRenderer::OsprayRenderer(
 
     ospCamera = ospNewCamera("perspective");
 
+#if OSPRAY_VERSION_MAJOR >= 3
+    ospMaterial = ospNewMaterial("obj");
+#else
     ospMaterial = ospNewMaterial("", "obj");
+#endif
     ospSetVec3f(ospMaterial, "kd", 0.9f, 0.9f, 0.9f);
     ospSetVec3f(ospMaterial, "ks", 0.1f, 0.1f, 0.1f);
     ospSetInt(ospMaterial, "ns", 50);

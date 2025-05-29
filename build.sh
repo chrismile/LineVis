@@ -1077,7 +1077,7 @@ if $use_msys; then
     params+=(-DPython3_FIND_REGISTRY=NEVER -DPYTHONHOME="./python3" -DPYTHONPATH="./python3/lib/$Python3_VERSION")
 fi
 embree_version="3.13.3"
-ospray_version="2.9.0"
+ospray_version="3.2.0"
 
 if [ $use_macos = false ] && [ $use_msys = false ]; then
     if ! $is_embree_installed && [ $os_arch = "x86_64" ]; then

@@ -225,7 +225,7 @@ if not exist ".\embree-%embree_version%.x64.vc14.windows" (
 )
 set cmake_args=%cmake_args% -Dembree_DIR="third_party/embree-%embree_version%.x64.vc14.windows/lib/cmake/embree-%embree_version%"
 
-set ospray_version=2.9.0
+set ospray_version=3.2.0
 if not exist ".\ospray-%ospray_version%.x86_64.windows" (
     echo ------------------------
     echo   downloading OSPRay
