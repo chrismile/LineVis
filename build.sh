@@ -67,8 +67,10 @@ else
     is_ospray_installed=false
 fi
 use_ospray3=false
-if [ $use_macos = false ] && [ $use_msys = false ]; then
+if [ $use_msys = false ]; then
     use_ospray2=true
+else
+    use_ospray2=false
 fi
 # Optionally, the program can be built on Windows with MSYS2 with Direct3D 12 support for some renderers.
 use_d3d=false
@@ -1143,7 +1145,7 @@ if ($use_ospray2 || $use_ospray3) && [ $use_macos = true ]; then
         # Build OSPRay and its dependencies.
         git clone https://github.com/ospray/ospray.git ospray-repo
         if $use_ospray2; then
-            pushd "./ospray-build" >/dev/null
+            pushd "./ospray-repo" >/dev/null
             git checkout v2.12.0
             popd >/dev/null
         fi
@@ -1532,7 +1534,7 @@ else
     # Copy all dependencies of the application to the destination directory.
     ldd_output="$(ldd $build_dir/LineVis)"
 
-    if ! $is_ospray_installed && [ $os_arch = "x86_64" ]; then
+    if ! $is_ospray_installed && ($use_ospray2 || $use_ospray3) && [ $os_arch = "x86_64" ]; then
         if $use_ospray2; then
             libembree3_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libembree3.so")"
             libospray_module_cpu_so="$(readlink -f "${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/libospray_module_cpu.so")"
@@ -1606,7 +1608,7 @@ else
         fi
     done
     patchelf --set-rpath '$ORIGIN' "$destination_dir/bin/LineVis"
-    if ! $is_ospray_installed; then
+    if ! $is_ospray_installed && ($use_ospray2 || $use_ospray3); then
         if $use_ospray2; then
             ln -sf "./$(basename "$libembree3_so")" "$destination_dir/bin/libembree3.so"
             ln -sf "./$(basename "$libospray_module_cpu_so")" "$destination_dir/bin/libospray_module_cpu.so"
