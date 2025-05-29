@@ -28,207 +28,172 @@ jobs:
     name: "${{ github.workflow }}: ${{ matrix.os }} (${{ matrix.linking }})"
 
     env:
-      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg/bincache
-      sgl_REPO_DIR: ${{ github.workspace }}/sgl-repo
-      sgl_DIR: ${{ github.workspace }}/sgl
+      VCPKG_ROOT: ${{ github.workspace }}/third_party/vcpkg
+      VCPKG_CACHE_DIR: ${{ github.workspace }}/third_party/vcpkg/bincache
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/third_party/vcpkg/bincache,readwrite
+      VCPKG_COMMIT_ID: "a9eee3b18df395dbb8be71a31bd78ea441056e42"
 
     steps:
-    - name: Set up vcpkg environment variables
-      shell: bash
-      run: |
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          echo "VCPKG_COPY_TRIPLET=x64-linux" >> $GITHUB_ENV
-          echo "VCPKG_DEFAULT_TRIPLET=x64-linux-${{matrix.linking}}-release-only" >> $GITHUB_ENV
-        elif [ "$RUNNER_OS" == "Windows" ]; then
-          echo "VCPKG_COPY_TRIPLET=x64-windows" >> $GITHUB_ENV
-          echo "VCPKG_DEFAULT_TRIPLET=x64-windows-${{matrix.linking}}-release-only" >> $GITHUB_ENV
-        elif [ "$RUNNER_OS" == "macOS" ] && [ "$(uname -m)" = "x86_64" ]; then
-          echo "VCPKG_COPY_TRIPLET=x64-osx" >> $GITHUB_ENV
-          echo "VCPKG_DEFAULT_TRIPLET=x64-osx-${{matrix.linking}}-release-only" >> $GITHUB_ENV
-        elif [ "$RUNNER_OS" == "macOS" ]; then
-          echo "VCPKG_COPY_TRIPLET=arm64-osx" >> $GITHUB_ENV
-          echo "VCPKG_DEFAULT_TRIPLET=arm64-osx-${{matrix.linking}}-release-only" >> $GITHUB_ENV
-        else
-          echo "$RUNNER_OS is not supported."
-          exit 1
-        fi
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
 
-    - uses: actions/checkout@v2
-      with:
-        submodules: true
-
-    - uses: actions/checkout@v2
-      with:
-        repository: chrismile/sgl
-        path: sgl-repo
-        submodules: true
-
-    - uses: lukka/get-cmake@latest
-      with:
-        cmakeVersion: 4.0.0
-
-    - name: Install Vulkan SDK
-      shell: bash
-      run: |
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          distro_code_name=$(lsb_release -cs)
-          distro_release=$(lsb_release -rs)
-          os_arch="$(uname -m)"
-          if ! curl -s -I "https://packages.lunarg.com/vulkan/dists/${distro_code_name}/" | grep "2 404" > /dev/null; then
-            echo "Installing Vulkan SDK from a PPA..."
-            wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-            sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-${distro_code_name}.list \
-            https://packages.lunarg.com/vulkan/lunarg-vulkan-${distro_code_name}.list
-            sudo apt update
-            sudo apt install -y vulkan-sdk
-          elif dpkg --compare-versions "$distro_release" "ge" "24.04"; then
-            sudo apt install -y libvulkan-dev
+      - name: Set up vcpkg
+        shell: bash
+        run: |
+          mkdir -p "${{env.VCPKG_ROOT}}"
+          git clone https://github.com/microsoft/vcpkg.git "${{env.VCPKG_ROOT}}"
+          pushd "${{env.VCPKG_ROOT}}"
+          if [ -z "${{env.VCPKG_COMMIT_ID}}" ]; then
+            echo "VCPKG_COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_ENV
           else
-            echo "Unpacking Vulkan SDK from an archive file..."
-            curl --silent --show-error --fail -O https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.gz
-            mkdir -p VulkanSDK
-            tar -xf vulkan-sdk.tar.gz -C VulkanSDK
-            # Fix pkgconfig file.
-            shaderc_pkgconfig_file="VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig/shaderc.pc"
-            if [ -f $shaderc_pkgconfig_file ]; then
-              prefix_path=$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch")
-              sed -i '3s;.*;prefix=\"'$prefix_path'\";' "$shaderc_pkgconfig_file"
-              sed -i '5s;.*;libdir=${prefix}/lib;' "$shaderc_pkgconfig_file"
-              echo "PKG_CONFIG_PATH=\"$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig")\"" >> $GITHUB_ENV
+            git checkout ${{env.VCPKG_COMMIT_ID}}
+          fi
+          popd
+          echo "VCPKG_CACHE_KEY=vcpkg-${{env.VCPKG_DEFAULT_TRIPLET}}-${{env.VCPKG_COMMIT_ID}}-${{ github.event.repository.name }}-" >> $GITHUB_ENV
+          echo "VCPKG_CACHE_KEY_FULL=vcpkg-${{env.VCPKG_CACHE_KEY}}${{ hashFiles('vcpkg.json') }}" >> $GITHUB_ENV
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            echo "VCPKG_COPY_TRIPLET=x64-linux" >> $GITHUB_ENV
+            echo "VCPKG_DEFAULT_TRIPLET=x64-linux-${{matrix.linking}}-release-only" >> $GITHUB_ENV
+          elif [ "$RUNNER_OS" == "Windows" ]; then
+            echo "VCPKG_COPY_TRIPLET=x64-windows" >> $GITHUB_ENV
+            echo "VCPKG_DEFAULT_TRIPLET=x64-windows-${{matrix.linking}}-release-only" >> $GITHUB_ENV
+          elif [ "$RUNNER_OS" == "macOS" ] && [ "$(uname -m)" = "x86_64" ]; then
+            echo "VCPKG_COPY_TRIPLET=x64-osx" >> $GITHUB_ENV
+            echo "VCPKG_DEFAULT_TRIPLET=x64-osx-${{matrix.linking}}-release-only" >> $GITHUB_ENV
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            echo "VCPKG_COPY_TRIPLET=arm64-osx" >> $GITHUB_ENV
+            echo "VCPKG_DEFAULT_TRIPLET=arm64-osx-${{matrix.linking}}-release-only" >> $GITHUB_ENV
+          else
+            echo "$RUNNER_OS is not supported."
+            exit 1
+          fi
+
+      - name: Restore vcpkg cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{env.VCPKG_CACHE_DIR}}
+          key: ${{env.VCPKG_CACHE_KEY_FULL}}
+          restore-keys: ${{env.VCPKG_CACHE_KEY}}
+
+      - uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: 4.0.0
+
+      - name: Install Vulkan SDK
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            distro_code_name=$(lsb_release -cs)
+            distro_release=$(lsb_release -rs)
+            os_arch="$(uname -m)"
+            if ! curl -s -I "https://packages.lunarg.com/vulkan/dists/${distro_code_name}/" | grep "2 404" > /dev/null; then
+              echo "Installing Vulkan SDK from a PPA..."
+              wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
+              sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-${distro_code_name}.list \
+              https://packages.lunarg.com/vulkan/lunarg-vulkan-${distro_code_name}.list
+              sudo apt update
+              sudo apt install -y vulkan-sdk
+            elif dpkg --compare-versions "$distro_release" "ge" "24.04"; then
+              sudo apt install -y libvulkan-dev
+            else
+              echo "Unpacking Vulkan SDK from an archive file..."
+              curl --silent --show-error --fail -O https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.gz
+              mkdir -p VulkanSDK
+              tar -xf vulkan-sdk.tar.gz -C VulkanSDK
+              # Fix pkgconfig file.
+              shaderc_pkgconfig_file="VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig/shaderc.pc"
+              if [ -f $shaderc_pkgconfig_file ]; then
+                prefix_path=$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch")
+                sed -i '3s;.*;prefix=\"'$prefix_path'\";' "$shaderc_pkgconfig_file"
+                sed -i '5s;.*;libdir=${prefix}/lib;' "$shaderc_pkgconfig_file"
+                echo "PKG_CONFIG_PATH=\"$(realpath "VulkanSDK/$(ls VulkanSDK)/$os_arch/lib/pkgconfig")\"" >> $GITHUB_ENV
+              fi
             fi
-          fi
-          # Also install the dependencies for building ports like GLEW here.
-          sudo apt install -y libgl-dev libxmu-dev libxi-dev libx11-dev libxft-dev libxext-dev libxrandr-dev \
-          libwayland-dev libxkbcommon-dev libegl1-mesa-dev libibus-1.0-dev autoconf-archive
-        elif [ "$RUNNER_OS" == "Windows" ]; then
-          # Chocolatey is broken as of 2023-07-07
-          #choco install vulkan-sdk
-          curl -O https://sdk.lunarg.com/sdk/download/1.3.250.1/windows/VulkanSDK-1.3.250.1-Installer.exe
-          ./VulkanSDK-1.3.250.1-Installer.exe --accept-licenses --default-answer --confirm-command install
-        elif [ "$RUNNER_OS" == "macOS" ]; then
-          vulkansdk_filename=$(curl -sIkL https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.zip | sed -r '/filename=/!d;s/.*filename=(.*)$/\1/')
-          VULKAN_SDK_VERSION=$(echo $vulkansdk_filename | sed -r 's/^.*vulkansdk-macos-(.*)\.zip.*$/\1/')
-          curl -O https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.zip
-          unzip vulkan-sdk.zip -d vulkan-sdk/
-          vulkan_dir="$(pwd)/vulkan-sdk"
-          if [ -d "${vulkan_dir}/vulkansdk-macOS-${VULKAN_SDK_VERSION}.app" ]; then
-              # For some reason, this convention was introduced in version 1.4.313.0...
-              sudo "${vulkan_dir}/vulkansdk-macOS-${VULKAN_SDK_VERSION}.app/Contents/MacOS/vulkansdk-macOS-${VULKAN_SDK_VERSION}" \
-              --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
-          elif [ -d "${vulkan_dir}/InstallVulkan-${VULKAN_SDK_VERSION}.app" ]; then
-              # For some reason, this convention was introduced in version 1.4.304.1...
-              sudo "${vulkan_dir}/InstallVulkan-${VULKAN_SDK_VERSION}.app/Contents/MacOS/InstallVulkan-${VULKAN_SDK_VERSION}" \
-              --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
+            # Also install the dependencies for building ports like GLEW here.
+            sudo apt install -y libgl-dev libxmu-dev libxi-dev libx11-dev libxft-dev libxext-dev libxrandr-dev \
+            libwayland-dev libxkbcommon-dev libegl1-mesa-dev libibus-1.0-dev autoconf-archive
+          elif [ "$RUNNER_OS" == "Windows" ]; then
+            # Chocolatey is broken as of 2023-07-07
+            #choco install vulkan-sdk
+            curl -O https://sdk.lunarg.com/sdk/download/1.3.250.1/windows/VulkanSDK-1.3.250.1-Installer.exe
+            ./VulkanSDK-1.3.250.1-Installer.exe --accept-licenses --default-answer --confirm-command install
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            vulkansdk_filename=$(curl -sIkL https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.zip | sed -r '/filename=/!d;s/.*filename=(.*)$/\1/')
+            VULKAN_SDK_VERSION=$(echo $vulkansdk_filename | sed -r 's/^.*vulkansdk-macos-(.*)\.zip.*$/\1/')
+            curl -O https://sdk.lunarg.com/sdk/download/latest/mac/vulkan-sdk.zip
+            unzip vulkan-sdk.zip -d vulkan-sdk/
+            vulkan_dir="$(pwd)/vulkan-sdk"
+            if [ -d "${vulkan_dir}/vulkansdk-macOS-${VULKAN_SDK_VERSION}.app" ]; then
+                # For some reason, this convention was introduced in version 1.4.313.0...
+                sudo "${vulkan_dir}/vulkansdk-macOS-${VULKAN_SDK_VERSION}.app/Contents/MacOS/vulkansdk-macOS-${VULKAN_SDK_VERSION}" \
+                --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
+            elif [ -d "${vulkan_dir}/InstallVulkan-${VULKAN_SDK_VERSION}.app" ]; then
+                # For some reason, this convention was introduced in version 1.4.304.1...
+                sudo "${vulkan_dir}/InstallVulkan-${VULKAN_SDK_VERSION}.app/Contents/MacOS/InstallVulkan-${VULKAN_SDK_VERSION}" \
+                --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
+            else
+                sudo "${vulkan_dir}/InstallVulkan.app/Contents/MacOS/InstallVulkan" \
+                --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
+            fi
+            cd ~/VulkanSDK/$VULKAN_SDK_VERSION
+            sudo ./install_vulkan.py || true
+            export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
+            brew update
+            #rm /usr/local/bin/2to3 || true
+            #rm /usr/local/bin/idle3 || true
+            #rm /usr/local/bin/pydoc3 || true
+            #rm /usr/local/bin/python3 || true
+            #rm /usr/local/bin/python3-config || true
+            brew install --force --overwrite llvm libomp pkg-config make autoconf automake autoconf-archive
           else
-              sudo "${vulkan_dir}/InstallVulkan.app/Contents/MacOS/InstallVulkan" \
-              --root ~/VulkanSDK/$VULKAN_SDK_VERSION --accept-licenses --default-answer --confirm-command install
+            echo "$RUNNER_OS is not supported."
+            exit 1
           fi
-          cd ~/VulkanSDK/$VULKAN_SDK_VERSION
-          sudo ./install_vulkan.py || true
-          export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
-          brew update
-          #rm /usr/local/bin/2to3 || true
-          #rm /usr/local/bin/idle3 || true
-          #rm /usr/local/bin/pydoc3 || true
-          #rm /usr/local/bin/python3 || true
-          #rm /usr/local/bin/python3-config || true
-          brew install --force --overwrite llvm libomp pkg-config make autoconf automake autoconf-archive
-        else
-          echo "$RUNNER_OS is not supported."
-          exit 1
-        fi
 
-    - name: Setup vcpkg
-      uses: lukka/run-vcpkg@v10
-      with:
-        vcpkgGitURL: 'https://github.com/microsoft/vcpkg.git'
-        vcpkgGitCommitId: '9b75e789ece3f942159b8500584e35aafe3979ff'
-
-    - name: Create custom vcpkg triplet
-      shell: bash
-      run: |
-        cp "${{env.VCPKG_ROOT}}/triplets/${{env.VCPKG_COPY_TRIPLET}}.cmake" "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"
-        echo "set(VCPKG_BUILD_TYPE release)" >> "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"
-        sed -i -e 's/.*VCPKG_LIBRARY_LINKAGE.*/set(VCPKG_LIBRARY_LINKAGE ${{matrix.linking}})/g' "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"
-        if [ "$RUNNER_OS" == "Linux" ] && [ "${{matrix.linking}}" == "dynamic" ]; then
-            echo "set(VCPKG_FIXUP_ELF_RPATH ON)" >> "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"
-        fi
-
-    - name: Configure CMake (sgl)
-      shell: bash
-      run: |
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          if [ "${{env.PKG_CONFIG_PATH}}" != "" ]; then
-            VK_LAYER_PATH=""
-            source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
-            export PKG_CONFIG_PATH="${{env.PKG_CONFIG_PATH}}"
-          else
-            export VULKAN_SDK="/usr"
+      - name: Create custom vcpkg triplet
+        shell: bash
+        run: |
+          cp "${{env.VCPKG_ROOT}}/triplets/${{env.VCPKG_COPY_TRIPLET}}.cmake" "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"
+          echo "set(VCPKG_BUILD_TYPE release)" >> "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"
+          sed -i -e 's/.*VCPKG_LIBRARY_LINKAGE.*/set(VCPKG_LIBRARY_LINKAGE ${{matrix.linking}})/g' "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"
+          if [ "$RUNNER_OS" == "Linux" ] && [ "${{matrix.linking}}" == "dynamic" ]; then
+              echo "set(VCPKG_FIXUP_ELF_RPATH ON)" >> "${{env.VCPKG_ROOT}}/triplets/community/${{env.VCPKG_DEFAULT_TRIPLET}}.cmake"
           fi
-        elif [ "$RUNNER_OS" == "Windows" ]; then
-          export VULKAN_SDK="C:/VulkanSDK/$(ls C:/VulkanSDK)"
-        elif [ "$RUNNER_OS" == "macOS" ]; then
-          source "$HOME/VulkanSDK/$(ls $HOME/VulkanSDK)/setup-env.sh"
-        fi
-        cmake "${{env.sgl_REPO_DIR}}" -B "${{env.sgl_REPO_DIR}}/build" -DCMAKE_TOOLCHAIN_FILE="${{env.VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DVCPKG_TARGET_TRIPLET=${{env.VCPKG_DEFAULT_TRIPLET}} -DCMAKE_INSTALL_PREFIX="${{env.sgl_DIR}}"
 
-    - name: Build (sgl)
-      run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --parallel 4
-
-    - name: Install (sgl)
-      run: cmake --build ${{env.sgl_REPO_DIR}}/build --config ${{env.BUILD_TYPE}} --target install
-
-    - name: Cleanup sgl build files (Windows only)
-      if: runner.os == 'Windows'
-      shell: bash
-      run: |
-        # Recently, there were some "There is not enough space on the disk" errors when building the application.
-        # Remove the sgl build folder after install to make sure enough space is left on the disk for the next steps.
-        rm -rf "${{env.sgl_REPO_DIR}}/build"
-
-    - name: Configure CMake (LineVis)
-      shell: bash
-      run: |
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          if [ "${{matrix.linking}}" == "dynamic" ]; then
-            cp "${{env.sgl_REPO_DIR}}/build/libsgl.so" "${{env.sgl_DIR}}/lib/libsgl.so"
+      - name: Build (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ] || [ "$RUNNER_OS" == "macOS" ]; then
+            ./build.sh --vcpkg --do-not-run --vcpkg-triplet ${{env.VCPKG_DEFAULT_TRIPLET}}
+          #elif [ "$RUNNER_OS" == "Windows" ]; then
+          #  ./build-msvc.bat --do-not-run --vcpkg-triplet ${{env.VCPKG_DEFAULT_TRIPLET}}
           fi
-          if [ "${{env.PKG_CONFIG_PATH}}" != "" ]; then
-            VK_LAYER_PATH=""
-            source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
-            export PKG_CONFIG_PATH="${{env.PKG_CONFIG_PATH}}"
-          else
-            export VULKAN_SDK="/usr"
-          fi
-        elif [ "$RUNNER_OS" == "Windows" ]; then
-          export VULKAN_SDK="C:/VulkanSDK/$(ls C:/VulkanSDK)"
-        elif [ "$RUNNER_OS" == "macOS" ]; then
-          source "$HOME/VulkanSDK/$(ls $HOME/VulkanSDK)/setup-env.sh"
-        fi
-        cmake -B "${{github.workspace}}/build" -DCMAKE_TOOLCHAIN_FILE="${{env.VCPKG_ROOT}}/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DVCPKG_TARGET_TRIPLET=${{env.VCPKG_DEFAULT_TRIPLET}} -Dsgl_DIR=${{env.sgl_DIR}}/lib/cmake/sgl
 
-    - name: Build (LineVis)
-      shell: bash
-      run: |
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          if [ "${{env.PKG_CONFIG_PATH}}" != "" ]; then
-            VK_LAYER_PATH=""
-            source "VulkanSDK/$(ls VulkanSDK)/setup-env.sh"
-            export PKG_CONFIG_PATH="${{env.PKG_CONFIG_PATH}}"
-          else
-            export VULKAN_SDK="/usr"
-          fi
-        fi
-        cmake --build "${{github.workspace}}/build" --config ${{env.BUILD_TYPE}} --parallel 4
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          for /D %%F in (C:\VulkanSDK\*) do (
+            set VULKAN_SDK=%%F
+            goto vulkan_finished
+          )
+          :vulkan_finished
+          ./build-msvc.bat --do-not-run --vcpkg-triplet ${{env.VCPKG_DEFAULT_TRIPLET}}
 
-    - name: Remove symbolic links before caching (Windows only)
-      if: runner.os == 'Windows'
-      shell: bash
-      run: |
-        find "${{env.VCPKG_ROOT}}/buildtrees" -type l -exec echo {} \;
-        find "${{env.VCPKG_ROOT}}/buildtrees" -type l -exec rm {} \;
-        # Recently, there were some "There is not enough space on the disk" errors after having added OpenCL support.
-        # Remove some temporary files to make sure the vcpkg build artifacts can be packaged without out-of-memory errors.
-        rm -rf "${{env.VCPKG_ROOT}}/downloads"
-        
+      - name: Remove symbolic links before caching (Windows only)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          find "${{env.VCPKG_ROOT}}/buildtrees" -type l -exec echo {} \;
+          find "${{env.VCPKG_ROOT}}/buildtrees" -type l -exec rm {} \;
+          # Recently, there were some "There is not enough space on the disk" errors after having added OpenCL support.
+          # Remove some temporary files to make sure the vcpkg build artifacts can be packaged without out-of-memory errors.
+          rm -rf "${{env.VCPKG_ROOT}}/downloads"
+      
+      - name: Save vcpkg cache
+        uses: actions/cache/save@v4
+        with:
+          path: ${{env.VCPKG_CACHE_DIR}}
+          key: ${{env.VCPKG_CACHE_KEY_FULL}}

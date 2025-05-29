@@ -1,0 +1,60 @@
+name: Build on Linux
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Native targets.
+          - os: ubuntu-22.04
+            os_name: "Ubuntu 22.04"
+            distrobox: "false"
+          - os: ubuntu-24.04
+            os_name: "Ubuntu 24.04"
+            distrobox: "false"
+          # Distrobox targets
+          - os: ubuntu-latest
+            os_name: "Fedora (latest)"
+            distrobox: "fedora:latest"  # same as "registry.fedoraproject.org/fedora:latest"
+          - os: ubuntu-latest
+            os_name: "Arch Linux (latest)"
+            distrobox: "quay.io/toolbx/arch-toolbox:latest"
+            image_name: "arch-latest"
+
+    runs-on: ${{ matrix.os }}
+    name: "Build on ${{ matrix.os_name }}"
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Build (native)
+        if: matrix.distrobox == 'false'
+        shell: bash
+        run: |
+          sudo apt-get update
+          ./build.sh --do-not-run
+
+      - name: Build (distrobox)
+        if: matrix.distrobox != 'false'
+        shell: bash
+        run: |
+          curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sudo sh
+          if [ -z "${{ matrix.image_name }}" ]; then
+              img_name=$(echo "${{ matrix.distrobox }}" | tr : -)
+          else
+              img_name="${{ matrix.image_name }}"
+          fi
+          distrobox-create --name ${img_name} --image ${{ matrix.distrobox }} --yes
+          distrobox-enter ${img_name} -- ./build.sh --do-not-run

@@ -64,7 +64,9 @@ jobs:
 
     env:
       VCPKG_ROOT: ${{ github.workspace }}/third_party/vcpkg
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/third_party/vcpkg/bincache
+      VCPKG_CACHE_DIR: ${{ github.workspace }}/third_party/vcpkg/bincache
+      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}/third_party/vcpkg/bincache,readwrite
+      VCPKG_COMMIT_ID: "a9eee3b18df395dbb8be71a31bd78ea441056e42"
       artifact_name: ${{ github.event.repository.name }}-${{ github.event.release.tag_name }}-${{ matrix.target_name }}
 
     steps:
@@ -82,19 +84,21 @@ jobs:
         with:
           cmakeVersion: 3.31.6
 
-      - name: Setup vcpkg
-        if: runner.os == 'Linux'
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitURL: 'https://github.com/microsoft/vcpkg.git'
-          vcpkgGitCommitId: '782ccc18d8b819cdef6794a6c03eb3d9f7cd04aa'
-          vcpkgDirectory: ${{env.VCPKG_ROOT}}
-          doNotCacheOnWorkflowFailure: true
-
-      - name: Set up vcpkg environment variables
+      - name: Set up vcpkg
         if: runner.os == 'Linux'
         shell: bash
         run: |
+          mkdir -p "${{env.VCPKG_ROOT}}"
+          git clone https://github.com/microsoft/vcpkg.git "${{env.VCPKG_ROOT}}"
+          pushd "${{env.VCPKG_ROOT}}"
+          if [ -z "${{env.VCPKG_COMMIT_ID}}" ]; then
+            echo "VCPKG_COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_ENV
+          else
+            git checkout ${{env.VCPKG_COMMIT_ID}}
+          fi
+          popd
+          echo "VCPKG_CACHE_KEY=vcpkg-${{env.VCPKG_DEFAULT_TRIPLET}}-${{env.VCPKG_COMMIT_ID}}-${{ github.event.repository.name }}-" >> $GITHUB_ENV
+          echo "VCPKG_CACHE_KEY_FULL=vcpkg-${{env.VCPKG_CACHE_KEY}}${{ hashFiles('vcpkg.json') }}" >> $GITHUB_ENV
           if [ "$RUNNER_OS" == "Linux" ]; then
             echo "VCPKG_COPY_TRIPLET=x64-linux" >> $GITHUB_ENV
             echo "VCPKG_DEFAULT_TRIPLET=x64-linux-${{matrix.linking}}-release-only" >> $GITHUB_ENV
@@ -111,6 +115,13 @@ jobs:
             echo "$RUNNER_OS is not supported."
           exit 1
           fi
+
+      - name: Restore vcpkg cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{env.VCPKG_CACHE_DIR}}
+          key: ${{env.VCPKG_CACHE_KEY_FULL}}
+          restore-keys: ${{env.VCPKG_CACHE_KEY}}
 
       - name: Create custom vcpkg triplet
         if: runner.os == 'Linux'
@@ -160,3 +171,9 @@ jobs:
         #if: startsWith(github.ref, 'refs/tags/')
         with:
           files: ${{ env.artifact_name }}.zip
+
+      - name: Save vcpkg cache
+        uses: actions/cache/save@v4
+        with:
+          path: ${{env.VCPKG_CACHE_DIR}}
+          key: ${{env.VCPKG_CACHE_KEY_FULL}}

@@ -290,10 +290,10 @@ void OpenImageDenoiseDenoiser::_createBuffers() {
         }
 #endif
 #ifdef __APPLE__
-        oidnInputColorBuffer = oidnNewSharedBufferFromMetal(device, inputImageBufferVk->getMetalBufferId()));
-        if (useAlbedo) oidnInputAlbedoBuffer = oidnNewSharedBufferFromMetal(device, inputAlbedoBufferVk->getMetalBufferId()));
-        if (useNormalMap) oidnInputNormalBuffer = oidnNewSharedBufferFromMetal(device, inputNormalBufferVk->getMetalBufferId()));
-        oidnOutputColorBuffer = oidnNewSharedBufferFromMetal(device, outputImageBufferVk->getMetalBufferId()));
+        oidnInputColorBuffer = oidnNewSharedBufferFromMetal(oidnDevice, inputImageBufferVk->getMetalBufferId()));
+        if (useAlbedo) oidnInputAlbedoBuffer = oidnNewSharedBufferFromMetal(oidnDevice, inputAlbedoBufferVk->getMetalBufferId()));
+        if (useNormalMap) oidnInputNormalBuffer = oidnNewSharedBufferFromMetal(oidnDevice, inputNormalBufferVk->getMetalBufferId()));
+        oidnOutputColorBuffer = oidnNewSharedBufferFromMetal(oidnDevice, outputImageBufferVk->getMetalBufferId()));
 #elif defined(_WIN32)
         oidnInputColorBuffer = oidnNewSharedBufferFromWin32Handle(
                 oidnDevice, OIDN_EXTERNAL_MEMORY_TYPE_FLAG_OPAQUE_WIN32,
