@@ -1155,7 +1155,8 @@ if ($use_ospray2 || $use_ospray3) && [ $use_macos = true ]; then
         mkdir ospray-build
         pushd "./ospray-build" >/dev/null
         cmake ../ospray-repo/scripts/superbuild -DCMAKE_INSTALL_PREFIX="$projectpath/third_party/ospray" \
-        -DBUILD_JOBS=$(sysctl -n hw.ncpu) -DBUILD_OSPRAY_APPS=Off ${params_ospray[@]+"${params_ospray[@]}"}
+        -DBUILD_JOBS=$(sysctl -n hw.ncpu) -DBUILD_OSPRAY_APPS=Off ${params_ospray[@]+"${params_ospray[@]}"} \
+        ${params_link[@]+"${params_link[@]}"} ${params_vcpkg[@]+"${params_vcpkg[@]}"}
         CMAKE_POLICY_VERSION_MINIMUM=3.5 cmake --build . --parallel $(sysctl -n hw.ncpu)
         cmake --build . --parallel $(sysctl -n hw.ncpu)
         popd >/dev/null
