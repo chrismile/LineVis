@@ -329,6 +329,9 @@ elif $use_macos && command -v brew &> /dev/null && [ ! -d $build_dir_debug ] && 
     if ! is_installed_brew "curl"; then
         brew install curl
     fi
+    if ! is_installed_brew "wget"; then
+        brew install wget
+    fi
     if ! is_installed_brew "pkg-config"; then
         brew install pkg-config
     fi
@@ -1513,10 +1516,12 @@ elif [ $use_macos = true ] && [ $use_vcpkg = false ]; then
         copy_dependencies_recursive "$lib_path_2"
         copy_dependencies_recursive "$lib_path_3"
     }
-    copy_ospray_lib_symlinked "libopenvkl.dylib"
-    copy_ospray_lib_symlinked "libopenvkl_module_cpu_device.dylib"
-    copy_ospray_lib_symlinked "libopenvkl_module_cpu_device_4.dylib"
-    copy_ospray_lib_symlinked "libospray_module_cpu.dylib"
+    if $use_ospray2 || $use_ospray3; then
+        copy_ospray_lib_symlinked "libopenvkl.dylib"
+        copy_ospray_lib_symlinked "libopenvkl_module_cpu_device.dylib"
+        copy_ospray_lib_symlinked "libopenvkl_module_cpu_device_4.dylib"
+        copy_ospray_lib_symlinked "libospray_module_cpu.dylib"
+    fi
 
     # Fix code signing for arm64.
     for filename in $binaries_dest_dir/*
@@ -1648,7 +1653,7 @@ if [ $use_vcpkg = true ]; then
         vcpkg_installed_dir="$build_dir/vcpkg_installed"
     fi
     if [ $use_macos = true ]; then
-        vcpkg_installed_dir_triplet="vcpkg_installed/$(ls $vcpkg_installed_dir | grep -Ewv 'vcpkg')"
+        vcpkg_installed_dir_triplet="$vcpkg_installed_dir/$(ls $vcpkg_installed_dir | grep -Ewv 'vcpkg')"
     else
         if [ $use_custom_vcpkg_triplet = true ]; then
             vcpkg_installed_dir_triplet="$vcpkg_installed_dir/$vcpkg_triplet"
