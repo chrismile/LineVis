@@ -1653,11 +1653,11 @@ if [ $use_vcpkg = true ]; then
     elif [ -d "$build_dir/vcpkg_installed" ]; then
         vcpkg_installed_dir="$build_dir/vcpkg_installed"
     fi
-    if [ $use_macos = true ]; then
-        vcpkg_installed_dir_triplet="$vcpkg_installed_dir/$(ls $vcpkg_installed_dir | grep -Ewv 'vcpkg')"
+    if [ $use_custom_vcpkg_triplet = true ]; then
+        vcpkg_installed_dir_triplet="$vcpkg_installed_dir/$vcpkg_triplet"
     else
-        if [ $use_custom_vcpkg_triplet = true ]; then
-            vcpkg_installed_dir_triplet="$vcpkg_installed_dir/$vcpkg_triplet"
+        if [ $use_macos = true ]; then
+            vcpkg_installed_dir_triplet="$vcpkg_installed_dir/$(ls $vcpkg_installed_dir | grep -Ewv 'vcpkg')"
         else
             vcpkg_installed_dir_triplet="$vcpkg_installed_dir/$(ls --ignore=vcpkg $vcpkg_installed_dir)"
         fi
