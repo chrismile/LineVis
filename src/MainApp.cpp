@@ -108,6 +108,19 @@ void vulkanErrorCallback() {
 #endif
     std::cerr << "Application callback" << std::endl;
 }
+bool vulkanFilterDebugMessageCallback(const VkDebugUtilsMessengerCallbackDataEXT* callbackData) {
+    if (callbackData->messageIdNumber == 622825338) {
+        /*
+         * This corresponds to pMessageIdName == "VUID-vkQueuePresentKHR-pWaitSemaphores-03268".
+         * This validation error probably comes from the fact that the semaphore is signalled on the CUDA side
+         * and the Vulkan validation layer is not able to track this signal call.
+         * This is most likely a bug in the validation layer, as it should not try to track this type of information
+         * for exported semaphores that may be used in other APIs.
+         */
+        return true;
+    }
+    return false;
+}
 
 #ifdef __linux__
 void signalHandler(int signum) {
@@ -143,6 +156,7 @@ MainApp::MainApp()
           scatteringLineTracingRequester(new ScatteringLineTracingRequester(
                   transferFunctionWindow, rendererVk)) {
     sgl::AppSettings::get()->getVulkanInstance()->setDebugCallback(&vulkanErrorCallback);
+    sgl::AppSettings::get()->getVulkanInstance()->setFilterDebugMessageCallback(&vulkanFilterDebugMessageCallback);
 
 #ifdef SUPPORT_CUDA_INTEROP
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
