@@ -115,12 +115,14 @@ jobs:
 
       - name: Restore vcpkg cache
         uses: actions/cache/restore@v4
+        if: runner.os == 'Linux'
         with:
           path: ${{env.VCPKG_CACHE_DIR}}
           key: ${{env.VCPKG_CACHE_KEY_FULL}}
           restore-keys: ${{env.VCPKG_CACHE_KEY}}
 
       - uses: lukka/get-cmake@latest
+        if: runner.os == 'Linux'
         with:
           cmakeVersion: 4.0.0
 
@@ -175,6 +177,7 @@ jobs:
 
       - name: Save vcpkg cache
         uses: actions/cache/save@v4
+        if: runner.os == 'Linux'
         with:
           path: ${{env.VCPKG_CACHE_DIR}}
           key: ${{env.VCPKG_CACHE_KEY_FULL}}
