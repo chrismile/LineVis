@@ -45,29 +45,31 @@ jobs:
           git clone https://github.com/microsoft/vcpkg.git "${{env.VCPKG_ROOT}}"
           pushd "${{env.VCPKG_ROOT}}"
           if [ -z "${{env.VCPKG_COMMIT_ID}}" ]; then
-            echo "VCPKG_COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_ENV
+            export VCPKG_COMMIT_ID="$(git rev-parse HEAD)"
+            echo "VCPKG_COMMIT_ID=${VCPKG_COMMIT_ID}" >> $GITHUB_ENV
           else
+            export VCPKG_COMMIT_ID="${{env.VCPKG_COMMIT_ID}}"
             git checkout ${{env.VCPKG_COMMIT_ID}}
           fi
           popd
-          echo "VCPKG_CACHE_KEY=vcpkg-${{env.VCPKG_DEFAULT_TRIPLET}}-${{env.VCPKG_COMMIT_ID}}-${{ github.event.repository.name }}-" >> $GITHUB_ENV
-          echo "VCPKG_CACHE_KEY_FULL=vcpkg-${{env.VCPKG_CACHE_KEY}}${{ hashFiles('vcpkg.json') }}" >> $GITHUB_ENV
           if [ "$RUNNER_OS" == "Linux" ]; then
-            echo "VCPKG_COPY_TRIPLET=x64-linux" >> $GITHUB_ENV
-            echo "VCPKG_DEFAULT_TRIPLET=x64-linux-${{matrix.linking}}-release-only" >> $GITHUB_ENV
+            export VCPKG_COPY_TRIPLET="x64-linux"
           elif [ "$RUNNER_OS" == "Windows" ]; then
-            echo "VCPKG_COPY_TRIPLET=x64-windows" >> $GITHUB_ENV
-            echo "VCPKG_DEFAULT_TRIPLET=x64-windows-${{matrix.linking}}-release-only" >> $GITHUB_ENV
+            export VCPKG_COPY_TRIPLET="x64-windows"
           elif [ "$RUNNER_OS" == "macOS" ] && [ "$(uname -m)" = "x86_64" ]; then
-            echo "VCPKG_COPY_TRIPLET=x64-osx" >> $GITHUB_ENV
-            echo "VCPKG_DEFAULT_TRIPLET=x64-osx-${{matrix.linking}}-release-only" >> $GITHUB_ENV
+            export VCPKG_COPY_TRIPLET="x64-osx"
           elif [ "$RUNNER_OS" == "macOS" ]; then
-            echo "VCPKG_COPY_TRIPLET=arm64-osx" >> $GITHUB_ENV
-            echo "VCPKG_DEFAULT_TRIPLET=arm64-osx-${{matrix.linking}}-release-only" >> $GITHUB_ENV
+            export VCPKG_COPY_TRIPLET="arm64-osx"
           else
             echo "$RUNNER_OS is not supported."
             exit 1
           fi
+          echo "VCPKG_COPY_TRIPLET=${VCPKG_COPY_TRIPLET}" >> $GITHUB_ENV
+          export VCPKG_DEFAULT_TRIPLET="${VCPKG_COPY_TRIPLET}-${{matrix.linking}}-release-only"
+          echo "VCPKG_DEFAULT_TRIPLET=${VCPKG_DEFAULT_TRIPLET}" >> $GITHUB_ENV
+          export VCPKG_CACHE_KEY_PART="${{ matrix.os }}-${VCPKG_DEFAULT_TRIPLET}-${VCPKG_COMMIT_ID}-${{ github.event.repository.name }}"
+          echo "VCPKG_CACHE_KEY=vcpkg-${VCPKG_CACHE_KEY_PART}-" >> $GITHUB_ENV
+          echo "VCPKG_CACHE_KEY_FULL=vcpkg-${VCPKG_CACHE_KEY_PART}-${{ hashFiles('vcpkg.json') }}" >> $GITHUB_ENV
 
       - name: Restore vcpkg cache
         uses: actions/cache/restore@v4

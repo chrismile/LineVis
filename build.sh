@@ -1338,17 +1338,6 @@ else
       export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${projectpath}/third_party/sgl/install/lib"
   fi
 fi
-if [ $use_macos = true ] && [ $use_vcpkg = true ]; then
-    export PYTHONHOME="$PYTHONHOME_global"
-elif [ $use_macos = true ] && [ $use_vcpkg = false ]; then
-    export PYTHONHOME="../$destination_dir/python3"
-elif $use_msys; then
-    export PYTHONHOME="/mingw64"
-else
-    if [ $use_vcpkg = true ]; then
-        export PYTHONHOME="../Shipping/bin/python3"
-    fi
-fi
 if [ $use_macos = false ] && [ $use_msys = false ]; then
     if ! $is_ospray_installed && [ $os_arch = "x86_64" ]; then
         export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib"
@@ -1691,6 +1680,17 @@ elif [ $use_vcpkg = true ]; then
     python_lib_dir="$vcpkg_installed_dir_triplet/lib/$Python3_VERSION"
     rsync -a "$python_lib_dir" $destination_dir/bin/python3/lib
     #rsync -a "$(eval echo "$vcpkg_installed_dir_triplet/lib/python*")" $destination_dir/python3/lib
+fi
+if [ $use_macos = true ] && [ $use_vcpkg = true ]; then
+    export PYTHONHOME="../$destination_dir/python3"
+elif [ $use_macos = true ] && [ $use_vcpkg = false ]; then
+    export PYTHONHOME="$PYTHONHOME_global"
+elif $use_msys; then
+    export PYTHONHOME="/mingw64"
+else
+    if [ $use_vcpkg = true ]; then
+        export PYTHONHOME="../Shipping/bin/python3"
+    fi
 fi
 
 # Copy the docs to the destination directory.
