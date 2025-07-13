@@ -42,8 +42,8 @@
 #endif
 
 #ifdef SUPPORT_D3D12
-#include <Graphics/D3D12/DXGIFactory.hpp>
-#include <Graphics/D3D12/Device.hpp>
+#include <Graphics/D3D12/Utils/DXGIFactory.hpp>
+#include <Graphics/D3D12/Utils/Device.hpp>
 #endif
 
 #include <Utils/File/FileUtils.hpp>
