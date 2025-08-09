@@ -119,10 +119,10 @@ OpenImageDenoiseDenoiser::OpenImageDenoiseDenoiser(sgl::vk::Renderer* renderer, 
 #ifdef SUPPORT_CUDA_INTEROP
     sgl::vk::Device* device = renderer->getDevice();
     if (device->getDeviceDriverId() == VK_DRIVER_ID_NVIDIA_PROPRIETARY
-            && sgl::vk::getIsCudaDeviceApiFunctionTableInitialized()) {
+            && sgl::getIsCudaDeviceApiFunctionTableInitialized()) {
         // This has the advantage that we do not need to wait for missing OpenImageDenoise semaphore import support.
-        CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuStreamCreate(&cuStream, CU_STREAM_DEFAULT);
-        sgl::vk::checkCUresult(cuResult, "Error in cuStreamCreate: ");
+        CUresult cuResult = sgl::g_cudaDeviceApiFunctionTable.cuStreamCreate(&cuStream, CU_STREAM_DEFAULT);
+        sgl::checkCUresult(cuResult, "Error in cuStreamCreate: ");
         // TODO: CUDA_SHARED results in "invalid resource handle", so it is disabled for now.
         //deviceTypes.push_back(OIDNDeviceTypeCustom::CUDA_SHARED);
         //deviceTypeNames.push_back(OIDN_DEVICE_TYPE_NAMES[int(OIDNDeviceTypeCustom::CUDA_SHARED)]);
@@ -139,9 +139,9 @@ OpenImageDenoiseDenoiser::~OpenImageDenoiseDenoiser() {
 #ifdef SUPPORT_CUDA_INTEROP
     sgl::vk::Device* device = renderer->getDevice();
     if (device->getDeviceDriverId() == VK_DRIVER_ID_NVIDIA_PROPRIETARY
-            && sgl::vk::getIsCudaDeviceApiFunctionTableInitialized()) {
-        CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuStreamDestroy(cuStream);
-        sgl::vk::checkCUresult(cuResult, "Error in cuStreamDestroy: ");
+            && sgl::getIsCudaDeviceApiFunctionTableInitialized()) {
+        CUresult cuResult = sgl::g_cudaDeviceApiFunctionTable.cuStreamDestroy(cuStream);
+        sgl::checkCUresult(cuResult, "Error in cuStreamDestroy: ");
     }
 #endif
 }
@@ -157,9 +157,9 @@ bool OpenImageDenoiseDenoiser::initGlobalCuda(CUcontext _cuContext, CUdevice _cu
         return false;
     }
 
-    if (!sgl::vk::getIsCudaDeviceApiFunctionTableInitialized()) {
+    if (!sgl::getIsCudaDeviceApiFunctionTableInitialized()) {
         sgl::Logfile::get()->writeInfo(
-                "Error in OpenImageDenoiseDenoiser::initGlobal: sgl::vk::getIsCudaDeviceApiFunctionTableInitialized() "
+                "Error in OpenImageDenoiseDenoiser::initGlobal: sgl::getIsCudaDeviceApiFunctionTableInitialized() "
                 "returned false.");
         return false;
     }
@@ -209,8 +209,8 @@ void OpenImageDenoiseDenoiser::_freeDenoiser() {
 #ifdef SUPPORT_CUDA_INTEROP
     else if (deviceType == OIDNDeviceTypeCustom::CUDA_SHARED) {
         // This has the advantage that we do not need to wait for missing OpenImageDenoise semaphore import support.
-        CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuStreamCreate(&cuStream, CU_STREAM_DEFAULT);
-        sgl::vk::checkCUresult(cuResult, "Error in cuStreamCreate: ");
+        CUresult cuResult = sgl::g_cudaDeviceApiFunctionTable.cuStreamCreate(&cuStream, CU_STREAM_DEFAULT);
+        sgl::checkCUresult(cuResult, "Error in cuStreamCreate: ");
         oidnNewCUDADevice(&cuDevice, &cuStream, 1);
     }
 #endif

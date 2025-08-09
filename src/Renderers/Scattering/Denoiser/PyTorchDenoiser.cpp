@@ -84,10 +84,10 @@ PyTorchDenoiser::PyTorchDenoiser(sgl::vk::Renderer* renderer) : renderer(rendere
     // Support CUDA on NVIDIA GPUs using the proprietary driver.
     if (device->getDeviceDriverId() == VK_DRIVER_ID_NVIDIA_PROPRIETARY && torch::cuda::is_available()) {
         pyTorchDevice = PyTorchDevice::CUDA;
-        if (!sgl::vk::getIsCudaDeviceApiFunctionTableInitialized()) {
+        if (!sgl::getIsCudaDeviceApiFunctionTableInitialized()) {
             sgl::Logfile::get()->throwError(
                     "Error in VolumetricPathTracingModuleRenderer::renderFrameCuda: "
-                    "sgl::vk::getIsCudaDeviceApiFunctionTableInitialized() returned false.");
+                    "sgl::getIsCudaDeviceApiFunctionTableInitialized() returned false.");
         }
     }
 #endif
@@ -330,7 +330,7 @@ void PyTorchDenoiser::denoise() {
     else if (pyTorchDevice == PyTorchDevice::CUDA) {
         cudaStream_t stream = at::cuda::getCurrentCUDAStream();
 
-        sgl::vk::g_cudaDeviceApiFunctionTable.cuMemcpyAsync(
+        sgl::g_cudaDeviceApiFunctionTable.cuMemcpyAsync(
                 outputImageBufferCu->getCudaDevicePtr(), (CUdeviceptr)outputTensor.data_ptr(),
                 outputImageBufferVk->getSizeInBytes(), stream);
 
@@ -398,12 +398,12 @@ void PyTorchDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
     }
 #ifdef SUPPORT_CUDA_INTEROP
     else if (pyTorchDevice == PyTorchDevice::CUDA) {
-        if (!sgl::vk::getIsCudaDeviceApiFunctionTableInitialized()) {
-            bool success = sgl::vk::initializeCudaDeviceApiFunctionTable();
+        if (!sgl::getIsCudaDeviceApiFunctionTableInitialized()) {
+            bool success = sgl::initializeCudaDeviceApiFunctionTable();
             if (!success) {
                 sgl::Logfile::get()->throwError(
                         "Error in PyTorchDenoiser::recreateSwapchain: "
-                        "sgl::vk::initializeCudaDeviceApiFunctionTable() failed.", false);
+                        "sgl::initializeCudaDeviceApiFunctionTable() failed.", false);
             }
         }
 

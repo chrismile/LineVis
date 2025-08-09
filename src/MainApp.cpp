@@ -162,27 +162,27 @@ MainApp::MainApp()
     sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
     if (device->getDeviceDriverId() == VK_DRIVER_ID_NVIDIA_PROPRIETARY) {
         cudaInteropInitialized = true;
-        if (!sgl::vk::initializeCudaDeviceApiFunctionTable()) {
+        if (!sgl::initializeCudaDeviceApiFunctionTable()) {
             cudaInteropInitialized = false;
             sgl::Logfile::get()->writeError(
-                    "Error in MainApp::MainApp: sgl::vk::initializeCudaDeviceApiFunctionTable() returned false.",
+                    "Error in MainApp::MainApp: sgl::initializeCudaDeviceApiFunctionTable() returned false.",
                     false);
         }
 
         if (cudaInteropInitialized) {
-            CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuInit(0);
+            CUresult cuResult = sgl::g_cudaDeviceApiFunctionTable.cuInit(0);
             if (cuResult == CUDA_ERROR_NO_DEVICE) {
                 sgl::Logfile::get()->writeInfo("No CUDA-capable device was found. Disabling CUDA interop support.");
                 cudaInteropInitialized = false;
             } else {
-                sgl::vk::checkCUresult(cuResult, "Error in cuInit: ");
+                sgl::checkCUresult(cuResult, "Error in cuInit: ");
             }
         }
 
         if (cudaInteropInitialized) {
-            CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuCtxCreate(
+            CUresult cuResult = sgl::g_cudaDeviceApiFunctionTable.cuCtxCreate(
                     &cuContext, CU_CTX_SCHED_SPIN, cuDevice);
-            sgl::vk::checkCUresult(cuResult, "Error in cuCtxCreate: ");
+            sgl::checkCUresult(cuResult, "Error in cuCtxCreate: ");
         }
     }
 #endif
@@ -198,7 +198,7 @@ MainApp::MainApp()
 #endif
 #ifdef SUPPORT_OPENCL_INTEROP
     openclInteropInitialized = true;
-    if (!sgl::vk::initializeOpenCLFunctionTable()) {
+    if (!sgl::initializeOpenCLFunctionTable()) {
         openclInteropInitialized = false;
     }
 #endif
@@ -538,18 +538,18 @@ MainApp::~MainApp() {
     }
 #endif
 #ifdef SUPPORT_CUDA_INTEROP
-    if (sgl::vk::getIsCudaDeviceApiFunctionTableInitialized()) {
+    if (sgl::getIsCudaDeviceApiFunctionTableInitialized()) {
         if (cuContext) {
-            CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuCtxDestroy(cuContext);
-            sgl::vk::checkCUresult(cuResult, "Error in cuCtxDestroy: ");
+            CUresult cuResult = sgl::g_cudaDeviceApiFunctionTable.cuCtxDestroy(cuContext);
+            sgl::checkCUresult(cuResult, "Error in cuCtxDestroy: ");
             cuContext = {};
         }
-        sgl::vk::freeCudaDeviceApiFunctionTable();
+        sgl::freeCudaDeviceApiFunctionTable();
     }
 #endif
 #ifdef SUPPORT_OPENCL_INTEROP
-    if (sgl::vk::getIsOpenCLFunctionTableInitialized()) {
-        sgl::vk::freeOpenCLFunctionTable();
+    if (sgl::getIsOpenCLFunctionTableInitialized()) {
+        sgl::freeOpenCLFunctionTable();
     }
 #endif
 

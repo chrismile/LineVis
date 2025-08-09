@@ -91,9 +91,9 @@ bool OptixVptDenoiser::initGlobal(CUcontext _cuContext, CUdevice _cuDevice) {
         return false;
     }
 
-    if (!sgl::vk::getIsCudaDeviceApiFunctionTableInitialized()) {
+    if (!sgl::getIsCudaDeviceApiFunctionTableInitialized()) {
         sgl::Logfile::get()->writeInfo(
-                "Error in OptixVptDenoiser::initGlobal: sgl::vk::getIsCudaDeviceApiFunctionTableInitialized() "
+                "Error in OptixVptDenoiser::initGlobal: sgl::getIsCudaDeviceApiFunctionTableInitialized() "
                 "returned false.");
         return false;
     }
@@ -139,8 +139,8 @@ bool OptixVptDenoiser::isOptixEnabled() {
 
 
 OptixVptDenoiser::OptixVptDenoiser(sgl::vk::Renderer* renderer) : renderer(renderer) {
-    CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuStreamCreate(&stream, CU_STREAM_DEFAULT);
-    sgl::vk::checkCUresult(cuResult, "Error in cuStreamCreate: ");
+    CUresult cuResult = sgl::g_cudaDeviceApiFunctionTable.cuStreamCreate(&stream, CU_STREAM_DEFAULT);
+    sgl::checkCUresult(cuResult, "Error in cuStreamCreate: ");
 
 #if defined(_WIN32) && OPTIX_VERSION < 70500
     // Crashes on Windows with segfault for temporal denoiser with older OptiX versions.
@@ -181,8 +181,8 @@ OptixVptDenoiser::~OptixVptDenoiser() {
         denoiser = {};
     }
 
-    CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuStreamDestroy(stream);
-    sgl::vk::checkCUresult(cuResult, "Error in cuStreamDestroy: ");
+    CUresult cuResult = sgl::g_cudaDeviceApiFunctionTable.cuStreamDestroy(stream);
+    sgl::checkCUresult(cuResult, "Error in cuStreamDestroy: ");
 }
 
 void OptixVptDenoiser::setOutputImage(sgl::vk::ImageViewPtr& outputImage) {
@@ -261,15 +261,15 @@ void OptixVptDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
     checkOptixResult(result, "Error in optixDenoiserComputeMemoryResources: ");
 
     denoiserStateSizeInBytes = denoiserSizes.stateSizeInBytes;
-    cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuMemAlloc(&denoiserState, denoiserStateSizeInBytes);
-    sgl::vk::checkCUresult(cuResult, "Error in cuMemAlloc: ");
+    cuResult = sgl::g_cudaDeviceApiFunctionTable.cuMemAlloc(&denoiserState, denoiserStateSizeInBytes);
+    sgl::checkCUresult(cuResult, "Error in cuMemAlloc: ");
 
     scratchSizeInBytes = denoiserSizes.withoutOverlapScratchSizeInBytes;
-    cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuMemAlloc(&scratch, scratchSizeInBytes);
-    sgl::vk::checkCUresult(cuResult, "Error in cuMemAlloc: ");
+    cuResult = sgl::g_cudaDeviceApiFunctionTable.cuMemAlloc(&scratch, scratchSizeInBytes);
+    sgl::checkCUresult(cuResult, "Error in cuMemAlloc: ");
 
-    cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuMemAlloc(&imageIntensity, sizeof(float));
-    sgl::vk::checkCUresult(cuResult, "Error in cuMemAlloc: ");
+    cuResult = sgl::g_cudaDeviceApiFunctionTable.cuMemAlloc(&imageIntensity, sizeof(float));
+    sgl::checkCUresult(cuResult, "Error in cuMemAlloc: ");
 
     result = optixDenoiserSetup(
             denoiser, stream, inputWidth, inputHeight,
@@ -391,18 +391,18 @@ void OptixVptDenoiser::recreateSwapchain(uint32_t width, uint32_t height) {
 
 void OptixVptDenoiser::_freeBuffers() {
     if (denoiserState) {
-        CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuMemFree(denoiserState);
-        sgl::vk::checkCUresult(cuResult, "Error in cuMemFree: ");
+        CUresult cuResult = sgl::g_cudaDeviceApiFunctionTable.cuMemFree(denoiserState);
+        sgl::checkCUresult(cuResult, "Error in cuMemFree: ");
         denoiserState = {};
     }
     if (scratch) {
-        CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuMemFree(scratch);
-        sgl::vk::checkCUresult(cuResult, "Error in cuMemFree: ");
+        CUresult cuResult = sgl::g_cudaDeviceApiFunctionTable.cuMemFree(scratch);
+        sgl::checkCUresult(cuResult, "Error in cuMemFree: ");
         scratch = {};
     }
     if (imageIntensity) {
-        CUresult cuResult = sgl::vk::g_cudaDeviceApiFunctionTable.cuMemFree(imageIntensity);
-        sgl::vk::checkCUresult(cuResult, "Error in cuMemFree: ");
+        CUresult cuResult = sgl::g_cudaDeviceApiFunctionTable.cuMemFree(imageIntensity);
+        sgl::checkCUresult(cuResult, "Error in cuMemFree: ");
         imageIntensity = {};
     }
 }
@@ -536,7 +536,7 @@ void OptixVptDenoiser::runOptixDenoiser() {
         if (isFirstFrame) {
             denoiserLayer.previousOutput = inputImageOptix;
             guideLayer.flow = flowImageOptix; // All flow vectors set to zero.
-            sgl::vk::g_cudaDeviceApiFunctionTable.cuMemsetD8Async(
+            sgl::g_cudaDeviceApiFunctionTable.cuMemsetD8Async(
                     flowImageBufferCu->getCudaDevicePtr(), 0, sizeof(float) * 2 * inputWidth * inputHeight, stream);
         } else {
             /**
