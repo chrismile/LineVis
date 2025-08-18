@@ -113,7 +113,7 @@ if(NOT sgl_FOUND)
     set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};third_party/sgl/install/lib/cmake/sgl)
     find_package(sgl REQUIRED)
 endif()
-find_package(Boost COMPONENTS system filesystem QUIET) # Needed for sgl with vcpkg.
+find_package(Boost 1.69.0 COMPONENTS filesystem QUIET) # Needed for sgl with vcpkg.
 if(VCPKG_TOOLCHAIN)
     find_package(netCDF CONFIG REQUIRED)
     find_package(tinyxml2 CONFIG REQUIRED)
