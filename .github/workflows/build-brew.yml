@@ -62,7 +62,8 @@ jobs:
             echo "$RUNNER_OS is not supported."
             exit 1
           fi
-          brew install cmake zlib libpng glm sdl2 sdl2_image libarchive boost tinyxml2 opencl-headers \
+          brew list cmake || brew install cmake  # https://github.com/actions/runner-images/issues/12912
+          brew install zlib libpng glm sdl2 sdl2_image libarchive boost tinyxml2 opencl-headers \
           jsoncpp eigen openexr netcdf zeromq cppzmq python@3.9 eccodes
 
       - name: Install Vulkan SDK
