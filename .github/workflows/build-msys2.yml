@@ -11,12 +11,18 @@ env:
 
 jobs:
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        msystem: [ MINGW64, UCRT64, CLANG64 ]
+
     runs-on: windows-2022
-    name: "${{ github.workflow }}"
+    name: "${{ github.workflow }} (${{ matrix.msystem }})"
 
     steps:
       - uses: msys2/setup-msys2@v2
         with:
+          msystem: ${{ matrix.msystem }}
           update: true
 
       - uses: actions/checkout@v2

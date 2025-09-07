@@ -2,7 +2,7 @@
 
 # BSD 2-Clause License
 #
-# Copyright (c) 2021-2023, Christoph Neuhauser
+# Copyright (c) 2021-2025, Christoph Neuhauser
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,11 @@ pushd $scriptpath > /dev/null
 
 if [[ "$(uname -s)" =~ ^MSYS_NT.* ]] || [[ "$(uname -s)" =~ ^MINGW.* ]]; then
     use_msys=true
+    if [[ -z "${MINGW_PACKAGE_PREFIX+x}" ]]; then
+        pkg_prefix="mingw-w64-x86_64"
+    else
+        pkg_prefix="$MINGW_PACKAGE_PREFIX"
+    fi
 else
     use_msys=false
 fi
@@ -51,6 +56,13 @@ glibcxx_debug=false
 clean=false
 build_dir_debug=".build_debug"
 build_dir_release=".build_release"
+install_dir="install"
+if $use_msys; then
+    msystem_lower=$(echo "$MSYSTEM" | tr '[:upper:]' '[:lower:]')
+    build_dir_debug="${build_dir_debug}-${msystem_lower}"
+    build_dir_release="${build_dir_release}-${msystem_lower}"
+    install_dir="${install_dir}-${msystem_lower}"
+fi
 use_vcpkg=false
 use_conda=false
 conda_env_name="linevis"
@@ -128,9 +140,9 @@ if [ $clean = true ]; then
     echo "------------------------"
     echo " cleaning up old files  "
     echo "------------------------"
-    rm -rf third_party/vcpkg/ .build_release/ .build_debug/ Shipping/
+    rm -rf third_party/vcpkg/ $build_dir_debug/ $build_dir_release/ Shipping/
     if grep -wq "sgl" .gitmodules; then
-        rm -rf third_party/sgl/install/ third_party/sgl/.build_release/ third_party/sgl/.build_debug/
+        rm -rf third_party/sgl/$install_dir/ third_party/sgl/$build_dir_debug/ third_party/sgl/$build_dir_release/
     else
         rm -rf third_party/sgl/
     fi
@@ -275,43 +287,53 @@ list_contains() {
 if $use_msys && command -v pacman &> /dev/null && [ ! -d $build_dir_debug ] && [ ! -d $build_dir_release ]; then
     if ! command -v cmake &> /dev/null || ! command -v git &> /dev/null || ! command -v rsync &> /dev/null \
             || ! command -v curl &> /dev/null || ! command -v wget &> /dev/null || ! command -v unzip &> /dev/null \
-            || ! command -v pkg-config &> /dev/null || ! command -v g++ &> /dev/null \
-            || ! command -v ntldd &> /dev/null; then
+            || ! command -v pkg-config &> /dev/null || ! command -v ntldd &> /dev/null; then
         echo "------------------------"
         echo "installing build essentials"
         echo "------------------------"
-        pacman --noconfirm -S --needed make git rsync curl wget unzip mingw64/mingw-w64-x86_64-cmake \
-        mingw64/mingw-w64-x86_64-gcc mingw64/mingw-w64-x86_64-gdb mingw-w64-x86_64-ntldd
+        pacman --noconfirm -S --needed make git rsync curl wget unzip ${pkg_prefix}-cmake ${pkg_prefix}-ntldd
+    fi
+    if [[ "$msystem_lower" =~ ^clang.* ]]; then
+        if ! command -v clang++ &> /dev/null; then
+            # https://packages.msys2.org/groups/mingw-w64-clang-x86_64-toolchain
+            echo "------------------------"
+            echo "  installing compiler   "
+            echo "------------------------"
+            pacman --noconfirm -S --needed ${pkg_prefix}-toolchain
+        fi
+    else
+        if ! command -v g++ &> /dev/null; then
+            # https://packages.msys2.org/groups/mingw-w64-x86_64-toolchain
+            echo "------------------------"
+            echo "  installing compiler   "
+            echo "------------------------"
+            pacman --noconfirm -S --needed ${pkg_prefix}-toolchain
+        fi
     fi
 
     # Dependencies of sgl and the application.
-    if ! is_installed_pacman "mingw-w64-x86_64-boost" || ! is_installed_pacman "mingw-w64-x86_64-icu" \
-            || ! is_installed_pacman "mingw-w64-x86_64-glm" || ! is_installed_pacman "mingw-w64-x86_64-libarchive" \
-            || ! is_installed_pacman "mingw-w64-x86_64-tinyxml2" || ! is_installed_pacman "mingw-w64-x86_64-libpng" \
-            || ! is_installed_pacman "mingw-w64-x86_64-sdl3" || ! is_installed_pacman "mingw-w64-x86_64-sdl3-image" \
-            || ! is_installed_pacman "mingw-w64-x86_64-glew" || ! is_installed_pacman "mingw-w64-x86_64-vulkan-headers" \
-            || ! is_installed_pacman "mingw-w64-x86_64-vulkan-loader" \
-            || ! is_installed_pacman "mingw-w64-x86_64-vulkan-validation-layers" \
-            || ! is_installed_pacman "mingw-w64-x86_64-shaderc" \
-            || ! is_installed_pacman "mingw-w64-x86_64-directx-headers" \
-            || ! is_installed_pacman "mingw-w64-x86_64-opencl-headers" \
-            || ! is_installed_pacman "mingw-w64-x86_64-opencl-icd" || ! is_installed_pacman "mingw-w64-x86_64-jsoncpp" \
-            || ! is_installed_pacman "mingw-w64-x86_64-eigen3" || ! is_installed_pacman "mingw-w64-x86_64-python" \
-            || ! is_installed_pacman "mingw-w64-x86_64-zeromq" || ! is_installed_pacman "mingw-w64-x86_64-cppzmq" \
-            || ! is_installed_pacman "mingw-w64-x86_64-netcdf" || ! is_installed_pacman "mingw-w64-x86_64-openexr" \
-            || ! is_installed_pacman "mingw-w64-x86_64-eccodes"; then
+    if ! is_installed_pacman "${pkg_prefix}-boost" || ! is_installed_pacman "${pkg_prefix}-icu" \
+            || ! is_installed_pacman "${pkg_prefix}-glm" || ! is_installed_pacman "${pkg_prefix}-libarchive" \
+            || ! is_installed_pacman "${pkg_prefix}-tinyxml2" || ! is_installed_pacman "${pkg_prefix}-libpng" \
+            || ! is_installed_pacman "${pkg_prefix}-sdl3" || ! is_installed_pacman "${pkg_prefix}-sdl3-image" \
+            || ! is_installed_pacman "${pkg_prefix}-glew" || ! is_installed_pacman "${pkg_prefix}-vulkan-headers" \
+            || ! is_installed_pacman "${pkg_prefix}-vulkan-loader" \
+            || ! is_installed_pacman "${pkg_prefix}-vulkan-validation-layers" \
+            || ! is_installed_pacman "${pkg_prefix}-shaderc" || ! is_installed_pacman "${pkg_prefix}-directx-headers" \
+            || ! is_installed_pacman "${pkg_prefix}-opencl-headers" || ! is_installed_pacman "${pkg_prefix}-opencl-icd" \
+            || ! is_installed_pacman "${pkg_prefix}-jsoncpp" || ! is_installed_pacman "${pkg_prefix}-eigen3" \
+            || ! is_installed_pacman "${pkg_prefix}-python" || ! is_installed_pacman "${pkg_prefix}-zeromq" \
+            || ! is_installed_pacman "${pkg_prefix}-cppzmq" || ! is_installed_pacman "${pkg_prefix}-netcdf" \
+            || ! is_installed_pacman "${pkg_prefix}-openexr" || ! is_installed_pacman "${pkg_prefix}-eccodes"; then
         echo "------------------------"
         echo "installing dependencies "
         echo "------------------------"
-        pacman --noconfirm --needed -S mingw64/mingw-w64-x86_64-boost mingw64/mingw-w64-x86_64-icu \
-        mingw64/mingw-w64-x86_64-glm mingw64/mingw-w64-x86_64-libarchive mingw64/mingw-w64-x86_64-tinyxml2 \
-        mingw64/mingw-w64-x86_64-libpng mingw64/mingw-w64-x86_64-sdl3 mingw64/mingw-w64-x86_64-sdl3-image \
-        mingw64/mingw-w64-x86_64-glew mingw64/mingw-w64-x86_64-vulkan-headers mingw64/mingw-w64-x86_64-vulkan-loader \
-        mingw64/mingw-w64-x86_64-vulkan-validation-layers mingw64/mingw-w64-x86_64-shaderc \
-        mingw64/mingw-w64-x86_64-directx-headers mingw64/mingw-w64-x86_64-opencl-headers \
-        mingw64/mingw-w64-x86_64-opencl-icd mingw64/mingw-w64-x86_64-jsoncpp mingw64/mingw-w64-x86_64-eigen3 \
-        mingw64/mingw-w64-x86_64-python mingw64/mingw-w64-x86_64-zeromq mingw64/mingw-w64-x86_64-cppzmq \
-        mingw64/mingw-w64-x86_64-netcdf mingw64/mingw-w64-x86_64-openexr mingw64/mingw-w64-x86_64-eccodes
+        pacman --noconfirm --needed -S ${pkg_prefix}-boost ${pkg_prefix}-icu ${pkg_prefix}-glm ${pkg_prefix}-libarchive \
+        ${pkg_prefix}-tinyxml2 ${pkg_prefix}-libpng ${pkg_prefix}-sdl3 ${pkg_prefix}-sdl3-image ${pkg_prefix}-glew \
+        ${pkg_prefix}-vulkan-headers ${pkg_prefix}-vulkan-loader ${pkg_prefix}-vulkan-validation-layers \
+        ${pkg_prefix}-shaderc ${pkg_prefix}-directx-headers ${pkg_prefix}-opencl-headers ${pkg_prefix}-opencl-icd \
+        ${pkg_prefix}-jsoncpp ${pkg_prefix}-eigen3 ${pkg_prefix}-python ${pkg_prefix}-zeromq ${pkg_prefix}-cppzmq \
+        ${pkg_prefix}-netcdf ${pkg_prefix}-openexr ${pkg_prefix}-eccodes
     fi
 elif $use_msys && command -v pacman &> /dev/null; then
     :
@@ -335,8 +357,8 @@ elif $use_macos && command -v brew &> /dev/null && [ ! -d $build_dir_debug ] && 
     if ! is_installed_brew "pkg-config"; then
         brew install pkg-config
     fi
-    if ! is_installed_brew "llvm"; then
-        brew install llvm
+    if ! is_installed_brew "llvm@20"; then
+        brew install llvm@20
     fi
     if ! is_installed_brew "libomp"; then
         brew install libomp
@@ -731,11 +753,11 @@ if [ $use_vcpkg = false ] && [ $use_macos = true ]; then
     params_gen+=(-DCMAKE_FIND_FRAMEWORK=LAST)
     params_gen+=(-DCMAKE_FIND_APPBUNDLE=NEVER)
     params_gen+=(-DCMAKE_PREFIX_PATH="${brew_prefix}")
-    params_gen+=(-DCMAKE_C_COMPILER="${brew_prefix}/opt/llvm/bin/clang")
-    params_gen+=(-DCMAKE_CXX_COMPILER="${brew_prefix}/opt/llvm/bin/clang++")
-    params_gen+=(-DCMAKE_LINKER="$(brew --prefix)/opt/llvm/bin/llvm-ld")
-    params_gen+=(-DCMAKE_AR="$(brew --prefix)/opt/llvm/bin/llvm-ar")
-    params_sgl+=(-DCMAKE_INSTALL_PREFIX="../install")
+    params_gen+=(-DCMAKE_C_COMPILER="${brew_prefix}/opt/llvm@20/bin/clang")
+    params_gen+=(-DCMAKE_CXX_COMPILER="${brew_prefix}/opt/llvm@20/bin/clang++")
+    params_gen+=(-DCMAKE_LINKER="$(brew --prefix)/opt/llvm@20/bin/llvm-ld")
+    params_gen+=(-DCMAKE_AR="$(brew --prefix)/opt/llvm@20/bin/llvm-ar")
+    params_sgl+=(-DCMAKE_INSTALL_PREFIX="../$install_dir")
     params_sgl+=(-DZLIB_ROOT="${brew_prefix}/opt/zlib")
     params+=(-DZLIB_ROOT="${brew_prefix}/opt/zlib")
 fi
@@ -1013,13 +1035,13 @@ if [ -f "./sgl/$build_dir/CMakeCache.txt" ]; then
         if [ -d "./sgl/$build_dir_release" ]; then
             rm -rf "./sgl/$build_dir_release"
         fi
-        if [ -d "./sgl/install" ]; then
-            rm -rf "./sgl/install"
+        if [ -d "./sgl/$install_dir" ]; then
+            rm -rf "./sgl/$install_dir"
         fi
     fi
 fi
 
-if [ ! -d "./sgl/install" ]; then
+if [ ! -d "./sgl/$install_dir" ]; then
     echo "------------------------"
     echo "     building sgl       "
     echo "------------------------"
@@ -1034,7 +1056,7 @@ if [ ! -d "./sgl/install" ]; then
         pushd "$build_dir_debug" >/dev/null
         cmake .. \
              -DCMAKE_BUILD_TYPE=Debug \
-             -DCMAKE_INSTALL_PREFIX="../install" \
+             -DCMAKE_INSTALL_PREFIX="../$install_dir" \
              ${params_gen[@]+"${params_gen[@]}"} ${params_link[@]+"${params_link[@]}"} \
              ${params_vcpkg[@]+"${params_vcpkg[@]}"} ${params_sgl[@]+"${params_sgl[@]}"}
         if [ $use_vcpkg = false ] && [ $use_macos = false ]; then
@@ -1047,7 +1069,7 @@ if [ ! -d "./sgl/install" ]; then
     pushd $build_dir_release >/dev/null
     cmake .. \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="../install" \
+        -DCMAKE_INSTALL_PREFIX="../$install_dir" \
          ${params_gen[@]+"${params_gen[@]}"} ${params_link[@]+"${params_link[@]}"} \
          ${params_vcpkg[@]+"${params_vcpkg[@]}"} ${params_sgl[@]+"${params_sgl[@]}"}
     if [ $use_vcpkg = false ] && [ $use_macos = false ]; then
@@ -1069,14 +1091,14 @@ if [ ! -d "./sgl/install" ]; then
             cmake --build $build_dir_debug --parallel $(nproc)
             cmake --build $build_dir_debug --target install
             if [ $link_dynamic = true ]; then
-                cp $build_dir_debug/libsgld.so install/lib/libsgld.so
+                cp $build_dir_debug/libsgld.so $install_dir/lib/libsgld.so
             fi
         fi
 
         cmake --build $build_dir_release --parallel $(nproc)
         cmake --build $build_dir_release --target install
         if [ $link_dynamic = true ]; then
-            cp $build_dir_release/libsgl.so install/lib/libsgl.so
+            cp $build_dir_release/libsgl.so $install_dir/lib/libsgl.so
         fi
     fi
 
@@ -1272,7 +1294,7 @@ echo "------------------------"
 pushd $build_dir >/dev/null
 cmake .. \
     -DCMAKE_BUILD_TYPE=$cmake_config \
-    -Dsgl_DIR="$projectpath/third_party/sgl/install/lib/cmake/sgl/" \
+    -Dsgl_DIR="$projectpath/third_party/sgl/$install_dir/lib/cmake/sgl/" \
     ${params_gen[@]+"${params_gen[@]}"} ${params_link[@]+"${params_link[@]}"} \
     ${params_vcpkg[@]+"${params_vcpkg[@]}"} ${params[@]+"${params[@]}"}
 if [ $use_vcpkg = true ] || [ $use_msys = true ] || [ $use_macos = true ]; then
@@ -1321,21 +1343,21 @@ startswith() {
 
 if $use_msys; then
     if [[ -z "${PATH+x}" ]]; then
-        export PATH="${projectpath}/third_party/sgl/install/bin"
-    elif [[ ! "${PATH}" == *"${projectpath}/third_party/sgl/install/bin"* ]]; then
-        export PATH="${projectpath}/third_party/sgl/install/bin:$PATH"
+        export PATH="${projectpath}/third_party/sgl/$install_dir/bin"
+    elif [[ ! "${PATH}" == *"${projectpath}/third_party/sgl/$install_dir/bin"* ]]; then
+        export PATH="${projectpath}/third_party/sgl/$install_dir/bin:$PATH"
     fi
 elif $use_macos; then
     if [ -z "${DYLD_LIBRARY_PATH+x}" ]; then
-        export DYLD_LIBRARY_PATH="${projectpath}/third_party/sgl/install/lib"
-    elif contains "${DYLD_LIBRARY_PATH}" "${projectpath}/third_party/sgl/install/lib"; then
-        export DYLD_LIBRARY_PATH="DYLD_LIBRARY_PATH:${projectpath}/third_party/sgl/install/lib"
+        export DYLD_LIBRARY_PATH="${projectpath}/third_party/sgl/$install_dir/lib"
+    elif contains "${DYLD_LIBRARY_PATH}" "${projectpath}/third_party/sgl/$install_dir/lib"; then
+        export DYLD_LIBRARY_PATH="DYLD_LIBRARY_PATH:${projectpath}/third_party/sgl/$install_dir/lib"
     fi
 else
   if [[ -z "${LD_LIBRARY_PATH+x}" ]]; then
-      export LD_LIBRARY_PATH="${projectpath}/third_party/sgl/install/lib"
-  elif [[ ! "${LD_LIBRARY_PATH}" == *"${projectpath}/third_party/sgl/install/lib"* ]]; then
-      export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${projectpath}/third_party/sgl/install/lib"
+      export LD_LIBRARY_PATH="${projectpath}/third_party/sgl/$install_dir/lib"
+  elif [[ ! "${LD_LIBRARY_PATH}" == *"${projectpath}/third_party/sgl/$install_dir/lib"* ]]; then
+      export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${projectpath}/third_party/sgl/$install_dir/lib"
   fi
 fi
 if [ $use_macos = false ] && [ $use_msys = false ]; then
@@ -1370,9 +1392,9 @@ if $use_msys; then
 
     # Copy sgl to the destination directory.
     if [ $debug = true ] ; then
-        cp "./third_party/sgl/install/bin/libsgld.dll" "$destination_dir/bin"
+        cp "./third_party/sgl/$install_dir/bin/libsgld.dll" "$destination_dir/bin"
     else
-        cp "./third_party/sgl/install/bin/libsgl.dll" "$destination_dir/bin"
+        cp "./third_party/sgl/$install_dir/bin/libsgl.dll" "$destination_dir/bin"
     fi
 
     # Copy the application to the destination directory.
@@ -1426,9 +1448,9 @@ elif [ $use_macos = true ] && [ $use_vcpkg = false ]; then
 
     # Copy sgl to the destination directory.
     if [ $debug = true ] ; then
-        cp "./third_party/sgl/install/lib/libsgld.dylib" "$binaries_dest_dir"
+        cp "./third_party/sgl/$install_dir/lib/libsgld.dylib" "$binaries_dest_dir"
     else
-        cp "./third_party/sgl/install/lib/libsgl.dylib" "$binaries_dest_dir"
+        cp "./third_party/sgl/$install_dir/lib/libsgl.dylib" "$binaries_dest_dir"
     fi
 
     # Copy all dependencies of the application and sgl to the destination directory.
@@ -1490,9 +1512,9 @@ elif [ $use_macos = true ] && [ $use_vcpkg = false ]; then
     }
     copy_dependencies_recursive "$build_dir/LineVis.app/Contents/MacOS/LineVis"
     if [ $debug = true ]; then
-        copy_dependencies_recursive "./third_party/sgl/install/lib/libsgld.dylib"
+        copy_dependencies_recursive "./third_party/sgl/$install_dir/lib/libsgld.dylib"
     else
-        copy_dependencies_recursive "./third_party/sgl/install/lib/libsgl.dylib"
+        copy_dependencies_recursive "./third_party/sgl/$install_dir/lib/libsgl.dylib"
     fi
     copy_ospray_lib_symlinked() {
         local lib_name="$1"
@@ -1686,7 +1708,7 @@ if [ $use_macos = true ] && [ $use_vcpkg = true ]; then
 elif [ $use_macos = true ] && [ $use_vcpkg = false ]; then
     export PYTHONHOME="$PYTHONHOME_global"
 elif $use_msys; then
-    export PYTHONHOME="/mingw64"
+    export PYTHONHOME="$MSYSTEM_PREFIX"
 else
     if [ $use_vcpkg = true ]; then
         export PYTHONHOME="../Shipping/bin/python3"

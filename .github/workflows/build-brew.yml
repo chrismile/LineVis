@@ -57,7 +57,7 @@ jobs:
             #rm /usr/local/bin/pydoc3 || true
             #rm /usr/local/bin/python3 || true
             #rm /usr/local/bin/python3-config || true
-            brew install --force --overwrite llvm libomp pkg-config make
+            brew install --force --overwrite llvm@20 libomp pkg-config make
           else
             echo "$RUNNER_OS is not supported."
             exit 1
@@ -142,8 +142,8 @@ jobs:
           elif [ "$RUNNER_OS" == "macOS" ]; then
             source "$HOME/VulkanSDK/$(ls $HOME/VulkanSDK)/setup-env.sh"
             params+=(-DCMAKE_FIND_USE_CMAKE_SYSTEM_PATH=False -DCMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH=False -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_FIND_APPBUNDLE=NEVER -DZLIB_ROOT="$(brew --prefix)/opt/zlib")
-            params+=(-DCMAKE_C_COMPILER="$(brew --prefix)/opt/llvm/bin/clang" -DCMAKE_CXX_COMPILER="$(brew --prefix)/opt/llvm/bin/clang++")
-            params+=(-DCMAKE_LINKER="$(brew --prefix)/opt/llvm/bin/llvm-ld" -DCMAKE_AR="$(brew --prefix)/opt/llvm/bin/llvm-ar")
+            params+=(-DCMAKE_C_COMPILER="$(brew --prefix)/opt/llvm@20/bin/clang" -DCMAKE_CXX_COMPILER="$(brew --prefix)/opt/llvm@20/bin/clang++")
+            params+=(-DCMAKE_LINKER="$(brew --prefix)/opt/llvm@20/bin/llvm-ld" -DCMAKE_AR="$(brew --prefix)/opt/llvm@20/bin/llvm-ar")
             export PKG_CONFIG_PATH="$HOME/VulkanSDK/$(ls $HOME/VulkanSDK)/macOS/lib/pkgconfig"
           fi
           cmake "${{env.sgl_REPO_DIR}}" -B "${{env.sgl_REPO_DIR}}/build" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_INSTALL_PREFIX="${{env.sgl_DIR}}" -DCMAKE_PREFIX_PATH="$(brew --prefix)" "${params[@]}"
@@ -171,8 +171,8 @@ jobs:
           elif [ "$RUNNER_OS" == "macOS" ]; then
             source "$HOME/VulkanSDK/$(ls $HOME/VulkanSDK)/setup-env.sh"
             params+=(-DCMAKE_FIND_USE_CMAKE_SYSTEM_PATH=False -DCMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH=False -DCMAKE_FIND_FRAMEWORK=LAST -DCMAKE_FIND_APPBUNDLE=NEVER -DZLIB_ROOT="$(brew --prefix)/opt/zlib")
-            params+=(-DCMAKE_C_COMPILER="$(brew --prefix)/opt/llvm/bin/clang" -DCMAKE_CXX_COMPILER="$(brew --prefix)/opt/llvm/bin/clang++")
-            params+=(-DCMAKE_LINKER="$(brew --prefix)/opt/llvm/bin/llvm-ld" -DCMAKE_AR="$(brew --prefix)/opt/llvm/bin/llvm-ar")
+            params+=(-DCMAKE_C_COMPILER="$(brew --prefix)/opt/llvm@20/bin/clang" -DCMAKE_CXX_COMPILER="$(brew --prefix)/opt/llvm@20/bin/clang++")
+            params+=(-DCMAKE_LINKER="$(brew --prefix)/opt/llvm@20/bin/llvm-ld" -DCMAKE_AR="$(brew --prefix)/opt/llvm@20/bin/llvm-ar")
           fi
           cmake -B "${{github.workspace}}/build" -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -Dsgl_DIR=${{env.sgl_DIR}}/lib/cmake/sgl -DCMAKE_PREFIX_PATH="$(brew --prefix)" "${params[@]}"
 
