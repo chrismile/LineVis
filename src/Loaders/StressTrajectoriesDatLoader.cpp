@@ -364,30 +364,39 @@ void parseOutlineMeshHull(
     if (numVerticesLine.size() != 2 || numVerticesLine.front() != "#Vertices") {
         sgl::Logfile::get()->writeError("Error in parseOutlineMeshHull: Invalid vertex information.");
     }
-    uint32_t numVertices = sgl::fromString<uint32_t>(numVerticesLine.at(1));
+    auto numVertices = sgl::fromString<uint32_t>(numVerticesLine.at(1));
     for (uint32_t vertexIdx = 0; vertexIdx < numVertices; vertexIdx++) {
         std::vector<float> vertexPosition = lineReader.readVectorLine<float>(3);
         assert(vertexPosition.size() == 3);
-        simulationMeshOutlineVertexPositions.push_back(
-                glm::vec3(vertexPosition.at(0), vertexPosition.at(1), vertexPosition.at(2)));
+        simulationMeshOutlineVertexPositions.emplace_back(
+                vertexPosition.at(0), vertexPosition.at(1), vertexPosition.at(2));
     }
 
     std::vector<std::string> numFacesLine = lineReader.readVectorLine<std::string>();
     if (numFacesLine.size() != 2 || numFacesLine.front() != "#Faces") {
         sgl::Logfile::get()->writeError("Error in parseOutlineMeshHull: Invalid face information.");
     }
-    uint32_t numFaces = sgl::fromString<uint32_t>(numFacesLine.at(1));
+    auto numFaces = sgl::fromString<uint32_t>(numFacesLine.at(1));
+    std::vector<uint32_t> faceIndices;
     for (uint32_t faceIdx = 0; faceIdx < numFaces; faceIdx++) {
-        std::vector<uint32_t> faceIndices = lineReader.readVectorLine<uint32_t>(4);
-        assert(faceIndices.size() == 4);
+        lineReader.readVectorLine<uint32_t>(faceIndices);
+        if (faceIndices.size() == 3) {
+            // Triangle faces.
+            simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(0));
+            simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(1));
+            simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(2));
+        } else if (faceIndices.size() == 4) {
+            // Quad faces.
+            simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(0));
+            simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(1));
+            simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(2));
 
-        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(0));
-        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(1));
-        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(2));
-
-        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(0));
-        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(2));
-        simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(3));
+            simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(0));
+            simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(2));
+            simulationMeshOutlineTriangleIndices.push_back(faceIndices.at(3));
+        } else {
+            sgl::Logfile::get()->throwError("Error in parseOutlineMeshHull: Invalid face indices.");
+        }
     }
 }
 

@@ -103,16 +103,20 @@ where cmake >NUL 2>&1 || echo cmake was not found but is required to build the p
 
 :: Creates a string with, e.g., -G "Visual Studio 17 2022".
 :: Needs to be run from a Visual Studio developer PowerShell or command prompt.
-if defined VCINSTALLDIR (
-    set VCINSTALLDIR_ESC=%VCINSTALLDIR:\=\\%
-)
-if defined VCINSTALLDIR (
-    set "x=%VCINSTALLDIR_ESC:Microsoft Visual Studio\\=" & set "VsPathEnd=%"
-)
 if defined VisualStudioVersion (
     set "VsVersionNumber=%VisualStudioVersion:~0,2%"
 ) else (
     set VsVersionNumber=0
+)
+:: Visual Studio 2026 changed the directory naming from, e.g., "C:\Program Files\Microsoft Visual Studio\2022" to
+:: "C:\Program Files\Microsoft Visual Studio\18".
+if VsVersionNumber LSS 18 (
+    if defined VCINSTALLDIR (
+        set VCINSTALLDIR_ESC=%VCINSTALLDIR:\=\\%
+    )
+    if defined VCINSTALLDIR (
+        set "x=%VCINSTALLDIR_ESC:Microsoft Visual Studio\\=" & set "VsPathEnd=%"
+    )
 )
 if defined VisualStudioVersion (
     if not defined VsPathEnd (
@@ -124,6 +128,8 @@ if defined VisualStudioVersion (
             set VsPathEnd=2019
         ) else if %VsVersionNumber% == 17 (
             set VsPathEnd=2022
+        ) else if %VsVersionNumber% == 18 (
+            set VsPathEnd=2026
         )
     )
 )
