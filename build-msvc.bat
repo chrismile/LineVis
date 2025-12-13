@@ -40,6 +40,7 @@ set vcpkg_triplet="x64-windows"
 set optix_install_dir=""
 set use_ospray2=false
 set use_ospray3=true
+set use_oidn=true
 :: Optionally, the program can be built with Direct3D 12 support for some renderers.
 set use_d3d=false
 
@@ -110,7 +111,7 @@ if defined VisualStudioVersion (
 )
 :: Visual Studio 2026 changed the directory naming from, e.g., "C:\Program Files\Microsoft Visual Studio\2022" to
 :: "C:\Program Files\Microsoft Visual Studio\18".
-if VsVersionNumber LSS 18 (
+if %VsVersionNumber% LSS 18 (
     if defined VCINSTALLDIR (
         set VCINSTALLDIR_ESC=%VCINSTALLDIR:\=\\%
     )
@@ -231,6 +232,20 @@ if not exist .\sgl\install (
     popd
 )
 
+if defined VisualStudioVersion (
+    if %VsVersionNumber% GEQ 18 (
+        set use_ospray2=false
+        set use_ospray3=false
+        set use_oidn=false
+    )
+)
+if %use_ospray2% == true (
+    set use_ospray=true
+)
+if %use_ospray3% == true (
+    set use_ospray=true
+)
+
 if %use_ospray2% == true (
     set embree_version=3.13.3
     set ospray_version=2.9.0
@@ -239,30 +254,32 @@ if %use_ospray2% == true (
     set ospray_version=3.2.0
 )
 
-if not exist ".\embree-%embree_version%.x64.vc14.windows" (
-    echo ------------------------
-    echo    downloading Embree
-    echo ------------------------
-    curl.exe -L "https://github.com/embree/embree/releases/download/v%embree_version%/embree-%embree_version%.x64.vc14.windows.zip" --output embree-%embree_version%.x64.vc14.windows.zip
-    if %use_ospray2% == true (
-        tar -xvzf "embree-%embree_version%.x64.vc14.windows.zip"
-    else (
-        mkdir "embree-%embree_version%.x64.vc14.windows"
-        pushd "embree-%embree_version%.x64.vc14.windows"
-        tar -xvzf "embree-%embree_version%.x64.vc14.windows.zip"
-        popd
+if %use_ospray% == true (
+    if not exist ".\embree-%embree_version%.x64.vc14.windows" (
+        echo ------------------------
+        echo    downloading Embree
+        echo ------------------------
+        curl.exe -L "https://github.com/embree/embree/releases/download/v%embree_version%/embree-%embree_version%.x64.vc14.windows.zip" --output embree-%embree_version%.x64.vc14.windows.zip
+        if %use_ospray2% == true (
+            tar -xvzf "embree-%embree_version%.x64.vc14.windows.zip"
+        else (
+            mkdir "embree-%embree_version%.x64.vc14.windows"
+            pushd "embree-%embree_version%.x64.vc14.windows"
+            tar -xvzf "embree-%embree_version%.x64.vc14.windows.zip"
+            popd
+        )
     )
-)
-set cmake_args=%cmake_args% -Dembree_DIR="third_party/embree-%embree_version%.x64.vc14.windows/lib/cmake/embree-%embree_version%"
+    set cmake_args=%cmake_args% -Dembree_DIR="third_party/embree-%embree_version%.x64.vc14.windows/lib/cmake/embree-%embree_version%"
 
-if not exist ".\ospray-%ospray_version%.x86_64.windows" (
-    echo ------------------------
-    echo   downloading OSPRay
-    echo ------------------------
-    curl.exe -L "https://github.com/ospray/OSPRay/releases/download/v%ospray_version%/ospray-%ospray_version%.x86_64.windows.zip" --output ospray-%ospray_version%.x86_64.windows.zip
-    tar -xvzf "ospray-%ospray_version%.x86_64.windows.zip"
+    if not exist ".\ospray-%ospray_version%.x86_64.windows" (
+        echo ------------------------
+        echo   downloading OSPRay
+        echo ------------------------
+        curl.exe -L "https://github.com/ospray/OSPRay/releases/download/v%ospray_version%/ospray-%ospray_version%.x86_64.windows.zip" --output ospray-%ospray_version%.x86_64.windows.zip
+        tar -xvzf "ospray-%ospray_version%.x86_64.windows.zip"
+    )
+    set cmake_args=%cmake_args% -Dospray_DIR="third_party/ospray-%ospray_version%.x86_64.windows/lib/cmake/ospray-%ospray_version%"
 )
-set cmake_args=%cmake_args% -Dospray_DIR="third_party/ospray-%ospray_version%.x86_64.windows/lib/cmake/ospray-%ospray_version%"
 
 set eccodes_version=2.26.0
 if not exist ".\eccodes-%eccodes_version%-Source" (
@@ -333,15 +350,17 @@ if %use_eccodes% == true if not exist ".\eccodes-%eccodes_version%" (
 set cmake_args=%cmake_args% -Deccodes_DIR="third_party/eccodes-%eccodes_version%/lib/cmake/eccodes-%eccodes_version%"
 
 set oidn_version=2.3.3
-if not exist ".\oidn-%oidn_version%.x64.windows" (
-    echo ------------------------
-    echo downloading OpenImageDenoise
-    echo ------------------------
-    curl.exe -L "https://github.com/OpenImageDenoise/oidn/releases/download/v%oidn_version%/oidn-%oidn_version%.x64.windows.zip" --output oidn-%oidn_version%.x64.windows.zip
-    tar -xvzf "oidn-%oidn_version%.x64.windows.zip"
-    del "oidn-%oidn_version%.x64.windows.zip"
+if %use_oidn% == true (
+    if not exist ".\oidn-%oidn_version%.x64.windows" (
+        echo ------------------------
+        echo downloading OpenImageDenoise
+        echo ------------------------
+        curl.exe -L "https://github.com/OpenImageDenoise/oidn/releases/download/v%oidn_version%/oidn-%oidn_version%.x64.windows.zip" --output oidn-%oidn_version%.x64.windows.zip
+        tar -xvzf "oidn-%oidn_version%.x64.windows.zip"
+        del "oidn-%oidn_version%.x64.windows.zip"
+    )
+    set cmake_args=%cmake_args% -DOpenImageDenoise_DIR="third_party/oidn-%oidn_version%.x64.windows/lib/cmake/OpenImageDenoise-%oidn_version%"
 )
-set cmake_args=%cmake_args% -DOpenImageDenoise_DIR="third_party/oidn-%oidn_version%.x64.windows/lib/cmake/OpenImageDenoise-%oidn_version%"
 
 popd
 
@@ -380,7 +399,9 @@ echo    copying new files
 echo ------------------------
 robocopy .build\vcpkg_installed\x64-windows\tools\python3 ^
          %destination_dir%\python3 /e >NUL
-robocopy third_party\ospray-%ospray_version%.x86_64.windows\bin %destination_dir% *.dll >NUL
+if %use_ospray% == true (
+    robocopy third_party\ospray-%ospray_version%.x86_64.windows\bin %destination_dir% *.dll >NUL
+)
 if %debug% == true (
     if not exist %destination_dir%\*.pdb (
         del %destination_dir%\*.dll
@@ -408,6 +429,10 @@ if %devel% == true (
     )
     robocopy third_party\sgl\%build_dir%\Debug %build_dir%\Debug\ *.dll *.pdb >NUL
     robocopy third_party\sgl\%build_dir%\Release %build_dir%\Release\ *.dll >NUL
+    if %use_ospray% == true (
+        robocopy third_party\ospray-%ospray_version%.x86_64.windows\bin %build_dir%\Debug\ *.dll >NUL
+        robocopy third_party\ospray-%ospray_version%.x86_64.windows\bin %build_dir%\Release\ *.dll >NUL
+    )
 )
 
 echo.

@@ -1,5 +1,5 @@
 let
-  nixpkgs = fetchTarball "https://github.com/NixOS/nixpkgs/tarball/nixos-24.11";
+  nixpkgs = fetchTarball "https://github.com/NixOS/nixpkgs/tarball/nixos-25.11";
   pkgs = import nixpkgs { config = {}; overlays = []; };
 in
 
@@ -17,11 +17,13 @@ pkgs.mkShell {
     tinyxml-2
     libpng
     sdl3
+    sdl3-image
     glew-egl
     vulkan-headers
     vulkan-loader
     vulkan-validation-layers
     shaderc
+    glslang
     opencl-headers
     ocl-icd
     jsoncpp

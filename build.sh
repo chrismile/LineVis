@@ -319,7 +319,8 @@ if $use_msys && command -v pacman &> /dev/null && [ ! -d $build_dir_debug ] && [
             || ! is_installed_pacman "${pkg_prefix}-glew" || ! is_installed_pacman "${pkg_prefix}-vulkan-headers" \
             || ! is_installed_pacman "${pkg_prefix}-vulkan-loader" \
             || ! is_installed_pacman "${pkg_prefix}-vulkan-validation-layers" \
-            || ! is_installed_pacman "${pkg_prefix}-shaderc" || ! is_installed_pacman "${pkg_prefix}-directx-headers" \
+            || ! is_installed_pacman "${pkg_prefix}-shaderc" || ! is_installed_pacman "${pkg_prefix}-glslang" \
+            || ! is_installed_pacman "${pkg_prefix}-directx-headers" \
             || ! is_installed_pacman "${pkg_prefix}-opencl-headers" || ! is_installed_pacman "${pkg_prefix}-opencl-icd" \
             || ! is_installed_pacman "${pkg_prefix}-jsoncpp" || ! is_installed_pacman "${pkg_prefix}-eigen3" \
             || ! is_installed_pacman "${pkg_prefix}-python" || ! is_installed_pacman "${pkg_prefix}-zeromq" \
@@ -331,9 +332,9 @@ if $use_msys && command -v pacman &> /dev/null && [ ! -d $build_dir_debug ] && [
         pacman --noconfirm --needed -S ${pkg_prefix}-boost ${pkg_prefix}-icu ${pkg_prefix}-glm ${pkg_prefix}-libarchive \
         ${pkg_prefix}-tinyxml2 ${pkg_prefix}-libpng ${pkg_prefix}-sdl3 ${pkg_prefix}-sdl3-image ${pkg_prefix}-glew \
         ${pkg_prefix}-vulkan-headers ${pkg_prefix}-vulkan-loader ${pkg_prefix}-vulkan-validation-layers \
-        ${pkg_prefix}-shaderc ${pkg_prefix}-directx-headers ${pkg_prefix}-opencl-headers ${pkg_prefix}-opencl-icd \
-        ${pkg_prefix}-jsoncpp ${pkg_prefix}-eigen3 ${pkg_prefix}-python ${pkg_prefix}-zeromq ${pkg_prefix}-cppzmq \
-        ${pkg_prefix}-netcdf ${pkg_prefix}-openexr ${pkg_prefix}-eccodes
+        ${pkg_prefix}-shaderc ${pkg_prefix}-glslang ${pkg_prefix}-directx-headers ${pkg_prefix}-opencl-headers \
+        ${pkg_prefix}-opencl-icd ${pkg_prefix}-jsoncpp ${pkg_prefix}-eigen3 ${pkg_prefix}-python ${pkg_prefix}-zeromq \
+        ${pkg_prefix}-cppzmq ${pkg_prefix}-netcdf ${pkg_prefix}-openexr ${pkg_prefix}-eccodes
     fi
 elif $use_msys && command -v pacman &> /dev/null; then
     :
@@ -537,15 +538,16 @@ elif command -v pacman &> /dev/null && ! $use_conda; then
                 || ! is_installed_pacman "libarchive" || ! is_installed_pacman "tinyxml2" \
                 || ! is_installed_pacman "libpng" || ! is_installed_pacman "glew" \
                 || ! is_installed_pacman "vulkan-devel" || ! is_installed_pacman "shaderc" \
-                || ! is_installed_pacman "opencl-headers" || ! is_installed_pacman "ocl-icd" \
-                || ! is_installed_pacman "jsoncpp" || ! is_installed_pacman "eigen" || ! is_installed_pacman "python3" \
-                || ! is_installed_pacman "zeromq" || ! is_installed_pacman "cppzmq" || ! is_installed_pacman "netcdf" \
-                || ! is_installed_pacman "openexr" || ! is_installed_pacman "ospray"; then
+                || ! is_installed_pacman "glslang" || ! is_installed_pacman "opencl-headers" \
+                || ! is_installed_pacman "ocl-icd" || ! is_installed_pacman "jsoncpp" || ! is_installed_pacman "eigen" \
+                || ! is_installed_pacman "python3" || ! is_installed_pacman "zeromq" || ! is_installed_pacman "cppzmq" \
+                || ! is_installed_pacman "netcdf" || ! is_installed_pacman "openexr" \
+                || ! is_installed_pacman "ospray"; then
             echo "------------------------"
             echo "installing dependencies "
             echo "------------------------"
             sudo pacman --noconfirm --needed -S boost icu glm libarchive tinyxml2 libpng glew vulkan-devel shaderc \
-            opencl-headers ocl-icd jsoncpp eigen python3 zeromq cppzmq netcdf openexr ospray
+            glslang opencl-headers ocl-icd jsoncpp eigen python3 zeromq cppzmq netcdf openexr ospray
         fi
         if is_available_pacman "sdl3"; then
             if ! is_installed_pacman "sdl3"; then
@@ -580,7 +582,7 @@ elif command -v yum &> /dev/null && ! $use_conda; then
                 || ! is_installed_rpm "autoconf" || ! is_installed_rpm "automake" \
                 || ! is_installed_rpm "autoconf-archive" || ! is_installed_rpm "mesa-libGLU-devel" \
                 || ! is_installed_rpm "glew-devel" || ! is_installed_rpm "libXext-devel" \
-                || ! is_installed_rpm "vulkan-headers" || ! is_installed_rpm "vulkan-loader" \
+                || ! is_installed_rpm "vulkan-headers" || ! is_installed_rpm "vulkan-loader-devel" \
                 || ! is_installed_rpm "vulkan-tools" || ! is_installed_rpm "vulkan-validation-layers" \
                 || ! is_installed_rpm "libshaderc-devel" || ! is_installed_rpm "libXinerama-devel" \
                 || ! is_installed_rpm "libXrandr-devel" || ! is_installed_rpm "libXcursor-devel" \
@@ -591,7 +593,7 @@ elif command -v yum &> /dev/null && ! $use_conda; then
             echo "installing dependencies "
             echo "------------------------"
             sudo yum install -y perl libstdc++-devel libstdc++-static autoconf automake autoconf-archive \
-            mesa-libGLU-devel glew-devel libXext-devel vulkan-headers vulkan-loader vulkan-tools \
+            mesa-libGLU-devel glew-devel libXext-devel vulkan-headers vulkan-loader-devel vulkan-tools \
             vulkan-validation-layers libshaderc-devel libXinerama-devel libXrandr-devel libXcursor-devel libXi-devel \
             wayland-devel libxkbcommon-devel wayland-protocols-devel extra-cmake-modules
         fi
@@ -599,7 +601,8 @@ elif command -v yum &> /dev/null && ! $use_conda; then
         if ! is_installed_rpm "boost-devel" || ! is_installed_rpm "libicu-devel" || ! is_installed_rpm "glm-devel" \
                 || ! is_installed_rpm "libarchive-devel" || ! is_installed_rpm "tinyxml2-devel" \
                 || ! is_installed_rpm "libpng-devel" || ! is_installed_rpm "glew-devel" \
-                || ! is_installed_rpm "vulkan-headers" || ! is_installed_rpm "libshaderc-devel" \
+                || ! is_installed_rpm "vulkan-headers" || ! is_installed_rpm "vulkan-loader-devel" \
+                || ! is_installed_rpm "libshaderc-devel" || ! is_installed_rpm "glslang-devel" \
                 || ! is_installed_rpm "opencl-headers" || ! is_installed_rpm "ocl-icd" \
                 || ! is_installed_rpm "jsoncpp-devel" || ! is_installed_rpm "eigen3-devel" \
                 || ! is_installed_rpm "python3-devel" || ! is_installed_rpm "zeromq-devel" \
@@ -609,8 +612,8 @@ elif command -v yum &> /dev/null && ! $use_conda; then
             echo "installing dependencies "
             echo "------------------------"
             sudo yum install -y boost-devel libicu-devel glm-devel libarchive-devel tinyxml2-devel libpng-devel \
-            glew-devel vulkan-headers libshaderc-devel opencl-headers ocl-icd jsoncpp-devel eigen3-devel python3-devel \
-            zeromq-devel cppzmq-devel netcdf-devel openexr-devel eccodes-devel
+            glew-devel vulkan-headers vulkan-loader-devel libshaderc-devel glslang-devel opencl-headers ocl-icd \
+            jsoncpp-devel eigen3-devel python3-devel zeromq-devel cppzmq-devel netcdf-devel openexr-devel eccodes-devel
         fi
         if is_available_yum "SDL3-devel"; then
             if ! is_installed_rpm "SDL3-devel"; then
@@ -689,10 +692,10 @@ elif $use_conda && ! $use_macos; then
             || ! list_contains "$conda_pkg_list" "xorg-libxfixes" || ! list_contains "$conda_pkg_list" "xorg-libxau" \
             || ! list_contains "$conda_pkg_list" "xorg-libxrandr" || ! list_contains "$conda_pkg_list" "patchelf" \
             || ! list_contains "$conda_pkg_list" "libvulkan-headers" || ! list_contains "$conda_pkg_list" "shaderc" \
-            || ! list_contains "$conda_pkg_list" "jsoncpp" || ! list_contains "$conda_pkg_list" "eigen" \
-            || ! list_contains "$conda_pkg_list" "zeromq" || ! list_contains "$conda_pkg_list" "cppzmq" \
-            || ! list_contains "$conda_pkg_list" "netcdf4" || ! list_contains "$conda_pkg_list" "openexr" \
-            || ! list_contains "$conda_pkg_list" "eccodes"; then
+            || ! list_contains "$conda_pkg_list" "glslang" || ! list_contains "$conda_pkg_list" "jsoncpp" \
+            || ! list_contains "$conda_pkg_list" "eigen" || ! list_contains "$conda_pkg_list" "zeromq" \
+            || ! list_contains "$conda_pkg_list" "cppzmq" || ! list_contains "$conda_pkg_list" "netcdf4" \
+            || ! list_contains "$conda_pkg_list" "openexr" || ! list_contains "$conda_pkg_list" "eccodes"; then
         echo "------------------------"
         echo "installing dependencies "
         echo "------------------------"
@@ -700,8 +703,8 @@ elif $use_conda && ! $use_macos; then
         make cmake pkg-config gdb git mesa-libgl-devel-cos7-x86_64 libglvnd-glx-cos7-x86_64 \
         mesa-dri-drivers-cos7-aarch64 libxau-devel-cos7-aarch64 libselinux-devel-cos7-aarch64 \
         libxdamage-devel-cos7-aarch64 libxxf86vm-devel-cos7-aarch64 libxext-devel-cos7-aarch64 xorg-libxfixes \
-        xorg-libxau xorg-libxrandr patchelf libvulkan-headers shaderc jsoncpp eigen zeromq cppzmq netcdf4 openexr \
-        eccodes
+        xorg-libxau xorg-libxrandr patchelf libvulkan-headers shaderc glslang jsoncpp eigen zeromq cppzmq netcdf4 \
+        openexr eccodes
     fi
 else
     echo "Warning: Unsupported system package manager detected." >&2
