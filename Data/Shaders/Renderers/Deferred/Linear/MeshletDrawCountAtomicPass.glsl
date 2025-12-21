@@ -82,7 +82,8 @@ void main() {
     // Should we only re-check previously occluded meshlets and not re-render already rendered ones?
 #ifdef RECHECK_OCCLUDED_ONLY
     bool isVisible = false;
-    if (meshletVisibilityArray[meshletIdx] == 0u) {
+    bool wasNotVisible = meshletVisibilityArray[meshletIdx] == 0u;
+    if (wasNotVisible) {
         isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMax);
     }
 #else
@@ -90,7 +91,12 @@ void main() {
 #endif
     meshletVisibilityArray[meshletIdx] = isVisible ? 1u : 0u;
 
-    if (isVisible) {
+#ifdef RECHECK_OCCLUDED_ONLY
+    if (isVisible && wasNotVisible)
+#else
+    if (isVisible)
+#endif
+    {
         uint writePosition = atomicAdd(drawCount, 1u);
         VkDrawIndexedIndirectCommand cmd;
         cmd.indexCount = meshlet.indexCount;

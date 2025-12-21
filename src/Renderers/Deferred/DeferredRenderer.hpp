@@ -122,6 +122,7 @@ protected:
     void updateMaxLeafSizeBvh();
     void updateMaxTreeDepthBvh();
     void updateShallVisualizeNodes();
+    void setVisibilityBufferPrefixSumScanPassInput();
 
     // Render passes.
     void renderDataEmpty();

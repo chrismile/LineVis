@@ -68,6 +68,12 @@ layout(std430, binding = 4) writeonly buffer IndirectDrawCountBuffer {
     uint drawCount;
 };
 
+#if defined(VISUALIZE_BVH_HIERARCHY) && defined(RECHECK_OCCLUDED_ONLY)
+layout(binding = 17) uniform NodeAabbCountPrevBuffer {
+    uint numNodeAabbsOffset;
+};
+#endif
+
 layout(push_constant) uniform PushConstants {
     uint numMeshlets;
 };
@@ -80,8 +86,15 @@ void main() {
 
     // Write the total draw count in one invocation.
     if (meshletIdx == numMeshlets - 1u) {
-        drawCount = exclusivePrefixSumScanArray[numMeshlets - 1u] + meshletVisibilityArray[numMeshlets - 1u];
-        numNodeAabbs = drawCount;
+        uint drawCountVar = exclusivePrefixSumScanArray[numMeshlets - 1u] + meshletVisibilityArray[numMeshlets - 1u];
+        drawCount = drawCountVar;
+#ifdef VISUALIZE_BVH_HIERARCHY
+#ifdef RECHECK_OCCLUDED_ONLY
+        numNodeAabbs = drawCountVar + numNodeAabbsOffset;
+#else
+        numNodeAabbs = drawCountVar;
+#endif
+#endif
     }
 
     // Skip the meshlet if it is not visible.
@@ -106,9 +119,10 @@ void main() {
     nodeAabb.normalizedHierarchyLevel = 1.0;
 #ifdef RECHECK_OCCLUDED_ONLY
     nodeAabb.passIdx = 1u;
+    nodeAabbs[writePosition + numNodeAabbsOffset] = nodeAabb;
 #else
     nodeAabb.passIdx = 0u;
+    nodeAabbs[writePosition] = nodeAabb;
 #endif
-    nodeAabbs[writePositionNodeAabb] = nodeAabb;
 #endif
 }

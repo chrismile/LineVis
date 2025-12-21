@@ -32,7 +32,7 @@
 #include "LineData/LineData.hpp"
 #include "LineData/TrianglePayload/MeshletsTaskMeshShaderPayload.hpp"
 #include "LineData/TrianglePayload/NodesBVHTreePayload.hpp"
-#include "MeshletTaskMeskPass.hpp"
+#include "MeshletTaskMeshPass.hpp"
 
 MeshletTaskMeshPass::MeshletTaskMeshPass(LineRenderer* lineRenderer) : LineRasterPass(lineRenderer) {
     const VkPhysicalDeviceMeshShaderPropertiesNV& meshShaderPropertiesNV =

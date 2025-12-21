@@ -57,7 +57,7 @@
 #include "MeshletVisibilityPass.hpp"
 #include "VisibilityBufferPrefixSumScanPass.hpp"
 #include "MeshletDrawCountPass.hpp"
-#include "MeshletTaskMeskPass.hpp"
+#include "MeshletTaskMeshPass.hpp"
 #include "Tree/NodesBVHClearQueuePass.hpp"
 #include "Tree/NodesBVHDrawCountPass.hpp"
 #include "Tree/ConvertMeshletCommandsBVHPass.hpp"
@@ -519,6 +519,21 @@ bool DeferredRenderer::getUsesTriangleMeshInternally() const {
            || drawIndexedGeometryMode != DrawIndexedGeometryMode::PROGRAMMABLE_PULLING;
 }
 
+void DeferredRenderer::setVisibilityBufferPrefixSumScanPassInput() {
+    TubeTriangleRenderDataPayloadPtr payloadSuperClass(new MeshletsDrawIndirectPayload(
+        drawIndirectMaxNumPrimitivesPerMeshlet, shallVisualizeNodes));
+    TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
+            true, false, payloadSuperClass);
+
+    if (tubeRenderData.indexBuffer) {
+        auto* payload = static_cast<MeshletsDrawIndirectPayload*>(payloadSuperClass.get());
+        visibilityBufferPrefixSumScanPass->setInputBuffer(payload->getMeshletVisibilityArrayBuffer());
+        for (int i = 0; i < 2; i++) {
+            meshletDrawCountPasses[i]->setPrefixSumScanBuffer(visibilityBufferPrefixSumScanPass->getOutputBuffer());
+        }
+    }
+}
+
 void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
 
@@ -546,19 +561,7 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
                 meshletVisibilityPasses[i]->setLineData(lineData, isNewData);
                 meshletDrawCountPasses[i]->setLineData(lineData, isNewData);
             }
-
-            TubeTriangleRenderDataPayloadPtr payloadSuperClass(new MeshletsDrawIndirectPayload(
-                    drawIndirectMaxNumPrimitivesPerMeshlet, shallVisualizeNodes));
-            TubeTriangleRenderData tubeRenderData = lineData->getLinePassTubeTriangleMeshRenderDataPayload(
-                    true, false, payloadSuperClass);
-
-            if (tubeRenderData.indexBuffer) {
-                auto* payload = static_cast<MeshletsDrawIndirectPayload*>(payloadSuperClass.get());
-                visibilityBufferPrefixSumScanPass->setInputBuffer(payload->getMeshletVisibilityArrayBuffer());
-                for (int i = 0; i < 2; i++) {
-                    meshletDrawCountPasses[i]->setPrefixSumScanBuffer(visibilityBufferPrefixSumScanPass->getOutputBuffer());
-                }
-            }
+            setVisibilityBufferPrefixSumScanPassInput();
         }
         if (colorRenderTargetImage) {
             visibilityBufferDrawIndexedIndirectPasses[0]->buildIfNecessary();
@@ -1474,9 +1477,10 @@ void DeferredRenderer::renderComputeHZB(int passIndex) {
         renderer->pushConstants(
                 depthMipBlitRenderPassesPingPong[passIndex].at(level)->getGraphicsPipeline(),
                 VK_SHADER_STAGE_FRAGMENT_BIT, 0, glm::ivec2(mipWidth, mipHeight));
-        renderer->pushConstants(
-                depthMipBlitRenderPassesPingPong[passIndex].at(level)->getGraphicsPipeline(),
-                VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::ivec2), level);
+        // Seems like mip level 0 is necessary, as the image view offset seems to be taken into account.
+        //renderer->pushConstants(
+        //        depthMipBlitRenderPassesPingPong[passIndex].at(level)->getGraphicsPipeline(),
+        //        VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(glm::ivec2), level);
         depthMipBlitRenderPassesPingPong[passIndex].at(level)->render();
         if (mipWidth > 1) mipWidth /= 2;
         if (mipHeight > 1) mipHeight /= 2;
@@ -1653,6 +1657,7 @@ void DeferredRenderer::updateShallVisualizeNodes() {
                 meshletVisibilityPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
                 meshletDrawCountPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
             }
+            setVisibilityBufferPrefixSumScanPassInput();
         }
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         for (int i = 0; i < 2; i++) {
@@ -1691,6 +1696,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
     if (propertyEditor.addCombo(
             "Deferred Mode", (int*)&deferredRenderingMode,
             deferredRenderingModeNames, numRenderingModes)) {
+        renderer->getDevice()->waitIdle();
         updateRenderingMode();
         reloadGatherShader();
         onResolutionChanged();
@@ -1700,6 +1706,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
     if (propertyEditor.addCombo(
             "Supersampling", &supersamplingMode,
             supersamplingModeNames, IM_ARRAYSIZE(supersamplingModeNames))) {
+        renderer->getDevice()->waitIdle();
         onResolutionChanged();
         reRender = true;
     }
@@ -1729,6 +1736,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
         if (propertyEditor.addSliderIntEdit(
                 "#Tri/Meshlet", (int*)&drawIndirectMaxNumPrimitivesPerMeshlet,
                 32, 1024) == ImGui::EditMode::INPUT_FINISHED) {
+            renderer->getDevice()->waitIdle();
             if (drawIndirectReductionMode == DrawIndirectReductionMode::NO_REDUCTION) {
                 for (int i = 0; i < 2; i++) {
                     meshletDrawCountNoReductionPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
@@ -1742,12 +1750,14 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                     meshletVisibilityPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
                     meshletDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
                 }
+            setVisibilityBufferPrefixSumScanPassInput();
             }
             reloadGatherShader();
             deferredResolvePass->setDataDirty();
             reRender = true;
         }
         if (propertyEditor.addCheckbox("Show Meshlets", &shallVisualizeNodes)) {
+            renderer->getDevice()->waitIdle();
             updateShallVisualizeNodes();
         }
         if (shallVisualizeNodes) {
@@ -1764,7 +1774,8 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         if (propertyEditor.addSliderIntEdit(
                 "#Tri/Meshlet", (int*)&taskMeshShaderMaxNumPrimitivesPerMeshlet,
-                32, int(taskMeshShaderMaxNumPrimitivesSupportedNV)) == ImGui::EditMode::INPUT_FINISHED) {
+                32, int(taskMeshShaderMaxNumPrimitivesSupported)) == ImGui::EditMode::INPUT_FINISHED) {
+            renderer->getDevice()->waitIdle();
             for (int i = 0; i < 2; i++) {
                 meshletTaskMeshPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
             }
@@ -1782,6 +1793,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
             reRender = true;
         }
         if (propertyEditor.addCheckbox("Show Meshlets", &shallVisualizeNodes)) {
+            renderer->getDevice()->waitIdle();
             updateShallVisualizeNodes();
         }
         if (shallVisualizeNodes) {
@@ -1811,16 +1823,19 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
         if (propertyEditor.addCombo(
                 "BVH Build Algorithm", (int*)&bvhBuildAlgorithm,
                 bvhBuildAlgorithmNames, IM_ARRAYSIZE(bvhBuildAlgorithmNames))) {
+            renderer->getDevice()->waitIdle();
             updateBvhBuildAlgorithm();
         }
         if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT && propertyEditor.addCombo(
                 "BVH Geometry Mode", (int*)&bvhBuildGeometryMode,
                 bvhBuildGeometryModeNames, IM_ARRAYSIZE(bvhBuildGeometryModeNames))) {
+            renderer->getDevice()->waitIdle();
             updateBvhBuildGeometryMode();
         }
         if (propertyEditor.addCombo(
                 "BVH Primitive Centers", (int*)&bvhBuildPrimitiveCenterMode,
                 bvhBuildPrimitiveCenterModeNames, IM_ARRAYSIZE(bvhBuildPrimitiveCenterModeNames))) {
+            renderer->getDevice()->waitIdle();
             updateBvhBuildPrimitiveCenterMode();
         }
         bool meshletSizeConfigurable = deferredRenderingMode ==
@@ -1833,6 +1848,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
             if (propertyEditor.addSliderIntEdit(
                     "#Tri/Meshlet", (int*)&drawIndirectMaxNumPrimitivesPerMeshlet,
                     32, 1024) == ImGui::EditMode::INPUT_FINISHED) {
+                renderer->getDevice()->waitIdle();
                 nodesBVHClearQueuePass->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
                 for (int i = 0; i < 2; i++) {
                     nodesBVHDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
@@ -1851,7 +1867,8 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
         } else if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER && meshletSizeConfigurable) {
             if (propertyEditor.addSliderIntEdit(
                     "#Tri/Meshlet", (int*)&taskMeshShaderMaxNumPrimitivesPerMeshlet,
-                    32, int(taskMeshShaderMaxNumPrimitivesSupportedNV)) == ImGui::EditMode::INPUT_FINISHED) {
+                    32, int(taskMeshShaderMaxNumPrimitivesSupported)) == ImGui::EditMode::INPUT_FINISHED) {
+                renderer->getDevice()->waitIdle();
                 nodesBVHClearQueuePass->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
                 for (int i = 0; i < 2; i++) {
                     nodesBVHDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);

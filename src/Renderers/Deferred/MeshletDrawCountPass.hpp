@@ -60,6 +60,8 @@ private:
     uint32_t numMeshlets = 0;
     sgl::vk::BufferPtr indirectDrawCountBuffer;
     sgl::vk::BufferPtr prefixSumScanBuffer;
+    sgl::vk::BufferPtr nodeAabbCountBuffer;
+    sgl::vk::BufferPtr nodeAabbCountPrevBuffer;
 };
 
 #endif //LINEVIS_MESHLETDRAWCOUNTPASS_HPP

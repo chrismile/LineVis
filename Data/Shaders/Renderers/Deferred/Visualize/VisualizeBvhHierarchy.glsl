@@ -5,7 +5,7 @@ struct NodeAabb {
     vec3 worldSpaceAabbMax;
     uint passIdx;
 };
-layout(std430, binding = 15) buffer NodeAabbCountBuffer {
+layout(std430, binding = 15) coherent buffer NodeAabbCountBuffer {
     uint numNodeAabbs;
 };
 layout(std430, binding = 16) writeonly buffer NodeAabbBuffer {

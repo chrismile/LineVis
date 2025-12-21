@@ -97,7 +97,20 @@ void MeshletDrawCountPass::createComputeData(sgl::vk::Renderer* renderer, sgl::v
     indirectDrawCountBuffer = payload->getIndirectDrawCountBuffer();
     if (shallVisualizeNodes) {
         computeData->setStaticBuffer(payload->getNodeAabbBuffer(), "NodeAabbBuffer");
-        computeData->setStaticBuffer(payload->getNodeAabbCountBuffer(), "NodeAabbCountBuffer");
+        nodeAabbCountBuffer = payload->getNodeAabbCountBuffer();
+        computeData->setStaticBuffer(nodeAabbCountBuffer, "NodeAabbCountBuffer");
+        if (recheckOccludedOnly) {
+            if (!nodeAabbCountPrevBuffer) {
+                nodeAabbCountPrevBuffer = std::make_shared<sgl::vk::Buffer>(
+                        device, sizeof(uint32_t),
+                        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                        VMA_MEMORY_USAGE_GPU_ONLY);
+            }
+            computeData->setStaticBuffer(nodeAabbCountPrevBuffer, "NodeAabbCountPrevBuffer");
+        }
+    } else {
+        nodeAabbCountBuffer = {};
+        nodeAabbCountPrevBuffer = {};
     }
     computeData->setStaticBuffer(payload->getMeshletDataBuffer(), "MeshletDataBuffer");
     computeData->setStaticBuffer(payload->getMeshletVisibilityArrayBuffer(), "MeshletVisibilityArrayBuffer");
@@ -107,6 +120,14 @@ void MeshletDrawCountPass::createComputeData(sgl::vk::Renderer* renderer, sgl::v
 }
 
 void MeshletDrawCountPass::_render() {
+    if (nodeAabbCountPrevBuffer) {
+        nodeAabbCountBuffer->copyDataTo(nodeAabbCountPrevBuffer, renderer->getVkCommandBuffer());
+        renderer->insertBufferMemoryBarrier(
+                VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+                VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                nodeAabbCountPrevBuffer);
+    }
+
     renderer->pushConstants(
             computeData->getComputePipeline(), VK_SHADER_STAGE_COMPUTE_BIT,
             0, numMeshlets);

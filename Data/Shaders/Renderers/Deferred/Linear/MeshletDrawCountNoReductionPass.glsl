@@ -79,7 +79,8 @@ void main() {
     // Should we only re-check previously occluded meshlets and not re-render already rendered ones?
  #ifdef RECHECK_OCCLUDED_ONLY
     bool isVisible = false;
-    if (meshletVisibilityArray[meshletIdx] == 0u) {
+    bool wasNotVisible = meshletVisibilityArray[meshletIdx] == 0u;
+    if (wasNotVisible) {
         isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMax);
     }
 #else
@@ -96,7 +97,12 @@ void main() {
     commands[meshletIdx] = cmd;
 
 #ifdef VISUALIZE_BVH_HIERARCHY
-    if (isVisible) {
+#ifdef RECHECK_OCCLUDED_ONLY
+    if (isVisible && wasNotVisible)
+#else
+    if (isVisible)
+#endif
+    {
         uint writePositionNodeAabb = atomicAdd(numNodeAabbs, 1u);
         NodeAabb nodeAabb;
         nodeAabb.worldSpaceAabbMin = meshlet.worldSpaceAabbMin;

@@ -84,7 +84,8 @@ void main() {
         // Should we only re-check previously occluded meshlets and not re-render already rendered ones?
 #ifdef RECHECK_OCCLUDED_ONLY
         isVisible = false;
-        if (meshletVisibilityArray[meshletIdx] == 0u) {
+        bool wasNotVisible = meshletVisibilityArray[meshletIdx] == 0u;
+        if (wasNotVisible) {
             isVisible = visibilityCulling(meshlet.worldSpaceAabbMin, meshlet.worldSpaceAabbMax);
         }
 #else
@@ -92,20 +93,28 @@ void main() {
 #endif
 
 #ifdef VISUALIZE_BVH_HIERARCHY
-        uint writePositionNodeAabb = atomicAdd(numNodeAabbs, 1u);
-        NodeAabb nodeAabb;
-        nodeAabb.worldSpaceAabbMin = meshlet.worldSpaceAabbMin;
-        nodeAabb.worldSpaceAabbMax = meshlet.worldSpaceAabbMax;
-        nodeAabb.normalizedHierarchyLevel = 1.0;
 #ifdef RECHECK_OCCLUDED_ONLY
-        nodeAabb.passIdx = 1u;
+        if (isVisible && wasNotVisible)
 #else
-        nodeAabb.passIdx = 0u;
+        if (isVisible)
 #endif
-        nodeAabbs[writePositionNodeAabb] = nodeAabb;
+        {
+            uint writePositionNodeAabb = atomicAdd(numNodeAabbs, 1u);
+            NodeAabb nodeAabb;
+            nodeAabb.worldSpaceAabbMin = meshlet.worldSpaceAabbMin;
+            nodeAabb.worldSpaceAabbMax = meshlet.worldSpaceAabbMax;
+            nodeAabb.normalizedHierarchyLevel = 1.0;
+#ifdef RECHECK_OCCLUDED_ONLY
+            nodeAabb.passIdx = 1u;
+#else
+            nodeAabb.passIdx = 0u;
 #endif
+            nodeAabbs[writePositionNodeAabb] = nodeAabb;
+        }
+#endif
+
+        meshletVisibilityArray[meshletIdx] = isVisible ? 1u : 0u;
     }
-    meshletVisibilityArray[meshletIdx] = isVisible ? 1u : 0u;
 
     // See: https://developer.nvidia.com/blog/introduction-turing-mesh-shaders/
     uvec4 vote = subgroupBallot(isVisible);
@@ -113,12 +122,12 @@ void main() {
 
     if (gl_LocalInvocationID.x == 0) {
         // Write how much mesh workgroups should be spawned.
+        OUT.baseIndex = gl_WorkGroupID.x * WORKGROUP_SIZE;
 #ifdef VK_NV_mesh_shader
         gl_TaskCountNV = numTasks;
 #else
         EmitMeshTasksEXT(numTasks, 1, 1);
 #endif
-        OUT.baseIndex = gl_WorkGroupID.x * WORKGROUP_SIZE;
     }
 
     // Write the meshlets that should be rendered into the compacted array.
