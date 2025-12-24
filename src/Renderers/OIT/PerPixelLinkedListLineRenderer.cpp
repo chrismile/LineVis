@@ -469,6 +469,7 @@ void PerPixelLinkedListLineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyE
     if (propertyEditor.addCombo(
             "Sorting Mode", (int*)&sortingAlgorithmMode,
             SORTING_MODE_NAMES, NUM_SORTING_MODES)) {
+        renderer->getDevice()->waitIdle();
         reloadResolveShader();
         reRender = true;
     }
@@ -485,6 +486,7 @@ void PerPixelLinkedListLineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyE
     }
     bool depthComplexityJustChanged = false;
     if (propertyEditor.addCheckbox("Show Depth Complexity", &showDepthComplexity)) {
+        renderer->getDevice()->waitIdle();
         resolveRasterPass->setShaderDirty();
         clearRasterPass->setShaderDirty();
         reloadGatherShader();
@@ -509,6 +511,7 @@ void PerPixelLinkedListLineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyE
                 + sgl::getNiceMemoryString(fragmentBufferSize * 12ull, 2));
     }
     if (propertyEditor.addButton("Reload Gather Shader", "Reload")) {
+        renderer->getDevice()->waitIdle();
         reloadGatherShader();
         reRender = true;
     }

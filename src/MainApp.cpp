@@ -1448,6 +1448,9 @@ void MainApp::renderGuiGeneralSettingsPropertyEditor() {
         if (lineData) {
             lineData->setClearColor(clearColor);
         }
+        if (!dataViews.empty()) {
+            device->waitIdle();
+        }
         for (DataViewPtr& dataView : dataViews) {
             dataView->setClearColor(clearColor);
         }

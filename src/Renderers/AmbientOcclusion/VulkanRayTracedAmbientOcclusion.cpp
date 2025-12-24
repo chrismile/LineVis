@@ -168,6 +168,7 @@ bool VulkanRayTracedAmbientOcclusion::renderGuiPropertyEditorNodes(sgl::Property
         }
 
         if (propertyEditor.addCheckbox("Jittered Primary Rays", &rtaoRenderPass->useJitteredPrimaryRays)) {
+            rendererMain->getDevice()->waitIdle();
             rtaoRenderPass->setShaderDirty();
             optionChanged = true;
         }
@@ -718,6 +719,7 @@ bool VulkanRayTracedAmbientOcclusionPass::renderGuiPropertyEditorNodes(sgl::Prop
 #endif
     if (propertyEditor.addCombo(
             "Denoiser", (int*)&denoiserType, DENOISER_NAMES, numDenoisersSupported)) {
+        device->waitIdle();
         reRender = true;
         changedDenoiserSettings = true;
         createDenoiser();

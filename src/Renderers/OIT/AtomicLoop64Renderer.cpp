@@ -265,15 +265,18 @@ void AtomicLoop64Renderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& pro
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 
     if (propertyEditor.addSliderInt("Num Layers", &numLayers, 1, 64)) {
+        renderer->getDevice()->waitIdle();
         updateLayerMode();
         reRender = true;
     }
     if (selectTilingModeUI(propertyEditor)) {
+        renderer->getDevice()->waitIdle();
         reloadShaders();
         clearBitSet = true;
         reRender = true;
     }
     if (propertyEditor.addButton("Reload Gather Shader", "Reload")) {
+        renderer->getDevice()->waitIdle();
         reloadGatherShader();
         reRender = true;
     }

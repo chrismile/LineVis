@@ -168,6 +168,7 @@ void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& property
     }
 
     if (propertyEditor.addCheckbox("Deterministic Sampling", &useDeterministicSampling)) {
+        renderer->getDevice()->waitIdle();
         rayTracingRenderPass->setUseDeterministicSampling(useDeterministicSampling);
         rayTracingRenderPass->setShaderDirty();
         accumulatedFramesCounter = 0;
@@ -175,6 +176,7 @@ void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& property
 
     if ((!lineData || lineData->getType() != DATA_SET_TYPE_TRIANGLE_MESH) && propertyEditor.addCheckbox(
             "Use Analytic Intersections", &useAnalyticIntersections)) {
+        renderer->getDevice()->waitIdle();
         rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
         rayTracingRenderPass->setShaderDirty();
         if (lineData) {
@@ -186,6 +188,7 @@ void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& property
     ImGui::HelpMarker("Whether to trace rays against a triangle mesh or analytic tubes using line segment AABBs.");
 
     if (useAnalyticIntersections && propertyEditor.addCheckbox("Elliptic Tubes", &useAnalyticEllipticTubes)) {
+        renderer->getDevice()->waitIdle();
         rayTracingRenderPass->setUseAnalyticEllipticTubes(useAnalyticEllipticTubes);
         rayTracingRenderPass->setShaderDirty();
         if (lineData) {
@@ -195,6 +198,7 @@ void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& property
     }
 
     if (propertyEditor.addCheckbox("Use MLAT", &useMlat)) {
+        renderer->getDevice()->waitIdle();
         rayTracingRenderPass->setUseMlat(useMlat);
         rayTracingRenderPass->setShaderDirty();
         accumulatedFramesCounter = 0;
@@ -203,6 +207,7 @@ void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& property
     ImGui::HelpMarker("Whether to use multi-layer alpha tracing for accelerated transparency rendering.");
 
     if (useMlat && propertyEditor.addSliderIntPowerOfTwo("#MLAT Nodes", &mlatNumNodes, 1, 32)) {
+        renderer->getDevice()->waitIdle();
         rayTracingRenderPass->setMlatNumNodes(mlatNumNodes);
         rayTracingRenderPass->setShaderDirty();
         accumulatedFramesCounter = 0;

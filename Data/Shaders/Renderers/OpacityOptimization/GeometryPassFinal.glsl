@@ -222,15 +222,12 @@ layout(location = 8) in float fragmentVertexId;
 float phi;
 #endif
 
-#ifdef USE_COVERAGE_MASK
-in int gl_SampleMaskIn[];
-#endif
-
 layout(location = 0) out vec4 fragColor;
 
 #define M_PI 3.14159265358979323846
 
 #include "LineUniformData.glsl"
+#include "GeometryPassSampleUniforms.glsl"
 #include "TransferFunction.glsl"
 
 #define DEPTH_HELPER_USE_PROJECTION_MATRIX
@@ -258,7 +255,12 @@ void gatherFragmentCustomDepth(vec4 color, float fragmentDepth) {
 
 #ifdef USE_COVERAGE_MASK
     //packFloat24Uint8(frag.depth, gl_FragCoord.z, gl_SampleMaskIn[0]);
+    // gl_NumSamples was removed: https://github.com/KhronosGroup/GLSL/blob/main/extensions/khr/GL_KHR_vulkan_glsl.txt
+#ifdef VULKAN
+    float coverageRatio = float(bitCount(gl_SampleMaskIn[0])) / float(numSamples);
+#else
     float coverageRatio = float(bitCount(gl_SampleMaskIn[0])) / float(gl_NumSamples);
+#endif
     packFloat24Float8(frag.depth, depthNormalized, coverageRatio);
 #else
     frag.depth = convertNormalizedFloatToUint32(depthNormalized);

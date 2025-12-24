@@ -328,27 +328,32 @@ void MLABRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 
     if (propertyEditor.addSliderInt("Num Layers", &numLayers, 1, 64)) {
+        renderer->getDevice()->waitIdle();
         updateLayerMode();
         reRender = true;
     }
     const char *syncModeNames[] = { "No Sync (Unsafe)", "Fragment Shader Interlock", "Spinlock" };
     if (propertyEditor.addCombo(
             "Sync Mode", (int*)&syncMode, syncModeNames, IM_ARRAYSIZE(syncModeNames))) {
+        renderer->getDevice()->waitIdle();
         updateSyncMode();
         reloadGatherShader();
         reRender = true;
     }
     if (syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK && propertyEditor.addCheckbox(
             "Ordered Sync", &useOrderedFragmentShaderInterlock)) {
+        renderer->getDevice()->waitIdle();
         reloadGatherShader();
         reRender = true;
     }
     if (selectTilingModeUI(propertyEditor)) {
+        renderer->getDevice()->waitIdle();
         reloadShaders();
         clearBitSet = true;
         reRender = true;
     }
     if (propertyEditor.addButton("Reload Gather Shader", "Reload")) {
+        renderer->getDevice()->waitIdle();
         reloadGatherShader();
         reRender = true;
     }

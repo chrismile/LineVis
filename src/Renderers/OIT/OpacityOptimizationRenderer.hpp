@@ -251,6 +251,7 @@ protected:
     std::vector<std::string> sampleModeNames;
 
     // Multisampling (CSAA) data.
+    sgl::vk::BufferPtr sampleInfoUniformBuffer;
     sgl::vk::ImageViewPtr colorRenderTargetImageOpacities;
     sgl::vk::ImageViewPtr colorRenderTargetImageFinal;
 

@@ -260,6 +260,7 @@ void VoxelRayCastingRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& 
     }
 
     if (propertyEditor.addCheckbox("Use Line Hull", &computeNearestFurthestHitsUsingHull)) {
+        renderer->getDevice()->waitIdle();
         reloadGatherShader();
         internalReRender = true;
         reRender = true;

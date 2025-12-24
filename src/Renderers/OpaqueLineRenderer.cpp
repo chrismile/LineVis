@@ -255,6 +255,7 @@ void OpaqueLineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& prope
     if (maximumNumberOfSamples > 1) {
         if (propertyEditor.addCombo(
                 "Samples", &sampleModeSelection, sampleModeNames.data(), numSampleModes)) {
+            renderer->getDevice()->waitIdle();
             numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
             useMultisampling = numSamples > 1;
             onResolutionChanged();
@@ -262,6 +263,7 @@ void OpaqueLineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& prope
         }
         if (useMultisampling && supportsSampleShadingRate) {
             if (propertyEditor.addCheckbox("Use Sample Shading", &useSamplingShading)) {
+                renderer->getDevice()->waitIdle();
                 numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
                 useMultisampling = numSamples > 1;
                 onResolutionChanged();
@@ -270,6 +272,7 @@ void OpaqueLineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& prope
             if (propertyEditor.addSliderFloatEdit(
                     "Min. Sample Shading", &minSampleShading,
                     0.0f, 1.0f) == ImGui::EditMode::INPUT_FINISHED) {
+                renderer->getDevice()->waitIdle();
                 numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
                 useMultisampling = numSamples > 1;
                 onResolutionChanged();

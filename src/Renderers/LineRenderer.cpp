@@ -628,6 +628,7 @@ void LineRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEdi
                         AMBIENT_OCCLUSION_BAKER_TYPE_NAMES,
                         IM_ARRAYSIZE(AMBIENT_OCCLUSION_BAKER_TYPE_NAMES))) {
                     if (ambientOcclusionBakerType != oldType) {
+                        renderer->getDevice()->waitIdle();
                         setAmbientOcclusionBaker();
                     }
                 }

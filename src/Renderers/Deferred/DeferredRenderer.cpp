@@ -1750,10 +1750,17 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                     meshletVisibilityPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
                     meshletDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
                 }
-            setVisibilityBufferPrefixSumScanPassInput();
+                setVisibilityBufferPrefixSumScanPassInput();
+            }
+            for (int i = 0; i < 2; i++) {
+                visibilityBufferDrawIndexedIndirectPasses[i]->setMaxNumPrimitivesPerMeshlet(
+                        drawIndirectMaxNumPrimitivesPerMeshlet);
             }
             reloadGatherShader();
             deferredResolvePass->setDataDirty();
+            deferredResolvePass->setDrawIndexedGeometryMode(
+                    deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED
+                    ? drawIndexedGeometryMode : DrawIndexedGeometryMode::TRIANGLES);
             reRender = true;
         }
         if (propertyEditor.addCheckbox("Show Meshlets", &shallVisualizeNodes)) {
@@ -1767,6 +1774,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                 reRender = true;
             }
             if (propertyEditor.addCheckbox("Screen Space Lines", &nodeAabbUseScreenSpaceLineWidth)) {
+                renderer->getDevice()->waitIdle();
                 visualizeNodesPass->setUseScreenSpaceLineWidth(nodeAabbUseScreenSpaceLineWidth);
                 reRender = true;
             }
@@ -1803,6 +1811,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                 reRender = true;
             }
             if (propertyEditor.addCheckbox("Screen Space Lines", &nodeAabbUseScreenSpaceLineWidth)) {
+                renderer->getDevice()->waitIdle();
                 visualizeNodesPass->setUseScreenSpaceLineWidth(nodeAabbUseScreenSpaceLineWidth);
                 reRender = true;
             }
@@ -1852,13 +1861,8 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                 nodesBVHClearQueuePass->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
                 for (int i = 0; i < 2; i++) {
                     nodesBVHDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
-                    if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
-                        visibilityBufferBVHDrawIndexedIndirectPasses[i]->setMaxNumPrimitivesPerMeshlet(
-                                drawIndirectMaxNumPrimitivesPerMeshlet);
-                    } else {
-                        meshletMeshBVHPasses[i]->setMaxNumPrimitivesPerMeshlet(
-                                drawIndirectMaxNumPrimitivesPerMeshlet);
-                    }
+                    visibilityBufferBVHDrawIndexedIndirectPasses[i]->setMaxNumPrimitivesPerMeshlet(
+                            drawIndirectMaxNumPrimitivesPerMeshlet);
                 }
                 reloadGatherShader();
                 deferredResolvePass->setDataDirty();
@@ -1870,6 +1874,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                     32, int(taskMeshShaderMaxNumPrimitivesSupported)) == ImGui::EditMode::INPUT_FINISHED) {
                 renderer->getDevice()->waitIdle();
                 nodesBVHClearQueuePass->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                convertMeshletCommandsBVHPass->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
                 for (int i = 0; i < 2; i++) {
                     nodesBVHDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
                     meshletMeshBVHPasses[i]->setMaxNumPrimitivesPerMeshlet(
@@ -1907,6 +1912,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
         }
 
         if (propertyEditor.addCheckbox("Show BVH Structure", &shallVisualizeNodes)) {
+            renderer->getDevice()->waitIdle();
             updateShallVisualizeNodes();
         }
         if (shallVisualizeNodes) {
@@ -1916,6 +1922,7 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                 reRender = true;
             }
             if (propertyEditor.addCheckbox("Screen Space Lines", &nodeAabbUseScreenSpaceLineWidth)) {
+                renderer->getDevice()->waitIdle();
                 visualizeNodesPass->setUseScreenSpaceLineWidth(nodeAabbUseScreenSpaceLineWidth);
                 reRender = true;
             }

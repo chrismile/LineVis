@@ -65,7 +65,11 @@ void OpacityOptimizationRenderer::initialize() {
     maximumNumberOfSamples = (*sceneData->renderer)->getDevice()->getMaxUsableSampleCount();
     if (maximumNumberOfSamples <= 1) {
         useMultisampling = false;
+        numSamples = 1;
+    } else {
+        numSamples = std::min(numSamples, maximumNumberOfSamples);
     }
+    useMultisampling = numSamples > 1;
     supportsSampleShadingRate = renderer->getDevice()->getPhysicalDeviceFeatures().sampleRateShading;
     numSampleModes = sgl::intlog2(maximumNumberOfSamples) + 1;
     sampleModeSelection = std::min(sgl::intlog2(numSamples), numSampleModes - 1);
@@ -88,6 +92,9 @@ void OpacityOptimizationRenderer::initialize() {
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     attributeRangeUniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
             renderer->getDevice(), sizeof(AttributeRangeUniformData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    sampleInfoUniformBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(uint32_t),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
     resolvePpllOpacitiesPass = std::shared_ptr<ResolvePass>(new ResolvePass(
@@ -501,6 +508,7 @@ void OpacityOptimizationRenderer::setRenderDataBindings(const sgl::vk::RenderDat
             opacityOptimizationUniformDataBuffer, "OpacityOptimizationUniformDataBuffer");
     renderData->setStaticBufferOptional(
             attributeRangeUniformDataBuffer, "AttributeRangeUniformDataBuffer");
+    renderData->setStaticBufferOptional(sampleInfoUniformBuffer, "SampleInfoUniformBuffer");
 
     if (isOpacitiesStep) {
         renderData->setStaticBufferOptional(fragmentBufferOpacities, "FragmentBuffer");
@@ -728,6 +736,10 @@ void OpacityOptimizationRenderer::setUniformData() {
             sizeof(OpacityOptimizationUniformData), &opacityOptimizationUniformData,
             renderer->getVkCommandBuffer());
 
+    if (useMultisampling) {
+        sampleInfoUniformBuffer->updateData(sizeof(uint32_t), &numSamples, renderer->getVkCommandBuffer());
+    }
+
     attributeRangeUniformData.minAttrValue = transferFunctionWindow.getDataRangeMin();
     attributeRangeUniformData.maxAttrValue = transferFunctionWindow.getDataRangeMax();
     attributeRangeUniformDataBuffer->updateData(
@@ -870,21 +882,24 @@ void OpacityOptimizationRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEdit
 
     if (propertyEditor.addCombo(
             "Sorting Mode", (int*)&sortingAlgorithmMode, SORTING_MODE_NAMES, NUM_SORTING_MODES)) {
+        renderer->getDevice()->waitIdle();
         reloadResolveShader();
         reRender = true;
         onHasMoved();
     }
 
     if (maximumNumberOfSamples > 1) {
+        bool useMultisamplingOld = useMultisampling;
         if (propertyEditor.addCombo("Samples", &sampleModeSelection, sampleModeNames.data(), numSampleModes)) {
+            renderer->getDevice()->waitIdle();
             numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
             useMultisampling = numSamples > 1;
-            reloadResolveShader();
             onResolutionChanged();
             reRender = true;
         }
         if (useMultisampling && supportsSampleShadingRate) {
             if (propertyEditor.addCheckbox("Use Sample Shading", &useSamplingShading)) {
+                renderer->getDevice()->waitIdle();
                 numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
                 useMultisampling = numSamples > 1;
                 onResolutionChanged();
@@ -893,11 +908,16 @@ void OpacityOptimizationRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEdit
             if (propertyEditor.addSliderFloatEdit(
                     "Min. Sample Shading", &minSampleShading,
                     0.0f, 1.0f) == ImGui::EditMode::INPUT_FINISHED) {
+                renderer->getDevice()->waitIdle();
                 numSamples = sgl::fromString<int>(sampleModeNames.at(sampleModeSelection));
                 useMultisampling = numSamples > 1;
                 onResolutionChanged();
                 reRender = true;
             }
+        }
+        if (useMultisamplingOld != useMultisampling) {
+            reloadResolveShader();
+            reloadGatherShader();
         }
     }
 }

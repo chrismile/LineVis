@@ -559,6 +559,7 @@ void MBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEd
     LineRenderer::renderGuiPropertyEditorNodes(propertyEditor);
 
     if (propertyEditor.addCheckbox("Use Render Targets", &useRenderTargets)) {
+        renderer->getDevice()->waitIdle();
         updateSyncMode();
         updateMomentMode();
         reloadGatherShader();
@@ -588,6 +589,7 @@ void MBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEd
 
     if (propertyEditor.addCombo(
             "Moment Mode", &momentModeIndex, momentModes, IM_ARRAYSIZE(momentModes))) {
+        renderer->getDevice()->waitIdle();
         usePowerMoments = (momentModeIndex / 4) == 0;
         numMoments = momentModesNumMoments[momentModeIndex]; // Count complex moments * 2
         USE_R_RG_RGBA_FOR_MBOIT6 = (momentModeIndex == 2) || (momentModeIndex == 6);
@@ -599,6 +601,7 @@ void MBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEd
     if (!useRenderTargets && propertyEditor.addCombo(
             "Pixel Format", (int*)&pixelFormat, pixelFormatModes,
             IM_ARRAYSIZE(pixelFormatModes))) {
+        renderer->getDevice()->waitIdle();
         updateMomentMode();
         reRender = true;
     }
@@ -615,12 +618,14 @@ void MBOITRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyEd
     const char *syncModeNames[] = { "No Sync (Unsafe)", "Fragment Shader Interlock", "Spinlock" };
     if (!useRenderTargets && propertyEditor.addCombo(
             "Sync Mode", (int*)&syncMode, syncModeNames, IM_ARRAYSIZE(syncModeNames))) {
+        renderer->getDevice()->waitIdle();
         updateSyncMode();
         reloadGatherShader();
         reRender = true;
     }
     if (!useRenderTargets && syncMode == SYNC_FRAGMENT_SHADER_INTERLOCK && propertyEditor.addCheckbox(
             "Ordered Sync", &useOrderedFragmentShaderInterlock)) {
+        renderer->getDevice()->waitIdle();
         reloadGatherShader();
         reRender = true;
     }
