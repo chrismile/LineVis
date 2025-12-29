@@ -192,6 +192,54 @@ principal stress line (PSL) data sets using a file explorer via "File > Open Dat
 [![3D-TSV External PSL File Loading](https://img.youtube.com/vi/zafBOAt9Xvs/maxresdefault.jpg)](https://youtu.be/zafBOAt9Xvs)
 
 
+## Publications using code in this repository
+
+### 3D-TSV: The 3D Trajectory-based Stress Visualizer
+
+3D-TSV: The 3D Trajectory-based Stress Visualizer \
+Junpeng Wang, Christoph Neuhauser, Jun Wu, Xifeng Gao, Rüdiger Westermann \
+Advances in Engineering Software, 2022 \
+[[Project page](https://chrismile.net/publications/3d-tsv/)]
+[[Paper](https://www.sciencedirect.com/science/article/pii/S0965997822000552)]
+[[Preprint](https://www.cs.cit.tum.de/fileadmin/w00cfj/cg/Research/Publications/2021/3D-TSV/2112.09202.pdf)]
+[[BIB](https://chrismile.net/publications/3d-tsv/ref.bib)]
+[[Code](https://github.com/Junpeng-Wang-TUM/3D-TSV)]
+
+
+### Efficient High-Quality Rendering of Ribbons and Twisted Lines
+
+Efficient High-Quality Rendering of Ribbons and Twisted Lines \
+Christoph Neuhauser, Junpeng Wang, Michael Kern, Rüdiger Westermann \
+Vision, Modeling, and Visualization (VMV), 2022 \
+[[Project page](https://chrismile.net/publications/hq-ribbons/)]
+[[Paper](https://diglib.eg.org/bitstream/handle/10.2312/vmv20221213/135-143.pdf)]
+[[BIB](https://chrismile.net/publications/hq-ribbons/ref.bib)]
+[[Video](https://diglib.eg.org/bitstream/handle/10.2312/vmv20221213/paper1033_mm.mp4)]
+
+
+### Visual analysis of model parameter sensitivities along warm conveyor belt trajectories using Met.3D (1.6.0-multivar1)
+
+Visual analysis of model parameter sensitivities along warm conveyor belt trajectories using Met.3D (1.6.0-multivar1) \
+Christoph Neuhauser, Maicon Hieronymus, Michael Kern, Marc Rautenhaus, Annika Oertel, Rüdiger Westermann \
+Geoscientific Model Development (GMD), 2023 \
+[[Project page](https://chrismile.net/publications/multivar-traj/)]
+[[Paper](https://gmd.copernicus.org/articles/16/4617/2023/gmd-16-4617-2023.pdf)]
+[[BIB](https://chrismile.net/publications/multivar-traj/ref.bib)]
+[[Video](https://zenodo.org/record/8085134)]
+[[Code](https://github.com/chrismile/met.3d)]
+
+
+### A Comparison of Rendering Techniques for 3D Line Sets with Transparency
+
+A Comparison of Rendering Techniques for 3D Line Sets with Transparency \
+Michael Kern, Christoph Neuhauser, Torben Maack, Mengjiao Han, Will Usher, Rüdiger Westermann \
+IEEE Transactions on Visualization and Computer Graphics (TVCG), 2020 \
+[[Project page](https://chrismile.net/publications/line-transparency/)]
+[[Paper](https://ieeexplore.ieee.org/document/9007507)]
+[[Preprint](https://www.cs.cit.tum.de/fileadmin/w00cfj/cg/Research/Publications/2019/3D_Line_Sets_Transparency/tvcg_2020_kern_oit_lines.pdf)]
+[[BIB](https://chrismile.net/publications/line-transparency/ref.bib)]
+
+
 ## Supported Rendering Modes
 
 Below, a list of rendering modes supported in LineVis can be found.
