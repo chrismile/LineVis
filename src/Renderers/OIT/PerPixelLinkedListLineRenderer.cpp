@@ -182,7 +182,8 @@ void PerPixelLinkedListLineRenderer::getVulkanShaderPreprocessorDefines(
     if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_PRIORITY_QUEUE) {
         preprocessorDefines.insert(std::make_pair("sortingAlgorithm", "frontToBackPQ"));
         if (renderer->getDevice()->getDeviceDriverId() == VK_DRIVER_ID_AMD_PROPRIETARY
-                || renderer->getDevice()->getDeviceDriverId() == VK_DRIVER_ID_AMD_OPEN_SOURCE) {
+                || renderer->getDevice()->getDeviceDriverId() == VK_DRIVER_ID_AMD_OPEN_SOURCE
+                || renderer->getDevice()->getDeviceDriverId() == VK_DRIVER_ID_MESA_RADV) {
             preprocessorDefines.insert(std::make_pair("INITIALIZE_ARRAY_POW2", ""));
         }
     } else if (sortingAlgorithmMode == SORTING_ALGORITHM_MODE_BUBBLE_SORT) {
