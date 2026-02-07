@@ -214,7 +214,8 @@ int main(int argc, char *argv[]) {
     }
 
 #ifdef USE_PYTHON
-    sgl::pythonInit(argc, argv);
+    int argcPython = std::min(argc, 1);
+    sgl::pythonInit(argcPython, argv);
 #endif
 
     auto app = new MainApp();
