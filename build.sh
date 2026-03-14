@@ -84,6 +84,8 @@ if [ $use_msys = false ] && ([ $use_macos = false ] || [[ $(uname -m) == 'x86_64
 else
     use_ospray2=false
 fi
+use_dlss=false
+use_xess=false
 # Optionally, the program can be built on Windows with MSYS2 with Direct3D 12 support for some renderers.
 use_d3d=false
 
@@ -127,6 +129,10 @@ do
         build_with_vkvg_support=true
     elif [ ${!i} = "--d3d" ]; then
         use_d3d=true
+    elif [ ${!i} = "--dlss" ]; then
+        use_dlss=true
+    elif [ ${!i} = "--xess" ]; then
+        use_xess=true
     elif [ ${!i} = "--ospray2" ]; then
         use_ospray2=true
         use_ospray3=false
@@ -1251,6 +1257,24 @@ if $use_open_image_denoise; then
         rm "${oidn_archive_name}"
     fi
     params+=(-DOpenImageDenoise_DIR="${projectpath}/third_party/${oidn_folder_name}/lib/cmake/OpenImageDenoise-${oidn_version}")
+fi
+
+if $use_dlss; then
+    if [ ! -d "./DLSS" ]; then
+        echo "------------------------"
+        echo "downloading DLSS SDK"
+        echo "------------------------"
+        git clone https://github.com/NVIDIA/DLSS.git
+    fi
+fi
+
+if $use_xess; then
+    if [ ! -d "./xess" ]; then
+        echo "------------------------"
+        echo "downloading XeSS SDK"
+        echo "------------------------"
+        git clone https://github.com/intel/xess.git
+    fi
 fi
 
 popd >/dev/null # back to project root

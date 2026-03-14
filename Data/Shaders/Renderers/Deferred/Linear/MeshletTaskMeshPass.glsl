@@ -321,15 +321,3 @@ void main() {
 
 #define VK_EXT_mesh_shader
 #import ".Mesh"
-
-
--- Fragment
-
-#version 450 core
-
-// Primitive index attachment uses clear value 0xFFFFFFFFu.
-layout(location = 0) out uint fragmentPrimitiveIndex;
-
-void main() {
-    fragmentPrimitiveIndex = uint(gl_PrimitiveID);
-}

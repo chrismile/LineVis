@@ -41,6 +41,8 @@ set optix_install_dir=""
 set use_ospray2=false
 set use_ospray3=true
 set use_oidn=true
+set use_dlss=false
+set use_xess=false
 :: Optionally, the program can be built with Direct3D 12 support for some renderers.
 set use_d3d=false
 
@@ -64,6 +66,12 @@ IF NOT "%1"=="" (
     )
     IF "%1"=="--d3d" (
         SET use_d3d=true
+    )
+    IF "%1"=="--dlss" (
+        SET use_dlss=true
+    )
+    IF "%1"=="--xess" (
+        SET use_xess=true
     )
     IF "%1"=="--ospray2" (
         SET use_ospray2=true
@@ -360,6 +368,24 @@ if %use_oidn% == true (
         del "oidn-%oidn_version%.x64.windows.zip"
     )
     set cmake_args=%cmake_args% -DOpenImageDenoise_DIR="third_party/oidn-%oidn_version%.x64.windows/lib/cmake/OpenImageDenoise-%oidn_version%"
+)
+
+if %use_dlss% == true (
+    if not exist ".\DLSS" (
+        echo ------------------------
+        echo downloading DLSS SDK
+        echo ------------------------
+        git clone https://github.com/NVIDIA/DLSS.git
+    )
+)
+
+if %use_xess% == true (
+    if not exist ".\XeSS" (
+        echo ------------------------
+        echo downloading XeSS SDK
+        echo ------------------------
+        git clone https://github.com/intel/xess.git
+    )
 )
 
 popd

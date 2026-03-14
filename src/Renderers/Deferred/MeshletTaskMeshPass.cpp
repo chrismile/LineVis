@@ -142,7 +142,7 @@ void MeshletTaskMeshPass::loadShader() {
         shaderIds.emplace_back(useMeshShaderNV ? "MeshletTaskMeshPass.TaskNV" : "MeshletTaskMeshPass.TaskEXT");
     }
     shaderIds.emplace_back(useMeshShaderNV ? "MeshletTaskMeshPass.MeshNV" : "MeshletTaskMeshPass.MeshEXT");
-    shaderIds.emplace_back("MeshletTaskMeshPass.Fragment");
+    shaderIds.emplace_back("VisibilityBufferDrawIndexed.Fragment");
     shaderStages = sgl::vk::ShaderManager->getShaderStages(shaderIds, preprocessorDefines);
 }
 

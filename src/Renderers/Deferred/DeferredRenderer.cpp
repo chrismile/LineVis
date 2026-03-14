@@ -64,9 +64,22 @@
 #include "Visualize/VisualizeNodesPass.hpp"
 #include "DeferredRenderer.hpp"
 
+#include "Renderers/Upscaler/Upscaler.hpp"
+
 DeferredRenderer::DeferredRenderer(SceneData* sceneData, sgl::TransferFunctionWindow& transferFunctionWindow)
         : LineRenderer("Deferred Renderer", sceneData, transferFunctionWindow) {
     sgl::vk::Device* device = (*sceneData->renderer)->getDevice();
+    supersamplingModeNames = supersamplingModeNamesAll;
+#ifdef SUPPORT_DLSS
+    if (device->getDeviceDriverId() != VK_DRIVER_ID_NVIDIA_PROPRIETARY) {
+        supersamplingModeNames.erase(supersamplingModeNames.begin() + int(DeferredRendererUpscaler::DLSS));
+    } else {
+        supportedUpscalers.push_back(DeferredRendererUpscaler::DLSS);
+    }
+#endif
+#ifdef SUPPORT_XESS
+    supportedUpscalers.push_back(DeferredRendererUpscaler::XESS);
+#endif
 
     // Needs gl_DrawIDARB via shaderDrawParameters in the shader to get the indirect draw call-corrected gl_PrimitiveID.
     supportsDrawIndirect =
@@ -128,9 +141,25 @@ void DeferredRenderer::initialize() {
     visibilityCullingUniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
             renderer->getDevice(), sizeof(VisibilityCullingUniformData),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    motionVectorPassUniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            renderer->getDevice(), sizeof(VisibilityCullingUniformData),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    sgl::vk::ImageSettings imageSettings = (*sceneData->sceneTexture)->getImage()->getImageSettings();
+    imageSettings.width = 1;
+    imageSettings.height = 1;
+    imageSettings.format = VK_FORMAT_R32_SFLOAT;
+    imageSettings.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    exposureImage = std::make_shared<sgl::vk::ImageView>(
+            std::make_shared<sgl::vk::Image>(renderer->getDevice(), imageSettings), VK_IMAGE_ASPECT_COLOR_BIT);
+    float exposureVal = 1.0f;
+    exposureImage->getImage()->uploadData(sizeof(float), &exposureVal);
 
     deferredResolvePass = std::make_shared<DeferredResolvePass>(this);
     deferredResolvePass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    motionVectorResolvePass = std::make_shared<MotionVectorResolvePass>(this);
+    motionVectorResolvePass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     downsampleBlitPass = std::make_shared<DownsampleBlitPass>(renderer);
 
@@ -155,11 +184,13 @@ void DeferredRenderer::reloadShaders() {
 }
 
 void DeferredRenderer::reloadResolveShader() {
+    resetTemporalAccumulation();
     deferredResolvePass->setShaderDirty();
 }
 
 void DeferredRenderer::reloadGatherShader() {
     LineRenderer::reloadGatherShader();
+    resetTemporalAccumulation();
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
         visibilityBufferDrawIndexedPass->setShaderDirty();
     } else if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
@@ -205,8 +236,53 @@ void DeferredRenderer::reloadGatherShader() {
     deferredResolvePass->setShaderDirty();
 }
 
-void DeferredRenderer::updateRenderingMode() {
+void DeferredRenderer::createJitteredSamples() {
+    if (!colorRenderTargetImage) {
+        return;
+    }
+    sgl::vk::ImageSettings imageSettingsRender = colorRenderTargetImage->getImage()->getImageSettings();
+    sgl::vk::ImageSettings imageSettingsDisplay = (*sceneData->sceneTexture)->getImage()->getImageSettings();
+    computeJitteredSamples(
+            jitteredSamples,
+            imageSettingsRender.width, imageSettingsRender.height,
+            imageSettingsDisplay.width, imageSettingsDisplay.height);
+}
+
+void DeferredRenderer::resetTemporalAccumulation() {
     frameNumber = 0;
+    jitteredSamplesOffset = 0;
+    accumulatedFramesCounter = 0;
+    if (upscaler) {
+        upscaler->resetAccum();
+    }
+}
+
+bool DeferredRenderer::needsReRender() {
+    bool reRender = LineRenderer::needsReRender();
+    if (upscaler && accumulatedFramesCounter < static_cast<uint32_t>(jitteredSamples.size())) {
+        reRender = true;
+    }
+    return reRender;
+}
+
+void DeferredRenderer::notifyReRenderTriggeredExternally() {
+    internalReRender = false;
+    //accumulatedFramesCounter = 0;
+    resetTemporalAccumulation();
+}
+
+void DeferredRenderer::onHasMoved() {
+    LineRenderer::onHasMoved();
+    accumulatedFramesCounter = 0;
+}
+
+void DeferredRenderer::onHasMovedLargeAmount() {
+    LineRenderer::onHasMovedLargeAmount();
+    resetTemporalAccumulation();
+}
+
+void DeferredRenderer::updateRenderingMode() {
+    resetTemporalAccumulation();
     visibilityBufferDrawIndexedPass = {};
     visibilityBufferPrefixSumScanPass = {};
     nodesBVHClearQueuePass = {};
@@ -371,6 +447,7 @@ void DeferredRenderer::updateRenderingMode() {
 }
 
 void DeferredRenderer::updateGeometryMode() {
+    resetTemporalAccumulation();
     deferredResolvePass->setDrawIndexedGeometryMode(
             deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED
             ? drawIndexedGeometryMode : DrawIndexedGeometryMode::TRIANGLES);
@@ -380,6 +457,7 @@ void DeferredRenderer::updateGeometryMode() {
 }
 
 void DeferredRenderer::updateDrawIndirectReductionMode() {
+    resetTemporalAccumulation();
     for (int i = 0; i < 2; i++) {
         meshletDrawCountNoReductionPasses[i] = {};
         meshletDrawCountAtomicPasses[i] = {};
@@ -438,6 +516,7 @@ void DeferredRenderer::updateDrawIndirectReductionMode() {
 }
 
 void DeferredRenderer::updateTaskMeshShaderMode() {
+    resetTemporalAccumulation();
     if (useMeshShaderNV) {
         taskMeshShaderMaxNumPrimitivesSupported = taskMeshShaderMaxNumPrimitivesSupportedNV;
         taskMeshShaderMaxNumVerticesSupported = taskMeshShaderMaxNumVerticesSupportedNV;
@@ -536,6 +615,7 @@ void DeferredRenderer::setVisibilityBufferPrefixSumScanPassInput() {
 
 void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
+    resetTemporalAccumulation();
 
     bool isDataEmpty = true;
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
@@ -644,12 +724,14 @@ void DeferredRenderer::setGraphicsPipelineInfo(
 void DeferredRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& renderData) {
     LineRenderer::setRenderDataBindings(renderData);
 
+    bool isMotionVectorPass = renderData->getShaderStages()->getHasModuleId(
+            "MotionVectorPass.Fragment");
     bool isDeferredShadingTriangle = renderData->getShaderStages()->getHasModuleId(
-            "DeferredShading.Fragment");
+        "DeferredShading.Fragment");
     bool isDeferredShadingProgrammablePull = renderData->getShaderStages()->getHasModuleId(
             "DeferredShading.Fragment.ProgrammablePull");
     bool isDeferredShading = isDeferredShadingTriangle || isDeferredShadingProgrammablePull;
-    if (isDeferredShading) {
+    if (isDeferredShading || isMotionVectorPass) {
         lineData->setVulkanRenderDataDescriptors(renderData);
     }
     if (isDeferredShadingTriangle) {
@@ -698,9 +780,12 @@ void DeferredRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& rende
             }
         }
     }
-    if (isDeferredShading) {
+    if (isDeferredShading || isMotionVectorPass) {
         renderData->setStaticTexture(primitiveIndexTexture, "primitiveIndexBuffer");
         renderData->setStaticTexture(depthMipLevelTextures.at(0), "depthBuffer");
+    }
+    if (isMotionVectorPass) {
+        renderData->setStaticBuffer(motionVectorPassUniformDataBuffer, "LastFrameUniformData");
     }
 }
 
@@ -744,13 +829,19 @@ void DeferredRenderer::setFramebufferAttachments(sgl::vk::FramebufferPtr& frameb
                 depthRenderTargetImagePingPong[(framebufferModeIndex + 1) % 2],
                 depthAttachmentState, 1.0f);
     } else if (framebufferMode == FramebufferMode::DEFERRED_RESOLVE_PASS) {
-        // Deferred pass.
+        // Deferred resolve pass.
         sgl::vk::AttachmentState colorAttachmentState;
-        colorAttachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; // TODO: VK_ATTACHMENT_LOAD_OP_CLEAR?
+        colorAttachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         colorAttachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         framebuffer->setColorAttachment(
                 colorRenderTargetImage, 0, colorAttachmentState,
                 sceneData->clearColor->getFloatColorRGBA());
+    } else if (framebufferMode == FramebufferMode::MOTION_VECTOR_RESOLVE_PASS) {
+        // Motion vector resolve pass.
+        sgl::vk::AttachmentState colorAttachmentState;
+        colorAttachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        framebuffer->setColorAttachment(motionVectorRenderTargetImage, 0, colorAttachmentState, glm::vec4(0.0f));
     } else if (framebufferMode == FramebufferMode::HULL_RASTER_PASS) {
         // Hull pass.
         sgl::vk::AttachmentState colorAttachmentState;
@@ -793,6 +884,10 @@ void DeferredRenderer::setFramebufferAttachments(sgl::vk::FramebufferPtr& frameb
 
 void DeferredRenderer::onResolutionChanged() {
     LineRenderer::onResolutionChanged();
+    resetTemporalAccumulation();
+    if (upscaler) {
+        createJitteredSamples();
+    }
 
     sgl::vk::Device* device = renderer->getDevice();
     auto scalingFactor = uint32_t(getResolutionIntegerScalingFactor());
@@ -946,6 +1041,18 @@ void DeferredRenderer::onResolutionChanged() {
     deferredResolvePass->setOutputImage(colorRenderTargetImage);
     deferredResolvePass->recreateSwapchain(renderWidth, renderHeight);
 
+    if (supersamplingMode >= 2) {
+        framebufferMode = FramebufferMode::MOTION_VECTOR_RESOLVE_PASS;
+        imageSettings.format = VK_FORMAT_R32G32_SFLOAT;
+        imageSettings.usage =
+                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+        imageSettings.mipLevels = 1;
+        motionVectorRenderTargetImage = std::make_shared<sgl::vk::ImageView>(
+                std::make_shared<sgl::vk::Image>(device, imageSettings), VK_IMAGE_ASPECT_COLOR_BIT);
+        motionVectorResolvePass->setOutputImage(motionVectorRenderTargetImage);
+        motionVectorResolvePass->recreateSwapchain(renderWidth, renderHeight);
+    }
+
     if (hullRasterPass) {
         framebufferMode = FramebufferMode::HULL_RASTER_PASS;
         hullRasterPass->recreateSwapchain(renderWidth, renderHeight);
@@ -954,8 +1061,6 @@ void DeferredRenderer::onResolutionChanged() {
     framebufferMode = FramebufferMode::NODE_AABB_PASS;
     visualizeNodesPass->setViewportScaleFactor(supersamplingMode == 0 ? 1 : int(scalingFactor));
     visualizeNodesPass->recreateSwapchain(renderWidth, renderHeight);
-
-    frameNumber = 0;
 
     if (recomputeIsEmptyOnResolutionChanged) {
         bool isDataEmpty = true;
@@ -991,6 +1096,7 @@ void DeferredRenderer::onResolutionChanged() {
 }
 
 void DeferredRenderer::onResolutionChangedDeferredRenderingMode() {
+    resetTemporalAccumulation();
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
         framebufferMode = FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_PASS;
         visibilityBufferDrawIndexedPass->recreateSwapchain(renderWidth, renderHeight);
@@ -1048,11 +1154,40 @@ void DeferredRenderer::onResolutionChangedDeferredRenderingMode() {
 }
 
 void DeferredRenderer::onClearColorChanged() {
+    resetTemporalAccumulation();
     deferredResolvePass->setAttachmentClearColor(sceneData->clearColor->getFloatColorRGBA());
     if (hullRasterPass && !hullRasterPass->getIsDataEmpty()) {
         framebufferMode = FramebufferMode::HULL_RASTER_PASS;
         hullRasterPass->updateFramebuffer();
     }
+}
+
+void DeferredRenderer::onSupersamplingModeChanged() {
+    upscaler = {};
+    if (supersamplingMode > 1) {
+        UpscalerType upscalerType = UpscalerType::INVALID;
+        DeferredRendererUpscaler deferredRendererUpscaler = supportedUpscalers.at(supersamplingMode - 2);
+#ifdef SUPPORT_DLSS
+        if (deferredRendererUpscaler == DeferredRendererUpscaler::DLSS) {
+            upscalerType = UpscalerType::DLSS;
+        }
+#endif
+#ifdef SUPPORT_XESS
+        if (deferredRendererUpscaler == DeferredRendererUpscaler::XESS) {
+            upscalerType = UpscalerType::XESS;
+        }
+#endif
+        upscaler = std::shared_ptr<Upscaler>(createNewUpscaler(upscalerType));
+        if (!upscaler->initialize(renderer->getDevice())) {
+            upscaler = {};
+            supersamplingMode = 0;
+            return;
+        }
+        upscaler->setUseAntiAliasingMode();
+        upscaler->setUseJitteredMotionVectors(true);
+        createJitteredSamples();
+    }
+    resetTemporalAccumulation();
 }
 
 void DeferredRenderer::setUniformData() {
@@ -1100,10 +1235,38 @@ void DeferredRenderer::render() {
     if (isDataEmpty) {
         renderDataEmpty();
     } else {
+        glm::mat4 viewMatrix = sceneData->camera->getViewMatrix();
+        glm::mat4 projectionMatrix = sceneData->camera->getProjectionMatrix();
+        if (upscaler) {
+            const glm::vec2& jitteredSample = jitteredSamples.at(jitteredSamplesOffset);
+            glm::mat4 jitterMatrix = computeJitterSampleMatrix(jitteredSample, renderWidth, renderHeight);
+            projectionMatrix = jitterMatrix * projectionMatrix;
+
+            /*
+             * Overwrite matrices.
+             * - Visibility buffer passes use "mvpMatrix".
+             * - DeferredShading.glsl uses projectionMatrix / inverseProjectionMatrix from LineUniformDataBuffer.
+             *   These entries are set by LineData::updateVulkanUniformBuffers
+             */
+            renderer->setProjectionMatrix(projectionMatrix);
+            overwriteCameraMatrices(viewMatrix, projectionMatrix);
+            lineData->updateVulkanUniformBuffers(this, renderer);
+            renderer->insertMemoryBarrier(
+                    VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT,
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+        }
+
+        // If this is the first frame: Just use the matrices of this frame.
+        if (frameNumber == 0) {
+            lastFrameViewMatrix = viewMatrix;
+            lastFrameProjectionMatrix = projectionMatrix;
+        }
+
         if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
             renderDrawIndexed();
         } else {
-            // If this is the first frame: Just clear the depth image and use the matrices of this frame.
+            // If this is the first frame: Just clear the depth image.
             if (frameNumber == 0) {
                 renderer->insertImageMemoryBarrier(
                         depthBufferTexturePingPong[0]->getImageView(),
@@ -1112,8 +1275,6 @@ void DeferredRenderer::render() {
                         VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_WRITE_BIT);
                 depthBufferTexturePingPong[0]->getImageView()->clearDepthStencil(
                         1.0f, 0, renderer->getVkCommandBuffer());
-                lastFrameViewMatrix = sceneData->camera->getViewMatrix();
-                lastFrameProjectionMatrix = sceneData->camera->getProjectionMatrix();
             }
 
             if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
@@ -1224,8 +1385,7 @@ void DeferredRenderer::render() {
             }
 
             // Set new MVP matrix as uniform.
-            visibilityCullingUniformData.modelViewProjectionMatrix =
-                    sceneData->camera->getProjectionMatrix() * sceneData->camera->getViewMatrix();
+            visibilityCullingUniformData.modelViewProjectionMatrix = projectionMatrix * viewMatrix;
             visibilityCullingUniformDataBuffer->updateData(
                     sizeof(VisibilityCullingUniformData), &visibilityCullingUniformData,
                     renderer->getVkCommandBuffer());
@@ -1251,11 +1411,22 @@ void DeferredRenderer::render() {
             if ((*sceneData->performanceMeasurer)) {
                 timer->endGPU("DeferredHZB" + std::to_string(1));
             }
-
-            lastFrameViewMatrix = sceneData->camera->getViewMatrix();
-            lastFrameProjectionMatrix = sceneData->camera->getProjectionMatrix();
         }
         deferredResolvePass->render();
+
+        if (supersamplingMode > 1) {
+            glm::mat4 lastFrameViewProjectionMatrix = lastFrameProjectionMatrix * lastFrameViewMatrix;
+            motionVectorPassUniformDataBuffer->updateData(
+                    sizeof(glm::mat4), &lastFrameViewProjectionMatrix, renderer->getVkCommandBuffer());
+            renderer->insertBufferMemoryBarrier(
+                    VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                    motionVectorPassUniformDataBuffer);
+            motionVectorResolvePass->render();
+        }
+
+        lastFrameViewMatrix = viewMatrix;
+        lastFrameProjectionMatrix = projectionMatrix;
 
         if (shallVisualizeNodes && deferredRenderingMode != DeferredRenderingMode::DRAW_INDEXED) {
             sgl::vk::BufferPtr nodeAabbBuffer;
@@ -1309,13 +1480,31 @@ void DeferredRenderer::render() {
         hullRasterPass->render();
     }
 
-    if (supersamplingMode != 0) {
+    if (supersamplingMode == 1) {
         renderer->transitionImageLayout(
                 colorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         downsampleBlitPass->render();
+    } else if (supersamplingMode > 1) {
+        renderer->transitionImageLayout(
+                motionVectorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        renderer->transitionImageLayout(
+                 (*sceneData->sceneTexture)->getImageView()->getImage(), VK_IMAGE_LAYOUT_GENERAL);
+        const glm::vec2& jitteredSample = jitteredSamples.at(jitteredSamplesOffset);
+        upscaler->setJitterOffset(jitteredSample.x, jitteredSample.y);
+        upscaler->apply(
+                colorRenderTargetImage, (*sceneData->sceneTexture)->getImageView(),
+                depthRenderTargetImage, motionVectorRenderTargetImage, exposureImage,
+                renderer->getVkCommandBuffer());
+        jitteredSamplesOffset = (jitteredSamplesOffset + 1) % static_cast<uint32_t>(jitteredSamples.size());
+        accumulatedFramesCounter++;
     }
 
     frameNumber++;
+
+    if (!isDataEmpty && upscaler) {
+        renderer->setProjectionMatrix(sceneData->camera->getProjectionMatrix());
+        disableOverwriteCameraMatrices();
+    }
 }
 
 void DeferredRenderer::renderDataEmpty() {
@@ -1341,6 +1530,18 @@ void DeferredRenderer::renderDataEmpty() {
     //        depthRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     depthRenderTargetImage->clearDepthStencil(
             1.0f, 0, renderer->getVkCommandBuffer());
+
+    if (upscaler) {
+        renderer->insertImageMemoryBarrier(
+                motionVectorRenderTargetImage->getImage(),
+                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_WRITE_BIT);
+        motionVectorRenderTargetImage->clearColor(
+                glm::vec4(0.0f), renderer->getVkCommandBuffer());
+        renderer->transitionImageLayout(
+                motionVectorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    }
 }
 
 void DeferredRenderer::renderDrawIndexed() {
@@ -1488,6 +1689,7 @@ void DeferredRenderer::renderComputeHZB(int passIndex) {
 }
 
 void DeferredRenderer::updateWritePackedPrimitives() {
+    resetTemporalAccumulation();
     if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         for (int i = 0; i < 2; i++) {
             if (meshletTaskMeshPasses[i]) {
@@ -1519,6 +1721,7 @@ void DeferredRenderer::updateWritePackedPrimitives() {
 }
 
 void DeferredRenderer::updateBvhBuildAlgorithm() {
+    resetTemporalAccumulation();
     if (!getIsBvhRenderingMode()) {
         return;
     }
@@ -1539,6 +1742,7 @@ void DeferredRenderer::updateBvhBuildAlgorithm() {
 }
 
 void DeferredRenderer::updateBvhBuildGeometryMode() {
+    resetTemporalAccumulation();
     if (!getIsBvhRenderingMode()) {
         return;
     }
@@ -1559,6 +1763,7 @@ void DeferredRenderer::updateBvhBuildGeometryMode() {
 }
 
 void DeferredRenderer::updateBvhBuildPrimitiveCenterMode() {
+    resetTemporalAccumulation();
     if (!getIsBvhRenderingMode()) {
         return;
     }
@@ -1580,6 +1785,7 @@ void DeferredRenderer::updateBvhBuildPrimitiveCenterMode() {
 }
 
 void DeferredRenderer::updateUseStdBvhParameters() {
+    resetTemporalAccumulation();
     if (!getIsBvhRenderingMode()) {
         return;
     }
@@ -1600,6 +1806,7 @@ void DeferredRenderer::updateUseStdBvhParameters() {
 }
 
 void DeferredRenderer::updateMaxLeafSizeBvh() {
+    resetTemporalAccumulation();
     if (!getIsBvhRenderingMode()) {
         return;
     }
@@ -1620,6 +1827,7 @@ void DeferredRenderer::updateMaxLeafSizeBvh() {
 }
 
 void DeferredRenderer::updateMaxTreeDepthBvh() {
+    resetTemporalAccumulation();
     if (!getIsBvhRenderingMode()) {
         return;
     }
@@ -1640,6 +1848,7 @@ void DeferredRenderer::updateMaxTreeDepthBvh() {
 }
 
 void DeferredRenderer::updateShallVisualizeNodes() {
+    resetTemporalAccumulation();
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
         for (int i = 0; i < 2; i++) {
             visibilityBufferDrawIndexedIndirectPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
@@ -1705,9 +1914,10 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
 
     if (propertyEditor.addCombo(
             "Supersampling", &supersamplingMode,
-            supersamplingModeNames, IM_ARRAYSIZE(supersamplingModeNames))) {
+            supersamplingModeNames.data(), int(supersamplingModeNames.size()))) {
         renderer->getDevice()->waitIdle();
         onResolutionChanged();
+        onSupersamplingModeChanged();
         reRender = true;
     }
 
@@ -2073,12 +2283,14 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
 
     int supersamplingFactor = 1;
     if (newState.rendererSettings.getValueOpt("supersampling", supersamplingFactor)) {
-        for (int i = 0; i < IM_ARRAYSIZE(supersamplingModeNames); i++) {
-            if (std::to_string(supersamplingFactor) + "x" == supersamplingModeNames[i]) {
+        for (int i = 0; i < int(supersamplingModeNames.size()); i++) {
+            if ((i <= 1 && std::to_string(supersamplingFactor) + "x" == supersamplingModeNames[i])
+                    || (i >= 2 && supersamplingModeNames.at(i) == supersamplingModeNames[i])) {
                 supersamplingMode = i;
                 if ((*sceneData->sceneTexture)) {
                     onResolutionChanged();
                 }
+                onSupersamplingModeChanged();
                 reRender = true;
                 break;
             }
@@ -2306,12 +2518,14 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
 
     int supersamplingFactor = 1;
     if (settings.getValueOpt("supersampling", supersamplingFactor)) {
-        for (int i = 0; i < IM_ARRAYSIZE(supersamplingModeNames); i++) {
-            if (std::to_string(supersamplingFactor) + "x" == supersamplingModeNames[i]) {
+        for (int i = 0; i < int(supersamplingModeNames.size()); i++) {
+            if ((i <= 1 && std::to_string(supersamplingFactor) + "x" == supersamplingModeNames[i])
+                    || (i >= 2 && supersamplingModeNames.at(i) == supersamplingModeNames[i])) {
                 supersamplingMode = i;
                 if ((*sceneData->sceneTexture)) {
                     onResolutionChanged();
                 }
+                onSupersamplingModeChanged();
                 reRender = true;
                 break;
             }
@@ -2543,6 +2757,21 @@ void DeferredResolvePass::loadShader() {
         shaderModuleNames = { "DeferredShading.Vertex", "DeferredShading.Fragment.ProgrammablePull" };
     }
 
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(
+            shaderModuleNames, preprocessorDefines);
+}
+
+
+
+MotionVectorResolvePass::MotionVectorResolvePass(LineRenderer* lineRenderer) : ResolvePass(lineRenderer) {}
+
+void MotionVectorResolvePass::loadShader() {
+    std::map<std::string, std::string> preprocessorDefines;
+    lineRenderer->getLineData()->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
+    preprocessorDefines.insert(std::make_pair("RESOLVE_PASS", ""));
+
+    std::vector<std::string> shaderModuleNames = { "MotionVectorPass.Vertex", "MotionVectorPass.Fragment" };
     shaderStages = sgl::vk::ShaderManager->getShaderStages(
             shaderModuleNames, preprocessorDefines);
 }

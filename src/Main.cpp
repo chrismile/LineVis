@@ -41,6 +41,13 @@
 #include "Renderers/Ospray/OsprayRenderer.hpp"
 #endif
 
+#ifdef SUPPORT_DLSS
+#include <Renderers/Upscaler/DLSS.hpp>
+#endif
+#ifdef SUPPORT_XESS
+#include <Renderers/Upscaler/XeSS.hpp>
+#endif
+
 #ifdef SUPPORT_D3D12
 #include <Graphics/D3D12/Utils/DXGIFactory.hpp>
 #include <Graphics/D3D12/Utils/Device.hpp>
@@ -127,6 +134,17 @@ int main(int argc, char *argv[]) {
     sgl::AppSettings::get()->setLoadGUI(fontRanges.Data, true, useMultiViewport);
 
     sgl::AppSettings::get()->setRenderSystem(sgl::RenderSystem::VULKAN);
+    std::vector<const char*> optionalInstanceExtensions;
+#ifdef SUPPORT_DLSS
+    getInstanceDlssSupportInfo(optionalInstanceExtensions);
+#endif
+#ifdef SUPPORT_XESS
+    uint32_t minVulkanApiVersionXess = 0; //< Currently unused.
+    getInstanceXessSupportInfo(minVulkanApiVersionXess, optionalInstanceExtensions);
+#endif
+#if defined(SUPPORT_DLSS) || defined(SUPPORT_XESS)
+    sgl::AppSettings::get()->setRequiredVulkanInstanceExtensions(optionalInstanceExtensions);
+#endif
     sgl::Window* window = sgl::AppSettings::get()->createWindow();
 
     std::vector<const char*> optionalDeviceExtensions;
@@ -161,6 +179,63 @@ int main(int argc, char *argv[]) {
 
     sgl::vk::Instance* instance = sgl::AppSettings::get()->getVulkanInstance();
     auto* device = new sgl::vk::Device;
+
+#if defined(SUPPORT_DLSS) || defined(SUPPORT_XESS)
+    auto physicalDeviceCheckCallback = [instance](
+            VkPhysicalDevice physicalDevice,
+            VkPhysicalDeviceProperties physicalDeviceProperties,
+            std::vector<const char*>& requiredDeviceExtensions,
+            std::vector<const char*>& optionalDeviceExtensions,
+            sgl::vk::DeviceFeatures& requestedDeviceFeatures) {
+        if (physicalDeviceProperties.apiVersion < VK_API_VERSION_1_1) {
+            return false;
+        }
+
+#ifdef SUPPORT_DLSS
+        VkPhysicalDeviceDriverProperties physicalDeviceDriverProperties{};
+        physicalDeviceDriverProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES;
+        if (physicalDeviceProperties.apiVersion >= VK_API_VERSION_1_2) {
+            VkPhysicalDeviceProperties2 deviceProperties2 = {};
+            deviceProperties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+            deviceProperties2.pNext = &physicalDeviceDriverProperties;
+            sgl::vk::getPhysicalDeviceProperties2(physicalDevice, deviceProperties2);
+        }
+
+        if (physicalDeviceDriverProperties.driverID == VK_DRIVER_ID_NVIDIA_PROPRIETARY) {
+            getPhysicalDeviceDlssSupportInfo(
+                    instance, physicalDevice, optionalDeviceExtensions, requestedDeviceFeatures);
+        }
+#endif
+#ifdef SUPPORT_XESS
+        getPhysicalDeviceXessSupportInfo(
+                instance, physicalDevice, optionalDeviceExtensions, requestedDeviceFeatures);
+#endif
+
+        if (physicalDeviceProperties.apiVersion >= VK_API_VERSION_1_2) {
+            bool needsDeviceAddressFeature = false;
+            for (size_t i = 0; i < optionalDeviceExtensions.size();) {
+                const char* extensionName = optionalDeviceExtensions.at(i);
+                if (strcmp(extensionName, VK_EXT_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME) == 0) {
+                    optionalDeviceExtensions.erase(optionalDeviceExtensions.begin() + i);
+                    needsDeviceAddressFeature = true;
+                    continue;
+                }
+                if (strcmp(extensionName, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME) == 0) {
+                    optionalDeviceExtensions.erase(optionalDeviceExtensions.begin() + i);
+                    needsDeviceAddressFeature = true;
+                    continue;
+                }
+                i++;
+            }
+            if (needsDeviceAddressFeature) {
+                requestedDeviceFeatures.optionalVulkan12Features.bufferDeviceAddress = VK_TRUE;
+            }
+        }
+        return true;
+    };
+    device->setPhysicalDeviceCheckCallback(physicalDeviceCheckCallback);
+#endif
+
     sgl::vk::DeviceFeatures requestedDeviceFeatures{};
     requestedDeviceFeatures.optionalPhysicalDeviceFeatures.geometryShader = VK_TRUE; // For a rasterizer mode.
     requestedDeviceFeatures.optionalPhysicalDeviceFeatures.sampleRateShading = VK_TRUE; // For OpaqueLineRenderer.
@@ -181,6 +256,12 @@ int main(int argc, char *argv[]) {
     requestedDeviceFeatures.optionalVulkan12Features.descriptorBindingVariableDescriptorCount = VK_TRUE;
     requestedDeviceFeatures.optionalVulkan12Features.runtimeDescriptorArray = VK_TRUE;
     requestedDeviceFeatures.optionalVulkan12Features.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
+#ifdef SUPPORT_XESS
+    // TODO: Check if necessary / what covered by getPhysicalDeviceXessSupportInfo.
+    requestedDeviceFeatures.optionalPhysicalDeviceFeatures.shaderStorageImageReadWithoutFormat = VK_TRUE;
+    requestedDeviceFeatures.optionalVulkan13Features.shaderIntegerDotProduct = VK_TRUE;
+    optionalDeviceExtensions.push_back(VK_EXT_MUTABLE_DESCRIPTOR_TYPE_EXTENSION_NAME);
+#endif
     device->setAppWantsMultithreadedRendering();
     device->setUseAppDeviceSelector();
     device->createDeviceSwapchain(

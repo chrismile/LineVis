@@ -47,6 +47,13 @@ void main() {
 in vec4 gl_FragCoord;
 layout(location = 0) out vec4 fragColor;
 
+#ifdef GENERATE_MOTION_VECTORS
+layout(location = 1) out vec2 motionVectorsOut;
+layout(binding = 3) uniform LastFrameUniformData {
+    mat4 lastFrameViewProjectionMatrix;
+};
+#endif
+
 #define DEFERRED_SHADING
 #ifndef FRAGMENT_SHADER
 #define FRAGMENT_SHADER
@@ -87,6 +94,9 @@ void main() {
     // Clear value of primitive index, i.e., no primitive maps to this pixel?
     if (primitiveIndex == 0xFFFFFFFFu) {
         fragColor = backgroundColor;
+#ifdef GENERATE_MOTION_VECTORS
+        motionVectorsOut = vec2(0.0);
+#endif
         return;
     }
 
@@ -113,6 +123,13 @@ void main() {
 
     const vec3 barycentricCoordinates = vec3(u, v, 1.0 - u - v);
 
+#ifdef GENERATE_MOTION_VECTORS
+    vec4 lastFramePositionNdc = lastFrameViewProjectionMatrix * vec4(fragmentPositionWorld, 1.0);
+    lastFramePositionNdc.xyz /= lastFramePositionNdc.w;
+    vec2 pixelPositionLastFrame = (0.5 * lastFramePositionNdc.xy + vec2(0.5)) * vec2(viewportSize);
+    motionVectorsOut = gl_FragCoord.xy - pixelPositionLastFrame;
+#endif
+
 #include "LineAttributesBarycentric.glsl"
 }
 
@@ -126,6 +143,13 @@ void main() {
 
 in vec4 gl_FragCoord;
 layout(location = 0) out vec4 fragColor;
+
+#ifdef GENERATE_MOTION_VECTORS
+layout(location = 1) out vec2 motionVectorsOut;
+layout(binding = 3) uniform LastFrameUniformData {
+    mat4 lastFrameViewProjectionMatrix;
+};
+#endif
 
 #define DEFERRED_SHADING
 #ifndef FRAGMENT_SHADER
@@ -282,6 +306,9 @@ void main() {
     // Clear value of primitive index, i.e., no primitive maps to this pixel?
     if (primitiveIndex == 0xFFFFFFFFu) {
         fragColor = backgroundColor;
+#ifdef GENERATE_MOTION_VECTORS
+        motionVectorsOut = vec2(0.0);
+#endif
         return;
     }
 
@@ -348,6 +375,13 @@ void main() {
     float v = length(cross(fragmentPositionWorld - vertexData0.vertexPosition, d20)) / totalArea;
 
     const vec3 barycentricCoordinates = vec3(u, v, 1.0 - u - v);
+
+#ifdef GENERATE_MOTION_VECTORS
+    vec4 lastFramePositionNdc = lastFrameViewProjectionMatrix * vec4(fragmentPositionWorld, 1.0);
+    lastFramePositionNdc.xyz /= lastFramePositionNdc.w;
+    vec2 pixelPositionLastFrame = (0.5 * lastFramePositionNdc.xy + vec2(0.5)) * vec2(viewportSize);
+    motionVectorsOut = gl_FragCoord.xy - pixelPositionLastFrame;
+#endif
 
 #include "LineAttributesBarycentric.glsl"
 }

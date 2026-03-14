@@ -134,6 +134,8 @@ public:
 
     /// Called when the camera has moved.
     virtual void onHasMoved();
+    /// Called when the camera has moved.
+    virtual void onHasMovedLargeAmount();
     /// If the re-rendering was triggered from an outside source, frame accumulation cannot be used.
     virtual void notifyReRenderTriggeredExternally() { internalReRender = false; }
     /**
@@ -252,6 +254,13 @@ protected:
     float ambientOcclusionGamma = 1.0f;
     bool ambientOcclusionBuffersDirty = false;
     bool ambientOcclusionTexturesDirty = false;
+
+    // Camera matrices overwrite for jittered sampling in upscalers.
+    void overwriteCameraMatrices(glm::mat4& viewMatrix, glm::mat4& projectionMatrix);
+    bool getOverwrittenCameraMatrices(glm::mat4& viewMatrix, glm::mat4& projectionMatrix);
+    void disableOverwriteCameraMatrices(); ///< Reset overwrite.
+    bool cameraMatricesOverwritten = false;
+    glm::mat4 viewMatrixOverwrite{}, projectionMatrixOverwrite{};
 
     // Minimum and maximum values in the UI.
     static constexpr float MIN_LINE_WIDTH = 0.001f;

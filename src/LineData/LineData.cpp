@@ -1179,10 +1179,12 @@ void LineData::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::R
         glm::vec4 foregroundColor = glm::vec4(1.0f) - backgroundColor;
         lineUniformData.cameraPosition = sceneData->camera->getPosition();
         lineUniformData.fieldOfViewY = sceneData->camera->getFOVy();
-        lineUniformData.viewMatrix = sceneData->camera->getViewMatrix();
-        lineUniformData.projectionMatrix = sceneData->camera->getProjectionMatrix();
-        lineUniformData.inverseViewMatrix = glm::inverse(sceneData->camera->getViewMatrix());
-        lineUniformData.inverseProjectionMatrix = glm::inverse(sceneData->camera->getProjectionMatrix());
+        if (!lineRenderer->getOverwrittenCameraMatrices(lineUniformData.viewMatrix, lineUniformData.projectionMatrix)) {
+            lineUniformData.viewMatrix = sceneData->camera->getViewMatrix();
+            lineUniformData.projectionMatrix = sceneData->camera->getProjectionMatrix();
+        }
+        lineUniformData.inverseViewMatrix = glm::inverse(lineUniformData.viewMatrix);
+        lineUniformData.inverseProjectionMatrix = glm::inverse(lineUniformData.projectionMatrix);
         lineUniformData.backgroundColor = backgroundColor;
         lineUniformData.foregroundColor = foregroundColor;
     }

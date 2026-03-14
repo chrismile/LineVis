@@ -265,6 +265,22 @@ if (NOT ${SUPPORT_PYTORCH_DENOISER} OR NOT Torch_FOUND)
     list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Scattering/Denoiser/PyTorchDenoiser.cpp)
 endif()
 
+set(USE_DLSS OFF)
+if(IS_DIRECTORY "${CMAKE_SOURCE_DIR}/third_party/DLSS")
+    set(USE_DLSS ON)
+else()
+    list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Upscaler/DLSS.hpp)
+    list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Upscaler/DLSS.cpp)
+endif()
+
+set(USE_XESS OFF)
+if(WIN32 AND IS_DIRECTORY "${CMAKE_SOURCE_DIR}/third_party/xess")
+    set(USE_XESS ON)
+else()
+    list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Upscaler/XeSS.hpp)
+    list(REMOVE_ITEM SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/Renderers/Upscaler/XeSS.cpp)
+endif()
+
 
 if(WIN32)
     add_executable(LineVis WIN32 ${SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/CMake/winres.rc)
@@ -614,6 +630,76 @@ if (SUPPORT_OPENEXR)
     if (USE_GTEST)
         target_compile_definitions(LineVis_test PRIVATE SUPPORT_OPENEXR)
     endif()
+endif()
+
+if (${USE_DLSS})
+    if (UNIX AND NOT APPLE)
+        file(GLOB DLSS_LIBRARY_DEBUG ${CMAKE_SOURCE_DIR}/third_party/DLSS/lib/Linux_x86_64/dev/libnvidia-ngx-dlss.*)
+        file(GLOB DLSS_LIBRARY_RELEASE ${CMAKE_SOURCE_DIR}/third_party/DLSS/lib/Linux_x86_64/rel/libnvidia-ngx-dlss.*)
+    elseif(WIN32)
+        file(GLOB DLSS_LIBRARY_DEBUG ${CMAKE_SOURCE_DIR}/third_party/DLSS/lib/Windows_x86_64/dev/nvngx_dlss.dll)
+        file(GLOB DLSS_LIBRARY_RELEASE ${CMAKE_SOURCE_DIR}/third_party/DLSS/lib/Windows_x86_64/rel/nvngx_dlss.dll)
+    endif()
+    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(DLSS_LIBRARY ${DLSS_LIBRARY_DEBUG})
+    else()
+        set(DLSS_LIBRARY ${DLSS_LIBRARY_RELEASE})
+    endif()
+    add_library(DLSS STATIC IMPORTED GLOBAL)
+    if (UNIX AND NOT APPLE)
+        set_target_properties(DLSS PROPERTIES
+                IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/third_party/DLSS/lib/Linux_x86_64/libnvsdk_ngx.a"
+                INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/third_party/DLSS/include"
+        )
+    elseif(WIN32)
+        # /MT (static) or /MD (dynamic); see: https://stackoverflow.com/questions/14172856/compile-with-mt-instead-of-md-using-cmake
+        set(MSVC_RUNTIME_LIBRARY_STATIC 0)
+        if(${MSVC_RUNTIME_LIBRARY_STATIC})
+            #set_target_properties(sgl PROPERTIES
+            #        MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>
+            #)
+            #set_target_properties(LineVis PROPERTIES
+            #        MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>
+            #)
+            set(DLSS_STATIC_LIBRARY_DEBUG "${CMAKE_SOURCE_DIR}/third_party/DLSS/lib/Windows_x86_64/x64/nvsdk_ngx_s_dbg.lib")
+            set(DLSS_STATIC_LIBRARY_RELEASE "${CMAKE_SOURCE_DIR}/third_party/DLSS/lib/Windows_x86_64/x64/nvsdk_ngx_s.lib")
+        else()
+            #set_target_properties(sgl PROPERTIES
+            #        MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>DLL
+            #)
+            #set_target_properties(LineVis PROPERTIES
+            #        MSVC_RUNTIME_LIBRARY MultiThreaded$<$<CONFIG:Debug>:Debug>DLL
+            #)
+            set(DLSS_STATIC_LIBRARY_DEBUG "${CMAKE_SOURCE_DIR}/third_party/DLSS/lib/Windows_x86_64/x64/nvsdk_ngx_d_dbg.lib")
+            set(DLSS_STATIC_LIBRARY_RELEASE "${CMAKE_SOURCE_DIR}/third_party/DLSS/lib/Windows_x86_64/x64/nvsdk_ngx_d.lib")
+        endif()
+        set_target_properties(DLSS PROPERTIES
+                IMPORTED_LOCATION "${DLSS_STATIC_LIBRARY_DEBUG}"
+                IMPORTED_LOCATION_DEBUG "${DLSS_STATIC_LIBRARY_DEBUG}"
+                IMPORTED_LOCATION_RELEASE "${DLSS_STATIC_LIBRARY_RELEASE}"
+                INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/third_party/DLSS/include"
+        )
+    endif()
+    install(FILES ${DLSS_LIBRARY} DESTINATION bin)
+    target_link_libraries(LineVis PRIVATE DLSS)
+    target_compile_definitions(LineVis PRIVATE SUPPORT_DLSS)
+    add_custom_command(TARGET LineVis
+            POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${DLSS_LIBRARY}" "$<TARGET_FILE_DIR:LineVis>")
+endif()
+
+if (${USE_XESS})
+    file(GLOB XESS_LIBRARY ${CMAKE_SOURCE_DIR}/third_party/xess/bin/libxess.dll)
+    add_library(XESS STATIC IMPORTED GLOBAL)
+    set(XESS_STATIC_LIBRARY "${CMAKE_SOURCE_DIR}/third_party/xess/lib/libxess.lib")
+    set_target_properties(XESS PROPERTIES
+            IMPORTED_LOCATION "${XESS_STATIC_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/third_party/xess/inc"
+    )
+    install(FILES ${XESS_LIBRARY} DESTINATION bin)
+    target_link_libraries(LineVis PRIVATE XESS)
+    target_compile_definitions(LineVis PRIVATE SUPPORT_XESS)
+    add_custom_command(TARGET LineVis
+            POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${XESS_LIBRARY}" "$<TARGET_FILE_DIR:LineVis>")
 endif()
 
 if (${USE_TBB})

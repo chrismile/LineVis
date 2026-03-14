@@ -2127,6 +2127,13 @@ void MainApp::onCameraReset() {
             dataView->camera->setFOVy(camera->getFOVy());
             dataView->camera->setPosition(camera->getPosition());
             dataView->camera->resetLookAtLocation();
+            if (dataView->lineRenderer != nullptr && dataView->syncWithParentCamera) {
+                dataView->lineRenderer->onHasMovedLargeAmount();
+            }
+        }
+    } else {
+        if (lineRenderer != nullptr) {
+            lineRenderer->onHasMovedLargeAmount();
         }
     }
 }

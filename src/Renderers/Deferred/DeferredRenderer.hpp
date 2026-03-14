@@ -54,14 +54,29 @@ class ConvertMeshletCommandsBVHPass;
 class MeshletMeshBVHPass;
 // Resolve.
 class DeferredResolvePass;
+struct MotionVectorResolvePass;
 class DownsampleBlitPass;
 // Visualize the BVH hierarchy and meshlet bounds.
 class VisualizeNodesPass;
+
+// Upscalers.
+class Upscaler;
 
 namespace sgl { namespace vk {
 class Timer;
 typedef std::shared_ptr<Timer> TimerPtr;
 }}
+
+enum class DeferredRendererUpscaler {
+    X1,
+    X2,
+#ifdef SUPPORT_DLSS
+    DLSS,
+#endif
+#ifdef SUPPORT_XESS
+    XESS,
+#endif
+};
 
 class DeferredRenderer : public LineRenderer {
 public:
@@ -88,9 +103,18 @@ public:
 
     /// Called when the resolution of the application window has changed.
     void onResolutionChanged() override;
-
     /// Called when the background clear color was changed.
     void onClearColorChanged() override;
+    // Returns if the data needs to be re-rendered, but the visualization mapping is valid.
+    bool needsReRender() override;
+    // If the re-rendering was triggered from an outside source, frame accumulation cannot be used.
+    void notifyReRenderTriggeredExternally() override;
+    // Called when the camera has moved.
+    void onHasMoved() override;
+    void onHasMovedLargeAmount() override;
+
+    /// Called when the used supersampling mode has changed.
+    void onSupersamplingModeChanged();
 
     // Renders the object to the scene framebuffer.
     void render() override;
@@ -101,13 +125,20 @@ public:
     void setNewState(const InternalState& newState) override;
     bool setNewSettings(const SettingsMap& settings) override;
 
-    /// Returns the integer resolution scaling factor used internally by the renderer.
-    [[nodiscard]] int getResolutionIntegerScalingFactor() const override { return 1 << supersamplingMode; }
+    /// Returns the integer resolution scaling factor used internally by the renderer. TODO: Support more modes.
+    [[nodiscard]] int getResolutionIntegerScalingFactor() const override {
+        if (supersamplingMode == 1) {
+            return 2;
+        }
+        return 1;
+    }
 
 protected:
     void reloadShaders();
     void reloadGatherShader() override;
     void reloadResolveShader();
+    void createJitteredSamples();
+    void resetTemporalAccumulation();
     void updateRenderingMode();
     void updateGeometryMode();
     void updateDrawIndirectReductionMode();
@@ -150,6 +181,7 @@ protected:
     std::shared_ptr<MeshletMeshBVHPass> meshletMeshBVHPasses[2];
     // Resolve/further passes.
     std::shared_ptr<DeferredResolvePass> deferredResolvePass;
+    std::shared_ptr<MotionVectorResolvePass> motionVectorResolvePass;
     std::shared_ptr<DownsampleBlitPass> downsampleBlitPass;
     size_t frameNumber = 0; ///< The frame number is reset when the visualization mapping changes.
 
@@ -167,7 +199,7 @@ protected:
         // DeferredRenderingMode::TASK_MESH_SHADER
         VISIBILITY_BUFFER_TASK_MESH_SHADER_PASS,
         // Resolve/further passes.
-        DEFERRED_RESOLVE_PASS, HULL_RASTER_PASS, NODE_AABB_PASS
+        DEFERRED_RESOLVE_PASS, MOTION_VECTOR_RESOLVE_PASS, HULL_RASTER_PASS, NODE_AABB_PASS
     };
     int framebufferModeIndex = 0;
     FramebufferMode framebufferMode = FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_PASS;
@@ -182,6 +214,7 @@ protected:
     };
     VisibilityCullingUniformData visibilityCullingUniformData{};
     sgl::vk::BufferPtr visibilityCullingUniformDataBuffer;
+    sgl::vk::BufferPtr motionVectorPassUniformDataBuffer;
     glm::mat4 lastFrameViewMatrix{};
     glm::mat4 lastFrameProjectionMatrix{};
 
@@ -190,6 +223,9 @@ protected:
     sgl::vk::TexturePtr primitiveIndexTexture;
     sgl::vk::ImageViewPtr colorRenderTargetImage;
     sgl::vk::TexturePtr colorRenderTargetTexture;
+    // Used for upscalers.
+    sgl::vk::ImageViewPtr motionVectorRenderTargetImage;
+    sgl::vk::ImageViewPtr exposureImage;
 
     // Hierarchical z-buffer (Hi-Z buffer, HZB).
     std::vector<sgl::vk::ImageViewPtr> depthMipLevelImageViews;
@@ -268,13 +304,27 @@ protected:
     bool useMeshShaderWritePackedPrimitiveIndicesIfAvailable = true; ///< Sub-mode for VK_NV_mesh_shader.
 
     // Supersampling modes.
-    const char* supersamplingModeNames[2] = {
+    std::shared_ptr<Upscaler> upscaler{};
+    const std::vector<const char*> supersamplingModeNamesAll = {
             "1x",
             "2x",
+#ifdef SUPPORT_DLSS
+            "DLSS",
+#endif
+#ifdef SUPPORT_XESS
+            "XeSS",
+#endif
     };
+    std::vector<const char*> supersamplingModeNames;
+    std::vector<DeferredRendererUpscaler> supportedUpscalers;
     int supersamplingMode = 0;
     uint32_t renderWidth = 0, renderHeight = 0;
     uint32_t finalWidth = 0, finalHeight = 0;
+
+    // Multiple frames can be accumulated with the temporal upscalers to achieve a multisampling effect.
+    uint32_t jitteredSamplesOffset = 0;
+    uint32_t accumulatedFramesCounter = 0;
+    std::vector<glm::vec2> jitteredSamples;
 
     // Data for performance measurements.
     int frameCounter = 0;
@@ -296,6 +346,17 @@ protected:
 
 private:
     DrawIndexedGeometryMode geometryMode = DrawIndexedGeometryMode::TRIANGLES;
+};
+
+/**
+ * Called after all geometry has been rasterized to the visibility and depth buffer.
+ */
+class MotionVectorResolvePass : public ResolvePass {
+public:
+    explicit MotionVectorResolvePass(LineRenderer* lineRenderer);
+
+protected:
+    void loadShader() override;
 };
 
 /**

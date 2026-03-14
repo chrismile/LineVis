@@ -290,6 +290,9 @@ void LineRenderer::onHasMoved() {
     }
 }
 
+void LineRenderer::onHasMovedLargeAmount() {
+}
+
 void LineRenderer::showRayQueriesUnsupportedWarning() {
     std::string warningText = "Ray queries are not supported by the used GPU. Disabling ambient occlusion.";
     sgl::Logfile::get()->writeWarning(
@@ -801,4 +804,22 @@ void LineRenderer::getScreenSizeWithTiling(int& screenWidth, int& screenHeight) 
     if (screenHeight % tileHeight != 0) {
         screenHeight = (screenHeight / tileHeight + 1) * tileHeight;
     }
+}
+
+void LineRenderer::overwriteCameraMatrices(glm::mat4& viewMatrix, glm::mat4& projectionMatrix) {
+    cameraMatricesOverwritten = true;
+    viewMatrixOverwrite = viewMatrix;
+    projectionMatrixOverwrite = projectionMatrix;
+}
+
+bool LineRenderer::getOverwrittenCameraMatrices(glm::mat4& viewMatrix, glm::mat4& projectionMatrix) {
+    if (cameraMatricesOverwritten) {
+        viewMatrix = viewMatrixOverwrite;
+        projectionMatrix = projectionMatrixOverwrite;
+    }
+    return cameraMatricesOverwritten;
+}
+
+void LineRenderer::disableOverwriteCameraMatrices() {
+    cameraMatricesOverwritten = false;
 }
