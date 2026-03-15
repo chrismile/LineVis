@@ -124,6 +124,7 @@ void XessSupersampler::checkRecreateFeature(
     if (isInitialized) {
         return;
     }
+    isInitialized = true;
 
     xess_vk_init_params_t initParams{};
     initParams.outputResolution.x = colorImageOut->getImage()->getImageSettings().width;
@@ -137,7 +138,10 @@ void XessSupersampler::checkRecreateFeature(
     initParams.initFlags |= isHdr ? 0 : XESS_INIT_FLAG_LDR_INPUT_COLOR;
     initParams.initFlags |= isDepthInverted ? XESS_INIT_FLAG_INVERTED_DEPTH : 0;
     initParams.initFlags |= enableAutoExposure ? XESS_INIT_FLAG_ENABLE_AUTOEXPOSURE : 0;
-    xessVKInit(context, &initParams);
+    xess_result_t res = xessVKInit(context, &initParams);
+    if (res != XESS_RESULT_SUCCESS) {
+        sgl::Logfile::get()->throwError("xessVKInit failed.");
+    }
     // Currently unused: xessIsOptimalDriver, xessGetJitterScale, xessGetVelocityScale,
     // xessSetExposureMultiplier, xessSetMaxResponsiveMaskValue, xessForceLegacyScaleFactors.
 }
@@ -209,7 +213,7 @@ bool XessSupersampler::apply(
     executeParams.colorTexture = createXessVkImageView(colorImageIn);
     executeParams.velocityTexture = createXessVkImageView(motionVectorImage);
     executeParams.depthTexture = createXessVkImageView(depthImage);
-    executeParams.exposureScaleTexture = createXessVkImageView(exposureImage);
+    //executeParams.exposureScaleTexture = createXessVkImageView(exposureImage);
     //executeParams.responsivePixelMaskTexture; // Unused.
     executeParams.outputTexture = createXessVkImageView(colorImageOut);
     executeParams.jitterOffsetX = jitterOffsetX;

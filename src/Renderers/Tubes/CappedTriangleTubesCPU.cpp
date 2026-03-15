@@ -285,7 +285,7 @@ void createCappedTriangleTubesRenderDataCPU(
                     vertexDataList);
             lineTangents.push_back(tangent);
             lineNormals.push_back(lastLineNormal);
-            linePointReferenceList.emplace_back(lineId, i);
+            linePointReferenceList.emplace_back(uint32_t(lineId), uint32_t(i));
             numValidLinePoints++;
         }
 

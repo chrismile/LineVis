@@ -641,11 +641,15 @@ BinLinesData loadFlowTrajectoriesFromFile(
     if (sgl::endsWith(lowerCaseFilename, ".obj")) {
         binLinesData.trajectories = loadTrajectoriesFromObj(filename, attributeNames);
     } else if (sgl::endsWith(lowerCaseFilename, ".nc")) {
+#ifdef SUPPORT_NETCDF
         binLinesData = loadTrajectoriesFromNetCdf(filename);
+#else
+        sgl::Logfile::get()->writeError("Error in loadFlowTrajectoriesFromFile: NetCDF support is disabled.");
+#endif
     } else if (sgl::endsWith(lowerCaseFilename, ".binlines")) {
         binLinesData = loadTrajectoriesFromBinLines(filename);
     } else {
-        sgl::Logfile::get()->writeError("ERROR in loadFlowTrajectoriesFromFile: Unknown file extension.");
+        sgl::Logfile::get()->writeError("Error in loadFlowTrajectoriesFromFile: Unknown file extension.");
     }
 
     Trajectories& trajectories = binLinesData.trajectories;
@@ -692,10 +696,10 @@ void loadStressTrajectoriesFromFile(
                     bandPointsSmoothedListLeftPs, bandPointsSmoothedListRightPs,
                     simulationMeshOutlineTriangleIndices, simulationMeshOutlineVertexPositions);
         } else {
-            sgl::Logfile::get()->writeError("ERROR in loadStressTrajectoriesFromFile: Unknown version number.");
+            sgl::Logfile::get()->writeError("Error in loadStressTrajectoriesFromFile: Unknown version number.");
         }
     } else {
-        sgl::Logfile::get()->writeError("ERROR in loadStressTrajectoriesFromFile: Unknown file extension.");
+        sgl::Logfile::get()->writeError("Error in loadStressTrajectoriesFromFile: Unknown file extension.");
     }
 
     if (normalizeVertexPositions) {

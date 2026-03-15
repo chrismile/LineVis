@@ -67,6 +67,7 @@ public:
             uint32_t& renderWidthMax, uint32_t& renderHeightMax,
             uint32_t& renderWidthMin, uint32_t& renderHeightMin,
             float& sharpness) override;
+    void setUseAntiAliasingMode() override;
     void setUseJitteredMotionVectors(bool _useJitteredMotionVectors) override;
     void setJitterOffset(float _jitterOffsetX, float _jitterOffsetY) override;
     void resetAccum() override;

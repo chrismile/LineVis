@@ -40,6 +40,7 @@ StressLineTracingRequesterSocket::StressLineTracingRequesterSocket(void* context
         : context(context), address(address), port(port) {
     jsonCharReader = readerBuilder.newCharReader();
 
+#ifdef USE_ZEROMQ
     controllerSocketPub = zmq_socket(context, ZMQ_PUB);
     if (controllerSocketPub == nullptr) {
         throw std::runtime_error(
@@ -49,6 +50,7 @@ StressLineTracingRequesterSocket::StressLineTracingRequesterSocket(void* context
     int lingerIntervalMs = 0;
     zmq_setsockopt(controllerSocketPub, ZMQ_LINGER, &lingerIntervalMs, sizeof(lingerIntervalMs));
     zmq_bind(controllerSocketPub, controllerAddress.c_str());
+#endif
 
     requesterThread = std::thread(&StressLineTracingRequesterSocket::mainLoop, this);
 }
@@ -56,10 +58,12 @@ StressLineTracingRequesterSocket::StressLineTracingRequesterSocket(void* context
 StressLineTracingRequesterSocket::~StressLineTracingRequesterSocket() {
     join();
 
+#ifdef USE_ZEROMQ
     if (controllerSocketPub != nullptr) {
         zmq_close(controllerSocketPub);
         controllerSocketPub = nullptr;
     }
+#endif
 
     delete jsonCharReader;
     jsonCharReader = nullptr;
@@ -68,7 +72,9 @@ StressLineTracingRequesterSocket::~StressLineTracingRequesterSocket() {
 void StressLineTracingRequesterSocket::join() {
     if (!programIsFinished) {
         {
+#ifdef USE_ZEROMQ
             zmq_send(controllerSocketPub, "KILL", 4, ZMQ_DONTWAIT);
+#endif
             std::lock_guard<std::mutex> lockRequest(requestMutex);
             programIsFinished = true;
             hasRequest = true;
@@ -229,6 +235,8 @@ void StressLineTracingRequesterSocket::mainLoop() {
         }
     }
 
+#ifdef USE_ZEROMQ
     zmq_close(socket);
     zmq_close(controllerSocketSub);
+#endif
 }

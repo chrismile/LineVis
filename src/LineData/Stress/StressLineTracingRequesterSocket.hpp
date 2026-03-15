@@ -98,7 +98,7 @@ private:
     int port;
 
     std::string controllerAddress = "inproc://psl-tracing-req";
-    void* controllerSocketPub;
+    void* controllerSocketPub = nullptr;
 
     bool programIsFinished = false;
     bool hasRequest = false;

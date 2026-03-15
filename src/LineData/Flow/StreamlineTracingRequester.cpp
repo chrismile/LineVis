@@ -737,9 +737,14 @@ void StreamlineTracingRequester::traceLines(
                     request.dataSourceFilename, request.gridDataSetMetaData,
                     cachedGrid);
         } else if (sgl::endsWith(request.dataSourceFilename, ".nc")) {
+#ifdef SUPPORT_NETCDF
             NetCdfLoader::load(
                     request.dataSourceFilename, request.gridDataSetMetaData,
                     cachedGrid);
+#else
+            sgl::Logfile::get()->writeError(
+                    "Error in StreamlineTracingRequester::traceLines: NetCDF support is disabled.");
+#endif
         } else if (sgl::endsWith(request.dataSourceFilename, ".am")) {
             AmiraMeshLoader::load(
                     request.dataSourceFilename, request.gridDataSetMetaData,

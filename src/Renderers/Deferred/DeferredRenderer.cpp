@@ -149,7 +149,7 @@ void DeferredRenderer::initialize() {
     imageSettings.width = 1;
     imageSettings.height = 1;
     imageSettings.format = VK_FORMAT_R32_SFLOAT;
-    imageSettings.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    imageSettings.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     exposureImage = std::make_shared<sgl::vk::ImageView>(
             std::make_shared<sgl::vk::Image>(renderer->getDevice(), imageSettings), VK_IMAGE_ASPECT_COLOR_BIT);
     float exposureVal = 1.0f;
@@ -1491,10 +1491,12 @@ void DeferredRenderer::render() {
                  (*sceneData->sceneTexture)->getImageView()->getImage(), VK_IMAGE_LAYOUT_GENERAL);
         const glm::vec2& jitteredSample = jitteredSamples.at(jitteredSamplesOffset);
         upscaler->setJitterOffset(jitteredSample.x, jitteredSample.y);
+        renderer->syncWithCpu();
         upscaler->apply(
                 colorRenderTargetImage, (*sceneData->sceneTexture)->getImageView(),
                 depthRenderTargetImage, motionVectorRenderTargetImage, exposureImage,
                 renderer->getVkCommandBuffer());
+        renderer->syncWithCpu();
         jitteredSamplesOffset = (jitteredSamplesOffset + 1) % static_cast<uint32_t>(jitteredSamples.size());
         accumulatedFramesCounter++;
     }

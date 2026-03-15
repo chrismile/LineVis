@@ -2210,6 +2210,7 @@ void MainApp::loadDataFromFile(const std::string& filename) {
         }
     }
 
+#ifdef SUPPORT_NETCDF
     /*
      * The program supports two types of .dat file:
      * - .dat files containing a volume description.
@@ -2220,12 +2221,15 @@ void MainApp::loadDataFromFile(const std::string& filename) {
     if (isNcFile) {
         isNcVolumeFile = !getNetCdfFileStoresTrajectories(filename);
     }
+#endif
 
     if (sgl::endsWith(filenameLower, ".vtk")
             || sgl::endsWith(filenameLower, ".vti")
             || sgl::endsWith(filenameLower, ".vts")
             || sgl::endsWith(filenameLower, ".vtr")
+#ifdef SUPPORT_NETCDF
             || (isNcFile && isNcVolumeFile)
+#endif
             || sgl::endsWith(filenameLower, ".am")
             || sgl::endsWith(filenameLower, ".bin")
             || sgl::endsWith(filenameLower, ".field")

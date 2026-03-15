@@ -149,7 +149,7 @@ void VtkXmlLoader::load(
     XMLElement* pointDataNode = pieceNode->FirstChildElement("PointData");
 
     bool velocityOffsetsSet[3] = { false, false, false };
-    size_t velocityOffsets[3] = { 0, 0, 0 };
+    [[maybe_unused]] size_t velocityOffsets[3] = { 0, 0, 0 };
 
     for (sgl::XMLIterator it(pointDataNode, sgl::XMLNameFilter("DataArray")); it.isValid(); ++it) {
         XMLElement* dataArrayNode = *it;
@@ -234,9 +234,9 @@ void VtkXmlLoader::load(
     auto* vField = new float[numPoints];
     auto* wField = new float[numPoints];
 
-    float* scalarFields[3] = { uField, vField, wField };
-
     if (useZlib) {
+#ifdef USE_LIBARCHIVE
+        float* scalarFields[3] = { uField, vField, wField };
         for (int i = 0; i < 3; i++) {
             const char* headerBase64String = appendedDataEncoded + startPos + velocityOffsets[i];
 
@@ -300,6 +300,10 @@ void VtkXmlLoader::load(
             delete[] encodedData;
             delete[] encodedDataHeader;
         }
+#else
+        sgl::Logfile::get()->throwError(
+                "Error in VtkXmlLoader::load: The application was not compiled with libarchive support.");
+#endif
     } else {
         sgl::Logfile::get()->throwError(
                 "Error in VtkXmlLoader::load: Uncompressed appended data as used in file \""

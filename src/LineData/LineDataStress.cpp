@@ -2875,7 +2875,9 @@ TubeAabbRenderData LineDataStress::getLinePassTubeAabbRenderData(bool isRasteriz
     const size_t numLinePointsEstimated = getNumLinePoints();
     tubeLinePointDataList.reserve(numLinePointsEstimated);
     tubeStressLinePointDataList.reserve(numLinePointsEstimated);
+#ifdef USE_EIGEN
     tubeStressLinePointPrincipalStressDataList.reserve(numLinePointsEstimated);
+#endif
     uint32_t lineSegmentIndexCounter = 0;
     for (size_t i = 0; i < trajectoriesPs.size(); i++) {
         int psIdx = loadedPsIndices.at(i);

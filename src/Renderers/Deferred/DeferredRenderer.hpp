@@ -54,7 +54,7 @@ class ConvertMeshletCommandsBVHPass;
 class MeshletMeshBVHPass;
 // Resolve.
 class DeferredResolvePass;
-struct MotionVectorResolvePass;
+class MotionVectorResolvePass;
 class DownsampleBlitPass;
 // Visualize the BVH hierarchy and meshlet bounds.
 class VisualizeNodesPass;
