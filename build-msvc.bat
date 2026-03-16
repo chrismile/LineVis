@@ -225,7 +225,13 @@ if not exist .\sgl (
     git clone --depth 1 https://github.com/chrismile/sgl.git   || exit /b 1
 )
 
-if not exist .\sgl\install if not %standalone% (
+set build_sgl=false
+if not exist .\sgl\install (
+    if %standalone% == false (
+        set build_sgl=true
+    )
+)
+if %build_sgl% (
     echo ------------------------
     echo      building sgl
     echo ------------------------
@@ -430,6 +436,7 @@ if %standalone% == true (
         echo ------------------------
         git clone https://github.com/libsdl-org/SDL.git -b release-3.4.2
     )
+    set cmake_args=%cmake_args% -DSTANDALONE=ON
 )
 
 if %standalone_libs_only% == true (

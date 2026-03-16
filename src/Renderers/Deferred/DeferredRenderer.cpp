@@ -1164,6 +1164,7 @@ void DeferredRenderer::onClearColorChanged() {
 
 void DeferredRenderer::onSupersamplingModeChanged() {
     upscaler = {};
+#if defined(SUPPORT_DLSS) || defined(SUPPORT_XESS)
     if (supersamplingMode > 1) {
         UpscalerType upscalerType = UpscalerType::INVALID;
         DeferredRendererUpscaler deferredRendererUpscaler = supportedUpscalers.at(supersamplingMode - 2);
@@ -1187,6 +1188,7 @@ void DeferredRenderer::onSupersamplingModeChanged() {
         upscaler->setUseJitteredMotionVectors(true);
         createJitteredSamples();
     }
+#endif
     resetTemporalAccumulation();
 }
 
