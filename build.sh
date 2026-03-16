@@ -1140,7 +1140,7 @@ if $use_ospray2; then
     embree_version="3.13.3"
     ospray_version="2.9.0"
 else
-    embree_version="4.3.3"
+    embree_version="4.4.0"
     ospray_version="3.2.0"
 fi
 
@@ -1165,7 +1165,7 @@ if ($use_ospray2 || $use_ospray3) && [ $use_macos = false ]; then
             echo "------------------------"
             echo "   downloading OSPRay   "
             echo "------------------------"
-            wget "https://github.com/ospray/OSPRay/releases/download/v${ospray_version}/ospray-${ospray_version}.x86_64.linux.tar.gz"
+            wget "https://github.com/RenderKit/ospray/releases/download/v${ospray_version}/ospray-${ospray_version}.x86_64.linux.tar.gz"
             tar -xvzf "ospray-${ospray_version}.x86_64.linux.tar.gz"
         fi
         params+=(-Dospray_DIR="${projectpath}/third_party/ospray-${ospray_version}.x86_64.linux/lib/cmake/ospray-${ospray_version}")

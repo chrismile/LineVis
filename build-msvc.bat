@@ -41,6 +41,7 @@ set standalone_build=false
 set standalone_libs_only=false
 :: Leave empty to let cmake try to find the correct paths
 set optix_install_dir=""
+set use_ospray=false
 set use_ospray2=false
 set use_ospray3=true
 set use_oidn=true
@@ -279,32 +280,33 @@ if %use_ospray2% == true (
     set embree_version=3.13.3
     set ospray_version=2.9.0
 ) else (
-    set embree_version=4.3.3
+    set embree_version=4.4.0
     set ospray_version=3.2.0
 )
 
 if %use_ospray% == true (
-    if not exist ".\embree-%embree_version%.x64.vc14.windows" (
+    if not exist ".\embree-%embree_version%.x64.windows" (
         echo ------------------------
         echo    downloading Embree
         echo ------------------------
-        curl.exe -L "https://github.com/embree/embree/releases/download/v%embree_version%/embree-%embree_version%.x64.vc14.windows.zip" --output embree-%embree_version%.x64.vc14.windows.zip
         if %use_ospray2% == true (
-            tar -xvzf "embree-%embree_version%.x64.vc14.windows.zip"
-        else (
-            mkdir "embree-%embree_version%.x64.vc14.windows"
-            pushd "embree-%embree_version%.x64.vc14.windows"
-            tar -xvzf "embree-%embree_version%.x64.vc14.windows.zip"
+            curl.exe -L "https://github.com/RenderKit/embree/releases/download/v%embree_version%/embree-%embree_version%.x64.vc14.windows.zip" --output embree-%embree_version%.x64.windows.zip
+            tar -xvzf "embree-%embree_version%.x64.windows.zip"
+        ) else (
+            curl.exe -L "https://github.com/RenderKit/embree/releases/download/v%embree_version%/embree-%embree_version%.x64.windows.zip" --output embree-%embree_version%.x64.windows.zip
+            mkdir "embree-%embree_version%.x64.windows"
+            pushd "embree-%embree_version%.x64.windows"
+            tar -xvzf "embree-%embree_version%.x64.windows.zip"
             popd
         )
     )
-    set cmake_args=%cmake_args% -Dembree_DIR="third_party/embree-%embree_version%.x64.vc14.windows/lib/cmake/embree-%embree_version%"
+    set cmake_args=%cmake_args% -Dembree_DIR="third_party/embree-%embree_version%.x64.windows/lib/cmake/embree-%embree_version%"
 
     if not exist ".\ospray-%ospray_version%.x86_64.windows" (
         echo ------------------------
         echo   downloading OSPRay
         echo ------------------------
-        curl.exe -L "https://github.com/ospray/OSPRay/releases/download/v%ospray_version%/ospray-%ospray_version%.x86_64.windows.zip" --output ospray-%ospray_version%.x86_64.windows.zip
+        curl.exe -L "https://github.com/RenderKit/ospray/releases/download/v%ospray_version%/ospray-%ospray_version%.x86_64.windows.zip" --output ospray-%ospray_version%.x86_64.windows.zip
         tar -xvzf "ospray-%ospray_version%.x86_64.windows.zip"
     )
     set cmake_args=%cmake_args% -Dospray_DIR="third_party/ospray-%ospray_version%.x86_64.windows/lib/cmake/ospray-%ospray_version%"
