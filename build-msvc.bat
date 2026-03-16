@@ -192,16 +192,20 @@ if %use_d3d% == true (
     set cmake_args_sgl=%cmake_args_sgl% -DSUPPORT_D3D12=ON -DVCPKG_MANIFEST_FEATURES=d3d12
 )
 
+SET use_vcpkg=false
 IF "%toolchain_file%"=="" (
     SET use_vcpkg=true
-) ELSE (
+)
+IF %standalone% == true (
     SET use_vcpkg=false
 )
 IF "%toolchain_file%"=="" SET toolchain_file="vcpkg/scripts/buildsystems/vcpkg.cmake"
 
-set cmake_args=%cmake_args% -DCMAKE_TOOLCHAIN_FILE="third_party/%toolchain_file%" ^
--DPYTHONHOME="./python3" ^
-               -Dsgl_DIR="third_party/sgl/install/lib/cmake/sgl/"
+if %use_vcpkg% == true (
+    set cmake_args=%cmake_args% -DCMAKE_TOOLCHAIN_FILE="third_party/%toolchain_file%" ^
+                   -DPYTHONHOME="./python3" ^
+                   -Dsgl_DIR="third_party/sgl/install/lib/cmake/sgl/"
+)
 
 set cmake_args_general=%cmake_args_general% -DCMAKE_TOOLCHAIN_FILE="%third_party_dir%/%toolchain_file%"
 
