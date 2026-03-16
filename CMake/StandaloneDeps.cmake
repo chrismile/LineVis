@@ -1,3 +1,16 @@
+if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/sgl/src"
+        OR NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm/glm"
+        OR NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/glslang/glslang"
+        OR NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/tinyxml2"
+        OR NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/jsoncpp/include"
+        OR NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/SDL/src")
+    if (MSVC)
+        message(FATAL_ERROR "Error: Dependencies missing. Please call \"build-msvc.bat --fetch-standalone-libs\".")
+    else()
+        message(FATAL_ERROR "Error: Dependencies missing. Please call \"./build.sh --fetch-standalone-libs\".")
+    endif()
+endif()
+
 list(APPEND SOURCES_SGL "${CMAKE_CURRENT_SOURCE_DIR}/third_party/sgl/src/Math/Math.cpp")
 list(APPEND SOURCES_SGL "${CMAKE_CURRENT_SOURCE_DIR}/third_party/sgl/src/Math/Geometry/AABB2.cpp")
 list(APPEND SOURCES_SGL "${CMAKE_CURRENT_SOURCE_DIR}/third_party/sgl/src/Math/Geometry/AABB3.cpp")

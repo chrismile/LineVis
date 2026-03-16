@@ -36,6 +36,9 @@ set clean=false
 set build_dir=.build
 set destination_dir=Shipping
 set vcpkg_triplet="x64-windows"
+set standalone=false
+set standalone_build=false
+set standalone_libs_only=false
 :: Leave empty to let cmake try to find the correct paths
 set optix_install_dir=""
 set use_ospray2=false
@@ -65,21 +68,29 @@ IF NOT "%1"=="" (
         SHIFT
     )
     IF "%1"=="--d3d" (
-        SET use_d3d=true
+        set use_d3d=true
     )
     IF "%1"=="--dlss" (
-        SET use_dlss=true
+        set use_dlss=true
     )
     IF "%1"=="--xess" (
-        SET use_xess=true
+        set use_xess=true
     )
     IF "%1"=="--ospray2" (
-        SET use_ospray2=true
-        SET use_ospray3=false
+        set use_ospray2=true
+        set use_ospray3=false
     )
     IF "%1"=="--ospray3" (
-        SET use_ospray2=false
-        SET use_ospray3=true
+        set use_ospray2=false
+        set use_ospray3=true
+    )
+    IF "%1"=="--standalone" (
+        set standalone=true
+        set standalone_build=true
+    )
+    IF "%1"=="--fetch-standalone-libs" (
+        set standalone=true
+        set standalone_libs_only=true
     )
     SHIFT
     GOTO :loop
@@ -214,7 +225,7 @@ if not exist .\sgl (
     git clone --depth 1 https://github.com/chrismile/sgl.git   || exit /b 1
 )
 
-if not exist .\sgl\install (
+if not exist .\sgl\install if not %standalone% (
     echo ------------------------
     echo      building sgl
     echo ------------------------
@@ -373,7 +384,7 @@ if %use_oidn% == true (
 if %use_dlss% == true (
     if not exist ".\DLSS" (
         echo ------------------------
-        echo downloading DLSS SDK
+        echo   downloading DLSS SDK
         echo ------------------------
         git clone https://github.com/NVIDIA/DLSS.git
     )
@@ -382,10 +393,47 @@ if %use_dlss% == true (
 if %use_xess% == true (
     if not exist ".\XeSS" (
         echo ------------------------
-        echo downloading XeSS SDK
+        echo   downloading XeSS SDK
         echo ------------------------
         git clone https://github.com/intel/xess.git
     )
+)
+
+if %standalone% == true (
+    if not exist ".\glslang" (
+        echo ------------------------
+        echo   downloading glslang
+        echo ------------------------
+        git clone https://github.com/KhronosGroup/glslang.git -b 16.0.0
+    )
+    if not exist ".\glm" (
+        echo ------------------------
+        echo     downloading glm
+        echo ------------------------
+        git clone https://github.com/g-truc/glm.git -b 1.0.3
+    )
+    if not exist ".\tinyxml2" (
+        echo ------------------------
+        echo   downloading TinyXML2
+        echo ------------------------
+        git clone https://github.com/leethomason/tinyxml2.git -b 11.0.0
+    )
+    if not exist ".\jsoncpp" (
+        echo ------------------------
+        echo   downloading jsoncpp
+        echo ------------------------
+        git clone https://github.com/open-source-parsers/jsoncpp.git -b 1.9.6
+    )
+    if not exist ".\SDL" (
+        echo ------------------------
+        echo    downloading libSDL
+        echo ------------------------
+        git clone https://github.com/libsdl-org/SDL.git -b release-3.4.2
+    )
+)
+
+if %standalone_libs_only% == true (
+    exit /b 0
 )
 
 popd

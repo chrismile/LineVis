@@ -68,7 +68,10 @@ use_conda=false
 conda_env_name="linevis"
 link_dynamic=false
 use_custom_vcpkg_triplet=false
+standalone=false
 custom_glslang=false
+standalone_build=false
+standalone_libs_only=false
 use_open_image_denoise=true
 use_download_swapchain=false
 if [ $use_msys = false ] && command -v pacman &> /dev/null; then
@@ -139,6 +142,12 @@ do
     elif [ ${!i} = "--ospray3" ]; then
         use_ospray2=false
         use_ospray3=true
+    elif [ ${!i} = "--standalone" ]; then
+        standalone=true
+        standalone_build=true
+    elif [ ${!i} = "--fetch-standalone-libs" ]; then
+        standalone=true
+        standalone_libs_only=true
     fi
 done
 
@@ -741,6 +750,11 @@ if [ ! -d "submodules/IsosurfaceCpp/src" ]; then
     git submodule update
 fi
 
+if $standalone && $use_vcpkg; then
+    echo "Error: --standalone and --vcpkg cannot be combined."
+    exit 1
+fi
+
 [ -d "./third_party/" ] || mkdir "./third_party/"
 pushd third_party > /dev/null
 
@@ -1050,7 +1064,7 @@ if [ -f "./sgl/$build_dir/CMakeCache.txt" ]; then
     fi
 fi
 
-if [ ! -d "./sgl/$install_dir" ]; then
+if [ ! -d "./sgl/$install_dir" ] && ! $standalone; then
     echo "------------------------"
     echo "     building sgl       "
     echo "------------------------"
@@ -1277,6 +1291,43 @@ if $use_xess; then
     fi
 fi
 
+if $standalone; then
+    if [ ! -d "./glslang" ]; then
+        echo "------------------------"
+        echo "downloading glslang"
+        echo "------------------------"
+        git clone https://github.com/KhronosGroup/glslang.git -b 16.0.0
+    fi
+    if [ ! -d "./glm" ]; then
+        echo "------------------------"
+        echo "downloading glm"
+        echo "------------------------"
+        git clone https://github.com/g-truc/glm.git -b 1.0.3
+    fi
+    if [ ! -d "./tinyxml2" ]; then
+        echo "------------------------"
+        echo "downloading TinyXML2"
+        echo "------------------------"
+        git clone https://github.com/leethomason/tinyxml2.git -b 11.0.0
+    fi
+    if [ ! -d "./jsoncpp" ]; then
+        echo "------------------------"
+        echo "downloading jsoncpp"
+        echo "------------------------"
+        git clone https://github.com/open-source-parsers/jsoncpp.git -b 1.9.6
+    fi
+    if [ ! -d "./SDL" ]; then
+        echo "------------------------"
+        echo "downloading libSDL"
+        echo "------------------------"
+        git clone https://github.com/libsdl-org/SDL.git -b release-3.4.2
+    fi
+    params+=(-DSTANDALONE=ON)
+fi
+if $standalone_libs_only; then
+    exit 0
+fi
+
 popd >/dev/null # back to project root
 
 if [ $debug = true ]; then
@@ -1297,6 +1348,14 @@ if [ -f "./$build_dir/CMakeCache.txt" ]; then
         cache_uses_vcpkg=false
     fi
     if ([ $use_vcpkg = true ] && [ $cache_uses_vcpkg = false ]) || ([ $use_vcpkg = false ] && [ $cache_uses_vcpkg = true ]); then
+        remove_build_cache=true
+    fi
+    if grep -q "STANDALONE:BOOL=ON" "./$build_dir/CMakeCache.txt"; then
+        cache_uses_standalone=false
+    else
+        cache_uses_standalone=true
+    fi
+    if ([ $standalone = true ] && [ $cache_uses_standalone = false ]) || ([ $standalone = false ] && [ $cache_uses_standalone = true ]); then
         remove_build_cache=true
     fi
     if [ remove_build_cache = true ]; then
