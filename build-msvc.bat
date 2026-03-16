@@ -235,7 +235,7 @@ if not exist .\sgl\install (
         set build_sgl=true
     )
 )
-if %build_sgl% (
+if %build_sgl% == true (
     echo ------------------------
     echo      building sgl
     echo ------------------------
