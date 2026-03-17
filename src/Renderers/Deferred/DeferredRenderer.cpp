@@ -1493,12 +1493,10 @@ void DeferredRenderer::render() {
                  (*sceneData->sceneTexture)->getImageView()->getImage(), VK_IMAGE_LAYOUT_GENERAL);
         const glm::vec2& jitteredSample = jitteredSamples.at(jitteredSamplesOffset);
         upscaler->setJitterOffset(jitteredSample.x, jitteredSample.y);
-        renderer->syncWithCpu();
         upscaler->apply(
                 colorRenderTargetImage, (*sceneData->sceneTexture)->getImageView(),
                 depthRenderTargetImage, motionVectorRenderTargetImage, exposureImage,
                 renderer->getVkCommandBuffer());
-        renderer->syncWithCpu();
         jitteredSamplesOffset = (jitteredSamplesOffset + 1) % static_cast<uint32_t>(jitteredSamples.size());
         accumulatedFramesCounter++;
     }
