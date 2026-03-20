@@ -71,7 +71,7 @@ NVSDK_NGX_ProjectIdDescription getDlssProjectIdDescription() {
 
 std::wstring getApplicationDataPath() {
 #if defined(__unix__)
-    std::filesystem::path configDirectory = std::string() + getenv("HOME") + "/.config/pysrg/";
+    std::filesystem::path configDirectory = std::string() + getenv("HOME") + "/.config/LineVis/";
 #else
     // Use WinAPI to query the AppData folder
     char userDataPath[MAX_PATH];
@@ -80,7 +80,7 @@ std::wstring getApplicationDataPath() {
     for (std::string::iterator it = dir.begin(); it != dir.end(); ++it) {
         if (*it == '\\') *it = '/';
     }
-    std::filesystem::path configDirectory = dir + "pysrg/";
+    std::filesystem::path configDirectory = dir + "LineVis/";
 #endif
     return configDirectory.wstring();
 }
@@ -90,51 +90,9 @@ struct FeatureCommonTemp {
     const wchar_t* dllSearchPathC = nullptr;
 };
 
-FeatureCommonTemp* fillFeatureCommonInfo(NVSDK_NGX_FeatureCommonInfo& featureCommonInfo) {
-    /*
-     * We use NVSDK_NGX_FeatureCommonInfo::PathListInfo for finding the DLSS .dll/.so file if not next to the app.
-     * This is necessary, e.g., when building PySRG as a Python module, where the .dll/.so file may be, e.g., in:
-     * <conda environment>/lib/python3.<minor>/site-packages/pysrg-0.0.0-py3.<minor>-<os>-x86_64.egg/libnvidia-ngx-dlss*
-     */
-    auto* temp = new FeatureCommonTemp;
-#ifdef BUILD_PYTHON_MODULE
-#if defined(_WIN32)
-    // See: https://stackoverflow.com/questions/6924195/get-dll-path-at-runtime
-    WCHAR modulePath[MAX_PATH];
-    HMODULE hmodule{};
-    if (GetModuleHandleExW(
-            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-            reinterpret_cast<LPWSTR>(&fillFeatureCommonInfo), &hmodule)) {
-        GetModuleFileNameW(hmodule, modulePath, MAX_PATH);
-        PathRemoveFileSpecW(modulePath); //< Needs linking with shlwapi.lib.
-        temp->dllSearchPath = modulePath;
-    } else {
-        sgl::Logfile::get()->writeError(
-                std::string() + "Error when calling GetModuleHandle: " + std::to_string(GetLastError()));
-    }
-#elif defined(__linux__)
-    // See: https://stackoverflow.com/questions/33151264/get-dynamic-library-directory-in-c-linux
-    Dl_info dlInfo{};
-    dladdr((void*)fillFeatureCommonInfo, &dlInfo);
-    std::string moduleDir = sgl::FileUtils::get()->getPathToFile(dlInfo.dli_fname);
-    temp->dllSearchPath = sgl::stdStringToWideString(moduleDir);
-#endif
-    temp->dllSearchPathC = temp->dllSearchPath.c_str();
-    featureCommonInfo.PathListInfo.Path = &temp->dllSearchPathC;
-    featureCommonInfo.PathListInfo.Length = 1;
-#endif
-
-    //featureCommonInfo.LoggingInfo.MinimumLoggingLevel = NVSDK_NGX_LOGGING_LEVEL_VERBOSE;
-    //featureCommonInfo.LoggingInfo.DisableOtherLoggingSinks = true;
-    //featureCommonInfo.LoggingInfo.LoggingCallback = dlssLogCallback;
-
-    return temp;
-}
-
 bool getInstanceDlssSupportInfo(std::vector<const char*>& requiredInstanceExtensions) {
     auto applicationDataPath = getApplicationDataPath();
     NVSDK_NGX_FeatureCommonInfo featureCommonInfo{};
-    auto* temp = fillFeatureCommonInfo(featureCommonInfo);
     NVSDK_NGX_FeatureDiscoveryInfo featureDiscoveryInfo{};
     featureDiscoveryInfo.SDKVersion = NVSDK_NGX_Version_API;
     featureDiscoveryInfo.FeatureID = NVSDK_NGX_Feature_SuperSampling;
@@ -147,7 +105,6 @@ bool getInstanceDlssSupportInfo(std::vector<const char*>& requiredInstanceExtens
     VkExtensionProperties* extensions = nullptr;
     auto result = NVSDK_NGX_VULKAN_GetFeatureInstanceExtensionRequirements(
             &featureDiscoveryInfo, &extensionCount, &extensions);
-    delete temp;
     if (result != NVSDK_NGX_Result_Success) {
         return false;
     }
@@ -169,7 +126,6 @@ bool getPhysicalDeviceDlssSupportInfo(
         sgl::vk::DeviceFeatures& requestedDeviceFeatures) {
     auto applicationDataPath = getApplicationDataPath();
     NVSDK_NGX_FeatureCommonInfo featureCommonInfo{};
-    auto* temp = fillFeatureCommonInfo(featureCommonInfo);
     NVSDK_NGX_FeatureDiscoveryInfo featureDiscoveryInfo{};
     featureDiscoveryInfo.SDKVersion = NVSDK_NGX_Version_API;
     featureDiscoveryInfo.FeatureID = NVSDK_NGX_Feature_SuperSampling;
@@ -183,11 +139,9 @@ bool getPhysicalDeviceDlssSupportInfo(
             instance->getVkInstance(), physicalDevice, &featureDiscoveryInfo, &featureRequirement);
     if (result != NVSDK_NGX_Result_Success
             && result != NVSDK_NGX_Result_FAIL_NotImplemented) {
-        delete temp;
         return false;
     }
     if (featureRequirement.FeatureSupported != NVSDK_NGX_FeatureSupportResult_Supported) {
-        delete temp;
         return false;
     }
     // We ignore MinHWArchitecture and MinOSVersion for now, as we can't do anything about it anyway.
@@ -196,7 +150,6 @@ bool getPhysicalDeviceDlssSupportInfo(
     VkExtensionProperties* extensions = nullptr;
     result = NVSDK_NGX_VULKAN_GetFeatureDeviceExtensionRequirements(
             instance->getVkInstance(), physicalDevice, &featureDiscoveryInfo, &extensionCount, &extensions);
-    delete temp;
     if (result != NVSDK_NGX_Result_Success) {
         return false;
     }
@@ -246,7 +199,6 @@ bool DlssSupersampler::initialize(sgl::vk::Device* _device) {
 
     auto applicationDataPath = getApplicationDataPath();
     NVSDK_NGX_FeatureCommonInfo featureCommonInfo{};
-    auto* temp = fillFeatureCommonInfo(featureCommonInfo);
     NVSDK_NGX_Result result = NVSDK_NGX_VULKAN_Init_with_ProjectID(
             "494d83ef-7ae9-4bf1-9fba-85477321c7e4", NVSDK_NGX_ENGINE_TYPE_CUSTOM, "0.1.0",
             applicationDataPath.c_str(),
@@ -255,7 +207,6 @@ bool DlssSupersampler::initialize(sgl::vk::Device* _device) {
             sgl::vk::Device::getVkDeviceProcAddrFunctionPointer(),
             &featureCommonInfo, NVSDK_NGX_Version_API);
     if (result != NVSDK_NGX_Result_Success) {
-        delete temp;
         sgl::Logfile::get()->writeError("NVSDK_NGX_VULKAN_Init_with_ProjectID failed.");
         return false;
     }
@@ -264,7 +215,6 @@ bool DlssSupersampler::initialize(sgl::vk::Device* _device) {
     result = NVSDK_NGX_VULKAN_GetCapabilityParameters(&params);
     if (result != NVSDK_NGX_Result_Success) {
         _free();
-        delete temp;
         sgl::Logfile::get()->writeError("NVSDK_NGX_VULKAN_GetCapabilityParameters failed.");
         return false;
     }
@@ -281,13 +231,11 @@ bool DlssSupersampler::initialize(sgl::vk::Device* _device) {
     if (resultUpdate != NVSDK_NGX_Result_Success || resultMajor != NVSDK_NGX_Result_Success
             || resultMinor != NVSDK_NGX_Result_Success) {
         _free();
-        delete temp;
         sgl::Logfile::get()->writeError("NVSDK_NGX_Parameter_Get* failed.");
         return false;
     }
     if (needsUpdatedDriver) {
         _free();
-        delete temp;
         sgl::Logfile::get()->writeError(
                 "DLSS could not be initialized: NVIDIA driver version >= "
                 + std::to_string(minDriverVersionMajor) + "." + std::to_string(minDriverVersionMinor) + " needed.");
@@ -301,7 +249,6 @@ bool DlssSupersampler::initialize(sgl::vk::Device* _device) {
         NVSDK_NGX_Result resultInit = NVSDK_NGX_Parameter_GetI(
                 params, NVSDK_NGX_Parameter_SuperSampling_FeatureInitResult, &featureInitResult);
         _free();
-        delete temp;
         if (resultInit != NVSDK_NGX_Result_Success) {
             sgl::Logfile::get()->writeError("DLSS could not be initialized.");
             return false;
@@ -322,7 +269,6 @@ bool DlssSupersampler::initialize(sgl::vk::Device* _device) {
         sgl::Logfile::get()->writeError("DLSS could not be initialized.");
         return true;
     }*/
-    delete temp;
 
     return true;
 }
