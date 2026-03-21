@@ -421,7 +421,7 @@ bool DlssSupersampler::apply(
     dlssEvalParams.pInMotionVectors = &motionVectorImageNgx;
     dlssEvalParams.pInExposureTexture = &exposureImageNgx;
     dlssEvalParams.InJitterOffsetX = jitterOffsetX;
-    dlssEvalParams.InJitterOffsetY = -jitterOffsetY;
+    dlssEvalParams.InJitterOffsetY = jitterOffsetY;
     dlssEvalParams.InReset = shallResetAccum;
     dlssEvalParams.InMVScaleX = mvScaleX;
     dlssEvalParams.InMVScaleY = mvScaleY;
@@ -438,6 +438,7 @@ bool DlssSupersampler::apply(
     if (useSingleTimeCommandBuffer) {
         device->endSingleTimeCommands(commandBuffer);
     }
+    shallResetAccum = false;
 
     return true;
 }

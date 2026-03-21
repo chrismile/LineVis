@@ -76,8 +76,8 @@ void computeJitteredSamples(
         std::vector<glm::vec2>& jitteredSamples,
         uint32_t renderWidth, uint32_t renderHeight,
         uint32_t displayWidth, uint32_t displayHeight) {
-    const int scaleFraction = float(displayWidth * displayHeight) / float(renderWidth * renderHeight);
-    const int numSamples = 8 * int(std::ceil(scaleFraction * scaleFraction));
+    const float scaleFraction = float(displayWidth * displayHeight) / float(renderWidth * renderHeight);
+    const int numSamples = std::max(8 * int(std::ceil(scaleFraction * scaleFraction)), 1);
     jitteredSamples.resize(numSamples);
     auto* samplesPtr = &jitteredSamples.front().x;
     constexpr int baseX = 2, baseY = 3;

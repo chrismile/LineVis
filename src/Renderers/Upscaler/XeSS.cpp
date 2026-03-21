@@ -217,7 +217,7 @@ bool XessSupersampler::apply(
     //executeParams.responsivePixelMaskTexture; // Unused.
     executeParams.outputTexture = createXessVkImageView(colorImageOut);
     executeParams.jitterOffsetX = jitterOffsetX;
-    executeParams.jitterOffsetY = -jitterOffsetY;
+    executeParams.jitterOffsetY = jitterOffsetY;
     executeParams.exposureScale = 1.0f;
     executeParams.resetHistory = uint32_t(shallResetAccum);
     executeParams.inputWidth = colorImageIn->getImage()->getImageSettings().width;
@@ -226,6 +226,7 @@ bool XessSupersampler::apply(
         sgl::Logfile::get()->throwError("xessVKExecute failed.");
         return false;
     }
+    shallResetAccum = false;
 
     colorImageOut->getImage()->_updateLayout(VK_IMAGE_LAYOUT_GENERAL);
 

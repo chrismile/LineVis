@@ -81,5 +81,5 @@ void main() {
     lastFramePositionNdc.xyz /= lastFramePositionNdc.w;
     vec2 pixelPositionLastFrame = (0.5 * lastFramePositionNdc.xy + vec2(0.5)) * vec2(viewportSize);
     vec2 backwardMotionVectors = pixelPositionLastFrame - gl_FragCoord.xy; // new -> old (backward motion vectors)
-    motionVectorsOut = vec2(backwardMotionVectors.x, -backwardMotionVectors.y); // Upscalers use top left as (0, 0)
+    motionVectorsOut = vec2(backwardMotionVectors.x, backwardMotionVectors.y); // Upscalers use top left as (0, 0)
 }

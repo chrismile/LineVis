@@ -885,9 +885,6 @@ void DeferredRenderer::setFramebufferAttachments(sgl::vk::FramebufferPtr& frameb
 void DeferredRenderer::onResolutionChanged() {
     LineRenderer::onResolutionChanged();
     resetTemporalAccumulation();
-    if (upscaler) {
-        createJitteredSamples();
-    }
 
     sgl::vk::Device* device = renderer->getDevice();
     auto scalingFactor = uint32_t(getResolutionIntegerScalingFactor());
@@ -1051,6 +1048,9 @@ void DeferredRenderer::onResolutionChanged() {
                 std::make_shared<sgl::vk::Image>(device, imageSettings), VK_IMAGE_ASPECT_COLOR_BIT);
         motionVectorResolvePass->setOutputImage(motionVectorRenderTargetImage);
         motionVectorResolvePass->recreateSwapchain(renderWidth, renderHeight);
+    }
+    if (upscaler) {
+        createJitteredSamples();
     }
 
     if (hullRasterPass) {
