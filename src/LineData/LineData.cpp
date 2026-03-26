@@ -1207,10 +1207,7 @@ void LineData::updateVulkanUniformBuffers(LineRenderer* lineRenderer, sgl::vk::R
     lineUniformData.hullUseShading = uint32_t(hullUseShading);
 
     if (sceneData) {
-        auto scalingFactor = uint32_t(lineRenderer->getResolutionIntegerScalingFactor());
-        lineUniformData.viewportSize = glm::uvec2(
-                *sceneData->viewportWidth * scalingFactor,
-                *sceneData->viewportHeight * scalingFactor);
+        lineRenderer->getRenderResolution(lineUniformData.viewportSize.x, lineUniformData.viewportSize.y);
     }
 
     lineUniformDataBuffer->updateData(

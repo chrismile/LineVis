@@ -147,7 +147,7 @@ public:
         fileDialogInstance = _fileDialogInstance;
     }
     /// Returns the integer resolution scaling factor used internally by the renderer.
-    [[nodiscard]] virtual int getResolutionIntegerScalingFactor() const { return 1; }
+    virtual void getRenderResolution(uint32_t& renderWidth, uint32_t& renderHeight) const;
 
     /**
      * Called when whether the simulation mesh hull should be rendered might have changed.

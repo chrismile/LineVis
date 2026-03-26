@@ -126,11 +126,18 @@ public:
     bool setNewSettings(const SettingsMap& settings) override;
 
     /// Returns the integer resolution scaling factor used internally by the renderer. TODO: Support more modes.
-    [[nodiscard]] int getResolutionIntegerScalingFactor() const override {
-        if (supersamplingMode == 1) {
-            return 2;
+    void getRenderResolution(uint32_t& renderWidth, uint32_t& renderHeight) const override {
+        if (supersamplingMode == 0 || (supersamplingMode > 1 && !upscaler)) {
+            renderWidth = *sceneData->viewportWidth;
+            renderHeight = *sceneData->viewportHeight;
+        } else if (supersamplingMode == 1) {
+            renderWidth = *sceneData->viewportWidth * 2;
+            renderHeight = *sceneData->viewportHeight * 2;
+        } else {
+            const auto& imageSettings = colorRenderTargetImage->getImage()->getImageSettings();
+            renderWidth = imageSettings.width;
+            renderHeight = imageSettings.height;
         }
-        return 1;
     }
 
 protected:

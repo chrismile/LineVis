@@ -46,6 +46,8 @@
 
 #include "DLSS.hpp"
 
+#include <ImGui/Widgets/PropertyEditor.hpp>
+
 #ifdef __linux__
 #include <dlfcn.h>
 #endif
@@ -314,6 +316,26 @@ void DlssSupersampler::resetAccum() {
     shallResetAccum = true;
 }
 
+bool DlssSupersampler::renderGui(sgl::PropertyEditor& propertyEditor) {
+    bool settingsChanged = false;
+    DlssPerfQuality _perfQuality = perfQuality;
+    if (propertyEditor.addCombo(
+            "Mode", (int*)&_perfQuality, DLSS_PERF_QUALITY_NAMES, IM_ARRAYSIZE(DLSS_PERF_QUALITY_NAMES))) {
+        setPerfQuality(_perfQuality);
+        settingsChanged = true;
+    }
+    DlssRenderPreset _renderPreset = renderPreset;
+    if (propertyEditor.addCombo(
+            "Preset", (int*)&_renderPreset, DLSS_RENDER_PRESET_NAMES, IM_ARRAYSIZE(DLSS_RENDER_PRESET_NAMES))) {
+        setRenderPreset(_renderPreset);
+        settingsChanged = true;
+    }
+    if (propertyEditor.addCheckbox("Reset always", &resetEveryFrame)) {
+        settingsChanged = true;
+    }
+    return settingsChanged;
+}
+
 void DlssSupersampler::checkRecreateFeature(
         const sgl::vk::ImageViewPtr& colorImageIn,
         const sgl::vk::ImageViewPtr& colorImageOut,
@@ -409,6 +431,10 @@ bool DlssSupersampler::apply(
     auto depthImageNgx = createNgxImageView(depthImage);
     auto motionVectorImageNgx = createNgxImageView(motionVectorImage);
     auto exposureImageNgx = createNgxImageView(exposureImage);
+
+    if (resetEveryFrame) {
+        shallResetAccum = true;
+    }
 
     float mvScaleX = 1.0f;
     float mvScaleY = 1.0f;

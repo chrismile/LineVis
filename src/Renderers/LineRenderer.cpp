@@ -121,6 +121,11 @@ void LineRenderer::onResolutionChanged() {
     }
 }
 
+void LineRenderer::getRenderResolution(uint32_t& renderWidth, uint32_t& renderHeight) const {
+    renderWidth = *sceneData->viewportWidth;
+    renderHeight = *sceneData->viewportHeight;
+}
+
 void LineRenderer::getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) {
     sgl::vk::ShaderManager->invalidateShaderCache();
 

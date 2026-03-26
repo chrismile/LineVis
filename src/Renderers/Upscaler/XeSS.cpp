@@ -117,6 +117,20 @@ void XessSupersampler::resetAccum() {
     shallResetAccum = true;
 }
 
+bool XessSupersampler::renderGui(sgl::PropertyEditor& propertyEditor) {
+    bool settingsChanged = false;
+    XessQualityMode _qualityMode = qualityMode;
+    if (propertyEditor.addCombo(
+            "Mode", (int*)&_qualityMode, XESS_QUALITY_MODE_NAMES, IM_ARRAYSIZE(XESS_QUALITY_MODE_NAMES))) {
+        setQualityMode(_qualityMode);
+        settingsChanged = true;
+    }
+    if (propertyEditor.addCheckbox("Reset always", &resetEveryFrame)) {
+        settingsChanged = true;
+    }
+    return settingsChanged;
+}
+
 void XessSupersampler::checkRecreateFeature(
         const sgl::vk::ImageViewPtr& colorImageIn,
         const sgl::vk::ImageViewPtr& colorImageOut,
@@ -208,6 +222,10 @@ bool XessSupersampler::apply(
     exposureImage->transitionImageLayoutEx(
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT,
             commandBuffer);
+
+    if (resetEveryFrame) {
+        shallResetAccum = true;
+    }
 
     xess_vk_execute_params_t executeParams{};
     executeParams.colorTexture = createXessVkImageView(colorImageIn);

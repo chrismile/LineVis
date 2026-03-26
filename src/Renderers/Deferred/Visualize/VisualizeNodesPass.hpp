@@ -46,7 +46,7 @@ public:
     sgl::vk::BufferPtr getNodeAabbCountBuffer();
     void setLineWidth(float _lineWidth);
     void setUseScreenSpaceLineWidth(bool _useScreenSpaceLineWidth);
-    void setViewportScaleFactor(int factor);
+    void setOutputSize(uint32_t width, uint32_t height);
     /**
      * This function must only be called when framebuffer compatibility can be ensured.
      * Otherwise, please use @see recreateSwapchain.
@@ -63,7 +63,7 @@ protected:
 
 private:
     LineRenderer* lineRenderer = nullptr;
-    uint32_t viewportWidth = 0, viewportHeight = 0, viewportScaleFactor = 1;
+    uint32_t viewportWidth = 0, viewportHeight = 0, outputWidth = 0, outputHeight = 0;
     float lineWidth = 0.001f;
     bool useScreenSpaceLineWidth = false;
 

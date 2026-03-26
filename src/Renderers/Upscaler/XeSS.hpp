@@ -53,6 +53,10 @@ enum class XessQualityMode {
     ULTRA_QUALITY_PLUS = 105,
     AA = 106
 };
+const char* const XESS_QUALITY_MODE_NAMES[] = {
+        "Ultra Performance (x3)", " Performance (x2.3)", "Balanced (x2)", "Quality (x1.7)", "Ultra Quality (x1.5)",
+        "Ultra Quality Plus", "AA"
+};
 
 class XessSupersampler : public Upscaler {
 public:
@@ -71,6 +75,7 @@ public:
     void setUseJitteredMotionVectors(bool _useJitteredMotionVectors) override;
     void setJitterOffset(float _jitterOffsetX, float _jitterOffsetY) override;
     void resetAccum() override;
+    bool renderGui(sgl::PropertyEditor& propertyEditor) override;
     bool apply(
             const sgl::vk::ImageViewPtr& colorImageIn,
             const sgl::vk::ImageViewPtr& colorImageOut,
@@ -102,6 +107,8 @@ private:
     bool isDepthInverted = false;
     bool enableAutoExposure = false;
     float jitterOffsetX = 0.0f, jitterOffsetY = 0.0f;
+    // Debug options.
+    bool resetEveryFrame = false;
 };
 
 bool getInstanceXessSupportInfo(

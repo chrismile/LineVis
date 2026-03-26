@@ -887,11 +887,23 @@ void DeferredRenderer::onResolutionChanged() {
     resetTemporalAccumulation();
 
     sgl::vk::Device* device = renderer->getDevice();
-    auto scalingFactor = uint32_t(getResolutionIntegerScalingFactor());
-    renderWidth = *sceneData->viewportWidth * scalingFactor;
-    renderHeight = *sceneData->viewportHeight * scalingFactor;
     finalWidth = *sceneData->viewportWidth;
     finalHeight = *sceneData->viewportHeight;
+    if (supersamplingMode == 0 || (supersamplingMode > 1 && !upscaler)) {
+        renderWidth = *sceneData->viewportWidth;
+        renderHeight = *sceneData->viewportHeight;
+    } else if (supersamplingMode == 1) {
+        renderWidth = *sceneData->viewportWidth * 2;
+        renderHeight = *sceneData->viewportHeight * 2;
+    } else {
+        float sharpness;
+        uint32_t renderWidthMax, renderHeightMax, renderWidthMin, renderHeightMin;
+        if (!upscaler->queryOptimalSettings(
+                finalWidth, finalHeight, renderWidth, renderHeight,
+                renderWidthMax, renderHeightMax, renderWidthMin, renderHeightMin, sharpness)) {
+            sgl::Logfile::get()->writeError("Error: upscaler->queryOptimalSettings() failed.");
+        }
+    }
 
     sgl::vk::ImageSamplerSettings samplerSettings;
     samplerSettings.minFilter = VK_FILTER_NEAREST;
@@ -1029,7 +1041,7 @@ void DeferredRenderer::onResolutionChanged() {
         colorRenderTargetTexture = std::make_shared<sgl::vk::Texture>(
                 colorRenderTargetImage, samplerSettings);
 
-        downsampleBlitPass->setScalingFactor(int(scalingFactor));
+        downsampleBlitPass->setScalingFactor(supersamplingMode == 1 ? 2 : 1);
         downsampleBlitPass->setInputTexture(colorRenderTargetTexture);
         downsampleBlitPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
         downsampleBlitPass->recreateSwapchain(finalWidth, finalHeight);
@@ -1059,7 +1071,7 @@ void DeferredRenderer::onResolutionChanged() {
     }
 
     framebufferMode = FramebufferMode::NODE_AABB_PASS;
-    visualizeNodesPass->setViewportScaleFactor(supersamplingMode == 0 ? 1 : int(scalingFactor));
+    visualizeNodesPass->setOutputSize(finalWidth, finalHeight);
     visualizeNodesPass->recreateSwapchain(renderWidth, renderHeight);
 
     if (recomputeIsEmptyOnResolutionChanged) {
@@ -1921,6 +1933,14 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
         onResolutionChanged();
         onSupersamplingModeChanged();
         reRender = true;
+    }
+
+    if (supersamplingMode > 1 && upscaler) {
+        if (upscaler->renderGui(propertyEditor)) {
+            createJitteredSamples();
+            resetTemporalAccumulation();
+            reRender = true;
+        }
     }
 
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {

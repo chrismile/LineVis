@@ -120,8 +120,9 @@ void VisualizeNodesPass::setUseScreenSpaceLineWidth(bool _useScreenSpaceLineWidt
     setShaderDirty();
 }
 
-void VisualizeNodesPass::setViewportScaleFactor(int factor) {
-    viewportScaleFactor = factor;
+void VisualizeNodesPass::setOutputSize(uint32_t width, uint32_t height) {
+    outputWidth = width;
+    outputHeight = height;
 }
 
 void VisualizeNodesPass::updateFramebuffer() {
@@ -185,7 +186,7 @@ void VisualizeNodesPass::_render() {
     uniformData.fieldOfViewY = lineRenderer->getSceneData()->camera->getFOVy();
     float scaleFactor = sgl::ImGuiWrapper::get()->getScaleFactor();
     uniformData.viewportSize = glm::vec2(viewportWidth, viewportHeight);
-    uniformData.viewportSizeVirtual = uniformData.viewportSize / float(viewportScaleFactor) / scaleFactor;
+    uniformData.viewportSizeVirtual = glm::vec2(viewportWidth, viewportHeight) / scaleFactor;
     uniformData.lineWidthBase = lineWidth;
     uniformDataBuffer->updateData(
             sizeof(UniformData), &uniformData, renderer->getVkCommandBuffer());

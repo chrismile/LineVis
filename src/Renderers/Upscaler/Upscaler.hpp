@@ -43,6 +43,10 @@ typedef struct VkPhysicalDevice_T* VkPhysicalDevice;
 #define VK_NULL_HANDLE nullptr
 #endif
 
+namespace sgl {
+class PropertyEditor;
+}
+
 namespace sgl { namespace vk {
 class Device;
 class ImageView;
@@ -70,6 +74,7 @@ public:
     virtual void setUseJitteredMotionVectors(bool _useJitteredMotionVectors) = 0;
     virtual void setJitterOffset(float _jitterOffsetX, float _jitterOffsetY) = 0;
     virtual void resetAccum() = 0;
+    virtual bool renderGui(sgl::PropertyEditor& propertyEditor) = 0;
     virtual bool apply(
             const sgl::vk::ImageViewPtr& colorImageIn,
             const sgl::vk::ImageViewPtr& colorImageOut,

@@ -48,6 +48,9 @@ typedef std::shared_ptr<ImageView> ImageViewPtr;
 enum class DlssPerfQuality {
     MAX_PERF, BALANCED, MAX_QUALITY, ULTRA_PERFORMANCE, ULTRA_QUALITY, DLAA
 };
+const char* const DLSS_PERF_QUALITY_NAMES[] = {
+    "Max Performance", "Balanced", "Max Quality", "Ultra Performance", "Ultra Quality", "DLAA"
+};
 enum class DlssRenderPreset {
     DEFAULT, // all
     A, // Perf/Balanced/Quality (removed in 310.4.0; J or K recommended by docs)
@@ -64,6 +67,10 @@ enum class DlssRenderPreset {
     L, // Default for Ultra Perf; more stable & expensive than J, K (since SDK version 310.5.0)
     M, // Default for Perf; similar quality as L, but faster; best perf on RTX 40+ (since SDK version 310.5.0)
 };
+const char* const DLSS_RENDER_PRESET_NAMES[] = {
+    "Default", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"
+};
+
 class DlssSupersampler : public Upscaler {
 public:
     ~DlssSupersampler() override;
@@ -82,6 +89,7 @@ public:
     void setUseJitteredMotionVectors(bool _useJitteredMotionVectors) override;
     void setJitterOffset(float _jitterOffsetX, float _jitterOffsetY) override;
     void resetAccum() override;
+    bool renderGui(sgl::PropertyEditor& propertyEditor) override;
     bool apply(
             const sgl::vk::ImageViewPtr& colorImageIn,
             const sgl::vk::ImageViewPtr& colorImageOut,
@@ -115,6 +123,8 @@ private:
     bool enableAutoExposure = false;
     bool upscaleAlpha = false;
     float jitterOffsetX = 0.0f, jitterOffsetY = 0.0f;
+    // Debug options.
+    bool resetEveryFrame = false;
 };
 
 bool getInstanceDlssSupportInfo(std::vector<const char*>& requiredInstanceExtensions);
