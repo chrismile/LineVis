@@ -882,6 +882,13 @@ void DeferredRenderer::setFramebufferAttachments(sgl::vk::FramebufferPtr& frameb
     }
 }
 
+int DeferredRenderer::getIntegerScalingFactor() const {
+    if (supersamplingMode < NUM_SSAA_MODES || (supersamplingMode >= NUM_SSAA_MODES && !upscaler)) {
+        return 1 << std::min(supersamplingMode, NUM_SSAA_MODES - 1);
+    }
+    return 1;
+}
+
 void DeferredRenderer::onResolutionChanged() {
     LineRenderer::onResolutionChanged();
     resetTemporalAccumulation();
@@ -889,12 +896,10 @@ void DeferredRenderer::onResolutionChanged() {
     sgl::vk::Device* device = renderer->getDevice();
     finalWidth = *sceneData->viewportWidth;
     finalHeight = *sceneData->viewportHeight;
-    if (supersamplingMode == 0 || (supersamplingMode > 1 && !upscaler)) {
-        renderWidth = *sceneData->viewportWidth;
-        renderHeight = *sceneData->viewportHeight;
-    } else if (supersamplingMode == 1) {
-        renderWidth = *sceneData->viewportWidth * 2;
-        renderHeight = *sceneData->viewportHeight * 2;
+    if (supersamplingMode < NUM_SSAA_MODES || (supersamplingMode >= NUM_SSAA_MODES && !upscaler)) {
+        int scalingFactor = getIntegerScalingFactor();
+        renderWidth = *sceneData->viewportWidth * static_cast<uint32_t>(scalingFactor);
+        renderHeight = *sceneData->viewportHeight * static_cast<uint32_t>(scalingFactor);
     } else {
         float sharpness;
         uint32_t renderWidthMax, renderHeightMax, renderWidthMin, renderHeightMin;
@@ -1041,7 +1046,7 @@ void DeferredRenderer::onResolutionChanged() {
         colorRenderTargetTexture = std::make_shared<sgl::vk::Texture>(
                 colorRenderTargetImage, samplerSettings);
 
-        downsampleBlitPass->setScalingFactor(supersamplingMode == 1 ? 2 : 1);
+        downsampleBlitPass->setScalingFactor(getIntegerScalingFactor());
         downsampleBlitPass->setInputTexture(colorRenderTargetTexture);
         downsampleBlitPass->setOutputImage((*sceneData->sceneTexture)->getImageView());
         downsampleBlitPass->recreateSwapchain(finalWidth, finalHeight);
@@ -1050,7 +1055,7 @@ void DeferredRenderer::onResolutionChanged() {
     deferredResolvePass->setOutputImage(colorRenderTargetImage);
     deferredResolvePass->recreateSwapchain(renderWidth, renderHeight);
 
-    if (supersamplingMode >= 2) {
+    if (supersamplingMode >= NUM_SSAA_MODES) {
         framebufferMode = FramebufferMode::MOTION_VECTOR_RESOLVE_PASS;
         imageSettings.format = VK_FORMAT_R32G32_SFLOAT;
         imageSettings.usage =
@@ -1177,9 +1182,9 @@ void DeferredRenderer::onClearColorChanged() {
 void DeferredRenderer::onSupersamplingModeChanged() {
     upscaler = {};
 #if defined(SUPPORT_DLSS) || defined(SUPPORT_XESS)
-    if (supersamplingMode > 1) {
+    if (supersamplingMode >= NUM_SSAA_MODES) {
         UpscalerType upscalerType = UpscalerType::INVALID;
-        DeferredRendererUpscaler deferredRendererUpscaler = supportedUpscalers.at(supersamplingMode - 2);
+        DeferredRendererUpscaler deferredRendererUpscaler = supportedUpscalers.at(supersamplingMode - NUM_SSAA_MODES);
 #ifdef SUPPORT_DLSS
         if (deferredRendererUpscaler == DeferredRendererUpscaler::DLSS) {
             upscalerType = UpscalerType::DLSS;
@@ -1428,7 +1433,7 @@ void DeferredRenderer::render() {
         }
         deferredResolvePass->render();
 
-        if (supersamplingMode > 1) {
+        if (supersamplingMode >= NUM_SSAA_MODES) {
             glm::mat4 lastFrameViewProjectionMatrix = lastFrameProjectionMatrix * lastFrameViewMatrix;
             motionVectorPassUniformDataBuffer->updateData(
                     sizeof(glm::mat4), &lastFrameViewProjectionMatrix, renderer->getVkCommandBuffer());
@@ -1494,11 +1499,11 @@ void DeferredRenderer::render() {
         hullRasterPass->render();
     }
 
-    if (supersamplingMode == 1) {
+    if (supersamplingMode > 0 && supersamplingMode < NUM_SSAA_MODES) {
         renderer->transitionImageLayout(
                 colorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         downsampleBlitPass->render();
-    } else if (supersamplingMode > 1) {
+    } else if (supersamplingMode >= NUM_SSAA_MODES) {
         renderer->transitionImageLayout(
                 motionVectorRenderTargetImage->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         renderer->transitionImageLayout(
@@ -1930,12 +1935,12 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
             "Supersampling", &supersamplingMode,
             supersamplingModeNames.data(), int(supersamplingModeNames.size()))) {
         renderer->getDevice()->waitIdle();
-        onResolutionChanged();
         onSupersamplingModeChanged();
+        onResolutionChanged();
         reRender = true;
     }
 
-    if (supersamplingMode > 1 && upscaler) {
+    if (supersamplingMode >= NUM_SSAA_MODES && upscaler) {
         if (upscaler->renderGui(propertyEditor)) {
             createJitteredSamples();
             resetTemporalAccumulation();
@@ -2306,13 +2311,13 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
     int supersamplingFactor = 1;
     if (newState.rendererSettings.getValueOpt("supersampling", supersamplingFactor)) {
         for (int i = 0; i < int(supersamplingModeNames.size()); i++) {
-            if ((i <= 1 && std::to_string(supersamplingFactor) + "x" == supersamplingModeNames[i])
-                    || (i >= 2 && supersamplingModeNames.at(i) == supersamplingModeNames[i])) {
+            if ((i < NUM_SSAA_MODES && std::to_string(1 << supersamplingFactor) + "x" == supersamplingModeNames[i])
+                    || (i >= NUM_SSAA_MODES && supersamplingModeNames.at(i) == supersamplingModeNames[i])) {
                 supersamplingMode = i;
+                onSupersamplingModeChanged();
                 if ((*sceneData->sceneTexture)) {
                     onResolutionChanged();
                 }
-                onSupersamplingModeChanged();
                 reRender = true;
                 break;
             }
@@ -2541,13 +2546,13 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
     int supersamplingFactor = 1;
     if (settings.getValueOpt("supersampling", supersamplingFactor)) {
         for (int i = 0; i < int(supersamplingModeNames.size()); i++) {
-            if ((i <= 1 && std::to_string(supersamplingFactor) + "x" == supersamplingModeNames[i])
-                    || (i >= 2 && supersamplingModeNames.at(i) == supersamplingModeNames[i])) {
+            if ((i < NUM_SSAA_MODES && std::to_string(1 << supersamplingFactor) + "x" == supersamplingModeNames[i])
+                    || (i >= NUM_SSAA_MODES && supersamplingModeNames.at(i) == supersamplingModeNames[i])) {
                 supersamplingMode = i;
+                onSupersamplingModeChanged();
                 if ((*sceneData->sceneTexture)) {
                     onResolutionChanged();
                 }
-                onSupersamplingModeChanged();
                 reRender = true;
                 break;
             }

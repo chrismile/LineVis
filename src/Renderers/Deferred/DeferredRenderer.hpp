@@ -126,17 +126,15 @@ public:
     bool setNewSettings(const SettingsMap& settings) override;
 
     /// Returns the integer resolution scaling factor used internally by the renderer. TODO: Support more modes.
-    void getRenderResolution(uint32_t& renderWidth, uint32_t& renderHeight) const override {
-        if (supersamplingMode == 0 || (supersamplingMode > 1 && !upscaler)) {
-            renderWidth = *sceneData->viewportWidth;
-            renderHeight = *sceneData->viewportHeight;
-        } else if (supersamplingMode == 1) {
-            renderWidth = *sceneData->viewportWidth * 2;
-            renderHeight = *sceneData->viewportHeight * 2;
+    void getRenderResolution(uint32_t& _renderWidth, uint32_t& _renderHeight) const override {
+        if (supersamplingMode < NUM_SSAA_MODES || (supersamplingMode >= NUM_SSAA_MODES && !upscaler)) {
+            int scalingFactor = getIntegerScalingFactor();
+            _renderWidth = *sceneData->viewportWidth * static_cast<uint32_t>(scalingFactor);
+            _renderHeight = *sceneData->viewportHeight * static_cast<uint32_t>(scalingFactor);
         } else {
             const auto& imageSettings = colorRenderTargetImage->getImage()->getImageSettings();
-            renderWidth = imageSettings.width;
-            renderHeight = imageSettings.height;
+            _renderWidth = imageSettings.width;
+            _renderHeight = imageSettings.height;
         }
     }
 
@@ -311,10 +309,14 @@ protected:
     bool useMeshShaderWritePackedPrimitiveIndicesIfAvailable = true; ///< Sub-mode for VK_NV_mesh_shader.
 
     // Supersampling modes.
+    int getIntegerScalingFactor() const;
     std::shared_ptr<Upscaler> upscaler{};
+    const int NUM_SSAA_MODES = 4;
     const std::vector<const char*> supersamplingModeNamesAll = {
             "1x",
             "2x",
+            "3x",
+            "4x",
 #ifdef SUPPORT_DLSS
             "DLSS",
 #endif
