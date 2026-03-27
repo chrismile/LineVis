@@ -127,6 +127,10 @@ void computeFragmentColor(
 #endif
 #endif
 
+#ifdef DEFERRED_SHADING
+    fragmentColor.a = 1.0; // Ignore transparency mapping.
+#endif
+
 #if defined(USE_MLAT) && !(defined(USE_MULTI_VAR_RENDERING) && !defined(USE_ROTATING_HELICITY_BANDS))
     if (fragmentColor.a == 0.0) {
         ignoreIntersectionEXT;
@@ -396,6 +400,9 @@ void computeFragmentColor(
         uint attributeIdxReal = getRealAttributeIndex(attributeIdx);
         float sampledFragmentAttribute = sampleAttributeLinear(fragmentVertexId, attributeIdxReal);
         fragmentColor = transferFunction(sampledFragmentAttribute, attributeIdxReal);
+#ifdef DEFERRED_SHADING
+        fragmentColor.a = 1.0; // Ignore transparency mapping.
+#endif
     }
 
 #if defined(USE_MLAT)
