@@ -94,7 +94,7 @@ void adaptProjectionMatrixJitterSample(
     // Sign is same as value of projectionMatrix[2][3].
     // DLSS integration guide uses "+" due to different conventions.
     projectionMatrix[2][0] -= translation.x;
-    projectionMatrix[2][1] -= translation.y;
+    projectionMatrix[2][1] += translation.y;
 
 }
 
@@ -103,5 +103,5 @@ glm::mat4 computeJitterSampleMatrix(
         uint32_t renderWidth, uint32_t renderHeight) {
     // y-axis may be negative if y points down.
     return sgl::matrixTranslation(glm::vec2(
-            2.0f * jitterSample.x / float(renderWidth), 2.0f * jitterSample.y / float(renderHeight)));
+            2.0f * jitterSample.x / float(renderWidth), -2.0f * jitterSample.y / float(renderHeight)));
 }

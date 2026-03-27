@@ -50,8 +50,8 @@ enum class XessQualityMode {
     BALANCED = 102, // x2
     QUALITY = 103, // x1.7
     ULTRA_QUALITY = 103, // x1.5
-    ULTRA_QUALITY_PLUS = 105,
-    AA = 106
+    ULTRA_QUALITY_PLUS = 105, // x1.3
+    AA = 106 // x1
 };
 const char* const XESS_QUALITY_MODE_NAMES[] = {
         "Ultra Performance (x3)", " Performance (x2.3)", "Balanced (x2)", "Quality (x1.7)", "Ultra Quality (x1.5)",
