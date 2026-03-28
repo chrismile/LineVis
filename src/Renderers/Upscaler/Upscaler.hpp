@@ -94,7 +94,7 @@ public:
 
 Upscaler* createNewUpscaler(UpscalerType upscalerType);
 void computeJitteredSamples(
-        std::vector<glm::vec2>& jitteredSamples,
+        std::vector<glm::vec2>& jitteredSamples, int numSamplesBase,
         uint32_t renderWidth, uint32_t renderHeight,
         uint32_t displayWidth, uint32_t displayHeight);
 void adaptProjectionMatrixJitterSample(

@@ -41,6 +41,7 @@ class VisibilityBufferDrawIndexedPass : public LineRasterPass {
 public:
     explicit VisibilityBufferDrawIndexedPass(LineRenderer* lineRenderer);
     void setDrawIndexedGeometryMode(DrawIndexedGeometryMode geometryModeNew);
+    void setUseConservativeRasterization();
 
 protected:
     void loadShader() override;
@@ -49,6 +50,7 @@ protected:
 
 private:
     DrawIndexedGeometryMode geometryMode = DrawIndexedGeometryMode::TRIANGLES;
+    bool useConservativeRasterization = false;
 };
 
 #endif //LINEVIS_VISIBILITYBUFFERDRAWINDEXEDPASS_HPP

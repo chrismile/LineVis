@@ -115,6 +115,7 @@ public:
 
     /// Called when the used supersampling mode has changed.
     void onSupersamplingModeChanged();
+    void onConservativeRasterOptionChanged();
 
     // Renders the object to the scene framebuffer.
     void render() override;
@@ -204,7 +205,10 @@ protected:
         // DeferredRenderingMode::TASK_MESH_SHADER
         VISIBILITY_BUFFER_TASK_MESH_SHADER_PASS,
         // Resolve/further passes.
-        DEFERRED_RESOLVE_PASS, MOTION_VECTOR_RESOLVE_PASS, HULL_RASTER_PASS, NODE_AABB_PASS
+        DEFERRED_RESOLVE_PASS, MOTION_VECTOR_RESOLVE_PASS, HULL_RASTER_PASS, NODE_AABB_PASS,
+
+        // Conservative rasterization + DeferredRenderingMode::DRAW_INDEXED
+        VISIBILITY_BUFFER_DRAW_INDEXED_PASS_CONSERVATIVE,
     };
     int framebufferModeIndex = 0;
     FramebufferMode framebufferMode = FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_PASS;
@@ -331,9 +335,29 @@ protected:
     uint32_t finalWidth = 0, finalHeight = 0;
 
     // Multiple frames can be accumulated with the temporal upscalers to achieve a multisampling effect.
+    int numSamplesBase = 8;
     uint32_t jitteredSamplesOffset = 0;
     uint32_t accumulatedFramesCounter = 0;
     std::vector<glm::vec2> jitteredSamples;
+
+    // For conservative rasterization of the motion vectors (currently only supported for DeferredRenderingMode::DRAW_INDEXED).
+    bool useConservativeRasterizationMV = false;
+    bool useConservativeRasterizationDepth = false;
+    bool useConservativeRasterizationPass = false;
+    sgl::vk::ImageViewPtr primitiveIndexConservativeImage;
+    sgl::vk::TexturePtr primitiveIndexConservativeTexture;
+    sgl::vk::ImageViewPtr depthConservativeRenderTargetImage;
+    sgl::vk::TexturePtr depthBufferConservativeTexture;
+    // DeferredRenderingMode::DRAW_INDEXED
+    std::shared_ptr<VisibilityBufferDrawIndexedPass> visibilityBufferDrawIndexedPassConservative;
+    // DeferredRenderingMode::DRAW_INDIRECT
+    std::shared_ptr<VisibilityBufferDrawIndexedIndirectPass> visibilityBufferDrawIndexedIndirectPassesConservative[2];
+    // DeferredRenderingMode::TASK_MESH_SHADER
+    std::shared_ptr<MeshletTaskMeshPass> meshletTaskMeshPassesConservative[2];
+    // DeferredRenderingMode::BVH_DRAW_INDIRECT
+    std::shared_ptr<VisibilityBufferBVHDrawIndexedIndirectPass> visibilityBufferBVHDrawIndexedIndirectPassesConservative[2];
+    // DeferredRenderingMode::BVH_MESH_SHADER
+    std::shared_ptr<MeshletMeshBVHPass> meshletMeshBVHPassesConservative[2];
 
     // Data for performance measurements.
     int frameCounter = 0;

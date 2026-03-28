@@ -41,6 +41,10 @@ void VisibilityBufferDrawIndexedPass::setDrawIndexedGeometryMode(DrawIndexedGeom
     }
 }
 
+void VisibilityBufferDrawIndexedPass::setUseConservativeRasterization() {
+    useConservativeRasterization = true;
+}
+
 void VisibilityBufferDrawIndexedPass::loadShader() {
     sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
@@ -81,6 +85,10 @@ void VisibilityBufferDrawIndexedPass::setGraphicsPipelineInfo(sgl::vk::GraphicsP
     pipelineInfo.setDepthTestEnabled(true);
     pipelineInfo.setDepthWriteEnabled(true);
     pipelineInfo.setBlendMode(sgl::vk::BlendMode::OVERWRITE);
+
+    if (useConservativeRasterization) {
+        pipelineInfo.setUseConservativeRasterization();
+    }
 }
 
 void VisibilityBufferDrawIndexedPass::createRasterData(

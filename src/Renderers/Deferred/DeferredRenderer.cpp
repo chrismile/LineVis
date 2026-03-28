@@ -193,9 +193,15 @@ void DeferredRenderer::reloadGatherShader() {
     resetTemporalAccumulation();
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
         visibilityBufferDrawIndexedPass->setShaderDirty();
+        if (useConservativeRasterizationPass) {
+            visibilityBufferDrawIndexedPassConservative->setShaderDirty();
+        }
     } else if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
         for (int i = 0; i < 2; i++) {
             visibilityBufferDrawIndexedIndirectPasses[i]->setShaderDirty();
+            if (useConservativeRasterizationPass) {
+                visibilityBufferDrawIndexedIndirectPassesConservative[i]->setShaderDirty();
+            }
         }
         if (drawIndirectReductionMode == DrawIndirectReductionMode::NO_REDUCTION) {
             for (int i = 0; i < 2; i++) {
@@ -215,6 +221,9 @@ void DeferredRenderer::reloadGatherShader() {
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         for (int i = 0; i < 2; i++) {
             meshletTaskMeshPasses[i]->setShaderDirty();
+            if (useConservativeRasterizationPass) {
+                meshletTaskMeshPassesConservative[i]->setShaderDirty();
+            }
         }
     } else if (getIsBvhRenderingMode()) {
         nodesBVHClearQueuePass->setShaderDirty();
@@ -225,8 +234,14 @@ void DeferredRenderer::reloadGatherShader() {
             nodesBVHDrawCountPasses[i]->setShaderDirty();
             if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
                 visibilityBufferBVHDrawIndexedIndirectPasses[i]->setShaderDirty();
+                if (useConservativeRasterizationPass) {
+                    visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setShaderDirty();
+                }
             } else {
                 meshletMeshBVHPasses[i]->setShaderDirty();
+                if (useConservativeRasterizationPass) {
+                    meshletMeshBVHPassesConservative[i]->setShaderDirty();
+                }
             }
         }
     }
@@ -243,7 +258,7 @@ void DeferredRenderer::createJitteredSamples() {
     sgl::vk::ImageSettings imageSettingsRender = colorRenderTargetImage->getImage()->getImageSettings();
     sgl::vk::ImageSettings imageSettingsDisplay = (*sceneData->sceneTexture)->getImage()->getImageSettings();
     computeJitteredSamples(
-            jitteredSamples,
+            jitteredSamples, numSamplesBase,
             imageSettingsRender.width, imageSettingsRender.height,
             imageSettingsDisplay.width, imageSettingsDisplay.height);
 }
@@ -284,16 +299,22 @@ void DeferredRenderer::onHasMovedLargeAmount() {
 void DeferredRenderer::updateRenderingMode() {
     resetTemporalAccumulation();
     visibilityBufferDrawIndexedPass = {};
+    visibilityBufferDrawIndexedPassConservative = {};
     visibilityBufferPrefixSumScanPass = {};
     nodesBVHClearQueuePass = {};
     for (int i = 0; i < 2; i++) {
         visibilityBufferDrawIndexedIndirectPasses[i] = {};
+        visibilityBufferDrawIndexedIndirectPassesConservative[i] = {};
         meshletDrawCountAtomicPasses[i] = {};
         meshletVisibilityPasses[i] = {};
         meshletDrawCountPasses[i] = {};
         meshletTaskMeshPasses[i] = {};
+        meshletTaskMeshPassesConservative[i] = {};
         nodesBVHDrawCountPasses[i] = {};
         visibilityBufferBVHDrawIndexedIndirectPasses[i] = {};
+        visibilityBufferBVHDrawIndexedIndirectPassesConservative[i] = {};
+        meshletMeshBVHPasses[i] = {};
+        meshletMeshBVHPassesConservative[i] = {};
     }
     deferredResolvePass->setDataDirty();
     visualizeNodesPass->setNodeAabbBuffer({});
@@ -301,6 +322,10 @@ void DeferredRenderer::updateRenderingMode() {
 
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
         visibilityBufferDrawIndexedPass = std::make_shared<VisibilityBufferDrawIndexedPass>(this);
+        if (useConservativeRasterizationPass) {
+            visibilityBufferDrawIndexedPassConservative = std::make_shared<VisibilityBufferDrawIndexedPass>(this);
+            visibilityBufferDrawIndexedPassConservative->setUseConservativeRasterization();
+        }
         updateGeometryMode();
         onResolutionChangedDeferredRenderingMode();
         if (lineData) {
@@ -313,9 +338,19 @@ void DeferredRenderer::updateRenderingMode() {
             visibilityBufferDrawIndexedIndirectPasses[i]->setMaxNumPrimitivesPerMeshlet(
                     drawIndirectMaxNumPrimitivesPerMeshlet);
             visibilityBufferDrawIndexedIndirectPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
+            if (useConservativeRasterizationPass) {
+                visibilityBufferDrawIndexedIndirectPassesConservative[i] =
+                        std::make_shared<VisibilityBufferDrawIndexedIndirectPass>(this);
+                visibilityBufferDrawIndexedIndirectPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(
+                        drawIndirectMaxNumPrimitivesPerMeshlet);
+            }
         }
         visibilityBufferDrawIndexedIndirectPasses[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
         visibilityBufferDrawIndexedIndirectPasses[1]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD);
+        if (useConservativeRasterizationPass) {
+            visibilityBufferDrawIndexedIndirectPassesConservative[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
+            visibilityBufferDrawIndexedIndirectPassesConservative[1]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD);
+        }
         updateGeometryMode();
         updateDrawIndirectReductionMode(); // Already contains call to @see onResolutionChangedDeferredRenderingMode.
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
@@ -328,10 +363,24 @@ void DeferredRenderer::updateRenderingMode() {
                     useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
             meshletTaskMeshPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
             meshletTaskMeshPasses[i]->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
+            if (useConservativeRasterizationPass) {
+                meshletTaskMeshPassesConservative[i] = std::make_shared<MeshletTaskMeshPass>(this);
+                meshletTaskMeshPassesConservative[i]->setUseMeshShaderNV(useMeshShaderNV);
+                meshletTaskMeshPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                meshletTaskMeshPassesConservative[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
+                meshletTaskMeshPassesConservative[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
+                        useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
+                meshletTaskMeshPassesConservative[i]->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
+            }
         }
         meshletTaskMeshPasses[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
         meshletTaskMeshPasses[1]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD);
         meshletTaskMeshPasses[1]->setRecheckOccludedOnly(true);
+        if (useConservativeRasterizationPass) {
+            meshletTaskMeshPassesConservative[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
+            meshletTaskMeshPassesConservative[1]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD);
+            meshletTaskMeshPassesConservative[1]->setRecheckOccludedOnly(true);
+        }
         updateGeometryMode();
         onResolutionChangedDeferredRenderingMode();
         if (lineData) {
@@ -411,6 +460,19 @@ void DeferredRenderer::updateRenderingMode() {
                 visibilityBufferBVHDrawIndexedIndirectPasses[i]->setMaxTreeDepthBvh(maxTreeDepthBvh);
                 visibilityBufferBVHDrawIndexedIndirectPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
                 visibilityBufferBVHDrawIndexedIndirectPasses[i]->setUseDrawIndexedIndirectCount(true);
+                if (useConservativeRasterizationPass) {
+                    visibilityBufferBVHDrawIndexedIndirectPassesConservative[i] =
+                            std::make_shared<VisibilityBufferBVHDrawIndexedIndirectPass>(this);
+                    visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(
+                            drawIndirectMaxNumPrimitivesPerMeshlet);
+                    visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+                    visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+                    visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setBvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode);
+                    visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setUseStdBvhParameters(useStdBvhParameters);
+                    visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setMaxLeafSizeBvh(maxLeafSizeBvh);
+                    visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setMaxTreeDepthBvh(maxTreeDepthBvh);
+                    visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setUseDrawIndexedIndirectCount(true);
+                }
             } else {
                 meshletMeshBVHPasses[i] =
                         std::make_shared<MeshletMeshBVHPass>(this);
@@ -426,14 +488,37 @@ void DeferredRenderer::updateRenderingMode() {
                 meshletMeshBVHPasses[i]->setMaxLeafSizeBvh(maxLeafSizeBvh);
                 meshletMeshBVHPasses[i]->setMaxTreeDepthBvh(maxTreeDepthBvh);
                 meshletMeshBVHPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
+                if (useConservativeRasterizationPass) {
+                    meshletMeshBVHPassesConservative[i] =
+                            std::make_shared<MeshletMeshBVHPass>(this);
+                    meshletMeshBVHPassesConservative[i]->setUseMeshShaderNV(useMeshShaderNV);
+                    meshletMeshBVHPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                    meshletMeshBVHPassesConservative[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
+                    meshletMeshBVHPassesConservative[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
+                            useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
+                    meshletMeshBVHPassesConservative[i]->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+                    meshletMeshBVHPassesConservative[i]->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+                    meshletMeshBVHPassesConservative[i]->setBvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode);
+                    meshletMeshBVHPassesConservative[i]->setUseStdBvhParameters(useStdBvhParameters);
+                    meshletMeshBVHPassesConservative[i]->setMaxLeafSizeBvh(maxLeafSizeBvh);
+                    meshletMeshBVHPassesConservative[i]->setMaxTreeDepthBvh(maxTreeDepthBvh);
+                }
             }
         }
         if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
             visibilityBufferBVHDrawIndexedIndirectPasses[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
             visibilityBufferBVHDrawIndexedIndirectPasses[1]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD);
+            if (useConservativeRasterizationPass) {
+                visibilityBufferBVHDrawIndexedIndirectPassesConservative[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
+                visibilityBufferBVHDrawIndexedIndirectPassesConservative[1]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD);
+            }
         } else {
             meshletMeshBVHPasses[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
             meshletMeshBVHPasses[1]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD);
+            if (useConservativeRasterizationPass) {
+                meshletMeshBVHPassesConservative[0]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_CLEAR);
+                meshletMeshBVHPassesConservative[1]->setAttachmentLoadOp(VK_ATTACHMENT_LOAD_OP_LOAD);
+            }
         }
         nodesBVHDrawCountPasses[1]->setRecheckOccludedOnly(true);
         updateGeometryMode();
@@ -453,6 +538,9 @@ void DeferredRenderer::updateGeometryMode() {
             ? drawIndexedGeometryMode : DrawIndexedGeometryMode::TRIANGLES);
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
         visibilityBufferDrawIndexedPass->setDrawIndexedGeometryMode(drawIndexedGeometryMode);
+        if (useConservativeRasterizationPass) {
+            visibilityBufferDrawIndexedPassConservative->setDrawIndexedGeometryMode(drawIndexedGeometryMode);
+        }
     }
 }
 
@@ -473,6 +561,9 @@ void DeferredRenderer::updateDrawIndirectReductionMode() {
             meshletDrawCountNoReductionPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
             meshletDrawCountNoReductionPasses[i]->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
             visibilityBufferDrawIndexedIndirectPasses[i]->setUseDrawIndexedIndirectCount(false);
+            if (useConservativeRasterizationPass) {
+                visibilityBufferDrawIndexedIndirectPassesConservative[i]->setUseDrawIndexedIndirectCount(false);
+            }
         }
         meshletDrawCountNoReductionPasses[1]->setRecheckOccludedOnly(true);
     } else if (drawIndirectReductionMode == DrawIndirectReductionMode::ATOMIC_COUNTER) {
@@ -482,6 +573,9 @@ void DeferredRenderer::updateDrawIndirectReductionMode() {
             meshletDrawCountAtomicPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
             meshletDrawCountAtomicPasses[i]->setVisibilityCullingUniformBuffer(visibilityCullingUniformDataBuffer);
             visibilityBufferDrawIndexedIndirectPasses[i]->setUseDrawIndexedIndirectCount(true);
+            if (useConservativeRasterizationPass) {
+                visibilityBufferDrawIndexedIndirectPassesConservative[i]->setUseDrawIndexedIndirectCount(true);
+            }
         }
         meshletDrawCountAtomicPasses[1]->setRecheckOccludedOnly(true);
     } else if (drawIndirectReductionMode == DrawIndirectReductionMode::PREFIX_SUM_SCAN) {
@@ -494,6 +588,9 @@ void DeferredRenderer::updateDrawIndirectReductionMode() {
             meshletDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
             meshletDrawCountPasses[i]->setShallVisualizeNodes(shallVisualizeNodes);
             visibilityBufferDrawIndexedIndirectPasses[i]->setUseDrawIndexedIndirectCount(true);
+            if (useConservativeRasterizationPass) {
+                visibilityBufferDrawIndexedIndirectPassesConservative[i]->setUseDrawIndexedIndirectCount(true);
+            }
         }
         meshletVisibilityPasses[1]->setRecheckOccludedOnly(true);
         meshletDrawCountPasses[1]->setRecheckOccludedOnly(true);
@@ -540,6 +637,17 @@ void DeferredRenderer::updateTaskMeshShaderMode() {
                 meshletTaskMeshPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
                         useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
             }
+            if (useConservativeRasterizationPass) {
+                if (meshletTaskMeshPassesConservative[i]) {
+                    meshletTaskMeshPassesConservative[i]->setUseMeshShaderNV(useMeshShaderNV);
+                    meshletTaskMeshPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(
+                            taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                    meshletTaskMeshPassesConservative[i]->setMaxNumVerticesPerMeshlet(
+                            taskMeshShaderMaxNumVerticesPerMeshlet);
+                    meshletTaskMeshPassesConservative[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
+                            useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
+                }
+            }
         }
     } else if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER) {
         for (int i = 0; i < 2; i++) {
@@ -564,6 +672,17 @@ void DeferredRenderer::updateTaskMeshShaderMode() {
                         taskMeshShaderMaxNumVerticesPerMeshlet);
                 meshletMeshBVHPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
                         useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
+            }
+            if (useConservativeRasterizationPass) {
+                if (meshletMeshBVHPassesConservative[i]) {
+                    meshletMeshBVHPassesConservative[i]->setUseMeshShaderNV(useMeshShaderNV);
+                    meshletMeshBVHPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(
+                            taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                    meshletMeshBVHPassesConservative[i]->setMaxNumVerticesPerMeshlet(
+                            taskMeshShaderMaxNumVerticesPerMeshlet);
+                    meshletMeshBVHPassesConservative[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
+                            useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
+                }
             }
             if (nodesBVHDrawCountPasses[i]) {
                 nodesBVHDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
@@ -620,6 +739,9 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     bool isDataEmpty = true;
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
         visibilityBufferDrawIndexedPass->setLineData(lineData, isNewData);
+        if (useConservativeRasterizationPass) {
+            visibilityBufferDrawIndexedPassConservative->setLineData(lineData, isNewData);
+        }
         if (colorRenderTargetImage) {
             visibilityBufferDrawIndexedPass->buildIfNecessary();
             isDataEmpty = visibilityBufferDrawIndexedPass->getIsDataEmpty();
@@ -627,6 +749,9 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     } else if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
         for (int i = 0; i < 2; i++) {
             visibilityBufferDrawIndexedIndirectPasses[i]->setLineData(lineData, isNewData);
+            if (useConservativeRasterizationPass) {
+                visibilityBufferDrawIndexedIndirectPassesConservative[i]->setLineData(lineData, isNewData);
+            }
         }
         if (drawIndirectReductionMode == DrawIndirectReductionMode::NO_REDUCTION) {
             for (int i = 0; i < 2; i++) {
@@ -650,6 +775,9 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
     } else if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
         for (int i = 0; i < 2; i++) {
             meshletTaskMeshPasses[i]->setLineData(lineData, isNewData);
+            if (useConservativeRasterizationPass) {
+                meshletTaskMeshPassesConservative[i]->setLineData(lineData, isNewData);
+            }
         }
         if (colorRenderTargetImage) {
             meshletTaskMeshPasses[0]->buildIfNecessary();
@@ -664,8 +792,14 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
             nodesBVHDrawCountPasses[i]->setLineData(lineData, isNewData);
             if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
                 visibilityBufferBVHDrawIndexedIndirectPasses[i]->setLineData(lineData, isNewData);
+                if (useConservativeRasterizationPass) {
+                    visibilityBufferBVHDrawIndexedIndirectPassesConservative[0]->setLineData(lineData, isNewData);
+                }
             } else {
                 meshletMeshBVHPasses[i]->setLineData(lineData, isNewData);
+                if (useConservativeRasterizationPass) {
+                    meshletMeshBVHPassesConservative[i]->setLineData(lineData, isNewData);
+                }
             }
         }
         if (colorRenderTargetImage) {
@@ -681,6 +815,7 @@ void DeferredRenderer::setLineData(LineDataPtr& lineData, bool isNewData) {
 
     reloadResolveShader();
     deferredResolvePass->setDataDirty();
+    motionVectorResolvePass->setDataDirty();
 
     if (hullRasterPass) {
         if (colorRenderTargetImage) {
@@ -780,9 +915,13 @@ void DeferredRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& rende
             }
         }
     }
-    if (isDeferredShading || isMotionVectorPass) {
+    if (isDeferredShading || (isMotionVectorPass && (!useConservativeRasterizationMV || !useConservativeRasterizationPass))) {
         renderData->setStaticTexture(primitiveIndexTexture, "primitiveIndexBuffer");
         renderData->setStaticTexture(depthMipLevelTextures.at(0), "depthBuffer");
+    }
+    if (isMotionVectorPass && useConservativeRasterizationMV && useConservativeRasterizationPass) {
+        renderData->setStaticTexture(primitiveIndexConservativeTexture, "primitiveIndexBuffer");
+        renderData->setStaticTexture(depthBufferConservativeTexture, "depthBuffer");
     }
     if (isMotionVectorPass) {
         renderData->setStaticBuffer(motionVectorPassUniformDataBuffer, "LastFrameUniformData");
@@ -876,6 +1015,24 @@ void DeferredRenderer::setFramebufferAttachments(sgl::vk::FramebufferPtr& frameb
         depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         framebuffer->setDepthStencilAttachment(
                 depthRenderTargetImage, depthAttachmentState, 1.0f);
+    } else if (framebufferMode == FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_PASS_CONSERVATIVE) {
+        sgl::vk::AttachmentState primitiveIndexAttachmentState;
+        primitiveIndexAttachmentState.loadOp = loadOp;
+        primitiveIndexAttachmentState.initialLayout =
+                loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR ?
+                VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        framebuffer->setColorAttachmentUint(
+                primitiveIndexConservativeImage, 0, primitiveIndexAttachmentState,
+                glm::uvec4(std::numeric_limits<uint32_t>::max()));
+
+        sgl::vk::AttachmentState depthAttachmentState;
+        depthAttachmentState.loadOp = loadOp;
+        depthAttachmentState.initialLayout =
+                loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR ?
+                VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depthAttachmentState.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        framebuffer->setDepthStencilAttachment(
+                depthConservativeRenderTargetImage, depthAttachmentState, 1.0f);
     } else {
         sgl::Logfile::get()->throwError(
                 "Error in DeferredRenderer::setFramebufferAttachments: Invalid framebuffer mode.");
@@ -924,11 +1081,19 @@ void DeferredRenderer::onResolutionChanged() {
     primitiveIndexImage = std::make_shared<sgl::vk::ImageView>(
             std::make_shared<sgl::vk::Image>(device, imageSettings), VK_IMAGE_ASPECT_COLOR_BIT);
     primitiveIndexTexture = std::make_shared<sgl::vk::Texture>(primitiveIndexImage, samplerSettings);
+    if (useConservativeRasterizationPass) {
+        primitiveIndexConservativeImage = std::make_shared<sgl::vk::ImageView>(
+                std::make_shared<sgl::vk::Image>(device, imageSettings), VK_IMAGE_ASPECT_COLOR_BIT);
+        primitiveIndexConservativeTexture = std::make_shared<sgl::vk::Texture>(
+                primitiveIndexConservativeImage, samplerSettings);
+    }
 
     // Create scene depth texture.
     depthMipLevelImageViews = {};
     depthRenderTargetImage = {};
+    depthConservativeRenderTargetImage = {};
     depthBufferTexture = {};
+    depthBufferConservativeTexture = {};
     depthMipLevelTextures = {};
     depthMipBlitRenderPasses = {};
     for (int i = 0; i < 2; i++) {
@@ -1000,6 +1165,19 @@ void DeferredRenderer::onResolutionChanged() {
     depthBufferTexture = depthBufferTexturePingPong[0];
     depthMipLevelTextures = depthMipLevelTexturesPingPong[0];
     depthMipBlitRenderPasses = depthMipBlitRenderPassesPingPong[0];
+
+    if (useConservativeRasterizationPass) {
+        imageSettings.format = device->getSupportedDepthFormat();
+        imageSettings.usage =
+               VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
+               | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        imageSettings.mipLevels = 1;
+        sgl::vk::ImageSamplerSettings depthSamplerSettings = samplerSettings;
+        depthSamplerSettings.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+        depthBufferConservativeTexture = std::make_shared<sgl::vk::Texture>(
+                device, imageSettings, depthSamplerSettings, VK_IMAGE_ASPECT_DEPTH_BIT);
+        depthConservativeRenderTargetImage = depthBufferConservativeTexture->getImageView();
+    }
 
     onResolutionChangedDeferredRenderingMode();
 
@@ -1117,11 +1295,18 @@ void DeferredRenderer::onResolutionChangedDeferredRenderingMode() {
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
         framebufferMode = FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_PASS;
         visibilityBufferDrawIndexedPass->recreateSwapchain(renderWidth, renderHeight);
+        if (useConservativeRasterizationPass) {
+            framebufferMode = FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_PASS_CONSERVATIVE;
+            visibilityBufferDrawIndexedPassConservative->recreateSwapchain(renderWidth, renderHeight);
+        }
     } else if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDIRECT) {
         for (int i = 0; i < 2; i++) {
             framebufferMode = FramebufferMode::VISIBILITY_BUFFER_DRAW_INDEXED_INDIRECT_PASS;
             framebufferModeIndex = i;
             visibilityBufferDrawIndexedIndirectPasses[i]->recreateSwapchain(renderWidth, renderHeight);
+            if (useConservativeRasterizationPass) {
+                visibilityBufferDrawIndexedIndirectPassesConservative[i]->recreateSwapchain(renderWidth, renderHeight);
+            }
         }
         framebufferModeIndex = 0;
         if (drawIndirectReductionMode == DrawIndirectReductionMode::NO_REDUCTION) {
@@ -1148,6 +1333,11 @@ void DeferredRenderer::onResolutionChangedDeferredRenderingMode() {
             framebufferModeIndex = i;
             meshletTaskMeshPasses[i]->setDepthBufferTexture(depthBufferTexturePingPong[i]);
             meshletTaskMeshPasses[i]->recreateSwapchain(renderWidth, renderHeight);
+            if (useConservativeRasterizationPass) {
+                // TODO
+                //meshletTaskMeshPassesConservative[i]->setDepthBufferTexture(depthBufferTexturePingPongConservative[i]);
+                meshletTaskMeshPassesConservative[i]->recreateSwapchain(renderWidth, renderHeight);
+            }
         }
         framebufferModeIndex = 0;
     } else if (getIsBvhRenderingMode()) {
@@ -1156,8 +1346,14 @@ void DeferredRenderer::onResolutionChangedDeferredRenderingMode() {
             framebufferModeIndex = i;
             if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
                 visibilityBufferBVHDrawIndexedIndirectPasses[i]->recreateSwapchain(renderWidth, renderHeight);
+                if (useConservativeRasterizationPass) {
+                    visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->recreateSwapchain(renderWidth, renderHeight);
+                }
             } else {
                 meshletMeshBVHPasses[i]->recreateSwapchain(renderWidth, renderHeight);
+                if (useConservativeRasterizationPass) {
+                    meshletMeshBVHPassesConservative[i]->recreateSwapchain(renderWidth, renderHeight);
+                }
             }
         }
         framebufferModeIndex = 0;
@@ -1207,6 +1403,23 @@ void DeferredRenderer::onSupersamplingModeChanged() {
     }
 #endif
     resetTemporalAccumulation();
+}
+
+void DeferredRenderer::onConservativeRasterOptionChanged() {
+    if (deferredRenderingMode != DeferredRenderingMode::DRAW_INDEXED || !upscaler || supersamplingMode < NUM_SSAA_MODES) {
+        useConservativeRasterizationPass = false;
+    } else {
+        if (useConservativeRasterizationMV || useConservativeRasterizationDepth) {
+            useConservativeRasterizationPass = true;
+        } else {
+            useConservativeRasterizationPass = false;
+        }
+    }
+    renderer->getDevice()->waitIdle();
+    updateRenderingMode();
+    reloadGatherShader();
+    onResolutionChanged();
+    reRender = true;
 }
 
 void DeferredRenderer::setUniformData() {
@@ -1512,8 +1725,9 @@ void DeferredRenderer::render() {
         upscaler->setJitterOffset(jitteredSample.x, jitteredSample.y);
         upscaler->apply(
                 colorRenderTargetImage, (*sceneData->sceneTexture)->getImageView(),
-                depthRenderTargetImage, motionVectorRenderTargetImage, exposureImage,
-                renderer->getVkCommandBuffer());
+                (useConservativeRasterizationDepth && useConservativeRasterizationPass)
+                    ? depthConservativeRenderTargetImage : depthRenderTargetImage,
+                motionVectorRenderTargetImage, exposureImage, renderer->getVkCommandBuffer());
         jitteredSamplesOffset = (jitteredSamplesOffset + 1) % static_cast<uint32_t>(jitteredSamples.size());
         accumulatedFramesCounter++;
     }
@@ -1568,6 +1782,9 @@ void DeferredRenderer::renderDrawIndexed() {
         timer->startGPU("DeferredRaster0");
     }
     visibilityBufferDrawIndexedPass->render();
+    if (useConservativeRasterizationPass) {
+        visibilityBufferDrawIndexedPassConservative->render();
+    }
     if ((*sceneData->performanceMeasurer)) {
         timer->endGPU("DeferredRaster0");
     }
@@ -1576,6 +1793,12 @@ void DeferredRenderer::renderDrawIndexed() {
             primitiveIndexImage->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     renderer->transitionImageLayout(
             depthRenderTargetImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    if (useConservativeRasterizationPass) {
+        renderer->transitionImageLayout(
+                primitiveIndexConservativeImage->getImage(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        renderer->transitionImageLayout(
+                depthConservativeRenderTargetImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    }
 
     //for (uint32_t level = 0; level < uint32_t(depthMipBlitRenderPasses.size()); level++) {
     //    depthMipBlitRenderPasses.at(level)->render();
@@ -1620,6 +1843,9 @@ void DeferredRenderer::renderDrawIndexedIndirectOrTaskMesh(int passIndex) {
             timer->startGPU("DeferredRaster" + std::to_string(passIndex));
         }
         visibilityBufferDrawIndexedIndirectPasses[passIndex]->render();
+        if (useConservativeRasterizationPass) {
+            visibilityBufferDrawIndexedIndirectPassesConservative[passIndex]->render();
+        }
         if ((*sceneData->performanceMeasurer)) {
             timer->endGPU("DeferredRaster" + std::to_string(passIndex));
         }
@@ -1628,6 +1854,9 @@ void DeferredRenderer::renderDrawIndexedIndirectOrTaskMesh(int passIndex) {
             timer->startGPU("DeferredRaster" + std::to_string(passIndex));
         }
         meshletTaskMeshPasses[passIndex]->render();
+        if (useConservativeRasterizationPass) {
+            meshletTaskMeshPassesConservative[passIndex]->render();
+        }
         if ((*sceneData->performanceMeasurer)) {
             timer->endGPU("DeferredRaster" + std::to_string(passIndex));
         }
@@ -1663,8 +1892,14 @@ void DeferredRenderer::renderDrawIndexedIndirectOrTaskMesh(int passIndex) {
         }
         if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
             visibilityBufferBVHDrawIndexedIndirectPasses[passIndex]->render();
+            if (useConservativeRasterizationPass) {
+                visibilityBufferBVHDrawIndexedIndirectPassesConservative[passIndex]->render();
+            }
         } else {
             meshletMeshBVHPasses[passIndex]->render();
+            if (useConservativeRasterizationPass) {
+                meshletMeshBVHPassesConservative[passIndex]->render();
+            }
         }
         if ((*sceneData->performanceMeasurer)) {
             timer->endGPU("DeferredRaster" + std::to_string(passIndex));
@@ -1715,6 +1950,12 @@ void DeferredRenderer::updateWritePackedPrimitives() {
                 meshletTaskMeshPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
                         useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
             }
+            if (useConservativeRasterizationPass) {
+                if (meshletTaskMeshPassesConservative[i]) {
+                    meshletTaskMeshPassesConservative[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
+                            useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
+                }
+            }
         }
     } else if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER) {
         for (int i = 0; i < 2; i++) {
@@ -1729,6 +1970,12 @@ void DeferredRenderer::updateWritePackedPrimitives() {
             if (meshletMeshBVHPasses[i]) {
                 meshletMeshBVHPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
                         useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
+            }
+            if (useConservativeRasterizationPass) {
+                if (meshletMeshBVHPassesConservative[i]) {
+                    meshletMeshBVHPassesConservative[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
+                            useMeshShaderWritePackedPrimitiveIndicesIfAvailable);
+                }
             }
             if (nodesBVHDrawCountPasses[i]) {
                 nodesBVHDrawCountPasses[i]->setUseMeshShaderWritePackedPrimitiveIndicesIfAvailable(
@@ -1749,8 +1996,14 @@ void DeferredRenderer::updateBvhBuildAlgorithm() {
         nodesBVHDrawCountPasses[i]->setBvhBuildAlgorithm(bvhBuildAlgorithm);
         if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
             visibilityBufferBVHDrawIndexedIndirectPasses[i]->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+            if (useConservativeRasterizationPass) {
+                visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+            }
         } else {
             meshletMeshBVHPasses[i]->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+            if (useConservativeRasterizationPass) {
+                meshletMeshBVHPassesConservative[i]->setBvhBuildAlgorithm(bvhBuildAlgorithm);
+            }
         }
     }
     if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER) {
@@ -1770,8 +2023,14 @@ void DeferredRenderer::updateBvhBuildGeometryMode() {
         nodesBVHDrawCountPasses[i]->setBvhBuildGeometryMode(bvhBuildGeometryMode);
         if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
             visibilityBufferBVHDrawIndexedIndirectPasses[i]->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+            if (useConservativeRasterizationPass) {
+                visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+            }
         } else {
             meshletMeshBVHPasses[i]->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+            if (useConservativeRasterizationPass) {
+                meshletMeshBVHPassesConservative[i]->setBvhBuildGeometryMode(bvhBuildGeometryMode);
+            }
         }
     }
     if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER) {
@@ -1792,8 +2051,15 @@ void DeferredRenderer::updateBvhBuildPrimitiveCenterMode() {
         if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
             visibilityBufferBVHDrawIndexedIndirectPasses[i]->setBvhBuildPrimitiveCenterMode(
                     bvhBuildPrimitiveCenterMode);
+            if (useConservativeRasterizationPass) {
+                visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setBvhBuildPrimitiveCenterMode(
+                        bvhBuildPrimitiveCenterMode);
+            }
         } else {
             meshletMeshBVHPasses[i]->setBvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode);
+            if (useConservativeRasterizationPass) {
+                meshletMeshBVHPassesConservative[i]->setBvhBuildPrimitiveCenterMode(bvhBuildPrimitiveCenterMode);
+            }
         }
     }
     if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER) {
@@ -1813,8 +2079,14 @@ void DeferredRenderer::updateUseStdBvhParameters() {
         nodesBVHDrawCountPasses[i]->setUseStdBvhParameters(useStdBvhParameters);
         if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
             visibilityBufferBVHDrawIndexedIndirectPasses[i]->setUseStdBvhParameters(useStdBvhParameters);
+            if (useConservativeRasterizationPass) {
+                visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setUseStdBvhParameters(useStdBvhParameters);
+            }
         } else {
             meshletMeshBVHPasses[i]->setUseStdBvhParameters(useStdBvhParameters);
+            if (useConservativeRasterizationPass) {
+                meshletMeshBVHPassesConservative[i]->setUseStdBvhParameters(useStdBvhParameters);
+            }
         }
     }
     if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER) {
@@ -1834,8 +2106,14 @@ void DeferredRenderer::updateMaxLeafSizeBvh() {
         nodesBVHDrawCountPasses[i]->setMaxLeafSizeBvh(maxLeafSizeBvh);
         if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
             visibilityBufferBVHDrawIndexedIndirectPasses[i]->setMaxLeafSizeBvh(maxLeafSizeBvh);
+            if (useConservativeRasterizationPass) {
+                visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setMaxLeafSizeBvh(maxLeafSizeBvh);
+            }
         } else {
             meshletMeshBVHPasses[i]->setMaxLeafSizeBvh(maxLeafSizeBvh);
+            if (useConservativeRasterizationPass) {
+                meshletMeshBVHPassesConservative[i]->setMaxLeafSizeBvh(maxLeafSizeBvh);
+            }
         }
     }
     if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER) {
@@ -1855,8 +2133,14 @@ void DeferredRenderer::updateMaxTreeDepthBvh() {
         nodesBVHDrawCountPasses[i]->setMaxTreeDepthBvh(maxTreeDepthBvh);
         if (deferredRenderingMode == DeferredRenderingMode::BVH_DRAW_INDIRECT) {
             visibilityBufferBVHDrawIndexedIndirectPasses[i]->setMaxTreeDepthBvh(maxTreeDepthBvh);
+            if (useConservativeRasterizationPass) {
+                visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setMaxTreeDepthBvh(maxTreeDepthBvh);
+            }
         } else {
             meshletMeshBVHPasses[i]->setMaxTreeDepthBvh(maxTreeDepthBvh);
+            if (useConservativeRasterizationPass) {
+                meshletMeshBVHPassesConservative[i]->setMaxTreeDepthBvh(maxTreeDepthBvh);
+            }
         }
     }
     if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER) {
@@ -1946,6 +2230,24 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
             resetTemporalAccumulation();
             reRender = true;
         }
+        if (propertyEditor.beginNode("Upscaler Extended")) {
+            if (propertyEditor.addSliderIntEdit(
+                    "#Jittered Samples Base", &numSamplesBase, 1, 64) == ImGui::EditMode::INPUT_FINISHED) {
+                createJitteredSamples();
+                resetTemporalAccumulation();
+                reRender = true;
+            }
+            if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED
+                    && renderer->getDevice()->isDeviceExtensionSupported(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME)) {
+                if (propertyEditor.addCheckbox("Conservative MVs", &useConservativeRasterizationMV)) {
+                    onConservativeRasterOptionChanged();
+                }
+                if (propertyEditor.addCheckbox("Conservative Depth", &useConservativeRasterizationDepth)) {
+                    onConservativeRasterOptionChanged();
+                }
+            }
+            propertyEditor.endNode();
+        }
     }
 
     if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED) {
@@ -1992,6 +2294,10 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
             for (int i = 0; i < 2; i++) {
                 visibilityBufferDrawIndexedIndirectPasses[i]->setMaxNumPrimitivesPerMeshlet(
                         drawIndirectMaxNumPrimitivesPerMeshlet);
+                if (useConservativeRasterizationPass) {
+                    visibilityBufferDrawIndexedIndirectPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(
+                            drawIndirectMaxNumPrimitivesPerMeshlet);
+                }
             }
             reloadGatherShader();
             deferredResolvePass->setDataDirty();
@@ -2023,6 +2329,9 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
             renderer->getDevice()->waitIdle();
             for (int i = 0; i < 2; i++) {
                 meshletTaskMeshPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                if (useConservativeRasterizationPass) {
+                    meshletTaskMeshPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                }
             }
             reloadGatherShader();
             deferredResolvePass->setDataDirty();
@@ -2033,6 +2342,9 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                 16, int(taskMeshShaderMaxNumVerticesSupported)) == ImGui::EditMode::INPUT_FINISHED) {
             for (int i = 0; i < 2; i++) {
                 meshletTaskMeshPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
+                if (useConservativeRasterizationPass) {
+                    meshletTaskMeshPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                }
             }
             reloadGatherShader();
             reRender = true;
@@ -2100,6 +2412,10 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                     nodesBVHDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
                     visibilityBufferBVHDrawIndexedIndirectPasses[i]->setMaxNumPrimitivesPerMeshlet(
                             drawIndirectMaxNumPrimitivesPerMeshlet);
+                    if (useConservativeRasterizationPass) {
+                        visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(
+                                drawIndirectMaxNumPrimitivesPerMeshlet);
+                    }
                 }
                 reloadGatherShader();
                 deferredResolvePass->setDataDirty();
@@ -2116,6 +2432,10 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                     nodesBVHDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
                     meshletMeshBVHPasses[i]->setMaxNumPrimitivesPerMeshlet(
                             taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                    if (useConservativeRasterizationPass) {
+                        meshletMeshBVHPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(
+                                taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                    }
                 }
                 reloadGatherShader();
                 deferredResolvePass->setDataDirty();
@@ -2129,6 +2449,10 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                     nodesBVHDrawCountPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
                     meshletMeshBVHPasses[i]->setMaxNumVerticesPerMeshlet(
                             taskMeshShaderMaxNumVerticesPerMeshlet);
+                    if (useConservativeRasterizationPass) {
+                        meshletMeshBVHPassesConservative[i]->setMaxNumVerticesPerMeshlet(
+                                taskMeshShaderMaxNumVerticesPerMeshlet);
+                    }
                 }
                 reloadGatherShader();
                 deferredResolvePass->setDataDirty();
@@ -2383,6 +2707,10 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
                 nodesBVHDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
                 visibilityBufferBVHDrawIndexedIndirectPasses[i]->setMaxNumPrimitivesPerMeshlet(
                         drawIndirectMaxNumPrimitivesPerMeshlet);
+                if (useConservativeRasterizationPass) {
+                    visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(
+                        drawIndirectMaxNumPrimitivesPerMeshlet);
+                }
             }
         }
         reloadGatherShader();
@@ -2396,6 +2724,10 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
             for (int i = 0; i < 2; i++) {
                 meshletTaskMeshPasses[i]->setMaxNumPrimitivesPerMeshlet(
                         taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                if (useConservativeRasterizationPass) {
+                    meshletTaskMeshPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(
+                            taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                }
             }
         } else if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER) {
             nodesBVHClearQueuePass->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
@@ -2403,6 +2735,10 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
                 nodesBVHDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
                 meshletMeshBVHPasses[i]->setMaxNumPrimitivesPerMeshlet(
                         taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                if (useConservativeRasterizationPass) {
+                    meshletMeshBVHPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(
+                            taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                }
             }
         }
         reloadGatherShader();
@@ -2415,12 +2751,19 @@ void DeferredRenderer::setNewState(const InternalState& newState) {
             if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
                 for (int i = 0; i < 2; i++) {
                     meshletTaskMeshPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
+                    if (useConservativeRasterizationPass) {
+                        meshletTaskMeshPassesConservative[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
+                    }
                 }
             } else if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER) {
                 nodesBVHClearQueuePass->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
                 for (int i = 0; i < 2; i++) {
                     nodesBVHDrawCountPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
                     meshletMeshBVHPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
+                    if (useConservativeRasterizationPass) {
+                        meshletMeshBVHPassesConservative[i]->setMaxNumVerticesPerMeshlet(
+                                taskMeshShaderMaxNumVerticesPerMeshlet);
+                    }
                 }
             }
         }
@@ -2618,6 +2961,10 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
                 nodesBVHDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(drawIndirectMaxNumPrimitivesPerMeshlet);
                 visibilityBufferBVHDrawIndexedIndirectPasses[i]->setMaxNumPrimitivesPerMeshlet(
                         drawIndirectMaxNumPrimitivesPerMeshlet);
+                if (useConservativeRasterizationPass) {
+                    visibilityBufferBVHDrawIndexedIndirectPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(
+                        drawIndirectMaxNumPrimitivesPerMeshlet);
+                }
             }
         }
         reloadGatherShader();
@@ -2631,6 +2978,10 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
             for (int i = 0; i < 2; i++) {
                 meshletTaskMeshPasses[i]->setMaxNumPrimitivesPerMeshlet(
                         taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                if (useConservativeRasterizationPass) {
+                    meshletTaskMeshPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(
+                            taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                }
             }
         } else if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER) {
             nodesBVHClearQueuePass->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
@@ -2638,6 +2989,10 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
                 nodesBVHDrawCountPasses[i]->setMaxNumPrimitivesPerMeshlet(taskMeshShaderMaxNumPrimitivesPerMeshlet);
                 meshletMeshBVHPasses[i]->setMaxNumPrimitivesPerMeshlet(
                         taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                if (useConservativeRasterizationPass) {
+                    meshletMeshBVHPassesConservative[i]->setMaxNumPrimitivesPerMeshlet(
+                            taskMeshShaderMaxNumPrimitivesPerMeshlet);
+                }
             }
         }
         reloadGatherShader();
@@ -2649,12 +3004,19 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
         if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
             for (int i = 0; i < 2; i++) {
                 meshletTaskMeshPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
+                if (useConservativeRasterizationPass) {
+                    meshletTaskMeshPassesConservative[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
+                }
             }
         } else if (deferredRenderingMode == DeferredRenderingMode::BVH_MESH_SHADER) {
             nodesBVHClearQueuePass->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
             for (int i = 0; i < 2; i++) {
                 nodesBVHDrawCountPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
                 meshletMeshBVHPasses[i]->setMaxNumVerticesPerMeshlet(taskMeshShaderMaxNumVerticesPerMeshlet);
+                if (useConservativeRasterizationPass) {
+                    meshletMeshBVHPassesConservative[i]->setMaxNumVerticesPerMeshlet(
+                            taskMeshShaderMaxNumVerticesPerMeshlet);
+                }
             }
         }
         reloadGatherShader();
@@ -2810,8 +3172,6 @@ DownsampleBlitPass::DownsampleBlitPass(sgl::vk::Renderer* renderer) : sgl::vk::B
 }
 
 void DownsampleBlitPass::_render() {
-    renderer->pushConstants(
-            rasterData->getGraphicsPipeline(), VK_SHADER_STAGE_FRAGMENT_BIT,
-            0, scalingFactor);
+    renderer->pushConstants(rasterData->getGraphicsPipeline(), VK_SHADER_STAGE_FRAGMENT_BIT, 0, scalingFactor);
     BlitRenderPass::_render();
 }
