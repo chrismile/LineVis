@@ -105,3 +105,12 @@ glm::mat4 computeJitterSampleMatrix(
     return sgl::matrixTranslation(glm::vec2(
             2.0f * jitterSample.x / float(renderWidth), -2.0f * jitterSample.y / float(renderHeight)));
 }
+
+glm::mat4 computeJitterSampleMatrix(
+        const glm::vec2& jitterSample,
+        uint32_t renderWidth, uint32_t renderHeight, float jitterScaleX, float jitterScaleY) {
+    // y-axis may be negative if y points down.
+    return sgl::matrixTranslation(glm::vec2(
+            jitterScaleX * 2.0f * jitterSample.x / float(renderWidth),
+            jitterScaleY * 2.0f * jitterSample.y / float(renderHeight)));
+}

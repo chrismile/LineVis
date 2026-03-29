@@ -32,6 +32,7 @@
 #include <Graphics/Vulkan/Utils/Instance.hpp>
 #include <Graphics/Vulkan/Utils/Device.hpp>
 #include <Graphics/Vulkan/Image/Image.hpp>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include <xess/xess.h>
 #include <xess/xess_vk.h>
@@ -118,10 +119,10 @@ void XessSupersampler::resetAccum() {
 
 bool XessSupersampler::renderGui(sgl::PropertyEditor& propertyEditor) {
     bool settingsChanged = false;
-    XessQualityMode _qualityMode = qualityMode;
+    int _qualityModeIdx = int(qualityMode) - int(XessQualityMode::ULTRA_PERFORMANCE);
     if (propertyEditor.addCombo(
-            "Mode", (int*)&_qualityMode, XESS_QUALITY_MODE_NAMES, IM_ARRAYSIZE(XESS_QUALITY_MODE_NAMES))) {
-        setQualityMode(_qualityMode);
+            "Mode", &_qualityModeIdx, XESS_QUALITY_MODE_NAMES, IM_ARRAYSIZE(XESS_QUALITY_MODE_NAMES))) {
+        setQualityMode(XessQualityMode(_qualityModeIdx + int(XessQualityMode::ULTRA_PERFORMANCE)));
         settingsChanged = true;
     }
     if (propertyEditor.addCheckbox("Reset always", &resetEveryFrame)) {
@@ -235,7 +236,9 @@ bool XessSupersampler::apply(
     executeParams.velocityTexture = createXessVkImageView(motionVectorImage);
     executeParams.depthTexture = createXessVkImageView(depthImage);
     //executeParams.exposureScaleTexture = createXessVkImageView(exposureImage);
-    //executeParams.responsivePixelMaskTexture; // Unused.
+    if (responsivePixelMaskImage) {
+        executeParams.responsivePixelMaskTexture = createXessVkImageView(responsivePixelMaskImage);
+    }
     executeParams.outputTexture = createXessVkImageView(colorImageOut);
     executeParams.jitterOffsetX = jitterOffsetX;
     executeParams.jitterOffsetY = jitterOffsetY;

@@ -257,6 +257,8 @@ void DeferredRenderer::createJitteredSamples() {
     }
     sgl::vk::ImageSettings imageSettingsRender = colorRenderTargetImage->getImage()->getImageSettings();
     sgl::vk::ImageSettings imageSettingsDisplay = (*sceneData->sceneTexture)->getImage()->getImageSettings();
+    // Quadrant debug pattern.
+    //jitteredSamples = { { -0.25f, -0.25f }, { 0.25f, -0.25f }, { -0.25f, 0.25f }, { 0.25f, 0.25f } };
     computeJitteredSamples(
             jitteredSamples, numSamplesBase,
             imageSettingsRender.width, imageSettingsRender.height,
@@ -1523,7 +1525,12 @@ void DeferredRenderer::render() {
         glm::mat4 projectionMatrix = sceneData->camera->getProjectionMatrix();
         if (upscaler) {
             const glm::vec2& jitteredSample = jitteredSamples.at(jitteredSamplesOffset);
+#ifdef NDEBUG
             glm::mat4 jitterMatrix = computeJitterSampleMatrix(jitteredSample, renderWidth, renderHeight);
+#else
+            glm::mat4 jitterMatrix = computeJitterSampleMatrix(
+                    jitteredSample, renderWidth, renderHeight, jitterScaleX, jitterScaleY);
+#endif
             projectionMatrix = jitterMatrix * projectionMatrix;
 
             /*
@@ -2339,6 +2346,16 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                 if (propertyEditor.addCheckbox("Display Responsive Pixel Mask", &displayResponsivePixelMask)) {
                     reRender = true;
                 }
+#ifndef NDEBUG
+                if (propertyEditor.addSliderFloat("Jitter Scale X", &jitterScaleX, -2.0f, 2.0f)) {
+                    resetTemporalAccumulation();
+                    reRender = true;
+                }
+                if (propertyEditor.addSliderFloat("Jitter Scale Y", &jitterScaleY, -2.0f, 2.0f)) {
+                    resetTemporalAccumulation();
+                    reRender = true;
+                }
+#endif
             }
             propertyEditor.endNode();
         }

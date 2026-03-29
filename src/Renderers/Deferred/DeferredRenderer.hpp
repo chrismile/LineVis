@@ -358,6 +358,8 @@ protected:
     bool showDebugOptions = false;
 #else
     bool showDebugOptions = true;
+    float jitterScaleX = 1.0f;
+    float jitterScaleY = -1.0f;
 #endif
     bool displayResponsivePixelMask = false;
 

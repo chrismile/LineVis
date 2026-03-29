@@ -115,5 +115,8 @@ void adaptProjectionMatrixJitterSample(
 glm::mat4 computeJitterSampleMatrix(
         const glm::vec2& jitterSample,
         uint32_t renderWidth, uint32_t renderHeight);
+glm::mat4 computeJitterSampleMatrix(
+        const glm::vec2& jitterSample,
+        uint32_t renderWidth, uint32_t renderHeight, float jitterScaleX, float jitterScaleY);
 
 #endif //LINEVIS_UPSCALER_HPP

@@ -38,6 +38,7 @@
 #include <Graphics/Vulkan/Utils/Instance.hpp>
 #include <Graphics/Vulkan/Utils/Device.hpp>
 #include <Graphics/Vulkan/Image/Image.hpp>
+#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #include <nvsdk_ngx.h>
 #include <nvsdk_ngx_helpers.h>
@@ -45,8 +46,6 @@
 #include <nvsdk_ngx_helpers_vk.h>
 
 #include "DLSS.hpp"
-
-#include <ImGui/Widgets/PropertyEditor.hpp>
 
 #ifdef __linux__
 #include <dlfcn.h>
