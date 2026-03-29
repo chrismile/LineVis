@@ -228,6 +228,7 @@ private:
     void computeMaxPrincipalStress();
 #endif
     float maxPrincipalStressMagnitude = 0.0f;
+    bool hasPrincipalStresses = false;
 
     // Rendering mode settings.
     bool rendererSupportsTransparency = false;

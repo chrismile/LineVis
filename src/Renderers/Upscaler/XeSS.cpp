@@ -81,8 +81,7 @@ bool XessSupersampler::queryOptimalSettings(
         uint32_t displayWidth, uint32_t displayHeight,
         uint32_t& renderWidthOptimal, uint32_t& renderHeightOptimal,
         uint32_t& renderWidthMax, uint32_t& renderHeightMax,
-        uint32_t& renderWidthMin, uint32_t& renderHeightMin,
-        float& sharpness) {
+        uint32_t& renderWidthMin, uint32_t& renderHeightMin) {
     xess_2d_t outputResolution = { displayWidth, displayHeight };
     xess_2d_t inputResolutionOptimal{}, inputResolutionMin{}, inputResolutionMax{};
     if (xessGetOptimalInputResolution(
@@ -152,6 +151,7 @@ void XessSupersampler::checkRecreateFeature(
     initParams.initFlags |= isHdr ? 0 : XESS_INIT_FLAG_LDR_INPUT_COLOR;
     initParams.initFlags |= isDepthInverted ? XESS_INIT_FLAG_INVERTED_DEPTH : 0;
     initParams.initFlags |= enableAutoExposure ? XESS_INIT_FLAG_ENABLE_AUTOEXPOSURE : 0;
+    initParams.initFlags |= useResponsivePixelMask ? XESS_INIT_FLAG_RESPONSIVE_PIXEL_MASK : 0;
     xess_result_t res = xessVKInit(context, &initParams);
     if (res != XESS_RESULT_SUCCESS) {
         sgl::Logfile::get()->throwError("xessVKInit failed.");
@@ -178,6 +178,7 @@ bool XessSupersampler::apply(
         const sgl::vk::ImageViewPtr& depthImage,
         const sgl::vk::ImageViewPtr& motionVectorImage,
         const sgl::vk::ImageViewPtr& exposureImage,
+        const sgl::vk::ImageViewPtr& responsivePixelMaskImage,
         VkCommandBuffer commandBuffer) {
     bool _isHdr =
             colorImageIn->getImage()->getImageSettings().format == VK_FORMAT_R16G16B16A16_SFLOAT
@@ -194,11 +195,13 @@ bool XessSupersampler::apply(
     auto displayWidth = colorImageOut->getImage()->getImageSettings().width;
     auto displayHeight = colorImageOut->getImage()->getImageSettings().height;
     if (cachedRenderWidth != renderWidth || cachedRenderHeight != renderHeight
-            || cachedDisplayWidth != displayWidth || cachedDisplayHeight != displayHeight) {
+            || cachedDisplayWidth != displayWidth || cachedDisplayHeight != displayHeight
+            || useResponsivePixelMask != (responsivePixelMaskImage.get() != nullptr)) {
         cachedRenderWidth = renderWidth;
         cachedRenderHeight = renderHeight;
         cachedDisplayWidth = displayWidth;
         cachedDisplayHeight = displayHeight;
+        useResponsivePixelMask = responsivePixelMaskImage.get() != nullptr;
         if (context) {
             isInitialized = false;
         }

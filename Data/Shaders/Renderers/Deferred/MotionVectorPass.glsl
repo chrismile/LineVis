@@ -41,10 +41,12 @@ void main() {
 
 #version 450 core
 
-in vec4 gl_FragCoord;
-layout(location = 0) out vec2 motionVectorsOut;
-
-#include "LineUniformData.glsl"
+layout(binding = 0) uniform MotionVectorPassUniformData {
+    mat4 inverseViewMatrix;
+    mat4 inverseProjectionMatrix;
+    mat4 lastFrameViewProjectionMatrix;
+    vec2 viewportSize;
+};
 
 /*
  * While storing only the primitive index, thus resulting in an actual visibility buffer [Burns and Hunt 2013], might
@@ -54,11 +56,20 @@ layout(location = 0) out vec2 motionVectorsOut;
  * Burns, Christopher A. and Hunt, Warren A. (2013). The Visibility Buffer: A Cache-Friendly Approach to Deferred
  * Shading. Journal of Computer Graphics Techniques, 2(2):55-69.
  */
-layout(binding = 0) uniform usampler2D primitiveIndexBuffer; //< Clear value: 0xFFFFFFFFu
-layout(binding = 1) uniform sampler2D depthBuffer;
-layout(binding = 2) uniform LastFrameUniformData {
-    mat4 lastFrameViewProjectionMatrix;
-};
+layout(binding = 1) uniform usampler2D primitiveIndexBuffer; //< Clear value: 0xFFFFFFFFu
+layout(binding = 2) uniform sampler2D depthBuffer;
+
+#ifdef USE_RESPONSIVE_PIXEL_MASK
+layout(binding = 3) uniform sampler2D depthBufferLastFrame;
+#endif
+
+in vec4 gl_FragCoord;
+layout(location = 0) out vec2 motionVectorsOut;
+
+#ifdef USE_RESPONSIVE_PIXEL_MASK
+// 1.0: reject history, 0.0: use history
+layout(location = 1) out float responsivePixelMask;
+#endif
 
 void main() {
     ivec2 fragCoord = ivec2(gl_FragCoord.xy);
@@ -67,6 +78,9 @@ void main() {
     // Clear value of primitive index, i.e., no primitive maps to this pixel?
     if (primitiveIndex == 0xFFFFFFFFu) {
         motionVectorsOut = vec2(0.0);
+#ifdef USE_RESPONSIVE_PIXEL_MASK
+        responsivePixelMask = 1.0;
+#endif
         return;
     }
 
@@ -82,4 +96,15 @@ void main() {
     vec2 pixelPositionLastFrame = (0.5 * lastFramePositionNdc.xy + vec2(0.5)) * vec2(viewportSize);
     vec2 backwardMotionVectors = pixelPositionLastFrame - gl_FragCoord.xy; // new -> old (backward motion vectors)
     motionVectorsOut = vec2(backwardMotionVectors.x, backwardMotionVectors.y); // Upscalers use top left as (0, 0)
+
+#ifdef USE_RESPONSIVE_PIXEL_MASK
+    float surfaceDepthLastFrame = lastFramePositionNdc.z;
+    float actualPixelDepthLastFrame = texture(depthBufferLastFrame, 0.5 * lastFramePositionNdc.xy + vec2(0.5), 0).x;
+    // Check if a disocclusion occurred and write 1 in this case.
+    // surfaceDepthLastFrame < actualPixelDepthLastFrame - EPSILON => disocclusion
+    // <=> surfaceDepthLastFrame - actualPixelDepthLastFrame + EPSILON < 0 => write 1
+    // Apply logic from https://registry.khronos.org/OpenGL-Refpages/gl4/html/step.xhtml: x < edge => 0
+    const float EPSILON = 1e-3;
+    responsivePixelMask = step(0.0, actualPixelDepthLastFrame - surfaceDepthLastFrame - EPSILON);
+#endif
 }

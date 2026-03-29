@@ -83,8 +83,7 @@ public:
             uint32_t displayWidth, uint32_t displayHeight,
             uint32_t& renderWidthOptimal, uint32_t& renderHeightOptimal,
             uint32_t& renderWidthMax, uint32_t& renderHeightMax,
-            uint32_t& renderWidthMin, uint32_t& renderHeightMin,
-            float& sharpness) override;
+            uint32_t& renderWidthMin, uint32_t& renderHeightMin) override;
     void setUseAntiAliasingMode() override;
     void setUseJitteredMotionVectors(bool _useJitteredMotionVectors) override;
     void setJitterOffset(float _jitterOffsetX, float _jitterOffsetY) override;
@@ -96,6 +95,7 @@ public:
             const sgl::vk::ImageViewPtr& depthImage,
             const sgl::vk::ImageViewPtr& motionVectorImage,
             const sgl::vk::ImageViewPtr& exposureImage,
+            const sgl::vk::ImageViewPtr& responsivePixelMaskImage,
             VkCommandBuffer commandBuffer) override;
 
 private:

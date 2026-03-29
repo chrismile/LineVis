@@ -115,6 +115,7 @@ public:
 
     /// Called when the used supersampling mode has changed.
     void onSupersamplingModeChanged();
+    void onResponsivePixelMaskOptionChanged();
     void onConservativeRasterOptionChanged();
 
     // Renders the object to the scene framebuffer.
@@ -223,6 +224,14 @@ protected:
     };
     VisibilityCullingUniformData visibilityCullingUniformData{};
     sgl::vk::BufferPtr visibilityCullingUniformDataBuffer;
+    struct MotionVectorPassUniformData {
+        glm::mat4 inverseViewMatrix;
+        glm::mat4 inverseProjectionMatrix;
+        glm::mat4 lastFrameViewProjectionMatrix;
+        glm::vec2 viewportSize;
+        glm::vec2 padding;
+    };
+    MotionVectorPassUniformData motionVectorPassUniformData{};
     sgl::vk::BufferPtr motionVectorPassUniformDataBuffer;
     glm::mat4 lastFrameViewMatrix{};
     glm::mat4 lastFrameProjectionMatrix{};
@@ -333,6 +342,24 @@ protected:
     int supersamplingMode = 0;
     uint32_t renderWidth = 0, renderHeight = 0;
     uint32_t finalWidth = 0, finalHeight = 0;
+    bool useResponsivePixelMask = false;
+    /*
+     * When the motion vector pass produces the responsive pixel mask, we need access to the depth map.
+     * However, we need to make a separate copy in this case as, at the time of invoking the motion vector resolve pass,
+     * depthRenderTargetImage (depthRenderTargetImagePingPong[0]) has already been overwritten by
+     * depthRenderTargetImagePingPong[1].
+     */
+    sgl::vk::ImageViewPtr responsivePixelMaskImage; // if useResponsivePixelMask
+    sgl::vk::ImageViewPtr depthRenderTargetLastFrameImage; // if useResponsivePixelMask
+    sgl::vk::TexturePtr depthBufferLastFrameTexture; // if useResponsivePixelMask
+
+    // Upscaler debug options.
+#ifdef NDEBUG
+    bool showDebugOptions = false;
+#else
+    bool showDebugOptions = true;
+#endif
+    bool displayResponsivePixelMask = false;
 
     // Multiple frames can be accumulated with the temporal upscalers to achieve a multisampling effect.
     int numSamplesBase = 8;
@@ -384,12 +411,22 @@ private:
 /**
  * Called after all geometry has been rasterized to the visibility and depth buffer.
  */
-class MotionVectorResolvePass : public ResolvePass {
+class MotionVectorResolvePass : public sgl::vk::RasterPass {
 public:
     explicit MotionVectorResolvePass(LineRenderer* lineRenderer);
+    void setUseResponsivePixelMask(bool _useResponsivePixelMask);
+    void recreateSwapchain(uint32_t width, uint32_t height) override;
 
 protected:
     void loadShader() override;
+    void setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) override;
+    void createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) override;
+
+private:
+    LineRenderer* lineRenderer = nullptr;
+    bool useResponsivePixelMask = false;
+    sgl::vk::BufferPtr indexBuffer;
+    sgl::vk::BufferPtr vertexBuffer;
 };
 
 /**

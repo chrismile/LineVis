@@ -142,7 +142,7 @@ void DeferredRenderer::initialize() {
             renderer->getDevice(), sizeof(VisibilityCullingUniformData),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
     motionVectorPassUniformDataBuffer = std::make_shared<sgl::vk::Buffer>(
-            renderer->getDevice(), sizeof(VisibilityCullingUniformData),
+            renderer->getDevice(), sizeof(MotionVectorPassUniformData),
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
 
     sgl::vk::ImageSettings imageSettings = (*sceneData->sceneTexture)->getImage()->getImageSettings();
@@ -159,7 +159,7 @@ void DeferredRenderer::initialize() {
     deferredResolvePass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     motionVectorResolvePass = std::make_shared<MotionVectorResolvePass>(this);
-    motionVectorResolvePass->setOutputImageFinalLayout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    motionVectorResolvePass->setUseResponsivePixelMask(useResponsivePixelMask);
 
     downsampleBlitPass = std::make_shared<DownsampleBlitPass>(renderer);
 
@@ -923,8 +923,11 @@ void DeferredRenderer::setRenderDataBindings(const sgl::vk::RenderDataPtr& rende
         renderData->setStaticTexture(primitiveIndexConservativeTexture, "primitiveIndexBuffer");
         renderData->setStaticTexture(depthBufferConservativeTexture, "depthBuffer");
     }
+    if (isMotionVectorPass && useResponsivePixelMask) {
+        renderData->setStaticTexture(depthBufferLastFrameTexture, "depthBufferLastFrame");
+    }
     if (isMotionVectorPass) {
-        renderData->setStaticBuffer(motionVectorPassUniformDataBuffer, "LastFrameUniformData");
+        renderData->setStaticBuffer(motionVectorPassUniformDataBuffer, "MotionVectorPassUniformData");
     }
 }
 
@@ -980,7 +983,11 @@ void DeferredRenderer::setFramebufferAttachments(sgl::vk::FramebufferPtr& frameb
         sgl::vk::AttachmentState colorAttachmentState;
         colorAttachmentState.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         colorAttachmentState.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        colorAttachmentState.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         framebuffer->setColorAttachment(motionVectorRenderTargetImage, 0, colorAttachmentState, glm::vec4(0.0f));
+        if (useResponsivePixelMask) {
+            framebuffer->setColorAttachment(responsivePixelMaskImage, 1, colorAttachmentState, glm::vec4(0.0f));
+        }
     } else if (framebufferMode == FramebufferMode::HULL_RASTER_PASS) {
         // Hull pass.
         sgl::vk::AttachmentState colorAttachmentState;
@@ -1058,11 +1065,10 @@ void DeferredRenderer::onResolutionChanged() {
         renderWidth = *sceneData->viewportWidth * static_cast<uint32_t>(scalingFactor);
         renderHeight = *sceneData->viewportHeight * static_cast<uint32_t>(scalingFactor);
     } else {
-        float sharpness;
         uint32_t renderWidthMax, renderHeightMax, renderWidthMin, renderHeightMin;
         if (!upscaler->queryOptimalSettings(
                 finalWidth, finalHeight, renderWidth, renderHeight,
-                renderWidthMax, renderHeightMax, renderWidthMin, renderHeightMin, sharpness)) {
+                renderWidthMax, renderHeightMax, renderWidthMin, renderHeightMin)) {
             sgl::Logfile::get()->writeError("Error: upscaler->queryOptimalSettings() failed.");
         }
     }
@@ -1108,6 +1114,9 @@ void DeferredRenderer::onResolutionChanged() {
             imageSettings.usage =
                     VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
                     | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+            if (upscaler && useResponsivePixelMask) {
+                imageSettings.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+            }
         } else {
             imageSettings.usage =
                     VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
@@ -1171,6 +1180,9 @@ void DeferredRenderer::onResolutionChanged() {
         imageSettings.usage =
                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT
                | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        if (upscaler && useResponsivePixelMask) {
+            imageSettings.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        }
         imageSettings.mipLevels = 1;
         sgl::vk::ImageSamplerSettings depthSamplerSettings = samplerSettings;
         depthSamplerSettings.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
@@ -1233,6 +1245,10 @@ void DeferredRenderer::onResolutionChanged() {
     deferredResolvePass->setOutputImage(colorRenderTargetImage);
     deferredResolvePass->recreateSwapchain(renderWidth, renderHeight);
 
+    motionVectorRenderTargetImage = {};
+    responsivePixelMaskImage = {};
+    depthRenderTargetLastFrameImage = {};
+    depthBufferLastFrameTexture = {};
     if (supersamplingMode >= NUM_SSAA_MODES) {
         framebufferMode = FramebufferMode::MOTION_VECTOR_RESOLVE_PASS;
         imageSettings.format = VK_FORMAT_R32G32_SFLOAT;
@@ -1241,7 +1257,24 @@ void DeferredRenderer::onResolutionChanged() {
         imageSettings.mipLevels = 1;
         motionVectorRenderTargetImage = std::make_shared<sgl::vk::ImageView>(
                 std::make_shared<sgl::vk::Image>(device, imageSettings), VK_IMAGE_ASPECT_COLOR_BIT);
-        motionVectorResolvePass->setOutputImage(motionVectorRenderTargetImage);
+
+        if (useResponsivePixelMask) {
+            imageSettings.format = VK_FORMAT_R8_UNORM;
+#ifndef NDEBUG
+            imageSettings.usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+#endif
+            responsivePixelMaskImage = std::make_shared<sgl::vk::ImageView>(
+                    std::make_shared<sgl::vk::Image>(device, imageSettings), VK_IMAGE_ASPECT_COLOR_BIT);
+
+            imageSettings.format = device->getSupportedDepthFormat();
+            imageSettings.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+            sgl::vk::ImageSamplerSettings depthSamplerSettings = samplerSettings;
+            depthSamplerSettings.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+            depthBufferLastFrameTexture = std::make_shared<sgl::vk::Texture>(
+                    device, imageSettings, depthSamplerSettings, VK_IMAGE_ASPECT_DEPTH_BIT);
+            depthRenderTargetLastFrameImage = depthBufferLastFrameTexture->getImageView();
+        }
+
         motionVectorResolvePass->recreateSwapchain(renderWidth, renderHeight);
     }
     if (upscaler) {
@@ -1405,6 +1438,15 @@ void DeferredRenderer::onSupersamplingModeChanged() {
     resetTemporalAccumulation();
 }
 
+void DeferredRenderer::onResponsivePixelMaskOptionChanged() {
+    renderer->getDevice()->waitIdle();
+    motionVectorResolvePass->setShaderDirty();
+    motionVectorResolvePass->setUseResponsivePixelMask(useResponsivePixelMask);
+    onResolutionChanged();
+    resetTemporalAccumulation();
+    reRender = true;
+}
+
 void DeferredRenderer::onConservativeRasterOptionChanged() {
     if (deferredRenderingMode != DeferredRenderingMode::DRAW_INDEXED || !upscaler || supersamplingMode < NUM_SSAA_MODES) {
         useConservativeRasterizationPass = false;
@@ -1464,6 +1506,16 @@ void DeferredRenderer::render() {
         }
     }
 
+    VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+    if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
+        pipelineStageFlags = VK_PIPELINE_STAGE_TASK_SHADER_BIT_NV;
+#ifdef VK_EXT_mesh_shader
+        if (!useMeshShaderNV) {
+            pipelineStageFlags = VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT;
+        }
+#endif
+    }
+
     if (isDataEmpty) {
         renderDataEmpty();
     } else {
@@ -1487,6 +1539,36 @@ void DeferredRenderer::render() {
                     VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
                     VK_PIPELINE_STAGE_TRANSFER_BIT,
                     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+
+            if (useResponsivePixelMask) {
+                renderer->insertImageMemoryBarrier(
+                        depthRenderTargetLastFrameImage,
+                        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                        VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_WRITE_BIT);
+                if (frameNumber == 0) {
+                    depthRenderTargetLastFrameImage->clearDepthStencil(1.0f, 0, renderer->getVkCommandBuffer());
+                } else {
+                    auto sourceImageView =
+                            useConservativeRasterizationDepth && useConservativeRasterizationPass
+                            ? depthConservativeRenderTargetImage : depthRenderTargetImage;
+                    renderer->transitionImageLayout(
+                            sourceImageView, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+                    sourceImageView->getImage()->copyToImage(
+                            depthRenderTargetLastFrameImage->getImage(),
+                            VK_IMAGE_ASPECT_DEPTH_BIT, renderer->getVkCommandBuffer());
+                    renderer->insertImageMemoryBarrier(
+                    sourceImageView,
+                            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                            VK_PIPELINE_STAGE_TRANSFER_BIT, pipelineStageFlags,
+                            VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT);
+                }
+                renderer->insertImageMemoryBarrier(
+                        depthRenderTargetLastFrameImage,
+                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                        VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+            }
         }
 
         // If this is the first frame: Just use the matrices of this frame.
@@ -1531,16 +1613,6 @@ void DeferredRenderer::render() {
                     visibilityCullingUniformData.numMeshlets = meshletMeshBVHPasses[0]->getNumMeshlets();
                     visibilityCullingUniformData.treeHeight = meshletMeshBVHPasses[0]->getTreeHeight();
                 }
-            }
-
-            VkPipelineStageFlags pipelineStageFlags = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-            if (deferredRenderingMode == DeferredRenderingMode::TASK_MESH_SHADER) {
-                pipelineStageFlags = VK_PIPELINE_STAGE_TASK_SHADER_BIT_NV;
-#ifdef VK_EXT_mesh_shader
-                if (!useMeshShaderNV) {
-                    pipelineStageFlags = VK_PIPELINE_STAGE_TASK_SHADER_BIT_EXT;
-                }
-#endif
             }
 
             // Set old MVP matrix as uniform.
@@ -1647,9 +1719,12 @@ void DeferredRenderer::render() {
         deferredResolvePass->render();
 
         if (supersamplingMode >= NUM_SSAA_MODES) {
-            glm::mat4 lastFrameViewProjectionMatrix = lastFrameProjectionMatrix * lastFrameViewMatrix;
+            motionVectorPassUniformData.inverseViewMatrix = glm::inverse(viewMatrix);
+            motionVectorPassUniformData.inverseProjectionMatrix = glm::inverse(projectionMatrix);
+            motionVectorPassUniformData.lastFrameViewProjectionMatrix = lastFrameProjectionMatrix * lastFrameViewMatrix;
+            motionVectorPassUniformData.viewportSize = glm::vec2(renderWidth, renderHeight);
             motionVectorPassUniformDataBuffer->updateData(
-                    sizeof(glm::mat4), &lastFrameViewProjectionMatrix, renderer->getVkCommandBuffer());
+                    sizeof(MotionVectorPassUniformData), &motionVectorPassUniformData, renderer->getVkCommandBuffer());
             renderer->insertBufferMemoryBarrier(
                     VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT,
                     VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
@@ -1727,9 +1802,20 @@ void DeferredRenderer::render() {
                 colorRenderTargetImage, (*sceneData->sceneTexture)->getImageView(),
                 (useConservativeRasterizationDepth && useConservativeRasterizationPass)
                     ? depthConservativeRenderTargetImage : depthRenderTargetImage,
-                motionVectorRenderTargetImage, exposureImage, renderer->getVkCommandBuffer());
+                motionVectorRenderTargetImage, exposureImage,
+                useResponsivePixelMask ? responsivePixelMaskImage : sgl::vk::ImageViewPtr{},
+                renderer->getVkCommandBuffer());
         jitteredSamplesOffset = (jitteredSamplesOffset + 1) % static_cast<uint32_t>(jitteredSamples.size());
         accumulatedFramesCounter++;
+    }
+
+    if (upscaler && useResponsivePixelMask && displayResponsivePixelMask) {
+        renderer->transitionImageLayout(
+                 responsivePixelMaskImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        renderer->transitionImageLayout(
+                (*sceneData->sceneTexture)->getImageView()->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        responsivePixelMaskImage->getImage()->blit(
+                (*sceneData->sceneTexture)->getImageView()->getImage(), renderer->getVkCommandBuffer());
     }
 
     frameNumber++;
@@ -2237,6 +2323,9 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                 resetTemporalAccumulation();
                 reRender = true;
             }
+            if (propertyEditor.addCheckbox("Responsive Pixel Mask", &useResponsivePixelMask)) {
+                onResponsivePixelMaskOptionChanged();
+            }
             if (deferredRenderingMode == DeferredRenderingMode::DRAW_INDEXED
                     && renderer->getDevice()->isDeviceExtensionSupported(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME)) {
                 if (propertyEditor.addCheckbox("Conservative MVs", &useConservativeRasterizationMV)) {
@@ -2244,6 +2333,11 @@ void DeferredRenderer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propert
                 }
                 if (propertyEditor.addCheckbox("Conservative Depth", &useConservativeRasterizationDepth)) {
                     onConservativeRasterOptionChanged();
+                }
+            }
+            if (showDebugOptions) {
+                if (propertyEditor.addCheckbox("Display Responsive Pixel Mask", &displayResponsivePixelMask)) {
+                    reRender = true;
                 }
             }
             propertyEditor.endNode();
@@ -3152,17 +3246,62 @@ void DeferredResolvePass::loadShader() {
 
 
 
-MotionVectorResolvePass::MotionVectorResolvePass(LineRenderer* lineRenderer) : ResolvePass(lineRenderer) {}
+MotionVectorResolvePass::MotionVectorResolvePass(LineRenderer* lineRenderer)
+        : sgl::vk::RasterPass(*lineRenderer->getSceneData()->renderer), lineRenderer(lineRenderer) {
+    std::vector<uint32_t> indexData = {
+            0, 1, 2,
+            0, 2, 3,
+    };
+    std::vector<float> vertexData = {
+            -1.0f,  1.0f, 0.0f, 0.0f,
+             1.0f,  1.0f, 0.0f, 0.0f,
+             1.0f, -1.0f, 0.0f, 0.0f,
+            -1.0f, -1.0f, 0.0f, 0.0f,
+    };
+    indexBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, indexData.size() * sizeof(uint32_t), indexData.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+    vertexBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, vertexData.size() * sizeof(float), vertexData.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+}
+
+void MotionVectorResolvePass::setUseResponsivePixelMask(bool _useResponsivePixelMask) {
+    useResponsivePixelMask = _useResponsivePixelMask;
+}
+
+void MotionVectorResolvePass::recreateSwapchain(uint32_t width, uint32_t height) {
+    framebuffer = std::make_shared<sgl::vk::Framebuffer>(device, width, height);
+    lineRenderer->setFramebufferAttachments(framebuffer, VK_ATTACHMENT_LOAD_OP_DONT_CARE);
+    framebufferDirty = true;
+    dataDirty = true;
+}
 
 void MotionVectorResolvePass::loadShader() {
+    sgl::vk::ShaderManager->invalidateShaderCache();
     std::map<std::string, std::string> preprocessorDefines;
-    lineRenderer->getLineData()->getVulkanShaderPreprocessorDefines(preprocessorDefines);
-    lineRenderer->getVulkanShaderPreprocessorDefines(preprocessorDefines);
-    preprocessorDefines.insert(std::make_pair("RESOLVE_PASS", ""));
-
+    if (useResponsivePixelMask) {
+        preprocessorDefines.insert(std::make_pair("USE_RESPONSIVE_PIXEL_MASK", ""));
+    }
     std::vector<std::string> shaderModuleNames = { "MotionVectorPass.Vertex", "MotionVectorPass.Fragment" };
-    shaderStages = sgl::vk::ShaderManager->getShaderStages(
-            shaderModuleNames, preprocessorDefines);
+    shaderStages = sgl::vk::ShaderManager->getShaderStages(shaderModuleNames, preprocessorDefines);
+}
+
+void MotionVectorResolvePass::setGraphicsPipelineInfo(sgl::vk::GraphicsPipelineInfo& pipelineInfo) {
+    pipelineInfo.setInputAssemblyTopology(sgl::vk::PrimitiveTopology::TRIANGLE_LIST);
+    pipelineInfo.setIsFrontFaceCcw(true);
+    pipelineInfo.setVertexBufferBinding(0, sizeof(float) * 4);
+    pipelineInfo.setInputAttributeDescription(0, 0, "vertexPosition");
+    pipelineInfo.setCullMode(sgl::vk::CullMode::CULL_BACK);
+}
+
+void MotionVectorResolvePass::createRasterData(sgl::vk::Renderer* renderer, sgl::vk::GraphicsPipelinePtr& graphicsPipeline) {
+    rasterData = std::make_shared<sgl::vk::RasterData>(renderer, graphicsPipeline);
+    rasterData->setIndexBuffer(indexBuffer);
+    rasterData->setVertexBuffer(vertexBuffer, 0);
+    lineRenderer->setRenderDataBindings(rasterData);
 }
 
 

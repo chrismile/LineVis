@@ -428,6 +428,7 @@ bool LineDataStress::loadFromFile(
         attributeNames.emplace_back("Medium Stress");
         attributeNames.emplace_back("Minor Stress");
         attributeNames.emplace_back("Degeneracy Measure");
+        hasPrincipalStresses = true;
     }
 #endif
 
@@ -560,7 +561,9 @@ void LineDataStress::setStressTrajectoryData(
 
     updateLineHierarchyHistogram();
 #ifdef USE_EIGEN
-    computeMaxPrincipalStress();
+    if (hasPrincipalStresses) {
+        computeMaxPrincipalStress();
+    }
 #endif
 
     numTotalTrajectoryPoints = 0;

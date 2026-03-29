@@ -68,8 +68,7 @@ public:
             uint32_t displayWidth, uint32_t displayHeight,
             uint32_t& renderWidthOptimal, uint32_t& renderHeightOptimal,
             uint32_t& renderWidthMax, uint32_t& renderHeightMax,
-            uint32_t& renderWidthMin, uint32_t& renderHeightMin,
-            float& sharpness) = 0;
+            uint32_t& renderWidthMin, uint32_t& renderHeightMin) = 0;
     virtual void setUseAntiAliasingMode() = 0;
     virtual void setUseJitteredMotionVectors(bool _useJitteredMotionVectors) = 0;
     virtual void setJitterOffset(float _jitterOffsetX, float _jitterOffsetY) = 0;
@@ -81,14 +80,26 @@ public:
             const sgl::vk::ImageViewPtr& depthImage,
             const sgl::vk::ImageViewPtr& motionVectorImage,
             const sgl::vk::ImageViewPtr& exposureImage,
+            const sgl::vk::ImageViewPtr& responsivePixelMaskImage,
             VkCommandBuffer commandBuffer) = 0;
     inline bool apply(
             const sgl::vk::ImageViewPtr& colorImageIn,
             const sgl::vk::ImageViewPtr& colorImageOut,
             const sgl::vk::ImageViewPtr& depthImage,
             const sgl::vk::ImageViewPtr& motionVectorImage,
+            const sgl::vk::ImageViewPtr& exposureImage,
+            const sgl::vk::ImageViewPtr& responsivePixelMaskImage) {
+        return apply(
+                colorImageIn, colorImageOut, depthImage, motionVectorImage, exposureImage, responsivePixelMaskImage,
+                VK_NULL_HANDLE);
+    }
+    inline bool apply(
+            const sgl::vk::ImageViewPtr& colorImageIn,
+            const sgl::vk::ImageViewPtr& colorImageOut,
+            const sgl::vk::ImageViewPtr& depthImage,
+            const sgl::vk::ImageViewPtr& motionVectorImage,
             const sgl::vk::ImageViewPtr& exposureImage) {
-        return apply(colorImageIn, colorImageOut, depthImage, motionVectorImage, exposureImage, VK_NULL_HANDLE);
+        return apply(colorImageIn, colorImageOut, depthImage, motionVectorImage, exposureImage, {}, VK_NULL_HANDLE);
     }
 };
 

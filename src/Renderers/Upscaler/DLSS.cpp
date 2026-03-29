@@ -279,8 +279,8 @@ bool DlssSupersampler::queryOptimalSettings(
         uint32_t displayWidth, uint32_t displayHeight,
         uint32_t& renderWidthOptimal, uint32_t& renderHeightOptimal,
         uint32_t& renderWidthMax, uint32_t& renderHeightMax,
-        uint32_t& renderWidthMin, uint32_t& renderHeightMin,
-        float& sharpness) {
+        uint32_t& renderWidthMin, uint32_t& renderHeightMin) {
+    float sharpness = 0.0f;
     NVSDK_NGX_Result result = NGX_DLSS_GET_OPTIMAL_SETTINGS(
             params, displayWidth, displayHeight, NVSDK_NGX_PerfQuality_Value(perfQuality),
             &renderWidthOptimal, &renderHeightOptimal,
@@ -392,6 +392,7 @@ bool DlssSupersampler::apply(
         const sgl::vk::ImageViewPtr& depthImage,
         const sgl::vk::ImageViewPtr& motionVectorImage,
         const sgl::vk::ImageViewPtr& exposureImage,
+        const sgl::vk::ImageViewPtr& responsivePixelMaskImage,
         VkCommandBuffer commandBuffer) {
     bool _isHdr =
             colorImageIn->getImage()->getImageSettings().format == VK_FORMAT_R16G16B16A16_SFLOAT
@@ -431,6 +432,10 @@ bool DlssSupersampler::apply(
     auto depthImageNgx = createNgxImageView(depthImage);
     auto motionVectorImageNgx = createNgxImageView(motionVectorImage);
     auto exposureImageNgx = createNgxImageView(exposureImage);
+    NVSDK_NGX_Resource_VK biasCurrentColorMaskImageNgx{};
+    if (responsivePixelMaskImage) {
+        biasCurrentColorMaskImageNgx = createNgxImageView(responsivePixelMaskImage);
+    }
 
     if (resetEveryFrame) {
         shallResetAccum = true;
@@ -446,6 +451,9 @@ bool DlssSupersampler::apply(
     dlssEvalParams.pInDepth = &depthImageNgx;
     dlssEvalParams.pInMotionVectors = &motionVectorImageNgx;
     dlssEvalParams.pInExposureTexture = &exposureImageNgx;
+    if (responsivePixelMaskImage) {
+        dlssEvalParams.pInBiasCurrentColorMask = &biasCurrentColorMaskImageNgx;
+    }
     dlssEvalParams.InJitterOffsetX = jitterOffsetX;
     dlssEvalParams.InJitterOffsetY = jitterOffsetY;
     dlssEvalParams.InReset = shallResetAccum;
