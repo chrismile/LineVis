@@ -487,7 +487,7 @@ echo ------------------------
 robocopy .build\vcpkg_installed\x64-windows\tools\python3 ^
          %destination_dir%\python3 /e >NUL
 if %use_ospray% == true (
-    robocopy third_party\ospray-%ospray_version%.x86_64.windows\bin %destination_dir% *.dll >NUL
+    robocopy third_party\ospray-%ospray_version%.x86_64.windows\bin %destination_dir% *.dll /xf msvcp140.dll >NUL
 )
 if %debug% == true (
     if not exist %destination_dir%\*.pdb (
@@ -517,8 +517,8 @@ if %devel% == true (
     robocopy third_party\sgl\%build_dir%\Debug %build_dir%\Debug\ *.dll *.pdb >NUL
     robocopy third_party\sgl\%build_dir%\Release %build_dir%\Release\ *.dll >NUL
     if %use_ospray% == true (
-        robocopy third_party\ospray-%ospray_version%.x86_64.windows\bin %build_dir%\Debug\ *.dll >NUL
-        robocopy third_party\ospray-%ospray_version%.x86_64.windows\bin %build_dir%\Release\ *.dll >NUL
+        robocopy third_party\ospray-%ospray_version%.x86_64.windows\bin %build_dir%\Debug\ *.dll /xf msvcp140.dll >NUL
+        robocopy third_party\ospray-%ospray_version%.x86_64.windows\bin %build_dir%\Release\ *.dll /xf msvcp140.dll >NUL
     )
 )
 
