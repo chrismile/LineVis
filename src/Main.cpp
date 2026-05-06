@@ -158,7 +158,10 @@ int main(int argc, char *argv[]) {
             VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
             VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
             VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-            VK_KHR_RAY_QUERY_EXTENSION_NAME
+            VK_KHR_RAY_QUERY_EXTENSION_NAME,
+#ifdef VK_NV_ray_tracing_linear_swept_spheres
+            VK_NV_RAY_TRACING_LINEAR_SWEPT_SPHERES_EXTENSION_NAME,
+#endif
     };
     optionalDeviceExtensions.insert(
             optionalDeviceExtensions.end(),
@@ -176,6 +179,12 @@ int main(int argc, char *argv[]) {
     optionalDeviceExtensions.push_back(VK_NV_MESH_SHADER_EXTENSION_NAME);
 #ifdef VK_EXT_mesh_shader
     optionalDeviceExtensions.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+#endif
+#ifdef VK_NV_cuda_kernel_launch
+    optionalDeviceExtensions.push_back(VK_NV_CUDA_KERNEL_LAUNCH_EXTENSION_NAME);
+#endif
+#ifdef VK_NV_shader_sm_builtins
+    optionalDeviceExtensions.push_back(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME);
 #endif
 
     sgl::vk::Instance* instance = sgl::AppSettings::get()->getVulkanInstance();

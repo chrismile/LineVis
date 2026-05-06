@@ -489,6 +489,12 @@ void LineData::removeOtherCachedDataTypes(RequestMode requestMode) {
         tubeAabbTopLevelAS = {};
         tubeAabbAndHullTopLevelAS = {};
     }
+    if (requestMode != RequestMode::LSS) {
+        cachedTubeLinearSweptSpheresRenderData = {};
+        tubeLinearSweptSpheresBottomLevelAS = {};
+        tubeLinearSweptSpheresTopLevelAS = {};
+        tubeLinearSweptSpheresAndHullTopLevelAS = {};
+    }
     if (requestMode != RequestMode::GEOMETRY_SHADER) {
         cachedRenderDataGeometryShader = {};
     }
@@ -719,9 +725,9 @@ std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> LineData::getTubeTrian
     }
 
     sgl::Logfile::get()->writeInfo("Building tube triangle bottom level ray tracing acceleration structure...");
-    size_t inputVerticesSize = tubeTriangleRenderData.indexBuffer->getSizeInBytes();
-    size_t inputIndicesSize =
+    size_t inputVerticesSize =
             tubeTriangleRenderData.vertexBuffer->getSizeInBytes() / sizeof(TubeTriangleVertexData) * sizeof(glm::vec3);
+    size_t inputIndicesSize = tubeTriangleRenderData.indexBuffer->getSizeInBytes();
     sgl::Logfile::get()->writeInfo(
             "Input vertices size: " + sgl::toString(double(inputVerticesSize) / 1024.0 / 1024.0) + "MiB");
     sgl::Logfile::get()->writeInfo(
@@ -896,6 +902,46 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeAabbBottomLevelAS(
     return tubeAabbBottomLevelAS;
 }
 
+sgl::vk::BottomLevelAccelerationStructurePtr LineData::getTubeLinearSweptSpheresBottomLevelAS() {
+    rebuildInternalRepresentationIfNecessary();
+    if (tubeLinearSweptSpheresBottomLevelAS ) {
+        return tubeLinearSweptSpheresBottomLevelAS;
+    }
+    tubeLinearSweptSpheresBottomLevelAS = {};
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    TubeLinearSweptSpheresRenderData tubeLssRenderData = getLinePassTubeLinearSweptSpheresRenderData();
+
+    if (!tubeLssRenderData.indexBuffer) {
+        return tubeLinearSweptSpheresBottomLevelAS;
+    }
+
+#ifdef VK_NV_ray_tracing_linear_swept_spheres
+    auto asLssInput = new sgl::vk::LinearSweptSpheresAccelerationStructureInput(
+            device, VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR);
+    asLssInput->setIndexingMode(VK_RAY_TRACING_LSS_INDEXING_MODE_LIST_NV);
+    asLssInput->setEndCapsMode(VK_RAY_TRACING_LSS_PRIMITIVE_END_CAPS_MODE_CHAINED_NV);
+    asLssInput->setIndexBuffer(tubeLssRenderData.indexBuffer);
+    asLssInput->setVertexBuffer(tubeLssRenderData.linePointDataBuffer, VK_FORMAT_R32G32B32_SFLOAT, sizeof(LinePointDataUnified));
+    asLssInput->setRadiusBuffer(tubeLssRenderData.radiusBuffer, VK_FORMAT_R32_SFLOAT, 0);
+    auto asAabbInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asLssInput);
+    sgl::Logfile::get()->writeInfo("Building tube LSS bottom level ray tracing acceleration structure...");
+    size_t inputVerticesSize =
+            tubeLssRenderData.linePointDataBuffer->getSizeInBytes() / sizeof(LinePointDataUnified) * sizeof(glm::vec3);
+    size_t inputIndicesSize = tubeLssRenderData.indexBuffer->getSizeInBytes();
+    sgl::Logfile::get()->writeInfo(
+            "Input vertices size: " + sgl::toString(double(inputVerticesSize) / 1024.0 / 1024.0) + "MiB");
+    sgl::Logfile::get()->writeInfo(
+            "Input indices size: " + sgl::toString(double(inputIndicesSize) / 1024.0 / 1024.0) + "MiB");
+    tubeLinearSweptSpheresBottomLevelAS = buildBottomLevelAccelerationStructureFromInput(
+            asAabbInputPtr,
+            VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR
+            | VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_COMPACTION_BIT_KHR, true);
+#endif
+
+    return tubeLinearSweptSpheresBottomLevelAS;
+}
+
 sgl::vk::BottomLevelAccelerationStructurePtr LineData::getHullTriangleBottomLevelAS() {
     rebuildInternalRepresentationIfNecessary();
     if (hullTriangleBottomLevelAS) {
@@ -918,9 +964,9 @@ sgl::vk::BottomLevelAccelerationStructurePtr LineData::getHullTriangleBottomLeve
     auto asHullInputPtr = sgl::vk::BottomLevelAccelerationStructureInputPtr(asHullInput);
 
     sgl::Logfile::get()->writeInfo("Building hull triangle bottom level ray tracing acceleration structure...");
-    size_t inputVerticesSize = hullTriangleRenderData.indexBuffer->getSizeInBytes();
-    size_t inputIndicesSize =
+    size_t inputVerticesSize =
             hullTriangleRenderData.vertexBuffer->getSizeInBytes() / sizeof(HullTriangleVertexData) * sizeof(glm::vec3);
+    size_t inputIndicesSize = hullTriangleRenderData.indexBuffer->getSizeInBytes();
     sgl::Logfile::get()->writeInfo(
             "Input vertices size: " + sgl::toString(double(inputVerticesSize) / 1024.0 / 1024.0) + "MiB");
     sgl::Logfile::get()->writeInfo(
@@ -1056,6 +1102,60 @@ sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeAabbAndHull
     }
 
     return tubeAabbAndHullTopLevelAS;
+}
+
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeLinearSweptSpheresTopLevelAS() {
+    rebuildInternalRepresentationIfNecessary();
+    if (tubeLinearSweptSpheresTopLevelAS) {
+        return tubeLinearSweptSpheresTopLevelAS;
+    }
+    tubeLinearSweptSpheresTopLevelAS = {};
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    tubeLinearSweptSpheresBottomLevelAS = getTubeLinearSweptSpheresBottomLevelAS();
+
+    if (!tubeLinearSweptSpheresBottomLevelAS) {
+        return tubeLinearSweptSpheresTopLevelAS;
+    }
+
+    tubeLinearSweptSpheresTopLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
+    tubeLinearSweptSpheresTopLevelAS->build({ tubeLinearSweptSpheresBottomLevelAS }, { sgl::vk::BlasInstance() });
+
+    return tubeLinearSweptSpheresTopLevelAS;
+}
+
+sgl::vk::TopLevelAccelerationStructurePtr LineData::getRayTracingTubeLinearSweptSpheresAndHullTopLevelAS() {
+    rebuildInternalRepresentationIfNecessary();
+    if (tubeLinearSweptSpheresAndHullTopLevelAS) {
+        return tubeLinearSweptSpheresAndHullTopLevelAS;
+    }
+    tubeLinearSweptSpheresAndHullTopLevelAS = {};
+    if (simulationMeshOutlineTriangleIndices.empty()) {
+        return getRayTracingTubeLinearSweptSpheresTopLevelAS();
+    }
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    tubeLinearSweptSpheresBottomLevelAS = getTubeLinearSweptSpheresBottomLevelAS();
+    hullTriangleBottomLevelAS = getHullTriangleBottomLevelAS();
+
+    if (!tubeLinearSweptSpheresBottomLevelAS && !hullTriangleBottomLevelAS) {
+        return tubeLinearSweptSpheresAndHullTopLevelAS;
+    }
+
+    sgl::vk::BlasInstance tubeBlasInstance, hullBlasInstance;
+    hullBlasInstance.shaderBindingTableRecordOffset = 1;
+    tubeLinearSweptSpheresAndHullTopLevelAS = std::make_shared<sgl::vk::TopLevelAccelerationStructure>(device);
+    if (tubeLinearSweptSpheresBottomLevelAS) {
+        hullBlasInstance.blasIdx = 1;
+        tubeLinearSweptSpheresAndHullTopLevelAS->build(
+                { tubeLinearSweptSpheresBottomLevelAS, hullTriangleBottomLevelAS },
+                { tubeBlasInstance, hullBlasInstance });
+    } else {
+        hullBlasInstance.blasIdx = 0;
+        tubeLinearSweptSpheresAndHullTopLevelAS->build({ hullTriangleBottomLevelAS }, { hullBlasInstance });
+    }
+
+    return tubeLinearSweptSpheresAndHullTopLevelAS;
 }
 
 HullTriangleRenderData LineData::getVulkanHullTriangleRenderData(bool vulkanRayTracing) {

@@ -3055,6 +3055,194 @@ TubeAabbRenderData LineDataStress::getLinePassTubeAabbRenderData(bool isRasteriz
     return cachedTubeAabbRenderData;
 }
 
+TubeLinearSweptSpheresRenderData LineDataStress::getLinePassTubeLinearSweptSpheresRenderData() {
+    rebuildInternalRepresentationIfNecessary();
+    if (cachedTubeLinearSweptSpheresRenderData.indexBuffer) {
+        return cachedTubeLinearSweptSpheresRenderData;
+    }
+    removeOtherCachedDataTypes(RequestMode::LSS);
+
+    float lineRadius = LineRenderer::getLineWidth() * 0.5f;
+
+    std::vector<uint32_t> lineSegmentPointIndices;
+    std::vector<sgl::AABB3> lineSegmentAabbs;
+    std::vector<LinePointDataUnified> tubeLinePointDataList;
+    std::vector<StressLinePointDataUnified> tubeStressLinePointDataList;
+#ifdef USE_EIGEN
+    std::vector<StressLinePointPrincipalStressDataUnified> tubeStressLinePointPrincipalStressDataList;
+#endif
+
+#ifdef USE_EIGEN
+    int majorStressIdx = -1;
+    int mediumStressIdx = -1;
+    int minorStressIdx = -1;
+
+    if (bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+        majorStressIdx = getAttributeNameIndex("Major Stress");
+        mediumStressIdx = getAttributeNameIndex("Medium Stress");
+        minorStressIdx = getAttributeNameIndex("Minor Stress");
+    }
+#endif
+
+    lineSegmentPointIndices.reserve(getNumLineSegments() * 2);
+    lineSegmentAabbs.reserve(getNumLineSegments());
+    const size_t numLinePointsEstimated = getNumLinePoints();
+    tubeLinePointDataList.reserve(numLinePointsEstimated);
+    tubeStressLinePointDataList.reserve(numLinePointsEstimated);
+#ifdef USE_EIGEN
+    tubeStressLinePointPrincipalStressDataList.reserve(numLinePointsEstimated);
+#endif
+    uint32_t lineSegmentIndexCounter = 0;
+    for (size_t i = 0; i < trajectoriesPs.size(); i++) {
+        int psIdx = loadedPsIndices.at(i);
+        if (!usedPsDirections.at(psIdx)) {
+            continue;
+        }
+
+        Trajectories &trajectories = trajectoriesPs.at(i);
+        StressTrajectoriesData &stressTrajectoriesData = stressTrajectoriesDataPs.at(i);
+        std::vector<bool>& filteredTrajectories = filteredTrajectoriesPs.at(i);
+
+        for (size_t trajectoryIdx = 0; trajectoryIdx < trajectories.size(); trajectoryIdx++) {
+            if (!filteredTrajectories.empty() && filteredTrajectories.at(trajectoryIdx)) {
+                continue;
+            }
+            if (lineHierarchySliderValues[psIdx]
+                    < 1.0 - stressTrajectoriesData.at(trajectoryIdx).hierarchyLevels.at(int(lineHierarchyType))) {
+                continue;
+            }
+            Trajectory& trajectory = trajectories.at(trajectoryIdx);
+            StressTrajectoryData& stressTrajectoryData = stressTrajectoriesData.at(trajectoryIdx);
+
+            glm::vec3 lastLineNormal(1.0f, 0.0f, 0.0f);
+            uint32_t numValidLinePoints = 0;
+            for (size_t i = 0; i < trajectory.positions.size(); i++) {
+                glm::vec3 tangent;
+                if (i == 0) {
+                    tangent = trajectory.positions[i + 1] - trajectory.positions[i];
+                } else if (i + 1 == trajectory.positions.size()) {
+                    tangent = trajectory.positions[i] - trajectory.positions[i - 1];
+                } else {
+                    tangent = trajectory.positions[i + 1] - trajectory.positions[i - 1];
+                }
+                float lineSegmentLength = glm::length(tangent);
+
+                if (lineSegmentLength < 0.0001f) {
+                    // In case the two vertices are almost identical, just skip this path line segment.
+                    continue;
+                }
+                tangent = glm::normalize(tangent);
+
+                glm::vec3 helperAxis = lastLineNormal;
+                if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
+                    // If tangent == lastNormal
+                    helperAxis = glm::vec3(0.0f, 1.0f, 0.0f);
+                    if (glm::length(glm::cross(helperAxis, tangent)) < 0.01f) {
+                        // If tangent == helperAxis
+                        helperAxis = glm::vec3(0.0f, 0.0f, 1.0f);
+                    }
+                }
+                glm::vec3 normal = glm::normalize(helperAxis - glm::dot(helperAxis, tangent) * tangent); // Gram-Schmidt
+                lastLineNormal = normal;
+
+                LinePointDataUnified linePointData{};
+                linePointData.linePosition = trajectory.positions.at(i);
+                linePointData.lineAttribute = trajectory.attributes.at(selectedAttributeIndex).at(i);
+                linePointData.lineTangent = tangent;
+                linePointData.lineNormal = lastLineNormal;
+                tubeLinePointDataList.push_back(linePointData);
+
+                StressLinePointDataUnified stressLinePointData{};
+                stressLinePointData.lineLineHierarchyLevel = stressTrajectoryData.hierarchyLevels.at(int(lineHierarchyType));
+                stressLinePointData.lineLineAppearanceOrder = uint32_t(stressTrajectoryData.appearanceOrder);
+                stressLinePointData.linePrincipalStressIndex = uint32_t(psIdx);
+                tubeStressLinePointDataList.push_back(stressLinePointData);
+
+#ifdef USE_EIGEN
+                if (bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+                    StressLinePointPrincipalStressDataUnified stressLinePointPrincipalStressData{};
+                    stressLinePointPrincipalStressData.lineMajorStress =
+                            trajectory.attributes.at(majorStressIdx).at(i) / maxPrincipalStressMagnitude;
+                    stressLinePointPrincipalStressData.lineMediumStress =
+                            trajectory.attributes.at(mediumStressIdx).at(i) / maxPrincipalStressMagnitude;
+                    stressLinePointPrincipalStressData.lineMinorStress =
+                            trajectory.attributes.at(minorStressIdx).at(i) / maxPrincipalStressMagnitude;
+                    tubeStressLinePointPrincipalStressDataList.push_back(stressLinePointPrincipalStressData);
+                }
+#endif
+
+                numValidLinePoints++;
+            }
+
+            if (numValidLinePoints == 1) {
+                // Only one vertex left -> output nothing (tube consisting only of one point).
+                tubeLinePointDataList.pop_back();
+            }
+            if (numValidLinePoints <= 1) {
+                continue;
+            }
+
+            for (uint32_t pointIdx = 1; pointIdx < numValidLinePoints; pointIdx++) {
+                lineSegmentPointIndices.push_back(lineSegmentIndexCounter + pointIdx - 1);
+                lineSegmentPointIndices.push_back(lineSegmentIndexCounter + pointIdx);
+            }
+            lineSegmentIndexCounter += numValidLinePoints;
+        }
+    }
+
+    if (lineSegmentIndexCounter == 0) {
+        return {};
+    }
+
+    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+    cachedTubeLinearSweptSpheresRenderData = {};
+
+    if (lineSegmentPointIndices.empty()) {
+        return cachedTubeLinearSweptSpheresRenderData;
+    }
+
+    uint32_t indexBufferFlags =
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+            | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+            | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+    uint32_t vertexBufferFlags =
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+            | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+            | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+
+    cachedTubeLinearSweptSpheresRenderData.indexBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, lineSegmentPointIndices.size() * sizeof(uint32_t), lineSegmentPointIndices.data(),
+            indexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    cachedTubeLinearSweptSpheresRenderData.radiusBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, sizeof(float), &lineRadius, vertexBufferFlags, VMA_MEMORY_USAGE_GPU_ONLY);
+
+    cachedTubeLinearSweptSpheresRenderData.linePointDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, tubeLinePointDataList.size() * sizeof(LinePointDataUnified),
+            tubeLinePointDataList.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+            | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            VMA_MEMORY_USAGE_GPU_ONLY);
+
+    cachedTubeLinearSweptSpheresRenderData.stressLinePointDataBuffer = std::make_shared<sgl::vk::Buffer>(
+            device, tubeStressLinePointDataList.size() * sizeof(StressLinePointDataUnified),
+            tubeStressLinePointDataList.data(),
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+            | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+
+#ifdef USE_EIGEN
+    if (bandRenderMode != LineDataStress::BandRenderMode::RIBBONS) {
+        cachedTubeLinearSweptSpheresRenderData.stressLinePointPrincipalStressDataBuffer = std::make_shared<sgl::vk::Buffer>(
+                device, tubeStressLinePointPrincipalStressDataList.size() * sizeof(StressLinePointPrincipalStressDataUnified),
+                tubeStressLinePointPrincipalStressDataList.data(),
+                VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+                | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    }
+#endif
+
+    return cachedTubeLinearSweptSpheresRenderData;
+}
+
 void LineDataStress::getVulkanShaderPreprocessorDefines(
         std::map<std::string, std::string>& preprocessorDefines, bool isRasterizer) {
     LineData::getVulkanShaderPreprocessorDefines(preprocessorDefines, isRasterizer);

@@ -184,11 +184,14 @@ public:
         return getLinePassTubeTriangleMeshRenderDataPayload(isRasterizer, vulkanRayTracing, emptyPayload);
     }
     virtual TubeAabbRenderData getLinePassTubeAabbRenderData(bool isRasterizer, bool ellipticTubes)=0;
+    virtual TubeLinearSweptSpheresRenderData getLinePassTubeLinearSweptSpheresRenderData()=0;
     virtual HullTriangleRenderData getVulkanHullTriangleRenderData(bool vulkanRayTracing);
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleTopLevelAS();
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeTriangleAndHullTopLevelAS();
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbTopLevelAS(bool ellipticTubes);
     sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeAabbAndHullTopLevelAS(bool ellipticTubes);
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeLinearSweptSpheresTopLevelAS();
+    sgl::vk::TopLevelAccelerationStructurePtr getRayTracingTubeLinearSweptSpheresAndHullTopLevelAS();
     inline void getVulkanShaderPreprocessorDefines(std::map<std::string, std::string>& preprocessorDefines) {
         getVulkanShaderPreprocessorDefines(preprocessorDefines, true);
     }
@@ -329,7 +332,7 @@ public:
     }
 
     enum class RequestMode {
-        NO_CACHE_SUPPORTED, TRIANGLES, AABBS, GEOMETRY_SHADER, PROGRAMMABLE_PULL, MESH_SHADER
+        NO_CACHE_SUPPORTED, TRIANGLES, AABBS, LSS, GEOMETRY_SHADER, PROGRAMMABLE_PULL, MESH_SHADER
     };
 
     static inline float getMinBandThickness() { return minBandThickness; }
@@ -387,6 +390,7 @@ protected:
     // are used at the same time.
     std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> getTubeTriangleBottomLevelAS();
     sgl::vk::BottomLevelAccelerationStructurePtr getTubeAabbBottomLevelAS(bool ellipticTubes);
+    sgl::vk::BottomLevelAccelerationStructurePtr getTubeLinearSweptSpheresBottomLevelAS();
     sgl::vk::BottomLevelAccelerationStructurePtr getHullTriangleBottomLevelAS();
     void splitTriangleIndices(
             std::vector<uint32_t>& tubeTriangleIndices,
@@ -394,6 +398,7 @@ protected:
     TubeTriangleRenderData cachedTubeTriangleRenderData;
     TubeTriangleSplitData tubeTriangleSplitData;
     TubeAabbRenderData cachedTubeAabbRenderData;
+    TubeLinearSweptSpheresRenderData cachedTubeLinearSweptSpheresRenderData;
     HullTriangleRenderData cachedHullTriangleRenderData;
     bool cachedTubeTriangleRenderDataIsRayTracing = false;
     const size_t batchSizeLimit = 1024 * 1024 * 32;
@@ -401,11 +406,14 @@ protected:
     TubeTriangleRenderDataPayloadPtr cachedTubeTriangleRenderDataPayload{};
     std::vector<sgl::vk::BottomLevelAccelerationStructurePtr> tubeTriangleBottomLevelASes;
     sgl::vk::BottomLevelAccelerationStructurePtr tubeAabbBottomLevelAS;
+    sgl::vk::BottomLevelAccelerationStructurePtr tubeLinearSweptSpheresBottomLevelAS;
     sgl::vk::BottomLevelAccelerationStructurePtr hullTriangleBottomLevelAS;
     sgl::vk::TopLevelAccelerationStructurePtr tubeTriangleTopLevelAS;
     sgl::vk::TopLevelAccelerationStructurePtr tubeTriangleAndHullTopLevelAS;
     sgl::vk::TopLevelAccelerationStructurePtr tubeAabbTopLevelAS;
     sgl::vk::TopLevelAccelerationStructurePtr tubeAabbAndHullTopLevelAS;
+    sgl::vk::TopLevelAccelerationStructurePtr tubeLinearSweptSpheresTopLevelAS;
+    sgl::vk::TopLevelAccelerationStructurePtr tubeLinearSweptSpheresAndHullTopLevelAS;
     bool tubeAabbEllipticTubes = false;
 
     // Caches the line render data.

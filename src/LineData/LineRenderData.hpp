@@ -208,6 +208,15 @@ struct TubeAabbRenderData {
     sgl::vk::BufferPtr stressLinePointPrincipalStressDataBuffer; // StressLinePointPrincipalStressDataUnified objects.
     sgl::vk::BufferPtr multiVarAttributeDataBuffer; ///< Only for flow lines with multi-var rendering mode.
 };
+struct TubeLinearSweptSpheresRenderData {
+    sgl::vk::BufferPtr indexBuffer; // Two successive indices define a line segment in linePointDataBuffer.
+    sgl::vk::BufferPtr radiusBuffer; // One single entry storing the line radius.
+    sgl::vk::BufferPtr linePointDataBuffer; // LinePointDataUnified objects.
+    sgl::vk::BufferPtr stressLinePointDataBuffer; // StressLinePointDataUnified objects.
+    sgl::vk::BufferPtr stressLinePointPrincipalStressDataBuffer; // StressLinePointPrincipalStressDataUnified objects.
+    sgl::vk::BufferPtr multiVarAttributeDataBuffer; ///< Only for flow lines with multi-var rendering mode.
+};
+
 struct HullTriangleRenderData {
     sgl::vk::BufferPtr indexBuffer;
     sgl::vk::BufferPtr vertexBuffer; // HullTriangleVertexData objects.

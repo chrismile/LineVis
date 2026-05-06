@@ -1,7 +1,7 @@
 /*
  * BSD 2-Clause License
  *
- * Copyright (c) 2021, Christoph Neuhauser
+ * Copyright (c) 2021-2026, Christoph Neuhauser
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -617,3 +617,133 @@ void main() {
 
 #import ".ClosestHitTubeAnalytic"
 
+
+-- ClosestHitTubeLinearSweptSpheres
+
+#version 460
+#extension GL_EXT_ray_tracing : require
+#extension GL_NV_linear_swept_spheres : require
+
+#define VULKAN_RAY_TRACING_SHADER
+#include "RayHitCommon.glsl"
+
+hitAttributeEXT float uVal;
+
+struct TubeTriangleVertexData {
+    vec3 vertexPosition;
+    uint vertexLinePointIndex; ///< Pointer to LinePointData entry.
+    vec3 vertexNormal;
+    float phi; ///< Angle.
+};
+
+layout(std430, binding = 3) readonly buffer LinePointIndexBuffer {
+    uvec2 indexBuffer[];
+};
+
+layout(std430, binding = 4) readonly buffer TubeTriangleVertexDataBuffer {
+    TubeTriangleVertexData tubeTriangleVertexDataBuffer[];
+};
+
+void main() {
+    uvec2 linePointIndices = indexBuffer[gl_PrimitiveID];
+    LinePointData linePointData0 = linePoints[linePointIndices.x];
+    LinePointData linePointData1 = linePoints[linePointIndices.y];
+
+    vec3 fragmentPositionWorld = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
+
+    vec3 linePointInterpolated;
+    float fragmentAttribute;
+
+    float t;
+    vec3 v = linePointData1.linePosition - linePointData0.linePosition;
+    bool isCap = uVal > 0.0 && uVal < 1.0;
+    if (uVal > 0.0 && uVal < 1.0) {
+        // Tube
+        vec3 u = fragmentPositionWorld - linePointData0.linePosition;
+        t = dot(v, u) / dot(v, v);
+        linePointInterpolated = linePointData0.linePosition + t * v;
+        fragmentAttribute = (1.0 - t) * linePointData0.lineAttribute + t * linePointData1.lineAttribute;
+    }
+    else {
+        // Tube caps.
+        if (uVal <= 0.0) {
+            linePointInterpolated = linePointData0.linePosition;
+            fragmentAttribute = linePointData0.lineAttribute;
+            t = 0.0;
+        } else if (uVal >= 1.0) {
+            linePointInterpolated = linePointData1.linePosition;
+            fragmentAttribute = linePointData1.lineAttribute;
+            t = 1.0;
+        }
+    }
+    vec3 fragmentTangent = normalize(v);
+    vec3 fragmentNormal = normalize(fragmentPositionWorld - linePointInterpolated);
+
+#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
+    vec3 lineNormal = (1.0 - t) * linePointData0.lineNormal + t * linePointData1.lineNormal;
+
+    // Compute the angle between the fragment and line normal to get phi.
+    float phi = acos(dot(fragmentNormal, lineNormal));
+    float val = dot(lineNormal, cross(fragmentNormal, fragmentTangent));
+    if (val < 0.0) {
+        phi = 2.0 * float(M_PI) - phi;
+    }
+#endif
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
+    float fragmentVertexId = (1.0 - t) * linePointIndices.x + t * linePointIndices.y;
+#endif
+#ifdef USE_ROTATING_HELICITY_BANDS
+    float fragmentRotation =
+            ((1.0 - t) * linePointData0.lineRotation + t * linePointData1.lineRotation) * helicityRotationFactor;
+#endif
+
+#ifdef STRESS_LINE_DATA
+    StressLinePointData stressLinePointData0 = stressLinePoints[linePointIndices.x];
+    uint principalStressIndex = stressLinePointData0.linePrincipalStressIndex;
+    float lineAppearanceOrder = stressLinePointData0.lineLineAppearanceOrder;
+#ifdef USE_PRINCIPAL_STRESSES
+    StressLinePointPrincipalStressData stressLinePointPrincipalStressData0 = principalStressLinePoints[linePointIndices.x];
+    StressLinePointPrincipalStressData stressLinePointPrincipalStressData1 = principalStressLinePoints[linePointIndices.y];
+    float fragmentMajorStress =
+            (1.0 - t) * stressLinePointPrincipalStressData0.lineMajorStress
+            + t * stressLinePointPrincipalStressData1.lineMajorStress;
+    float fragmentMediumStress =
+            (1.0 - t) * stressLinePointPrincipalStressData0.lineMediumStress
+            + t * stressLinePointPrincipalStressData1.lineMediumStress;
+    float fragmentMinorStress =
+            (1.0 - t) * stressLinePointPrincipalStressData0.lineMinorStress
+            + t * stressLinePointPrincipalStressData1.lineMinorStress;
+#endif
+#endif
+
+    computeFragmentColor(
+            fragmentPositionWorld, fragmentNormal, fragmentTangent,
+#ifdef USE_CAPPED_TUBES
+            isCap,
+#endif
+#if defined (USE_BANDS) || defined(USE_AMBIENT_OCCLUSION) || defined(USE_ROTATING_HELICITY_BANDS)
+            phi,
+#endif
+#if defined(USE_AMBIENT_OCCLUSION) || defined(USE_MULTI_VAR_RENDERING)
+            fragmentVertexId,
+#endif
+#ifdef USE_BANDS
+            linePointInterpolated, lineNormal,
+#endif
+#ifdef USE_ROTATING_HELICITY_BANDS
+            fragmentRotation,
+#endif
+#ifdef STRESS_LINE_DATA
+            principalStressIndex, lineAppearanceOrder,
+#ifdef USE_PRINCIPAL_STRESSES
+            fragmentMajorStress, fragmentMediumStress, fragmentMinorStress,
+#endif
+#endif
+            fragmentAttribute
+    );
+}
+
+
+-- AnyHitTubeLinearSweptSpheres
+
+#import ".ClosestHitTubeLinearSweptSpheres"

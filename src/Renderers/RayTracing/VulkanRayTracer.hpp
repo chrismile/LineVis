@@ -51,6 +51,19 @@ class Renderer;
 
 class RayTracingRenderPass;
 
+enum class RayTracingGeometryMode {
+    TRIANGLE_MESH = 0, AABBS,
+#ifdef VK_NV_ray_tracing_linear_swept_spheres
+    LINEAR_SWEPT_SPHERES,
+#endif
+};
+const char* const RAY_TRACING_GEOMETRY_MODE_NAMES[] = {
+    "Triangle Mesh", "AABBs (analytic)",
+#ifdef VK_NV_ray_tracing_linear_swept_spheres
+    "Linear Swept Spheres"
+#endif
+};
+
 /**
  * A Vulkan ray tracer supporting both fully opaque and transparency rendering.
  *
@@ -111,7 +124,8 @@ private:
     std::shared_ptr<RayTracingRenderPass> rayTracingRenderPass;
 
     // Whether to trace rays against a triangle mesh or analytic tubes using line segment AABBs.
-    bool useAnalyticIntersections = false;
+    RayTracingGeometryMode rayTracingGeometryMode = RayTracingGeometryMode::TRIANGLE_MESH;
+    int numGeometryModes = 2;
     bool useAnalyticEllipticTubes = false;
 
     /// For visualizing the seeding order in an animation.
@@ -155,7 +169,7 @@ public:
     inline void setDepthMinMaxBuffer(const sgl::vk::BufferPtr& buffer) { depthMinMaxBuffer = buffer; }
     inline void setUseAmbientOcclusion(bool ambientOcclusionOn) { useAmbientOcclusion = ambientOcclusionOn; }
     inline void setAmbientOcclusionBaker(const AmbientOcclusionBakerPtr& baker) { ambientOcclusionBaker = baker; }
-    inline void setUseAnalyticIntersections(bool analyticIntersections) { useAnalyticIntersections = analyticIntersections; }
+    inline void setRayTracingGeometryMode(RayTracingGeometryMode mode) { rayTracingGeometryMode = mode; }
     inline void setUseAnalyticEllipticTubes(bool analyticEllipticTubes) { useAnalyticEllipticTubes = analyticEllipticTubes; }
     inline void setUseMlat(bool mlat) { useMlat = mlat; }
     inline void setMlatNumNodes(int numNodes) { mlatNumNodes = numNodes; }
@@ -186,6 +200,7 @@ private:
 
     TubeTriangleRenderData tubeTriangleRenderData;
     TubeAabbRenderData tubeAabbRenderData;
+    TubeLinearSweptSpheresRenderData tubeLinearSweptSpheresRenderData;
     HullTriangleRenderData hullTriangleRenderData;
     sgl::vk::TopLevelAccelerationStructurePtr topLevelAS;
     bool useSplitBlases = false;
@@ -208,7 +223,7 @@ private:
 
     bool useJitteredSamples = true;
     uint32_t maxNumFrames = 1;
-    bool useAnalyticIntersections = false;
+    RayTracingGeometryMode rayTracingGeometryMode = RayTracingGeometryMode::TRIANGLE_MESH;
     bool useAnalyticEllipticTubes = false;
     bool useDeterministicSampling = false;
 

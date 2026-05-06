@@ -54,11 +54,18 @@ VulkanRayTracer::VulkanRayTracer(SceneData* sceneData, sgl::TransferFunctionWind
     rayTracingRenderPass->setMaxNumFrames(maxNumAccumulatedFrames);
     rayTracingRenderPass->setUseDeterministicSampling(useDeterministicSampling);
     rayTracingRenderPass->setMaxDepthComplexity(maxDepthComplexity);
-    rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
+    rayTracingRenderPass->setRayTracingGeometryMode(rayTracingGeometryMode);
     rayTracingRenderPass->setUseMlat(useMlat);
     rayTracingRenderPass->setMlatNumNodes(mlatNumNodes);
 
-    onClearColorChanged();
+    numGeometryModes = IM_ARRAYSIZE(RAY_TRACING_GEOMETRY_MODE_NAMES);
+#ifdef VK_NV_ray_tracing_linear_swept_spheres
+    if (!(*sceneData->renderer)->getDevice()->getRayTracingLinearSweptSpheresFeaturesNV().linearSweptSpheres) {
+        numGeometryModes--;
+    }
+#endif
+
+    VulkanRayTracer::onClearColorChanged();
 }
 
 VulkanRayTracer::~VulkanRayTracer() {
@@ -85,8 +92,8 @@ void VulkanRayTracer::setLineData(LineDataPtr& lineData, bool isNewData) {
     updateNewLineData(lineData, isNewData);
 
     if (lineData->getType() == DATA_SET_TYPE_TRIANGLE_MESH) {
-        useAnalyticIntersections = false;
-        rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
+        rayTracingGeometryMode = RayTracingGeometryMode::TRIANGLE_MESH;
+        rayTracingRenderPass->setRayTracingGeometryMode(rayTracingGeometryMode);
         rayTracingRenderPass->setShaderDirty();
     }
     rayTracingRenderPass->setLineData(lineData, isNewData);
@@ -174,10 +181,11 @@ void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& property
         accumulatedFramesCounter = 0;
     }
 
-    if ((!lineData || lineData->getType() != DATA_SET_TYPE_TRIANGLE_MESH) && propertyEditor.addCheckbox(
-            "Use Analytic Intersections", &useAnalyticIntersections)) {
+    if ((!lineData || lineData->getType() != DATA_SET_TYPE_TRIANGLE_MESH) && propertyEditor.addCombo(
+            "Use Analytic Intersections", reinterpret_cast<int*>(&rayTracingGeometryMode),
+            RAY_TRACING_GEOMETRY_MODE_NAMES, numGeometryModes)) {
         renderer->getDevice()->waitIdle();
-        rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
+        rayTracingRenderPass->setRayTracingGeometryMode(rayTracingGeometryMode);
         rayTracingRenderPass->setShaderDirty();
         if (lineData) {
             rayTracingRenderPass->setLineData(lineData, false);
@@ -187,7 +195,8 @@ void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& property
     ImGui::SameLine();
     ImGui::HelpMarker("Whether to trace rays against a triangle mesh or analytic tubes using line segment AABBs.");
 
-    if (useAnalyticIntersections && propertyEditor.addCheckbox("Elliptic Tubes", &useAnalyticEllipticTubes)) {
+    if (rayTracingGeometryMode == RayTracingGeometryMode::AABBS && propertyEditor.addCheckbox(
+            "Elliptic Tubes", &useAnalyticEllipticTubes)) {
         renderer->getDevice()->waitIdle();
         rayTracingRenderPass->setUseAnalyticEllipticTubes(useAnalyticEllipticTubes);
         rayTracingRenderPass->setShaderDirty();
@@ -217,8 +226,24 @@ void VulkanRayTracer::renderGuiPropertyEditorNodes(sgl::PropertyEditor& property
 bool VulkanRayTracer::setNewSettings(const SettingsMap& settings) {
     bool shallReloadGatherShader = LineRenderer::setNewSettings(settings);
 
-    if (settings.getValueOpt("use_analytic_intersections", useAnalyticIntersections)) {
-        rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
+    std::string geometryModeString;
+    bool useAnalyticIntersections;
+    if (settings.getValueOpt("geometry_mode", geometryModeString)) {
+        for (int i = 0; i < numGeometryModes; i++) {
+            if (geometryModeString == RAY_TRACING_GEOMETRY_MODE_NAMES[i]) {
+                rayTracingGeometryMode = static_cast<RayTracingGeometryMode>(i);
+                break;
+            }
+        }
+        rayTracingRenderPass->setRayTracingGeometryMode(rayTracingGeometryMode);
+        rayTracingRenderPass->setShaderDirty();
+        if (lineData) {
+            rayTracingRenderPass->setLineData(lineData, false);
+        }
+        accumulatedFramesCounter = 0;
+    } else if (settings.getValueOpt("use_analytic_intersections", useAnalyticIntersections)) {
+        rayTracingGeometryMode = useAnalyticIntersections ? RayTracingGeometryMode::AABBS : RayTracingGeometryMode::TRIANGLE_MESH;
+        rayTracingRenderPass->setRayTracingGeometryMode(rayTracingGeometryMode);
         rayTracingRenderPass->setShaderDirty();
         if (lineData) {
             rayTracingRenderPass->setLineData(lineData, false);
@@ -253,8 +278,24 @@ bool VulkanRayTracer::setNewSettings(const SettingsMap& settings) {
 }
 
 void VulkanRayTracer::setNewState(const InternalState& newState) {
-    if (newState.rendererSettings.getValueOpt("useAnalyticIntersections", useAnalyticIntersections)) {
-        rayTracingRenderPass->setUseAnalyticIntersections(useAnalyticIntersections);
+    std::string geometryModeString;
+    bool useAnalyticIntersections;
+    if (newState.rendererSettings.getValueOpt("geometryMode", geometryModeString)) {
+        for (int i = 0; i < numGeometryModes; i++) {
+            if (geometryModeString == RAY_TRACING_GEOMETRY_MODE_NAMES[i]) {
+                rayTracingGeometryMode = static_cast<RayTracingGeometryMode>(i);
+                break;
+            }
+        }
+        rayTracingRenderPass->setRayTracingGeometryMode(rayTracingGeometryMode);
+        rayTracingRenderPass->setShaderDirty();
+        if (lineData) {
+            rayTracingRenderPass->setLineData(lineData, false);
+        }
+        accumulatedFramesCounter = 0;
+    } else if (newState.rendererSettings.getValueOpt("useAnalyticIntersections", useAnalyticIntersections)) {
+        rayTracingGeometryMode = useAnalyticIntersections ? RayTracingGeometryMode::AABBS : RayTracingGeometryMode::TRIANGLE_MESH;
+        rayTracingRenderPass->setRayTracingGeometryMode(rayTracingGeometryMode);
         rayTracingRenderPass->setShaderDirty();
         if (lineData) {
             rayTracingRenderPass->setLineData(lineData, false);
@@ -328,7 +369,7 @@ void RayTracingRenderPass::setOutputImage(sgl::vk::ImageViewPtr& imageView) {
 
 void RayTracingRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
     this->lineData = lineData;
-    if (useAnalyticIntersections) {
+    if (rayTracingGeometryMode == RayTracingGeometryMode::AABBS) {
         if (lineData->getShallRenderSimulationMeshBoundary()) {
             topLevelAS = lineData->getRayTracingTubeAabbAndHullTopLevelAS(useAnalyticEllipticTubes);
         } else {
@@ -337,7 +378,8 @@ void RayTracingRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
         tubeTriangleRenderData = TubeTriangleRenderData();
         tubeAabbRenderData = lineData->getLinePassTubeAabbRenderData(
                 false, useAnalyticEllipticTubes);
-    } else {
+        tubeLinearSweptSpheresRenderData = TubeLinearSweptSpheresRenderData();
+    } else if (rayTracingGeometryMode == RayTracingGeometryMode::TRIANGLE_MESH) {
         if (lineData->getShallRenderSimulationMeshBoundary()) {
             topLevelAS = lineData->getRayTracingTubeTriangleAndHullTopLevelAS();
         } else {
@@ -345,11 +387,21 @@ void RayTracingRenderPass::setLineData(LineDataPtr& lineData, bool isNewData) {
         }
         tubeTriangleRenderData = lineData->getLinePassTubeTriangleMeshRenderData(false, true);
         tubeAabbRenderData = TubeAabbRenderData();
+        tubeLinearSweptSpheresRenderData = TubeLinearSweptSpheresRenderData();
         bool useSplitBlasesNew = tubeTriangleRenderData.instanceTriangleIndexOffsetBuffer.get() != nullptr;
         if (useSplitBlases != useSplitBlasesNew) {
             useSplitBlases = useSplitBlasesNew;
             setShaderDirty();
         }
+    } else if (rayTracingGeometryMode == RayTracingGeometryMode::LINEAR_SWEPT_SPHERES) {
+        if (lineData->getShallRenderSimulationMeshBoundary()) {
+            topLevelAS = lineData->getRayTracingTubeLinearSweptSpheresAndHullTopLevelAS();
+        } else {
+            topLevelAS = lineData->getRayTracingTubeLinearSweptSpheresTopLevelAS();
+        }
+        tubeTriangleRenderData = TubeTriangleRenderData();
+        tubeAabbRenderData = TubeAabbRenderData();
+        tubeLinearSweptSpheresRenderData = lineData->getLinePassTubeLinearSweptSpheresRenderData();
     }
 
     if (lineData->getShallRenderSimulationMeshBoundary()) {
@@ -407,7 +459,12 @@ void RayTracingRenderPass::loadShader() {
         preprocessorDefines.insert(std::make_pair("NUM_NODES", std::to_string(mlatNumNodes)));
     }
     if (useMlat) {
-        if (useAnalyticIntersections) {
+        if (rayTracingGeometryMode == RayTracingGeometryMode::TRIANGLE_MESH) {
+            shaderStages = sgl::vk::ShaderManager->getShaderStages(
+                    {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
+                     "TubeRayTracing.AnyHitTubeTriangles", "TubeRayTracing.AnyHitHull"},
+                    preprocessorDefines);
+        } else if (rayTracingGeometryMode == RayTracingGeometryMode::AABBS) {
             if (useAnalyticEllipticTubes) {
                 shaderStages = sgl::vk::ShaderManager->getShaderStages(
                         {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
@@ -422,14 +479,19 @@ void RayTracingRenderPass::loadShader() {
                          "TubeRayTracing.AnyHitHull"},
                         preprocessorDefines);
             }
-        } else {
+        } else if (rayTracingGeometryMode == RayTracingGeometryMode::LINEAR_SWEPT_SPHERES) {
             shaderStages = sgl::vk::ShaderManager->getShaderStages(
                     {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
-                     "TubeRayTracing.AnyHitTubeTriangles", "TubeRayTracing.AnyHitHull"},
+                     "TubeRayTracing.AnyHitTubeLinearSweptSpheres", "TubeRayTracing.AnyHitHull"},
                     preprocessorDefines);
         }
     } else {
-        if (useAnalyticIntersections) {
+        if (rayTracingGeometryMode == RayTracingGeometryMode::TRIANGLE_MESH) {
+            shaderStages = sgl::vk::ShaderManager->getShaderStages(
+                    {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
+                     "TubeRayTracing.ClosestHitTubeTriangles", "TubeRayTracing.ClosestHitHull"},
+                    preprocessorDefines);
+        } else if (rayTracingGeometryMode == RayTracingGeometryMode::AABBS) {
             if (useAnalyticEllipticTubes) {
                 shaderStages = sgl::vk::ShaderManager->getShaderStages(
                         {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
@@ -444,10 +506,10 @@ void RayTracingRenderPass::loadShader() {
                          "TubeRayTracing.ClosestHitHull"},
                         preprocessorDefines);
             }
-        } else {
+        } else if (rayTracingGeometryMode == RayTracingGeometryMode::LINEAR_SWEPT_SPHERES) {
             shaderStages = sgl::vk::ShaderManager->getShaderStages(
                     {"TubeRayTracing.RayGen", "TubeRayTracing.Miss",
-                     "TubeRayTracing.ClosestHitTubeTriangles", "TubeRayTracing.ClosestHitHull"},
+                     "TubeRayTracing.ClosestHitTubeLinearSweptSpheres", "TubeRayTracing.ClosestHitHull"},
                     preprocessorDefines);
         }
     }
@@ -459,39 +521,7 @@ void RayTracingRenderPass::createRayTracingData(
     rayTracingData->setStaticImageView(sceneImageView, "outputImage");
     rayTracingData->setTopLevelAccelerationStructure(topLevelAS, "topLevelAS");
     rayTracingData->setStaticBuffer(rayTracerSettingsBuffer, "RayTracerSettingsBuffer");
-    if (useAnalyticIntersections) {
-        if (tubeAabbRenderData.indexBuffer) {
-            rayTracingData->setStaticBuffer(
-                    tubeAabbRenderData.indexBuffer, "BoundingBoxLinePointIndexBuffer");
-            rayTracingData->setStaticBufferOptional(
-                    tubeAabbRenderData.aabbBuffer, "BoundingBoxBuffer");
-            rayTracingData->setStaticBuffer(
-                    tubeAabbRenderData.linePointDataBuffer, "LinePointDataBuffer");
-            rayTracingData->setStaticBufferOptional(
-                    tubeAabbRenderData.stressLinePointDataBuffer, "StressLinePointDataBuffer");
-            rayTracingData->setStaticBufferOptional(
-                    tubeAabbRenderData.stressLinePointPrincipalStressDataBuffer,
-                    "StressLinePointPrincipalStressDataBuffer");
-            if (tubeAabbRenderData.multiVarAttributeDataBuffer) {
-                rayTracingData->setStaticBufferOptional(
-                        tubeAabbRenderData.multiVarAttributeDataBuffer, "AttributeDataArrayBuffer");
-            }
-        } else {
-            // Just bind anything in order for sgl to not complain...
-            rayTracingData->setStaticBuffer(
-                    hullTriangleRenderData.indexBuffer, "BoundingBoxLinePointIndexBuffer");
-            rayTracingData->setStaticBufferOptional(
-                    hullTriangleRenderData.vertexBuffer, "BoundingBoxBuffer");
-            rayTracingData->setStaticBuffer(
-                    hullTriangleRenderData.vertexBuffer, "LinePointDataBuffer");
-            rayTracingData->setStaticBufferOptional(
-                    hullTriangleRenderData.vertexBuffer, "StressLinePointDataBuffer");
-            rayTracingData->setStaticBufferOptional(
-                    hullTriangleRenderData.vertexBuffer, "StressLinePointPrincipalStressDataBuffer");
-            rayTracingData->setStaticBufferOptional(
-                    hullTriangleRenderData.vertexBuffer, "AttributeDataArrayBuffer");
-        }
-    } else {
+    if (rayTracingGeometryMode == RayTracingGeometryMode::TRIANGLE_MESH) {
         if (tubeTriangleRenderData.indexBuffer) {
             rayTracingData->setStaticBuffer(
                     tubeTriangleRenderData.indexBuffer, "TubeIndexBuffer");
@@ -530,6 +560,70 @@ void RayTracingRenderPass::createRayTracingData(
             //rayTracingData->setStaticBufferOptional(
             //        hullTriangleRenderData.vertexBuffer, "InstanceTriangleIndexOffsetBuffer");
         }
+    } else if (rayTracingGeometryMode == RayTracingGeometryMode::AABBS) {
+        if (tubeAabbRenderData.indexBuffer) {
+            rayTracingData->setStaticBuffer(
+                    tubeAabbRenderData.indexBuffer, "BoundingBoxLinePointIndexBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    tubeAabbRenderData.aabbBuffer, "BoundingBoxBuffer");
+            rayTracingData->setStaticBuffer(
+                    tubeAabbRenderData.linePointDataBuffer, "LinePointDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    tubeAabbRenderData.stressLinePointDataBuffer, "StressLinePointDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    tubeAabbRenderData.stressLinePointPrincipalStressDataBuffer,
+                    "StressLinePointPrincipalStressDataBuffer");
+            if (tubeAabbRenderData.multiVarAttributeDataBuffer) {
+                rayTracingData->setStaticBufferOptional(
+                        tubeAabbRenderData.multiVarAttributeDataBuffer, "AttributeDataArrayBuffer");
+            }
+        } else {
+            // Just bind anything in order for sgl to not complain...
+            rayTracingData->setStaticBuffer(
+                    hullTriangleRenderData.indexBuffer, "BoundingBoxLinePointIndexBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    hullTriangleRenderData.vertexBuffer, "BoundingBoxBuffer");
+            rayTracingData->setStaticBuffer(
+                    hullTriangleRenderData.vertexBuffer, "LinePointDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    hullTriangleRenderData.vertexBuffer, "StressLinePointDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    hullTriangleRenderData.vertexBuffer, "StressLinePointPrincipalStressDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    hullTriangleRenderData.vertexBuffer, "AttributeDataArrayBuffer");
+        }
+    } else if (rayTracingGeometryMode == RayTracingGeometryMode::LINEAR_SWEPT_SPHERES) {
+        if (tubeLinearSweptSpheresRenderData.indexBuffer) {
+            rayTracingData->setStaticBuffer(
+                    tubeLinearSweptSpheresRenderData.indexBuffer, "LinePointIndexBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    tubeLinearSweptSpheresRenderData.radiusBuffer, "RadiusBuffer");
+            rayTracingData->setStaticBuffer(
+                    tubeLinearSweptSpheresRenderData.linePointDataBuffer, "LinePointDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    tubeLinearSweptSpheresRenderData.stressLinePointDataBuffer, "StressLinePointDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    tubeLinearSweptSpheresRenderData.stressLinePointPrincipalStressDataBuffer,
+                    "StressLinePointPrincipalStressDataBuffer");
+            if (tubeLinearSweptSpheresRenderData.multiVarAttributeDataBuffer) {
+                rayTracingData->setStaticBufferOptional(
+                        tubeLinearSweptSpheresRenderData.multiVarAttributeDataBuffer, "AttributeDataArrayBuffer");
+            }
+        } else {
+            // Just bind anything in order for sgl to not complain...
+            rayTracingData->setStaticBuffer(
+                    hullTriangleRenderData.indexBuffer, "LinePointIndexBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    hullTriangleRenderData.vertexBuffer, "RadiusBuffer");
+            rayTracingData->setStaticBuffer(
+                    hullTriangleRenderData.vertexBuffer, "LinePointDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    hullTriangleRenderData.vertexBuffer, "StressLinePointDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    hullTriangleRenderData.vertexBuffer, "StressLinePointPrincipalStressDataBuffer");
+            rayTracingData->setStaticBufferOptional(
+                    hullTriangleRenderData.vertexBuffer, "AttributeDataArrayBuffer");
+        }
     }
     if (hullTriangleRenderData.indexBuffer) {
         rayTracingData->setStaticBuffer(hullTriangleRenderData.indexBuffer, "HullIndexBuffer");
@@ -537,10 +631,18 @@ void RayTracingRenderPass::createRayTracingData(
                 hullTriangleRenderData.vertexBuffer, "HullTriangleVertexDataBuffer");
     } else {
         // Just bind anything in order for sgl to not complain...
-        sgl::vk::BufferPtr indexBuffer =
-                useAnalyticIntersections ? tubeAabbRenderData.indexBuffer : tubeTriangleRenderData.indexBuffer;
-        sgl::vk::BufferPtr vertexBuffer =
-                useAnalyticIntersections ? tubeAabbRenderData.linePointDataBuffer : tubeTriangleRenderData.vertexBuffer;
+        sgl::vk::BufferPtr indexBuffer;
+        sgl::vk::BufferPtr vertexBuffer;
+        if (rayTracingGeometryMode == RayTracingGeometryMode::TRIANGLE_MESH) {
+            indexBuffer = tubeTriangleRenderData.indexBuffer;
+            vertexBuffer = tubeTriangleRenderData.vertexBuffer;
+        } else if (rayTracingGeometryMode == RayTracingGeometryMode::AABBS) {
+            indexBuffer = tubeAabbRenderData.indexBuffer;
+            vertexBuffer = tubeAabbRenderData.linePointDataBuffer;
+        } else if (rayTracingGeometryMode == RayTracingGeometryMode::LINEAR_SWEPT_SPHERES) {
+            indexBuffer = tubeLinearSweptSpheresRenderData.indexBuffer;
+            vertexBuffer = tubeLinearSweptSpheresRenderData.linePointDataBuffer;
+        }
         rayTracingData->setStaticBuffer(indexBuffer, "HullIndexBuffer");
         rayTracingData->setStaticBuffer(vertexBuffer, "HullTriangleVertexDataBuffer");
     }
@@ -583,7 +685,7 @@ sgl::vk::RayTracingPipelinePtr RayTracingRenderPass::createRayTracingPipeline() 
     sbt.addRayGenShaderGroup()->setRayGenShader(0);
     sbt.addMissShaderGroup()->setMissShader(1);
     if (useMlat) {
-        if (useAnalyticIntersections) {
+        if (rayTracingGeometryMode == RayTracingGeometryMode::AABBS) {
             sgl::vk::HitShaderGroup* tubeHitShaderGroup = sbt.addHitShaderGroup(
                     VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR);
             tubeHitShaderGroup->setIntersectionShader(2);
@@ -594,7 +696,7 @@ sgl::vk::RayTracingPipelinePtr RayTracingRenderPass::createRayTracingPipeline() 
             sbt.addHitShaderGroup(VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR)->setAnyHitShader(3);
         }
     } else {
-        if (useAnalyticIntersections) {
+        if (rayTracingGeometryMode == RayTracingGeometryMode::AABBS) {
             sgl::vk::HitShaderGroup* tubeHitShaderGroup = sbt.addHitShaderGroup(
                     VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR);
             tubeHitShaderGroup->setIntersectionShader(2);
