@@ -464,6 +464,7 @@ void LineData::rebuildInternalRepresentationIfNecessary() {
         cachedHullTriangleRenderData = {};
         tubeTriangleBottomLevelASes = {};
         tubeAabbBottomLevelAS = {};
+        tubeLinearSweptSpheresBottomLevelAS = {};
         hullTriangleBottomLevelAS = {};
         tubeTriangleTopLevelAS = {};
         tubeTriangleAndHullTopLevelAS = {};

@@ -624,6 +624,9 @@ void main() {
 #extension GL_EXT_ray_tracing : require
 #extension GL_NV_linear_swept_spheres : require
 
+// Necessary to declare that no bands rendering is currently supported.
+#define ANALYTIC_TUBE_INTERSECTIONS
+
 #define VULKAN_RAY_TRACING_SHADER
 #include "RayHitCommon.glsl"
 
