@@ -53,9 +53,8 @@ class RayTracingRenderPass;
 
 enum class RayTracingGeometryMode {
     TRIANGLE_MESH = 0, AABBS,
-#ifdef VK_NV_ray_tracing_linear_swept_spheres
     LINEAR_SWEPT_SPHERES,
-#endif
+#
 };
 const char* const RAY_TRACING_GEOMETRY_MODE_NAMES[] = {
     "Triangle Mesh", "AABBs (analytic)",
