@@ -151,6 +151,8 @@ bool LineDataStress::setNewSettings(const SettingsMap& settings) {
                 shallReloadGatherShader = true;
             }
             triangleRepresentationDirty = true;
+            sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+            device->waitIdle();
         }
     }
 
@@ -314,6 +316,8 @@ bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyE
                     }
                 }
                 triangleRepresentationDirty = true;
+                sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+                device->waitIdle();
             }
         }
     }
@@ -368,6 +372,8 @@ bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyE
                         || (!canUseLiveUpdate && editMode == ImGui::EditMode::INPUT_FINISHED)) {
                     reRender = true;
                     triangleRepresentationDirty = true;
+                    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+                    device->waitIdle();
                 }
             }
 #endif
@@ -381,6 +387,8 @@ bool LineDataStress::renderGuiPropertyEditorNodes(sgl::PropertyEditor& propertyE
                         "Min. Band Thickness", &minBandThickness, 0.01f, 1.0f)) {
                     triangleRepresentationDirty = true;
                     shallReloadGatherShader = true;
+                    sgl::vk::Device* device = sgl::AppSettings::get()->getPrimaryDevice();
+                    device->waitIdle();
                 }
             }
         }
