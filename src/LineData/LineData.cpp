@@ -460,6 +460,7 @@ void LineData::rebuildInternalRepresentationIfNecessary() {
 
         cachedTubeTriangleRenderData = {};
         cachedTubeAabbRenderData = {};
+        cachedTubeLinearSweptSpheresRenderData = {};
         cachedHullTriangleRenderData = {};
         tubeTriangleBottomLevelASes = {};
         tubeAabbBottomLevelAS = {};
@@ -468,6 +469,8 @@ void LineData::rebuildInternalRepresentationIfNecessary() {
         tubeTriangleAndHullTopLevelAS = {};
         tubeAabbTopLevelAS = {};
         tubeAabbAndHullTopLevelAS = {};
+        tubeLinearSweptSpheresTopLevelAS = {};
+        tubeLinearSweptSpheresAndHullTopLevelAS = {};
         cachedTubeTriangleRenderDataPayload = {};
 
         dirty = false;
