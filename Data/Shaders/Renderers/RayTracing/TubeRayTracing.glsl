@@ -629,19 +629,8 @@ void main() {
 
 hitAttributeEXT float uVal;
 
-struct TubeTriangleVertexData {
-    vec3 vertexPosition;
-    uint vertexLinePointIndex; ///< Pointer to LinePointData entry.
-    vec3 vertexNormal;
-    float phi; ///< Angle.
-};
-
 layout(std430, binding = 3) readonly buffer LinePointIndexBuffer {
     uvec2 indexBuffer[];
-};
-
-layout(std430, binding = 4) readonly buffer TubeTriangleVertexDataBuffer {
-    TubeTriangleVertexData tubeTriangleVertexDataBuffer[];
 };
 
 void main() {
@@ -656,8 +645,8 @@ void main() {
 
     float t;
     vec3 v = linePointData1.linePosition - linePointData0.linePosition;
-    bool isCap = uVal > 0.0 && uVal < 1.0;
-    if (uVal > 0.0 && uVal < 1.0) {
+    bool isCap = uVal <= 0.0 || uVal >= 1.0;
+    if (!isCap) {
         // Tube
         vec3 u = fragmentPositionWorld - linePointData0.linePosition;
         t = dot(v, u) / dot(v, v);
