@@ -285,7 +285,9 @@ bool DeferredRenderer::needsReRender() {
 void DeferredRenderer::notifyReRenderTriggeredExternally() {
     internalReRender = false;
     //accumulatedFramesCounter = 0;
-    resetTemporalAccumulation();
+    if (resetAccumOnExternalReRender) {
+        resetTemporalAccumulation();
+    }
 }
 
 void DeferredRenderer::onHasMoved() {
@@ -3226,6 +3228,13 @@ bool DeferredRenderer::setNewSettings(const SettingsMap& settings) {
     if (settings.getValueOpt(
             "node_aabb_use_screen_space_line_width", nodeAabbUseScreenSpaceLineWidth)) {
         visualizeNodesPass->setUseScreenSpaceLineWidth(nodeAabbUseScreenSpaceLineWidth);
+        reRender = true;
+    }
+
+    settings.getValueOpt("reset_accum_every_frame", resetAccumOnExternalReRender);
+    bool resetAccum;
+    if (settings.getValueOpt("reset_accum", resetAccum)) {
+        resetTemporalAccumulation();
         reRender = true;
     }
 

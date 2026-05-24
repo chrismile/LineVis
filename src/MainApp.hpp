@@ -164,6 +164,7 @@ private:
 
 #ifdef USE_PYTHON
     ReplayWidget replayWidget;
+    bool replayWidgetRenderDirty = false;
     bool replayWidgetRunning = false;
     bool realTimeReplayUpdates = false;
     bool updateTransferFunctionRange = false;

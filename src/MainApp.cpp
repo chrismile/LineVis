@@ -223,6 +223,7 @@ MainApp::MainApp()
         if (i != int(dataSetNames.size())) {
             if (selectedDataSetIndex >= NUM_MANUAL_LOADERS && oldSelectedDataSetIndex != selectedDataSetIndex) {
                 loadLineDataSet(getSelectedLineDataSetFilenames(), true);
+                replayWidgetRenderDirty = true;
             }
         } else {
             sgl::Logfile::get()->writeError(
@@ -283,6 +284,7 @@ MainApp::MainApp()
         if (useDockSpaceMode) {
             dataViews.at(viewIdx)->updateCameraMode();
         }
+        replayWidgetRenderDirty = true;
     });
     replayWidget.setLoadTransferFunctionCallback([this](const std::string& tfName) {
         if (lineData) {
@@ -291,6 +293,7 @@ MainApp::MainApp()
             lineData->onTransferFunctionMapRebuilt();
             sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(
                     ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT));
+            replayWidgetRenderDirty = true;
         }
     });
     replayWidget.setTransferFunctionRangeCallback([this](const glm::vec2& tfRange) {
@@ -301,6 +304,7 @@ MainApp::MainApp()
             lineData->onTransferFunctionMapRebuilt();
             sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(
                     ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT));
+            replayWidgetRenderDirty = true;
         }
     });
     replayWidget.setLoadMultiVarTransferFunctionsCallback([this](
@@ -325,6 +329,7 @@ MainApp::MainApp()
             lineData->onTransferFunctionMapRebuilt();
             sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(
                     ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT));
+            replayWidgetRenderDirty = true;
         }
     });
     replayWidget.setMultiVarTransferFunctionsRangesCallback([this](
@@ -352,12 +357,14 @@ MainApp::MainApp()
             lineData->onTransferFunctionMapRebuilt();
             sgl::EventManager::get()->triggerEvent(std::make_shared<sgl::Event>(
                     ON_TRANSFER_FUNCTION_MAP_REBUILT_EVENT));
+            replayWidgetRenderDirty = true;
         }
     });
     replayWidget.setSaveScreenshotCallback([this](const std::string& screenshotName) {
         if (!screenshotName.empty()) {
             saveFilenameScreenshots = screenshotName;
         }
+        replayWidgetRenderDirty = true;
         screenshot = true;
     });
 #endif
@@ -1901,18 +1908,28 @@ void MainApp::update(float dt) {
 #ifdef USE_PYTHON
     bool stopRecording = false;
     bool stopCameraFlight = false;
+    replayWidgetRenderDirty = false;
     if (replayWidget.update(recordingTime, stopRecording, stopCameraFlight)) {
         if (!useCameraFlight) {
-            camera->overwriteViewMatrix(replayWidget.getViewMatrix());
+            float matrixDiff = sgl::matrixMaximumAbsoluteEntry(replayWidget.getViewMatrix() - camera->getViewMatrix());
+            if (matrixDiff > 1e-7f) {
+                camera->overwriteViewMatrix(replayWidget.getViewMatrix());
+                replayWidgetRenderDirty = true;
+            }
             if (std::abs(camera->getFOVy() - replayWidget.getCameraFovy()) > 1e-6f) {
                 camera->setFOVy(replayWidget.getCameraFovy());
                 fovDegree = camera->getFOVy() / sgl::PI * 180.0f;
+                replayWidgetRenderDirty = true;
             }
             if (camera->getLookAtLocation() != replayWidget.getLookAtLocation()) {
                 camera->setLookAtLocation(replayWidget.getLookAtLocation());
+                replayWidgetRenderDirty = true;
             }
         }
         SettingsMap currentDatasetSettings = replayWidget.getCurrentDatasetSettings();
+        if (!currentDatasetSettings.isEmpty()) {
+            replayWidgetRenderDirty = true;
+        }
         bool reloadGatherShader = false;
         if (lineData) {
             reloadGatherShader |= lineData->setNewSettings(currentDatasetSettings);
@@ -1922,6 +1939,9 @@ void MainApp::update(float dt) {
                 bool reloadGatherShaderLocal = reloadGatherShader;
                 if (dataView->lineRenderer) {
                     SettingsMap currentRendererSettings = replayWidget.getCurrentRendererSettings();
+                    if (!currentRendererSettings.isEmpty()) {
+                        replayWidgetRenderDirty = true;
+                    }
                     reloadGatherShaderLocal |= dataView->lineRenderer->setNewSettings(currentRendererSettings);
                 }
                 if (dataView->lineRenderer && reloadGatherShaderLocal) {
@@ -1931,6 +1951,9 @@ void MainApp::update(float dt) {
         } else {
             if (lineRenderer) {
                 SettingsMap currentRendererSettings = replayWidget.getCurrentRendererSettings();
+                if (!currentRendererSettings.isEmpty()) {
+                    replayWidgetRenderDirty = true;
+                }
                 reloadGatherShader |= lineRenderer->setNewSettings(currentRendererSettings);
             }
             if (lineRenderer && reloadGatherShader) {
@@ -1947,8 +1970,10 @@ void MainApp::update(float dt) {
         }
 
         replayWidgetRunning = true;
-        reRender = true;
-        hasMoved();
+        if (replayWidgetRenderDirty || replayWidget.getReRenderEveryFrame()) {
+            reRender = true;
+            hasMoved();
+        }
 
         if (!useCameraFlight) {
             if (realTimeReplayUpdates) {

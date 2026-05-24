@@ -52,6 +52,7 @@
 static ReplayState currentReplayStateGlobal;
 static std::vector<ReplayState> replayStatesGlobal;
 static bool useCameraFlightGlobal = false;
+static bool reRenderEveryFrameGlobal = false;
 static bool isFirstState = true;
 
 static PyObject* py_set_duration(PyObject* self, PyObject* args) {
@@ -459,6 +460,16 @@ static PyObject* py_set_use_camera_flight(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+static PyObject* py_set_render_every_frame(PyObject* self, PyObject* args) {
+    int reRenderEveryFrame = false;
+    if (!PyArg_ParseTuple(args, "p", &reRenderEveryFrame)) {
+        return nullptr;
+    }
+
+    reRenderEveryFrameGlobal = reRenderEveryFrame;
+    Py_RETURN_NONE;
+}
+
 static PyObject* py_save_screenshot(PyObject* self, PyObject* args) {
     Py_ssize_t tupleSize = PyTuple_Size(args);
     if (tupleSize == 0) {
@@ -511,7 +522,9 @@ static PyMethodDef REPLAY_METHODS[] = {
         {"set_camera_checkpoint", py_set_camera_checkpoint, METH_VARARGS,
                 "Sets the camera checkpoint corresponding to the passed string."},
         {"set_use_camera_flight", py_set_use_camera_flight, METH_VARARGS,
-         "Whether to use the pre-defined camera flight for camera positions and orientations."},
+                "Whether to use the pre-defined camera flight for camera positions and orientations."},
+        {"set_render_every_frame", py_set_render_every_frame, METH_VARARGS,
+                "Whether to re-render every frame even when there is no change in rendering parameters."},
         {"save_screenshot", py_save_screenshot, METH_VARARGS,
              "Save a screenshot of the currently displayed data."},
 
@@ -562,6 +575,7 @@ bool ReplayWidget::runScript(const std::string& filename) {
     currentStateIndex = 0;
     replayStatesGlobal.clear();
     useCameraFlightGlobal = false;
+    reRenderEveryFrameGlobal = true;
     isFirstState = true;
     currentReplayStateGlobal = ReplayState();
 
@@ -709,6 +723,7 @@ bool ReplayWidget::update(float currentTime, bool& stopRecording, bool& stopCame
 
             replayState.rendererSettings.setStaticSettings(currentRendererSettings);
             replayState.datasetSettings.setStaticSettings(currentDatasetSettings);
+            reRenderEveryFrame = replayState.reRenderEveryFrame;
 
             firstTimeState = false;
         }

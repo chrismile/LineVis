@@ -196,6 +196,7 @@ struct ReplayState {
     glm::vec3 cameraLookAtLocation;
     glm::quat cameraOrientation;
     float cameraFovy;
+    bool reRenderEveryFrame = false;
 
     // For saving screenshots while running the replay states.
     std::string screenshotName;
@@ -236,6 +237,7 @@ public:
     inline SettingsMap getCurrentRendererSettings() { return currentRendererSettings; }
     inline SettingsMap getCurrentDatasetSettings() { return currentDatasetSettings; }
     [[nodiscard]] inline bool getUseCameraFlight() const { return useCameraFlight; }
+    [[nodiscard]] inline bool getReRenderEveryFrame() const { return reRenderEveryFrame; }
 
     /// Callback functions when, e.g., a new renderer is requested.
     void setLoadLineDataCallback(std::function<void(const std::string& datasetName)> loadLineDataCallback);
@@ -289,6 +291,7 @@ private:
     glm::vec3 currentLookAtLocation;
     float currentFovy;
     bool useCameraFlight = false;
+    bool reRenderEveryFrame = true;
 
     // Gui functions & data.
     ReplayWidgetUpdateType renderFileDialog();

@@ -362,6 +362,7 @@ protected:
     float jitterScaleY = -1.0f;
 #endif
     bool displayResponsivePixelMask = false;
+    bool resetAccumOnExternalReRender = true;
 
     // Multiple frames can be accumulated with the temporal upscalers to achieve a multisampling effect.
     int numSamplesBase = 8;
