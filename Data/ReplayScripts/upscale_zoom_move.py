@@ -17,6 +17,7 @@ def init_scene(start_look_at, start_position, start_yaw, start_pitch):
     g.set_dataset_settings({
     })
     g.set_render_every_frame(False)
+    g.set_duration(0.0)
     g.set_duration(0.5)
 
 
@@ -48,9 +49,6 @@ def replay():
         g.set_camera_position(pos)
 
     update_discrete(move_function=update_pos, steps=4, time_per_step=0.5)
-    #g.set_duration(2)
-    #g.set_camera_position(closeup_position)
-    #g.set_duration(2)
 
     g.set_rendering_algorithm_settings({
         'reset_accum_every_frame': False,
