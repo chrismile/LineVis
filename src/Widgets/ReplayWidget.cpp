@@ -45,9 +45,9 @@
 #include <ImGui/imgui_custom.h>
 #include <ImGui/imgui_stdlib.h>
 
-#include <Python.h>
-
 #include "ReplayWidget.hpp"
+
+#include <Utils/Python/PythonIncludeSafe.hpp>
 
 static ReplayState currentReplayStateGlobal;
 static std::vector<ReplayState> replayStatesGlobal;

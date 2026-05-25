@@ -54,6 +54,7 @@ option(VCPKG_EXTERNAL_EMBREE "Use external Embree package if vcpkg is used for c
 option(USE_STATIC_STD_LIBRARIES "Link with standard libraries statically (only supported on Linux for now)." OFF)
 option(SUPPORT_PYTORCH_DENOISER "Build the PyTorch module." OFF)
 option(STANDALONE "Build without external pre-built dependencies." OFF)
+option(STANDALONE_USE_PYTHON "Build with Python 3 support even in standalone mode." OFF)
 
 set(DATA_PATH "${CMAKE_SOURCE_DIR}/Data" CACHE PATH "Location of folder 'Data'")
 add_definitions(-DDATA_PATH=\"${DATA_PATH}\")
@@ -61,7 +62,11 @@ add_definitions(-DDATA_PATH=\"${DATA_PATH}\")
 if (${STANDALONE})
     # Standalone mode does not support some other options yet.
     set(USE_GTEST OFF)
-    set(USE_PYTHON OFF)
+    if (${STANDALONE_USE_PYTHON})
+        set(USE_PYTHON ON)
+    else()
+        set(USE_PYTHON OFF)
+    endif()
     set(USE_TBB OFF)
 endif()
 
@@ -530,6 +535,20 @@ if (Python3_FOUND AND USE_PYTHON)
             target_link_options(LineVis PRIVATE "-Xlinker")
             target_link_options(LineVis PRIVATE "-export-dynamic")
         endif()
+    endif()
+    if (MSVC AND NOT VCPKG)
+        # The system Python usually only includes the release library "python*.lib", not "python*_d.lib".
+        # However, in Python.h, linking to "python*_d.lib" is specified. We use a similar fix as described here:
+        # - https://github.com/Slicer/Slicer/pull/8651
+        # - https://github.com/commontk/PythonQt/blob/7f7105ba9ec59d719ded80090e049fa85ad76e79/src/PythonQtPythonInclude.h#L95
+        # - https://github.com/Slicer/VTK/blob/slicer-v9.5.0-2025-06-19-e70c856bd/Utilities/Python/vtkPython.h#L40
+        target_compile_definitions(LineVis PRIVATE USE_PYTHON_LINKER_FIX)
+    endif()
+    if (MSVC AND NOT VCPKG AND ${STANDALONE})
+        file(GLOB PYTHON_DLL_PATH ${Python3_RUNTIME_LIBRARY_DIRS}/python${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}.dll)
+        install(FILES ${PYTHON_DLL_PATH} DESTINATION bin)
+        add_custom_command(TARGET LineVis
+                POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PYTHON_DLL_PATH}" "$<TARGET_FILE_DIR:LineVis>")
     endif()
     target_include_directories(LineVis PRIVATE ${Python3_INCLUDE_DIRS})
 
