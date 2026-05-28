@@ -54,7 +54,6 @@ option(VCPKG_EXTERNAL_EMBREE "Use external Embree package if vcpkg is used for c
 option(USE_STATIC_STD_LIBRARIES "Link with standard libraries statically (only supported on Linux for now)." OFF)
 option(SUPPORT_PYTORCH_DENOISER "Build the PyTorch module." OFF)
 option(STANDALONE "Build without external pre-built dependencies." OFF)
-option(STANDALONE_USE_PYTHON "Build with Python 3 support even in standalone mode." OFF)
 
 set(DATA_PATH "${CMAKE_SOURCE_DIR}/Data" CACHE PATH "Location of folder 'Data'")
 add_definitions(-DDATA_PATH=\"${DATA_PATH}\")
@@ -62,11 +61,6 @@ add_definitions(-DDATA_PATH=\"${DATA_PATH}\")
 if (${STANDALONE})
     # Standalone mode does not support some other options yet.
     set(USE_GTEST OFF)
-    if (${STANDALONE_USE_PYTHON})
-        set(USE_PYTHON ON)
-    else()
-        set(USE_PYTHON OFF)
-    endif()
     set(USE_TBB OFF)
 endif()
 
