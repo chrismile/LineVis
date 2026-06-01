@@ -1431,6 +1431,7 @@ void DeferredRenderer::onSupersamplingModeChanged() {
         upscaler = std::shared_ptr<Upscaler>(createNewUpscaler(upscalerType));
         if (!upscaler->initialize(renderer->getDevice())) {
             upscaler = {};
+            upscaler = {};
             supersamplingMode = 0;
             return;
         }

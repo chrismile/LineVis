@@ -101,10 +101,10 @@ void main() {
     float surfaceDepthLastFrame = lastFramePositionNdc.z;
     float actualPixelDepthLastFrame = texture(depthBufferLastFrame, 0.5 * lastFramePositionNdc.xy + vec2(0.5), 0).x;
     // Check if a disocclusion occurred and write 1 in this case.
-    // surfaceDepthLastFrame < actualPixelDepthLastFrame - EPSILON => disocclusion
-    // <=> surfaceDepthLastFrame - actualPixelDepthLastFrame + EPSILON < 0 => write 1
+    // surfaceDepthLastFrame >= actualPixelDepthLastFrame + EPSILON => disocclusion
+    // <=> surfaceDepthLastFrame - actualPixelDepthLastFrame - EPSILON >= 0 => write 1
     // Apply logic from https://registry.khronos.org/OpenGL-Refpages/gl4/html/step.xhtml: x < edge => 0
     const float EPSILON = 1e-3;
-    responsivePixelMask = step(0.0, actualPixelDepthLastFrame - surfaceDepthLastFrame - EPSILON);
+    responsivePixelMask = step(0.0, surfaceDepthLastFrame - actualPixelDepthLastFrame - EPSILON);
 #endif
 }
