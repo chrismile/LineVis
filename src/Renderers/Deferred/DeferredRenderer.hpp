@@ -70,6 +70,8 @@ typedef std::shared_ptr<Timer> TimerPtr;
 enum class DeferredRendererUpscaler {
     X1,
     X2,
+    X3,
+    X4,
 #ifdef SUPPORT_DLSS
     DLSS,
 #endif
