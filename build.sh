@@ -492,6 +492,31 @@ elif command -v apt &> /dev/null && ! $use_conda; then
             libibus-1.0-dev autoconf automake autoconf-archive libxinerama-dev libxcursor-dev xorg-dev pkg-config \
             wayland-protocols extra-cmake-modules
         fi
+    elif $standalone; then
+        if ! is_installed_apt "libx11-dev" || ! is_installed_apt "libxext-dev" || ! is_installed_apt "libxft-dev" \
+                || ! is_installed_apt "libxrandr-dev" || ! is_installed_apt "libxcursor-dev" \
+                || ! is_installed_apt "libxfixes-dev" || ! is_installed_apt "libxi-dev" \
+                || ! is_installed_apt "libxmu-dev" || ! is_installed_apt "libxss-dev" \
+                || ! is_installed_apt "libxtst-dev" || ! is_installed_apt "libxkbcommon-dev" \
+                || ! is_installed_apt "libdrm-dev" || ! is_installed_apt "libgbm-dev" || ! is_installed_apt "libgl-dev" \
+                || ! is_installed_apt "libgl1-mesa-dev" || ! is_installed_apt "libgles2-mesa-dev" \
+                || ! is_installed_apt "libegl1-mesa-dev" || ! is_installed_apt "libdbus-1-dev" \
+                || ! is_installed_apt "libibus-1.0-dev" || ! is_installed_apt "libudev-dev" \
+                || ! is_installed_apt "libusb-1.0-0-dev" || ! is_installed_apt "libwayland-dev" \
+                || ! is_installed_apt "libdecor-0-dev" || ! is_installed_apt "liburing-dev" \
+                || ! is_installed_apt "libxxf86vm-dev" || ! is_installed_apt "mesa-common-dev" \
+                || ! is_installed_apt "libxinerama-dev" || ! is_installed_apt "libxcursor-dev" \
+                || ! is_installed_apt "xorg-dev" || ! is_installed_apt "pkg-config" \
+                || ! is_installed_apt "wayland-protocols" || ! is_installed_apt "extra-cmake-modules"; then
+            echo "------------------------"
+            echo "installing dependencies "
+            echo "------------------------"
+            sudo apt install -y libx11-dev libxext-dev libxft-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev \
+            libxmu-dev libxss-dev libxtst-dev libxkbcommon-dev libdrm-dev libgbm-dev libgl-dev libgl1-mesa-dev \
+            libgles2-mesa-dev libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev libusb-1.0-0-dev libwayland-dev \
+            libdecor-0-dev liburing-dev libxxf86vm-dev mesa-common-dev libxinerama-dev libxcursor-dev xorg-dev \
+            pkg-config wayland-protocols extra-cmake-modules
+        fi
     else
         if ! is_installed_apt "libboost-filesystem-dev" || ! is_installed_apt "libicu-dev" \
                 || ! is_installed_apt "libglm-dev" || ! is_installed_apt "libarchive-dev" \
@@ -552,6 +577,24 @@ elif command -v pacman &> /dev/null && ! $use_conda; then
             echo "------------------------"
             sudo pacman --noconfirm --needed -S libgl glu vulkan-devel shaderc openssl autoconf automake \
             autoconf-archive libxinerama libxcursor pkgconf libxkbcommon wayland-protocols wayland extra-cmake-modules
+        fi
+    elif $standalone; then
+        if ! is_installed_pacman "hidapi" || ! is_installed_pacman "ibus" || ! is_installed_pacman "libdecor" \
+                || ! is_installed_pacman "libgl" || ! is_installed_pacman "libusb" || ! is_installed_pacman "libx11" \
+                || ! is_installed_pacman "libxcursor" || ! is_installed_pacman "libxext" \
+                || ! is_installed_pacman "libxfixes" || ! is_installed_pacman "libxi" \
+                || ! is_installed_pacman "libxinerama" || ! is_installed_pacman "libxkbcommon" \
+                || ! is_installed_pacman "libxrandr" || ! is_installed_pacman "libxrender" \
+                || ! is_installed_pacman "libxss" || ! is_installed_pacman "libxtst" \
+                || ! is_installed_pacman "vulkan-headers" || ! is_installed_pacman "wayland" \
+                || ! is_installed_pacman "wayland-protocols" || ! is_installed_pacman "pkgconf" \
+                || ! is_installed_pacman "extra-cmake-modules"; then
+            echo "------------------------"
+            echo "installing dependencies "
+            echo "------------------------"
+            sudo pacman --noconfirm --needed -S hidapi ibus libdecor libgl libusb libx11 libxcursor libxext libxfixes \
+            libxi libxinerama libxkbcommon libxrandr libxrender libxss libxtst vulkan-headers wayland wayland-protocols \
+            pkgconf extra-cmake-modules
         fi
     else
         if ! is_installed_pacman "boost" || ! is_installed_pacman "boost-libs" || ! is_installed_pacman "icu" \
@@ -617,6 +660,31 @@ elif command -v yum &> /dev/null && ! $use_conda; then
             mesa-libGLU-devel glew-devel libXext-devel vulkan-headers vulkan-loader-devel vulkan-tools \
             vulkan-validation-layers libshaderc-devel libXinerama-devel libXrandr-devel libXcursor-devel libXi-devel \
             wayland-devel libxkbcommon-devel wayland-protocols-devel extra-cmake-modules
+        fi
+    elif $standalone; then
+        if ! is_installed_rpm "libstdc++-devel" || ! is_installed_rpm "libstdc++-static" \
+                || ! is_installed_rpm "libX11-devel" || ! is_installed_rpm "libXext-devel" \
+                || ! is_installed_rpm "libXrandr-devel" || ! is_installed_rpm "libXcursor-devel" \
+                || ! is_installed_rpm "libXfixes-devel" || ! is_installed_rpm "libXi-devel" \
+                || ! is_installed_rpm "libXScrnSaver-devel" || ! is_installed_rpm "libXtst-devel" \
+                || ! is_installed_rpm "libxkbcommon-devel" || ! is_installed_rpm "dbus-devel" \
+                || ! is_installed_rpm "ibus-devel" || ! is_installed_rpm "systemd-devel" \
+                || ! is_installed_rpm "mesa-libGL-devel" || ! is_installed_rpm "mesa-libGLES-devel" \
+                || ! is_installed_rpm "mesa-libEGL-devel" || ! is_installed_rpm "vulkan-devel" \
+                || ! is_installed_rpm "wayland-devel" || ! is_installed_rpm "wayland-protocols-devel" \
+                || ! is_installed_rpm "libdrm-devel" || ! is_installed_rpm "mesa-libgbm-devel" \
+                || ! is_installed_rpm "libusb1-devel" || ! is_installed_rpm "libdecor-devel" \
+                || ! is_installed_rpm "zlib-ng-compat-static" || ! is_installed_rpm "vulkan-loader-devel" \
+                || ! is_installed_rpm "vulkan-tools" || ! is_installed_rpm "vulkan-validation-layers" \
+                || ! is_installed_rpm "libXinerama-devel" || ! is_installed_rpm "extra-cmake-modules"; then
+            echo "------------------------"
+            echo "installing dependencies "
+            echo "------------------------"
+            sudo yum install -y libstdc++-devel libstdc++-static libX11-devel libXext-devel libXrandr-devel \
+            libXcursor-devel libXfixes-devel libXi-devel libXScrnSaver-devel libXtst-devel libxkbcommon-devel dbus-devel \
+            ibus-devel systemd-devel mesa-libGL-devel mesa-libGLES-devel mesa-libEGL-devel vulkan-devel wayland-devel \
+            wayland-protocols-devel libdrm-devel mesa-libgbm-devel libusb1-devel libdecor-devel zlib-ng-compat-static \
+            vulkan-loader-devel vulkan-tools vulkan-validation-layers libXinerama-devel extra-cmake-modules
         fi
     else
         if ! is_installed_rpm "boost-devel" || ! is_installed_rpm "libicu-devel" || ! is_installed_rpm "glm-devel" \
