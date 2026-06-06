@@ -95,9 +95,9 @@ if (USE_PYTHON)
         # 2021-05-06: CMake won't find vcpkg version if we don't search for the interpreter.
         # 2022-08-29: Finding interpreter fails with dynamic vcpkg build on Linux and macOS.
         if(VCPKG_TOOLCHAIN) #  AND (NOT UNIX OR VCPKG_LIBRARY_LINKAGE STREQUAL "static")
-            find_package(Python3 COMPONENTS Development Interpreter REQUIRED)
+            find_package(Python3 COMPONENTS Development Interpreter)
         else()
-            find_package(Python3 COMPONENTS Development REQUIRED)
+            find_package(Python3 COMPONENTS Development)
         endif()
     else()
         pkg_check_modules(Python3 QUIET python3)
