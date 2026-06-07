@@ -1404,6 +1404,12 @@ if $standalone; then
         echo "------------------------"
         git clone https://github.com/libsdl-org/SDL.git -b release-3.4.2
     fi
+    if [ ! -d "./eigen" ]; then
+        echo "------------------------"
+        echo "downloading Eigen"
+        echo "------------------------"
+        git clone https://gitlab.com/libeigen/eigen.git -b 5.0
+    fi
     params+=(-DSTANDALONE=ON)
 fi
 if $standalone_libs_only; then
