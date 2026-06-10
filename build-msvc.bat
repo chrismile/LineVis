@@ -442,6 +442,12 @@ if %standalone% == true (
         echo ------------------------
         git clone https://github.com/libsdl-org/SDL.git -b release-3.4.2
     )
+    if not exist ".\eigen" (
+        echo ------------------------
+        echo    downloading Eigen
+        echo ------------------------
+        git clone https://gitlab.com/libeigen/eigen.git -b 5.0
+    )
     set cmake_args=%cmake_args% -DSTANDALONE=ON
 )
 
